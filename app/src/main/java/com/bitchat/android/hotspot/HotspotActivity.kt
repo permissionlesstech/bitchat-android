@@ -95,10 +95,6 @@ class HotspotActivity : ComponentActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        viewModel.stopHotspot()
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -296,11 +292,10 @@ fun IntroScreen(onStartHotspot: () -> Unit) {
             shape = RoundedCornerShape(16.dp)
         ) {
             Text(
-                text = if (permissionState != null && !permissionState.status.isGranted) {
-                    "Grant Permission"
-                } else {
-                    "Start Hotspot"
-                },
+                // Starting the hotspot is the user's action. Android will ask
+                // for the required permission only when it has not already
+                // been granted.
+                text = "Start Hotspot",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )

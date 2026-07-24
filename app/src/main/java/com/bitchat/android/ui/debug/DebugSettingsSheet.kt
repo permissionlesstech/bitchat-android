@@ -1,5 +1,8 @@
 package com.bitchat.android.ui.debug
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -40,6 +43,9 @@ import androidx.compose.ui.platform.LocalContext
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.util.DistributionInfoProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun MeshTopologySection(
@@ -97,6 +103,95 @@ fun MeshTopologySection(
     }
 }
 
+@Composable
+private fun DistributionInfoSection(info: DistributionInfoProvider.DistributionInfo?) {
+    val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = colorScheme.surfaceVariant.copy(alpha = 0.2f)
+    ) {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF5856D6))
+                Text(
+                    "Distribution info",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            if (info == null) {
+                Text(
+                    "Inspecting installed package…",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    color = colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            } else {
+                DistributionInfoRow("Install source", info.installSource)
+                info.installerPackage?.let {
+                    DistributionInfoRow("Installer package", it)
+                }
+                DistributionInfoRow("Package format", info.packageFormat)
+                DistributionInfoRow("APK architecture", info.architecture)
+                DistributionInfoRow("Sharing source", info.sharingSource)
+                DistributionInfoRow("Version", "${info.versionName} (${info.versionCode})")
+                DistributionInfoRow("Signing channel", info.signingChannel)
+                DistributionInfoRow(
+                    label = "Certificate SHA-256",
+                    value = info.certificateSha256 ?: "Unavailable"
+                )
+
+                if (info.certificateSha256 != null) {
+                    TextButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(ClipboardManager::class.java)
+                            clipboard?.setPrimaryClip(
+                                ClipData.newPlainText(
+                                    "BitChat signing certificate SHA-256",
+                                    info.certificateSha256
+                                )
+                            )
+                            Toast.makeText(context, "Certificate fingerprint copied", Toast.LENGTH_SHORT).show()
+                        },
+                        contentPadding = PaddingValues(horizontal = 0.dp)
+                    ) {
+                        Text("Copy certificate fingerprint", fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DistributionInfoRow(label: String, value: String) {
+    val colorScheme = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            label,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 10.sp,
+            color = colorScheme.onSurface.copy(alpha = 0.55f)
+        )
+        Text(
+            value,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+            color = colorScheme.onSurface.copy(alpha = 0.9f)
+        )
+    }
+}
+
 private enum class GraphMode { OVERALL, PER_DEVICE, PER_PEER }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -124,6 +219,9 @@ fun DebugSettingsSheet(
     val gcsMaxBytes by manager.gcsMaxBytes.collectAsState()
     val gcsFpr by manager.gcsFprPercent.collectAsState()
     val context = LocalContext.current
+    var distributionInfo by remember {
+        mutableStateOf<DistributionInfoProvider.DistributionInfo?>(null)
+    }
 
     val bleEnabled by manager.bleEnabled.collectAsState()
     val wifiAwareEnabled by manager.wifiAwareEnabled.collectAsState()
@@ -181,6 +279,14 @@ fun DebugSettingsSheet(
         }
     }
 
+    LaunchedEffect(isPresented) {
+        if (isPresented) {
+            distributionInfo = withContext(Dispatchers.IO) {
+                runCatching { DistributionInfoProvider.inspect(context) }.getOrNull()
+            }
+        }
+    }
+
     val scope = rememberCoroutineScope()
 
     if (!isPresented) return
@@ -210,6 +316,9 @@ fun DebugSettingsSheet(
                         color = colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
+            item {
+                DistributionInfoSection(distributionInfo)
+            }
             // Verbose logging toggle
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {

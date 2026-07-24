@@ -23,8 +23,12 @@ import kotlinx.coroutines.withContext
 
 sealed class ApkPreparationStatus {
     object Loading : ApkPreparationStatus()
-    data class NotDownloaded(val sizeMB: Int) : ApkPreparationStatus()
-    data class Ready(val version: String, val sizeMB: Int) : ApkPreparationStatus()
+    data class NotDownloaded(val sizeMB: Int?) : ApkPreparationStatus()
+    data class Ready(
+        val version: String,
+        val sizeMB: Int,
+        val source: UniversalApkManager.ApkSource
+    ) : ApkPreparationStatus()
     data class UpdateAvailable(
         val currentVersion: String,
         val newVersion: String,
@@ -192,20 +196,21 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
 
     private fun checkStatus() {
         viewModelScope.launch {
-            val currentStatus = _state.value.apkStatus
-
-            // If we think we're downloading but cache was wiped (e.g., user cleared
-            // cache from Android Settings), cancel the orphaned work
-            if (currentStatus is ApkPreparationStatus.Downloading) {
-                if (apkManager.getPartialDownloadProgress() == null) {
-                    downloader.cancelDownload()
-                    // Fall through to resolve fresh status
-                } else {
-                    return@launch
-                }
+            // WorkManager is the source of truth for active work. A queued or
+            // newly started job legitimately has no partial file yet, so never
+            // infer that it is orphaned from cache contents.
+            if (_state.value.apkStatus is ApkPreparationStatus.Downloading) {
+                return@launch
             }
 
-            _state.update { it.copy(apkStatus = resolveApkStatus()) }
+            val resolvedStatus = resolveApkStatus()
+            _state.update { current ->
+                if (current.apkStatus is ApkPreparationStatus.Downloading) {
+                    current
+                } else {
+                    current.copy(apkStatus = resolvedStatus)
+                }
+            }
         }
     }
 
@@ -225,11 +230,13 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                         }
                     }
                     is ApkDownloader.DownloadState.Success -> {
+                        val info = apkManager.getCachedApkInfo()
                         _state.update {
                             it.copy(
                                 apkStatus = ApkPreparationStatus.Ready(
                                     version = downloadState.version,
-                                    sizeMB = downloadState.sizeMB
+                                    sizeMB = downloadState.sizeMB,
+                                    source = info?.source ?: UniversalApkManager.ApkSource.GITHUB
                                 ),
                                 downloadProgress = 100
                             )
@@ -287,7 +294,8 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                     if (info != null) {
                         ApkPreparationStatus.Ready(
                             version = info.version,
-                            sizeMB = (info.size / 1024 / 1024).toInt()
+                            sizeMB = (info.size / 1024 / 1024).toInt(),
+                            source = info.source
                         )
                     } else {
                         ApkPreparationStatus.Error("Cached APK info not found")
@@ -302,10 +310,11 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                 }
                 is UniversalApkManager.UpdateStatus.Error -> {
                     val info = apkManager.getCachedApkInfo()
-                    if (info != null) {
+                    if (info != null && apkManager.isCompatibleWithInstalledVersion(info.version)) {
                         ApkPreparationStatus.Ready(
                             version = info.version,
-                            sizeMB = (info.size / 1024 / 1024).toInt()
+                            sizeMB = (info.size / 1024 / 1024).toInt(),
+                            source = info.source
                         )
                     } else {
                         val partial = apkManager.getPartialDownloadProgress()
@@ -315,18 +324,16 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                                 message = getString(R.string.prepare_apk_download_interrupted)
                             )
                         } else {
-                            // Show as "not downloaded" so user can still tap to try.
-                            // The actual download will re-fetch release info and fail
-                            // with a clear message if network is still unavailable.
-                            ApkPreparationStatus.NotDownloaded(sizeMB = 0)
+                            ApkPreparationStatus.Error(updateStatus.message)
                         }
                     }
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error checking APK status", e)
-            // Don't show a scary error on initial load — let user try manually
-            ApkPreparationStatus.NotDownloaded(sizeMB = 0)
+            ApkPreparationStatus.Error(
+                e.message ?: getString(R.string.prepare_apk_error_github)
+            )
         }
     }
 }

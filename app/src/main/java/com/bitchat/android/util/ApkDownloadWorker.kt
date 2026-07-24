@@ -51,7 +51,12 @@ class ApkDownloadWorker(
 
             // Retry transient network errors with backoff; the partial file
             // is kept on disk, so the retry resumes where it left off.
-            if (error is java.io.IOException && runAttemptCount < MAX_RETRIES) {
+            val isRetryable = when (error) {
+                is GitHubReleaseClient.ReleaseFetchException -> error.retryable
+                is java.io.IOException -> true
+                else -> false
+            }
+            if (isRetryable && runAttemptCount < MAX_RETRIES) {
                 Log.w(TAG, "Transient download error (attempt $runAttemptCount), retrying", error)
                 return Result.retry()
             }

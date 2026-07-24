@@ -23,8 +23,10 @@ class ApkWebServer(
 
     private val appVersion: String by lazy {
         try {
-            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            packageInfo.versionName ?: "Unknown"
+            context.packageManager
+                .getPackageArchiveInfo(apkFile.absolutePath, 0)
+                ?.versionName
+                ?: "Unknown"
         } catch (e: Exception) {
             "Unknown"
         }

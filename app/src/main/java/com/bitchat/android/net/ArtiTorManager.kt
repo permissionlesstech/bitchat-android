@@ -168,6 +168,27 @@ class ArtiTorManager private constructor() {
 
     fun currentSocksAddress(): InetSocketAddress? = socksAddr
 
+    /**
+     * Wait until the currently selected HTTP route can be used.
+     *
+     * When Tor mode is enabled, [socksAddr] is intentionally published before
+     * bootstrap completes so clients fail closed instead of leaking traffic
+     * directly. Callers that initiate one-shot HTTP work should wait here rather
+     * than repeatedly connecting to a SOCKS port that is not listening yet.
+     */
+    suspend fun awaitSelectedRoute(timeoutMs: Long): Boolean {
+        if (currentSocksAddress() == null || isProxyEnabled()) {
+            return true
+        }
+
+        return withTimeoutOrNull(timeoutMs) {
+            statusFlow.first {
+                currentSocksAddress() == null || isProxyEnabled()
+            }
+            true
+        } ?: false
+    }
+
     suspend fun applyMode(application: Application, mode: TorMode) {
         applyMutex.withLock {
             try {

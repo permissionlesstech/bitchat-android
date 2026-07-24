@@ -85,6 +85,7 @@ import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.util.UniversalApkManager
 
 /**
  * Feature row for displaying app capabilities
@@ -554,7 +555,11 @@ fun AboutSheet(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.CloudDownload,
+                                            imageVector = if (apkStatus is ApkPreparationStatus.Ready) {
+                                                Icons.Default.Share
+                                            } else {
+                                                Icons.Default.CloudDownload
+                                            },
                                             contentDescription = null,
                                             tint = colorScheme.primary,
                                             modifier = Modifier.size(22.dp)
@@ -567,7 +572,11 @@ fun AboutSheet(
                                             verticalArrangement = Arrangement.spacedBy(2.dp)
                                         ) {
                                             Text(
-                                                text = stringResource(R.string.prepare_apk_title),
+                                                text = if (apkStatus is ApkPreparationStatus.Ready) {
+                                                    stringResource(R.string.prepare_apk_ready_title)
+                                                } else {
+                                                    stringResource(R.string.prepare_apk_title)
+                                                },
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.Medium,
                                                 color = colorScheme.onSurface
@@ -576,7 +585,15 @@ fun AboutSheet(
                                                 text = when (val status = apkStatus) {
                                                     is ApkPreparationStatus.Loading -> stringResource(R.string.checking)
                                                     is ApkPreparationStatus.NotDownloaded -> stringResource(R.string.prepare_apk_status_not_downloaded)
-                                                    is ApkPreparationStatus.Ready -> stringResource(R.string.prepare_apk_status_ready) + " • ${status.version} • ${status.sizeMB} MB"
+                                                    is ApkPreparationStatus.Ready -> {
+                                                        val source = if (status.source == UniversalApkManager.ApkSource.INSTALLED) {
+                                                            stringResource(R.string.prepare_apk_source_installed)
+                                                        } else {
+                                                            stringResource(R.string.prepare_apk_source_github)
+                                                        }
+                                                        stringResource(R.string.prepare_apk_status_ready) +
+                                                            " • ${status.version} • ${status.sizeMB} MB\n$source"
+                                                    }
                                                     is ApkPreparationStatus.UpdateAvailable -> stringResource(R.string.prepare_apk_status_update_available) + " (${status.newVersion})"
                                                     is ApkPreparationStatus.Downloading -> stringResource(R.string.prepare_apk_status_downloading, downloadProgress)
                                                     is ApkPreparationStatus.Resumable -> "Tap to resume • ${status.progressPercent}% downloaded"
@@ -601,7 +618,22 @@ fun AboutSheet(
                                                     strokeWidth = 2.dp
                                                 )
                                             }
-                                            is ApkPreparationStatus.Ready, is ApkPreparationStatus.UpdateAvailable -> {
+                                            is ApkPreparationStatus.Ready -> {
+                                                if (apkStatus.source == UniversalApkManager.ApkSource.GITHUB) {
+                                                    androidx.compose.material3.IconButton(
+                                                        onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Delete,
+                                                            contentDescription = "Delete",
+                                                            tint = colorScheme.error,
+                                                            modifier = Modifier.size(20.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            is ApkPreparationStatus.UpdateAvailable -> {
                                                 androidx.compose.material3.IconButton(
                                                     onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
                                                     modifier = Modifier.size(32.dp)
@@ -621,10 +653,10 @@ fun AboutSheet(
                                     // Prepare Dialog
                                     if (apkUiState.showPrepareDialog) {
                                         val status = apkStatus
-                                        val sizeMB = when (status) {
+                                        val sizeMB: Int? = when (status) {
                                             is ApkPreparationStatus.NotDownloaded -> status.sizeMB
                                             is ApkPreparationStatus.UpdateAvailable -> status.newSizeMB
-                                            else -> 47
+                                            else -> null
                                         }
                                         AlertDialog(
                                             onDismissRequest = { apkViewModel.onEvent(ApkUiEvent.DismissPrepareDialog) },
@@ -642,8 +674,10 @@ fun AboutSheet(
                                                 Text(
                                                     text = if (status is ApkPreparationStatus.UpdateAvailable) {
                                                         stringResource(R.string.prepare_apk_update_dialog_message, status.newVersion, status.currentVersion)
-                                                    } else {
+                                                    } else if (sizeMB != null) {
                                                         stringResource(R.string.prepare_apk_dialog_message, sizeMB)
+                                                    } else {
+                                                        stringResource(R.string.prepare_apk_dialog_message_unknown_size)
                                                     },
                                                     style = MaterialTheme.typography.bodyMedium
                                                 )
@@ -1198,4 +1232,3 @@ private fun ApkShareExplanationDialog(
         )
     }
 }
-

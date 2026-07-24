@@ -52,6 +52,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                             // Get connection info
                             val info = manager.getConnectionInfo()
                             if (info == null) {
+                                manager.stopHotspot()
                                 _state.value = HotspotState.Error("Failed to get hotspot connection info")
                                 return@launch
                             }
@@ -100,6 +101,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting hotspot", e)
+                hotspotManager?.stopHotspot()
                 _state.value = HotspotState.Error(e.message ?: "Unknown error")
             }
         }

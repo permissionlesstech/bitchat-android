@@ -1,9 +1,12 @@
 package com.bitchat.android.hotspot
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.net.wifi.p2p.WifiP2pConfig
 import android.net.wifi.p2p.WifiP2pGroup
 import android.net.wifi.p2p.WifiP2pManager
@@ -13,6 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
+import androidx.core.content.ContextCompat
 import java.net.NetworkInterface
 import java.security.SecureRandom
 import kotlin.random.Random
@@ -93,6 +97,15 @@ class HotspotManager(private val context: Context) {
         if (wifiP2pManager == null) {
             Log.e(TAG, "Wi-Fi P2P not available on this device")
             callback.onError("Wi-Fi Direct not supported on this device")
+            return
+        }
+
+        val missingPermission = requiredRuntimePermission()?.takeUnless {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (missingPermission != null) {
+            Log.w(TAG, "Cannot start hotspot without $missingPermission")
+            callback.onError("Nearby Wi-Fi permission is required to start the hotspot")
             return
         }
 
@@ -215,43 +228,47 @@ class HotspotManager(private val context: Context) {
     /**
      * Create Wi-Fi P2P group.
      */
+    @SuppressLint("MissingPermission")
     private fun createGroup(attempt: Int) {
         val ch = channel ?: return
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Android 10+: Custom SSID and password
-            val config = WifiP2pConfig.Builder()
-                .setNetworkName(savedSsid!!)
-                .setPassphrase(savedPassword!!)
-                .setGroupOperatingBand(WifiP2pConfig.GROUP_OWNER_BAND_2GHZ) // Force 2.4GHz for compatibility
-                .build()
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Android 10+: Custom SSID and password
+                val config = WifiP2pConfig.Builder()
+                    .setNetworkName(savedSsid!!)
+                    .setPassphrase(savedPassword!!)
+                    .setGroupOperatingBand(WifiP2pConfig.GROUP_OWNER_BAND_2GHZ) // Force 2.4GHz for compatibility
+                    .build()
 
-            wifiP2pManager?.createGroup(ch, config, object : ActionListener {
-                override fun onSuccess() {
-                    Log.d(TAG, "P2P group created successfully")
-                    isStarting = false
-                    // Don't call onHotspotStarted() yet - wait for group info
-                    startGroupInfoPolling()
-                }
+                wifiP2pManager?.createGroup(ch, config, groupActionListener(attempt, ch))
+            } else {
+                // Android 9 and below: System-generated SSID/password
+                wifiP2pManager?.createGroup(ch, groupActionListener(attempt, ch))
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Wi-Fi permission was revoked while creating the group", e)
+            failStartup("Nearby Wi-Fi permission was revoked. Grant it and try again.")
+        }
+    }
 
-                override fun onFailure(reason: Int) {
-                    handleGroupCreationFailure(reason, attempt)
-                }
-            })
-        } else {
-            // Android 9 and below: System-generated SSID/password
-            wifiP2pManager?.createGroup(ch, object : ActionListener {
-                override fun onSuccess() {
-                    Log.d(TAG, "P2P group created successfully")
-                    isStarting = false
-                    // Don't call onHotspotStarted() yet - wait for group info
-                    startGroupInfoPolling()
-                }
+    private fun groupActionListener(attempt: Int, requestChannel: Channel) = object : ActionListener {
+        override fun onSuccess() {
+            if (channel !== requestChannel) {
+                Log.w(TAG, "Removing group created after hotspot was stopped")
+                wifiP2pManager?.removeGroup(requestChannel, null)
+                return
+            }
+            Log.d(TAG, "P2P group created successfully")
+            isStarting = false
+            // Don't call onHotspotStarted() yet - wait for group info
+            startGroupInfoPolling()
+        }
 
-                override fun onFailure(reason: Int) {
-                    handleGroupCreationFailure(reason, attempt)
-                }
-            })
+        override fun onFailure(reason: Int) {
+            if (channel != null) {
+                handleGroupCreationFailure(reason, attempt)
+            }
         }
     }
 
@@ -322,31 +339,47 @@ class HotspotManager(private val context: Context) {
     /**
      * Request current group information.
      */
+    @SuppressLint("MissingPermission")
     private fun requestGroupInfo() {
         val ch = channel ?: return
 
-        wifiP2pManager?.requestGroupInfo(ch) { group ->
-            if (group != null) {
-                currentGroup = group
+        try {
+            wifiP2pManager?.requestGroupInfo(ch) { group ->
+                if (group != null) {
+                    currentGroup = group
 
-                // Update saved credentials if using system-generated ones
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                    savedSsid = group.networkName
-                    savedPassword = group.passphrase
-                }
+                    // Update saved credentials if using system-generated ones
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                        savedSsid = group.networkName
+                        savedPassword = group.passphrase
+                    }
 
-                // Notify callback on FIRST successful group info retrieval
-                if (!hasNotifiedStarted) {
-                    hasNotifiedStarted = true
-                    Log.d(TAG, "Group info received, notifying callback")
-                    callback?.onHotspotStarted()
+                    // Notify callback on FIRST successful group info retrieval
+                    if (!hasNotifiedStarted) {
+                        hasNotifiedStarted = true
+                        Log.d(TAG, "Group info received, notifying callback")
+                        callback?.onHotspotStarted()
+                    } else {
+                        // Subsequent updates
+                        callback?.onConnectionInfoUpdated(getConnectionInfo())
+                    }
                 } else {
-                    // Subsequent updates
-                    callback?.onConnectionInfoUpdated(getConnectionInfo())
+                    Log.w(TAG, "requestGroupInfo returned null group")
                 }
-            } else {
-                Log.w(TAG, "requestGroupInfo returned null group")
             }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Wi-Fi permission was revoked while reading group info", e)
+            failStartup("Nearby Wi-Fi permission was revoked. Grant it and try again.")
+        }
+    }
+
+    private fun requiredRuntimePermission(): String? {
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+                Manifest.permission.NEARBY_WIFI_DEVICES
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
+                Manifest.permission.ACCESS_FINE_LOCATION
+            else -> null
         }
     }
 

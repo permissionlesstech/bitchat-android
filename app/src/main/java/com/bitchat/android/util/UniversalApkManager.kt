@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import com.bitchat.android.BuildConfig
 import com.bitchat.android.net.OkHttpProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,6 +13,9 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 /**
@@ -38,12 +42,11 @@ class UniversalApkManager(private val context: Context) {
 
     // Download client: inherits Tor proxy settings but with no call timeout
     // for large file downloads that can take minutes
-    private val downloadClient by lazy {
-        OkHttpProvider.httpClient().newBuilder()
+    private val downloadClient
+        get() = OkHttpProvider.httpClient().newBuilder()
             .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .build()
-    }
 
     /**
      * Get information about the cached universal APK, if it exists.
@@ -60,6 +63,9 @@ class UniversalApkManager(private val context: Context) {
             val downloadDate = json.optLong("downloadDate", 0L)
             val size = json.optLong("size", 0L)
             val fileName = json.optString("fileName", "")
+            val source = runCatching {
+                ApkSource.valueOf(json.optString("source", ApkSource.GITHUB.name))
+            }.getOrDefault(ApkSource.GITHUB)
 
             if (version.isBlank() || fileName.isBlank()) {
                 return null
@@ -76,7 +82,8 @@ class UniversalApkManager(private val context: Context) {
                 checksum = checksum,
                 downloadDate = downloadDate,
                 size = size,
-                file = apkFile
+                file = apkFile,
+                source = source
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error reading cached APK info", e)
@@ -113,11 +120,33 @@ class UniversalApkManager(private val context: Context) {
      */
     suspend fun checkForUpdate(): UpdateStatus = withContext(Dispatchers.IO) {
         try {
-            val cachedInfo = getCachedApkInfo()
-            val latestRelease = GitHubReleaseClient.fetchLatestRelease()
+            // A genuinely universal standalone APK is already an installable
+            // sharing artifact. Architecture-specific standalone APKs and split
+            // installs still need the universal GitHub artifact.
+            val installedApkInfo = cacheInstalledApkIfPreferred()
+            if (installedApkInfo != null) {
+                return@withContext UpdateStatus.UpToDate(installedApkInfo.version)
+            }
 
-            if (latestRelease == null) {
-                return@withContext UpdateStatus.Error("Failed to fetch latest release from GitHub")
+            val cachedInfo = getCachedApkInfo()
+            val cachedApkIsOlder = cachedInfo?.let {
+                isOlderThanInstalledVersion(it.version)
+            } == true
+            val latestRelease = GitHubReleaseClient.fetchLatestRelease().getOrElse { error ->
+                return@withContext UpdateStatus.Error(
+                    if (cachedApkIsOlder) {
+                        "Cached sharing APK ${cachedInfo?.version} is older than installed app " +
+                            "${installedVersionName()}, and a newer GitHub release could not be checked."
+                    } else {
+                        error.message ?: "Failed to fetch latest release from GitHub"
+                    }
+                )
+            }
+            if (isOlderThanInstalledVersion(latestRelease.versionName)) {
+                return@withContext UpdateStatus.Error(
+                    "GitHub universal APK ${latestRelease.versionName} is older than installed app " +
+                        "${installedVersionName()}. Wait for the matching GitHub release."
+                )
             }
 
             if (cachedInfo == null) {
@@ -173,8 +202,27 @@ class UniversalApkManager(private val context: Context) {
             Log.d(TAG, "Starting universal APK download")
 
             // Fetch latest release info
-            val release = GitHubReleaseClient.fetchLatestRelease()
-                ?: return@withContext Result.failure(Exception("Failed to fetch release info"))
+            // Reuses the short-lived release metadata cache populated by the
+            // status check. If this worker is running after process death, the
+            // client performs a retried network fetch instead.
+            val release = GitHubReleaseClient.fetchLatestRelease().getOrElse { error ->
+                return@withContext Result.failure(error)
+            }
+            if (isOlderThanInstalledVersion(release.versionName)) {
+                return@withContext Result.failure(
+                    GitHubReleaseClient.ReleaseFetchException(
+                        message = "GitHub universal APK ${release.versionName} is older than " +
+                            "installed app ${installedVersionName()}",
+                        retryable = false
+                    )
+                )
+            }
+
+            if (!GitHubReleaseClient.awaitSelectedNetworkRoute()) {
+                return@withContext Result.failure(
+                    IOException("Tor is still connecting. Try the download again when Tor is ready.")
+                )
+            }
 
             val url = release.universalApkUrl
             val expectedSize = release.universalApkSize
@@ -284,36 +332,34 @@ class UniversalApkManager(private val context: Context) {
                 Log.w(TAG, "No checksum available for verification")
             }
 
-            // Verify the downloaded APK is signed with the same certificate as this app
+            // Verify the downloaded APK against trusted signing certificates.
             Log.d(TAG, "Verifying APK signature...")
             if (!verifyApkSignature(tempFile)) {
                 tempFile.delete()
                 progressFile.delete()
                 return@withContext Result.failure(
-                    Exception("APK signature verification failed. The downloaded APK is not signed with the same key as this app.")
+                    Exception("APK signature verification failed. The downloaded APK is not signed by a trusted BitChat release key.")
                 )
             }
             Log.d(TAG, "Signature verified successfully")
 
-            // Move to final location
+            if (!DistributionInfoProvider.isUniversalApk(tempFile)) {
+                tempFile.delete()
+                progressFile.delete()
+                return@withContext Result.failure(
+                    Exception(
+                        "GitHub asset is architecture-specific, not universal. " +
+                            "Release packaging must be corrected."
+                    )
+                )
+            }
+
+            // Move to final location without deleting the currently usable APK
+            // first. Old versions are removed only after the replacement and
+            // metadata have both been committed.
             val finalFileName = "$APK_FILE_PREFIX${release.versionName}.apk"
             val finalFile = File(cacheDir, finalFileName)
-
-            // Clean up old APK files
-            cleanupOldApks()
-
-            // Move temp file to final location
-            if (finalFile.exists()) {
-                finalFile.delete()
-            }
-
-            // Try rename first (fast), fallback to copy if it fails (different partitions/filesystems)
-            val moved = tempFile.renameTo(finalFile)
-            if (!moved) {
-                Log.w(TAG, "Rename failed, falling back to copy")
-                tempFile.copyTo(finalFile, overwrite = true)
-                tempFile.delete()
-            }
+            replaceFileSafely(tempFile, finalFile)
 
             // Clean up resume metadata on success
             progressFile.delete()
@@ -323,8 +369,10 @@ class UniversalApkManager(private val context: Context) {
                 version = release.versionName,
                 checksum = release.universalApkSha256 ?: "",
                 size = finalFile.length(),
-                fileName = finalFileName
+                fileName = finalFileName,
+                source = ApkSource.GITHUB
             )
+            cleanupOldApks(except = finalFile)
 
             Log.d(TAG, "Universal APK downloaded successfully: ${finalFile.path}")
             Result.success(finalFile)
@@ -339,28 +387,107 @@ class UniversalApkManager(private val context: Context) {
     }
 
     /**
-     * Verify the downloaded APK is signed with the same certificate as the running app.
-     * No hardcoded fingerprint needed: if the certs match, receivers of the shared APK
-     * end up in the same signature lineage as this installation.
-     *
-     * Debug-signed installations (Android Debug keystore) skip enforcement so the
-     * feature stays testable during development.
+     * Cache the APK this process was installed from only when it is both
+     * standalone and universal. A base APK from a split install is incomplete,
+     * while an ABI-specific APK would unnecessarily limit recipients.
+     */
+    private fun cacheInstalledApkIfPreferred(): ApkInfo? {
+        return try {
+            val applicationInfo = context.applicationInfo
+            if (!applicationInfo.splitSourceDirs.isNullOrEmpty()) {
+                return null
+            }
+
+            val installedApk = File(applicationInfo.sourceDir)
+            if (!installedApk.isFile || installedApk.length() <= 0L) {
+                return null
+            }
+            if (!DistributionInfoProvider.isUniversalApk(installedApk)) {
+                Log.d(TAG, "Installed APK is architecture-specific; using GitHub universal APK")
+                discardArchitectureLimitedInstalledCache()
+                return null
+            }
+
+            val installedVersion = installedVersionName()
+            val cachedInfo = getCachedApkInfo()
+
+            // Keep an already cached artifact if it is the same version or
+            // newer. Otherwise prefer the running build so sharing cannot
+            // silently downgrade recipients to an older GitHub release.
+            if (cachedInfo != null &&
+                !GitHubReleaseClient.isNewerVersion(cachedInfo.version, installedVersion)
+            ) {
+                return cachedInfo
+            }
+
+            checkDiskSpace(installedApk.length())
+            val safeVersion = installedVersion.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            val finalFileName = "$APK_FILE_PREFIX$safeVersion.apk"
+            val finalFile = File(cacheDir, finalFileName)
+            val pendingFile = File(cacheDir, "$finalFileName.new")
+
+            installedApk.inputStream().use { input ->
+                FileOutputStream(pendingFile).use { output ->
+                    input.copyTo(output, BUFFER_SIZE)
+                }
+            }
+            replaceFileSafely(pendingFile, finalFile)
+
+            val checksum = calculateChecksum(finalFile)
+            saveMetadata(
+                version = installedVersion,
+                checksum = checksum,
+                size = finalFile.length(),
+                fileName = finalFileName,
+                source = ApkSource.INSTALLED
+            )
+            cleanupOldApks(except = finalFile)
+
+            Log.d(TAG, "Cached running standalone APK for offline sharing")
+            getCachedApkInfo()
+        } catch (e: Exception) {
+            Log.w(TAG, "Running APK cannot be used as a standalone sharing artifact", e)
+            null
+        }
+    }
+
+    private fun discardArchitectureLimitedInstalledCache() {
+        val cachedInfo = getCachedApkInfo() ?: return
+        if (cachedInfo.source != ApkSource.INSTALLED ||
+            DistributionInfoProvider.isUniversalApk(cachedInfo.file)
+        ) {
+            return
+        }
+
+        cachedInfo.file.delete()
+        metadataFile.delete()
+        Log.d(TAG, "Removed architecture-specific installed APK from universal sharing cache")
+    }
+
+    private fun installedVersionName(): String {
+        return context.packageManager
+            .getPackageInfo(context.packageName, 0)
+            .versionName
+            ?.takeIf { it.isNotBlank() }
+            ?: BuildConfig.VERSION_NAME
+    }
+
+    private fun isOlderThanInstalledVersion(candidateVersion: String): Boolean {
+        return GitHubReleaseClient.isNewerVersion(candidateVersion, installedVersionName())
+    }
+
+    fun isCompatibleWithInstalledVersion(candidateVersion: String): Boolean {
+        return !isOlderThanInstalledVersion(candidateVersion)
+    }
+
+    /**
+     * Verify the downloaded APK against either the running app's signing lineage
+     * or the pinned GitHub release certificate. The latter supports Play installs
+     * when GitHub distribution uses a separate, explicitly trusted release key.
+     * Debug builds without a configured pin accept any signed (never unsigned) APK.
      */
     private fun verifyApkSignature(apkFile: File): Boolean {
         return try {
-            val ownCerts = signatureDigests(
-                context.packageManager.getPackageInfo(context.packageName, signingFlags())
-            )
-            if (ownCerts.isEmpty()) {
-                Log.w(TAG, "Could not determine own signing certificate, skipping verification")
-                return true
-            }
-
-            if (isDebugSigned()) {
-                Log.w(TAG, "App is debug-signed, skipping signature enforcement")
-                return true
-            }
-
             val packageInfo = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, signingFlags())
                 ?: run {
                     Log.e(TAG, "Could not parse APK for signature verification")
@@ -372,10 +499,32 @@ class UniversalApkManager(private val context: Context) {
                 return false
             }
 
-            val matches = apkCerts.intersect(ownCerts).isNotEmpty()
+            val ownCerts = signatureDigests(
+                context.packageManager.getPackageInfo(context.packageName, signingFlags())
+            )
+            val pinnedReleaseCert = normalizeCertificateDigest(
+                BuildConfig.GITHUB_RELEASE_CERT_SHA256
+            )
+            val trustedCerts = ownCerts + listOfNotNull(pinnedReleaseCert)
+
+            // Debug builds may use a different local signing key, but still
+            // require the downloaded artifact itself to be signed. Production
+            // builds must match either this installation's signing lineage or
+            // the explicitly pinned GitHub release certificate.
+            if (BuildConfig.DEBUG && pinnedReleaseCert == null) {
+                Log.w(TAG, "Debug build has no pinned release certificate; accepting signed APK")
+                return true
+            }
+
+            if (trustedCerts.isEmpty()) {
+                Log.e(TAG, "No trusted APK signing certificates are configured")
+                return false
+            }
+
+            val matches = apkCerts.intersect(trustedCerts).isNotEmpty()
             if (!matches) {
                 Log.e(TAG, "Signature mismatch!")
-                Log.e(TAG, "Own cert(s): $ownCerts")
+                Log.e(TAG, "Trusted cert(s): $trustedCerts")
                 Log.e(TAG, "APK cert(s): $apkCerts")
             }
             matches
@@ -414,25 +563,12 @@ class UniversalApkManager(private val context: Context) {
         }.toSet()
     }
 
-    private fun isDebugSigned(): Boolean {
-        return try {
-            val packageInfo = context.packageManager.getPackageInfo(context.packageName, signingFlags())
-            val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                packageInfo.signingInfo?.apkContentsSigners
-            } else {
-                @Suppress("DEPRECATION")
-                packageInfo.signatures
-            } ?: return false
-
-            val certFactory = java.security.cert.CertificateFactory.getInstance("X.509")
-            signatures.any { sig ->
-                val cert = certFactory.generateCertificate(sig.toByteArray().inputStream())
-                        as java.security.cert.X509Certificate
-                cert.subjectX500Principal.name.contains("Android Debug")
-            }
-        } catch (e: Exception) {
-            false
-        }
+    private fun normalizeCertificateDigest(value: String): String? {
+        return value
+            .replace(":", "")
+            .trim()
+            .lowercase()
+            .takeIf { it.matches(Regex("[a-f0-9]{64}")) }
     }
 
     /**
@@ -440,16 +576,7 @@ class UniversalApkManager(private val context: Context) {
      */
     suspend fun verifyChecksum(file: File, expectedSha256: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val digest = MessageDigest.getInstance("SHA-256")
-            file.inputStream().use { input ->
-                val buffer = ByteArray(BUFFER_SIZE)
-                var bytesRead: Int
-                while (input.read(buffer).also { bytesRead = it } != -1) {
-                    digest.update(buffer, 0, bytesRead)
-                }
-            }
-
-            val checksum = digest.digest().joinToString("") { "%02x".format(it) }
+            val checksum = calculateChecksum(file)
             val matches = checksum.equals(expectedSha256, ignoreCase = true)
 
             if (!matches) {
@@ -463,6 +590,18 @@ class UniversalApkManager(private val context: Context) {
             Log.e(TAG, "Error verifying checksum", e)
             false
         }
+    }
+
+    private fun calculateChecksum(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(BUFFER_SIZE)
+            var bytesRead: Int
+            while (input.read(buffer).also { bytesRead = it } != -1) {
+                digest.update(buffer, 0, bytesRead)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     /**
@@ -490,10 +629,13 @@ class UniversalApkManager(private val context: Context) {
     /**
      * Clean up old APK files (keep only the current one).
      */
-    private fun cleanupOldApks() {
+    private fun cleanupOldApks(except: File) {
         try {
             cacheDir.listFiles()?.forEach { file ->
-                if (file.name.startsWith(APK_FILE_PREFIX) && file.name.endsWith(".apk")) {
+                if (file != except &&
+                    file.name.startsWith(APK_FILE_PREFIX) &&
+                    file.name.endsWith(".apk")
+                ) {
                     file.delete()
                     Log.d(TAG, "Cleaned up old APK: ${file.name}")
                 }
@@ -506,21 +648,26 @@ class UniversalApkManager(private val context: Context) {
     /**
      * Save metadata about the downloaded APK.
      */
-    private fun saveMetadata(version: String, checksum: String, size: Long, fileName: String) {
-        try {
-            val json = JSONObject().apply {
-                put("version", version)
-                put("checksum", checksum)
-                put("downloadDate", System.currentTimeMillis())
-                put("size", size)
-                put("fileName", fileName)
-            }
-
-            metadataFile.writeText(json.toString())
-            Log.d(TAG, "Saved metadata: $version")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving metadata", e)
+    private fun saveMetadata(
+        version: String,
+        checksum: String,
+        size: Long,
+        fileName: String,
+        source: ApkSource
+    ) {
+        val json = JSONObject().apply {
+            put("version", version)
+            put("checksum", checksum)
+            put("downloadDate", System.currentTimeMillis())
+            put("size", size)
+            put("fileName", fileName)
+            put("source", source.name)
         }
+
+        val pendingMetadata = File(cacheDir, "$METADATA_FILE_NAME.new")
+        pendingMetadata.writeText(json.toString())
+        replaceFileSafely(pendingMetadata, metadataFile)
+        Log.d(TAG, "Saved metadata: $version")
     }
 
     private fun saveResumeInfo(url: String, expectedSize: Long, versionName: String) {
@@ -548,6 +695,38 @@ class UniversalApkManager(private val context: Context) {
     }
 
     /**
+     * Commit [source] to [target] without removing a valid target first.
+     * Both files live in the same cache directory, so ATOMIC_MOVE is available
+     * on normal Android filesystems. The fallback still uses REPLACE_EXISTING
+     * and leaves the old target intact if preparing the candidate fails.
+     */
+    private fun replaceFileSafely(source: File, target: File) {
+        val candidate = File(target.parentFile, "${target.name}.new")
+        if (source != candidate) {
+            source.copyTo(candidate, overwrite = true)
+        }
+
+        try {
+            Files.move(
+                candidate.toPath(),
+                target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(
+                candidate.toPath(),
+                target.toPath(),
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        }
+
+        if (source != target && source.exists()) {
+            source.delete()
+        }
+    }
+
+    /**
      * Information about a cached APK.
      */
     data class ApkInfo(
@@ -555,8 +734,14 @@ class UniversalApkManager(private val context: Context) {
         val checksum: String,
         val downloadDate: Long,
         val size: Long,
-        val file: File
+        val file: File,
+        val source: ApkSource
     )
+
+    enum class ApkSource {
+        INSTALLED,
+        GITHUB
+    }
 
     /**
      * Update check status.

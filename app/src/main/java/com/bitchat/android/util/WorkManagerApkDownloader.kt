@@ -2,6 +2,7 @@ package com.bitchat.android.util
 
 import android.content.Context
 import androidx.work.Constraints
+import androidx.work.BackoffPolicy
 import com.bitchat.android.R
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
@@ -10,6 +11,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.concurrent.TimeUnit
 
 /**
  * WorkManager-backed implementation of [ApkDownloader].
@@ -32,6 +34,11 @@ class WorkManagerApkDownloader(context: Context) : ApkDownloader {
 
         val request = OneTimeWorkRequestBuilder<ApkDownloadWorker>()
             .setConstraints(constraints)
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                15,
+                TimeUnit.SECONDS
+            )
             .addTag(ApkDownloadWorker.TAG)
             .build()
 
