@@ -309,8 +309,10 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 }
                 is UniversalApkManager.UpdateStatus.Error -> {
+                    // A cached artifact stays shareable even when the update
+                    // check fails or the release lags the installed version.
                     val info = apkManager.getCachedApkInfo()
-                    if (info != null && apkManager.isCompatibleWithInstalledVersion(info.version)) {
+                    if (info != null) {
                         ApkPreparationStatus.Ready(
                             version = info.version,
                             sizeMB = (info.size / 1024 / 1024).toInt(),

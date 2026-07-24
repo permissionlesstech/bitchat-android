@@ -129,23 +129,21 @@ class UniversalApkManager(private val context: Context) {
             }
 
             val cachedInfo = getCachedApkInfo()
-            val cachedApkIsOlder = cachedInfo?.let {
-                isOlderThanInstalledVersion(it.version)
-            } == true
             val latestRelease = GitHubReleaseClient.fetchLatestRelease().getOrElse { error ->
                 return@withContext UpdateStatus.Error(
-                    if (cachedApkIsOlder) {
-                        "Cached sharing APK ${cachedInfo?.version} is older than installed app " +
-                            "${installedVersionName()}, and a newer GitHub release could not be checked."
-                    } else {
-                        error.message ?: "Failed to fetch latest release from GitHub"
-                    }
+                    error.message ?: "Failed to fetch latest release from GitHub"
                 )
             }
+            // The GitHub release may briefly lag behind the installed version
+            // (upstream bumps versionName in main before tagging the release).
+            // An older release is still a genuine, signed, universal artifact —
+            // recipients with a newer install can't be downgraded by Android
+            // anyway — so share it rather than disabling the feature.
             if (isOlderThanInstalledVersion(latestRelease.versionName)) {
-                return@withContext UpdateStatus.Error(
-                    "GitHub universal APK ${latestRelease.versionName} is older than installed app " +
-                        "${installedVersionName()}. Wait for the matching GitHub release."
+                Log.i(
+                    TAG,
+                    "GitHub universal APK ${latestRelease.versionName} is older than installed " +
+                        "app ${installedVersionName()}; sharing it until the matching release ships"
                 )
             }
 
@@ -207,15 +205,6 @@ class UniversalApkManager(private val context: Context) {
             // client performs a retried network fetch instead.
             val release = GitHubReleaseClient.fetchLatestRelease().getOrElse { error ->
                 return@withContext Result.failure(error)
-            }
-            if (isOlderThanInstalledVersion(release.versionName)) {
-                return@withContext Result.failure(
-                    GitHubReleaseClient.ReleaseFetchException(
-                        message = "GitHub universal APK ${release.versionName} is older than " +
-                            "installed app ${installedVersionName()}",
-                        retryable = false
-                    )
-                )
             }
 
             if (!GitHubReleaseClient.awaitSelectedNetworkRoute()) {
@@ -492,10 +481,6 @@ class UniversalApkManager(private val context: Context) {
 
     private fun isOlderThanInstalledVersion(candidateVersion: String): Boolean {
         return GitHubReleaseClient.isNewerVersion(candidateVersion, installedVersionName())
-    }
-
-    fun isCompatibleWithInstalledVersion(candidateVersion: String): Boolean {
-        return !isOlderThanInstalledVersion(candidateVersion)
     }
 
     /**
