@@ -431,7 +431,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     binaryMessage.encryptedContent != null
                 ) {
                     delegate?.decryptChannelMessage(binaryMessage.encryptedContent, channel)
-                        ?: "[Encrypted message - password required]"
+                        ?: com.bitchat.android.ui.ChannelManager.ENCRYPTED_PLACEHOLDER
                 } else {
                     binaryMessage.content
                 }

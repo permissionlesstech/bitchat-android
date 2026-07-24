@@ -1,20 +1,24 @@
 package com.bitchat.android.ui
 
 import android.util.Log
+import com.bitchat.android.model.BitchatMessage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.security.MessageDigest
+import java.util.Date
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
-import com.bitchat.android.model.BitchatMessage
-import java.util.*
 
 /**
  * Handles channel management including creation, joining, leaving, and encryption.
  *
  * Password-protected channels use PBKDF2-HMAC-SHA256 (100k iterations, channel name as salt)
  * + AES-256-GCM, matching the historical bitchat channel crypto format.
+ *
+ * PBKDF2 runs on [Dispatchers.Default] via suspend APIs so UI threads are not blocked.
  */
 class ChannelManager(
     private val state: ChatState,
@@ -28,6 +32,7 @@ class ChannelManager(
         private const val KEY_BITS = 256
         private const val GCM_IV_BYTES = 12
         private const val GCM_TAG_BITS = 128
+        const val ENCRYPTED_PLACEHOLDER = "[Encrypted message - password required]"
     }
 
     // Channel encryption and security
@@ -42,16 +47,16 @@ class ChannelManager(
 
     // MARK: - Channel Lifecycle
 
-    fun joinChannel(channel: String, password: String? = null, myPeerID: String): Boolean {
+    suspend fun joinChannel(channel: String, password: String? = null, myPeerID: String): Boolean {
         val channelTag = if (channel.startsWith("#")) channel else "#$channel"
 
         // Check if already joined
         if (state.getJoinedChannelsValue().contains(channelTag)) {
             if (state.getPasswordProtectedChannelsValue().contains(channelTag) && !channelKeys.containsKey(channelTag)) {
-                // Need password verification
                 if (password != null) {
                     val ok = verifyChannelPassword(channelTag, password)
                     if (ok) {
+                        hidePasswordPrompt()
                         switchToChannel(channelTag)
                     }
                     return ok
@@ -65,14 +70,13 @@ class ChannelManager(
             return true
         }
 
-        // If password protected and no key yet
+        // Password protected and no key yet — always require password (including creator after restart)
         if (state.getPasswordProtectedChannelsValue().contains(channelTag) && !channelKeys.containsKey(channelTag)) {
-            if (dataManager.isChannelCreator(channelTag, myPeerID)) {
-                // Channel creator bypass — they should already have set a password via /pass
-            } else if (password != null) {
+            if (password != null) {
                 if (!verifyChannelPassword(channelTag, password)) {
                     return false
                 }
+                hidePasswordPrompt()
             } else {
                 state.setPasswordPromptChannel(channelTag)
                 state.setShowPasswordPrompt(true)
@@ -85,7 +89,7 @@ class ChannelManager(
         updatedChannels.add(channelTag)
         state.setJoinedChannels(updatedChannels)
 
-        // Set as creator if new channel
+        // Set as creator if new unprotected channel
         if (!dataManager.channelCreators.containsKey(channelTag) && !state.getPasswordProtectedChannelsValue().contains(channelTag)) {
             dataManager.addChannelCreator(channelTag, myPeerID)
         }
@@ -110,12 +114,10 @@ class ChannelManager(
         updatedChannels.remove(channel)
         state.setJoinedChannels(updatedChannels)
 
-        // Exit channel if currently in it
         if (state.getCurrentChannelValue() == channel) {
             state.setCurrentChannel(null)
         }
 
-        // Cleanup
         messageManager.removeChannelMessages(channel)
         dataManager.removeChannelMembers(channel)
         channelKeys.remove(channel)
@@ -131,7 +133,6 @@ class ChannelManager(
         state.setCurrentChannel(channel)
         state.setSelectedPrivateChatPeer(null)
 
-        // Clear unread count
         channel?.let { ch ->
             messageManager.clearChannelUnreadCount(ch)
         }
@@ -140,15 +141,16 @@ class ChannelManager(
     // MARK: - Channel Password and Encryption
 
     /**
-     * Derive and validate a channel password.
-     * Prefers SHA-256 key commitment when available, otherwise tries decrypting
-     * an existing encrypted message. If neither exists yet, accept and store.
+     * Derive and validate a channel password on a background dispatcher.
+     * On success, stores the key and re-decrypts any placeholder history.
      */
-    private fun verifyChannelPassword(channel: String, password: String): Boolean {
+    suspend fun verifyChannelPassword(channel: String, password: String): Boolean {
         if (password.isEmpty()) return false
 
         val key = try {
-            deriveChannelKey(password, channel)
+            withContext(Dispatchers.Default) {
+                deriveChannelKey(password, channel)
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to derive channel key for $channel: ${e.message}")
             return false
@@ -185,6 +187,8 @@ class ChannelManager(
         val commitment = calculateKeyCommitment(key)
         channelKeyCommitments[channel] = commitment
         dataManager.saveChannelKeyCommitments(channelKeyCommitments)
+
+        redecryptChannelHistory(channel, key)
         return true
     }
 
@@ -203,6 +207,32 @@ class ChannelManager(
     private fun calculateKeyCommitment(key: SecretKeySpec): String {
         val digest = MessageDigest.getInstance("SHA-256")
         return digest.digest(key.encoded).joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * Apply the stored (or provided) key to all stored encrypted messages for [channel],
+     * replacing placeholder content with decrypted plaintext.
+     */
+    fun redecryptChannelHistory(channel: String, key: SecretKeySpec? = null) {
+        val resolvedKey = key ?: channelKeys[channel] ?: return
+        val messages = state.getChannelMessagesValue()[channel] ?: return
+        var changed = false
+        val updated = messages.map { msg ->
+            if (msg.isEncrypted && msg.encryptedContent?.isNotEmpty() == true) {
+                val plain = decryptChannelMessage(msg.encryptedContent, channel, resolvedKey)
+                if (plain != null && plain != msg.content) {
+                    changed = true
+                    msg.copy(content = plain)
+                } else {
+                    msg
+                }
+            } else {
+                msg
+            }
+        }
+        if (changed) {
+            messageManager.replaceChannelMessages(channel, updated)
+        }
     }
 
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
@@ -234,7 +264,7 @@ class ChannelManager(
     }
 
     /**
-     * Encrypt a channel message and deliver the BitchatMessage binary payload via [onEncryptedPayload].
+     * Encrypt a channel message on [Dispatchers.Default] and deliver the binary payload.
      * On failure, calls [onFallback] — callers must NOT send plaintext when a channel key exists.
      */
     fun sendEncryptedChannelMessage(
@@ -253,7 +283,7 @@ class ChannelManager(
             return
         }
 
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.Default) {
             try {
                 val contentBytes = content.toByteArray(Charsets.UTF_8)
                 val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -300,15 +330,11 @@ class ChannelManager(
     fun addChannelMessage(channel: String, message: BitchatMessage, senderPeerID: String?) {
         messageManager.addChannelMessage(channel, message)
 
-        // Track as channel member
         senderPeerID?.let { peerID ->
             dataManager.addChannelMember(channel, peerID)
         }
     }
 
-    /**
-     * Mark a channel as password-protected when we observe encrypted traffic for it.
-     */
     fun markChannelPasswordProtected(channel: String) {
         if (!state.getPasswordProtectedChannelsValue().contains(channel)) {
             state.setPasswordProtectedChannels(
@@ -316,6 +342,14 @@ class ChannelManager(
             )
             saveChannelData()
         }
+    }
+
+    /**
+     * Prompt for password when the channel is protected but we have no key yet.
+     */
+    fun requestPasswordForChannel(channel: String) {
+        state.setPasswordPromptChannel(channel)
+        state.setShowPasswordPrompt(true)
     }
 
     fun removeChannelMember(channel: String, peerID: String) {
@@ -338,6 +372,10 @@ class ChannelManager(
 
     fun getChannelPassword(channel: String): String? {
         return channelPasswords[channel]
+    }
+
+    fun getChannelKeyCommitment(channel: String): String? {
+        return channelKeyCommitments[channel]
     }
 
     fun isChannelCreator(channel: String, peerID: String): Boolean {
@@ -367,13 +405,15 @@ class ChannelManager(
         state.setPasswordPromptChannel(null)
     }
 
-    fun setChannelPassword(channel: String, password: String) {
+    suspend fun setChannelPassword(channel: String, password: String) {
         if (password.isEmpty()) {
             Log.w(TAG, "Ignoring empty password for $channel")
             return
         }
 
-        val key = deriveChannelKey(password, channel)
+        val key = withContext(Dispatchers.Default) {
+            deriveChannelKey(password, channel)
+        }
         channelPasswords[channel] = password
         channelKeys[channel] = key
 
@@ -389,6 +429,8 @@ class ChannelManager(
             state.getJoinedChannelsValue(),
             state.getPasswordProtectedChannelsValue()
         )
+
+        redecryptChannelHistory(channel, key)
     }
 
     // MARK: - Emergency Clear

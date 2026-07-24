@@ -74,6 +74,15 @@ class MessageManager(private val state: ChatState) {
             state.setUnreadChannelMessages(currentUnread)
         }
     }
+
+    fun replaceChannelMessages(channel: String, messages: List<BitchatMessage>) {
+        val updatedChannelMessages = state.getChannelMessagesValue().toMutableMap()
+        updatedChannelMessages[channel] = messages
+        state.setChannelMessages(updatedChannelMessages)
+        try {
+            com.bitchat.android.services.AppStateStore.replaceChannelMessages(channel, messages)
+        } catch (_: Exception) { }
+    }
     
     fun clearChannelMessages(channel: String) {
         val updatedChannelMessages = state.getChannelMessagesValue().toMutableMap()
