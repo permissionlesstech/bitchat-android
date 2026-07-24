@@ -42,6 +42,12 @@ tor-android-binary = "0.4.4.6"
 # Google Play Services
 gms-location = "21.3.0"
 
+# WorkManager
+work-runtime = "2.10.1"
+
+# NanoHTTPD (hotspot APK sharing)
+nanohttpd = "2.3.1"
+
 # Security
 security-crypto = "1.1.0-beta01"
 
@@ -110,6 +116,12 @@ tor-android-binary = { module = "org.torproject:tor-android-binary", version.ref
 
 # Google Play Services
 gms-location = { module = "com.google.android.gms:play-services-location", version.ref = "gms-location" }
+
+# WorkManager
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work-runtime" }
+
+# NanoHTTPD
+nanohttpd = { module = "org.nanohttpd:nanohttpd", version.ref = "nanohttpd" }
 
 # Security
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }

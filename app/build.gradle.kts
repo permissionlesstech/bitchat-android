@@ -130,8 +130,11 @@ dependencies {
     // WebSocket
     implementation(libs.okhttp)
 
+    // WorkManager for background APK downloads
+    implementation(libs.androidx.work.runtime.ktx)
+
     // HTTP Server for hotspot APK sharing
-    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation(libs.nanohttpd)
 
     // Arti (Tor in Rust) Android bridge - custom build from latest source
     // Built with rustls, 16KB page size support, and onio//un service client

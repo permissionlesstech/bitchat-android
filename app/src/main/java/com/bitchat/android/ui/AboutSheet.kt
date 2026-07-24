@@ -1,7 +1,6 @@
 package com.bitchat.android.ui
 
 import android.content.Intent
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -63,7 +62,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,7 +74,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
@@ -86,10 +85,6 @@ import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
-import com.bitchat.android.util.UniversalApkManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Feature row for displaying app capabilities
@@ -514,16 +509,38 @@ fun AboutSheet(
                                     )
 
                                     // === Prepare App for Sharing Section ===
-                                    val scope = rememberCoroutineScope()
-                                    val apkManager = remember { UniversalApkManager(context) }
-                                    var apkStatus by remember { mutableStateOf<ApkPreparationStatus>(ApkPreparationStatus.Loading) }
-                                    var downloadProgress by remember { mutableStateOf(0) }
-                                    var showPrepareDialog by remember { mutableStateOf(false) }
-                                    var showDeleteDialog by remember { mutableStateOf(false) }
+                                    val apkViewModel: ApkDownloadViewModel = viewModel()
+                                    val apkUiState by apkViewModel.state.collectAsStateWithLifecycle()
+                                    val apkStatus = apkUiState.apkStatus
+                                    val downloadProgress = apkUiState.downloadProgress
 
-                                    // Check APK status on launch
+                                    // Handle one-shot effects (navigation, toasts, share intents)
                                     LaunchedEffect(Unit) {
-                                        apkStatus = checkApkStatus(apkManager)
+                                        apkViewModel.onEvent(ApkUiEvent.CheckStatus)
+                                        apkViewModel.effect.collect { effect ->
+                                            when (effect) {
+                                                is ApkUiEffect.NavigateToHotspot -> {
+                                                    val intent = Intent(context, HotspotActivity::class.java)
+                                                    intent.putExtra(HotspotActivity.EXTRA_APK_PATH, effect.apkPath)
+                                                    context.startActivity(intent)
+                                                }
+                                                is ApkUiEffect.ShareApk -> {
+                                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = "application/vnd.android.package-archive"
+                                                        putExtra(Intent.EXTRA_STREAM, effect.apkUri)
+                                                        clipData = android.content.ClipData.newRawUri("", effect.apkUri)
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    val chooser = Intent.createChooser(intent, effect.chooserTitle).apply {
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    context.startActivity(chooser)
+                                                }
+                                                is ApkUiEffect.ShowToast -> {
+                                                    Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        }
                                     }
 
                                     // Prepare App for Sharing Row
@@ -531,15 +548,7 @@ fun AboutSheet(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable(enabled = apkStatus !is ApkPreparationStatus.Downloading) {
-                                                when (apkStatus) {
-                                                    is ApkPreparationStatus.NotDownloaded -> showPrepareDialog =
-                                                        true
-
-                                                    is ApkPreparationStatus.UpdateAvailable -> showPrepareDialog =
-                                                        true
-
-                                                    else -> {}
-                                                }
+                                                apkViewModel.onEvent(ApkUiEvent.PrepareRowClicked)
                                             }
                                             .padding(horizontal = 16.dp, vertical = 14.dp),
                                         verticalAlignment = Alignment.CenterVertically
@@ -570,11 +579,13 @@ fun AboutSheet(
                                                     is ApkPreparationStatus.Ready -> stringResource(R.string.prepare_apk_status_ready) + " • ${status.version} • ${status.sizeMB} MB"
                                                     is ApkPreparationStatus.UpdateAvailable -> stringResource(R.string.prepare_apk_status_update_available) + " (${status.newVersion})"
                                                     is ApkPreparationStatus.Downloading -> stringResource(R.string.prepare_apk_status_downloading, downloadProgress)
+                                                    is ApkPreparationStatus.Resumable -> "Tap to resume • ${status.progressPercent}% downloaded"
                                                     is ApkPreparationStatus.Error -> status.message
                                                 },
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = when (apkStatus) {
                                                     is ApkPreparationStatus.Error -> colorScheme.error
+                                                    is ApkPreparationStatus.Resumable -> colorScheme.primary
                                                     is ApkPreparationStatus.UpdateAvailable -> colorScheme.primary
                                                     else -> colorScheme.onSurface.copy(alpha = 0.6f)
                                                 },
@@ -592,7 +603,7 @@ fun AboutSheet(
                                             }
                                             is ApkPreparationStatus.Ready, is ApkPreparationStatus.UpdateAvailable -> {
                                                 androidx.compose.material3.IconButton(
-                                                    onClick = { showDeleteDialog = true },
+                                                    onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
                                                     modifier = Modifier.size(32.dp)
                                                 ) {
                                                     Icon(
@@ -608,7 +619,7 @@ fun AboutSheet(
                                     }
 
                                     // Prepare Dialog
-                                    if (showPrepareDialog) {
+                                    if (apkUiState.showPrepareDialog) {
                                         val status = apkStatus
                                         val sizeMB = when (status) {
                                             is ApkPreparationStatus.NotDownloaded -> status.sizeMB
@@ -616,7 +627,7 @@ fun AboutSheet(
                                             else -> 47
                                         }
                                         AlertDialog(
-                                            onDismissRequest = { showPrepareDialog = false },
+                                            onDismissRequest = { apkViewModel.onEvent(ApkUiEvent.DismissPrepareDialog) },
                                             title = {
                                                 Text(
                                                     text = if (status is ApkPreparationStatus.UpdateAvailable) {
@@ -639,21 +650,13 @@ fun AboutSheet(
                                             },
                                             confirmButton = {
                                                 Button(onClick = {
-                                                    showPrepareDialog = false
-                                                    apkStatus = ApkPreparationStatus.Downloading
-                                                    scope.launch {
-                                                        downloadUniversalApk(apkManager, { progress ->
-                                                            downloadProgress = progress
-                                                        }) { result ->
-                                                            apkStatus = result
-                                                        }
-                                                    }
+                                                    apkViewModel.onEvent(ApkUiEvent.ConfirmDownload)
                                                 }) {
                                                     Text(stringResource(R.string.prepare_apk_dialog_confirm))
                                                 }
                                             },
                                             dismissButton = {
-                                                TextButton(onClick = { showPrepareDialog = false }) {
+                                                TextButton(onClick = { apkViewModel.onEvent(ApkUiEvent.DismissPrepareDialog) }) {
                                                     Text(stringResource(R.string.cancel))
                                                 }
                                             },
@@ -662,10 +665,10 @@ fun AboutSheet(
                                     }
 
                                     // Delete Dialog
-                                    if (showDeleteDialog) {
+                                    if (apkUiState.showDeleteDialog) {
                                         val sizeMB = (apkStatus as? ApkPreparationStatus.Ready)?.sizeMB ?: 0
                                         AlertDialog(
-                                            onDismissRequest = { showDeleteDialog = false },
+                                            onDismissRequest = { apkViewModel.onEvent(ApkUiEvent.DismissDeleteDialog) },
                                             title = {
                                                 Text(
                                                     text = stringResource(R.string.prepare_apk_delete_confirm),
@@ -681,11 +684,7 @@ fun AboutSheet(
                                             confirmButton = {
                                                 Button(
                                                     onClick = {
-                                                        showDeleteDialog = false
-                                                        apkManager.deleteCachedApk()
-                                                        scope.launch {
-                                                            apkStatus = checkApkStatus(apkManager)
-                                                        }
+                                                        apkViewModel.onEvent(ApkUiEvent.ConfirmDelete)
                                                     },
                                                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                                                         containerColor = colorScheme.error
@@ -695,7 +694,7 @@ fun AboutSheet(
                                                 }
                                             },
                                             dismissButton = {
-                                                TextButton(onClick = { showDeleteDialog = false }) {
+                                                TextButton(onClick = { apkViewModel.onEvent(ApkUiEvent.DismissDeleteDialog) }) {
                                                     Text(stringResource(R.string.cancel))
                                                 }
                                             },
@@ -723,17 +722,7 @@ fun AboutSheet(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .clickable {
-                                                        // APK is guaranteed to exist (row only visible when ready)
-                                                        val cachedApk = apkManager.getCachedApk()!!
-                                                        val intent = Intent(
-                                                            context,
-                                                            HotspotActivity::class.java
-                                                        )
-                                                        intent.putExtra(
-                                                            HotspotActivity.EXTRA_APK_PATH,
-                                                            cachedApk.absolutePath
-                                                        )
-                                                        context.startActivity(intent)
+                                                        apkViewModel.onEvent(ApkUiEvent.HotspotShareClicked)
                                                     }
                                                     .padding(horizontal = 16.dp, vertical = 14.dp),
                                                 verticalAlignment = Alignment.CenterVertically
@@ -779,12 +768,10 @@ fun AboutSheet(
                                     )
 
                                     // === Share via Bluetooth/Email Row (Fallback) ===
-                                    var showShareApkDialog by remember { mutableStateOf(false) }
-
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { showShareApkDialog = true }
+                                            .clickable { apkViewModel.onEvent(ApkUiEvent.AppShareClicked) }
                                             .padding(horizontal = 16.dp, vertical = 14.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -825,14 +812,11 @@ fun AboutSheet(
 
                                             // APK Share Dialog
                                             ApkShareExplanationDialog(
-                                                show = showShareApkDialog,
+                                                show = apkUiState.showShareApkDialog,
                                                 onConfirm = {
-                                                    showShareApkDialog = false
-                                                    scope.launch {
-                                                        shareUniversalApk(context, apkManager)
-                                                    }
+                                                    apkViewModel.onEvent(ApkUiEvent.ConfirmAppShare)
                                                 },
-                                                onDismiss = { showShareApkDialog = false }
+                                                onDismiss = { apkViewModel.onEvent(ApkUiEvent.DismissShareDialog) }
                                             )
                                         }
                                     }
@@ -1127,118 +1111,6 @@ fun PasswordPromptDialog(
     }
 }
 
-/**
- * Status of universal APK preparation.
- */
-private sealed class ApkPreparationStatus {
-    object Loading : ApkPreparationStatus()
-    data class NotDownloaded(val sizeMB: Int) : ApkPreparationStatus()
-    data class Ready(val version: String, val sizeMB: Int) : ApkPreparationStatus()
-    data class UpdateAvailable(
-        val currentVersion: String,
-        val newVersion: String,
-        val newSizeMB: Int
-    ) : ApkPreparationStatus()
-    object Downloading : ApkPreparationStatus()
-    data class Error(val message: String) : ApkPreparationStatus()
-}
-
-/**
- * Check the status of the universal APK.
- */
-private suspend fun checkApkStatus(apkManager: UniversalApkManager): ApkPreparationStatus {
-    return withContext(Dispatchers.IO) {
-        try {
-            val updateStatus = apkManager.checkForUpdate()
-            when (updateStatus) {
-                is UniversalApkManager.UpdateStatus.NotDownloaded -> {
-                    ApkPreparationStatus.NotDownloaded(
-                        sizeMB = (updateStatus.latestRelease.universalApkSize / 1024 / 1024).toInt()
-                    )
-                }
-                is UniversalApkManager.UpdateStatus.UpToDate -> {
-                    val info = apkManager.getCachedApkInfo()
-                    if (info != null) {
-                        ApkPreparationStatus.Ready(
-                            version = info.version,
-                            sizeMB = (info.size / 1024 / 1024).toInt()
-                        )
-                    } else {
-                        ApkPreparationStatus.Error("Cached APK info not found")
-                    }
-                }
-                is UniversalApkManager.UpdateStatus.UpdateAvailable -> {
-                    val info = apkManager.getCachedApkInfo()
-                    ApkPreparationStatus.UpdateAvailable(
-                        currentVersion = updateStatus.currentVersion,
-                        newVersion = updateStatus.latestRelease.versionName,
-                        newSizeMB = (updateStatus.latestRelease.universalApkSize / 1024 / 1024).toInt()
-                    )
-                }
-                is UniversalApkManager.UpdateStatus.Error -> {
-                    val info = apkManager.getCachedApkInfo()
-                    if (info != null) {
-                        // Have cached APK but couldn't check for updates
-                        ApkPreparationStatus.Ready(
-                            version = info.version,
-                            sizeMB = (info.size / 1024 / 1024).toInt()
-                        )
-                    } else {
-                        ApkPreparationStatus.Error(updateStatus.message)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("AboutSheet", "Error checking APK status", e)
-            ApkPreparationStatus.Error(e.message ?: "Unknown error")
-        }
-    }
-}
-
-/**
- * Download the universal APK with progress tracking.
- */
-private suspend fun downloadUniversalApk(
-    apkManager: UniversalApkManager,
-    onProgress: (Int) -> Unit,
-    onResult: (ApkPreparationStatus) -> Unit
-) {
-    withContext(Dispatchers.IO) {
-        var lastUpdateTime = 0L
-        val result = apkManager.downloadUniversalApk { progress ->
-            // Throttle updates to max 10 per second (100ms interval) to avoid janky UI
-            val now = System.currentTimeMillis()
-            if (now - lastUpdateTime >= 100 || progress == 100) {
-                lastUpdateTime = now
-                onProgress(progress)
-            }
-        }
-
-        val status = if (result.isSuccess) {
-            val file = result.getOrNull()
-            if (file != null) {
-                val info = apkManager.getCachedApkInfo()
-                if (info != null) {
-                    ApkPreparationStatus.Ready(
-                        version = info.version,
-                        sizeMB = (info.size / 1024 / 1024).toInt()
-                    )
-                } else {
-                    ApkPreparationStatus.Error("Download succeeded but metadata not found")
-                }
-            } else {
-                ApkPreparationStatus.Error("Download failed")
-            }
-        } else {
-            val error = result.exceptionOrNull()
-            ApkPreparationStatus.Error(error?.message ?: "Download failed")
-        }
-
-        withContext(Dispatchers.Main) {
-            onResult(status)
-        }
-    }
-}
 
 /**
  * Dialog explaining APK sharing feature before sharing
@@ -1327,63 +1199,3 @@ private fun ApkShareExplanationDialog(
     }
 }
 
-/**
- * Shares the universal APK via standard Android share mechanisms (Bluetooth/Email/etc).
- * Uses the same universal APK that was downloaded for hotspot sharing.
- */
-private suspend fun shareUniversalApk(
-    context: android.content.Context,
-    apkManager: UniversalApkManager
-) = withContext(Dispatchers.IO) {
-    try {
-        // Get the cached universal APK
-        val apkFile = apkManager.getCachedApk()
-        if (apkFile == null || !apkFile.exists()) {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.apk_not_ready_please_prepare_it_first),
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            return@withContext
-        }
-
-        // Get URI using FileProvider
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            apkFile
-        )
-
-        withContext(Dispatchers.Main) {
-            // Single universal APK - always use ACTION_SEND
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/vnd.android.package-archive"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                // Use ClipData for proper URI permission granting on Android 10+
-                clipData = android.content.ClipData.newRawUri("", uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-
-            val chooser = Intent.createChooser(
-                intent,
-                context.getString(R.string.share_apk_chooser_title)
-            ).apply {
-                // Grant read permission on the chooser intent as well
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-
-            context.startActivity(chooser)
-        }
-    } catch (e: Exception) {
-        Log.e("AboutSheet", "Error sharing universal APK", e)
-        withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                context.getString(R.string.share_apk_error),
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-}

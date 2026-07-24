@@ -179,6 +179,8 @@
   <string name="prepare_apk_update_dialog_title">Update Available</string>
   <string name="prepare_apk_update_dialog_message">A newer version (%1$s) is available. Current: %2$s</string>
   <string name="prepare_apk_required">Please prepare the app for sharing first.</string>
+  <string name="prepare_apk_download_interrupted">Download interrupted</string>
+  <string name="prepare_apk_download_cancelled">Download cancelled</string>
 
   <!-- Hotspot Sharing -->
   <string name="hotspot_share_via">Share via Hotspot</string>
