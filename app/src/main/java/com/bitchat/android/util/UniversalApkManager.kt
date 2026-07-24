@@ -699,33 +699,24 @@ class UniversalApkManager(private val context: Context) {
 
     /**
      * Commit [source] to [target] without removing a valid target first.
-     * Both files live in the same cache directory, so ATOMIC_MOVE is available
-     * on normal Android filesystems. The fallback still uses REPLACE_EXISTING
-     * and leaves the old target intact if preparing the candidate fails.
+     * Both files live in the same cache directory, so this is a rename, not a
+     * copy — no extra disk space is needed and ATOMIC_MOVE either fully
+     * succeeds or leaves both files intact.
      */
     private fun replaceFileSafely(source: File, target: File) {
-        val candidate = File(target.parentFile, "${target.name}.new")
-        if (source != candidate) {
-            source.copyTo(candidate, overwrite = true)
-        }
-
         try {
             Files.move(
-                candidate.toPath(),
+                source.toPath(),
                 target.toPath(),
                 StandardCopyOption.ATOMIC_MOVE,
                 StandardCopyOption.REPLACE_EXISTING
             )
         } catch (_: AtomicMoveNotSupportedException) {
             Files.move(
-                candidate.toPath(),
+                source.toPath(),
                 target.toPath(),
                 StandardCopyOption.REPLACE_EXISTING
             )
-        }
-
-        if (source != target && source.exists()) {
-            source.delete()
         }
     }
 
