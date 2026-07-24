@@ -41,7 +41,7 @@ class ApkWebServer(
         Log.d(TAG, "Request: ${session.method} $uri from ${session.remoteIpAddress}")
 
         return when {
-            uri.endsWith(".apk") || uri == "/bitchat.apk" -> {
+            uri == "/bitchat.apk" -> {
                 serveApk()
             }
             uri == "/favicon.ico" -> {

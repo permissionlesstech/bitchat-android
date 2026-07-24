@@ -3,11 +3,10 @@ package com.bitchat.android.util
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
+import com.bitchat.android.net.OkHttpProvider
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.IOException
-import java.util.concurrent.TimeUnit
 
 /**
  * Client for fetching BitChat release information from GitHub API.
@@ -17,10 +16,7 @@ object GitHubReleaseClient {
     private const val GITHUB_API_URL = "https://api.github.com/repos/permissionlesstech/bitchat-android/releases/latest"
     private const val USER_AGENT = "BitChat-Android"
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private val client get() = OkHttpProvider.httpClient()
 
     /**
      * Fetch the latest release information from GitHub.
@@ -143,15 +139,6 @@ object GitHubReleaseClient {
             val apkPattern = Regex("""${Regex.escape(apkName)}.*?([a-fA-F0-9]{64})""", RegexOption.IGNORE_CASE)
             apkPattern.find(body)?.let { match ->
                 return match.groupValues[1].lowercase()
-            }
-
-            // Pattern 3: Look for any SHA256 hash (64 hex characters)
-            val hashPattern = Regex("""([a-fA-F0-9]{64})""")
-            val matches = hashPattern.findAll(body).toList()
-
-            // If we find exactly one hash, assume it's for the universal APK
-            if (matches.size == 1) {
-                return matches[0].groupValues[1].lowercase()
             }
 
             Log.w(TAG, "Could not extract SHA256 from release body")
