@@ -9,12 +9,6 @@ import androidx.core.content.ContextCompat
 import com.bitchat.android.geohash.SystemLocationProvider
 import com.bitchat.android.services.AppStateStore
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlin.coroutines.resume
-import kotlinx.coroutines.suspendCancellableCoroutine
 
 class LocationTelemetryManager(
     private val context: Context,
@@ -22,60 +16,65 @@ class LocationTelemetryManager(
 ) {
     companion object {
         private const val TAG = "LocationTelemetryMgr"
-        private const val INTERVAL_MS = 5_000L
+        private const val UPDATE_INTERVAL_MS = 2_000L
+        private const val MIN_DISTANCE_METERS = 0f
     }
 
     private val locationProvider = SystemLocationProvider(context)
-    private var job: Job? = null
+    private var isStarted = false
 
-    fun start() {
-        if (job?.isActive == true) return
-        job = scope.launch {
-            while (isActive) {
-                try {
-                    val location = requestLocation()
-                    if (location != null) {
-                        // Store last known location for distance calculations
-                        try { MeshServiceHolder.lastKnownLocation = location } catch (_: Exception) { }
-                        AppStateStore.updateMyLocation(
-                            latitude = location.latitude,
-                            longitude = location.longitude,
-                            timestampMs = if (location.time > 0L) location.time else System.currentTimeMillis()
-                        )
-                        MeshServiceHolder.meshService?.sendLocationTelemetry(location)
-                            ?: Log.w(TAG, "Mesh service unavailable; skipping location telemetry")
-                    } else {
-                        Log.w(TAG, "No location fix available yet")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Location telemetry loop failed: ${e.message}", e)
-                }
-                delay(INTERVAL_MS)
-            }
+    private val locationCallback: (Location) -> Unit = { location ->
+        try {
+            Log.d(TAG, "📍 Live GPS update received: lat=${location.latitude}, lon=${location.longitude}, acc=${location.accuracy}m")
+            try { MeshServiceHolder.lastKnownLocation = location } catch (_: Exception) { }
+            AppStateStore.updateMyLocation(
+                latitude = location.latitude,
+                longitude = location.longitude,
+                timestampMs = if (location.time > 0L) location.time else System.currentTimeMillis()
+            )
+            MeshServiceHolder.meshService?.sendLocationTelemetry(location)
+                ?: Log.w(TAG, "Mesh service unavailable; skipping location telemetry")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to process location update: ${e.message}", e)
         }
     }
 
+    fun start() {
+        if (isStarted) return
+        if (!hasLocationPermission()) {
+            Log.w(TAG, "Location permission missing; telemetry disabled")
+            return
+        }
+        isStarted = true
+
+        // Prime once at startup with cached location if available
+        try {
+            locationProvider.getLastKnownLocation { cached ->
+                if (cached != null) {
+                    locationCallback(cached)
+                }
+            }
+        } catch (_: Exception) {}
+
+        // Register for continuous hardware GPS updates (every 2s / 0m movement)
+        Log.i(TAG, "Starting continuous GPS location tracking listener")
+        locationProvider.requestLocationUpdates(
+            intervalMs = UPDATE_INTERVAL_MS,
+            minDistanceMeters = MIN_DISTANCE_METERS,
+            callback = locationCallback
+        )
+    }
+
     fun stop() {
-        job?.cancel()
-        job = null
+        if (!isStarted) return
+        isStarted = false
+        Log.i(TAG, "Stopping location tracking listener")
+        locationProvider.removeLocationUpdates(locationCallback)
         locationProvider.cancel()
     }
 
     private fun hasLocationPermission(): Boolean {
         return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private suspend fun requestLocation(): Location? {
-        if (!hasLocationPermission()) {
-            Log.w(TAG, "Location permission missing; telemetry disabled")
-            return null
-        }
-
-        return suspendCancellableCoroutine { cont ->
-            locationProvider.requestFreshLocation { location ->
-                cont.resume(location)
-            }
-        }
     }
 }

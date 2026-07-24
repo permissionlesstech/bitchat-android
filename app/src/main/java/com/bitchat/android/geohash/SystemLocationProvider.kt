@@ -20,7 +20,7 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
         // Reject fixes worse than this (meters). GPS outdoors is typically 3-15m;
         // NETWORK_PROVIDER can be 50-2000m+, so this threshold effectively filters
         // out bad network fixes while still allowing degraded-but-usable GPS fixes.
-        private const val MAX_ACCEPTABLE_ACCURACY_METERS = 50f
+        private const val MAX_ACCEPTABLE_ACCURACY_METERS = 200f
 
         // How long to wait for a GPS fix before allowing a fallback.
         private const val GPS_FALLBACK_WINDOW_MS = 15000L
@@ -40,8 +40,8 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
     }
 
     private fun isAcceptable(location: Location): Boolean {
-        // Some devices report accuracy == 0 for stale/garbage fixes; treat as unacceptable.
-        return location.hasAccuracy() && location.accuracy in 0.01f..MAX_ACCEPTABLE_ACCURACY_METERS
+        if (!location.hasAccuracy()) return true
+        return location.accuracy in 0.01f..MAX_ACCEPTABLE_ACCURACY_METERS
     }
 
     @SuppressLint("MissingPermission")
@@ -186,7 +186,8 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
                     LocationManager.GPS_PROVIDER,
                     intervalMs,
                     minDistanceMeters,
-                    listener
+                    listener,
+                    android.os.Looper.getMainLooper()
                 )
                 Log.d(TAG, "Registered updates for GPS_PROVIDER")
             } else {

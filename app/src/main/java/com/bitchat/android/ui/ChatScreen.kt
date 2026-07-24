@@ -38,7 +38,10 @@ import com.bitchat.android.ui.media.FullScreenImageViewer
  * - ChatUIUtils: Utility functions for formatting and colors
  */
 @Composable
-fun ChatScreen(viewModel: ChatViewModel) {
+fun ChatScreen(
+    viewModel: ChatViewModel,
+    onSwitchToRadar: () -> Unit = {}
+) {
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
@@ -254,7 +257,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onPanicClear = { viewModel.panicClearAllData() },
             onLocationChannelsClick = { showLocationChannelsSheet = true },
             onLocationNotesClick = { showLocationNotesSheet = true },
-            onTelemetryMapClick = { showTelemetryMapSheet = true }
+            onTelemetryMapClick = { showTelemetryMapSheet = true },
+            onSwitchToRadar = onSwitchToRadar
         )
 
         // Divider under header - positioned after status bar + header height
@@ -424,7 +428,8 @@ private fun ChatFloatingHeader(
     onPanicClear: () -> Unit,
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit,
-    onTelemetryMapClick: () -> Unit
+    onTelemetryMapClick: () -> Unit,
+    onSwitchToRadar: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
@@ -458,7 +463,8 @@ private fun ChatFloatingHeader(
                         locationManager.refreshChannels()
                         onLocationNotesClick()
                     },
-                    onTelemetryMapClick = onTelemetryMapClick
+                    onTelemetryMapClick = onTelemetryMapClick,
+                    onSwitchToRadar = onSwitchToRadar
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(

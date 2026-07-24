@@ -4,19 +4,19 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 object LocationTelemetryPacket {
-    private const val PAYLOAD_SIZE = 12
+    private const val PAYLOAD_SIZE = 20
 
     data class Telemetry(
-        val latitude: Float,
-        val longitude: Float,
+        val latitude: Double,
+        val longitude: Double,
         val timestampSeconds: Long
     )
 
     fun encode(latitude: Double, longitude: Double, timestampMillis: Long = System.currentTimeMillis()): ByteArray {
         return ByteBuffer.allocate(PAYLOAD_SIZE)
             .order(ByteOrder.BIG_ENDIAN)
-            .putFloat(latitude.toFloat())
-            .putFloat(longitude.toFloat())
+            .putDouble(latitude)
+            .putDouble(longitude)
             .putInt((timestampMillis / 1000L).toInt())
             .array()
     }
@@ -25,8 +25,8 @@ object LocationTelemetryPacket {
         if (payload.size != PAYLOAD_SIZE) return null
         val buffer = ByteBuffer.wrap(payload).order(ByteOrder.BIG_ENDIAN)
         return Telemetry(
-            latitude = buffer.getFloat(),
-            longitude = buffer.getFloat(),
+            latitude = buffer.getDouble(),
+            longitude = buffer.getDouble(),
             timestampSeconds = buffer.getInt().toLong() and 0xFFFF_FFFFL
         )
     }

@@ -13,7 +13,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,7 +52,10 @@ private data class RadarPeer(
 )
 
 @Composable
-fun RadarScreen(viewModel: ChatViewModel) {
+fun RadarScreen(
+    viewModel: ChatViewModel,
+    onSwitchToChat: (() -> Unit)? = null
+) {
     val myLocation by viewModel.myTelemetryLocation.collectAsStateWithLifecycle()
     val peerLocations by viewModel.peerTelemetryLocations.collectAsStateWithLifecycle()
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
@@ -124,6 +133,40 @@ fun RadarScreen(viewModel: ChatViewModel) {
             while (y < size.height) {
                 drawLine(gridColor, Offset(0f, y), Offset(size.width, y))
                 y += gridSpacing
+            }
+        }
+
+        // Top CHAT toggle button
+        if (onSwitchToChat != null) {
+            Button(
+                onClick = onSwitchToChat,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White.copy(alpha = 0.12f),
+                    contentColor = Color.White
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.25f)),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Chat,
+                        contentDescription = "Switch to Chat",
+                        tint = Color(0xFF007AFF),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "CHAT",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color.White
+                    )
+                }
             }
         }
 
@@ -465,12 +508,13 @@ private fun AnimatePeerCoordinates(
 @Composable
 private fun rememberCompassHeadingDegrees(myLocation: AppStateStore.TelemetryLocation?): State<Float> {
     val context = LocalContext.current
+    val currentMyLocation by rememberUpdatedState(myLocation)
     val heading = remember { mutableStateOf(0f) }
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
 
-    DisposableEffect(sensorManager, myLocation) {
+    DisposableEffect(sensorManager) {
         val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         if (rotationSensor == null) {
             onDispose { }
@@ -515,13 +559,14 @@ private fun rememberCompassHeadingDegrees(myLocation: AppStateStore.TelemetryLoc
                     val azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
                     val normalizedAzimuth = normalizeDegrees(azimuthDeg)
 
-                    val declination = if (myLocation != null) {
+                    val loc = currentMyLocation
+                    val declination = if (loc != null) {
                         try {
                             val geoField = GeomagneticField(
-                                myLocation.latitude.toFloat(),
-                                myLocation.longitude.toFloat(),
+                                loc.latitude.toFloat(),
+                                loc.longitude.toFloat(),
                                 0f,
-                                myLocation.timestampMs
+                                loc.timestampMs
                             )
                             geoField.declination
                         } catch (_: Exception) {

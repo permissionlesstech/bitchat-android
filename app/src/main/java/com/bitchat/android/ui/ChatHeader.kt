@@ -227,7 +227,8 @@ fun ChatHeaderContent(
     onShowAppInfo: () -> Unit,
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit,
-    onTelemetryMapClick: () -> Unit
+    onTelemetryMapClick: () -> Unit,
+    onSwitchToRadar: () -> Unit = {}
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -252,6 +253,7 @@ fun ChatHeaderContent(
                 onLocationChannelsClick = onLocationChannelsClick,
                 onLocationNotesClick = onLocationNotesClick,
                 onTelemetryMapClick = onTelemetryMapClick,
+                onSwitchToRadar = onSwitchToRadar,
                 viewModel = viewModel
             )
         }
@@ -334,6 +336,7 @@ private fun MainHeader(
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit,
     onTelemetryMapClick: () -> Unit,
+    onSwitchToRadar: () -> Unit = {},
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -442,6 +445,18 @@ private fun MainHeader(
                     contentDescription = stringResource(R.string.cd_open_map),
                     tint = colorScheme.onSurface.copy(alpha = 0.85f),
                     modifier = Modifier.size(16.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onSwitchToRadar,
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Explore,
+                    contentDescription = "Radar Mode",
+                    tint = Color(0xFF007AFF),
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
