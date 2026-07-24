@@ -577,10 +577,17 @@ class ChatViewModel(
                             state.getNicknameValue(),
                             mesh.myPeerID,
                             onEncryptedPayload = { encryptedData ->
-                                mesh.sendMessage(content, mentions, currentChannelValue)
+                                mesh.sendBinaryBroadcast(encryptedData)
                             },
                             onFallback = {
-                                mesh.sendMessage(content, mentions, currentChannelValue)
+                                // Never send plaintext when a channel key is configured
+                                val systemMessage = BitchatMessage(
+                                    sender = "system",
+                                    content = "failed to encrypt message for $currentChannelValue",
+                                    timestamp = Date(),
+                                    isRelay = false
+                                )
+                                channelManager.addChannelMessage(currentChannelValue, systemMessage, null)
                             }
                         )
                     } else {

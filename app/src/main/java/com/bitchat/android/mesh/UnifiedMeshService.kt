@@ -63,6 +63,13 @@ class UnifiedMeshService(
         }
     }
 
+    override fun sendBinaryBroadcast(payload: ByteArray) {
+        when {
+            isBleEnabled() -> bluetooth.sendBinaryBroadcast(payload)
+            else -> wifiService()?.sendBinaryBroadcast(payload)
+        }
+    }
+
     override fun sendPrivateMessage(
         content: String,
         recipientPeerID: String,
