@@ -1140,6 +1140,18 @@ class BinaryProtocolTest {
     }
 
     @Test
+    fun `raw deflate with zlib-looking prefix falls back after non-exact zlib parse`() {
+        val payload = ByteArray(29) { index -> (index + 1).toByte() }
+        val compressed = byteArrayOf(
+            0x08, // non-final raw stored block; also zlib CMF
+            0x1d, 0x00, // LEN = 29; 0x08 0x1d passes the RFC 1950 header check
+            0xe2.toByte(), 0xff.toByte() // one's complement of LEN
+        ) + payload + byteArrayOf(0x03, 0x00) // final empty fixed-Huffman block
+
+        assertArrayEquals(payload, CompressionUtil.decompress(compressed, payload.size))
+    }
+
+    @Test
     fun `under-declared zlib expansion is rejected by fallback`() {
         val payload = ByteArray(4_096) { 0x51 }
         val compressed = zlibDeflate(payload)

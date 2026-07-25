@@ -93,12 +93,17 @@ object CompressionUtil {
 
         return synchronized(decompressionLock) {
             if (looksLikeZlib(compressedData)) {
-                // A structurally valid zlib header selects the legacy wrapped format. Do not
-                // retry size/completion failures as raw deflate: that only doubles attacker work.
-                try {
+                // A raw stream can coincidentally begin with a valid-looking zlib header. The
+                // header therefore only determines which format to try first; any non-exact zlib
+                // result must still fall back to raw under the same size/completion bounds.
+                val zlibResult = try {
                     inflateExact(compressedData, originalSize, nowrap = false)
                 } catch (zlibException: DataFormatException) {
-                    // A raw stream can coincidentally begin with a valid-looking zlib header.
+                    null
+                }
+                if (zlibResult != null) {
+                    zlibResult
+                } else {
                     try {
                         inflateExact(compressedData, originalSize, nowrap = true)
                     } catch (rawException: DataFormatException) {
