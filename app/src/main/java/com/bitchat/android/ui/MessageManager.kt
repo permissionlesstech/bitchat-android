@@ -20,7 +20,9 @@ class MessageManager(private val state: ChatState) {
     
     fun addMessage(message: BitchatMessage) {
         val currentMessages = state.getMessagesValue().toMutableList()
-        currentMessages.add(message)
+        // Order by the source packet timestamp so a store-forwarded backlog lands in its
+        // chronological slot instead of appending at the bottom in receive order.
+        com.bitchat.android.util.MessageOrdering.insertByTimestamp(currentMessages, message)
         state.setMessages(currentMessages)
         // Reflect into process-wide store so snapshot replacements don't drop local outgoing messages
         try { com.bitchat.android.services.AppStateStore.addPublicMessage(message) } catch (_: Exception) { }
@@ -51,7 +53,7 @@ class MessageManager(private val state: ChatState) {
         }
         
         val channelMessageList = currentChannelMessages[channel]?.toMutableList() ?: mutableListOf()
-        channelMessageList.add(message)
+        com.bitchat.android.util.MessageOrdering.insertByTimestamp(channelMessageList, message)
         currentChannelMessages[channel] = channelMessageList
         state.setChannelMessages(currentChannelMessages)
         // Reflect into process-wide store
