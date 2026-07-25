@@ -28,7 +28,7 @@ class LocationTelemetryManager(
 
     private val locationProvider = SystemLocationProvider(context)
     private var isStarted = false
-    private var isForeground = true
+    private var isForeground = false
 
     private val locationCallback: (Location) -> Unit = { location ->
         try {
@@ -95,6 +95,19 @@ class LocationTelemetryManager(
                 intervalMs = BACKGROUND_INTERVAL_MS,
                 minDistanceMeters = BACKGROUND_MIN_DISTANCE_METERS
             )
+        }
+    }
+
+    fun broadcastCurrentLocationImmediately() {
+        if (!hasLocationPermission()) return
+        try {
+            locationProvider.getLastKnownLocation { location ->
+                if (location != null) {
+                    locationCallback(location)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to broadcast current location immediately: ${e.message}")
         }
     }
 

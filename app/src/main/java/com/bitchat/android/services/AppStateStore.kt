@@ -52,7 +52,7 @@ object AppStateStore {
     val incomingLocationVerifyRequest: StateFlow<String?> = _incomingLocationVerifyRequest.asStateFlow()
 
     fun showIncomingVerifyRequest(peerID: String) {
-        _incomingLocationVerifyRequest.value = peerID
+        _incomingLocationVerifyRequest.value = peerID.lowercase()
     }
 
     fun clearIncomingVerifyRequest() {
@@ -184,8 +184,9 @@ object AppStateStore {
 
     fun updatePeerLocation(peerID: String, latitude: Double, longitude: Double, timestampMs: Long) {
         synchronized(this) {
+            val canonicalPeerID = peerID.lowercase()
             val map = _peerLocations.value.toMutableMap()
-            map[peerID] = TelemetryLocation(latitude, longitude, timestampMs)
+            map[canonicalPeerID] = TelemetryLocation(latitude, longitude, timestampMs)
             _peerLocations.value = map
         }
     }

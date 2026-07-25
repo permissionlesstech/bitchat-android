@@ -464,6 +464,7 @@ private fun ChatFloatingHeader(
                         onLocationNotesClick()
                     },
                     onTelemetryMapClick = onTelemetryMapClick,
+                    onPeerVerificationClick = { viewModel.showVerificationSheet() },
                     onSwitchToRadar = onSwitchToRadar
                 )
             },

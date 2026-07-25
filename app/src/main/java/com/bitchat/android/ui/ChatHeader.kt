@@ -228,7 +228,10 @@ fun ChatHeaderContent(
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit,
     onTelemetryMapClick: () -> Unit,
-    onSwitchToRadar: () -> Unit = {}
+    onPeerVerificationClick: () -> Unit = {},
+    onSwitchToRadar: () -> Unit = {},
+    onSwitchToChat: () -> Unit = {},
+    isRadarMode: Boolean = false
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -253,7 +256,10 @@ fun ChatHeaderContent(
                 onLocationChannelsClick = onLocationChannelsClick,
                 onLocationNotesClick = onLocationNotesClick,
                 onTelemetryMapClick = onTelemetryMapClick,
+                onPeerVerificationClick = onPeerVerificationClick,
                 onSwitchToRadar = onSwitchToRadar,
+                onSwitchToChat = onSwitchToChat,
+                isRadarMode = isRadarMode,
                 viewModel = viewModel
             )
         }
@@ -336,7 +342,10 @@ private fun MainHeader(
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit,
     onTelemetryMapClick: () -> Unit,
+    onPeerVerificationClick: () -> Unit = {},
     onSwitchToRadar: () -> Unit = {},
+    onSwitchToChat: () -> Unit = {},
+    isRadarMode: Boolean = false,
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -359,7 +368,7 @@ private fun MainHeader(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
-            modifier = Modifier.fillMaxHeight(),
+            modifier = Modifier.weight(1f, fill = false),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -380,10 +389,10 @@ private fun MainHeader(
             )
         }
         
-        // Right section with location channels button and peer counter
+        // Right section: location channels button, status indicators, peer counter, and 3-dot menu grouped tightly together
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
 
             // Unread private messages badge (click to open most recent DM)
@@ -400,7 +409,7 @@ private fun MainHeader(
             }
 
             // Location channels button (matching iOS implementation) and bookmark grouped tightly
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 LocationChannelsButton(
                     viewModel = viewModel,
                     onClick = onLocationChannelsClick
@@ -430,41 +439,11 @@ private fun MainHeader(
                 }
             }
 
-            // Location Notes button (extracted to separate component)
-            LocationNotesButton(
-                viewModel = viewModel,
-                onClick = onLocationNotesClick
-            )
-
-            IconButton(
-                onClick = onTelemetryMapClick,
-                modifier = Modifier.size(24.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Map,
-                    contentDescription = stringResource(R.string.cd_open_map),
-                    tint = colorScheme.onSurface.copy(alpha = 0.85f),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-
-            IconButton(
-                onClick = onSwitchToRadar,
-                modifier = Modifier.size(24.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Explore,
-                    contentDescription = "Radar Mode",
-                    tint = Color(0xFF007AFF),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
             // Tor status dot when Tor is enabled
             TorStatusDot(
                 modifier = Modifier
                     .size(8.dp)
-                    .padding(start = 0.dp, end = 2.dp)
+                    .padding(horizontal = 1.dp)
             )
             
             // PoW status indicator
@@ -472,7 +451,7 @@ private fun MainHeader(
                 modifier = Modifier,
                 style = PoWIndicatorStyle.COMPACT
             )
-            Spacer(modifier = Modifier.width(2.dp))
+
             PeerCounter(
                 connectedPeers = connectedPeers.filter { it != viewModel.myPeerID },
                 joinedChannels = joinedChannels,
@@ -482,8 +461,114 @@ private fun MainHeader(
                 geohashPeople = geohashPeople,
                 onClick = onSidebarClick
             )
+
+            // 3-dot overflow menu icon (⋮ / MoreVert) grouped right next to PeerCounter
+            var showOverflowMenu by remember { mutableStateOf(false) }
+            val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsStateWithLifecycle()
+            val isDark = when (themePref) {
+                com.bitchat.android.ui.theme.ThemePreference.Dark -> true
+                com.bitchat.android.ui.theme.ThemePreference.Light -> false
+                com.bitchat.android.ui.theme.ThemePreference.System -> systemDark
+            }
+
+            Box {
+                IconButton(
+                    onClick = { showOverflowMenu = true },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.cd_more_options),
+                        tint = colorScheme.onSurface.copy(alpha = 0.9f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+            DropdownMenu(
+                expanded = showOverflowMenu,
+                onDismissRequest = { showOverflowMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text(if (isDark) "Light Mode" else "Dark Mode") },
+                    onClick = {
+                        showOverflowMenu = false
+                        val nextPref = if (isDark) com.bitchat.android.ui.theme.ThemePreference.Light else com.bitchat.android.ui.theme.ThemePreference.Dark
+                        com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, nextPref)
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = if (isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.location_notes)) },
+                    onClick = {
+                        showOverflowMenu = false
+                        onLocationNotesClick()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.Description,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.location_telemetry_map)) },
+                    onClick = {
+                        showOverflowMenu = false
+                        onTelemetryMapClick()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Map,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.peer_verification_title)) },
+                    onClick = {
+                        showOverflowMenu = false
+                        onPeerVerificationClick()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.VerifiedUser,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(if (isRadarMode) stringResource(R.string.chat_mode) else stringResource(R.string.radar_mode)) },
+                    onClick = {
+                        showOverflowMenu = false
+                        if (isRadarMode) {
+                            onSwitchToChat()
+                        } else {
+                            onSwitchToRadar()
+                        }
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = if (isRadarMode) Icons.Filled.Chat else Icons.Filled.Explore,
+                            contentDescription = null,
+                            tint = Color(0xFF007AFF),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                )
+            }
         }
     }
+}
 }
 
 @Composable

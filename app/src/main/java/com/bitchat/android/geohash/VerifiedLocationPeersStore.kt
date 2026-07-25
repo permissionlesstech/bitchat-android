@@ -30,44 +30,51 @@ class VerifiedLocationPeersStore private constructor(context: Context) {
     val verifiedPeersFlow: StateFlow<Set<String>> = _verifiedPeersFlow.asStateFlow()
 
     private fun loadVerifiedPeers(): Set<String> {
-        return prefs.getStringSet(KEY_VERIFIED_PEERS, emptySet()) ?: emptySet()
+        val raw = prefs.getStringSet(KEY_VERIFIED_PEERS, emptySet()) ?: emptySet()
+        return raw.map { it.lowercase() }.toSet()
     }
 
     fun isVerified(peerID: String): Boolean {
-        return _verifiedPeersFlow.value.contains(peerID)
+        return _verifiedPeersFlow.value.contains(peerID.lowercase())
     }
 
     fun addVerifiedPeer(peerID: String) {
-        val updated = _verifiedPeersFlow.value + peerID
+        val canonical = peerID.lowercase()
+        val updated = _verifiedPeersFlow.value + canonical
         prefs.edit().putStringSet(KEY_VERIFIED_PEERS, updated).apply()
         // Clear any previous rejection cooldown when verified
-        clearCooldown(peerID)
+        clearCooldown(canonical)
         _verifiedPeersFlow.value = updated
     }
 
     fun removeVerifiedPeer(peerID: String) {
-        val updated = _verifiedPeersFlow.value - peerID
+        val canonical = peerID.lowercase()
+        val updated = _verifiedPeersFlow.value - canonical
         prefs.edit().putStringSet(KEY_VERIFIED_PEERS, updated).apply()
         _verifiedPeersFlow.value = updated
     }
 
     fun recordRejection(peerID: String, durationMs: Long = COOLDOWN_DURATION_MS) {
+        val canonical = peerID.lowercase()
         val expiresAt = System.currentTimeMillis() + durationMs
-        prefs.edit().putLong(COOLDOWN_PREFIX + peerID, expiresAt).apply()
+        prefs.edit().putLong(COOLDOWN_PREFIX + canonical, expiresAt).apply()
     }
 
     fun clearCooldown(peerID: String) {
-        prefs.edit().remove(COOLDOWN_PREFIX + peerID).apply()
+        val canonical = peerID.lowercase()
+        prefs.edit().remove(COOLDOWN_PREFIX + canonical).apply()
     }
 
     fun getRemainingCooldownMs(peerID: String): Long {
-        val expiresAt = prefs.getLong(COOLDOWN_PREFIX + peerID, 0L)
+        val canonical = peerID.lowercase()
+        val expiresAt = prefs.getLong(COOLDOWN_PREFIX + canonical, 0L)
         val remaining = expiresAt - System.currentTimeMillis()
         return if (remaining > 0L) remaining else 0L
     }
 
     fun canSendRequest(peerID: String): Boolean {
-        if (isVerified(peerID)) return false
-        return getRemainingCooldownMs(peerID) <= 0L
+        val canonical = peerID.lowercase()
+        if (isVerified(canonical)) return false
+        return getRemainingCooldownMs(canonical) <= 0L
     }
 }

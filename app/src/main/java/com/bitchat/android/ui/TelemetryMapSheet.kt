@@ -68,11 +68,13 @@ fun TelemetryMapSheet(
     val peerLocations by viewModel.peerTelemetryLocations.collectAsStateWithLifecycle()
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val headingDegrees by rememberCompassHeadingDegrees()
+    val verifiedPeers by viewModel.verifiedLocationPeers.collectAsStateWithLifecycle(initialValue = emptySet())
 
-    val peersForMap by remember(myLocation, peerLocations, peerNicknames) {
+    val peersForMap by remember(myLocation, peerLocations, peerNicknames, verifiedPeers) {
         derivedStateOf {
             val mine = myLocation ?: return@derivedStateOf emptyList()
             peerLocations.mapNotNull { (peerID, peerLoc) ->
+                if (!verifiedPeers.contains(peerID.lowercase())) return@mapNotNull null
                 val results = FloatArray(3)
                 Location.distanceBetween(
                     mine.latitude,

@@ -351,6 +351,10 @@ class MainActivity : OrientationAwareActivity() {
                         onSwitchToChat = { currentAppView = AppView.CHAT }
                     )
                 }
+
+                com.bitchat.android.ui.IncomingLocationVerifyRequestDialog(
+                    viewModel = chatViewModel
+                )
             }
             
             OnboardingState.ERROR -> {
@@ -809,6 +813,7 @@ class MainActivity : OrientationAwareActivity() {
     
     override fun onResume() {
         super.onResume()
+        com.bitchat.android.service.MeshServiceHolder.locationTelemetryManager?.setAppForegroundState(true)
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
@@ -841,6 +846,7 @@ class MainActivity : OrientationAwareActivity() {
     
     override fun onPause() {
         super.onPause()
+        com.bitchat.android.service.MeshServiceHolder.locationTelemetryManager?.setAppForegroundState(false)
         // Only set background state if app is fully initialized
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Detach UI delegate so the foreground service can own DM notifications while UI is closed

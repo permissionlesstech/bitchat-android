@@ -1199,22 +1199,26 @@ class ChatViewModel(
     val incomingLocationVerifyRequest = AppStateStore.incomingLocationVerifyRequest
 
     fun sendLocationVerificationRequest(peerID: String) {
-        if (!verifiedLocationStore.canSendRequest(peerID)) return
-        meshService.sendLocationVerifyPacket(peerID, com.bitchat.android.protocol.LocationVerifyPacket.Action.REQUEST)
+        val canonical = peerID.lowercase()
+        if (!verifiedLocationStore.canSendRequest(canonical)) return
+        meshService.sendLocationVerifyPacket(canonical, com.bitchat.android.protocol.LocationVerifyPacket.Action.REQUEST)
+        MeshServiceHolder.locationTelemetryManager?.broadcastCurrentLocationImmediately()
+            ?: MeshServiceHolder.lastKnownLocation?.let { meshService.sendLocationTelemetry(it) }
     }
 
     fun acceptLocationVerificationRequest(peerID: String) {
-        verifiedLocationStore.addVerifiedPeer(peerID)
-        meshService.sendLocationVerifyPacket(peerID, com.bitchat.android.protocol.LocationVerifyPacket.Action.ACCEPT)
+        val canonical = peerID.lowercase()
+        verifiedLocationStore.addVerifiedPeer(canonical)
+        meshService.sendLocationVerifyPacket(canonical, com.bitchat.android.protocol.LocationVerifyPacket.Action.ACCEPT)
         AppStateStore.clearIncomingVerifyRequest()
-        MeshServiceHolder.lastKnownLocation?.let { loc: android.location.Location ->
-            meshService.sendLocationTelemetry(loc)
-        }
+        MeshServiceHolder.locationTelemetryManager?.broadcastCurrentLocationImmediately()
+            ?: MeshServiceHolder.lastKnownLocation?.let { meshService.sendLocationTelemetry(it) }
     }
 
     fun rejectLocationVerificationRequest(peerID: String) {
-        verifiedLocationStore.recordRejection(peerID)
-        meshService.sendLocationVerifyPacket(peerID, com.bitchat.android.protocol.LocationVerifyPacket.Action.REJECT)
+        val canonical = peerID.lowercase()
+        verifiedLocationStore.recordRejection(canonical)
+        meshService.sendLocationVerifyPacket(canonical, com.bitchat.android.protocol.LocationVerifyPacket.Action.REJECT)
         AppStateStore.clearIncomingVerifyRequest()
     }
 }

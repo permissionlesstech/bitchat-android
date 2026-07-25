@@ -35,6 +35,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -88,6 +94,16 @@ fun RadarScreen(
     val incomingVerifyRequestPeer by viewModel.incomingLocationVerifyRequest.collectAsStateWithLifecycle()
     var showPeersSheet by remember { mutableStateOf(false) }
 
+    val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
+    val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
+    val showMeshPeerListSheet by viewModel.showMeshPeerList.collectAsStateWithLifecycle()
+    val showAppInfo by viewModel.showAppInfo.collectAsStateWithLifecycle()
+    val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
+
+    var showLocationNotesSheet by remember { mutableStateOf(false) }
+    var showTelemetryMapSheet by remember { mutableStateOf(false) }
+    var showLocationChannelsSheet by remember { mutableStateOf(false) }
+
     // Available zoom levels (in meters)
     val zoomLevels = listOf(5f, 10f, 25f, 50f, 100f, 250f, 500f, 1000f)
     var selectedZoomLevel by remember { mutableStateOf(100f) }
@@ -138,18 +154,32 @@ fun RadarScreen(
         }
     }
 
-    // Terminal Pitch Black background layout
+    val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsStateWithLifecycle()
+    val isDark = when (themePref) {
+        com.bitchat.android.ui.theme.ThemePreference.Dark -> true
+        com.bitchat.android.ui.theme.ThemePreference.Light -> false
+        com.bitchat.android.ui.theme.ThemePreference.System -> systemDark
+    }
+
+    val backgroundColor = if (isDark) Color(0xFF050805) else Color.White
+    val greenTerminal = if (isDark) Color(0xFF00FF66) else Color(0xFF008833)
+    val greenTerminalDim = if (isDark) Color(0xFF4A7A66) else Color(0xFF2E7D32)
+    val greenCardBg = if (isDark) Color(0xFF09140D) else Color(0xFFF0FDF4)
+    val greenCardBorder = if (isDark) Color(0xFF14301F) else Color(0xFFC8E6C9)
+
+    // Terminal background layout (White in light mode, pitch black in dark mode)
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF050805))
+            .background(backgroundColor)
             .windowInsetsPadding(WindowInsets.statusBars)
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         // Dark green terminal grid overlay lines
         Canvas(modifier = Modifier.fillMaxSize()) {
             val gridSpacing = 40.dp.toPx()
-            val gridColor = Color(0xFF00FF66).copy(alpha = 0.03f)
+            val gridColor = if (isDark) Color(0xFF00FF66).copy(alpha = 0.03f) else Color(0xFF00AA44).copy(alpha = 0.06f)
             var x = 0f
             while (x < size.width) {
                 drawLine(gridColor, Offset(x, 0f), Offset(x, size.height))
@@ -162,298 +192,191 @@ fun RadarScreen(
             }
         }
 
-        // Top CHAT toggle button
-        if (onSwitchToChat != null) {
-            Button(
-                onClick = onSwitchToChat,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = GreenCardBg,
-                    contentColor = GreenTerminal
-                ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, GreenCardBorder),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Chat,
-                        contentDescription = "Switch to Chat",
-                        tint = GreenTerminal,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "chat",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        color = GreenTerminal
-                    )
-                }
-            }
-        }
-
-        // Top PEERS verification toggle button
-        Button(
-            onClick = { showPeersSheet = true },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = GreenCardBg,
-                contentColor = GreenTerminal
-            ),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, GreenCardBorder),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Group,
-                    contentDescription = "Manage Peer Verification",
-                    tint = GreenTerminal,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "peers",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    color = GreenTerminal
-                )
-            }
-        }
-
-        // Top Header Info Panel (Exact OG Matrix Style)
+        // Flex Column layout ensuring zero overlap on all screen sizes/ratios
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp, start = 24.dp, end = 24.dp)
-                .align(Alignment.TopCenter),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.fillMaxSize()
         ) {
-            Text(
-                text = "bitchat radar",
-                color = GreenTerminal,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.sp
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "peers detected: ${activePeers.size}",
-                color = GreenTerminalDim,
-                fontSize = 13.sp,
-                fontFamily = FontFamily.Monospace
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Information Pill
-            Row(
+            // 1. Common Top Header Bar
+            Surface(
                 modifier = Modifier
-                    .background(GreenCardBg, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .border(1.dp, GreenCardBorder, RoundedCornerShape(16.dp)),
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxWidth()
+                    .zIndex(2f),
+                color = backgroundColor
             ) {
-                Text(
-                    text = "heading: ${headingDegrees.toInt()}° ${cardinalFromDegrees(headingDegrees).lowercase()}",
-                    color = GreenTerminalDim,
-                    fontSize = 13.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "self: ${myNickname.ifBlank { viewModel.myPeerID.take(8) }}",
-                    color = GreenTerminalDim,
-                    fontSize = 13.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Verified Self",
-                    tint = GreenTerminal,
-                    modifier = Modifier.size(14.dp)
+                TopAppBar(
+                    title = {
+                        ChatHeaderContent(
+                            selectedPrivatePeer = null,
+                            currentChannel = null,
+                            nickname = myNickname,
+                            viewModel = viewModel,
+                            onBackClick = {},
+                            onSidebarClick = { viewModel.showMeshPeerList() },
+                            onTripleClick = { viewModel.panicClearAllData() },
+                            onShowAppInfo = { viewModel.showAppInfo() },
+                            onLocationChannelsClick = { showLocationChannelsSheet = true },
+                            onLocationNotesClick = { showLocationNotesSheet = true },
+                            onTelemetryMapClick = { showTelemetryMapSheet = true },
+                            onPeerVerificationClick = { showPeersSheet = true },
+                            onSwitchToChat = { onSwitchToChat?.invoke() },
+                            isRadarMode = true
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    ),
+                    modifier = Modifier.height(42.dp)
                 )
             }
-        }
 
-        // Radar view or waiting screen
-        val mineLoc = myLocation
-        if (mineLoc == null) {
-            Column(
-                modifier = Modifier.align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                CircularProgressIndicator(
-                    color = GreenTerminal,
-                    strokeWidth = 2.dp
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "waiting for gps location fix...",
-                    color = GreenTerminalDim,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 110.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                RadarCanvasView(
-                    peers = activePeers,
-                    headingDegrees = headingDegrees,
-                    maxDistanceRange = selectedZoomLevel.toDouble()
-                )
-            }
-        }
-
-        // Bottom Zoom Controls Panel (Exact OG Style)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "RANGE SCALE",
-                color = GreenTerminalDim,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 2.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Outer Card Container
+            // 2. Centered Heading Info (heading: 12° N)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(GreenCardBg, RoundedCornerShape(16.dp))
-                    .border(1.dp, GreenCardBorder, RoundedCornerShape(16.dp))
-                    .padding(12.dp)
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val row1 = listOf(5f to "5m", 10f to "10m", 25f to "25m", 50f to "50m")
-                val row2 = listOf(100f to "100m", 250f to "250m", 500f to "500km", 1000f to "1km")
+                Text(
+                    text = "heading: ${headingDegrees.toInt()}° ${cardinalFromDegrees(headingDegrees)}",
+                    color = greenTerminal,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
 
-                // Row 1
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
-                ) {
-                    row1.forEach { (zoomValue, label) ->
-                        val isSelected = selectedZoomLevel == zoomValue
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .clickable { selectedZoomLevel = zoomValue },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                color = if (isSelected) CyanSelfDot else GreenTerminalDim,
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
+            // 3. Radar view or waiting screen - claims 100% remaining middle height via weight(1f)
+            val mineLoc = myLocation
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (mineLoc == null) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = greenTerminal,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "waiting for gps location fix...",
+                            color = greenTerminalDim,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
                     }
+                } else {
+                    RadarCanvasView(
+                        peers = activePeers,
+                        headingDegrees = headingDegrees,
+                        maxDistanceRange = selectedZoomLevel.toDouble(),
+                        isDark = isDark,
+                        onPeerClick = { peerID ->
+                            viewModel.showPrivateChatSheet(peerID)
+                            onSwitchToChat?.invoke()
+                        }
+                    )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(4.dp))
+            // 4. Bottom Zoom Controls Panel (Exact OG Style)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "RANGE SCALE",
+                    color = greenTerminalDim,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 2.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Row 2
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
+                // Outer Card Container
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(greenCardBg, RoundedCornerShape(16.dp))
+                        .border(1.dp, greenCardBorder, RoundedCornerShape(16.dp))
+                        .padding(12.dp)
                 ) {
-                    row2.forEach { (zoomValue, label) ->
-                        val isSelected = selectedZoomLevel == zoomValue
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .clickable { selectedZoomLevel = zoomValue },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                    val row1 = listOf(5f to "5m", 10f to "10m", 25f to "25m", 50f to "50m")
+                    val row2 = listOf(100f to "100m", 250f to "250m", 500f to "500km", 1000f to "1km")
+
+                    // Row 1
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround
+                    ) {
+                        row1.forEach { (zoomValue, label) ->
+                            val isSelected = selectedZoomLevel == zoomValue
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clickable { selectedZoomLevel = zoomValue },
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Text(
                                     text = label,
-                                    color = if (isSelected) CyanSelfDot else GreenTerminalDim,
+                                    color = if (isSelected) CyanSelfDot else greenTerminalDim,
                                     fontSize = 13.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                     fontFamily = FontFamily.Monospace
                                 )
-                                if (isSelected) {
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = "Selected",
-                                        tint = CyanSelfDot,
-                                        modifier = Modifier.size(12.dp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Row 2
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround
+                    ) {
+                        row2.forEach { (zoomValue, label) ->
+                            val isSelected = selectedZoomLevel == zoomValue
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clickable { selectedZoomLevel = zoomValue },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) CyanSelfDot else greenTerminalDim,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        fontFamily = FontFamily.Monospace
                                     )
+                                    if (isSelected) {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = "Selected",
+                                            tint = CyanSelfDot,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        }
-
-        // Incoming Verification Request Alert Dialog
-        val requestPeerID = incomingVerifyRequestPeer
-        if (requestPeerID != null) {
-            val requesterName = peerNicknames[requestPeerID] ?: requestPeerID.take(8)
-            AlertDialog(
-                onDismissRequest = { viewModel.rejectLocationVerificationRequest(requestPeerID) },
-                title = {
-                    Text(
-                        text = "LOCATION SHARE REQUEST",
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = GreenTerminal
-                    )
-                },
-                text = {
-                    Text(
-                        text = "$requesterName wants to share live radar location with you. Do you accept?",
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { viewModel.acceptLocationVerificationRequest(requestPeerID) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00C851))
-                    ) {
-                        Text("ACCEPT", fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                },
-                dismissButton = {
-                    Button(
-                        onClick = { viewModel.rejectLocationVerificationRequest(requestPeerID) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f))
-                    ) {
-                        Text("REJECT", fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                },
-                containerColor = Color(0xFF14241A),
-                shape = RoundedCornerShape(16.dp)
-            )
         }
 
         // Mesh Peer Verification Bottom Sheet
@@ -573,6 +496,75 @@ fun RadarScreen(
                 }
             }
         }
+        
+        // Sheet dialogs accessible from top header
+        if (showLocationNotesSheet) {
+            LocationNotesSheetPresenter(
+                viewModel = viewModel,
+                onDismiss = { showLocationNotesSheet = false }
+            )
+        }
+        if (showTelemetryMapSheet) {
+            TelemetryMapSheet(
+                isPresented = showTelemetryMapSheet,
+                viewModel = viewModel,
+                onDismiss = { showTelemetryMapSheet = false }
+            )
+        }
+        if (showLocationChannelsSheet) {
+            LocationChannelsSheet(
+                isPresented = showLocationChannelsSheet,
+                onDismiss = { showLocationChannelsSheet = false },
+                viewModel = viewModel
+            )
+        }
+        if (showMeshPeerListSheet) {
+            MeshPeerListSheet(
+                isPresented = showMeshPeerListSheet,
+                viewModel = viewModel,
+                onDismiss = {
+                    viewModel.hideMeshPeerList()
+                    if (viewModel.privateChatSheetPeer.value != null || viewModel.selectedPrivateChatPeer.value != null) {
+                        onSwitchToChat?.invoke()
+                    }
+                },
+                onShowVerification = {
+                    viewModel.hideMeshPeerList()
+                    viewModel.showVerificationSheet(fromSidebar = true)
+                }
+            )
+        }
+        if (showVerificationSheet) {
+            VerificationSheet(
+                isPresented = showVerificationSheet,
+                onDismiss = { viewModel.hideVerificationSheet() },
+                viewModel = viewModel
+            )
+        }
+        if (showSecurityVerificationSheet) {
+            SecurityVerificationSheet(
+                isPresented = showSecurityVerificationSheet,
+                onDismiss = { viewModel.hideSecurityVerificationSheet() },
+                viewModel = viewModel
+            )
+        }
+        if (showAppInfo) {
+            AboutSheet(
+                isPresented = showAppInfo,
+                onDismiss = { viewModel.hideAppInfo() }
+            )
+        }
+        if (privateChatSheetPeer != null) {
+            PrivateChatSheet(
+                isPresented = true,
+                peerID = privateChatSheetPeer!!,
+                viewModel = viewModel,
+                onDismiss = {
+                    viewModel.hidePrivateChatSheet()
+                    viewModel.endPrivateChat()
+                }
+            )
+        }
     }
 }
 
@@ -580,10 +572,13 @@ fun RadarScreen(
 private fun RadarCanvasView(
     peers: List<RadarPeer>,
     headingDegrees: Float,
-    maxDistanceRange: Double
+    maxDistanceRange: Double,
+    isDark: Boolean = true,
+    onPeerClick: ((String) -> Unit)? = null
 ) {
-    val ringColor = Color(0xFF14301F)
-    val ringTextColor = android.graphics.Color.parseColor("#4A7A66")
+    val ringColor = if (isDark) Color(0xFF14301F) else Color(0xFFC8E6C9)
+    val ringTextColor = if (isDark) android.graphics.Color.parseColor("#4A7A66") else android.graphics.Color.parseColor("#2E7D32")
+    val cardinalTextColor = if (isDark) android.graphics.Color.parseColor("#00FF66") else android.graphics.Color.parseColor("#008833")
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val density = LocalDensity.current
@@ -592,9 +587,39 @@ private fun RadarCanvasView(
         val margin30DpPx = with(density) { 30.dp.toPx() }
         val maxRadiusPx = (min(widthPx, heightPx) / 2f - margin30DpPx).coerceAtLeast(1f)
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val center = Offset(size.width / 2f, size.height / 2f)
-            val maxRadius = maxRadiusPx
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(peers, headingDegrees, maxDistanceRange, maxRadiusPx) {
+                    detectTapGestures { tapOffset ->
+                        val center = Offset(size.width / 2f, size.height / 2f)
+                        val theta = Math.toRadians(-headingDegrees.toDouble())
+                        val cosT = cos(theta)
+                        val sinT = sin(theta)
+                        val touchRadiusPx = 30.dp.toPx()
+
+                        val hitPeer = peers.firstOrNull { peer ->
+                            val (targetX, targetY) = RadarMathEngine.toCartesian(
+                                distance = peer.distance,
+                                relativeAngleDegrees = peer.bearing,
+                                maxDistance = maxDistanceRange,
+                                maxRadius = maxRadiusPx.toDouble()
+                            )
+                            val finalX = center.x + (targetX * cosT - targetY * sinT).toFloat()
+                            val finalY = center.y + (targetX * sinT + targetY * cosT).toFloat()
+                            val dx = tapOffset.x - finalX
+                            val dy = tapOffset.y - finalY
+                            (dx * dx + dy * dy) <= (touchRadiusPx * touchRadiusPx)
+                        }
+                        if (hitPeer != null) {
+                            onPeerClick?.invoke(hitPeer.peerID)
+                        }
+                    }
+                }
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val center = Offset(size.width / 2f, size.height / 2f)
+                val maxRadius = maxRadiusPx
 
             // 1. Draw Concentric Reference Rings
             val rings = listOf(0.25f, 0.50f, 1.00f)
@@ -611,12 +636,12 @@ private fun RadarCanvasView(
             drawLine(ringColor, Offset(center.x, center.y - maxRadius), Offset(center.x, center.y + maxRadius), strokeWidth = 1.dp.toPx())
             drawLine(ringColor, Offset(center.x - maxRadius, center.y), Offset(center.x + maxRadius, center.y), strokeWidth = 1.dp.toPx())
 
-            // 2. Draw Compass Cardinals (n, e, s, w) Rotating on the Outer Circle (Exact OG Style)
+            // 2. Draw Compass Cardinals (N, E, S, W) Rotating on the Outer Circle (Exact OG Style)
             val cardinalPoints = listOf(
-                "n" to 0.0,
-                "e" to 90.0,
-                "s" to 180.0,
-                "w" to 270.0
+                "N" to 0.0,
+                "E" to 90.0,
+                "S" to 180.0,
+                "W" to 270.0
             )
             drawIntoCanvas { canvas ->
                 val nativeCanvas = canvas.nativeCanvas
@@ -624,7 +649,7 @@ private fun RadarCanvasView(
                     textSize = 14.sp.toPx()
                     textAlign = android.graphics.Paint.Align.CENTER
                     typeface = android.graphics.Typeface.create(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD)
-                    color = android.graphics.Color.parseColor("#00FF66")
+                    color = cardinalTextColor
                 }
                 cardinalPoints.forEach { (label, trueBearing) ->
                     val relativeAngle = RadarMathEngine.calculateRelativeAngle(trueBearing, headingDegrees.toDouble())
@@ -696,7 +721,7 @@ private fun RadarCanvasView(
                     val finalX = center.x + (animX * cosT - animY * sinT).toFloat()
                     val finalY = center.y + (animX * sinT + animY * cosT).toFloat()
 
-                    val peerDotColor = Color(0xFF00FF66)
+                    val peerDotColor = colorForPeer(peer.peerID)
                     drawCircle(
                         color = peerDotColor.copy(alpha = peer.opacity * 0.25f),
                         radius = 12.dp.toPx(),
@@ -711,7 +736,7 @@ private fun RadarCanvasView(
                     drawIntoCanvas { canvas ->
                         val nativeCanvas = canvas.nativeCanvas
                         val textPaint = android.graphics.Paint().apply {
-                            color = android.graphics.Color.WHITE
+                            color = peerDotColor.toArgb()
                             textSize = 11.sp.toPx()
                             textAlign = android.graphics.Paint.Align.CENTER
                             typeface = android.graphics.Typeface.create(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD)
@@ -732,6 +757,25 @@ private fun RadarCanvasView(
             }
         }
     }
+}
+}
+
+private val PEER_COLOR_PALETTE = listOf(
+    Color(0xFF00FF66), // Matrix Neon Green
+    Color(0xFF00E5FF), // Bright Cyan
+    Color(0xFFFF3366), // Coral Pink / Neon Red
+    Color(0xFFFFD600), // Vibrant Amber / Yellow
+    Color(0xFFA066FF), // Neon Purple / Violet
+    Color(0xFFFF9100), // Electric Orange
+    Color(0xFF00E676), // Spring Green
+    Color(0xFF1DE9B6), // Teal Mint
+    Color(0xFFFF4081), // Deep Pink
+    Color(0xFF7C4DFF)  // Deep Indigo
+)
+
+private fun colorForPeer(peerID: String): Color {
+    val hash = kotlin.math.abs(peerID.hashCode())
+    return PEER_COLOR_PALETTE[hash % PEER_COLOR_PALETTE.size]
 }
 
 @Composable

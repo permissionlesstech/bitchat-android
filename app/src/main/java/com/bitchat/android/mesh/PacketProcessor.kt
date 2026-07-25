@@ -150,22 +150,13 @@ class PacketProcessor(private val myPeerID: String) {
             MessageType.ANNOUNCE -> handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.LOCATION -> {
-                val serviceContext = com.bitchat.android.service.MeshServiceHolder.meshService?.context
-                val isVerified = if (serviceContext != null) {
-                    com.bitchat.android.geohash.VerifiedLocationPeersStore.getInstance(serviceContext).isVerified(peerID)
-                } else false
-
-                if (!isVerified) {
-                    Log.d(TAG, "🔒 Dropped location telemetry from unverified peer ${formatPeerForLog(peerID)}")
-                    return
-                }
-
+                val canonicalPeerID = peerID.lowercase()
                 try {
                     val telemetry = LocationTelemetryPacket.decode(packet.payload)
                     if (telemetry != null) {
-                        Log.d(TAG, "📍 Received location telemetry from ${formatPeerForLog(peerID)} lat=${telemetry.latitude}, lon=${telemetry.longitude}, time=${telemetry.timestampSeconds}")
+                        Log.d(TAG, "📍 Received location telemetry from ${formatPeerForLog(canonicalPeerID)} lat=${telemetry.latitude}, lon=${telemetry.longitude}, time=${telemetry.timestampSeconds}")
                         AppStateStore.updatePeerLocation(
-                            peerID = peerID,
+                            peerID = canonicalPeerID,
                             latitude = telemetry.latitude.toDouble(),
                             longitude = telemetry.longitude.toDouble(),
                             timestampMs = if (telemetry.timestampSeconds > 0L) telemetry.timestampSeconds * 1000L else System.currentTimeMillis()
@@ -197,22 +188,28 @@ class PacketProcessor(private val myPeerID: String) {
                                 }
                                 Log.d(
                                     TAG,
-                                    "📏 Distance to ${formatPeerForLog(peerID)} = ${distanceMeters} meters; 🧭 Bearing = ${"%.1f".format(bearingNorm)}° (${cardinal})"
+                                    "📏 Distance to ${formatPeerForLog(canonicalPeerID)} = ${distanceMeters} meters; 🧭 Bearing = ${"%.1f".format(bearingNorm)}° (${cardinal})"
                                 )
                             } else {
                                 Log.d(TAG, "📏 My last known location unavailable; cannot compute distance")
                             }
                         } catch (e: Exception) {
-                            Log.w(TAG, "Error computing distance to ${formatPeerForLog(peerID)}: ${e.message}")
+                            Log.w(TAG, "Error computing distance to ${formatPeerForLog(canonicalPeerID)}: ${e.message}")
                         }
                     } else {
-                        Log.w(TAG, "Failed to decode location telemetry payload from ${formatPeerForLog(peerID)}")
+                        Log.w(TAG, "Failed to decode location telemetry payload from ${formatPeerForLog(canonicalPeerID)}")
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error decoding location payload from ${formatPeerForLog(peerID)}: ${e.message}", e)
+                    Log.e(TAG, "Error decoding location payload from ${formatPeerForLog(canonicalPeerID)}: ${e.message}", e)
                 }
             }
             MessageType.LOCATION_VERIFY -> {
+                // Ignore location verification packets not addressed to me
+                if (!packetRelayManager.isPacketAddressedToMe(packet)) {
+                    Log.d(TAG, "🔒 Ignoring LOCATION_VERIFY packet addressed to recipient (not me)")
+                    return
+                }
+                val canonicalPeerID = peerID.lowercase()
                 try {
                     val verify = com.bitchat.android.protocol.LocationVerifyPacket.decode(packet.payload)
                     if (verify != null) {
@@ -221,19 +218,20 @@ class PacketProcessor(private val myPeerID: String) {
                             val store = com.bitchat.android.geohash.VerifiedLocationPeersStore.getInstance(serviceContext)
                             when (verify.action) {
                                 com.bitchat.android.protocol.LocationVerifyPacket.Action.REQUEST -> {
-                                    Log.i(TAG, "📩 Location verify REQUEST received from ${formatPeerForLog(peerID)}")
-                                    AppStateStore.showIncomingVerifyRequest(peerID)
+                                    Log.i(TAG, "📩 Location verify REQUEST received from ${formatPeerForLog(canonicalPeerID)}")
+                                    AppStateStore.showIncomingVerifyRequest(canonicalPeerID)
                                 }
                                 com.bitchat.android.protocol.LocationVerifyPacket.Action.ACCEPT -> {
-                                    Log.i(TAG, "✅ Location verify ACCEPT received from ${formatPeerForLog(peerID)}")
-                                    store.addVerifiedPeer(peerID)
-                                    MeshServiceHolder.lastKnownLocation?.let { loc ->
-                                        MeshServiceHolder.meshService?.sendLocationTelemetry(loc)
-                                    }
+                                    Log.i(TAG, "✅ Location verify ACCEPT received from ${formatPeerForLog(canonicalPeerID)}")
+                                    store.addVerifiedPeer(canonicalPeerID)
+                                    MeshServiceHolder.locationTelemetryManager?.broadcastCurrentLocationImmediately()
+                                        ?: MeshServiceHolder.lastKnownLocation?.let { loc ->
+                                            MeshServiceHolder.meshService?.sendLocationTelemetry(loc)
+                                        }
                                 }
                                 com.bitchat.android.protocol.LocationVerifyPacket.Action.REJECT -> {
-                                    Log.w(TAG, "❌ Location verify REJECT received from ${formatPeerForLog(peerID)}")
-                                    store.recordRejection(peerID)
+                                    Log.w(TAG, "❌ Location verify REJECT received from ${formatPeerForLog(canonicalPeerID)}")
+                                    store.recordRejection(canonicalPeerID)
                                 }
                             }
                         }
