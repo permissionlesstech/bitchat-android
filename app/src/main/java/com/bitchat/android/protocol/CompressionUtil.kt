@@ -13,9 +13,7 @@ import java.util.zip.Inflater
 object CompressionUtil {
     private const val COMPRESSION_THRESHOLD = com.bitchat.android.util.AppConstants.Protocol.COMPRESSION_THRESHOLD_BYTES  // bytes - same as iOS
 
-    // Inflation allocates the full declared output buffer. Keep that allocation single-flight so
-    // concurrent packets cannot multiply the bounded per-packet memory cost.
-    private val decompressionLock = Any()
+    private val decompressionPool = DecompressionResourcePool.forRuntime()
     
     /**
      * Helper to check if compression is worth it - exact same logic as iOS
@@ -78,46 +76,69 @@ object CompressionUtil {
      * iOS COMPRESSION_ZLIB produces raw deflate data (no headers)
      */
     fun decompress(compressedData: ByteArray, originalSize: Int): ByteArray? {
+        if (!isValidRequest(compressedData, originalSize)) return null
+        return withDecompressionResources(originalSize.toLong()) {
+            decompressWithResourcesReserved(compressedData, originalSize)
+        }
+    }
+
+    internal fun <T> withDecompressionResources(bytes: Long, block: () -> T): T? =
+        decompressionPool.withReservation(bytes, block)
+
+    /**
+     * Inflate after the caller has reserved all packet-specific allocations.
+     * This avoids nested acquisition when BinaryProtocol reserves both its input copy and output.
+     */
+    internal fun decompressWithResourcesReserved(
+        compressedData: ByteArray,
+        originalSize: Int
+    ): ByteArray? {
+        if (!isValidRequest(compressedData, originalSize)) return null
+        return decompressExact(compressedData, originalSize)
+    }
+
+    private fun isValidRequest(compressedData: ByteArray, originalSize: Int): Boolean {
         val maxExpandedSize = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
         if (compressedData.isEmpty()) {
             Log.w("CompressionUtil", "Refusing an empty compressed payload")
-            return null
+            return false
         }
         if (originalSize <= 0 || originalSize > maxExpandedSize) {
             Log.w(
                 "CompressionUtil",
                 "Refusing expanded payload size $originalSize outside 1..$maxExpandedSize"
             )
-            return null
+            return false
         }
+        return true
+    }
 
-        return synchronized(decompressionLock) {
-            if (looksLikeZlib(compressedData)) {
-                // A raw stream can coincidentally begin with a valid-looking zlib header. The
-                // header therefore only determines which format to try first; any non-exact zlib
-                // result must still fall back to raw under the same size/completion bounds.
-                val zlibResult = try {
-                    inflateExact(compressedData, originalSize, nowrap = false)
-                } catch (zlibException: DataFormatException) {
-                    null
-                }
-                if (zlibResult != null) {
-                    zlibResult
-                } else {
-                    try {
-                        inflateExact(compressedData, originalSize, nowrap = true)
-                    } catch (rawException: DataFormatException) {
-                        Log.d("CompressionUtil", "Invalid zlib/raw deflate stream")
-                        null
-                    }
-                }
+    private fun decompressExact(compressedData: ByteArray, originalSize: Int): ByteArray? {
+        return if (looksLikeZlib(compressedData)) {
+            // A raw stream can coincidentally begin with a valid-looking zlib header. The
+            // header therefore only determines which format to try first; any non-exact zlib
+            // result must still fall back to raw under the same size/completion bounds.
+            val zlibResult = try {
+                inflateExact(compressedData, originalSize, nowrap = false)
+            } catch (zlibException: DataFormatException) {
+                null
+            }
+            if (zlibResult != null) {
+                zlibResult
             } else {
                 try {
                     inflateExact(compressedData, originalSize, nowrap = true)
                 } catch (rawException: DataFormatException) {
-                    Log.d("CompressionUtil", "Invalid raw deflate stream")
+                    Log.d("CompressionUtil", "Invalid zlib/raw deflate stream")
                     null
                 }
+            }
+        } else {
+            try {
+                inflateExact(compressedData, originalSize, nowrap = true)
+            } catch (rawException: DataFormatException) {
+                Log.d("CompressionUtil", "Invalid raw deflate stream")
+                null
             }
         }
     }

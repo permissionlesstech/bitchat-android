@@ -183,10 +183,6 @@ object BinaryProtocol {
     private const val SENDER_ID_SIZE = 8
     private const val RECIPIENT_ID_SIZE = 8
     private const val SIGNATURE_SIZE = 64
-    // Acquire before copying compressed input so queued decodes cannot each retain another
-    // near-limit payload while waiting for the inflater's single-flight lock.
-    private val compressedDecodeLock = Any()
-
     object Flags {
         const val HAS_RECIPIENT: UByte = 0x01u
         const val HAS_SIGNATURE: UByte = 0x02u
@@ -337,7 +333,7 @@ object BinaryProtocol {
     }
     
     fun decode(data: ByteArray): BitchatPacket? =
-        decode(data, CompressionUtil::decompress)
+        decode(data, CompressionUtil::decompressWithResourcesReserved)
 
     /** Test seam used to prove rejected expansion sizes never reach inflation. */
     internal fun decodeForTesting(
@@ -485,9 +481,10 @@ object BinaryProtocol {
                     return null
                 }
                 
-                // Copy and inflate single-flight. Acquiring before the copy bounds both the
-                // compressed input copy and expanded output allocation across concurrent decodes.
-                val expandedPayload = synchronized(compressedDecodeLock) {
+                // Reserve the compressed copy plus expanded output before either allocation.
+                // Small packets share the memory pool; packets wait only while its budget is full.
+                val resourceBytes = compressedSize.toLong() + originalSize.toLong()
+                val expandedPayload = CompressionUtil.withDecompressionResources(resourceBytes) {
                     val compressedPayload = ByteArray(compressedSize)
                     buffer.get(compressedPayload)
                     decompress(compressedPayload, originalSize)
