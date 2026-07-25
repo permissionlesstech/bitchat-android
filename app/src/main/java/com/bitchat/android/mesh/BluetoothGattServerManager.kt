@@ -50,6 +50,11 @@ class BluetoothGattServerManager(
     // State management
     private var isActive = false
 
+    // Reassembles BLE prepared ("reliable"/long) writes. iOS uses these to send
+    // packets larger than the negotiated ATT MTU: the payload arrives as several
+    // preparedWrite chunks and is finalized by onExecuteWrite.
+    private val preparedWriteBuffer = GattPreparedWriteBuffer()
+
     private fun isBleTransportEnabled(): Boolean {
         return try {
             com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
@@ -159,6 +164,24 @@ class BluetoothGattServerManager(
      * Get characteristic instance
      */
     fun getCharacteristic(): BluetoothGattCharacteristic? = characteristic
+
+    /**
+     * Parse a fully-received payload and hand it to the delegate. Shared by the
+     * non-prepared write path and the reassembled prepared-write path so both
+     * behave identically once a complete payload is in hand.
+     */
+    private fun handleReceivedPacket(device: BluetoothDevice, value: ByteArray) {
+        Log.i(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
+        val packet = BitchatPacket.fromBinaryData(value)
+        if (packet != null) {
+            val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
+            Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
+            delegate?.onPacketReceived(packet, peerID, device)
+        } else {
+            Log.w(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
+            Log.w(TAG, "Server: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
+        }
+    }
     
     /**
      * Setup GATT server with proper sequencing
@@ -199,6 +222,8 @@ class BluetoothGattServerManager(
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         Log.i(TAG, "Server: Device disconnected ${device.address}")
                         connectionTracker.cleanupDeviceConnection(device.address)
+                        // Drop any in-flight prepared-write buffer for this device to avoid leaks
+                        preparedWriteBuffer.cancel(device.address)
                         // Notify delegate about device disconnection so higher layers can update direct flags
                         delegate?.onDeviceDisconnected(device)
                     }
@@ -235,21 +260,54 @@ class BluetoothGattServerManager(
                 }
                 
                 if (characteristic.uuid == AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID) {
-                    Log.i(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
-                    val packet = BitchatPacket.fromBinaryData(value)
-                    if (packet != null) {
-                        val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
-                        Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
-                        delegate?.onPacketReceived(packet, peerID, device)
-                    } else {
-                        Log.w(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
-                        Log.w(TAG, "Server: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
+                    if (preparedWrite) {
+                        // BLE reliable/long write (used by iOS for packets larger than the
+                        // negotiated ATT MTU): buffer this chunk by offset and defer parsing
+                        // until onExecuteWrite reassembles the full payload.
+                        val accepted = preparedWriteBuffer.append(device.address, offset, value)
+                        if (accepted) {
+                            Log.d(TAG, "Server: Buffered prepared-write chunk from ${device.address} (offset=$offset, size=${value.size})")
+                        } else {
+                            Log.w(TAG, "Server: Rejected prepared-write chunk from ${device.address} (offset=$offset, size=${value.size}); buffer limit exceeded")
+                        }
+                        // Prepared-write protocol requires echoing the offset and value back
+                        if (responseNeeded) {
+                            gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
+                        }
+                        return
                     }
-                    
+
+                    handleReceivedPacket(device, value)
+
                     if (responseNeeded) {
                         gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
                     }
                 }
+            }
+
+            override fun onExecuteWrite(device: BluetoothDevice, requestId: Int, execute: Boolean) {
+                // Guard against callbacks after service shutdown
+                if (!isActive) {
+                    Log.d(TAG, "Server: Ignoring execute write after shutdown")
+                    preparedWriteBuffer.cancel(device.address)
+                    return
+                }
+
+                if (execute) {
+                    val assembled = preparedWriteBuffer.execute(device.address)
+                    if (assembled != null) {
+                        Log.i(TAG, "Server: Reassembled prepared write from ${device.address}, size: ${assembled.size} bytes")
+                        handleReceivedPacket(device, assembled)
+                    } else {
+                        Log.w(TAG, "Server: Execute write from ${device.address} with no or oversized buffered data; dropped")
+                    }
+                } else {
+                    // Client cancelled the long write; discard the buffered chunks
+                    preparedWriteBuffer.cancel(device.address)
+                }
+
+                // An execute-write always expects a response
+                gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
             }
             
             override fun onDescriptorWriteRequest(
