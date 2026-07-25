@@ -1,5 +1,4 @@
 package com.bitchat.android.ui
-// [Goose] TODO: Replace inline file attachment stub with FilePickerButton abstraction that dispatches via FileShareDispatcher
 
 
 import androidx.compose.foundation.*
@@ -43,6 +42,7 @@ import com.bitchat.android.features.voice.AudioWaveformExtractor
 import com.bitchat.android.ui.media.RealtimeScrollingWaveform
 import com.bitchat.android.ui.media.ImagePickerButton
 import com.bitchat.android.ui.media.FilePickerButton
+import com.bitchat.android.ui.events.FileShareDispatcher
 
 /**
  * Input components for ChatScreen
@@ -267,12 +267,12 @@ fun MessageInput(
             if (!isRecording) {
                 // Revert to original separate buttons: round File button (left) and the old Image plus button (right)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // DISABLE FILE PICKER
-                    //FilePickerButton(
-                    //    onFileReady = { path ->
-                    //        onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
-                    //    }
-                    //)
+                    // use FileShareDispatcher as requested
+                    FilePickerButton(
+                        onFileReady = { path ->
+                            FileShareDispatcher.dispatch(latestSelectedPeer.value, latestChannel.value, path)
+                        }
+                    )
                     ImagePickerButton(
                         onImageReady = { outPath ->
                             onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
