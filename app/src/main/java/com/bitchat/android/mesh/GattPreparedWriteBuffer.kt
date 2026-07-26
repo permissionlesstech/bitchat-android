@@ -97,6 +97,15 @@ class GattPreparedWriteBuffer(
         buffers.remove(deviceKey)
     }
 
+    /**
+     * Drop every device's buffered chunks. Used when the GATT server shuts down, since a
+     * disconnect that happens after the server is already marked inactive never reaches the
+     * per-device cancel path.
+     */
+    fun clearAll() {
+        buffers.clear()
+    }
+
     /** Number of devices currently holding buffered chunks (diagnostics/tests). */
     fun activeDeviceCount(): Int = buffers.size
 }

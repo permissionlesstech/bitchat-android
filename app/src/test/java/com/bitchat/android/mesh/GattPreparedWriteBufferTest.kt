@@ -144,4 +144,17 @@ class GattPreparedWriteBufferTest {
         val result = small.execute(device)
         assertEquals(16, result?.size)
     }
+
+    @Test
+    fun `clearAll drops every device's buffered chunks`() {
+        buffer.append("AA:BB:CC:DD:EE:0A", 0, bytes(1, 2, 3))
+        buffer.append("AA:BB:CC:DD:EE:0B", 0, bytes(4, 5, 6))
+        assertEquals(2, buffer.activeDeviceCount())
+
+        buffer.clearAll()
+
+        assertEquals(0, buffer.activeDeviceCount())
+        assertNull(buffer.execute("AA:BB:CC:DD:EE:0A"))
+        assertNull(buffer.execute("AA:BB:CC:DD:EE:0B"))
+    }
 }

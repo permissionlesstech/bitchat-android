@@ -123,6 +123,10 @@ class BluetoothGattServerManager(
      * Stop GATT server
      */
     fun stop() {
+        // Drop any half-finished prepared writes. A disconnect after the server is marked
+        // inactive returns early before the per-device cancel path, so clear them here.
+        preparedWriteBuffer.clearAll()
+
         if (!isActive) {
             // Idempotent stop
             stopAdvertising()
