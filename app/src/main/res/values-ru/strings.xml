@@ -264,7 +264,6 @@
     <string name="grant_permissions">Выдать разрешения</string>
     <string name="location_tracking_warning">bitchat НЕ отслеживает вашу геопозицию</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">ЛЮДИ</string>
     <string name="nobody_around">никого рядом…</string>
@@ -404,4 +403,5 @@
   <string name="notices_enable_location">включить локацию</string>
   <string name="notices_alert_urgent_single">📌 срочное объявление от @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d новых срочных объявлений — нажми на булавку, чтобы посмотреть</string>
+    <string name="cd_open_about">Открыть раздел «О приложении»</string>
 </resources>

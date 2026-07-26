@@ -392,7 +392,7 @@
   <string name="grant_permissions">Grant Permissions</string>
   <string name="location_tracking_warning">bitchat does NOT track your location</string>
   <string name="at_symbol">@</string>
-  <string name="app_brand">bitchat/</string>
+  <string name="cd_open_about">Open About</string>
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="geohash_people_header">PEOPLE</string>
   <string name="nobody_around">nobody around...</string>

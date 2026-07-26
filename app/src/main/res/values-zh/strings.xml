@@ -280,7 +280,6 @@
     <string name="grant_permissions">授予权限</string>
     <string name="location_tracking_warning">bitchat 不会跟踪你的位置</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">成员</string>
     <string name="nobody_around">附近无人…</string>
@@ -427,4 +426,5 @@
   <string name="notices_enable_location">启用位置</string>
   <string name="notices_alert_urgent_single">📌 来自 @%1$s 的紧急公告：%2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d 条新紧急公告 — 点按图钉查看</string>
+    <string name="cd_open_about">打开“关于”</string>
 </resources>

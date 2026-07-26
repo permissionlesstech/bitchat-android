@@ -340,7 +340,6 @@
 
     <!-- Symbolen &amp; speciale strings -->
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="image_counter">%1$d / %2$d</string>
@@ -446,4 +445,5 @@
   <string name="notices_enable_location">locatie inschakelen</string>
   <string name="notices_alert_urgent_single">📌 dringende mededeling van @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d nieuwe dringende mededelingen — tik op de pin om te bekijken</string>
+    <string name="cd_open_about">Info openen</string>
 </resources>

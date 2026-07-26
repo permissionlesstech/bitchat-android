@@ -54,4 +54,5 @@
   <string name="notices_enable_location">இடத்தை இயக்கு</string>
   <string name="notices_alert_urgent_single">📌 @%1$s இன் அவசர அறிவிப்பு: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d புதிய அவசர அறிவிப்புகள் — பார்க்க பின்னைத் தட்டவும்</string>
+    <string name="cd_open_about">அறிமுகத்தைத் திற</string>
 </resources>

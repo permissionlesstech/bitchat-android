@@ -264,7 +264,6 @@
     <string name="grant_permissions">İzin ver</string>
     <string name="location_tracking_warning">bitchat konumunu takip etmez</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">KİŞİLER</string>
     <string name="nobody_around">yakında kimse yok…</string>
@@ -402,4 +401,5 @@
   <string name="notices_enable_location">konumu etkinleştir</string>
   <string name="notices_alert_urgent_single">📌 @%1$s kişisinden acil duyuru: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d yeni acil duyuru — görmek için raptiyeye dokun</string>
+    <string name="cd_open_about">Hakkında’yı aç</string>
 </resources>

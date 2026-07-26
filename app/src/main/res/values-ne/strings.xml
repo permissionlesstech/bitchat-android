@@ -280,7 +280,6 @@
     <string name="grant_permissions">अनुमति दिनुहोस्</string>
     <string name="location_tracking_warning">bitchat ले तपाईंको स्थान पछ्याउँदैन</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">मानिसहरू</string>
     <string name="nobody_around">वरिपरि कोही छैन…</string>
@@ -414,4 +413,5 @@
   <string name="notices_enable_location">स्थान सक्षम गर</string>
   <string name="notices_alert_urgent_single">📌 @%1$sको जरुरी सूचना: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d नयाँ जरुरी सूचना — हेर्न पिन ट्याप गर</string>
+    <string name="cd_open_about">परिचय खोल्नुहोस्</string>
 </resources>

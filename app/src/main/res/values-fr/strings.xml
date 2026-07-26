@@ -281,7 +281,6 @@
     <string name="grant_permissions">Accorder les autorisations</string>
     <string name="location_tracking_warning">bitchat ne suit PAS ta position</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">PERSONNES</string>
     <string name="nobody_around">personne aux alentours…</string>
@@ -428,4 +427,5 @@
   <string name="notices_enable_location">activer la localisation</string>
   <string name="notices_alert_urgent_single">📌 annonce urgente de @%1$s : %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d nouvelles annonces urgentes — touche l\'épingle pour voir</string>
+    <string name="cd_open_about">Ouvrir À propos</string>
 </resources>

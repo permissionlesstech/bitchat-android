@@ -414,4 +414,5 @@
   <string name="notices_enable_location">ativar localização</string>
   <string name="notices_alert_urgent_single">📌 aviso urgente de @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d novos avisos urgentes — toca no pin para ver</string>
+    <string name="cd_open_about">Abrir Sobre</string>
 </resources>

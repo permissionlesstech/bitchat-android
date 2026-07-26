@@ -67,4 +67,5 @@
   <string name="notices_enable_location">włącz lokalizację</string>
   <string name="notices_alert_urgent_single">📌 pilne ogłoszenie od @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d nowych pilnych ogłoszeń — dotknij pinezki, aby zobaczyć</string>
+    <string name="cd_open_about">Otwórz informacje</string>
 </resources>

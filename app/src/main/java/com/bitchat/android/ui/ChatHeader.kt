@@ -26,10 +26,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.core.ui.component.button.BitChatBrandButton
 
 /**
  * Header components for ChatScreen
@@ -356,16 +356,18 @@ private fun MainHeader(
             modifier = Modifier.fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(R.string.app_brand),
-                style = MaterialTheme.typography.headlineSmall,
-                color = colorScheme.primary,
-                modifier = Modifier.singleOrTripleClickable(
-                    onSingleClick = onTitleClick,
-                    onTripleClick = onTripleTitleClick
-                )
+            BitChatBrandButton(
+                onClick = onTitleClick,
+                onTripleClick = onTripleTitleClick,
+                contentDescription = stringResource(R.string.cd_open_about),
             )
-            
+
+            Text(
+                text = "/",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colorScheme.primary,
+            )
+
             Spacer(modifier = Modifier.width(2.dp))
             
             NicknameEditor(
