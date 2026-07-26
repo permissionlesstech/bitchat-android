@@ -113,6 +113,30 @@ class UnifiedMeshService(
         }
     }
 
+    override fun sendGroupInvite(payload: ByteArray, recipientPeerID: String) {
+        when {
+            isBleReady(recipientPeerID) -> bluetooth.sendGroupInvite(payload, recipientPeerID)
+            isWifiReady(recipientPeerID) ->
+                wifiService()?.sendGroupInvite(payload, recipientPeerID)
+        }
+    }
+
+    override fun sendGroupKeyUpdate(payload: ByteArray, recipientPeerID: String) {
+        when {
+            isBleReady(recipientPeerID) ->
+                bluetooth.sendGroupKeyUpdate(payload, recipientPeerID)
+            isWifiReady(recipientPeerID) ->
+                wifiService()?.sendGroupKeyUpdate(payload, recipientPeerID)
+        }
+    }
+
+    override fun broadcastGroupMessage(payload: ByteArray) {
+        when {
+            isBleEnabled() -> bluetooth.broadcastGroupMessage(payload)
+            else -> wifiService()?.broadcastGroupMessage(payload)
+        }
+    }
+
     override fun sendFileBroadcast(file: BitchatFilePacket) {
         when {
             isBleEnabled() -> bluetooth.sendFileBroadcast(file)
@@ -273,6 +297,12 @@ class UnifiedMeshService(
         return bluetooth.getStaticNoisePublicKey() ?: wifiService()?.getStaticNoisePublicKey()
     }
 
+    override fun getSigningPublicKey(): ByteArray? =
+        bluetooth.getSigningPublicKey() ?: wifiService()?.getSigningPublicKey()
+
+    override fun signData(data: ByteArray): ByteArray? =
+        bluetooth.signData(data) ?: wifiService()?.signData(data)
+
     override fun shouldShowEncryptionIcon(peerID: String): Boolean {
         return hasEstablishedSession(peerID)
     }
@@ -357,6 +387,26 @@ class UnifiedMeshService(
 
     override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
         delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
+    }
+
+    override fun didReceiveGroupInvite(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {
+        delegate?.didReceiveGroupInvite(peerID, authenticatedRemoteStaticKey, payload)
+    }
+
+    override fun didReceiveGroupKeyUpdate(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {
+        delegate?.didReceiveGroupKeyUpdate(peerID, authenticatedRemoteStaticKey, payload)
+    }
+
+    override fun didReceiveGroupMessage(payload: ByteArray, timestampMs: Long) {
+        delegate?.didReceiveGroupMessage(payload, timestampMs)
     }
 
     override fun didResolvePrivateMediaPolicy(peerID: String) {

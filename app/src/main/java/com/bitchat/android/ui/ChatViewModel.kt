@@ -30,6 +30,13 @@ import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
+import com.bitchat.android.groups.BitchatGroup
+import com.bitchat.android.groups.GroupCommandResult
+import com.bitchat.android.groups.GroupCoordinator
+import com.bitchat.android.groups.GroupCoordinatorContext
+import com.bitchat.android.groups.GroupIds
+import com.bitchat.android.groups.GroupPeerIdentity
+import com.bitchat.android.groups.GroupStore
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
@@ -51,6 +58,8 @@ class ChatViewModel(
 
     companion object {
         private const val TAG = "ChatViewModel"
+        private const val GROUP_COMMAND_USAGE =
+            "usage: /group create <name> · invite @name · remove @name · leave · list"
     }
 
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
@@ -101,6 +110,8 @@ class ChatViewModel(
     private val identityManager by lazy { SecureIdentityStateManager(getApplication()) }
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
+    private val groupStore = GroupStore(application.applicationContext)
+    val groups: StateFlow<List<BitchatGroup>> = groupStore.groups
 
     // Create Noise session delegate for clean dependency injection
     private val noiseSessionDelegate = object : NoiseSessionDelegate {
@@ -116,6 +127,143 @@ class ChatViewModel(
       NotificationManagerCompat.from(application.applicationContext),
       NotificationIntervalManager()
     )
+
+    private val groupCoordinator = GroupCoordinator(object : GroupCoordinatorContext {
+        override val groupStore: GroupStore
+            get() = this@ChatViewModel.groupStore
+        override val nickname: String
+            get() = state.getNicknameValue()
+        override val myPeerID: String
+            get() = mesh.myPeerID
+        override val selectedConversationID: String?
+            get() = state.getSelectedPrivateChatPeerValue()
+
+        override fun myNoiseFingerprint(): String = mesh.getIdentityFingerprint()
+        override fun mySigningPublicKey(): ByteArray? = mesh.getSigningPublicKey()
+        override fun sign(data: ByteArray): ByteArray? = mesh.signData(data)
+
+        override fun peerIDForNickname(nickname: String): String? =
+            mesh.getPeerNicknames().entries.firstOrNull {
+                it.value.equals(nickname, ignoreCase = true)
+            }?.key
+
+        override fun isPeerConnected(peerID: String): Boolean =
+            mesh.getPeerInfo(peerID)?.isConnected == true && mesh.hasEstablishedSession(peerID)
+
+        override fun peerNickname(peerID: String): String? =
+            mesh.getPeerNicknames()[peerID]
+
+        override fun peerIdentity(peerID: String): GroupPeerIdentity? {
+            val info = mesh.getPeerInfo(peerID) ?: return null
+            if (info.signingPublicKey?.size != 32) return null
+            val liveFingerprint = mesh.getPeerFingerprint(peerID) ?: return null
+            val announcedNoiseKey = info.noisePublicKey ?: return null
+            val announcedFingerprint = ContactIdentityResolver.fingerprintHex(announcedNoiseKey)
+            if (!liveFingerprint.equals(announcedFingerprint, ignoreCase = true)) return null
+            return GroupPeerIdentity(
+                liveFingerprint.lowercase(),
+                info.signingPublicKey!!.copyOf()
+            )
+        }
+
+        override fun connectedPeerID(fingerprint: String): String? =
+            mesh.getPeerNicknames().keys.firstOrNull { peerID ->
+                mesh.getPeerInfo(peerID)?.isConnected == true &&
+                    mesh.hasEstablishedSession(peerID) &&
+                    mesh.getPeerFingerprint(peerID).equals(fingerprint, ignoreCase = true)
+            }
+
+        override fun isFingerprintBlocked(fingerprint: String): Boolean =
+            dataManager.isUserBlocked(fingerprint)
+
+        override fun sendGroupInvite(payload: ByteArray, peerID: String) {
+            mesh.sendGroupInvite(payload, peerID)
+        }
+
+        override fun sendGroupKeyUpdate(payload: ByteArray, peerID: String) {
+            mesh.sendGroupKeyUpdate(payload, peerID)
+        }
+
+        override fun broadcastGroupMessage(payload: ByteArray) {
+            mesh.broadcastGroupMessage(payload)
+        }
+
+        override fun appendGroupMessage(
+            groupPeerID: String,
+            message: BitchatMessage
+        ): Boolean {
+            val existing = state.getPrivateChatsValue()[groupPeerID].orEmpty()
+            if (existing.any { it.id == message.id }) return false
+            messageManager.addPrivateMessage(groupPeerID, message)
+            if (state.getSelectedPrivateChatPeerValue() == groupPeerID) {
+                try {
+                    com.bitchat.android.services.SeenMessageStore
+                        .getInstance(getApplication())
+                        .markRead(message.id)
+                } catch (_: Exception) {
+                }
+            }
+            return true
+        }
+
+        override fun markGroupUnread(groupPeerID: String) {
+            state.setUnreadPrivateMessages(
+                state.getUnreadPrivateMessagesValue() + groupPeerID
+            )
+        }
+
+        override fun removeGroupConversation(groupPeerID: String) {
+            messageManager.removePrivateChat(groupPeerID)
+        }
+
+        override fun openGroupConversation(groupPeerID: String) {
+            privateChatManager.startPrivateChat(groupPeerID, mesh)
+            showPrivateChatSheet(groupPeerID)
+        }
+
+        override fun closeGroupConversation() {
+            endPrivateChat()
+        }
+
+        override fun addSystemMessage(message: String) {
+            messageManager.addSystemMessage(message)
+        }
+
+        override fun addGroupSystemMessage(groupPeerID: String, message: String) {
+            messageManager.addPrivateMessage(
+                groupPeerID,
+                BitchatMessage(
+                    sender = "system",
+                    content = message,
+                    timestamp = Date(),
+                    isPrivate = true,
+                    recipientNickname = groupStore.group(groupPeerID)?.name
+                )
+            )
+        }
+
+        override fun notifyGroupMessage(
+            groupPeerID: String,
+            sender: String,
+            message: String
+        ) {
+            notificationManager.showPrivateMessageNotification(groupPeerID, sender, message)
+        }
+    })
+
+    fun handleGroupCommand(arguments: List<String>): GroupCommandResult {
+        val subcommand = arguments.firstOrNull()?.lowercase()
+            ?: return GroupCommandResult(false, GROUP_COMMAND_USAGE)
+        val value = arguments.drop(1).joinToString(" ")
+        return when (subcommand) {
+            "create" -> groupCoordinator.createGroup(value)
+            "invite" -> groupCoordinator.inviteMember(value)
+            "remove" -> groupCoordinator.removeMember(value)
+            "leave" -> groupCoordinator.leaveGroup()
+            "list" -> groupCoordinator.listGroups()
+            else -> GroupCommandResult(false, GROUP_COMMAND_USAGE)
+        }
+    }
 
     private val verificationHandler = VerificationHandler(
         context = application.applicationContext,
@@ -529,6 +677,10 @@ class ChatViewModel(
         val currentChannelValue = state.getCurrentChannelValue()
         
         if (selectedPeer != null) {
+            if (GroupIds.isGroup(selectedPeer)) {
+                groupCoordinator.sendMessage(content, selectedPeer)
+                return
+            }
             // If the selected peer is a temporary Nostr alias or a noise-hex identity, resolve to a canonical target
             selectedPeer = ContactDirectory.canonicalConversationId(
                 com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
@@ -938,6 +1090,26 @@ class ChatViewModel(
     override fun didResolvePrivateMediaPolicy(peerID: String) {
         mediaSendingManager.retryPendingPrivateMedia(peerID)
     }
+
+    override fun didReceiveGroupInvite(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {
+        groupCoordinator.handleInvite(peerID, authenticatedRemoteStaticKey, payload)
+    }
+
+    override fun didReceiveGroupKeyUpdate(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {
+        groupCoordinator.handleKeyUpdate(peerID, authenticatedRemoteStaticKey, payload)
+    }
+
+    override fun didReceiveGroupMessage(payload: ByteArray, timestampMs: Long) {
+        groupCoordinator.handleMessage(payload, timestampMs)
+    }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
         return meshDelegateHandler.decryptChannelMessage(encryptedContent, channel)
@@ -964,6 +1136,11 @@ class ChatViewModel(
         messageManager.clearAllMessages()
         channelManager.clearAllChannels()
         privateChatManager.clearAllPrivateChats()
+        try {
+            com.bitchat.android.services.AppStateStore.clear()
+        } catch (_: Exception) {
+        }
+        groupStore.wipe()
         dataManager.clearAllData()
         
         // Clear seen message store

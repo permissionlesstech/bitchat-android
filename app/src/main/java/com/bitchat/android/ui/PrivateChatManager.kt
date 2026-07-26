@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.groups.GroupIds
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.PeerFingerprintManager
@@ -375,6 +376,11 @@ class PrivateChatManager(
         meshService: MeshService
     ) {
         val canonicalConversationID = ContactDirectory.canonicalConversationId(conversationID)
+        if (GroupIds.isGroup(canonicalConversationID)) {
+            unreadReceivedMessages.remove(canonicalConversationID)
+            messageManager.clearPrivateUnreadMessages(canonicalConversationID)
+            return
+        }
 
         // Collect candidate messages: all incoming messages from this peer in the conversation
         val chats = try { state.getPrivateChatsValue() } catch (_: Exception) { emptyMap<String, List<BitchatMessage>>() }

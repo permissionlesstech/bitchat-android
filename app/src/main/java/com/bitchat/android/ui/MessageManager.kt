@@ -143,6 +143,22 @@ class MessageManager(private val state: ChatState) {
         updatedChats[conversationID] = emptyList()
         state.setPrivateChats(updatedChats)
     }
+
+    fun removePrivateChat(peerID: String) {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val updatedChats = state.getPrivateChatsValue().toMutableMap()
+        updatedChats.remove(peerID)
+        updatedChats.remove(conversationID)
+        state.setPrivateChats(updatedChats)
+        val unread = state.getUnreadPrivateMessagesValue().toMutableSet()
+        unread.remove(peerID)
+        unread.remove(conversationID)
+        state.setUnreadPrivateMessages(unread)
+        try {
+            com.bitchat.android.services.AppStateStore.removePrivateConversation(conversationID)
+        } catch (_: Exception) {
+        }
+    }
     
     fun initializePrivateChat(peerID: String) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)

@@ -546,6 +546,26 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
                 delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
             }
+
+            override fun onGroupInviteReceived(
+                peerID: String,
+                authenticatedRemoteStaticKey: ByteArray,
+                payload: ByteArray
+            ) {
+                delegate?.didReceiveGroupInvite(peerID, authenticatedRemoteStaticKey, payload)
+            }
+
+            override fun onGroupKeyUpdateReceived(
+                peerID: String,
+                authenticatedRemoteStaticKey: ByteArray,
+                payload: ByteArray
+            ) {
+                delegate?.didReceiveGroupKeyUpdate(peerID, authenticatedRemoteStaticKey, payload)
+            }
+
+            override fun onGroupMessageReceived(payload: ByteArray, timestampMs: Long) {
+                delegate?.didReceiveGroupMessage(payload, timestampMs)
+            }
         }
         
         // PacketProcessor delegates
@@ -633,6 +653,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                         gossipSyncManager.onPublicPacketSeen(pkt)
                     }
                 } catch (_: Exception) { }
+            }
+
+            override fun handleGroupMessage(routed: RoutedPacket) {
+                messageHandler.handleGroupMessage(routed)
+                try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
             }
             
             override fun handleLeave(routed: RoutedPacket) {
@@ -1192,6 +1217,42 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         sendNoisePayloadToPeer(payload, peerID, "verify response")
     }
 
+    fun sendGroupInvite(payload: ByteArray, recipientPeerID: String) {
+        sendNoisePayloadToPeer(
+            NoisePayload(NoisePayloadType.GROUP_INVITE, payload),
+            recipientPeerID,
+            "group invite"
+        )
+    }
+
+    fun sendGroupKeyUpdate(payload: ByteArray, recipientPeerID: String) {
+        sendNoisePayloadToPeer(
+            NoisePayload(NoisePayloadType.GROUP_KEY_UPDATE, payload),
+            recipientPeerID,
+            "group key update"
+        )
+    }
+
+    fun broadcastGroupMessage(payload: ByteArray) {
+        if (payload.isEmpty()) return
+        serviceScope.launch {
+            val packet = BitchatPacket(
+                version = if (payload.size > 0xffff) 2u else 1u,
+                type = MessageType.GROUP_MESSAGE.value,
+                senderID = hexStringToByteArray(myPeerID),
+                recipientID = SpecialRecipients.BROADCAST,
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = payload,
+                signature = null,
+                ttl = MAX_TTL
+            )
+            // The outer packet is intentionally unsigned. Authenticity is
+            // verified from the Ed25519 signature inside the ciphertext.
+            broadcastRoutedPacket(RoutedPacket(packet))
+            try { gossipSyncManager.onPublicPacketSeen(packet) } catch (_: Exception) { }
+        }
+    }
+
     private fun sendNoisePayloadToPeer(payload: NoisePayload, recipientPeerID: String, label: String) {
         serviceScope.launch {
             try {
@@ -1455,6 +1516,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     fun getStaticNoisePublicKey(): ByteArray? {
         return encryptionService.getStaticPublicKey()
     }
+
+    fun getSigningPublicKey(): ByteArray? =
+        encryptionService.getSigningPublicKey()?.copyOf()
+
+    fun signData(data: ByteArray): ByteArray? =
+        encryptionService.signData(data)
     
     /**
      * Check if encryption icon should be shown for a peer

@@ -29,11 +29,14 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
     companion object {
         val NONE = PeerCapabilities(0)
 
+        /** Creator-managed encrypted private groups (iOS capability bit 3). */
+        val GROUPS = PeerCapabilities(1L shl 3)
+
         /** Noise-encrypted private BitchatFilePacket using payload type 0x20. */
         val PRIVATE_MEDIA = PeerCapabilities(1L shl 8)
 
         /** Capabilities implemented by this Android build. */
-        val LOCAL_SUPPORTED = PRIVATE_MEDIA
+        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or GROUPS.rawValue)
 
         /**
          * Decode the low 64 bits and ignore any future extension bytes, which

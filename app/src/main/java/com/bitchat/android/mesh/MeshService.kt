@@ -19,6 +19,9 @@ interface MeshService {
     fun sendFavoriteNotification(peerID: String, isFavorite: Boolean) {}
     fun sendVerifyChallenge(peerID: String, noiseKeyHex: String, nonceA: ByteArray)
     fun sendVerifyResponse(peerID: String, noiseKeyHex: String, nonceA: ByteArray)
+    fun sendGroupInvite(payload: ByteArray, recipientPeerID: String)
+    fun sendGroupKeyUpdate(payload: ByteArray, recipientPeerID: String)
+    fun broadcastGroupMessage(payload: ByteArray)
     fun sendFileBroadcast(file: BitchatFilePacket)
     fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket)
     fun prepareFilePrivate(
@@ -49,6 +52,8 @@ interface MeshService {
     ): Boolean
     fun getIdentityFingerprint(): String
     fun getStaticNoisePublicKey(): ByteArray?
+    fun getSigningPublicKey(): ByteArray?
+    fun signData(data: ByteArray): ByteArray?
     fun shouldShowEncryptionIcon(peerID: String): Boolean
     fun getEncryptedPeers(): List<String>
 
