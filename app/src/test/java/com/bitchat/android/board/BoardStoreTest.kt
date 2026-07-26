@@ -5,6 +5,7 @@ import com.bitchat.android.protocol.MessageType
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -68,6 +69,48 @@ class BoardStoreTest {
         assertEquals(BoardIngestResult.ACCEPTED, store.ingestTombstone(valid))
         assertTrue(store.posts("").isEmpty())
         assertEquals(1, store.syncCandidates().size)
+    }
+
+    @Test
+    fun `rewrapped duplicate payload is stored but never relayed again`() {
+        val store = BoardStore(nowMs = { now })
+        val wire = BoardWire.Post(signedPost())
+        val firstOuterPacket = packet(wire)
+
+        assertTrue(store.ingestRemoteForRelay(wire, firstOuterPacket))
+        assertFalse(
+            store.ingestRemoteForRelay(
+                wire,
+                firstOuterPacket.copy(timestamp = firstOuterPacket.timestamp + 1uL)
+            )
+        )
+        assertEquals(1, store.posts("").size)
+    }
+
+    @Test
+    fun `attacker orphan tombstone cannot block author deletion`() {
+        val store = BoardStore(nowMs = { now })
+        val post = signedPost()
+        val attackerTombstone = signedTombstone(post, attacker)
+
+        assertEquals(
+            BoardIngestResult.ACCEPTED,
+            store.ingestTombstone(attackerTombstone)
+        )
+        assertEquals(BoardIngestResult.ACCEPTED, store.ingestPost(post))
+
+        val authorTombstone = signedTombstone(post, author, deletedAt = now + 1uL)
+        assertEquals(
+            BoardIngestResult.ACCEPTED,
+            store.ingestTombstone(authorTombstone)
+        )
+
+        assertTrue(store.posts("").isEmpty())
+        assertEquals(2, store.syncCandidates().size)
+        assertEquals(
+            BoardIngestResult.DUPLICATE,
+            store.ingestTombstone(attackerTombstone)
+        )
     }
 
     @Test

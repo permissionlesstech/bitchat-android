@@ -393,6 +393,7 @@
   <string name="notices_tab_geo_count">এলাকা · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">আশেপাশের মানুষের জন্য ছোট নোটিশ পিন করুন। অফলাইনেও ফোন থেকে ফোনে পৌঁছে যায় আর কয়েক দিন পরে নিজে থেকেই মুছে যায়।</string>
+  <string name="notices_permanent">স্থায়ী</string>
   <string name="notices_fades">%1$s মুছে যাবে</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">নেট</string>

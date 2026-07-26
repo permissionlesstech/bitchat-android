@@ -46,6 +46,7 @@
   <string name="notices_tab_geo_count">பகுதி · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">அருகிலுள்ளவர்களுக்காக சிறிய அறிவிப்புகளைப் பின் செய்யவும். ஆஃப்லைனிலும் ஃபோனிலிருந்து ஃபோனுக்குப் பரவி, சில நாட்களில் தானாக மறைந்துவிடும்.</string>
+  <string name="notices_permanent">நிரந்தரம்</string>
   <string name="notices_fades">%1$s மறையும்</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">நெட்</string>

@@ -420,6 +420,7 @@
   <string name="notices_tab_geo_count">géo · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">épingle de courtes annonces pour les gens autour de toi. elles passent de téléphone en téléphone, même hors ligne, et disparaissent d\'elles-mêmes après quelques jours.</string>
+  <string name="notices_permanent">permanent</string>
   <string name="notices_fades">s\'efface %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">net</string>

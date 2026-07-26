@@ -59,6 +59,7 @@
   <string name="notices_tab_geo_count">אזור · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">הצמד מודעות קצרות לאנשים סביבך. הן עוברות מטלפון לטלפון, גם בלי אינטרנט, ונעלמות מעצמן אחרי כמה ימים.</string>
+  <string name="notices_permanent">קבוע</string>
   <string name="notices_fades">דוהה %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">רשת</string>

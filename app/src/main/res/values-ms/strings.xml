@@ -46,6 +46,7 @@
   <string name="notices_tab_geo_count">kawasan · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">semat pengumuman ringkas untuk orang di sekeliling anda. ia berpindah dari telefon ke telefon, walaupun di luar talian, dan hilang sendiri selepas beberapa hari.</string>
+  <string name="notices_permanent">kekal</string>
   <string name="notices_fades">pudar %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">net</string>

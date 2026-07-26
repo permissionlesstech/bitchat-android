@@ -393,6 +393,7 @@
   <string name="notices_tab_geo_count">พื้นที่ · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">ปักประกาศสั้น ๆ ให้คนรอบตัว ส่งต่อจากมือถือสู่มือถือได้แม้ออฟไลน์ และหายไปเองหลังผ่านไปสองสามวัน</string>
+  <string name="notices_permanent">ถาวร</string>
   <string name="notices_fades">เลือนหาย %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">เน็ต</string>

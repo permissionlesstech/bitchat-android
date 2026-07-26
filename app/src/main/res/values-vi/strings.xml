@@ -393,6 +393,7 @@
   <string name="notices_tab_geo_count">khu vực · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">ghim thông báo ngắn cho những người quanh bạn. chúng truyền từ điện thoại này sang điện thoại khác, kể cả khi ngoại tuyến, và tự biến mất sau vài ngày.</string>
+  <string name="notices_permanent">vĩnh viễn</string>
   <string name="notices_fades">mờ dần %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">mạng</string>

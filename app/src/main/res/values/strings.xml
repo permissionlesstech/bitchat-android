@@ -258,6 +258,7 @@
   <string name="notices_delete" tools:ignore="MissingTranslation">Delete notice</string>
   <string name="notices_expiry" tools:ignore="MissingTranslation">expires</string>
   <string name="notices_days" tools:ignore="MissingTranslation,PluralsCandidate">%1$d days</string>
+  <string name="notices_permanent" tools:ignore="MissingTranslation">permanent</string>
   <string name="notices_fades" tools:ignore="MissingTranslation">fades %1$s</string>
   <string name="notices_source_mesh" tools:ignore="MissingTranslation">mesh</string>
   <string name="notices_source_network" tools:ignore="MissingTranslation">net</string>

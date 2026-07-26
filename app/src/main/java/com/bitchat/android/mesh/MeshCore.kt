@@ -511,16 +511,7 @@ class MeshCore(
             override fun handleBoardPost(routed: RoutedPacket): Boolean {
                 val wire = com.bitchat.android.board.BoardWireCodec.decode(routed.packet.payload)
                     ?: return false
-                if (!wire.verifySignature()) return false
-                return when (boardStore.ingest(
-                    wire,
-                    routed.packet,
-                    com.bitchat.android.board.BoardIngestSource.REMOTE
-                )) {
-                    com.bitchat.android.board.BoardIngestResult.ACCEPTED,
-                    com.bitchat.android.board.BoardIngestResult.DUPLICATE -> true
-                    com.bitchat.android.board.BoardIngestResult.REJECTED -> false
-                }
+                return boardStore.ingestRemoteForRelay(wire, routed.packet)
             }
         }
     }

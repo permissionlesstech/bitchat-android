@@ -46,6 +46,7 @@
   <string name="notices_tab_geo_count">гео · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">закріплюй короткі оголошення для людей поруч. вони передаються з телефона на телефон, навіть офлайн, і самі зникають за кілька днів.</string>
+  <string name="notices_permanent">назавжди</string>
   <string name="notices_fades">зникне %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">мережа</string>

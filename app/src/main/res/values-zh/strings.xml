@@ -419,6 +419,7 @@
   <string name="notices_tab_geo_count">区域 · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">为周围的人钉上简短公告。即使离线也能在手机间传递，几天后自动消失。</string>
+  <string name="notices_permanent">永久</string>
   <string name="notices_fades">%1$s消失</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">网络</string>

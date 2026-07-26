@@ -406,6 +406,7 @@
   <string name="notices_tab_geo_count">جغرافي · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">ثبّت إعلانات قصيرة لمن حولك. تنتقل من هاتف إلى هاتف حتى دون اتصال، وتختفي وحدها بعد أيام قليلة.</string>
+  <string name="notices_permanent">دائم</string>
   <string name="notices_fades">يتلاشى %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">نت</string>

@@ -394,6 +394,7 @@
   <string name="notices_tab_geo_count">geo · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">nåla upp korta anslag för folk i närheten. de hoppar från telefon till telefon, även offline, och försvinner av sig själva efter några dagar.</string>
+  <string name="notices_permanent">permanent</string>
   <string name="notices_fades">tonar bort %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">nät</string>

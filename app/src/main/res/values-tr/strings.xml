@@ -394,6 +394,7 @@
   <string name="notices_tab_geo_count">bölge · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">çevrendekiler için kısa duyurular sabitle. çevrimdışıyken bile telefondan telefona geçer ve birkaç gün sonra kendiliğinden kaybolur.</string>
+  <string name="notices_permanent">kalıcı</string>
   <string name="notices_fades">%1$s kaybolur</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">ağ</string>

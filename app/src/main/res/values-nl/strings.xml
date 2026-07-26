@@ -438,6 +438,7 @@
   <string name="notices_tab_geo_count">geo · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">prik korte mededelingen voor mensen om je heen. ze springen van telefoon naar telefoon, ook offline, en verdwijnen vanzelf na een paar dagen.</string>
+  <string name="notices_permanent">permanent</string>
   <string name="notices_fades">vervaagt %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">net</string>

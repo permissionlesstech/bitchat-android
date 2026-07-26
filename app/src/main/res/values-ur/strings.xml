@@ -406,6 +406,7 @@
   <string name="notices_tab_geo_count">علاقہ · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">آس پاس کے لوگوں کیلئے مختصر اعلانات پن کریں۔ یہ آف لائن بھی فون سے فون تک پہنچتے ہیں اور کچھ دنوں بعد خود مٹ جاتے ہیں۔</string>
+  <string name="notices_permanent">مستقل</string>
   <string name="notices_fades">%1$s مٹ جائے گا</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">نیٹ</string>

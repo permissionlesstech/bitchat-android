@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
@@ -239,7 +241,11 @@ private fun NoticesSheet(
                     enabled = true,
                     sendFailed = sendFailed,
                     onSend = {
-                        if (selectedTab == NoticesTab.GEO && expiryDays == 0) {
+                        if (NoticeComposerPolicy.isPermanentRelayOnlyGeo(
+                                isGeo = selectedTab == NoticesTab.GEO,
+                                expiryDays = expiryDays
+                            )
+                        ) {
                             notesManager.send(
                                 content = draft,
                                 nickname = nickname,
@@ -470,29 +476,34 @@ private fun Composer(
                 )
                 Switch(checked = urgent, onCheckedChange = onUrgentChange)
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.notices_expiry),
-                    style = MaterialTheme.typography.labelMedium
-                )
-                listOf(1, 3, 7).forEach { days ->
-                    val daysDescription = stringResource(R.string.notices_days, days)
-                    FilterChip(
-                        selected = expiryDays == days,
-                        onClick = { onExpiryChange(days) },
-                        label = {
-                            Text(
-                                text = "${days}d",
-                                modifier = Modifier.semantics {
-                                    contentDescription = daysDescription
-                                }
-                            )
-                        }
-                    )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.notices_expiry),
+                style = MaterialTheme.typography.labelMedium
+            )
+            NoticeComposerPolicy.expiryOptions(isGeo).forEach { days ->
+                val optionDescription = if (days == 0) {
+                    stringResource(R.string.notices_permanent)
+                } else {
+                    stringResource(R.string.notices_days, days)
                 }
+                FilterChip(
+                    selected = expiryDays == days,
+                    onClick = { onExpiryChange(days) },
+                    modifier = Modifier.semantics {
+                        contentDescription = optionDescription
+                    },
+                    label = {
+                        Text(if (days == 0) "∞" else "${days}d")
+                    }
+                )
             }
         }
         Row(

@@ -406,6 +406,7 @@
   <string name="notices_tab_geo_count">क्षेत्र · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">वरपरका मानिसहरूका लागि छोटा सूचना पिन गर। अफलाइनमा पनि फोनबाट फोनमा पुग्छन् र केही दिनपछि आफैँ हराउँछन्।</string>
+  <string name="notices_permanent">स्थायी</string>
   <string name="notices_fades">%1$s मेटिन्छ</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">नेट</string>

@@ -106,6 +106,18 @@ class BoardStore(
         return result
     }
 
+    /**
+     * Ingests a packet received from the mesh and reports whether this exact
+     * arrival may continue through the live relay path.
+     *
+     * A duplicate board payload must not relay again: the payload signature
+     * does not authenticate mutable outer packet fields such as timestamp, so
+     * accepting duplicates for relay would let one captured notice be wrapped
+     * in infinitely many distinct outer packets.
+     */
+    fun ingestRemoteForRelay(wire: BoardWire, packet: BitchatPacket): Boolean =
+        ingest(wire, packet, BoardIngestSource.REMOTE) == BoardIngestResult.ACCEPTED
+
     fun posts(forGeohash: String): List<BoardPostPacket> = synchronized(lock) {
         pruneExpiredLocked(nowMs())
         posts.asSequence()
@@ -194,7 +206,11 @@ class BoardStore(
         now: ULong,
         retainUntilOverride: ULong?
     ): BoardIngestResult {
-        if (tombstones.any { it.tombstone.postID.contentEquals(tombstone.postID) }) {
+        if (tombstones.any {
+                it.tombstone.postID.contentEquals(tombstone.postID) &&
+                    it.tombstone.authorSigningKey.contentEquals(tombstone.authorSigningKey)
+            }
+        ) {
             return BoardIngestResult.DUPLICATE
         }
 
@@ -271,8 +287,8 @@ class BoardStore(
         count: Int
     ) {
         if (count <= 0) return
-        val victimIDs = candidates.take(count).map { it.tombstone.postID.toHex() }.toSet()
-        tombstones.removeAll { it.tombstone.postID.toHex() in victimIDs }
+        val victims = candidates.take(count)
+        tombstones.removeAll { stored -> victims.any { it === stored } }
     }
 
     private fun pruneExpiredLocked(now: ULong): Boolean {

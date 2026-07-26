@@ -406,6 +406,7 @@
   <string name="notices_tab_geo_count">エリア · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">近くの人に向けて短いお知らせをピン留め。オフラインでもスマホからスマホへ伝わり、数日後に自動的に消えます。</string>
+  <string name="notices_permanent">無期限</string>
   <string name="notices_fades">%1$sに消えます</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">ネット</string>

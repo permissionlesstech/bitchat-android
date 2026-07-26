@@ -393,6 +393,7 @@
   <string name="notices_tab_geo_count">ژئو · %1$d</string>
   <string name="notices_tab_mesh_count">مش · %1$d</string>
   <string name="notices_description_mesh">اطلاعیه‌های کوتاه برای اطرافیان‌تان سنجاق کنید. گوشی به گوشی جابه‌جا می‌شوند، حتی آفلاین، و بعد از چند روز خودبه‌خود ناپدید می‌شوند.</string>
+  <string name="notices_permanent">دائمی</string>
   <string name="notices_fades">%1$s محو می‌شود</string>
   <string name="notices_source_mesh">مش</string>
   <string name="notices_source_network">نت</string>

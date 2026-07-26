@@ -407,6 +407,7 @@
   <string name="notices_tab_geo_count">geo · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">hefte kurze hinweise für leute in deiner nähe an. sie springen von handy zu handy, auch offline, und verschwinden nach ein paar tagen von selbst.</string>
+  <string name="notices_permanent">dauerhaft</string>
   <string name="notices_fades">verblasst %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">netz</string>

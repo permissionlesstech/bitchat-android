@@ -59,6 +59,7 @@
   <string name="notices_tab_geo_count">geo · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">przypinaj krótkie ogłoszenia dla ludzi w pobliżu. przeskakują z telefonu na telefon, nawet offline, i same znikają po kilku dniach.</string>
+  <string name="notices_permanent">na stałe</string>
   <string name="notices_fades">zniknie %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">sieć</string>

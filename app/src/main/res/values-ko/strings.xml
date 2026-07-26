@@ -406,6 +406,7 @@
   <string name="notices_tab_geo_count">지역 · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">주변 사람들을 위해 짧은 공지를 고정하세요. 오프라인에서도 휴대폰에서 휴대폰으로 전달되고 며칠 후 스스로 사라집니다.</string>
+  <string name="notices_permanent">영구</string>
   <string name="notices_fades">%1$s 사라짐</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">넷</string>

@@ -440,6 +440,7 @@
   <string name="notices_tab_geo_count">geo · %1$d</string>
   <string name="notices_tab_mesh_count">mesh · %1$d</string>
   <string name="notices_description_mesh">appunta brevi avvisi per chi ti sta intorno. passano da telefono a telefono, anche offline, e spariscono da soli dopo qualche giorno.</string>
+  <string name="notices_permanent">permanente</string>
   <string name="notices_fades">svanisce %1$s</string>
   <string name="notices_source_mesh">mesh</string>
   <string name="notices_source_network">rete</string>
