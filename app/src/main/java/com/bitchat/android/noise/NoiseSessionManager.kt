@@ -179,6 +179,23 @@ class NoiseSessionManager(
             val existingCandidate = responderCandidates[peerID]
             if (existingCandidate != null) {
                 activeSession = if (message.size == HANDSHAKE_MESSAGE_1_SIZE) {
+                    if (existingCandidate.isInitiatorRole()) {
+                        val shouldYield = localPeerID > peerID
+                        if (!shouldYield) {
+                            Log.d(
+                                TAG,
+                                "Replacement handshake collision with $peerID; keeping initiator role"
+                            )
+                            return NoiseHandshakeProcessingResult(
+                                response = null,
+                                establishedNow = false
+                            )
+                        }
+                        Log.d(
+                            TAG,
+                            "Replacement handshake collision with $peerID; yielding to responder role"
+                        )
+                    }
                     responderCandidates.remove(peerID, existingCandidate)
                     existingCandidate.destroy()
                     createSession(peerID, isInitiator = false).also {

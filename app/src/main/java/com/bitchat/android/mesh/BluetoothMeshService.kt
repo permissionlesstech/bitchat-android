@@ -43,6 +43,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     
     companion object {
         private const val TAG = "BluetoothMeshService"
+        private const val BLE_AUTHENTICATION_TIMEOUT_MS = 20_000L
         private val MAX_TTL: UByte = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
     }
     
@@ -259,6 +260,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 delegate?.didUpdatePeerList(peerIDs)
             }
             override fun onPeerRemoved(peerID: String) {
+                provisionalBleClaims.remove(peerID)
                 authenticatedPeerState.clear(peerID)
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
                 // Remove from mesh graph topology to prevent routing through stale peers
@@ -591,7 +593,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 if (deviceAddress != null && linkID != null && pid != null && isDirect && !alreadyAuthenticated) {
                     try {
                         val claim = AuthenticatedBleLinkPolicy.Claim(deviceAddress, linkID)
-                        provisionalBleClaims[pid] = claim
+                        registerProvisionalBleClaim(pid, claim)
                         val handshakeData = encryptionService.initiateHandshake(pid, replaceEstablished = true)
                         if (handshakeData != null) {
                             val handshake = signPacketBeforeBroadcast(
@@ -605,7 +607,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                                     ttl = MAX_TTL
                                 )
                             )
-                            if (!connectionManager.sendPacketToAddress(deviceAddress, handshake)) {
+                            if (!connectionManager.sendPacketToLink(deviceAddress, linkID, handshake)) {
                                 provisionalBleClaims.remove(pid, claim)
                                 Log.w(TAG, "Could not send Noise handshake on BLE link $deviceAddress")
                             }
@@ -679,9 +681,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         override fun onPacketReceived(
             packet: BitchatPacket,
             peerID: String,
-            device: android.bluetooth.BluetoothDevice?
+            device: android.bluetooth.BluetoothDevice?,
+            ingressLinkID: String
         ) {
-            val ingressLinkID = device?.address?.let(connectionManager::getCurrentLinkID)
             // Log incoming for debug graphs (do not double-count anywhere else)
             try {
                 com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
@@ -714,25 +716,20 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 } catch (_: Exception) { }
             }
 
-            override fun onDeviceDisconnected(device: android.bluetooth.BluetoothDevice) {
+            override fun onDeviceDisconnected(
+                device: android.bluetooth.BluetoothDevice,
+                linkID: String?
+            ) {
                 Log.d(TAG, "Device disconnected: ${device.address}")
                 val addr = device.address
-                // Remove mapping and, if that was the last direct path for the peer, clear direct flag
-                val peer = connectionManager.addressPeerMap[addr]
-                // ConnectionTracker has already removed the address mapping; be defensive either way
-                connectionManager.addressPeerMap.remove(addr)
+                clearProvisionalBleClaimsForLink(addr, linkID)
 
                 // refresh peer list on disconnect. 
                 try { peerManager.refreshPeerList() } catch (_: Exception) { }
 
-                if (peer != null) {
-                    // Verbose debug: device disconnected
-                    try {
-                        val nick = peerManager.getPeerNickname(peer) ?: "unknown"
-                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
-                            .logPeerDisconnection(peer, nick, addr)
-                    } catch (_: Exception) { }
-                }
+                // ConnectionTracker already removes an authenticated mapping only when this exact
+                // link is still current. Do not remove by reusable address here: this may be a late
+                // disconnect callback from a replaced GATT connection.
             }
             
             override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
@@ -741,6 +738,26 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     peerManager.updatePeerRSSI(peerID, rssi)
                 }
             }
+        }
+    }
+
+    private fun registerProvisionalBleClaim(
+        peerID: String,
+        claim: AuthenticatedBleLinkPolicy.Claim
+    ) {
+        provisionalBleClaims[peerID] = claim
+        serviceScope.launch {
+            delay(BLE_AUTHENTICATION_TIMEOUT_MS)
+            if (provisionalBleClaims.remove(peerID, claim)) {
+                Log.d(TAG, "Expired provisional BLE authentication claim for $peerID")
+            }
+        }
+    }
+
+    private fun clearProvisionalBleClaimsForLink(deviceAddress: String, linkID: String?) {
+        if (linkID == null) return
+        provisionalBleClaims.entries.removeIf { (_, claim) ->
+            claim.deviceAddress == deviceAddress && claim.linkID == linkID
         }
     }
     

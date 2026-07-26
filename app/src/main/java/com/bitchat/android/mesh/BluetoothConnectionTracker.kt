@@ -91,7 +91,20 @@ class BluetoothConnectionTracker(
      * Update a device connection
      */
     fun updateDeviceConnection(deviceAddress: String, deviceConn: DeviceConnection) {
-        connectedDevices[deviceAddress] = deviceConn
+        synchronized(peerBindingLock) {
+            connectedDevices[deviceAddress] = deviceConn
+        }
+    }
+
+    fun updateDeviceConnectionIfCurrent(
+        deviceAddress: String,
+        linkID: String,
+        update: (DeviceConnection) -> DeviceConnection
+    ): Boolean = synchronized(peerBindingLock) {
+        val current = connectedDevices[deviceAddress] ?: return@synchronized false
+        if (current.linkID != linkID) return@synchronized false
+        connectedDevices[deviceAddress] = update(current)
+        true
     }
     
     /**
@@ -252,12 +265,32 @@ class BluetoothConnectionTracker(
      * Clean up a specific device connection
      */
     fun cleanupDeviceConnection(deviceAddress: String) {
-        connectedDevices.remove(deviceAddress)?.let { deviceConn ->
+        synchronized(peerBindingLock) {
+            connectedDevices.remove(deviceAddress)
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
+            firstAnnounceSeen.remove(deviceAddress)
         }
-        firstAnnounceSeen.remove(deviceAddress)
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
+    }
+
+    fun cleanupDeviceConnectionIfCurrent(
+        deviceAddress: String,
+        expectedLinkID: String
+    ): Boolean = synchronized(peerBindingLock) {
+        val current = connectedDevices[deviceAddress] ?: return@synchronized false
+        if (current.linkID != expectedLinkID) {
+            return@synchronized false
+        }
+        if (connectedDevices.remove(deviceAddress, current)) {
+            subscribedDevices.removeAll { it.address == deviceAddress }
+            addressPeerMap.remove(deviceAddress)
+            firstAnnounceSeen.remove(deviceAddress)
+            Log.d(TAG, "Cleaned up device connection for $deviceAddress")
+            true
+        } else {
+            false
+        }
     }
     
     /**
