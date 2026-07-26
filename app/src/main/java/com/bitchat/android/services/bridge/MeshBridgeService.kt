@@ -8,6 +8,7 @@ import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.BridgeMeshDelegate
+import com.bitchat.android.mesh.BridgeOutboundPolicy
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.NostrCarrierPacket
@@ -58,7 +59,6 @@ object MeshBridgeService : BridgeMeshDelegate {
     private const val TAG = "MeshBridgeService"
     private const val PREFS = "bitchat_bridge"
     private const val KEY_ENABLED = "bridge_enabled_v1"
-    private const val BRIDGE_SUBSCRIPTION = "mesh-bridge-rendezvous"
     private const val CELL_PRECISION = 6
     private const val MAX_EVENT_AGE_MS = 15L * 60 * 1000
     private const val MAX_CONTENT_BYTES = 16_000
@@ -85,6 +85,8 @@ object MeshBridgeService : BridgeMeshDelegate {
     val activeCell: StateFlow<String?> = _activeCell.asStateFlow()
     private val _bridgedParticipants = MutableStateFlow<List<BridgedParticipant>>(emptyList())
     val bridgedParticipants: StateFlow<List<BridgedParticipant>> = _bridgedParticipants.asStateFlow()
+    private val outboundPolicy = AtomicReference(BridgeOutboundPolicy.Denied)
+    private val rendezvousSubscription = RelaySubscriptionSlot("mesh-bridge-rendezvous")
 
     @Volatile
     private var appContext: Context? = null
@@ -137,6 +139,12 @@ object MeshBridgeService : BridgeMeshDelegate {
             val prekeyManager = PrekeyManager.getInstance(application)
             prefs = application.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             _isEnabled.value = loadEnabledWithMigration(prefs!!)
+            outboundPolicy.set(
+                BridgeOutboundPolicy.capture(
+                    enabled = _isEnabled.value,
+                    nearbyOnly = _nearbyOnly.value
+                )
+            )
             PeerCapabilities.setBridgeEnabled(_isEnabled.value)
             prekeyCoordinator = PrekeyCoordinator(
                 manager = prekeyManager,
@@ -206,7 +214,8 @@ object MeshBridgeService : BridgeMeshDelegate {
     }
 
     fun setEnabled(enabled: Boolean) {
-        if (_isEnabled.value == enabled) return
+        if (outboundPolicy.get().enabled == enabled) return
+        outboundPolicy.set(BridgeOutboundPolicy.capture(enabled, nearbyOnly = false))
         _isEnabled.value = enabled
         prefs?.edit { putBoolean(KEY_ENABLED, enabled) }
         PeerCapabilities.setBridgeEnabled(enabled)
@@ -232,20 +241,26 @@ object MeshBridgeService : BridgeMeshDelegate {
     }
 
     fun setNearbyOnly(enabled: Boolean) {
+        outboundPolicy.updateAndGet { current ->
+            BridgeOutboundPolicy.capture(current.enabled, nearbyOnly = enabled)
+        }
         _nearbyOnly.value = enabled
     }
 
     /** Cell included in announce TLV 0x06 while the bridge switch is on. */
     override fun advertisedCell(): String? = _activeCell.value.takeIf { _isEnabled.value }
 
+    override fun outboundPolicy(): BridgeOutboundPolicy = outboundPolicy.get()
+
     override fun bridgeOutgoing(
         content: String,
         senderPeerId: String,
         timestampMs: Long,
-        nickname: String?
+        nickname: String?,
+        policyAtSend: BridgeOutboundPolicy
     ) {
         scope.launch {
-            if (!_isEnabled.value || _nearbyOnly.value) return@launch
+            if (!policyAtSend.permitsPublication(outboundPolicy.get())) return@launch
             val cell = _activeCell.value ?: currentCell() ?: return@launch
             if (content.toByteArray(Charsets.UTF_8).size > MAX_CONTENT_BYTES) return@launch
             val identity = NostrIdentityBridge.deriveBridgeIdentity(cell, requireContext())
@@ -257,6 +272,7 @@ object MeshBridgeService : BridgeMeshDelegate {
                 meshSenderId = senderPeerId,
                 meshTimestampMs = timestampMs
             )
+            if (!policyAtSend.permitsPublication(outboundPolicy.get())) return@launch
             publishedEventIds.add(event.id)
             injectedEventIds.add(event.id)
             if (relayManager?.isConnected?.value == true) {
@@ -381,22 +397,28 @@ object MeshBridgeService : BridgeMeshDelegate {
         if (cell == null) return
         val cells = linkedSetOf(cell).apply { addAll(Geohash.neighborsSamePrecision(cell)) }
         if (changed || forceSubscriptions || cells != subscribedCells) {
-            relayManager?.unsubscribe(BRIDGE_SUBSCRIPTION)
-            subscribedCells = cells
             val targets = linkedSetOf<String>()
             cells.forEach { subscribedCell ->
                 relayManager?.ensureGeohashRelaysConnected(subscribedCell)
                 targets += relayManager?.getRelaysForGeohash(subscribedCell).orEmpty()
             }
-            relayManager?.subscribe(
-                filter = NostrFilter.bridgeRendezvous(
-                    cells,
-                    since = clock() - MAX_EVENT_AGE_MS
-                ),
-                id = BRIDGE_SUBSCRIPTION,
-                handler = { event -> scope.launch { handleRendezvousEvent(event) } },
-                targetRelayUrls = targets.toList()
-            )
+            relayManager?.let { manager ->
+                rendezvousSubscription.replace(
+                    close = manager::unsubscribe,
+                    open = { subscriptionId ->
+                        manager.subscribe(
+                            filter = NostrFilter.bridgeRendezvous(
+                                cells,
+                                since = clock() - MAX_EVENT_AGE_MS
+                            ),
+                            id = subscriptionId,
+                            handler = { event -> scope.launch { handleRendezvousEvent(event) } },
+                            targetRelayUrls = targets.toList()
+                        )
+                    }
+                )
+                subscribedCells = cells
+            }
             publishPresence()
         }
     }
@@ -664,7 +686,9 @@ object MeshBridgeService : BridgeMeshDelegate {
     }
 
     private fun closeSubscriptions() {
-        relayManager?.unsubscribe(BRIDGE_SUBSCRIPTION)
+        relayManager?.let { manager ->
+            rendezvousSubscription.close(manager::unsubscribe)
+        }
         subscribedCells = emptySet()
     }
 

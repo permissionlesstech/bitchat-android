@@ -57,6 +57,7 @@ internal class CourierCoordinator(
     private val pendingDrops = mutableListOf<PendingDrop>()
     private val signatureAttemptTimes = mutableListOf<Long>()
     private var subscribedTags: Set<String> = emptySet()
+    private val courierSubscription = RelaySubscriptionSlot("mesh-bridge-courier")
     @Volatile
     private var enabled = false
     private val publishedDropKeys =
@@ -209,18 +210,26 @@ internal class CourierCoordinator(
             .toSet()
         val allTags = myTags + peerTags
         if (allTags == subscribedTags) return
-        relayManager.unsubscribe(COURIER_SUBSCRIPTION)
-        subscribedTags = allTags
-        if (allTags.isEmpty()) return
-        relayManager.subscribe(
-            filter = com.bitchat.android.nostr.NostrFilter.courierDrops(
-                allTags,
-                since = now - CourierEnvelope.MAX_LIFETIME_MS
-            ),
-            id = COURIER_SUBSCRIPTION,
-            handler = { event -> scope.launch { handleDropEvent(event) } },
-            targetRelayUrls = NostrRelayManager.defaultRelays()
-        )
+        if (allTags.isEmpty()) {
+            courierSubscription.close(relayManager::unsubscribe)
+            subscribedTags = emptySet()
+        } else {
+            courierSubscription.replace(
+                close = relayManager::unsubscribe,
+                open = { subscriptionId ->
+                    relayManager.subscribe(
+                        filter = com.bitchat.android.nostr.NostrFilter.courierDrops(
+                            allTags,
+                            since = now - CourierEnvelope.MAX_LIFETIME_MS
+                        ),
+                        id = subscriptionId,
+                        handler = { event -> scope.launch { handleDropEvent(event) } },
+                        targetRelayUrls = NostrRelayManager.defaultRelays()
+                    )
+                }
+            )
+            subscribedTags = allTags
+        }
     }
 
     private fun handleDropEvent(event: NostrEvent) {
@@ -365,7 +374,7 @@ internal class CourierCoordinator(
     }
 
     private fun closeSubscription() {
-        relayManager.unsubscribe(COURIER_SUBSCRIPTION)
+        courierSubscription.close(relayManager::unsubscribe)
         subscribedTags = emptySet()
     }
 
@@ -411,7 +420,6 @@ internal class CourierCoordinator(
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
     private companion object {
-        const val COURIER_SUBSCRIPTION = "mesh-bridge-courier"
         const val MAX_TRACKED_IDS = 512
         const val MAX_WATCHED_PEERS = 16
         const val MAX_PENDING_DROPS = 20

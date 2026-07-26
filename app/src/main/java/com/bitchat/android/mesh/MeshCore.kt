@@ -511,6 +511,7 @@ class MeshCore(
 
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
+        val bridgePolicyAtSend = BridgeMeshPort.outboundPolicy()
         scope.launch {
             val packet = BitchatPacket(
                 version = 1u,
@@ -532,7 +533,8 @@ class MeshCore(
                     content,
                     myPeerID,
                     packet.timestamp.toLong(),
-                    nickname
+                    nickname,
+                    bridgePolicyAtSend
                 )
             }
         }

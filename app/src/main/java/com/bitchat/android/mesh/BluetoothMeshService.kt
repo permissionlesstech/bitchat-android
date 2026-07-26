@@ -886,6 +886,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      */
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
+        val bridgePolicyAtSend = BridgeMeshPort.outboundPolicy()
         
         serviceScope.launch {
             val packet = BitchatPacket(
@@ -912,7 +913,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     content,
                     myPeerID,
                     packet.timestamp.toLong(),
-                    nickname
+                    nickname,
+                    bridgePolicyAtSend
                 )
             }
         }
