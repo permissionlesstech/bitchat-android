@@ -385,6 +385,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 
                 // Store fingerprint for the peer via centralized fingerprint manager
                 val fingerprint = peerManager.storeFingerprintForPeer(newPeerID, publicKey)
+                try {
+                    com.bitchat.android.identity.SecureIdentityStateManager(context)
+                        .cachePeerNoiseKey(newPeerID, publicKey.toHexString())
+                } catch (_: Exception) { }
 
                 // Index existing Nostr mapping by the new peerID if we have it
                 try {
@@ -952,9 +956,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     broadcastRoutedPacket(RoutedPacket(signedPacket))
                     Log.d(TAG, "📤 Sent encrypted private message to $recipientPeerID (${encrypted.size} bytes)")
                     
-                    // FIXED: Don't send didReceiveMessage for our own sent messages
-                    // This was causing self-notifications - iOS doesn't do this
-                    // The UI handles showing sent messages through its own message sending logic
+                    // The UI handles sent messages through its own sending path.
                     
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to encrypt private message for $recipientPeerID: ${e.message}")
@@ -964,8 +966,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 Log.d(TAG, "🤝 No session with $recipientPeerID, initiating handshake")
                 messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
                 
-                // FIXED: Don't send didReceiveMessage for our own sent messages
-                // The UI will handle showing the message in the chat interface
+                // The UI handles sent messages through its own sending path.
             }
         }
     }

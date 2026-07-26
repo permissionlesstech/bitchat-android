@@ -1,6 +1,7 @@
 package com.bitchat.android.mesh
 
 import android.util.Log
+import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.IdentityAnnouncement
@@ -11,7 +12,6 @@ import com.bitchat.android.sync.PacketIdUtil
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
-import kotlin.random.Random
 
 /**
  * Handles processing of different message types
@@ -66,7 +66,6 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 return
             }
             
-            // NEW: Use NoisePayload system exactly like iOS
             val noisePayload = com.bitchat.android.model.NoisePayload.decode(decryptedData)
             if (noisePayload == null) {
                 Log.w(TAG, "Failed to parse NoisePayload from $peerID")
@@ -84,7 +83,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
 
                         // Handle favorite/unfavorite notifications embedded as PMs
                         val pmContent = privateMessage.content
-                        if (pmContent.startsWith("[FAVORITED]") || pmContent.startsWith("[UNFAVORITED]")) {
+                        if (FavoriteControlMessage.parse(pmContent) != null) {
                             handleFavoriteNotificationFromMesh(pmContent, peerID)
                             // Acknowledge delivery for UX parity
                             sendDeliveryAck(privateMessage.messageID, peerID)
@@ -102,7 +101,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                             isPrivate = true,
                             recipientNickname = delegate?.getMyNickname(),
                             senderPeerID = peerID,
-                            mentions = null // TODO: Parse mentions if needed
+                            mentions = null
                         )
                         
                         // Notify delegate
@@ -549,24 +548,19 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
      */
     private fun handleFavoriteNotificationFromMesh(content: String, fromPeerID: String) {
         try {
-            val isFavorite = content.startsWith("[FAVORITED]")
-            val npub = content.substringAfter(":", "").trim().takeIf { it.startsWith("npub1") }
+            val control = FavoriteControlMessage.parse(content) ?: return
 
-            // Update mutual favorite status in persistence
-            // Resolve full Noise key if available via delegate peer info
             val peerInfo = delegate?.getPeerInfo(fromPeerID)
             val noiseKey = peerInfo?.noisePublicKey
             if (noiseKey != null) {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, isFavorite)
-                if (npub != null) {
-                    // Index by noise key and current mesh peerID for fast Nostr routing
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, npub)
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(fromPeerID, npub)
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, control.isFavorite)
+                if (control.npub != null) {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, control.npub)
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(fromPeerID, control.npub)
                 }
 
-                // Determine iOS-style guidance text
                 val rel = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
-                val guidance = if (isFavorite) {
+                val guidance = if (control.isFavorite) {
                     if (rel?.isFavorite == true) {
                         " — mutual! You can continue DMs via Nostr when out of mesh."
                     } else {
@@ -576,8 +570,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     ". DMs over Nostr will pause unless you both favorite again."
                 }
 
-                // Emit system message via delegate callback
-                val action = if (isFavorite) "favorited" else "unfavorited"
+                val action = if (control.isFavorite) "favorited" else "unfavorited"
                 val sys = com.bitchat.android.model.BitchatMessage(
                     sender = "system",
                     content = "${peerInfo.nickname} $action you$guidance",
