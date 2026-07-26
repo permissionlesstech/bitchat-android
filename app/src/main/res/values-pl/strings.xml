@@ -53,5 +53,5 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Otwórz informacje</string>
 </resources>
-
