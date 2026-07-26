@@ -45,8 +45,13 @@ class PermissionManager(private val context: Context) {
      * Android 17 (API 37) makes local network protection mandatory for apps that target it.
      * WifiAwareMeshService reaches peers over link-local IPv6 TCP sockets
      * (connectAwareClientSocket), so ACCESS_LOCAL_NETWORK is requested defensively there.
-     * It shares the NEARBY_DEVICES group with NEARBY_WIFI_DEVICES, so granting it does not
-     * cost the user an extra prompt.
+     *
+     * Note that although ACCESS_LOCAL_NETWORK shares the NEARBY_DEVICES group with
+     * NEARBY_WIFI_DEVICES, the two are tracked and granted independently: granting
+     * NEARBY_WIFI_DEVICES alone leaves ACCESS_LOCAL_NETWORK denied (verified on an
+     * Android 17 device). It must therefore be requested explicitly, which is what this
+     * list is for. Whether the runtime dialog bundles the two into a single prompt has
+     * not been verified.
      */
     private fun wifiAwarePermissions(): List<String> {
         val permissions = mutableListOf(Manifest.permission.NEARBY_WIFI_DEVICES)
