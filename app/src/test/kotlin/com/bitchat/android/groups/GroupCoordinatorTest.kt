@@ -107,6 +107,43 @@ class GroupCoordinatorTest {
     }
 
     @Test
+    fun `authenticated reconnect replays current signed state to retained member`() {
+        val localKey = privateKey(0x16)
+        val memberKey = privateKey(0x17)
+        val peerID = "17".repeat(8)
+        val memberFingerprint = "17".repeat(32)
+        val context = FakeGroupContext(localKey, "16".repeat(32))
+        context.peerIDs["alice"] = peerID
+        context.connected += peerID
+        context.peerNames[peerID] = "alice"
+        context.identities[peerID] = GroupPeerIdentity(
+            memberFingerprint,
+            memberKey.generatePublicKey().encoded
+        )
+        val coordinator = GroupCoordinator(context)
+        assertTrue(coordinator.createGroup("trail crew").success)
+        assertTrue(coordinator.inviteMember("@alice").success)
+        val current = context.groupStore.groups.value.single()
+        val currentKey = context.groupStore.key(current.groupID)!!
+        context.updates.clear()
+
+        coordinator.handlePeerAuthenticated(peerID)
+
+        assertEquals(1, context.updates.size)
+        val (recipient, bytes) = context.updates.single()
+        assertEquals(peerID, recipient)
+        val state = GroupStatePayload.decode(bytes)!!
+        assertTrue(state.verifyCreatorSignature())
+        assertEquals(current, state.asGroup())
+        assertArrayEquals(currentKey, state.key)
+
+        context.updates.clear()
+        context.groupCapabilities[peerID] = PeerGroupCapability.UNSUPPORTED
+        coordinator.handlePeerAuthenticated(peerID)
+        assertTrue(context.updates.isEmpty())
+    }
+
+    @Test
     fun `invite is accepted only from authenticated creator`() {
         val creatorKey = privateKey(0x31)
         val localKey = privateKey(0x32)
@@ -226,6 +263,89 @@ class GroupCoordinatorTest {
     }
 
     @Test
+    fun `voluntary leave ignores key updates until a newer explicit invite`() {
+        val creatorKey = privateKey(0x18)
+        val localKey = privateKey(0x19)
+        val creatorStatic = ByteArray(32) { 0x1a }
+        val creatorFingerprint = fingerprint(creatorStatic)
+        val localFingerprint = "19".repeat(32)
+        val context = FakeGroupContext(localKey, localFingerprint)
+        val original = incomingGroup(
+            creatorKey,
+            creatorFingerprint,
+            localKey,
+            localFingerprint
+        )
+        assertTrue(context.groupStore.upsert(original, ByteArray(32) { 0x1b }))
+        context.selected = original.peerID
+        val coordinator = GroupCoordinator(context)
+
+        assertTrue(coordinator.leaveGroup().success)
+        assertNull(context.groupStore.group(original.groupID))
+        assertEquals(original.epoch, context.groupStore.departureEpoch(original.groupID))
+
+        val nextState = original.copy(epoch = original.epoch + 1)
+        coordinator.handleKeyUpdate(
+            "creator",
+            creatorStatic,
+            signedState(nextState, creatorKey, ByteArray(32) { 0x1c })
+        )
+        assertNull(context.groupStore.group(original.groupID))
+
+        coordinator.handleInvite(
+            "creator",
+            creatorStatic,
+            signedState(original, creatorKey, ByteArray(32) { 0x1d })
+        )
+        assertNull(context.groupStore.group(original.groupID))
+
+        coordinator.handleInvite(
+            "creator",
+            creatorStatic,
+            signedState(nextState, creatorKey, ByteArray(32) { 0x1e })
+        )
+        assertEquals(nextState, context.groupStore.group(original.groupID))
+        assertNull(context.groupStore.departureEpoch(original.groupID))
+    }
+
+    @Test
+    fun `packets wait for asynchronous group store initialization`() {
+        val creatorKey = privateKey(0x1f)
+        val localKey = privateKey(0x20)
+        val creatorStatic = ByteArray(32) { 0x21 }
+        val creatorFingerprint = fingerprint(creatorStatic)
+        val localFingerprint = "20".repeat(32)
+        val store = GroupStore(
+            TestGroupKeys(),
+            testOnly = true,
+            autoInitialize = false
+        )
+        val context = FakeGroupContext(localKey, localFingerprint, store)
+        val group = incomingGroup(
+            creatorKey,
+            creatorFingerprint,
+            localKey,
+            localFingerprint
+        )
+        val coordinator = GroupCoordinator(context)
+
+        val command = coordinator.createGroup("too early")
+        assertFalse(command.success)
+        assertTrue(command.message.contains("still loading"))
+        coordinator.handleInvite(
+            "creator",
+            creatorStatic,
+            signedState(group, creatorKey, ByteArray(32) { 0x22 })
+        )
+        assertTrue(store.groups.value.isEmpty())
+
+        assertTrue(store.initialize())
+        coordinator.onStoreReady()
+
+        assertEquals(group, store.group(group.groupID))
+    }
+
+    @Test
     fun `group message requires a roster sender and deduplicates`() {
         val creatorKey = privateKey(0x21)
         val localKey = privateKey(0x22)
@@ -332,9 +452,9 @@ class GroupCoordinatorTest {
 
 private class FakeGroupContext(
     private val localKey: Ed25519PrivateKeyParameters,
-    private val localFingerprint: String
+    private val localFingerprint: String,
+    override val groupStore: GroupStore = GroupStore(TestGroupKeys(), testOnly = true)
 ) : GroupCoordinatorContext {
-    override val groupStore = GroupStore(TestGroupKeys(), testOnly = true)
     override val nickname = "local"
     override val myPeerID = localFingerprint.take(16)
     override val selectedConversationID: String?

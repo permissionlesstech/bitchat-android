@@ -1,5 +1,6 @@
 package com.bitchat.android.groups
 
+import com.google.gson.JsonParser
 import java.io.File
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -50,9 +51,86 @@ class GroupStoreTest {
         val reloaded = GroupStore(keys, file, testOnly = true)
         assertEquals(listOf(group), reloaded.groups.value)
 
+        val legacyGroups = JsonParser.parseString(file.readText())
+            .asJsonObject
+            .getAsJsonArray("groups")
+        file.writeText(legacyGroups.toString())
+        val reloadedFromLegacyMetadata = GroupStore(keys, file, testOnly = true)
+        assertEquals(listOf(group), reloadedFromLegacyMetadata.groups.value)
+
         keys.remove("groupKey-${group.groupID.joinToString("") { "%02x".format(it) }}")
         val withoutKey = GroupStore(keys, file, testOnly = true)
         assertTrue(withoutKey.groups.value.isEmpty())
+    }
+
+    @Test
+    fun `metadata failure rolls back epoch key and in-memory state`() {
+        val keys = MemoryGroupKeys()
+        val metadata = MemoryGroupMetadata()
+        val store = GroupStore(keys, metadata, testOnly = true)
+        val group = store.createGroup("ops", creator())!!
+        val originalKey = store.key(group.groupID)!!
+        val originalMetadata = metadata.contents
+        val newMember = GroupMember("22".repeat(32), ByteArray(32) { 0x33 }, "alice")
+
+        metadata.failWrites = true
+        val rotation = store.rotateKey(group.groupID, group.members + newMember)
+
+        assertNull(rotation)
+        assertEquals(group, store.group(group.groupID))
+        assertArrayEquals(originalKey, store.key(group.groupID))
+        assertEquals(originalMetadata, metadata.contents)
+
+        metadata.failWrites = false
+        val reloaded = GroupStore(keys, metadata, testOnly = true)
+        assertEquals(group, reloaded.group(group.groupID))
+        assertArrayEquals(originalKey, reloaded.key(group.groupID))
+    }
+
+    @Test
+    fun `voluntary departure survives restart until a newer invite is accepted`() {
+        val keys = MemoryGroupKeys()
+        val file = File(temporaryFolder.root, "groups.json")
+        val store = GroupStore(keys, file, testOnly = true)
+        val group = store.createGroup("ops", creator())!!
+
+        assertTrue(store.departGroup(group.groupID, group.epoch))
+        assertNull(store.group(group.groupID))
+        assertNull(store.key(group.groupID))
+        assertEquals(group.epoch, store.departureEpoch(group.groupID))
+
+        val reloaded = GroupStore(keys, file, testOnly = true)
+        assertNull(reloaded.group(group.groupID))
+        assertEquals(group.epoch, reloaded.departureEpoch(group.groupID))
+
+        val reinvited = group.copy(epoch = group.epoch + 1)
+        val newKey = ByteArray(32) { 0x55 }
+        assertTrue(reloaded.acceptInvite(reinvited, newKey))
+        assertEquals(reinvited, reloaded.group(group.groupID))
+        assertArrayEquals(newKey, reloaded.key(group.groupID))
+        assertNull(reloaded.departureEpoch(group.groupID))
+    }
+
+    @Test
+    fun `android-style store remains inert until background initialization`() {
+        val keys = MemoryGroupKeys()
+        val file = File(temporaryFolder.root, "groups.json")
+        val seeded = GroupStore(keys, file, testOnly = true)
+        val group = seeded.createGroup("ops", creator())!!
+        val deferred = GroupStore(
+            keys,
+            file,
+            testOnly = true,
+            autoInitialize = false
+        )
+
+        assertFalse(deferred.isReady)
+        assertTrue(deferred.groups.value.isEmpty())
+        assertNull(deferred.createGroup("too early", creator()))
+
+        assertTrue(deferred.initialize())
+        assertTrue(deferred.isReady)
+        assertEquals(group, deferred.group(group.groupID))
     }
 
     @Test
@@ -110,4 +188,22 @@ private class MemoryGroupKeys : GroupKeyStorage {
     }
 
     override fun remove(key: String): Boolean = values.remove(key) != null
+}
+
+private class MemoryGroupMetadata : GroupMetadataStorage {
+    var contents: String? = null
+    var failWrites = false
+
+    override fun read(): String? = contents
+
+    override fun write(contents: String): Boolean {
+        if (failWrites) return false
+        this.contents = contents
+        return true
+    }
+
+    override fun delete(): Boolean {
+        contents = null
+        return true
+    }
 }

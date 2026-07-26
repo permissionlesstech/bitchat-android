@@ -19,6 +19,7 @@ import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.protocol.BitchatPacket
 
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
@@ -373,6 +374,11 @@ class ChatViewModel(
     }
 
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (groupStore.initialize()) {
+                groupCoordinator.onStoreReady()
+            }
+        }
         // Note: Mesh service delegate is now set by MainActivity
         loadAndInitialize()
         ContactDirectory.initialize(getApplication()) { mesh }
@@ -1098,6 +1104,7 @@ class ChatViewModel(
 
     override fun didResolvePrivateMediaPolicy(peerID: String) {
         mediaSendingManager.retryPendingPrivateMedia(peerID)
+        groupCoordinator.handlePeerAuthenticated(peerID)
     }
 
     override fun didReceiveGroupInvite(

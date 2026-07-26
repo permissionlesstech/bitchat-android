@@ -3,6 +3,7 @@ package com.bitchat.android.groups
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.model.PeerCapabilities
+import java.util.ArrayDeque
 import java.util.Date
 import java.util.UUID
 
@@ -69,7 +70,32 @@ interface GroupCoordinatorContext {
  * Creator-managed private-group state machine matching iOS v1.
  */
 class GroupCoordinator(private val context: GroupCoordinatorContext) {
+    private sealed class PendingEvent {
+        data class Invite(
+            val peerID: String,
+            val authenticatedRemoteStaticKey: ByteArray,
+            val payload: ByteArray
+        ) : PendingEvent()
+
+        data class KeyUpdate(
+            val peerID: String,
+            val authenticatedRemoteStaticKey: ByteArray,
+            val payload: ByteArray
+        ) : PendingEvent()
+
+        data class Message(
+            val payload: ByteArray,
+            val receivedAtMs: Long
+        ) : PendingEvent()
+
+        data class PeerAuthenticated(val peerID: String) : PendingEvent()
+    }
+
+    private val pendingLock = Any()
+    private val pendingEvents = ArrayDeque<PendingEvent>()
+
     fun createGroup(rawName: String): GroupCommandResult {
+        if (!context.groupStore.isReady) return loadingError()
         val name = rawName.trim()
         if (name.isEmpty()) return error("usage: /group create <name>")
         if (name.codePointCount(0, name.length) > MAX_GROUP_NAME_LENGTH) {
@@ -88,6 +114,7 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
     }
 
     fun inviteMember(rawNickname: String): GroupCommandResult {
+        if (!context.groupStore.isReady) return loadingError()
         val nickname = normalizeNickname(rawNickname)
         if (nickname.isEmpty()) return error("usage: /group invite <nickname>")
         val group = selectedGroup() ?: return error("open a private group first")
@@ -127,6 +154,7 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
     }
 
     fun removeMember(rawNickname: String): GroupCommandResult {
+        if (!context.groupStore.isReady) return loadingError()
         val nickname = normalizeNickname(rawNickname)
         if (nickname.isEmpty()) return error("usage: /group remove <nickname>")
         val group = selectedGroup() ?: return error("open a private group first")
@@ -149,17 +177,24 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
     }
 
     fun leaveGroup(): GroupCommandResult {
+        if (!context.groupStore.isReady) return loadingError()
         val group = selectedGroup() ?: return error("open a private group first")
         if (isCreator(group) && group.members.size > 1) {
             return error("remove all other members before leaving this group")
         }
+        val removed = if (isCreator(group)) {
+            context.groupStore.removeGroup(group.groupID)
+        } else {
+            context.groupStore.departGroup(group.groupID, group.epoch)
+        }
+        if (!removed) return error("could not leave group")
         context.closeGroupConversation()
         context.removeGroupConversation(group.peerID)
-        context.groupStore.removeGroup(group.groupID)
         return success("left #${group.name}")
     }
 
     fun listGroups(): GroupCommandResult {
+        if (!context.groupStore.isReady) return loadingError()
         val groups = context.groupStore.groups.value
         if (groups.isEmpty()) return success("you are not in any private groups")
         val fingerprint = context.myNoiseFingerprint()
@@ -171,6 +206,10 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
     }
 
     fun sendMessage(content: String, groupPeerID: String) {
+        if (!context.groupStore.isReady) {
+            context.addGroupSystemMessage(groupPeerID, "private groups are still loading")
+            return
+        }
         if (content.isEmpty() ||
             content.codePointCount(0, content.length) > MAX_MESSAGE_LENGTH
         ) {
@@ -223,8 +262,13 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         context.broadcastGroupMessage(payload)
     }
 
-    @Suppress("UNUSED_PARAMETER")
     fun handleMessage(payload: ByteArray, receivedAtMs: Long) {
+        if (deferIfLoading(PendingEvent.Message(payload.copyOf(), receivedAtMs))) return
+        processMessage(payload)
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun processMessage(payload: ByteArray) {
         val envelope = GroupMessageEnvelope.decode(payload) ?: return
         val group = context.groupStore.group(envelope.groupID) ?: return
         if (envelope.epoch != group.epoch) return
@@ -266,7 +310,18 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         authenticatedRemoteStaticKey: ByteArray,
         payload: ByteArray
     ) {
-        applyState(peerID, authenticatedRemoteStaticKey, payload)
+        if (
+            deferIfLoading(
+                PendingEvent.Invite(
+                    peerID,
+                    authenticatedRemoteStaticKey.copyOf(),
+                    payload.copyOf()
+                )
+            )
+        ) {
+            return
+        }
+        applyState(peerID, authenticatedRemoteStaticKey, payload, isInvite = true)
     }
 
     fun handleKeyUpdate(
@@ -274,13 +329,77 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         authenticatedRemoteStaticKey: ByteArray,
         payload: ByteArray
     ) {
-        applyState(peerID, authenticatedRemoteStaticKey, payload)
+        if (
+            deferIfLoading(
+                PendingEvent.KeyUpdate(
+                    peerID,
+                    authenticatedRemoteStaticKey.copyOf(),
+                    payload.copyOf()
+                )
+            )
+        ) {
+            return
+        }
+        applyState(peerID, authenticatedRemoteStaticKey, payload, isInvite = false)
+    }
+
+    /**
+     * Replays the current creator-signed state after an authenticated peer
+     * reconnects. This uses the existing iOS GROUP_KEY_UPDATE payload and
+     * repairs updates that could not be delivered while the member was offline.
+     */
+    fun handlePeerAuthenticated(peerID: String) {
+        if (deferIfLoading(PendingEvent.PeerAuthenticated(peerID))) return
+        if (!context.isPeerConnected(peerID)) return
+        if (context.peerGroupCapability(peerID) != PeerGroupCapability.SUPPORTED) return
+        val identity = context.peerIdentity(peerID) ?: return
+        val ownFingerprint = context.myNoiseFingerprint()
+        context.groupStore.groups.value.forEach { group ->
+            if (group.creatorFingerprint != ownFingerprint ||
+                !group.isMember(identity.fingerprint)
+            ) {
+                return@forEach
+            }
+            val key = context.groupStore.key(group.groupID) ?: return@forEach
+            val payload = signedStatePayload(group, key) ?: return@forEach
+            context.sendGroupKeyUpdate(payload, peerID)
+        }
+    }
+
+    /**
+     * Drains packets received during asynchronous store initialization.
+     */
+    fun onStoreReady() {
+        if (!context.groupStore.isReady) return
+        while (true) {
+            val event = synchronized(pendingLock) {
+                pendingEvents.pollFirst()
+            } ?: return
+            when (event) {
+                is PendingEvent.Invite -> applyState(
+                    event.peerID,
+                    event.authenticatedRemoteStaticKey,
+                    event.payload,
+                    isInvite = true
+                )
+                is PendingEvent.KeyUpdate -> applyState(
+                    event.peerID,
+                    event.authenticatedRemoteStaticKey,
+                    event.payload,
+                    isInvite = false
+                )
+                is PendingEvent.Message -> processMessage(event.payload)
+                is PendingEvent.PeerAuthenticated ->
+                    handlePeerAuthenticated(event.peerID)
+            }
+        }
     }
 
     private fun applyState(
         peerID: String,
         authenticatedRemoteStaticKey: ByteArray,
-        payload: ByteArray
+        payload: ByteArray,
+        isInvite: Boolean
     ) {
         val state = GroupStatePayload.decode(payload) ?: return
         val senderFingerprint = sha256(authenticatedRemoteStaticKey).toHex()
@@ -293,18 +412,29 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         // removal. Otherwise an old, valid removal notice could delete a
         // membership restored by a later creator-signed re-invite.
         if (existing != null && state.epoch < existing.epoch) return
+        val departureEpoch = context.groupStore.departureEpoch(state.groupID)
+        if (departureEpoch != null &&
+            (!isInvite || state.epoch <= departureEpoch)
+        ) {
+            return
+        }
         if (state.members.none { it.fingerprint == ownFingerprint }) {
             if (existing != null) {
+                if (!context.groupStore.removeGroup(existing.groupID)) return
                 if (context.selectedConversationID == existing.peerID) {
                     context.closeGroupConversation()
                 }
                 context.removeGroupConversation(existing.peerID)
-                context.groupStore.removeGroup(existing.groupID)
                 context.addSystemMessage("you were removed from #${existing.name}")
             }
             return
         }
-        if (!context.groupStore.upsert(state.asGroup(), state.key)) return
+        val stored = if (isInvite && departureEpoch != null) {
+            context.groupStore.acceptInvite(state.asGroup(), state.key)
+        } else {
+            context.groupStore.upsert(state.asGroup(), state.key)
+        }
+        if (!stored) return
 
         if (existing == null) {
             val inviter = state.members.firstOrNull {
@@ -353,6 +483,17 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
     private fun normalizeNickname(raw: String): String =
         raw.trim().removePrefix("@")
 
+    private fun deferIfLoading(event: PendingEvent): Boolean =
+        synchronized(pendingLock) {
+            if (context.groupStore.isReady) return@synchronized false
+            if (pendingEvents.size >= MAX_PENDING_EVENTS) pendingEvents.pollFirst()
+            pendingEvents.addLast(event)
+            true
+        }
+
+    private fun loadingError() =
+        error("private groups are still loading; try again")
+
     private fun success(message: String) = GroupCommandResult(true, message)
     private fun error(message: String) = GroupCommandResult(false, message)
 
@@ -363,6 +504,7 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         private const val MAX_GROUP_NAME_LENGTH = 40
         private const val MAX_MESSAGE_LENGTH = 60_000
         private const val RECENT_NOTIFICATION_WINDOW_MS = 30_000L
+        private const val MAX_PENDING_EVENTS = 64
         private val FINGERPRINT = Regex("^[0-9a-fA-F]{64}$")
     }
 }
