@@ -32,8 +32,28 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         /** Noise-encrypted private BitchatFilePacket using payload type 0x20. */
         val PRIVATE_MEDIA = PeerCapabilities(1L shl 8)
 
+        /** Can bridge public mesh traffic through geohash rendezvous relays. */
+        val BRIDGE = PeerCapabilities(1L shl 7)
+
+        /** Publishes signed one-time prekeys for forward-secret courier mail. */
+        val PREKEYS = PeerCapabilities(1L shl 0)
+
         /** Capabilities implemented by this Android build. */
-        val LOCAL_SUPPORTED = PRIVATE_MEDIA
+        @Deprecated("Use localSupported() so runtime bridge state is included")
+        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or PREKEYS.rawValue)
+
+        @Volatile
+        private var bridgeEnabled: Boolean = false
+
+        fun setBridgeEnabled(enabled: Boolean) {
+            bridgeEnabled = enabled
+        }
+
+        fun localSupported(): PeerCapabilities = PeerCapabilities(
+            PRIVATE_MEDIA.rawValue or
+                PREKEYS.rawValue or
+                if (bridgeEnabled) BRIDGE.rawValue else 0L
+        )
 
         /**
          * Decode the low 64 bits and ignore any future extension bytes, which

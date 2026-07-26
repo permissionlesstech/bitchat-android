@@ -62,7 +62,7 @@ class MeshCore(
             store = authenticatedPeerStateStore,
             localStateProvider = {
                 AuthenticatedPeerState(
-                    PeerCapabilities.LOCAL_SUPPORTED,
+                    PeerCapabilities.localSupported(),
                     requireNotNull(encryptionService.getSigningPublicKey())
                 )
             },
@@ -524,6 +524,67 @@ class MeshCore(
             val signedPacket = signPacketBeforeBroadcast(packet)
             dispatchGlobal(RoutedPacket(signedPacket))
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+            if (channel == null) {
+                val nickname = hooks.announcementNicknameProvider?.invoke()
+                    ?: delegate?.getNickname()
+                com.bitchat.android.services.bridge.MeshBridgeService.bridgeOutgoing(
+                    content,
+                    myPeerID,
+                    packet.timestamp.toLong(),
+                    nickname
+                )
+            }
+        }
+    }
+
+    fun sendNostrCarrier(payload: ByteArray, recipientPeerID: String? = null) {
+        sendRawProtocolPacket(
+            type = MessageType.NOSTR_CARRIER,
+            payload = payload,
+            recipientPeerID = recipientPeerID,
+            sign = true
+        )
+    }
+
+    fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String) {
+        sendRawProtocolPacket(
+            type = MessageType.COURIER_ENVELOPE,
+            payload = payload,
+            recipientPeerID = recipientPeerID,
+            sign = false
+        )
+    }
+
+    fun sendPrekeyBundle(payload: ByteArray) {
+        sendRawProtocolPacket(
+            type = MessageType.PREKEY_BUNDLE,
+            payload = payload,
+            recipientPeerID = null,
+            sign = true
+        )
+    }
+
+    private fun sendRawProtocolPacket(
+        type: MessageType,
+        payload: ByteArray,
+        recipientPeerID: String?,
+        sign: Boolean
+    ) {
+        if (payload.isEmpty()) return
+        scope.launch {
+            val packet = BitchatPacket(
+                version = if (payload.size > 0xFFFF) 2u else 1u,
+                type = type.value,
+                senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+                recipientID = recipientPeerID?.let(MeshPacketUtils::hexStringToByteArray),
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = payload,
+                signature = null,
+                ttl = maxTtl
+            )
+            val outgoing = if (sign) signPacketBeforeBroadcast(packet) else packet
+            if (sign && outgoing.signature?.size != 64) return@launch
+            dispatchGlobal(RoutedPacket(outgoing))
         }
     }
 
@@ -756,7 +817,12 @@ class MeshCore(
                 Log.e("MeshCore", "No signing public key available for announcement")
                 return@launch
             }
-            val announcement = IdentityAnnouncement.forLocalPeer(nickname, staticKey, signingKey)
+            val announcement = IdentityAnnouncement.forLocalPeer(
+                nickname,
+                staticKey,
+                signingKey,
+                com.bitchat.android.services.bridge.MeshBridgeService.advertisedCell()
+            )
             val tlvPayload = buildAnnouncementPayload(announcement, nickname) ?: return@launch
             val announcePacket = BitchatPacket(
                 type = MessageType.ANNOUNCE.value,
@@ -777,7 +843,12 @@ class MeshCore(
             ?: myPeerID
         val staticKey = encryptionService.getStaticPublicKey() ?: return
         val signingKey = encryptionService.getSigningPublicKey() ?: return
-        val announcement = IdentityAnnouncement.forLocalPeer(nickname, staticKey, signingKey)
+        val announcement = IdentityAnnouncement.forLocalPeer(
+            nickname,
+            staticKey,
+            signingKey,
+            com.bitchat.android.services.bridge.MeshBridgeService.advertisedCell()
+        )
         val tlvPayload = buildAnnouncementPayload(announcement, nickname) ?: return
         val packet = BitchatPacket(
             type = MessageType.ANNOUNCE.value,

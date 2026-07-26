@@ -64,7 +64,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             store = authenticatedPeerStateStore,
             localStateProvider = {
                 AuthenticatedPeerState(
-                    PeerCapabilities.LOCAL_SUPPORTED,
+                    PeerCapabilities.localSupported(),
                     requireNotNull(encryptionService.getSigningPublicKey())
                 )
             },
@@ -904,6 +904,53 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             broadcastRoutedPacket(RoutedPacket(signedPacket))
             // Track our own broadcast message for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+            if (channel == null) {
+                val nickname = runCatching {
+                    com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID)
+                }.getOrNull()
+                com.bitchat.android.services.bridge.MeshBridgeService.bridgeOutgoing(
+                    content,
+                    myPeerID,
+                    packet.timestamp.toLong(),
+                    nickname
+                )
+            }
+        }
+    }
+
+    fun sendNostrCarrier(payload: ByteArray, recipientPeerID: String?) {
+        sendRawProtocolPacket(MessageType.NOSTR_CARRIER, payload, recipientPeerID, sign = true)
+    }
+
+    fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String) {
+        sendRawProtocolPacket(MessageType.COURIER_ENVELOPE, payload, recipientPeerID, sign = false)
+    }
+
+    fun sendPrekeyBundle(payload: ByteArray) {
+        sendRawProtocolPacket(MessageType.PREKEY_BUNDLE, payload, null, sign = true)
+    }
+
+    private fun sendRawProtocolPacket(
+        type: MessageType,
+        payload: ByteArray,
+        recipientPeerID: String?,
+        sign: Boolean
+    ) {
+        if (payload.isEmpty()) return
+        serviceScope.launch {
+            val packet = BitchatPacket(
+                version = if (payload.size > 0xFFFF) 2u else 1u,
+                type = type.value,
+                senderID = hexStringToByteArray(myPeerID),
+                recipientID = recipientPeerID?.let(::hexStringToByteArray),
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = payload,
+                signature = null,
+                ttl = MAX_TTL
+            )
+            val outgoing = if (sign) signPacketBeforeBroadcast(packet) else packet
+            if (sign && outgoing.signature?.size != 64) return@launch
+            broadcastRoutedPacket(RoutedPacket(outgoing))
         }
     }
 
@@ -1239,7 +1286,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             // Create iOS-compatible IdentityAnnouncement with TLV encoding
-            val announcement = IdentityAnnouncement.forLocalPeer(nickname, staticKey, signingKey)
+            val announcement = IdentityAnnouncement.forLocalPeer(
+                nickname,
+                staticKey,
+                signingKey,
+                com.bitchat.android.services.bridge.MeshBridgeService.advertisedCell()
+            )
             var tlvPayload = announcement.encode()
             if (tlvPayload == null) {
                 Log.e(TAG, "Failed to encode announcement as TLV")
@@ -1302,7 +1354,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         }
         
         // Create iOS-compatible IdentityAnnouncement with TLV encoding
-        val announcement = IdentityAnnouncement.forLocalPeer(nickname, staticKey, signingKey)
+        val announcement = IdentityAnnouncement.forLocalPeer(
+            nickname,
+            staticKey,
+            signingKey,
+            com.bitchat.android.services.bridge.MeshBridgeService.advertisedCell()
+        )
         var tlvPayload = announcement.encode()
         if (tlvPayload == null) {
             Log.e(TAG, "Failed to encode peer announcement as TLV")

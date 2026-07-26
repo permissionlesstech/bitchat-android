@@ -90,6 +90,17 @@ class MessageRouter private constructor(
             Log.d(TAG, "Queued PM for ${conversationID} (no mesh, no Nostr mapping) msg_id=${messageID.take(8)}…")
             val q = outbox.getOrPut(conversationID) { mutableListOf() }
             q.add(Triple(content, recipientNickname, messageID))
+            resolution.noisePublicKey?.let { recipientNoiseKey ->
+                try {
+                    com.bitchat.android.services.bridge.MeshBridgeService.depositCourierDrop(
+                        content = content,
+                        messageId = messageID,
+                        recipientNoiseKey = recipientNoiseKey
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Courier deposit failed: ${e.message}")
+                }
+            }
             Log.d(TAG, "Initiating noise handshake after queueing PM for ${conversationID.take(16)}…")
             if (hasMesh) meshTarget?.let { mesh.initiateNoiseHandshake(it) }
             return RouteResult.QUEUED

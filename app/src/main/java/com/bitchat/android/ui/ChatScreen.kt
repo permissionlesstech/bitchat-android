@@ -60,6 +60,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
     val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
     val legacyPrivateMediaConsent by viewModel.legacyPrivateMediaConsent.collectAsStateWithLifecycle()
+    val bridgeEnabled by com.bitchat.android.services.bridge.MeshBridgeService.isEnabled.collectAsStateWithLifecycle()
+    val nearbyOnly by com.bitchat.android.services.bridge.MeshBridgeService.nearbyOnly.collectAsStateWithLifecycle()
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -237,7 +239,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 currentChannel = currentChannel,
                 nickname = nickname,
                 colorScheme = colorScheme,
-                showMediaButtons = showMediaButtons
+                showMediaButtons = showMediaButtons,
+                showBridgeControls = bridgeEnabled &&
+                    currentChannel == null &&
+                    selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location,
+                nearbyOnly = nearbyOnly,
+                onNearbyOnlyChange = com.bitchat.android.services.bridge.MeshBridgeService::setNearbyOnly
             )
         }
 
@@ -392,7 +399,10 @@ fun ChatInputSection(
     currentChannel: String?,
     nickname: String,
     colorScheme: ColorScheme,
-    showMediaButtons: Boolean
+    showMediaButtons: Boolean,
+    showBridgeControls: Boolean = false,
+    nearbyOnly: Boolean = false,
+    onNearbyOnlyChange: (Boolean) -> Unit = {}
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -429,6 +439,9 @@ fun ChatInputSection(
                 currentChannel = currentChannel,
                 nickname = nickname,
                 showMediaButtons = showMediaButtons,
+                showBridgeControls = showBridgeControls,
+                nearbyOnly = nearbyOnly,
+                onNearbyOnlyChange = onNearbyOnlyChange,
                 modifier = Modifier.fillMaxWidth()
             )
         }

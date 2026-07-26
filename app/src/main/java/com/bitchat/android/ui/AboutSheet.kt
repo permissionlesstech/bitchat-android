@@ -35,6 +35,7 @@ import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.net.ArtiTorManager
+import com.bitchat.android.services.bridge.MeshBridgeService
 
 /**
  * Feature row for displaying app capabilities
@@ -226,6 +227,7 @@ fun AboutSheet(
 
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val bridgeEnabled by MeshBridgeService.isEnabled.collectAsState()
     
     if (isPresented) {
         BitchatBottomSheet(
@@ -403,6 +405,19 @@ fun AboutSheet(
                                                 com.bitchat.android.service.MeshForegroundService.start(context)
                                             }
                                         }
+                                    )
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp),
+                                        color = colorScheme.outline.copy(alpha = 0.12f)
+                                    )
+
+                                    SettingsToggleRow(
+                                        icon = Icons.Filled.Public,
+                                        title = stringResource(R.string.mesh_bridge_title),
+                                        subtitle = stringResource(R.string.mesh_bridge_description),
+                                        checked = bridgeEnabled,
+                                        onCheckedChange = MeshBridgeService::setEnabled
                                     )
                                     
                                     HorizontalDivider(

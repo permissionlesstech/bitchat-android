@@ -13,6 +13,9 @@ interface MeshService {
     fun stopServices()
 
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null)
+    fun sendNostrCarrier(payload: ByteArray, recipientPeerID: String? = null)
+    fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String)
+    fun sendPrekeyBundle(payload: ByteArray)
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null)
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String)
     fun sendDeliveryAck(messageID: String, recipientPeerID: String) {}

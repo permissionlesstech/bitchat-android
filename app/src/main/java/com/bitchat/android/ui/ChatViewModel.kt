@@ -973,6 +973,10 @@ class ChatViewModel(
         
         // Clear all mesh service data
         clearAllMeshServiceData()
+
+        try {
+            com.bitchat.android.services.bridge.MeshBridgeService.wipe()
+        } catch (_: Exception) { }
         
         // Clear all cryptographic data
         clearAllCryptographicData()

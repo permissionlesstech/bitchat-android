@@ -1493,6 +1493,18 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendMessage(content, mentions, channel)
     }
 
+    override fun sendNostrCarrier(payload: ByteArray, recipientPeerID: String?) {
+        meshCore.sendNostrCarrier(payload, recipientPeerID)
+    }
+
+    override fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String) {
+        meshCore.sendCourierEnvelope(payload, recipientPeerID)
+    }
+
+    override fun sendPrekeyBundle(payload: ByteArray) {
+        meshCore.sendPrekeyBundle(payload)
+    }
+
     /**
      * Sends a private encrypted message to a specific peer.
      *

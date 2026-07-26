@@ -57,6 +57,55 @@ class AppStateStoreTest {
     }
 
     @Test
+    fun `untrusted bridge radio hint cannot reserve another signed event id`() {
+        val first = BitchatMessage(
+            id = "signed-event-a",
+            sender = "alice#1111",
+            content = "same public coordinates",
+            timestamp = Date(1_700_000_000_000L),
+            senderPeerID = "bridge:1111",
+            isBridged = true,
+            bridgeRadioMessageIdHint = "radio-hint"
+        )
+        val second = first.copy(
+            id = "signed-event-b",
+            sender = "mallory#2222",
+            senderPeerID = "bridge:2222"
+        )
+
+        AppStateStore.addPublicMessage(first)
+        AppStateStore.addPublicMessage(second)
+
+        assertEquals(listOf(first, second), AppStateStore.publicMessages.value)
+    }
+
+    @Test
+    fun `authenticated radio row replaces bridge aliases with the same hint`() {
+        val bridged = BitchatMessage(
+            id = "signed-event",
+            sender = "alice#1111",
+            content = "hello",
+            timestamp = Date(1_700_000_000_000L),
+            senderPeerID = "bridge:1111",
+            isBridged = true,
+            bridgeRadioMessageIdHint = "radio-message-id"
+        )
+        val radio = BitchatMessage(
+            id = "radio-message-id",
+            sender = "alice",
+            content = "hello",
+            timestamp = bridged.timestamp,
+            senderPeerID = "0011223344556677"
+        )
+
+        AppStateStore.addPublicMessage(bridged)
+        AppStateStore.addPublicMessage(radio)
+
+        assertEquals(listOf(radio), AppStateStore.publicMessages.value)
+        assertEquals(true, AppStateStore.hasRadioPublicMessage(radio.id))
+    }
+
+    @Test
     fun `peer list merges transport updates instead of overwriting`() {
         AppStateStore.setTransportPeers("WIFI", listOf("wifi-peer"))
         AppStateStore.setTransportPeers("BLE", emptyList())

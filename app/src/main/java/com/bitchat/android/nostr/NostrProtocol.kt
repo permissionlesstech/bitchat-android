@@ -212,6 +212,73 @@ object NostrProtocol {
         
         return@withContext senderIdentity.signEvent(event)
     }
+
+    /** iOS-compatible public mesh event on a bridge rendezvous cell. */
+    fun createBridgeMeshEvent(
+        content: String,
+        cell: String,
+        senderIdentity: NostrIdentity,
+        nickname: String? = null,
+        meshSenderId: String? = null,
+        meshTimestampMs: Long? = null
+    ): NostrEvent {
+        val tags = mutableListOf<List<String>>(listOf("r", cell))
+        nickname?.trim()?.takeIf { it.isNotEmpty() }?.let { tags += listOf("n", it) }
+        val sender = meshSenderId?.trim()?.takeIf { it.isNotEmpty() }
+        if (sender != null && meshTimestampMs != null) {
+            tags += listOf(
+                "m",
+                MeshMessageIdentity.stableId(sender, meshTimestampMs, content),
+                sender,
+                meshTimestampMs.toString()
+            )
+        }
+        return senderIdentity.signEvent(
+            NostrEvent(
+                pubkey = senderIdentity.publicKeyHex,
+                createdAt = (System.currentTimeMillis() / 1000).toInt(),
+                kind = NostrKind.EPHEMERAL_EVENT,
+                tags = tags,
+                content = content
+            )
+        )
+    }
+
+    /** Empty bridge-presence heartbeat, deliberately separate from `#g` chat. */
+    fun createBridgePresenceEvent(
+        cell: String,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = senderIdentity.signEvent(
+        NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = NostrKind.GEOHASH_PRESENCE,
+            tags = listOf(listOf("r", cell)),
+            content = ""
+        )
+    )
+
+    /**
+     * Opaque relay drop. Callers use a throwaway identity so deposits cannot
+     * be linked by their Nostr publisher key.
+     */
+    fun createCourierDropEvent(
+        envelope: ByteArray,
+        recipientTagHex: String,
+        expiresAtMs: Long,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = senderIdentity.signEvent(
+        NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = NostrKind.COURIER_DROP,
+            tags = listOf(
+                listOf("x", recipientTagHex),
+                listOf("expiration", (expiresAtMs / 1000).toString())
+            ),
+            content = android.util.Base64.encodeToString(envelope, android.util.Base64.NO_WRAP)
+        )
+    )
     
     // MARK: - Private Methods
     

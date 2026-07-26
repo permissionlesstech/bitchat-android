@@ -40,6 +40,7 @@ import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
+import com.bitchat.android.services.bridge.MeshBridgeService
 import com.bitchat.android.util.hexEncodedString
 
 
@@ -68,6 +69,8 @@ fun MeshPeerListSheet(
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
+    val bridgeEnabled by MeshBridgeService.isEnabled.collectAsStateWithLifecycle()
+    val bridgedParticipants by MeshBridgeService.bridgedParticipants.collectAsStateWithLifecycle()
     val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
     val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
 
@@ -179,6 +182,13 @@ fun MeshPeerListSheet(
                                         onDismiss()
                                     }
                                 )
+
+                                if (bridgeEnabled && bridgedParticipants.isNotEmpty()) {
+                                    BridgedPeopleSection(
+                                        participants = bridgedParticipants,
+                                        colorScheme = colorScheme
+                                    )
+                                }
                             }
                         }
                     }
@@ -210,6 +220,53 @@ fun MeshPeerListSheet(
             }
         }
 
+    }
+}
+
+@Composable
+private fun BridgedPeopleSection(
+    participants: List<MeshBridgeService.BridgedParticipant>,
+    colorScheme: ColorScheme
+) {
+    Column(modifier = Modifier.padding(top = 16.dp)) {
+        Text(
+            text = stringResource(R.string.across_bridge).uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            color = colorScheme.onSurface.copy(alpha = 0.7f),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(top = 8.dp, bottom = 4.dp)
+        )
+        participants.forEach { participant ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 40.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Public,
+                    contentDescription = null,
+                    tint = Color(0xFF00A7C4),
+                    modifier = Modifier.size(18.dp)
+                )
+                Column {
+                    Text(
+                        text = participant.displayName,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                        color = colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.via_mesh_bridge),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurface.copy(alpha = 0.55f)
+                    )
+                }
+            }
+        }
     }
 }
 

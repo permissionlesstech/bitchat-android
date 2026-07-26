@@ -87,12 +87,24 @@ object AppStateStore {
 
     fun addPublicMessage(msg: BitchatMessage) {
         synchronized(this) {
+            if (!msg.isBridged) {
+                val filtered = _publicMessages.value.filterNot {
+                    it.isBridged && it.bridgeRadioMessageIdHint == msg.id
+                }
+                if (filtered.size != _publicMessages.value.size) {
+                    _publicMessages.value = filtered
+                }
+            }
             val publicKey = publicMessageKey(msg)
             if (seenMessageIds.contains(msg.id) || seenPublicMessageKeys.contains(publicKey)) return
             seenMessageIds.add(msg.id)
             seenPublicMessageKeys.add(publicKey)
             _publicMessages.value = _publicMessages.value + msg
         }
+    }
+
+    fun hasRadioPublicMessage(messageId: String): Boolean = synchronized(this) {
+        _publicMessages.value.any { !it.isBridged && it.id == messageId }
     }
 
     fun addPrivateMessage(peerID: String, msg: BitchatMessage) {

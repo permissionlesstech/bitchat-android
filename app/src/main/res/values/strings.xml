@@ -379,6 +379,13 @@
   <string name="pan_zoom_instruction">pan and zoom to select a geohash</string>
   <string name="select">select</string>
   <string name="type_a_message_placeholder">type a message...</string>
+  <string name="mesh_bridge_title" tools:ignore="MissingTranslation">mesh bridge</string>
+  <string name="mesh_bridge_description" tools:ignore="MissingTranslation">share public nearby messages through relays and carry encrypted offline messages for others</string>
+  <string name="across_bridge" tools:ignore="MissingTranslation">across the bridge</string>
+  <string name="via_mesh_bridge" tools:ignore="MissingTranslation">via mesh bridge</string>
+  <string name="cd_mesh_bridge_active" tools:ignore="MissingTranslation">Mesh bridge active</string>
+  <string name="cd_nearby_only_on" tools:ignore="MissingTranslation">Nearby only: messages stay within radio range</string>
+  <string name="cd_nearby_only_off" tools:ignore="MissingTranslation">Bridged: messages also reach people across the bridge</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">mention</string>
   <string name="image_counter">%1$d / %2$d</string>

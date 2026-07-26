@@ -175,6 +175,39 @@ object NostrIdentityBridge {
         Log.d(TAG, "Used fallback identity derivation for $forGeohash")
         return fallbackIdentity
     }
+
+    /**
+     * Derive the iOS-compatible bridge rendezvous identity. The domain label
+     * prevents linking it to geohash-chat identity and the iteration is
+     * encoded big-endian, matching CryptoKit's UInt32.bigEndian bytes.
+     */
+    fun deriveBridgeIdentity(cell: String, context: Context): NostrIdentity {
+        val label = "bridge|$cell"
+        geohashIdentityCache[label]?.let { return it }
+        val stateManager = SecureIdentityStateManager(context)
+        val seed = getOrCreateDeviceSeed(stateManager)
+        val message = label.toByteArray(Charsets.UTF_8)
+
+        for (iteration in 0 until 10) {
+            val input = message + byteArrayOf(
+                (iteration ushr 24).toByte(),
+                (iteration ushr 16).toByte(),
+                (iteration ushr 8).toByte(),
+                iteration.toByte()
+            )
+            val candidate = hmacSha256(seed, input).toHexStringLocal()
+            if (NostrCrypto.isValidPrivateKey(candidate)) {
+                return NostrIdentity.fromPrivateKey(candidate).also {
+                    geohashIdentityCache[label] = it
+                }
+            }
+        }
+
+        val fallback = MessageDigest.getInstance("SHA-256").digest(seed + message)
+        return NostrIdentity.fromPrivateKey(fallback.toHexStringLocal()).also {
+            geohashIdentityCache[label] = it
+        }
+    }
     
     /**
      * Generate candidate key for a specific iteration (matches iOS implementation)

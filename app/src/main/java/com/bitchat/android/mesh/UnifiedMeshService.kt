@@ -64,6 +64,29 @@ class UnifiedMeshService(
         }
     }
 
+    override fun sendNostrCarrier(payload: ByteArray, recipientPeerID: String?) {
+        when {
+            isBleEnabled() -> bluetooth.sendNostrCarrier(payload, recipientPeerID)
+            else -> wifiService()?.sendNostrCarrier(payload, recipientPeerID)
+        }
+    }
+
+    override fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String) {
+        when {
+            isBleConnected(recipientPeerID) || (isBleEnabled() && !isWifiConnected(recipientPeerID)) ->
+                bluetooth.sendCourierEnvelope(payload, recipientPeerID)
+            else -> wifiService()?.sendCourierEnvelope(payload, recipientPeerID)
+        }
+    }
+
+    override fun sendPrekeyBundle(payload: ByteArray) {
+        if (isBleEnabled()) {
+            bluetooth.sendPrekeyBundle(payload)
+        } else {
+            wifiService()?.sendPrekeyBundle(payload)
+        }
+    }
+
     override fun sendPrivateMessage(
         content: String,
         recipientPeerID: String,

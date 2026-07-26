@@ -274,7 +274,8 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                     MessageType.ANNOUNCE,
                     MessageType.MESSAGE,
                     MessageType.FILE_TRANSFER,
-                    MessageType.LEAVE
+                    MessageType.LEAVE,
+                    MessageType.NOSTR_CARRIER
                 )) {
                 return true
             }
