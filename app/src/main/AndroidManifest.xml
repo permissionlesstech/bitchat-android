@@ -27,6 +27,8 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <!-- Android 13+ runtime permission for Wi‑Fi operations (including Aware) -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <!-- Android 17+ gates local network access; Wi‑Fi Aware peers over link-local IPv6 -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- Signature permission for internal UI shutdown broadcasts -->
     <uses-permission android:name="com.bitchat.android.permission.FORCE_FINISH" />
     <!-- Foreground service and boot permissions for long-running background mesh -->

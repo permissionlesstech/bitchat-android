@@ -65,6 +65,14 @@ class ChatViewModel(
         mediaSendingManager.sendImageNote(toPeerIDOrNull, channelOrNull, filePath)
     }
 
+    fun approveLegacyPrivateMedia(requestId: String) {
+        mediaSendingManager.approveLegacyPrivateMedia(requestId)
+    }
+
+    fun cancelLegacyPrivateMedia(requestId: String) {
+        mediaSendingManager.cancelLegacyPrivateMedia(requestId)
+    }
+
     fun getCurrentNpub(): String? {
         return try {
             NostrIdentityBridge
@@ -121,7 +129,12 @@ class ChatViewModel(
     val verifiedFingerprints = verificationHandler.verifiedFingerprints
 
     // Media file sending manager
-    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager) { mesh }
+    private val mediaSendingManager = MediaSendingManager(
+        state,
+        messageManager,
+        channelManager,
+        viewModelScope
+    ) { mesh }
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -182,6 +195,8 @@ class ChatViewModel(
     val privateChatSheetPeer: StateFlow<String?> = state.privateChatSheetPeer
     val showVerificationSheet: StateFlow<Boolean> = state.showVerificationSheet
     val showSecurityVerificationSheet: StateFlow<Boolean> = state.showSecurityVerificationSheet
+    val legacyPrivateMediaConsent: StateFlow<LegacyPrivateMediaConsentRequest?> =
+        mediaSendingManager.legacyPrivateMediaConsent
     val selectedLocationChannel: StateFlow<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
     val isTeleported: StateFlow<Boolean> = state.isTeleported
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
@@ -919,6 +934,10 @@ class ChatViewModel(
     override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
         verificationHandler.didReceiveVerifyResponse(peerID, payload)
     }
+
+    override fun didResolvePrivateMediaPolicy(peerID: String) {
+        mediaSendingManager.retryPendingPrivateMedia(peerID)
+    }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
         return meshDelegateHandler.decryptChannelMessage(encryptedContent, channel)
@@ -936,6 +955,10 @@ class ChatViewModel(
     
     fun panicClearAllData() {
         Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
+
+        // A pending one-shot downgrade confirmation must not survive panic or
+        // become actionable against the fresh post-wipe identity.
+        mediaSendingManager.clearPendingPrivateMediaConsent()
         
         // Clear all UI managers
         messageManager.clearAllMessages()

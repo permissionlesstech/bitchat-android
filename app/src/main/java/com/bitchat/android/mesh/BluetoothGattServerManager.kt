@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Manages GATT server operations, advertising, and server-side connections
@@ -43,6 +44,7 @@ class BluetoothGattServerManager(
     
     // GATT server for peripheral mode
     private var gattServer: BluetoothGattServer? = null
+    private val serverLinkIDs = ConcurrentHashMap<String, String>()
     private var characteristic: BluetoothGattCharacteristic? = null
     private var advertiseCallback: AdvertiseCallback? = null
     private var advertiseRetryCount = 0
@@ -124,6 +126,7 @@ class BluetoothGattServerManager(
             // Ensure server is closed if present
             gattServer?.close()
             gattServer = null
+            serverLinkIDs.clear()
             Log.i(TAG, "GATT server stopped (already inactive)")
             return
         }
@@ -145,6 +148,7 @@ class BluetoothGattServerManager(
             // Close GATT server
             gattServer?.close()
             gattServer = null
+            serverLinkIDs.clear()
             
             Log.i(TAG, "GATT server stopped")
         }
@@ -178,6 +182,8 @@ class BluetoothGattServerManager(
                 when (newState) {
                     BluetoothProfile.STATE_CONNECTED -> {
                         Log.i(TAG, "Server: Device connected ${device.address}")
+                        val linkID = UUID.randomUUID().toString()
+                        serverLinkIDs[device.address] = linkID
                         
                         // Get best available RSSI (scan RSSI for server connections)
                         val rssi = connectionTracker.getBestRSSI(device.address) ?: Int.MIN_VALUE
@@ -185,7 +191,8 @@ class BluetoothGattServerManager(
                         val deviceConn = BluetoothConnectionTracker.DeviceConnection(
                             device = device,
                             rssi = rssi,
-                            isClient = false
+                            isClient = false,
+                            linkID = linkID
                         )
                         connectionTracker.addDeviceConnection(device.address, deviceConn)
 
@@ -198,9 +205,12 @@ class BluetoothGattServerManager(
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         Log.i(TAG, "Server: Device disconnected ${device.address}")
-                        connectionTracker.cleanupDeviceConnection(device.address)
+                        val linkID = serverLinkIDs.remove(device.address)
+                        if (linkID != null) {
+                            connectionTracker.cleanupDeviceConnectionIfCurrent(device.address, linkID)
+                        }
                         // Notify delegate about device disconnection so higher layers can update direct flags
-                        delegate?.onDeviceDisconnected(device)
+                        delegate?.onDeviceDisconnected(device, linkID)
                     }
                 }
             }
@@ -236,11 +246,25 @@ class BluetoothGattServerManager(
                 
                 if (characteristic.uuid == AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID) {
                     Log.i(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
+                    val linkID = serverLinkIDs[device.address]
+                    if (linkID == null) {
+                        Log.w(TAG, "Server: Dropping packet from stale connection ${device.address}")
+                        if (responseNeeded) {
+                            gattServer?.sendResponse(
+                                device,
+                                requestId,
+                                BluetoothGatt.GATT_FAILURE,
+                                0,
+                                null
+                            )
+                        }
+                        return
+                    }
                     val packet = BitchatPacket.fromBinaryData(value)
                     if (packet != null) {
                         val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
                         Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
-                        delegate?.onPacketReceived(packet, peerID, device)
+                        delegate?.onPacketReceived(packet, peerID, device, linkID)
                     } else {
                         Log.w(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
                         Log.w(TAG, "Server: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
