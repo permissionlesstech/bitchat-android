@@ -40,6 +40,24 @@ class PermissionManager(private val context: Context) {
     }
 
     /**
+     * Runtime permissions needed for the Wi‑Fi Aware transport.
+     *
+     * Android 17 (API 37) makes local network protection mandatory for apps that target it.
+     * WifiAwareMeshService reaches peers over link-local IPv6 TCP sockets
+     * (connectAwareClientSocket), so ACCESS_LOCAL_NETWORK is requested defensively there.
+     * It shares the NEARBY_DEVICES group with NEARBY_WIFI_DEVICES, so granting it does not
+     * cost the user an extra prompt.
+     */
+    private fun wifiAwarePermissions(): List<String> {
+        val permissions = mutableListOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+        // API 37 == Android 17; no named VERSION_CODES constant is available yet.
+        if (Build.VERSION.SDK_INT >= 37) {
+            permissions.add(Manifest.permission.ACCESS_LOCAL_NETWORK)
+        }
+        return permissions
+    }
+
+    /**
      * Check if this is the first time the user is launching the app
      */
     fun isFirstTimeLaunch(): Boolean {
@@ -87,7 +105,7 @@ class PermissionManager(private val context: Context) {
 
         // Wi‑Fi Aware: Android 13+ requires NEARBY_WIFI_DEVICES runtime permission
         if (shouldRequireWifiAwarePermission()) {
-            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+            permissions.addAll(wifiAwarePermissions())
         }
 
         // Notification permission intentionally excluded to keep it optional
@@ -232,7 +250,7 @@ class PermissionManager(private val context: Context) {
 
         // Wi‑Fi Aware category (Android 13+)
         if (shouldRequireWifiAwarePermission()) {
-            val wifiAwarePermissions = listOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+            val wifiAwarePermissions = wifiAwarePermissions()
             categories.add(
                 PermissionCategory(
                     type = PermissionType.WIFI_AWARE,
