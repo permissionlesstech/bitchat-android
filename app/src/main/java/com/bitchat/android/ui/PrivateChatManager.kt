@@ -21,6 +21,11 @@ interface NoiseSessionDelegate {
     fun getMyPeerID(): String
 }
 
+enum class PrivateMessageOrigin {
+    MESH,
+    NOSTR
+}
+
 /**
  * Handles private chat functionality including peer management and blocking.
  */
@@ -76,7 +81,7 @@ class PrivateChatManager(
         messageManager.initializePrivateChat(conversationID)
 
         // Send read receipts for all unread messages from this peer
-        sendReadReceiptsForPeer(conversationID, meshService)
+        sendReadReceiptsForPeer(conversationID, meshPeerID, meshService)
 
         return true
     }
@@ -308,10 +313,18 @@ class PrivateChatManager(
     // MARK: - Message Handling
 
     fun handleIncomingPrivateMessage(message: BitchatMessage) {
-        handleIncomingPrivateMessage(message, suppressUnread = false)
+        handleIncomingPrivateMessage(
+            message = message,
+            suppressUnread = false,
+            origin = PrivateMessageOrigin.MESH
+        )
     }
 
-    fun handleIncomingPrivateMessage(message: BitchatMessage, suppressUnread: Boolean) {
+    fun handleIncomingPrivateMessage(
+        message: BitchatMessage,
+        suppressUnread: Boolean,
+        origin: PrivateMessageOrigin = PrivateMessageOrigin.MESH
+    ) {
         val senderPeerID = message.senderPeerID
         if (senderPeerID != null) {
             val conversationID = ContactDirectory.canonicalConversationId(senderPeerID)
@@ -320,8 +333,10 @@ class PrivateChatManager(
                 // Ensure chat exists
                 messageManager.initializePrivateChat(conversationID)
 
-                // Exception: Nostr messages (nostr_ prefix) originate in Kotlin layer and MUST be added here.
-                if (senderPeerID.startsWith("nostr_")) {
+                // Mesh messages are already reflected through AppStateStore by the mesh service.
+                // Nostr messages originate here and must be added explicitly, even after their
+                // sender alias has canonicalized to a contact_* conversation ID.
+                if (origin == PrivateMessageOrigin.NOSTR) {
                     if (suppressUnread) {
                         messageManager.addPrivateMessageNoUnread(conversationID, message)
                     } else {
@@ -354,24 +369,39 @@ class PrivateChatManager(
      * Send read receipts for all unread messages from a specific peer
      * Called when the user focuses on a private chat
      */
-    fun sendReadReceiptsForPeer(peerID: String, meshService: MeshService) {
+    fun sendReadReceiptsForPeer(
+        conversationID: String,
+        meshPeerID: String?,
+        meshService: MeshService
+    ) {
+        val canonicalConversationID = ContactDirectory.canonicalConversationId(conversationID)
+
         // Collect candidate messages: all incoming messages from this peer in the conversation
         val chats = try { state.getPrivateChatsValue() } catch (_: Exception) { emptyMap<String, List<BitchatMessage>>() }
-        val messages = chats[peerID].orEmpty()
+        val messages = chats[canonicalConversationID].orEmpty()
 
         if (messages.isEmpty()) {
-            Log.d(TAG, "No messages found for peer $peerID to send read receipts")
+            Log.d(TAG, "No messages found for conversation $canonicalConversationID to send read receipts")
         }
 
         val myNickname = state.getNicknameValue() ?: "unknown"
-        val hasMesh = try { meshService.getPeerInfo(peerID)?.isConnected == true && meshService.hasEstablishedSession(peerID) } catch (_: Exception) { false }
+        val hasMesh = meshPeerID != null && try {
+            meshService.getPeerInfo(meshPeerID)?.isConnected == true &&
+                meshService.hasEstablishedSession(meshPeerID)
+        } catch (_: Exception) {
+            false
+        }
         var sentCount = 0
         messages.forEach { msg ->
-            // Only for incoming messages from this peer
-            if (msg.senderPeerID == peerID) {
+            val senderPeerID = msg.senderPeerID
+            val isFromTarget = senderPeerID != null && (
+                senderPeerID == meshPeerID ||
+                    ContactDirectory.canonicalConversationId(senderPeerID) == canonicalConversationID
+                )
+            if (isFromTarget && meshPeerID != null) {
                 try {
                     if (hasMesh) {
-                        meshService.sendReadReceipt(msg.id, peerID, myNickname)
+                        meshService.sendReadReceipt(msg.id, meshPeerID, myNickname)
                         sentCount += 1
                     }
                 } catch (e: Exception) {
@@ -381,10 +411,13 @@ class PrivateChatManager(
         }
 
         // Clear any locally tracked unread queue for this peer
-        unreadReceivedMessages.remove(peerID)
+        unreadReceivedMessages.remove(canonicalConversationID)
         // Also clear UI unread marker for this peer now that chat is focused/read
-        try { messageManager.clearPrivateUnreadMessages(peerID) } catch (_: Exception) { }
-        Log.d(TAG, "Sent $sentCount read receipts for peer $peerID (from conversation messages)")
+        try { messageManager.clearPrivateUnreadMessages(canonicalConversationID) } catch (_: Exception) { }
+        Log.d(
+            TAG,
+            "Sent $sentCount read receipts for conversation $canonicalConversationID via mesh peer $meshPeerID"
+        )
     }
 
     fun cleanupDisconnectedPeer(peerID: String) {

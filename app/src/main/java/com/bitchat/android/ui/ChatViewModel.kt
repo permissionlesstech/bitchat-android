@@ -402,17 +402,18 @@ class ChatViewModel(
         
         val success = privateChatManager.startPrivateChat(peerID, mesh)
         if (success) {
+            val conversationID = ContactDirectory.canonicalConversationId(peerID)
             // Notify notification manager about current private chat
-            setCurrentPrivateChatPeer(peerID)
+            setCurrentPrivateChatPeer(conversationID)
             // Clear notifications for this sender since user is now viewing the chat
-            clearNotificationsForSender(peerID)
+            clearNotificationsForSender(conversationID)
 
             // Persistently mark all messages in this conversation as read so Nostr fetches
             // after app restarts won't re-mark them as unread.
             try {
                 val seen = com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
                 val chats = state.getPrivateChatsValue()
-                val messages = chats[peerID] ?: emptyList()
+                val messages = chats[conversationID] ?: emptyList()
                 messages.forEach { msg ->
                     try { seen.markRead(msg.id) } catch (_: Exception) { }
                 }

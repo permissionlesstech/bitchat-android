@@ -17,6 +17,7 @@ import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.MeshDelegateHandler
 import com.bitchat.android.ui.PrivateChatManager
+import com.bitchat.android.ui.PrivateMessageOrigin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -154,7 +155,11 @@ class NostrDirectMessageHandler(
                 val suppressUnread = seenStore.hasRead(pm.messageID)
 
                 withContext(Dispatchers.Main) {
-                    privateChatManager.handleIncomingPrivateMessage(message, suppressUnread)
+                    privateChatManager.handleIncomingPrivateMessage(
+                        message = message,
+                        suppressUnread = suppressUnread,
+                        origin = PrivateMessageOrigin.NOSTR
+                    )
                 }
 
                 if (!seenStore.hasDelivered(pm.messageID)) {
@@ -200,7 +205,11 @@ class NostrDirectMessageHandler(
                     )
                     Log.d(TAG, "📄 Saved Nostr encrypted incoming file to $savedPath (msgId=$uniqueMsgId)")
                     withContext(Dispatchers.Main) {
-                        privateChatManager.handleIncomingPrivateMessage(message, suppressUnread = false)
+                        privateChatManager.handleIncomingPrivateMessage(
+                            message = message,
+                            suppressUnread = false,
+                            origin = PrivateMessageOrigin.NOSTR
+                        )
                     }
                 } else {
                     Log.w(TAG, "Failed to decode Nostr file transfer from $conversationID")
@@ -257,7 +266,11 @@ class NostrDirectMessageHandler(
             )
 
             withContext(Dispatchers.Main) {
-                privateChatManager.handleIncomingPrivateMessage(systemMessage, suppressUnread = true)
+                privateChatManager.handleIncomingPrivateMessage(
+                    message = systemMessage,
+                    suppressUnread = true,
+                    origin = PrivateMessageOrigin.NOSTR
+                )
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to handle Nostr favorite notification: ${e.message}")

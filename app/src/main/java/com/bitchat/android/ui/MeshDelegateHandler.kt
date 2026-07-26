@@ -237,16 +237,30 @@ class MeshDelegateHandler(
         
         // Send read receipt if user is currently focused on this specific chat
         val senderPeerID = message.senderPeerID
-        val shouldSendReadReceipt = !isAppInBackground && senderPeerID != null && currentPrivateChatPeer == senderPeerID
+        val senderConversationID = senderPeerID?.let { ContactDirectory.canonicalConversationId(it) }
+        val focusedConversationID = currentPrivateChatPeer?.let { ContactDirectory.canonicalConversationId(it) }
+        val shouldSendReadReceipt = !isAppInBackground &&
+            senderConversationID != null &&
+            focusedConversationID == senderConversationID
         
             if (shouldSendReadReceipt) {
-                android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID (message=${message.id})")
+                android.util.Log.d(
+                    "MeshDelegateHandler",
+                    "Sending reactive read receipt for focused chat with $senderConversationID (message=${message.id})"
+                )
                 val nickname = state.getNicknameValue() ?: "unknown"
                 val mesh = getMeshService()
                 val sent = try {
-                    val hasMesh = mesh.getPeerInfo(senderPeerID!!)?.isConnected == true && mesh.hasEstablishedSession(senderPeerID)
-                    if (hasMesh) {
-                        mesh.sendReadReceipt(message.id, senderPeerID, nickname)
+                    val meshPeerID = senderConversationID
+                        ?.let { ContactDirectory.resolve(it).meshPeerID }
+                        ?: senderPeerID?.takeIf {
+                            com.bitchat.android.services.ContactIdentityResolver.isMeshPeerId(it)
+                        }
+                    val hasMesh = meshPeerID != null &&
+                        mesh.getPeerInfo(meshPeerID)?.isConnected == true &&
+                        mesh.hasEstablishedSession(meshPeerID)
+                    if (hasMesh && meshPeerID != null) {
+                        mesh.sendReadReceipt(message.id, meshPeerID, nickname)
                         true
                     } else {
                         false
@@ -258,7 +272,8 @@ class MeshDelegateHandler(
                     // Ensure unread badge is cleared for this peer immediately
                     try {
                         val current = state.getUnreadPrivateMessagesValue().toMutableSet()
-                        if (current.remove(senderPeerID)) {
+                        val changed = current.remove(senderPeerID) or current.remove(senderConversationID)
+                        if (changed) {
                             state.setUnreadPrivateMessages(current)
                         }
                     } catch (_: Exception) { }
