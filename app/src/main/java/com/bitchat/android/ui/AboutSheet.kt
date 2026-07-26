@@ -200,6 +200,7 @@ fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
     onShowDebug: (() -> Unit)? = null,
+    onShowNostrAccount: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -358,6 +359,65 @@ fun AboutSheet(
                                         onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
                                         modifier = Modifier.weight(1f)
                                     )
+                                }
+                            }
+                        }
+                    }
+
+                    // Nostr Account Section
+                    item(key = "nostr_account") {
+                        if (onShowNostrAccount != null) {
+                            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                Text(
+                                    text = "NOSTR ACCOUNT",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onBackground.copy(alpha = 0.5f),
+                                    letterSpacing = 0.5.sp,
+                                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                                )
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = colorScheme.surface,
+                                    shape = RoundedCornerShape(16.dp),
+                                    onClick = onShowNostrAccount
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Lock,
+                                                contentDescription = null,
+                                                tint = colorScheme.primary,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = "Manage Keys",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "View, export or import your Nostr identity",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = colorScheme.onSurface.copy(alpha = 0.6f)
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = ">",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = colorScheme.onSurface.copy(alpha = 0.3f)
+                                        )
+                                    }
                                 }
                             }
                         }

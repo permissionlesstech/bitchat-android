@@ -11,8 +11,47 @@ object MessageSpecialParser {
     // Geohash alphabet is base32: 0123456789bcdefghjkmnpqrstuvwxyz
     private val standaloneGeohashRegex = Regex("(^|[^A-Za-z0-9_#])#([0-9bcdefghjkmnpqrstuvwxyz]{2,})($|[^A-Za-z0-9_])", RegexOption.IGNORE_CASE)
 
+    // Image URL extensions (case insensitive)
+    private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "webp", "avif", "bmp", "svg")
+
     data class GeohashMatch(val start: Int, val endExclusive: Int, val geohash: String)
     data class UrlMatch(val start: Int, val endExclusive: Int, val url: String)
+    data class ImageUrlMatch(val url: String, val start: Int, val endExclusive: Int)
+
+    /**
+     * Finds image URLs in text. Returns URLs ending with common image extensions.
+     * Also handles URLs with query params after the extension (e.g., image.jpg?size=large)
+     */
+    fun findImageUrls(text: String): List<ImageUrlMatch> {
+        val urls = findUrls(text)
+        return urls.mapNotNull { urlMatch ->
+            val url = urlMatch.url
+            // Normalize URL for checking (add https:// if missing)
+            val normalizedUrl = if (url.startsWith("http://", ignoreCase = true) || 
+                                   url.startsWith("https://", ignoreCase = true)) {
+                url
+            } else {
+                "https://$url"
+            }
+            
+            // Extract path without query params
+            val pathPart = normalizedUrl.substringBefore('?').substringBefore('#')
+            val extension = pathPart.substringAfterLast('.', "").lowercase()
+            
+            if (extension in IMAGE_EXTENSIONS) {
+                ImageUrlMatch(normalizedUrl, urlMatch.start, urlMatch.endExclusive)
+            } else {
+                null
+            }
+        }
+    }
+
+    /**
+     * Extracts image URLs from message content, returning list of full URLs.
+     */
+    fun extractImageUrls(content: String): List<String> {
+        return findImageUrls(content).map { it.url }
+    }
 
     /**
      * Finds standalone geohashes within [text]. A match is returned only when

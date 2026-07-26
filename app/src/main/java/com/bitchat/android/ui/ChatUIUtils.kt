@@ -22,6 +22,38 @@ import java.util.*
  * Extracted from ChatScreen.kt for better organization
  */
 
+// Date formatters for smart timestamp display
+private val timeOnlyFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+private val dateTimeFormatter = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
+private val dateTimeWithYearFormatter = SimpleDateFormat("MMM d yyyy, HH:mm", Locale.getDefault())
+
+/**
+ * Format timestamp smartly based on age:
+ * - Today: just time (HH:mm:ss)
+ * - This year: date + time (MMM d, HH:mm)
+ * - Older: full date with year (MMM d yyyy, HH:mm)
+ */
+fun formatSmartTimestamp(timestamp: Date): String {
+    val now = Calendar.getInstance()
+    val msgTime = Calendar.getInstance().apply { time = timestamp }
+    
+    return when {
+        // Same day - just show time
+        now.get(Calendar.YEAR) == msgTime.get(Calendar.YEAR) &&
+        now.get(Calendar.DAY_OF_YEAR) == msgTime.get(Calendar.DAY_OF_YEAR) -> {
+            timeOnlyFormatter.format(timestamp)
+        }
+        // Same year - show month, day, time
+        now.get(Calendar.YEAR) == msgTime.get(Calendar.YEAR) -> {
+            dateTimeFormatter.format(timestamp)
+        }
+        // Different year - show full date with year
+        else -> {
+            dateTimeWithYearFormatter.format(timestamp)
+        }
+    }
+}
+
 /**
  * Get RSSI-based color for signal strength visualization
  */
@@ -120,12 +152,12 @@ fun formatMessageAsAnnotatedString(
         appendIOSFormattedContent(builder, message.content, message.mentions, currentUserNickname, baseColor, isSelf, isDark)
         
         // iOS-style timestamp at the END (smaller, grey)
-        // Timestamp (and optional PoW badge)
+        // Timestamp (and optional PoW badge) - smart format based on message age
         builder.pushStyle(SpanStyle(
             color = Color.Gray.copy(alpha = 0.7f),
             fontSize = (BASE_FONT_SIZE - 4).sp
         ))
-        builder.append(" [${timeFormatter.format(message.timestamp)}]")
+        builder.append(" [${formatSmartTimestamp(message.timestamp)}]")
         // If message has valid PoW difficulty, append bits immediately after timestamp with minimal spacing
         message.powDifficulty?.let { bits ->
             if (bits > 0) {
@@ -149,7 +181,7 @@ fun formatMessageAsAnnotatedString(
             color = Color.Gray.copy(alpha = 0.5f),
             fontSize = (BASE_FONT_SIZE - 4).sp
         ))
-        builder.append(" [${timeFormatter.format(message.timestamp)}]")
+        builder.append(" [${formatSmartTimestamp(message.timestamp)}]")
         builder.pop()
     }
     
