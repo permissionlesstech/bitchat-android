@@ -760,29 +760,58 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     }
     
     /**
-     * Send public message
+     * Send public message.
+     * Public (no channel): plain UTF-8 for iOS compatibility.
+     * Channel: BitchatMessage binary so receivers get channel metadata.
      */
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
-        
-        serviceScope.launch {
-            val packet = BitchatPacket(
-                version = 1u,
-                type = MessageType.MESSAGE.value,
-                senderID = hexStringToByteArray(myPeerID),
-                recipientID = SpecialRecipients.BROADCAST,
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = content.toByteArray(Charsets.UTF_8),
-                signature = null,
-                ttl = MAX_TTL
-            )
 
-            // Sign the packet before broadcasting
-            val signedPacket = signPacketBeforeBroadcast(packet)
-            broadcastRoutedPacket(RoutedPacket(signedPacket))
-            // Track our own broadcast message for sync
-            try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+        serviceScope.launch {
+            val payload = if (channel != null) {
+                val nickname = delegate?.getNickname() ?: myPeerID
+                val message = com.bitchat.android.model.BitchatMessage(
+                    sender = nickname,
+                    content = content,
+                    timestamp = java.util.Date(),
+                    isRelay = false,
+                    senderPeerID = myPeerID,
+                    mentions = if (mentions.isNotEmpty()) mentions else null,
+                    channel = channel
+                )
+                message.toBinaryPayload() ?: content.toByteArray(Charsets.UTF_8)
+            } else {
+                content.toByteArray(Charsets.UTF_8)
+            }
+            broadcastMessagePayload(payload)
         }
+    }
+
+    /**
+     * Broadcast a pre-encoded payload (encrypted channel messages, etc.).
+     */
+    fun sendBinaryBroadcast(payload: ByteArray) {
+        if (payload.isEmpty()) return
+        serviceScope.launch {
+            broadcastMessagePayload(payload)
+        }
+    }
+
+    private suspend fun broadcastMessagePayload(payload: ByteArray) {
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = hexStringToByteArray(myPeerID),
+            recipientID = SpecialRecipients.BROADCAST,
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = payload,
+            signature = null,
+            ttl = MAX_TTL
+        )
+
+        val signedPacket = signPacketBeforeBroadcast(packet)
+        broadcastRoutedPacket(RoutedPacket(signedPacket))
+        try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
     }
 
     /**

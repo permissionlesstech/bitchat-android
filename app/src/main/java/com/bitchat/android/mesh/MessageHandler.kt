@@ -382,7 +382,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     }
     
     /**
-     * Handle broadcast message with verification enforcement
+     * Handle broadcast message with verification enforcement.
+     * Public mesh (iOS-compatible): plain UTF-8 text.
+     * Channel messages: BitchatMessage binary (optionally AES-GCM encrypted).
      */
     private suspend fun handleBroadcastMessage(routed: RoutedPacket) {
         val packet = routed.packet
@@ -419,7 +421,34 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 Log.w(TAG, "⚠️ FILE_TRANSFER decode failed (broadcast) from ${peerID.take(8)} payloadSize=${packet.payload.size}")
             }
 
-            // Fallback: plain text
+            // Channel / encrypted channel: BitchatMessage binary payload
+            val binaryMessage = BitchatMessage.fromBinaryPayload(packet.payload)
+            if (binaryMessage != null && (binaryMessage.channel != null || binaryMessage.isEncrypted)) {
+                val channel = binaryMessage.channel
+                val finalContent = if (
+                    channel != null &&
+                    binaryMessage.isEncrypted &&
+                    binaryMessage.encryptedContent != null
+                ) {
+                    delegate?.decryptChannelMessage(binaryMessage.encryptedContent, channel)
+                        ?: com.bitchat.android.ui.ChannelManager.ENCRYPTED_PLACEHOLDER
+                } else {
+                    binaryMessage.content
+                }
+
+                val message = binaryMessage.copy(
+                    id = binaryMessage.id.ifBlank { PacketIdUtil.computeIdHex(packet).uppercase() },
+                    content = finalContent,
+                    sender = delegate?.getPeerNickname(peerID) ?: binaryMessage.sender,
+                    senderPeerID = peerID,
+                    timestamp = Date(packet.timestamp.toLong())
+                )
+                Log.d(TAG, "📢 Channel message from ${peerID.take(8)} channel=${channel ?: "?"} encrypted=${binaryMessage.isEncrypted}")
+                delegate?.onMessageReceived(message)
+                return
+            }
+
+            // Fallback: plain text (iOS-compatible public mesh)
             val message = BitchatMessage(
                 id = PacketIdUtil.computeIdHex(packet).uppercase(),
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",

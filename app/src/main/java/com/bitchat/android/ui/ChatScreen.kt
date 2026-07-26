@@ -82,6 +82,13 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
     val passwordPromptChannel by viewModel.passwordPromptChannel.collectAsStateWithLifecycle()
+    val viewModelShowPasswordPrompt by viewModel.showPasswordPrompt.collectAsStateWithLifecycle()
+
+    // Sync password dialog from ViewModel (join/send protected channel without key)
+    LaunchedEffect(viewModelShowPasswordPrompt) {
+        showPasswordPrompt = viewModelShowPasswordPrompt
+        showPasswordDialog = viewModelShowPasswordPrompt
+    }
 
     // Get location channel info for timeline switching
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
@@ -311,17 +318,19 @@ fun ChatScreen(viewModel: ChatViewModel) {
         passwordInput = passwordInput,
         onPasswordChange = { passwordInput = it },
         onPasswordConfirm = {
-            if (passwordInput.isNotEmpty()) {
-                val success = viewModel.joinChannel(passwordPromptChannel!!, passwordInput)
-                if (success) {
-                    showPasswordDialog = false
-                    passwordInput = ""
+            if (passwordInput.isNotEmpty() && passwordPromptChannel != null) {
+                viewModel.joinChannel(passwordPromptChannel!!, passwordInput) { success ->
+                    if (success) {
+                        showPasswordDialog = false
+                        passwordInput = ""
+                    }
                 }
             }
         },
         onPasswordDismiss = {
             showPasswordDialog = false
             passwordInput = ""
+            viewModel.hidePasswordPrompt()
         },
         showAppInfo = showAppInfo,
         onAppInfoDismiss = { viewModel.hideAppInfo() },

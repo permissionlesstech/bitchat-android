@@ -109,6 +109,30 @@ class DataManager(private val context: Context) {
             apply()
         }
     }
+
+    /**
+     * Persist SHA-256 key commitments (not passwords) so password verification
+     * still works after restart when no encrypted messages are cached.
+     */
+    fun saveChannelKeyCommitments(commitments: Map<String, String>) {
+        prefs.edit().putString("channel_key_commitments", gson.toJson(commitments)).apply()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun loadChannelKeyCommitments(): Map<String, String> {
+        val json = prefs.getString("channel_key_commitments", null) ?: return emptyMap()
+        return try {
+            val map = gson.fromJson(json, Map::class.java) as? Map<*, *>
+            map?.mapNotNull { (k, v) ->
+                val key = k as? String
+                val value = v as? String
+                if (key != null && value != null) key to value else null
+            }?.toMap() ?: emptyMap()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load channel key commitments: ${e.message}")
+            emptyMap()
+        }
+    }
     
     fun addChannelCreator(channel: String, creatorID: String) {
         _channelCreators[channel] = creatorID

@@ -150,6 +150,19 @@ object AppStateStore {
         }
     }
 
+    /**
+     * Replace the full message list for a channel (e.g. after password unlock re-decrypt).
+     * Preserves message IDs already in the de-dup set.
+     */
+    fun replaceChannelMessages(channel: String, messages: List<BitchatMessage>) {
+        synchronized(this) {
+            messages.forEach { seenMessageIds.add(it.id) }
+            val map = _channelMessages.value.toMutableMap()
+            map[channel] = messages
+            _channelMessages.value = map
+        }
+    }
+
     // Clear all in-memory state (used for full app shutdown)
     fun clear() {
         synchronized(this) {

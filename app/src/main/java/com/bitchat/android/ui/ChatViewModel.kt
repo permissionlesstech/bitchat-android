@@ -104,7 +104,7 @@ class ChatViewModel(
     }
 
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
-    private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
+    private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager, viewModelScope)
     private val notificationManager = NotificationManager(
       application.applicationContext,
       NotificationManagerCompat.from(application.applicationContext),
@@ -379,7 +379,14 @@ class ChatViewModel(
 
     // MARK: - Channel Management (delegated)
     
-    fun joinChannel(channel: String, password: String? = null): Boolean {
+    fun joinChannel(channel: String, password: String? = null, onResult: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val ok = channelManager.joinChannel(channel, password, mesh.myPeerID)
+            onResult?.invoke(ok)
+        }
+    }
+
+    suspend fun joinChannelSuspend(channel: String, password: String? = null): Boolean {
         return channelManager.joinChannel(channel, password, mesh.myPeerID)
     }
     
@@ -390,6 +397,10 @@ class ChatViewModel(
     fun leaveChannel(channel: String) {
         channelManager.leaveChannel(channel)
         mesh.sendMessage("left $channel", emptyList(), null)
+    }
+
+    fun hidePasswordPrompt() {
+        channelManager.hidePasswordPrompt()
     }
     
     // MARK: - Private Chat Management (delegated)
@@ -566,25 +577,45 @@ class ChatViewModel(
                 )
 
                 if (currentChannelValue != null) {
-                    channelManager.addChannelMessage(currentChannelValue, message, mesh.myPeerID)
-
-                    // Check if encrypted channel
-                    if (channelManager.hasChannelKey(currentChannelValue)) {
-                        channelManager.sendEncryptedChannelMessage(
-                            content,
-                            mentions,
-                            currentChannelValue,
-                            state.getNicknameValue(),
-                            mesh.myPeerID,
-                            onEncryptedPayload = { encryptedData ->
-                                mesh.sendMessage(content, mentions, currentChannelValue)
-                            },
-                            onFallback = {
-                                mesh.sendMessage(content, mentions, currentChannelValue)
-                            }
-                        )
-                    } else {
-                        mesh.sendMessage(content, mentions, currentChannelValue)
+                    when {
+                        channelManager.hasChannelKey(currentChannelValue) -> {
+                            channelManager.addChannelMessage(currentChannelValue, message, mesh.myPeerID)
+                            channelManager.sendEncryptedChannelMessage(
+                                content,
+                                mentions,
+                                currentChannelValue,
+                                state.getNicknameValue(),
+                                mesh.myPeerID,
+                                onEncryptedPayload = { encryptedData ->
+                                    mesh.sendBinaryBroadcast(encryptedData)
+                                },
+                                onFallback = {
+                                    // Never send plaintext when a channel key is configured
+                                    val systemMessage = BitchatMessage(
+                                        sender = "system",
+                                        content = "failed to encrypt message for $currentChannelValue",
+                                        timestamp = Date(),
+                                        isRelay = false
+                                    )
+                                    channelManager.addChannelMessage(currentChannelValue, systemMessage, null)
+                                }
+                            )
+                        }
+                        channelManager.isChannelPasswordProtected(currentChannelValue) -> {
+                            // Protected but no key yet — block plaintext leak and prompt
+                            channelManager.requestPasswordForChannel(currentChannelValue)
+                            val systemMessage = BitchatMessage(
+                                sender = "system",
+                                content = "password required to send in $currentChannelValue",
+                                timestamp = Date(),
+                                isRelay = false
+                            )
+                            channelManager.addChannelMessage(currentChannelValue, systemMessage, null)
+                        }
+                        else -> {
+                            channelManager.addChannelMessage(currentChannelValue, message, mesh.myPeerID)
+                            mesh.sendMessage(content, mentions, currentChannelValue)
+                        }
                     }
                 } else {
                     messageManager.addMessage(message)
