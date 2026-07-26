@@ -27,14 +27,7 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <!-- Android 13+ runtime permission for Wi‑Fi operations (including Aware) -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
-    <!--
-      Android 17 (API 37) makes local network protection mandatory for apps targeting it.
-      The Wi‑Fi Aware transport reaches peers over link-local IPv6 TCP sockets
-      (WifiAwareMeshService.connectAwareClientSocket), so declare this defensively.
-      It is granted independently of NEARBY_WIFI_DEVICES so must be requested explicitly
-      (see PermissionManager), but shares the NEARBY_DEVICES group with it, so the two
-      are requested together in a single "Nearby devices" prompt.
-    -->
+    <!-- Android 17+ gates local network access; Wi‑Fi Aware peers over link-local IPv6 -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- Signature permission for internal UI shutdown broadcasts -->
     <uses-permission android:name="com.bitchat.android.permission.FORCE_FINISH" />

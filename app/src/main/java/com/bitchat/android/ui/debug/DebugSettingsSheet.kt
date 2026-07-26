@@ -134,17 +134,18 @@ fun DebugSettingsSheet(
     val wifiAwareEnabled by manager.wifiAwareEnabled.collectAsState()
     val wifiAwareVerbose by manager.wifiAwareVerbose.collectAsState()
 
-    // Onboarding only asks for the Wi‑Fi Aware permissions when the feature is already
-    // enabled, and the toggle defaults to off — so enabling it from here has to request
-    // them itself. Without this, WifiAwareController just logs
-    // "Missing NEARBY_WIFI_DEVICES permission" on a 5s retry loop and never starts.
+    // Onboarding only asks for these when the toggle is already on, and it defaults to off,
+    // so enabling from here has to request them or the controller never starts.
     val wifiAwarePermissions = remember { PermissionManager(context).wifiAwarePermissions() }
     val wifiAwarePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        // NEARBY_WIFI_DEVICES is the hard requirement; ACCESS_LOCAL_NETWORK is defensive,
-        // so don't block enabling on it.
-        val nearbyGranted = results[android.Manifest.permission.NEARBY_WIFI_DEVICES] ?: true
+    ) { _ ->
+        // Check live state, not the result map — already-held permissions are filtered out
+        // before launching. Only NEARBY_WIFI_DEVICES blocks startup; the other is defensive.
+        val nearbyPermission = android.Manifest.permission.NEARBY_WIFI_DEVICES
+        val nearbyGranted = nearbyPermission !in wifiAwarePermissions ||
+            ContextCompat.checkSelfPermission(context, nearbyPermission) ==
+                PackageManager.PERMISSION_GRANTED
         if (nearbyGranted) {
             manager.setWifiAwareEnabled(true)
         } else {

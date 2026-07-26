@@ -40,22 +40,18 @@ class PermissionManager(private val context: Context) {
     }
 
     /**
-     * Runtime permissions needed for the Wi‑Fi Aware transport.
+     * Runtime permissions for the Wi‑Fi Aware transport, version-gated because neither exists
+     * at minSdk 26 — requesting an unknown permission comes back permanently denied.
      *
-     * Android 17 (API 37) makes local network protection mandatory for apps that target it.
-     * WifiAwareMeshService reaches peers over link-local IPv6 TCP sockets
-     * (connectAwareClientSocket), so ACCESS_LOCAL_NETWORK is requested defensively there.
-     *
-     * Both were verified on an Android 17 device, and the two levels behave differently:
-     *
-     *  - Grants are tracked independently. Granting NEARBY_WIFI_DEVICES alone leaves
-     *    ACCESS_LOCAL_NETWORK denied, so it has to be requested explicitly — hence this list.
-     *  - The dialog is shared. Because both belong to the NEARBY_DEVICES group, requesting
-     *    them together surfaces a single "Nearby devices" prompt rather than two, so adding
-     *    ACCESS_LOCAL_NETWORK costs the user nothing.
+     * ACCESS_LOCAL_NETWORK is defensive: Android 17 gates local network access, and the
+     * transport reaches peers over link-local IPv6 sockets. It is granted separately from
+     * NEARBY_WIFI_DEVICES but shares its permission group, so the two prompt only once.
      */
     fun wifiAwarePermissions(): List<String> {
-        val permissions = mutableListOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
         // API 37 == Android 17; no named VERSION_CODES constant is available yet.
         if (Build.VERSION.SDK_INT >= 37) {
             permissions.add(Manifest.permission.ACCESS_LOCAL_NETWORK)
