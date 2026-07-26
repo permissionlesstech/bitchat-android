@@ -70,7 +70,7 @@ object PoWMiningTracker {
 
 /**
  * Enhanced message display that shows matrix animation during PoW mining
- * Formats message like a normal message but animates only the content portion
+ * Uses the legacy single-line message format while animating the content portion
  */
 @Composable
 fun MessageWithMatrixAnimation(
@@ -117,8 +117,8 @@ fun MessageWithMatrixAnimation(
 }
 
 /**
- * Display message with proper formatting but animated content
- * Uses IDENTICAL layout structure as normal message for pixel-perfect alignment
+ * Display a message with animated content using the legacy single-line renderer.
+ * Regular text messages switch to the two-row renderer after mining, so a layout shift is expected.
  */
 @Composable
 private fun AnimatedMessageDisplay(
@@ -220,7 +220,7 @@ private fun AnimatedMessageDisplay(
         )
     }
     
-    // Use IDENTICAL Text composable structure as normal message
+    // Keep the legacy single-line structure for the active PoW animation.
     Text(
         text = annotatedText,
         modifier = modifier,

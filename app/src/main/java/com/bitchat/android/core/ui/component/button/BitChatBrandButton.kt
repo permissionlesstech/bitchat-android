@@ -57,7 +57,7 @@ fun BitChatBrandButton(
                 }
             }
         },
-        modifier = modifier.size(32.dp),
+        modifier = modifier,
     ) {
         Icon(
             imageVector = BitChatIcon,

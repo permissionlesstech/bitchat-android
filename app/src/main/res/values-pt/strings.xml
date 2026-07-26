@@ -400,4 +400,5 @@
   <string name="verify_success_title">Verificado</string>
   <string name="verify_success_body">Você verificou %1$s</string>
   <string name="verify_success_system_message">verificou %1$s</string>
+    <string name="cd_open_about">Abrir Sobre</string>
 </resources>

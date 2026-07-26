@@ -359,7 +359,7 @@ private fun MainHeader(
             BitChatBrandButton(
                 onClick = onTitleClick,
                 onTripleClick = onTripleTitleClick,
-                contentDescription = stringResource(R.string.app_brand),
+                contentDescription = stringResource(R.string.cd_open_about),
             )
 
             Text(

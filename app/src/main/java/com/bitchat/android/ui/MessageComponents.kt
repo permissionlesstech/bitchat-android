@@ -421,16 +421,18 @@ fun MessageItem(
             message.sender.startsWith("$currentUserNickname#")
         val haptic = LocalHapticFeedback.current
         val context = LocalContext.current
+        val handleLongPress: () -> Unit = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onMessageLongPress?.invoke(message)
+        }
 
         Column(
             modifier = modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
+                .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AnnotatedClickableText(
@@ -445,19 +447,19 @@ fun MessageItem(
                             false
                         }
                     },
-                    onLongPress = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onMessageLongPress?.invoke(message)
-                    },
+                    onLongPress = handleLongPress,
                     modifier = Modifier.weight(1f),
                     fontFamily = FontFamily.Monospace,
                     softWrap = false,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
+                AnnotatedClickableText(
                     text = metadataText,
+                    annotationTags = emptyList(),
+                    onAnnotationClick = { _, _ -> false },
+                    onLongPress = handleLongPress,
                     fontFamily = FontFamily.Monospace,
-                    softWrap = false
+                    softWrap = false,
                 )
             }
 
@@ -513,10 +515,7 @@ fun MessageItem(
                         else -> false
                     }
                 },
-                onLongPress = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onMessageLongPress?.invoke(message)
-                },
+                onLongPress = handleLongPress,
                 fontFamily = FontFamily.Monospace,
                 softWrap = true,
                 overflow = TextOverflow.Visible,

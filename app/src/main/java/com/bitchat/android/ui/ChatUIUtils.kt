@@ -230,7 +230,7 @@ fun formatTextMessageMetadata(
     )
     builder.append(timeFormatter.format(message.timestamp))
     message.powDifficulty?.takeIf { it > 0 }?.let { bits ->
-        builder.append("  ⛨${bits}b")
+        builder.append(" ⛨${bits}b")
     }
     builder.pop()
     return builder.toAnnotatedString()
