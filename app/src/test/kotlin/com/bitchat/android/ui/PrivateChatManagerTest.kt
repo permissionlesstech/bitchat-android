@@ -19,6 +19,7 @@ import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.Date
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.P], manifest = Config.NONE)
@@ -52,6 +53,7 @@ class PrivateChatManagerTest {
             id = "nostr-message",
             sender = "alice",
             content = "hello over nostr",
+            timestamp = Date(1),
             isPrivate = true,
             senderPeerID = conversationID
         )
@@ -74,6 +76,7 @@ class PrivateChatManagerTest {
             id = "mesh-message",
             sender = "alice",
             content = "hello over mesh",
+            timestamp = Date(1),
             isPrivate = true,
             senderPeerID = meshPeerID
         )

@@ -256,10 +256,10 @@ class MeshDelegateHandler(
                         ?: senderPeerID?.takeIf {
                             com.bitchat.android.services.ContactIdentityResolver.isMeshPeerId(it)
                         }
-                    val hasMesh = meshPeerID != null &&
+                    if (meshPeerID != null &&
                         mesh.getPeerInfo(meshPeerID)?.isConnected == true &&
                         mesh.hasEstablishedSession(meshPeerID)
-                    if (hasMesh && meshPeerID != null) {
+                    ) {
                         mesh.sendReadReceipt(message.id, meshPeerID, nickname)
                         true
                     } else {
