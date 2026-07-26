@@ -115,6 +115,12 @@
   <string name="about_system">system</string>
   <string name="about_light">light</string>
   <string name="about_dark">dark</string>
+  <string name="about_style">style</string>
+  <string name="about_brightness">brightness</string>
+  <string name="theme_matrix">Matrix</string>
+  <string name="theme_matrix_desc">Terminal · monospace · phosphor green</string>
+  <string name="theme_expressive">Material Expressive</string>
+  <string name="theme_expressive_desc">Bold · dynamic color · rounded</string>
   <string name="about_pow">proof of work</string>
   <string name="about_pow_off">pow off</string>
   <string name="about_pow_on">pow on</string>

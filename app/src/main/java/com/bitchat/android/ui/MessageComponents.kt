@@ -45,6 +45,12 @@ import com.bitchat.android.ui.media.FileMessageItem
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.R
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.draw.clip
+import com.bitchat.android.ui.theme.LocalThemeAccents
+import com.bitchat.android.ui.theme.isExpressiveSkin
 
 
 // VoiceNotePlayer moved to com.bitchat.android.ui.media.VoiceNotePlayer
@@ -110,7 +116,7 @@ fun MessagesList(
     LazyColumn(
         state = listState,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(if (isExpressiveSkin()) 8.dp else 4.dp),
         modifier = modifier,
         reverseLayout = true
     ) {
@@ -178,7 +184,8 @@ fun MessageItem(
             }
 
             // Delivery status for private messages (overlay, non-displacing)
-            if (message.isPrivate && message.sender == currentUserNickname) {
+            // In Expressive skin the status is rendered inside the bubble footer instead.
+            if (message.isPrivate && message.sender == currentUserNickname && !isExpressiveSkin()) {
                 message.deliveryStatus?.let { status ->
                     Box(
                         modifier = Modifier
@@ -365,7 +372,22 @@ fun MessageItem(
             modifier = modifier
         )
     } else {
-        // Normal message display
+        // Expressive skin: render normal text messages as Material 3 chat bubbles
+        if (isExpressiveSkin()) {
+            ExpressiveTextBubble(
+                message = message,
+                currentUserNickname = currentUserNickname,
+                meshService = meshService,
+                colorScheme = colorScheme,
+                timeFormatter = timeFormatter,
+                onNicknameClick = onNicknameClick,
+                onMessageLongPress = onMessageLongPress,
+                modifier = modifier
+            )
+            return
+        }
+
+        // Normal message display (Matrix terminal style)
         val annotatedText = formatMessageAsAnnotatedString(
             message = message,
             currentUserNickname = currentUserNickname,
@@ -464,10 +486,179 @@ fun MessageItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ExpressiveTextBubble(
+    message: BitchatMessage,
+    currentUserNickname: String,
+    meshService: MeshService,
+    colorScheme: ColorScheme,
+    timeFormatter: SimpleDateFormat,
+    onNicknameClick: ((String) -> Unit)?,
+    onMessageLongPress: ((BitchatMessage) -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    val accents = LocalThemeAccents.current
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val shortTime = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+
+    // System messages: centered, subtle status pill
+    if (message.sender == "system") {
+        Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Surface(
+                shape = CircleShape,
+                color = colorScheme.surfaceVariant.copy(alpha = 0.45f)
+            ) {
+                Text(
+                    text = message.content,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontStyle = FontStyle.Italic,
+                    color = colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                )
+            }
+        }
+        return
+    }
+
+    val isSelf = message.senderPeerID == meshService.myPeerID ||
+            message.sender == currentUserNickname ||
+            message.sender.startsWith("$currentUserNickname#")
+    val (baseName, suffix) = splitSuffix(message.sender)
+    val peerColor = if (isSelf) accents.self else getPeerColor(message, isDark)
+
+    val bubbleColor = if (isSelf) colorScheme.primaryContainer else colorScheme.surfaceContainerHigh
+    val contentColor = if (isSelf) colorScheme.onPrimaryContainer else colorScheme.onSurface
+    val linkColor = if (isSelf) colorScheme.onPrimaryContainer else accents.link
+    val mentionColor = if (isSelf) colorScheme.onPrimaryContainer else accents.mention
+    val bubbleShape = if (isSelf) {
+        RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomEnd = 6.dp, bottomStart = 22.dp)
+    } else {
+        RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomEnd = 22.dp, bottomStart = 6.dp)
+    }
+
+    val contentText = formatMessageContentAnnotatedString(
+        message = message,
+        currentUserNickname = currentUserNickname,
+        textColor = contentColor,
+        linkColor = linkColor,
+        mentionColor = mentionColor,
+        selfMentionColor = accents.self
+    )
+    var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = if (isSelf) Arrangement.End else Arrangement.Start
+    ) {
+        Surface(
+            color = bubbleColor,
+            shape = bubbleShape,
+            tonalElevation = if (isSelf) 0.dp else 1.dp,
+            modifier = Modifier.widthIn(max = 320.dp)
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) {
+                // Sender label for incoming messages
+                if (!isSelf) {
+                    Text(
+                        text = truncateNickname(baseName) + suffix,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = peerColor,
+                        modifier = Modifier
+                            .padding(bottom = 2.dp)
+                            .clickable(enabled = onNicknameClick != null) {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onNicknameClick?.invoke(message.originalSender ?: message.sender)
+                            }
+                    )
+                }
+
+                // Message body with clickable links / geohashes + long-press
+                Text(
+                    text = contentText,
+                    style = MaterialTheme.typography.bodyLarge.copy(color = contentColor),
+                    modifier = Modifier.pointerInput(message.id) {
+                        detectTapGestures(
+                            onTap = { position ->
+                                val layout = contentLayout ?: return@detectTapGestures
+                                val offset = layout.getOffsetForPosition(position)
+                                contentText.getStringAnnotations("geohash_click", offset, offset).firstOrNull()?.let { ann ->
+                                    try {
+                                        val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(context)
+                                        val geohash = ann.item
+                                        val level = when (geohash.length) {
+                                            in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
+                                            in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                                            5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
+                                            6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
+                                            else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+                                        }
+                                        val channel = com.bitchat.android.geohash.GeohashChannel(level, geohash.lowercase())
+                                        locationManager.setTeleported(true)
+                                        locationManager.select(com.bitchat.android.geohash.ChannelID.Location(channel))
+                                    } catch (_: Exception) { }
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    return@detectTapGestures
+                                }
+                                contentText.getStringAnnotations("url_click", offset, offset).firstOrNull()?.let { ann ->
+                                    val raw = ann.item
+                                    val resolved = if (raw.startsWith("http", ignoreCase = true)) raw else "https://$raw"
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(resolved))
+                                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(intent)
+                                    } catch (_: Exception) { }
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            },
+                            onLongPress = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onMessageLongPress?.invoke(message)
+                            }
+                        )
+                    },
+                    onTextLayout = { contentLayout = it }
+                )
+
+                // Footer: timestamp, PoW badge, delivery status
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(top = 3.dp)
+                ) {
+                    message.powDifficulty?.let { bits ->
+                        if (bits > 0) {
+                            Text(
+                                text = "⛨${bits}b",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = contentColor.copy(alpha = 0.55f)
+                            )
+                        }
+                    }
+                    Text(
+                        text = shortTime.format(message.timestamp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor.copy(alpha = 0.55f)
+                    )
+                    if (message.isPrivate && isSelf) {
+                        message.deliveryStatus?.let { DeliveryStatusIcon(status = it) }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun DeliveryStatusIcon(status: DeliveryStatus) {
     val colorScheme = MaterialTheme.colorScheme
-    
+
     when (status) {
         is DeliveryStatus.Sending -> {
             Text(

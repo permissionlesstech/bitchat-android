@@ -38,6 +38,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.withStyle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.ui.theme.LocalThemeAccents
+import com.bitchat.android.ui.theme.isExpressiveSkin
+import androidx.compose.ui.draw.clip
 import com.bitchat.android.features.voice.normalizeAmplitudeSample
 import com.bitchat.android.features.voice.AudioWaveformExtractor
 import com.bitchat.android.ui.media.RealtimeScrollingWaveform
@@ -174,6 +177,9 @@ fun MessageInput(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val expressive = isExpressiveSkin()
+    val accents = LocalThemeAccents.current
+    val inputFont = if (expressive) FontFamily.Default else FontFamily.Monospace
     val isFocused = remember { mutableStateOf(false) }
     val hasText = value.text.isNotBlank() // Check if there's text for send button state
     val keyboard = LocalSoftwareKeyboardController.current
@@ -183,21 +189,32 @@ fun MessageInput(
     var amplitude by remember { mutableStateOf(0) }
 
     Row(
-        modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
+        modifier = modifier.padding(
+            horizontal = 12.dp,
+            vertical = if (expressive) 10.dp else 8.dp
+        ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Text input with placeholder OR visualizer when recording
         Box(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .then(
+                    if (expressive) Modifier
+                        .clip(CircleShape)
+                        .background(colorScheme.surfaceContainerHigh)
+                        .padding(horizontal = 18.dp, vertical = 12.dp)
+                    else Modifier
+                )
         ) {
             // Always keep the text field mounted to retain focus and avoid IME collapse
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = colorScheme.primary,
-                    fontFamily = FontFamily.Monospace
+                    color = if (expressive) colorScheme.onSurface else colorScheme.primary,
+                    fontFamily = inputFont
                 ),
                 cursorBrush = SolidColor(if (isRecording) Color.Transparent else colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -220,7 +237,7 @@ fun MessageInput(
                 Text(
                     text = stringResource(R.string.type_a_message_placeholder),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = inputFont
                     ),
                     color = colorScheme.onSurface.copy(alpha = 0.5f), // Muted grey
                     modifier = Modifier.fillMaxWidth()
@@ -256,7 +273,11 @@ fun MessageInput(
         // Voice and image buttons when no text (only visible in Mesh chat)
         if (value.text.isEmpty() && showMediaButtons) {
             // Hold-to-record microphone
-            val bg = if (colorScheme.background == Color.Black) Color(0xFF00FF00).copy(alpha = 0.75f) else Color(0xFF008000).copy(alpha = 0.75f)
+            val bg = when {
+                expressive -> colorScheme.primary
+                colorScheme.background == Color.Black -> Color(0xFF00FF00).copy(alpha = 0.75f)
+                else -> Color(0xFF008000).copy(alpha = 0.75f)
+            }
 
             // Ensure latest values are used when finishing recording
             val latestSelectedPeer = rememberUpdatedState(selectedPrivatePeer)
@@ -316,7 +337,32 @@ fun MessageInput(
             
         } else {
             // Send button with enabled/disabled state
-            IconButton(
+            if (expressive) {
+                // Expressive: bold circular send button (FAB-like)
+                val enabledColor = if (selectedPrivatePeer != null || currentChannel != null) accents.self else colorScheme.primary
+                IconButton(
+                    onClick = { if (hasText) onSend() },
+                    enabled = hasText,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .background(
+                                color = if (hasText) enabledColor else colorScheme.onSurface.copy(alpha = 0.12f),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowUpward,
+                            contentDescription = stringResource(id = R.string.send_message),
+                            modifier = Modifier.size(24.dp),
+                            tint = if (hasText) colorScheme.onPrimary else colorScheme.onSurface.copy(alpha = 0.4f)
+                        )
+                    }
+                }
+            } else IconButton(
                 onClick = { if (hasText) onSend() }, // Only execute if there's text
                 enabled = hasText, // Enable only when there's text
                 modifier = Modifier.size(32.dp)

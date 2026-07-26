@@ -28,7 +28,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.style.TextAlign
+import com.bitchat.android.ui.theme.LocalThemeAccents
+import com.bitchat.android.ui.theme.isExpressiveSkin
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
@@ -110,6 +117,8 @@ fun NicknameEditor(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val expressive = isExpressiveSkin()
+    val editorFont = if (expressive) FontFamily.Default else FontFamily.Monospace
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
     
@@ -132,8 +141,8 @@ fun NicknameEditor(
             value = value,
             onValueChange = onValueChange,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
-                color = colorScheme.primary,
-                fontFamily = FontFamily.Monospace
+                color = if (expressive) colorScheme.onSurface else colorScheme.primary,
+                fontFamily = editorFont
             ),
             cursorBrush = SolidColor(colorScheme.primary),
             singleLine = true,
@@ -162,27 +171,37 @@ fun PeerCounter(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+    val expressive = isExpressiveSkin()
+    val accents = LocalThemeAccents.current
+
     // Compute channel-aware people count and color (matches iOS logic exactly)
     val (peopleCount, countColor) = when (selectedLocationChannel) {
         is com.bitchat.android.geohash.ChannelID.Location -> {
             // Geohash channel: show geohash participants
             val count = geohashPeople.size
-            val green = Color(0xFF00C851) // Standard green
-            Pair(count, if (count > 0) green else Color.Gray)
+            Pair(count, if (count > 0) accents.location else Color.Gray)
         }
         is com.bitchat.android.geohash.ChannelID.Mesh,
         null -> {
             // Mesh channel: show Bluetooth-connected peers (excluding self)
             val count = connectedPeers.size
-            val meshBlue = Color(0xFF007AFF) // iOS-style blue for mesh
-            Pair(count, if (isConnected && count > 0) meshBlue else Color.Gray)
+            Pair(count, if (isConnected && count > 0) accents.mesh else Color.Gray)
         }
     }
-    
+
+    val rowModifier = if (expressive) {
+        modifier
+            .clip(CircleShape)
+            .background(colorScheme.surfaceContainerHigh)
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    } else {
+        modifier.clickable { onClick() }.padding(end = 8.dp)
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.clickable { onClick() }.padding(end = 8.dp) // Added right margin to match "bitchat" logo spacing
+        modifier = rowModifier
     ) {
         Icon(
             imageVector = Icons.Default.Group,
@@ -190,7 +209,7 @@ fun PeerCounter(
                 is com.bitchat.android.geohash.ChannelID.Location -> stringResource(R.string.cd_geohash_participants)
                 else -> stringResource(R.string.cd_connected_peers)
             },
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(if (expressive) 18.dp else 16.dp),
             tint = countColor
         )
         Spacer(modifier = Modifier.width(4.dp))
@@ -200,16 +219,16 @@ fun PeerCounter(
             style = MaterialTheme.typography.bodyMedium,
             color = countColor,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.SemiBold
         )
         
         if (joinedChannels.isNotEmpty()) {
             Text(
                 text = stringResource(R.string.channel_count_prefix) + "${joinedChannels.size}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isConnected) Color(0xFF00C851) else Color.Red,
+                color = if (isConnected) accents.success else accents.danger,
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -266,6 +285,9 @@ private fun ChannelHeader(
     onSidebarClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val expressive = isExpressiveSkin()
+    val accents = LocalThemeAccents.current
+    val titleColor = if (expressive) colorScheme.primary else accents.self
     
     Box(modifier = Modifier.fillMaxWidth()) {
         // Back button - positioned all the way to the left with minimal margin
@@ -301,8 +323,9 @@ private fun ChannelHeader(
         // Title - perfectly centered regardless of other elements
         Text(
             text = stringResource(R.string.chat_channel_prefix, channel),
-            style = MaterialTheme.typography.titleMedium,
-            color = Color(0xFFFF9500), // Orange to match input field
+            style = if (expressive) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = titleColor,
             modifier = Modifier
                 .align(Alignment.Center)
                 .clickable { onSidebarClick() }
@@ -316,7 +339,7 @@ private fun ChannelHeader(
             Text(
                 text = stringResource(R.string.chat_leave),
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Red
+                color = accents.danger
             )
         }
     }
@@ -334,6 +357,8 @@ private fun MainHeader(
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val expressive = isExpressiveSkin()
+    val accents = LocalThemeAccents.current
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
     val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
     val hasUnreadChannels by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
@@ -348,7 +373,9 @@ private fun MainHeader(
     val bookmarks by bookmarksStore.bookmarks.collectAsStateWithLifecycle()
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = if (expressive) 8.dp else 0.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -356,22 +383,62 @@ private fun MainHeader(
             modifier = Modifier.fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(R.string.app_brand),
-                style = MaterialTheme.typography.headlineSmall,
-                color = colorScheme.primary,
-                modifier = Modifier.singleOrTripleClickable(
-                    onSingleClick = onTitleClick,
-                    onTripleClick = onTripleTitleClick
+            // Expressive: bold identity avatar (monogram) to the left of the wordmark
+            if (expressive) {
+                val initial = nickname.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "@"
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(accents.self.copy(alpha = 0.18f))
+                        .singleOrTripleClickable(
+                            onSingleClick = onTitleClick,
+                            onTripleClick = onTripleTitleClick
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = initial,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = accents.self
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(verticalArrangement = Arrangement.Center) {
+                    Text(
+                        text = stringResource(R.string.app_brand),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.primary,
+                        modifier = Modifier.singleOrTripleClickable(
+                            onSingleClick = onTitleClick,
+                            onTripleClick = onTripleTitleClick
+                        )
+                    )
+                    NicknameEditor(
+                        value = nickname,
+                        onValueChange = onNicknameChange
+                    )
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.app_brand),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = colorScheme.primary,
+                    modifier = Modifier.singleOrTripleClickable(
+                        onSingleClick = onTitleClick,
+                        onTripleClick = onTripleTitleClick
+                    )
                 )
-            )
-            
-            Spacer(modifier = Modifier.width(2.dp))
-            
-            NicknameEditor(
-                value = nickname,
-                onValueChange = onNicknameChange
-            )
+
+                Spacer(modifier = Modifier.width(2.dp))
+
+                NicknameEditor(
+                    value = nickname,
+                    onValueChange = onNicknameChange
+                )
+            }
         }
         
         // Right section with location channels button and peer counter
@@ -389,7 +456,7 @@ private fun MainHeader(
                     modifier = Modifier
                         .size(16.dp)
                         .clickable { viewModel.openLatestUnreadPrivateChat() },
-                    tint = Color(0xFFFF9500)
+                    tint = accents.self
                 )
             }
 
@@ -417,7 +484,7 @@ private fun MainHeader(
                         Icon(
                             imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                             contentDescription = stringResource(R.string.cd_toggle_bookmark),
-                            tint = if (isBookmarked) Color(0xFF00C851) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                            tint = if (isBookmarked) accents.success else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -462,22 +529,57 @@ private fun LocationChannelsButton(
     onClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+    val expressive = isExpressiveSkin()
+    val accents = LocalThemeAccents.current
+
     // Get current channel selection from location manager
     val selectedChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val teleported by viewModel.isTeleported.collectAsStateWithLifecycle()
     
     val (badgeText, badgeColor) = when (selectedChannel) {
         is com.bitchat.android.geohash.ChannelID.Mesh -> {
-            "#mesh" to Color(0xFF007AFF) // iOS blue for mesh
+            "#mesh" to accents.mesh
         }
         is com.bitchat.android.geohash.ChannelID.Location -> {
             val geohash = (selectedChannel as com.bitchat.android.geohash.ChannelID.Location).channel.geohash
-            "#$geohash" to Color(0xFF00C851) // Green for location
+            "#$geohash" to accents.location
         }
-        null -> "#mesh" to Color(0xFF007AFF) // Default to mesh
+        null -> "#mesh" to accents.mesh
     }
-    
+
+    if (expressive) {
+        // Expressive: a filled tonal chip
+        Surface(
+            onClick = onClick,
+            shape = CircleShape,
+            color = badgeColor.copy(alpha = 0.16f),
+            contentColor = badgeColor
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = badgeText,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = badgeColor,
+                    maxLines = 1
+                )
+                if (teleported) {
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Icon(
+                        imageVector = Icons.Default.PinDrop,
+                        contentDescription = stringResource(R.string.cd_teleported),
+                        modifier = Modifier.size(13.dp),
+                        tint = badgeColor
+                    )
+                }
+            }
+        }
+        return
+    }
+
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
