@@ -2,6 +2,7 @@ package com.bitchat.android.mesh
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.noise.NoiseSession
@@ -91,7 +92,7 @@ class UnifiedMeshService(
         } catch (_: Exception) {
             null
         }
-        val content = if (isFavorite) "[FAVORITED]:${myNpub ?: ""}" else "[UNFAVORITED]:${myNpub ?: ""}"
+        val content = FavoriteControlMessage.encode(isFavorite, myNpub)
         val nickname = getPeerNicknames()[peerID] ?: peerID
         if (hasEstablishedSession(peerID)) {
             sendPrivateMessage(content, peerID, nickname, java.util.UUID.randomUUID().toString())

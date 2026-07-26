@@ -43,6 +43,27 @@ class PacketProcessorAnnounceSideEffectTest {
         assertEquals(PEER_ID, withTimeout(1_000) { delegate.lastSeen.await() })
     }
 
+    @Test
+    fun `rejected handshake does not update last seen`() = runBlocking {
+        val delegate = RecordingDelegate(acceptAnnounce = true, acceptHandshake = false)
+        val processor = processor(delegate)
+
+        processor.processPacket(handshake())
+        withTimeout(1_000) { delegate.handshakeHandled.await() }
+
+        assertNull(withTimeoutOrNull(250) { delegate.lastSeen.await() })
+    }
+
+    @Test
+    fun `accepted handshake updates last seen`() = runBlocking {
+        val delegate = RecordingDelegate(acceptAnnounce = true, acceptHandshake = true)
+        val processor = processor(delegate)
+
+        processor.processPacket(handshake())
+
+        assertEquals(PEER_ID, withTimeout(1_000) { delegate.lastSeen.await() })
+    }
+
     private fun processor(delegate: RecordingDelegate): PacketProcessor =
         PacketProcessor(MY_PEER_ID).also {
             it.delegate = delegate
@@ -62,10 +83,25 @@ class PacketProcessorAnnounceSideEffectTest {
         return RoutedPacket(packet, PEER_ID, "direct-link")
     }
 
+    private fun handshake(): RoutedPacket {
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.NOISE_HANDSHAKE.value,
+            senderID = PEER_ID.hexToBytes(),
+            recipientID = MY_PEER_ID.hexToBytes(),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = byteArrayOf(0x01),
+            ttl = 7u
+        )
+        return RoutedPacket(packet, PEER_ID, "direct-link")
+    }
+
     private class RecordingDelegate(
-        private val acceptAnnounce: Boolean
+        private val acceptAnnounce: Boolean,
+        private val acceptHandshake: Boolean = false
     ) : PacketProcessorDelegate {
         val handled = CompletableDeferred<Unit>()
+        val handshakeHandled = CompletableDeferred<Unit>()
         val lastSeen = CompletableDeferred<String>()
         @Volatile var relayCount = 0
 
@@ -76,7 +112,10 @@ class PacketProcessorAnnounceSideEffectTest {
         override fun getPeerNickname(peerID: String): String? = null
         override fun getNetworkSize() = 1
         override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST
-        override fun handleNoiseHandshake(routed: RoutedPacket) = false
+        override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
+            handshakeHandled.complete(Unit)
+            return acceptHandshake
+        }
         override fun handleNoiseEncrypted(routed: RoutedPacket) = Unit
         override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
             handled.complete(Unit)

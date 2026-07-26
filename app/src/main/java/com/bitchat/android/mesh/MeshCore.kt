@@ -898,6 +898,44 @@ class MeshCore(
         }
     }
 
+    /**
+     * Starts a fresh replacement handshake on one exact direct transport generation.
+     * This authenticates provisional transport claims without broadcasting the challenge or
+     * accidentally sending it through a socket that later reused the same alias.
+     */
+    fun initiateNoiseHandshakeOnLink(
+        peerID: String,
+        relayAddress: String,
+        ingressLinkID: String
+    ): Boolean {
+        return try {
+            val handshakeData = encryptionService.initiateHandshake(
+                peerID,
+                replaceEstablished = true
+            ) ?: return false
+            val packet = BitchatPacket(
+                version = 1u,
+                type = MessageType.NOISE_HANDSHAKE.value,
+                senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+                recipientID = MeshPacketUtils.hexStringToByteArray(peerID),
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = handshakeData,
+                ttl = maxTtl
+            )
+            transport.sendPacketToLink(
+                relayAddress,
+                ingressLinkID,
+                signPacketBeforeBroadcast(packet)
+            )
+        } catch (e: Exception) {
+            Log.e(
+                "MeshCore",
+                "Failed to initiate link-bound Noise handshake with $peerID: ${e.message}"
+            )
+            false
+        }
+    }
+
     fun getPeerFingerprint(peerID: String): String? = peerManager.getFingerprintForPeer(peerID)
 
     fun getPeerInfo(peerID: String): PeerInfo? = peerManager.getPeerInfo(peerID)

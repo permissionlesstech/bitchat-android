@@ -5,10 +5,24 @@ package com.bitchat.android.wifiaware
  * A relay/discovery ID alone is not sufficient because a replacement socket may reuse it.
  */
 internal object AuthenticatedIngressLinkPolicy {
+    data class Claim(
+        val relayAddress: String,
+        val linkID: String
+    )
+
     data class Link<T : Any>(
         val relayAddress: String,
         val transport: T
     )
+
+    fun matches(
+        expected: Claim?,
+        authenticatedRelayAddress: String?,
+        authenticatedLinkID: String?
+    ): Boolean =
+        expected != null &&
+            expected.relayAddress == authenticatedRelayAddress &&
+            expected.linkID == authenticatedLinkID
 
     fun <T : Any> resolve(
         authenticatedLinkID: String?,

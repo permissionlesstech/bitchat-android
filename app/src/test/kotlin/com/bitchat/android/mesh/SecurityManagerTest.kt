@@ -255,6 +255,28 @@ class SecurityManagerTest {
     }
 
     @Test
+    fun `validatePacket rejects signed LEAVE outside replay window`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val stale = BitchatPacket(
+            type = MessageType.LEAVE.value,
+            ttl = 7u,
+            senderID = MeshPacketUtils.hexStringToByteArray(otherPeerID),
+            timestamp = (System.currentTimeMillis() - 5 * 60 * 1_000L - 1).toULong(),
+            payload = byteArrayOf()
+        ).also { it.signature = validSignature }
+        val future = BitchatPacket(
+            type = MessageType.LEAVE.value,
+            ttl = 7u,
+            senderID = MeshPacketUtils.hexStringToByteArray(otherPeerID),
+            timestamp = (System.currentTimeMillis() + 5 * 60 * 1_000L + 1_000).toULong(),
+            payload = byteArrayOf()
+        ).also { it.signature = validSignature }
+
+        assertFalse("Captured LEAVE must expire even after replay-cache loss", securityManager.validatePacket(stale, otherPeerID))
+        assertFalse("Future-dated LEAVE must not extend its replay lifetime", securityManager.validatePacket(future, otherPeerID))
+    }
+
+    @Test
     fun `validatePacket - accepts ANNOUNCE packet from unknown peer (extracts key)`() {
         val announcement = IdentityAnnouncement(
             nickname = "New User",
