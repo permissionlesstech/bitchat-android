@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 @MainThread
 class LocationNotesManager private constructor() {
-    
+
     companion object {
         private const val TAG = "LocationNotesManager"
         private const val MAX_NOTES_IN_MEMORY = 500
@@ -27,7 +27,7 @@ class LocationNotesManager private constructor() {
             }
         }
     }
-    
+
     /**
      * Note data class matching iOS implementation
      */
@@ -94,6 +94,8 @@ class LocationNotesManager private constructor() {
     
     // Coroutine scope for background operations
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var subscribeRetryJob: Job? = null
+    private var initialLoadJob: Job? = null
     
     /**
      * Initialize dependencies
@@ -289,6 +291,11 @@ class LocationNotesManager private constructor() {
      * Subscribe to location notes for current geohash
      */
     private fun subscribeAll() {
+        subscribeRetryJob?.cancel()
+        subscribeRetryJob = null
+        initialLoadJob?.cancel()
+        initialLoadJob = null
+
         val currentGeohash = _geohash.value
         if (currentGeohash == null) {
             Log.w(TAG, "Cannot subscribe - no geohash set")
@@ -301,7 +308,7 @@ class LocationNotesManager private constructor() {
             Log.e(TAG, "Cannot subscribe - subscribe function not initialized; will retry shortly")
             _state.value = State.LOADING
             // Retry a few times in case initialization is racing the sheet open
-            scope.launch {
+            subscribeRetryJob = scope.launch {
                 var attempts = 0
                 while (attempts < 10 && subscribeFunc == null) {
                     delay(300)
@@ -342,9 +349,9 @@ class LocationNotesManager private constructor() {
         }
         
         // Mark initial load complete after brief delay to allow relay responses
-        scope.launch {
+        initialLoadJob = scope.launch {
             delay(2000) // Wait 2 seconds for initial batch
-            if (!_initialLoadComplete.value!!) {
+            if (_geohash.value == currentGeohash && !_initialLoadComplete.value) {
                 _initialLoadComplete.value = true
                 _state.value = State.READY
                 Log.d(TAG, "Initial load complete for geohash: $currentGeohash (${noteIDs.size} notes)")
@@ -441,6 +448,11 @@ class LocationNotesManager private constructor() {
      * Cancel subscription and clear state
      */
     fun cancel() {
+        subscribeRetryJob?.cancel()
+        subscribeRetryJob = null
+        initialLoadJob?.cancel()
+        initialLoadJob = null
+
         if (subscriptionIDs.isNotEmpty()) {
             subscriptionIDs.values.forEach { subId ->
                 try {
@@ -453,17 +465,26 @@ class LocationNotesManager private constructor() {
         subscribedGeohashes = emptySet()
         _state.value = State.IDLE
     }
-    
+
     /**
-     * Cleanup resources
+     * End the nearby-notes session and discard location-correlated UI state.
+     * Unlike [cancel], this also clears the target so a later activation can
+     * safely subscribe to the same building geohash again.
      */
-    fun cleanup() {
+    fun stop() {
         cancel()
-        scope.cancel()
         _notes.value = emptyList()
         noteIDs.clear()
         _geohash.value = null
         _initialLoadComplete.value = false
         _errorMessage.value = null
+    }
+
+    /**
+     * Cleanup resources
+     */
+    fun cleanup() {
+        stop()
+        scope.cancel()
     }
 }

@@ -234,6 +234,10 @@
   <string name="location_level_region">region</string>
 
   <!-- Location notes sheet -->
+  <string name="nearby_notes_reveal">check for notes left here</string>
+  <string name="nearby_notes_one">1 note left here — tap to read</string>
+  <!-- Explicit one/many copy mirrors iOS across locales without CLDR quantity gaps. -->
+  <string name="nearby_notes_many" tools:ignore="PluralsCandidate">%d notes left here — tap to read</string>
   <plurals name="location_notes_title">
     <item quantity="one">#%1$s ± 1 • %2$d note</item>
     <item quantity="other">#%1$s ± 1 • %2$d notes</item>

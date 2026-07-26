@@ -53,5 +53,7 @@
   <string name="verify_success_title">已验证</string>
   <string name="verify_success_body">你已验证 %1$s</string>
   <string name="verify_success_system_message">已验证 %1$s</string>
+  <string name="nearby_notes_reveal">查看这里留下的留言</string>
+  <string name="nearby_notes_one">这里留有 1 条留言 — 点按阅读</string>
+  <string name="nearby_notes_many">这里留有 %d 条留言 — 点按阅读</string>
 </resources>
-
