@@ -136,8 +136,8 @@ class BluetoothPacketBroadcaster(
         routed: RoutedPacket,
         gattServer: BluetoothGattServer?,
         characteristic: BluetoothGattCharacteristic?
-    ) {
-        fragmentingSender.send(routed, "BLE broadcast") { packet ->
+    ): Boolean {
+        return fragmentingSender.send(routed, "BLE broadcast") { packet ->
             broadcastSinglePacket(packet, gattServer, characteristic)
             true
         }
@@ -161,6 +161,28 @@ class BluetoothPacketBroadcaster(
         return fragmentingSender.send(routed, "BLE peer ${targetPeerID.take(8)}") { packet ->
             sendSinglePacketToPeer(packet, targetPeerID, gattServer, characteristic)
         }
+    }
+
+    fun sendPacketToLink(
+        routed: RoutedPacket,
+        deviceAddress: String,
+        linkID: String,
+        gattServer: BluetoothGattServer?,
+        characteristic: BluetoothGattCharacteristic?
+    ): Boolean = fragmentingSender.send(routed, "BLE link $deviceAddress") { packet ->
+        val data = packet.packet.toBinaryData(
+            padding = BLEPacketPaddingPolicy.shouldPadForBLE(packet.packet.type)
+        ) ?: return@send false
+        val currentLink = connectionTracker.getDeviceConnection(deviceAddress)
+            ?.takeIf { it.linkID == linkID }
+            ?: return@send false
+        if (currentLink.isClient) {
+            return@send writeToDeviceConn(currentLink, data)
+        }
+        val serverTarget = connectionTracker.getSubscribedDevices()
+            .firstOrNull { it.address == deviceAddress }
+            ?: return@send false
+        notifyDevice(serverTarget, data, gattServer, characteristic)
     }
 
     private fun sendSinglePacketToPeer(

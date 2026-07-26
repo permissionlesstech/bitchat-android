@@ -5,6 +5,8 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.FragmentPayload
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -178,6 +180,68 @@ class FragmentManagerTest {
         assertEquals("Type should match", originalPacket.type, reassembledPacket!!.type)
         assertEquals("Payload size should match", originalPacket.payload.size, reassembledPacket.payload.size)
         assertTrue("Payload content should match", originalPacket.payload.contentEquals(reassembledPacket.payload))
+    }
+
+    @Test
+    fun `inbound fragment set above 256 is rejected`() {
+        val payload = FragmentPayload(
+            fragmentID = ByteArray(8) { 1 },
+            index = 0,
+            total = 257,
+            originalType = MessageType.NOISE_ENCRYPTED.value,
+            data = byteArrayOf(1)
+        ).encode()
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.FRAGMENT.value,
+            senderID = hexStringToByteArray(senderID),
+            recipientID = hexStringToByteArray(recipientID),
+            timestamp = 1u,
+            payload = payload,
+            ttl = 7u
+        )
+
+        assertNull(fragmentManager.handleFragment(packet))
+    }
+
+    @Test
+    fun `fragment payload refuses UInt16 truncation`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            FragmentPayload(
+                fragmentID = ByteArray(8) { 2 },
+                index = 0,
+                total = 65_536,
+                originalType = MessageType.NOISE_ENCRYPTED.value,
+                data = byteArrayOf(1)
+            ).encode()
+        }
+    }
+
+    @Test
+    fun `generic public packet retains a 257 fragment outbound plan`() {
+        val randomPayload = ByteArray(180 * 1024).also { Random(0xB17C4A7).nextBytes(it) }
+
+        fun plan(contentSize: Int): List<BitchatPacket> = fragmentManager.createFragments(
+            BitchatPacket(
+                version = 2u,
+                type = MessageType.FILE_TRANSFER.value,
+                senderID = hexStringToByteArray(senderID),
+                recipientID = com.bitchat.android.protocol.SpecialRecipients.BROADCAST,
+                timestamp = 1u,
+                payload = randomPayload.copyOf(contentSize),
+                signature = ByteArray(64) { 7 },
+                ttl = 7u
+            )
+        )
+
+        var low = 1
+        var high = randomPayload.size
+        while (low < high) {
+            val mid = low + (high - low) / 2
+            if (plan(mid).size >= 257) high = mid else low = mid + 1
+        }
+
+        assertEquals(257, plan(low).size)
     }
 
     private fun hexStringToByteArray(hexString: String): ByteArray {

@@ -216,7 +216,8 @@ class NostrDirectMessageHandler(
                 }
             }
             NoisePayloadType.VERIFY_CHALLENGE,
-            NoisePayloadType.VERIFY_RESPONSE -> Unit // Ignore verification payloads in Nostr direct messages
+            NoisePayloadType.VERIFY_RESPONSE,
+            NoisePayloadType.PEER_STATE -> Unit // Peer state is bound to a live mesh Noise generation.
         }
     }
 

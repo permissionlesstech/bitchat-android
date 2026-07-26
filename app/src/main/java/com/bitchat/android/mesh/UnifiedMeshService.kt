@@ -130,6 +130,41 @@ class UnifiedMeshService(
         }
     }
 
+    override fun prepareFilePrivate(
+        recipientPeerID: String,
+        file: BitchatFilePacket,
+        transferId: String,
+        allowLegacyFallback: Boolean
+    ): PrivateMediaPreparation {
+        return when {
+            isBleReady(recipientPeerID) -> bluetooth.prepareFilePrivate(
+                recipientPeerID,
+                file,
+                transferId,
+                allowLegacyFallback
+            )
+            isWifiReady(recipientPeerID) -> wifiService()?.prepareFilePrivate(
+                recipientPeerID,
+                file,
+                transferId,
+                allowLegacyFallback
+            ) ?: PrivateMediaPreparation.Rejected("Wi-Fi Aware transport is unavailable")
+            isBleConnected(recipientPeerID) || (isBleEnabled() && !isWifiConnected(recipientPeerID)) ->
+                bluetooth.prepareFilePrivate(
+                    recipientPeerID,
+                    file,
+                    transferId,
+                    allowLegacyFallback
+                )
+            else -> wifiService()?.prepareFilePrivate(
+                recipientPeerID,
+                file,
+                transferId,
+                allowLegacyFallback
+            ) ?: PrivateMediaPreparation.Rejected("No local transport is available for this peer")
+        }
+    }
+
     override fun cancelFileTransfer(transferId: String): Boolean {
         val bleCancelled = try { bluetooth.cancelFileTransfer(transferId) } catch (_: Exception) { false }
         val wifiCancelled = try { wifiService()?.cancelFileTransfer(transferId) == true } catch (_: Exception) { false }
@@ -322,6 +357,10 @@ class UnifiedMeshService(
 
     override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
         delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
+    }
+
+    override fun didResolvePrivateMediaPolicy(peerID: String) {
+        delegate?.didResolvePrivateMediaPolicy(peerID)
     }
 
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {

@@ -151,3 +151,12 @@ dependencies {
     androidTestImplementation(libs.bundles.compose.testing)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+// Robolectric resolves Android runtime jars itself (outside Gradle dependency resolution).
+// Its legacy repo1 endpoint rejects cold GitHub-hosted runners with HTTP 403.
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    systemProperty(
+        "robolectric.dependency.repo.url",
+        "https://repo.maven.apache.org/maven2"
+    )
+}

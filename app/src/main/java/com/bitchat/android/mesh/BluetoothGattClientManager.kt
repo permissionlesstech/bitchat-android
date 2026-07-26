@@ -532,6 +532,7 @@ class BluetoothGattClientManager(
         if (!permissionManager.hasBluetoothPermissions()) return
 
         val deviceAddress = device.address
+        val linkID = UUID.randomUUID().toString()
         Log.i(TAG, "Connecting to bitchat device: $deviceAddress (peerID: $peerID)")
         
         val gattCallback = object : BluetoothGattCallback() {
@@ -553,11 +554,11 @@ class BluetoothGattClientManager(
                         }
                     } else {
                         Log.d(TAG, "Client: Cleanly disconnected from $deviceAddress")
-                        connectionTracker.cleanupDeviceConnection(deviceAddress)
                     }
+                    connectionTracker.cleanupDeviceConnectionIfCurrent(deviceAddress, linkID)
 
                     // Notify higher layers about device disconnection to update direct flags
-                    delegate?.onDeviceDisconnected(gatt.device)
+                    delegate?.onDeviceDisconnected(gatt.device, linkID)
 
                     connectionScope.launch {
                         delay(500) // CLEANUP_DELAY
@@ -583,7 +584,8 @@ class BluetoothGattClientManager(
                         gatt = gatt,
                         rssi = rssi,
                         isClient = true,
-                        peerID = peerID // Store the peerID discovered during scan
+                        peerID = peerID, // Store the peerID discovered during scan
+                        linkID = linkID
                     )
                     connectionTracker.addDeviceConnection(deviceAddress, deviceConn)
                     
@@ -602,9 +604,11 @@ class BluetoothGattClientManager(
                     if (service != null) {
                         val characteristic = service.getCharacteristic(AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID)
                         if (characteristic != null) {
-                            connectionTracker.getDeviceConnection(deviceAddress)?.let { deviceConn ->
-                                val updatedConn = deviceConn.copy(characteristic = characteristic)
-                                connectionTracker.updateDeviceConnection(deviceAddress, updatedConn)
+                            if (connectionTracker.updateDeviceConnectionIfCurrent(
+                                    deviceAddress,
+                                    linkID
+                                ) { it.copy(characteristic = characteristic) }
+                            ) {
                                 Log.d(TAG, "Client: Updated device connection with characteristic for $deviceAddress")
                             }
                             
@@ -644,7 +648,7 @@ class BluetoothGattClientManager(
                 if (packet != null) {
                     val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
                     Log.d(TAG, "Client: Parsed packet type ${packet.type} from $peerID")
-                    delegate?.onPacketReceived(packet, peerID, gatt.device)
+                    delegate?.onPacketReceived(packet, peerID, gatt.device, linkID)
                 } else {
                     Log.w(TAG, "Client: Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")
                     Log.w(TAG, "Client: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
@@ -657,9 +661,8 @@ class BluetoothGattClientManager(
                     Log.d(TAG, "Client: RSSI updated for $deviceAddress: $rssi dBm")
                     
                     // Update the connection tracker with new RSSI value
-                    connectionTracker.getDeviceConnection(deviceAddress)?.let { deviceConn ->
-                        val updatedConn = deviceConn.copy(rssi = rssi)
-                        connectionTracker.updateDeviceConnection(deviceAddress, updatedConn)
+                    connectionTracker.updateDeviceConnectionIfCurrent(deviceAddress, linkID) {
+                        it.copy(rssi = rssi)
                     }
                 } else {
                     Log.w(TAG, "Client: Failed to read RSSI for $deviceAddress, status: $status")
