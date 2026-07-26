@@ -161,6 +161,51 @@ class PrivateMediaTransferPreparerTest {
     }
 
     @Test
+    fun `impossible content size rejects before policy encryption signing or fragmentation`() {
+        var policyChecked = false
+        var encrypted = false
+        var finalized = false
+        var fragmented = false
+        val absolutePayloadUpperBound =
+            com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID *
+                com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_SIZE
+        val preparer = PrivateMediaTransferPreparer(
+            senderID = senderID,
+            ttl = 7u,
+            policyProvider = {
+                policyChecked = true
+                PrivateMediaPolicyDecision.Encrypted(authenticatedSession)
+            },
+            encrypt = { _, _, _ ->
+                encrypted = true
+                PrivateMediaEncryptionResult.Success(byteArrayOf(1))
+            },
+            finalizeRoutedAndSigned = {
+                finalized = true
+                it
+            },
+            fragment = { _, _ ->
+                fragmented = true
+                emptyList()
+            }
+        )
+
+        val outcome = preparer.prepare(
+            "peer",
+            recipientID,
+            file(absolutePayloadUpperBound + 1),
+            false
+        )
+
+        assertTrue(outcome is PrivateMediaBuildOutcome.Rejected)
+        assertTrue((outcome as PrivateMediaBuildOutcome.Rejected).reason.contains("256"))
+        assertTrue(!policyChecked)
+        assertTrue(!encrypted)
+        assertTrue(!finalized)
+        assertTrue(!fragmented)
+    }
+
+    @Test
     fun `no route accepts 256 final fragments and rejects 257`() {
         assertExactBoundary(route = null)
     }

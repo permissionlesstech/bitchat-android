@@ -7,6 +7,7 @@ import com.bitchat.android.mesh.PrivateMediaWireMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -23,7 +24,11 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(RobolectricTestRunner::class)
 class MediaSendingManagerMigrationTest {
@@ -45,6 +50,7 @@ class MediaSendingManagerMigrationTest {
             MessageManager(state),
             mock(),
             CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            mediaWorkDispatcher = Dispatchers.Unconfined,
             getMeshService = { mesh }
         )
         file = kotlin.io.path.createTempFile("private-media", ".jpg").toFile().apply {
@@ -70,6 +76,40 @@ class MediaSendingManagerMigrationTest {
         assertTrue(messages.none { it.type == com.bitchat.android.model.BitchatMessageType.Image })
         assertEquals(null, manager.legacyPrivateMediaConsent.value)
         verify(mesh, never()).sendFilePrivate(any(), any())
+    }
+
+    @Test
+    fun `private preparation runs on the configured media worker`() {
+        val executor = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "private-media-test-worker")
+        }
+        val dispatcher = executor.asCoroutineDispatcher()
+        try {
+            val preparationThread = AtomicReference<String>()
+            val prepared = CountDownLatch(1)
+            whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
+                .thenAnswer {
+                    preparationThread.set(Thread.currentThread().name)
+                    prepared.countDown()
+                    PrivateMediaPreparation.Rejected("test complete")
+                }
+            val asynchronousManager = MediaSendingManager(
+                state,
+                MessageManager(state),
+                mock(),
+                CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+                mediaWorkDispatcher = dispatcher,
+                getMeshService = { mesh }
+            )
+
+            asynchronousManager.sendImageNote(peerID, null, file.absolutePath)
+
+            assertTrue(prepared.await(5, TimeUnit.SECONDS))
+            assertTrue(preparationThread.get().contains("private-media-test-worker"))
+        } finally {
+            dispatcher.close()
+            executor.shutdownNow()
+        }
     }
 
     @Test
@@ -223,6 +263,28 @@ class MediaSendingManagerMigrationTest {
 
         assertEquals(0, commits.get())
         assertTrue(state.privateChats.value[peerID].isNullOrEmpty())
+    }
+
+    @Test
+    fun `failed prepared commit rolls back the local file echo`() {
+        whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
+            .thenAnswer { invocation ->
+                PrivateMediaPreparation.Ready(
+                    PreparedPrivateMediaTransfer(
+                        transferId = invocation.getArgument(2),
+                        wireMode = PrivateMediaWireMode.ENCRYPTED_NOISE_0X20
+                    ) {
+                        false
+                    }
+                )
+            }
+
+        manager.sendImageNote(peerID, null, file.absolutePath)
+
+        val messages = state.privateChats.value[peerID].orEmpty()
+        assertEquals(1, messages.size)
+        assertTrue(messages.single().content.contains("could not be committed"))
+        assertTrue(messages.none { it.type == com.bitchat.android.model.BitchatMessageType.Image })
     }
 
     @Test

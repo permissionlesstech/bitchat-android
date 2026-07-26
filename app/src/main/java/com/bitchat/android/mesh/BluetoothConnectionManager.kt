@@ -323,10 +323,10 @@ class BluetoothConnectionManager(
      * Broadcast packet to connected devices with connection limit enforcement
      * Automatically fragments large packets to fit within BLE MTU limits
      */
-    fun broadcastPacket(routed: RoutedPacket) {
-        if (!isActive || !isBleTransportEnabled()) return
-        
-        packetBroadcaster.broadcastPacket(
+    fun broadcastPacket(routed: RoutedPacket): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+
+        return packetBroadcaster.broadcastPacket(
             routed,
             serverManager.getGattServer(),
             serverManager.getCharacteristic()

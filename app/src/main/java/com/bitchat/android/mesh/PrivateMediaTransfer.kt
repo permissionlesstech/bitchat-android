@@ -89,6 +89,20 @@ internal class PrivateMediaTransferPreparer(
         allowLegacyFallback: Boolean,
         generationRetriesRemaining: Int
     ): PrivateMediaBuildOutcome {
+        val maxPrivateFragments =
+            com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID
+        val absolutePayloadUpperBound =
+            maxPrivateFragments.toLong() *
+                com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_SIZE.toLong()
+        // The file content alone cannot exceed the total bytes carried by every
+        // possible fragment. Reject before TLV encoding, encryption, signing,
+        // and packet serialization make additional full-size copies.
+        if (file.content.size.toLong() > absolutePayloadUpperBound) {
+            return PrivateMediaBuildOutcome.Rejected(
+                "File exceeds the private-media v1 limit of 256 final mesh fragments"
+            )
+        }
+
         val policy = policyProvider(recipientPeerID)
         val mode = when (policy) {
             is PrivateMediaPolicyDecision.Encrypted -> PrivateMediaWireMode.ENCRYPTED_NOISE_0X20
@@ -182,8 +196,6 @@ internal class PrivateMediaTransferPreparer(
             )
         }
 
-        val maxPrivateFragments =
-            com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID
         val fragments = fragment(finalized, maxPrivateFragments)
         if (fragments.isEmpty()) {
             return PrivateMediaBuildOutcome.Rejected(

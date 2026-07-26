@@ -9,12 +9,15 @@ import com.bitchat.android.mesh.PrivateMediaPreparation
 import java.util.Date
 import java.security.MessageDigest
 import java.util.UUID
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class LegacyPrivateMediaConsentRequest(
     val requestId: String,
@@ -32,6 +35,7 @@ class MediaSendingManager(
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
     private val scope: CoroutineScope,
+    private val mediaWorkDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val getMeshService: () -> MeshService
 ) {
     // Helper to get current mesh service (may change after panic clear)
@@ -81,25 +85,37 @@ class MediaSendingManager(
      * Send a voice note (audio file)
      */
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        try {
-            val file = java.io.File(filePath)
-            if (!file.exists()) {
-                Log.e(TAG, "❌ File does not exist: $filePath")
-                return
-            }
-            Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
-            
-            if (file.length() > MAX_FILE_SIZE) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
-                return
-            }
+        scope.launch {
+            sendVoiceNoteAsync(toPeerIDOrNull, channelOrNull, filePath)
+        }
+    }
 
-            val filePacket = BitchatFilePacket(
-                fileName = file.name,
-                fileSize = file.length(),
-                mimeType = "audio/mp4",
-                content = file.readBytes()
-            )
+    private suspend fun sendVoiceNoteAsync(
+        toPeerIDOrNull: String?,
+        channelOrNull: String?,
+        filePath: String
+    ) {
+        try {
+            val filePacket = withContext(mediaWorkDispatcher) {
+                val file = java.io.File(filePath)
+                if (!file.exists()) {
+                    Log.e(TAG, "❌ File does not exist: $filePath")
+                    return@withContext null
+                }
+                Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
+
+                if (file.length() > MAX_FILE_SIZE) {
+                    Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                    return@withContext null
+                }
+
+                BitchatFilePacket(
+                    fileName = file.name,
+                    fileSize = file.length(),
+                    mimeType = "audio/mp4",
+                    content = file.readBytes()
+                )
+            } ?: return
 
             if (toPeerIDOrNull != null) {
                 sendPrivateFile(toPeerIDOrNull, filePacket, filePath, BitchatMessageType.Audio)
@@ -115,26 +131,38 @@ class MediaSendingManager(
      * Send an image file
      */
     fun sendImageNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        try {
-            Log.d(TAG, "🔄 Starting image send: $filePath")
-            val file = java.io.File(filePath)
-            if (!file.exists()) {
-                Log.e(TAG, "❌ File does not exist: $filePath")
-                return
-            }
-            Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
-            
-            if (file.length() > MAX_FILE_SIZE) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
-                return
-            }
+        scope.launch {
+            sendImageNoteAsync(toPeerIDOrNull, channelOrNull, filePath)
+        }
+    }
 
-            val filePacket = BitchatFilePacket(
-                fileName = file.name,
-                fileSize = file.length(),
-                mimeType = "image/jpeg",
-                content = file.readBytes()
-            )
+    private suspend fun sendImageNoteAsync(
+        toPeerIDOrNull: String?,
+        channelOrNull: String?,
+        filePath: String
+    ) {
+        try {
+            val filePacket = withContext(mediaWorkDispatcher) {
+                Log.d(TAG, "🔄 Starting image send: $filePath")
+                val file = java.io.File(filePath)
+                if (!file.exists()) {
+                    Log.e(TAG, "❌ File does not exist: $filePath")
+                    return@withContext null
+                }
+                Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
+
+                if (file.length() > MAX_FILE_SIZE) {
+                    Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                    return@withContext null
+                }
+
+                BitchatFilePacket(
+                    fileName = file.name,
+                    fileSize = file.length(),
+                    mimeType = "image/jpeg",
+                    content = file.readBytes()
+                )
+            } ?: return
 
             if (toPeerIDOrNull != null) {
                 sendPrivateFile(toPeerIDOrNull, filePacket, filePath, BitchatMessageType.Image)
@@ -153,49 +181,67 @@ class MediaSendingManager(
      * Send a generic file
      */
     fun sendFileNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
+        scope.launch {
+            sendFileNoteAsync(toPeerIDOrNull, channelOrNull, filePath)
+        }
+    }
+
+    private suspend fun sendFileNoteAsync(
+        toPeerIDOrNull: String?,
+        channelOrNull: String?,
+        filePath: String
+    ) {
         try {
-            Log.d(TAG, "🔄 Starting file send: $filePath")
-            val file = java.io.File(filePath)
-            if (!file.exists()) {
-                Log.e(TAG, "❌ File does not exist: $filePath")
-                return
-            }
-            Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
-            
-            if (file.length() > MAX_FILE_SIZE) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
-                return
-            }
+            val filePacket = withContext(mediaWorkDispatcher) {
+                Log.d(TAG, "🔄 Starting file send: $filePath")
+                val file = java.io.File(filePath)
+                if (!file.exists()) {
+                    Log.e(TAG, "❌ File does not exist: $filePath")
+                    return@withContext null
+                }
+                Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
 
-            // Use the real MIME type based on extension; fallback to octet-stream
-            val mimeType = try { 
-                com.bitchat.android.features.file.FileUtils.getMimeTypeFromExtension(file.name) 
-            } catch (_: Exception) { 
-                "application/octet-stream" 
-            }
-            Log.d(TAG, "🏷️ MIME type: $mimeType")
+                if (file.length() > MAX_FILE_SIZE) {
+                    Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                    return@withContext null
+                }
 
-            // Try to preserve the original file name if our copier prefixed it earlier
-            val originalName = run {
-                val name = file.name
-                val base = name.substringBeforeLast('.')
-                val ext = name.substringAfterLast('.', "").let { if (it.isNotBlank()) ".${it}" else "" }
-                val stripped = Regex("^send_\\d+_(.+)$").matchEntire(base)?.groupValues?.getOrNull(1) ?: base
-                stripped + ext
-            }
-            Log.d(TAG, "📝 Original filename: $originalName")
+                // Use the real MIME type based on extension; fallback to octet-stream
+                val mimeType = try {
+                    com.bitchat.android.features.file.FileUtils.getMimeTypeFromExtension(file.name)
+                } catch (_: Exception) {
+                    "application/octet-stream"
+                }
+                Log.d(TAG, "🏷️ MIME type: $mimeType")
 
-            val filePacket = BitchatFilePacket(
-                fileName = originalName,
-                fileSize = file.length(),
-                mimeType = mimeType,
-                content = file.readBytes()
-            )
+                // Try to preserve the original file name if our copier prefixed it earlier
+                val originalName = run {
+                    val name = file.name
+                    val base = name.substringBeforeLast('.')
+                    val ext = name.substringAfterLast('.', "").let {
+                        if (it.isNotBlank()) ".${it}" else ""
+                    }
+                    val stripped = Regex("^send_\\d+_(.+)$")
+                        .matchEntire(base)
+                        ?.groupValues
+                        ?.getOrNull(1)
+                        ?: base
+                    stripped + ext
+                }
+                Log.d(TAG, "📝 Original filename: $originalName")
+
+                BitchatFilePacket(
+                    fileName = originalName,
+                    fileSize = file.length(),
+                    mimeType = mimeType,
+                    content = file.readBytes()
+                )
+            } ?: return
             Log.d(TAG, "📦 Created file packet successfully")
 
             val messageType = when {
-                mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
-                mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
+                filePacket.mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
+                filePacket.mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
                 else -> BitchatMessageType.File
             }
 
@@ -215,21 +261,22 @@ class MediaSendingManager(
     /**
      * Send a file privately (encrypted)
      */
-    private fun sendPrivateFile(
+    private suspend fun sendPrivateFile(
         toPeerID: String,
         filePacket: BitchatFilePacket,
         filePath: String,
         messageType: BitchatMessageType
     ) {
-        val payload = filePacket.encode()
-        if (payload == null) {
-            Log.e(TAG, "❌ Failed to encode file packet for private send")
-            return
-        }
+        val payload = withContext(mediaWorkDispatcher) { filePacket.encode() }
+            ?: run {
+                Log.e(TAG, "❌ Failed to encode file packet for private send")
+                return
+            }
         Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
 
-        val transferId = sha256Hex(payload)
-        val contentHash = sha256Hex(filePacket.content)
+        val (transferId, contentHash) = withContext(mediaWorkDispatcher) {
+            sha256Hex(payload) to sha256Hex(filePacket.content)
+        }
 
         Log.d(TAG, "📤 FILE_TRANSFER send (private): name='${filePacket.fileName}', size=${filePacket.fileSize}, mime='${filePacket.mimeType}', sha256=$contentHash, to=${toPeerID.take(8)} transferId=${transferId.take(16)}…")
 
@@ -258,6 +305,12 @@ class MediaSendingManager(
      * this send to encrypted rather than forcing the legacy path.
      */
     fun approveLegacyPrivateMedia(requestId: String) {
+        scope.launch {
+            approveLegacyPrivateMediaAsync(requestId)
+        }
+    }
+
+    private suspend fun approveLegacyPrivateMediaAsync(requestId: String) {
         val pending = consumePendingConsent(requestId) ?: return
         val automatic = PendingAutomaticPrivateMedia(
             requestId = UUID.randomUUID().toString(),
@@ -298,7 +351,7 @@ class MediaSendingManager(
         scope.launch { retryPendingPrivateMediaOnScope(peerID) }
     }
 
-    private fun retryPendingPrivateMediaOnScope(peerID: String) {
+    private suspend fun retryPendingPrivateMediaOnScope(peerID: String) {
         val pending = synchronized(pendingConsentLock) {
             pendingAutomaticPrivateMedia
                 ?.takeIf { it.peerID == peerID }
@@ -306,7 +359,7 @@ class MediaSendingManager(
         evaluateAutomaticPending(pending)
     }
 
-    private fun evaluateAutomaticPending(pending: PendingAutomaticPrivateMedia) {
+    private suspend fun evaluateAutomaticPending(pending: PendingAutomaticPrivateMedia) {
         val acquired = synchronized(pendingConsentLock) {
             if (pendingAutomaticPrivateMedia?.requestId != pending.requestId) {
                 return@synchronized false
@@ -322,12 +375,14 @@ class MediaSendingManager(
 
         while (true) {
             val preparation = try {
-                meshService.prepareFilePrivate(
-                    recipientPeerID = pending.peerID,
-                    file = pending.filePacket,
-                    transferId = pending.transferId,
-                    allowLegacyFallback = pending.allowLegacyFallback
-                )
+                withContext(mediaWorkDispatcher) {
+                    meshService.prepareFilePrivate(
+                        recipientPeerID = pending.peerID,
+                        file = pending.filePacket,
+                        transferId = pending.transferId,
+                        allowLegacyFallback = pending.allowLegacyFallback
+                    )
+                }
             } catch (error: Exception) {
                 PrivateMediaPreparation.Rejected(
                     error.message ?: "Secure private-media preparation failed"
@@ -565,21 +620,22 @@ class MediaSendingManager(
     /**
      * Send a file publicly (broadcast or channel)
      */
-    private fun sendPublicFile(
+    private suspend fun sendPublicFile(
         channelOrNull: String?,
         filePacket: BitchatFilePacket,
         filePath: String,
         messageType: BitchatMessageType
     ) {
-        val payload = filePacket.encode()
-        if (payload == null) {
-            Log.e(TAG, "❌ Failed to encode file packet for broadcast send")
-            return
-        }
+        val payload = withContext(mediaWorkDispatcher) { filePacket.encode() }
+            ?: run {
+                Log.e(TAG, "❌ Failed to encode file packet for broadcast send")
+                return
+            }
         Log.d(TAG, "🔓 Encoded broadcast packet: ${payload.size} bytes")
-        
-        val transferId = sha256Hex(payload)
-        val contentHash = sha256Hex(filePacket.content)
+
+        val (transferId, contentHash) = withContext(mediaWorkDispatcher) {
+            sha256Hex(payload) to sha256Hex(filePacket.content)
+        }
         
         Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${filePacket.fileName}', size=${filePacket.fileSize}, mime='${filePacket.mimeType}', sha256=$contentHash, transferId=${transferId.take(16)}…")
 
@@ -612,7 +668,9 @@ class MediaSendingManager(
         )
         
         Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
-        meshService.sendFileBroadcast(filePacket)
+        withContext(mediaWorkDispatcher) {
+            meshService.sendFileBroadcast(filePacket)
+        }
         Log.d(TAG, "✅ File broadcast completed successfully")
     }
 

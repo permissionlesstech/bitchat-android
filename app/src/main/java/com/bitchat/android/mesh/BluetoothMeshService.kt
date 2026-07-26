@@ -180,10 +180,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         connectionManager.sendPacketToPeer(peerID, packet)
     }
 
-    private fun broadcastRoutedPacket(routed: RoutedPacket) {
-        if (!isBleTransportEnabled()) return
-        connectionManager.broadcastPacket(routed)
+    private fun broadcastRoutedPacket(routed: RoutedPacket): Boolean {
+        if (!isBleTransportEnabled()) return false
+        val queued = connectionManager.broadcastPacket(routed)
+        if (!queued) return false
         TransportBridgeService.broadcast("BLE", routed)
+        return true
     }
 
     private fun isBleTransportEnabled(): Boolean {
@@ -951,11 +953,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 )
                 PrivateMediaPreparation.Ready(
                     PreparedPrivateMediaTransfer(transferId, built.wireMode) {
-                        if (!isBleTransportEnabled()) {
+                        if (!isActive || terminated || !isBleTransportEnabled()) {
                             false
                         } else {
                             broadcastRoutedPacket(routed)
-                            true
                         }
                     }
                 )

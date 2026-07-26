@@ -136,8 +136,8 @@ class BluetoothPacketBroadcaster(
         routed: RoutedPacket,
         gattServer: BluetoothGattServer?,
         characteristic: BluetoothGattCharacteristic?
-    ) {
-        fragmentingSender.send(routed, "BLE broadcast") { packet ->
+    ): Boolean {
+        return fragmentingSender.send(routed, "BLE broadcast") { packet ->
             broadcastSinglePacket(packet, gattServer, characteristic)
             true
         }
