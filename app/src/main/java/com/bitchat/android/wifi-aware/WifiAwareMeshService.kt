@@ -1473,6 +1473,18 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendFilePrivate(recipientPeerID, file)
     }
 
+    override fun prepareFilePrivate(
+        recipientPeerID: String,
+        file: BitchatFilePacket,
+        transferId: String,
+        allowLegacyFallback: Boolean
+    ): com.bitchat.android.mesh.PrivateMediaPreparation = meshCore.prepareFilePrivate(
+        recipientPeerID,
+        file,
+        transferId,
+        allowLegacyFallback
+    )
+
     /**
      * Attempts to cancel an in-flight file transfer identified by its transferId.
      *

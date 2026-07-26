@@ -7,7 +7,36 @@ data class NoiseHandshakeProcessingResult(
     val response: ByteArray?,
     val establishedNow: Boolean,
     /** The bound remote static key only when this exact call completed authentication. */
-    val authenticatedRemoteStaticKey: ByteArray? = null
+    val authenticatedRemoteStaticKey: ByteArray? = null,
+    /** Handshake hash identifying that exact authenticated Noise generation. */
+    val authenticatedSessionToken: ByteArray? = null
+)
+
+/** Atomic snapshot of the live authenticated Noise generation. */
+class AuthenticatedNoiseSession(
+    remoteStaticKey: ByteArray,
+    sessionToken: ByteArray
+) {
+    private val remoteStaticKeyBytes = remoteStaticKey.copyOf()
+    private val sessionTokenBytes = sessionToken.copyOf()
+
+    val remoteStaticKey: ByteArray get() = remoteStaticKeyBytes.copyOf()
+    val sessionToken: ByteArray get() = sessionTokenBytes.copyOf()
+
+    override fun equals(other: Any?): Boolean =
+        this === other ||
+            (other is AuthenticatedNoiseSession &&
+                remoteStaticKeyBytes.contentEquals(other.remoteStaticKeyBytes) &&
+                sessionTokenBytes.contentEquals(other.sessionTokenBytes))
+
+    override fun hashCode(): Int =
+        31 * remoteStaticKeyBytes.contentHashCode() + sessionTokenBytes.contentHashCode()
+}
+
+/** Plaintext and generation binding captured atomically from the session that decrypted it. */
+data class NoiseDecryptionResult(
+    val plaintext: ByteArray,
+    val authenticatedSession: AuthenticatedNoiseSession
 )
 
 /**
@@ -23,6 +52,7 @@ class NoiseSessionManager(
         private const val TAG = "NoiseSessionManager"
         private const val HANDSHAKE_TIMEOUT_MS = 20_000L
         private const val HANDSHAKE_MESSAGE_1_SIZE = 32
+        private const val SESSION_TOKEN_SIZE = 32
     }
     
     private val sessions = ConcurrentHashMap<String, NoiseSession>()
@@ -130,6 +160,7 @@ class NoiseSessionManager(
         var activeSession: NoiseSession? = null
         var isReplacementCandidate = false
         var establishedRemoteKey: ByteArray? = null
+        var establishedSessionToken: ByteArray? = null
         var response: ByteArray? = null
 
         try {
@@ -204,6 +235,10 @@ class NoiseSessionManager(
                     throw NoiseSessionError.PeerIdentityMismatch(peerID, derivedPeerID)
                 }
 
+                val sessionToken = session.getHandshakeHash()
+                    ?.takeIf { it.size == SESSION_TOKEN_SIZE && it.any { byte -> byte != 0.toByte() } }
+                    ?: throw NoiseSessionError.HandshakeFailed
+
                 if (isReplacementCandidate) {
                     responderCandidates.remove(peerID, session)
                     val previous = sessions.put(peerID, session)
@@ -211,6 +246,7 @@ class NoiseSessionManager(
                 }
 
                 establishedRemoteKey = remoteStaticKey
+                establishedSessionToken = sessionToken
                 Log.d(TAG, "✅ Session ESTABLISHED with bound identity $peerID")
             }
         } catch (e: Exception) {
@@ -232,7 +268,8 @@ class NoiseSessionManager(
         return NoiseHandshakeProcessingResult(
             response = response,
             establishedNow = establishedRemoteKey != null,
-            authenticatedRemoteStaticKey = establishedRemoteKey?.clone()
+            authenticatedRemoteStaticKey = establishedRemoteKey?.clone(),
+            authenticatedSessionToken = establishedSessionToken?.clone()
         )
     }
 
@@ -252,6 +289,7 @@ class NoiseSessionManager(
     /**
      * SIMPLIFIED: Encrypt data
      */
+    @Synchronized
     fun encrypt(data: ByteArray, peerID: String): ByteArray {
         val session = getSession(peerID) ?: throw IllegalStateException("No session found for $peerID")
         if (!session.isEstablished()) {
@@ -259,11 +297,29 @@ class NoiseSessionManager(
         }
         return session.encrypt(data)
     }
+
+    /** Encrypt only if the exact generation that authorized the operation is still active. */
+    @Synchronized
+    fun encryptForSession(
+        data: ByteArray,
+        peerID: String,
+        expectedSession: AuthenticatedNoiseSession
+    ): ByteArray {
+        val session = getSession(peerID) ?: throw NoiseSessionError.SessionNotFound
+        if (!session.isEstablished()) throw NoiseSessionError.SessionNotEstablished
+        val current = authenticatedSession(session) ?: throw NoiseSessionError.SessionNotEstablished
+        if (current != expectedSession) throw NoiseSessionError.SessionGenerationChanged
+        return session.encrypt(data)
+    }
     
     /**
      * SIMPLIFIED: Decrypt data
      */
-    fun decrypt(encryptedData: ByteArray, peerID: String): ByteArray {
+    fun decrypt(encryptedData: ByteArray, peerID: String): ByteArray =
+        decryptWithSession(encryptedData, peerID).plaintext
+
+    @Synchronized
+    fun decryptWithSession(encryptedData: ByteArray, peerID: String): NoiseDecryptionResult {
         val session = getSession(peerID)
         if (session == null) {
             Log.e(TAG, "No session found for $peerID when trying to decrypt")
@@ -273,7 +329,10 @@ class NoiseSessionManager(
             Log.e(TAG, "Session not established with $peerID when trying to decrypt")
             throw IllegalStateException("Session not established with $peerID")
         }
-        return session.decrypt(encryptedData)
+        val plaintext = session.decrypt(encryptedData)
+        val authenticatedSession = authenticatedSession(session)
+            ?: throw IllegalStateException("Established session for $peerID has no channel binding")
+        return NoiseDecryptionResult(plaintext, authenticatedSession)
     }
     
     /**
@@ -295,15 +354,42 @@ class NoiseSessionManager(
     /**
      * Get remote static public key for a peer (if session established)
      */
-    fun getRemoteStaticKey(peerID: String): ByteArray? {
-        return getSession(peerID)?.getRemoteStaticPublicKey()
+    fun getRemoteStaticKey(peerID: String): ByteArray? =
+        getAuthenticatedSession(peerID)?.remoteStaticKey
+
+    @Synchronized
+    fun getAuthenticatedSession(peerID: String): AuthenticatedNoiseSession? {
+        val session = getSession(peerID) ?: return null
+        if (!session.isEstablished()) return null
+        return authenticatedSession(session)
+    }
+
+    /** Execute a state transition while preventing replacement/removal of the expected session. */
+    @Synchronized
+    fun withAuthenticatedSession(
+        peerID: String,
+        expectedSession: AuthenticatedNoiseSession,
+        action: () -> Boolean
+    ): Boolean {
+        val session = getSession(peerID) ?: return false
+        if (!session.isEstablished()) return false
+        if (authenticatedSession(session) != expectedSession) return false
+        return action()
     }
     
     /**
      * Get handshake hash for channel binding (if session established)
      */
     fun getHandshakeHash(peerID: String): ByteArray? {
-        return getSession(peerID)?.getHandshakeHash()
+        return getAuthenticatedSession(peerID)?.sessionToken
+    }
+
+    private fun authenticatedSession(session: NoiseSession): AuthenticatedNoiseSession? {
+        val remoteStaticKey = session.getRemoteStaticPublicKey()?.takeIf { it.size == 32 } ?: return null
+        val sessionToken = session.getHandshakeHash()?.takeIf {
+            it.size == SESSION_TOKEN_SIZE && it.any { byte -> byte != 0.toByte() }
+        } ?: return null
+        return AuthenticatedNoiseSession(remoteStaticKey, sessionToken)
     }
     
     /**
@@ -356,6 +442,7 @@ sealed class NoiseSessionError(message: String, cause: Throwable? = null) : Exce
     object InvalidState : NoiseSessionError("Session in invalid state")
     object HandshakeFailed : NoiseSessionError("Handshake failed")
     object AlreadyEstablished : NoiseSessionError("Session already established")
+    object SessionGenerationChanged : NoiseSessionError("Noise session generation changed")
     class PeerIdentityMismatch(claimedPeerID: String, derivedPeerID: String?) : NoiseSessionError(
         "Authenticated Noise key derives to ${derivedPeerID ?: "invalid"}, not claimed peer $claimedPeerID"
     )

@@ -59,6 +59,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
     val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
     val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
+    val legacyPrivateMediaConsent by viewModel.legacyPrivateMediaConsent.collectAsStateWithLifecycle()
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -344,6 +345,33 @@ fun ChatScreen(viewModel: ChatViewModel) {
         showMeshPeerListSheet = showMeshPeerListSheet,
         onMeshPeerListDismiss = viewModel::hideMeshPeerList,
     )
+
+    legacyPrivateMediaConsent?.let { request ->
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelLegacyPrivateMedia(request.requestId) },
+            title = { Text(stringResource(com.bitchat.android.R.string.private_media_legacy_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        com.bitchat.android.R.string.private_media_legacy_body,
+                        request.fileName,
+                        request.recipientNickname,
+                        request.warning
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.approveLegacyPrivateMedia(request.requestId) }) {
+                    Text(stringResource(com.bitchat.android.R.string.private_media_legacy_send_once))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.cancelLegacyPrivateMedia(request.requestId) }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
+    }
 }
 
 @Composable

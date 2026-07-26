@@ -38,6 +38,13 @@ The same authenticated callback restores any existing Noise-key-to-Nostr
 relationship under the canonical 16-hex mesh ID; unproven announcements never
 write that routing index.
 
+Generation-sensitive consumers use the 32-byte Noise handshake hash as a local
+session token. The hash is cloned before handshake-state zeroization, and
+session lookup, decrypt, expected-token encrypt, and leased identity mutation
+share the Noise manager lock. A same-static replacement therefore cannot reuse
+the previous generation's proof or destroy a session while a bound mutation is
+in progress.
+
 ## Remaining TOFU boundary
 
 The first public announcement is still self-signed trust-on-first-use. An
