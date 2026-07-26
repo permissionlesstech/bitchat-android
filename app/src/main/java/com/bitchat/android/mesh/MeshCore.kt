@@ -288,6 +288,13 @@ class MeshCore(
             ) {
                 peerManager.addOrUpdatePeer(newPeerID, nickname)
                 val fingerprint = peerManager.storeFingerprintForPeer(newPeerID, publicKey)
+                try {
+                    com.bitchat.android.identity.SecureIdentityStateManager(context)
+                        .cachePeerNoiseKey(newPeerID, publicKey.toHexString())
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(publicKey)?.let { npub ->
+                        com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(newPeerID, npub)
+                    }
+                } catch (_: Exception) { }
                 previousPeerID?.let { peerManager.removePeer(it) }
                 Log.d("MeshCore", "Updated peer ID binding: $newPeerID fp=${fingerprint.take(16)}")
                 hooks.onPeerIdBindingUpdated?.invoke(newPeerID, nickname, publicKey, previousPeerID)

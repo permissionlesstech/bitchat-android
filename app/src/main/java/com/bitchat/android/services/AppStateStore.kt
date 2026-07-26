@@ -99,10 +99,11 @@ object AppStateStore {
         synchronized(this) {
             if (seenMessageIds.contains(msg.id)) return
             seenMessageIds.add(msg.id)
+            val conversationID = ContactDirectory.canonicalConversationId(peerID)
             val map = _privateMessages.value.toMutableMap()
-            val list = (map[peerID] ?: emptyList()) + msg
-            map[peerID] = list
-            _privateMessages.value = map
+            val list = (map[conversationID] ?: emptyList()) + msg
+            map[conversationID] = list
+            _privateMessages.value = ContactDirectory.canonicalizePrivateChats(map)
         }
     }
 
@@ -135,6 +136,57 @@ object AppStateStore {
             }
             if (changed) {
                 _privateMessages.value = map
+            }
+        }
+    }
+
+    fun unifyPrivateChatsIntoPeer(targetPeerID: String, keysToMerge: List<String>) {
+        if (keysToMerge.isEmpty()) return
+        synchronized(this) {
+            val targetConversationID = ContactDirectory.canonicalConversationId(targetPeerID)
+            val map = _privateMessages.value.toMutableMap()
+            val targetList = (map[targetConversationID] ?: emptyList()).toMutableList()
+            val targetIds = targetList.map { it.id }.toMutableSet()
+            var changed = false
+
+            keysToMerge.distinct().forEach { key ->
+                val canonicalKey = ContactDirectory.canonicalConversationId(key)
+                if (canonicalKey == targetConversationID) {
+                    val messages = map.remove(key)
+                    if (messages != null) {
+                        changed = true
+                        messages.forEach { message ->
+                            if (targetIds.add(message.id)) targetList.add(message)
+                        }
+                    }
+                    return@forEach
+                }
+                if (key == targetConversationID) return@forEach
+                val messages = map.remove(key) ?: return@forEach
+                changed = true
+                messages.forEach { message ->
+                    if (targetIds.add(message.id)) {
+                        targetList.add(message)
+                    }
+                }
+            }
+
+            if (changed) {
+                if (targetList.isEmpty()) {
+                    map.remove(targetConversationID)
+                } else {
+                    map[targetConversationID] = targetList
+                }
+                _privateMessages.value = ContactDirectory.canonicalizePrivateChats(map)
+            }
+        }
+    }
+
+    fun canonicalizePrivateChats() {
+        synchronized(this) {
+            val canonical = ContactDirectory.canonicalizePrivateChats(_privateMessages.value)
+            if (canonical != _privateMessages.value) {
+                _privateMessages.value = canonical
             }
         }
     }

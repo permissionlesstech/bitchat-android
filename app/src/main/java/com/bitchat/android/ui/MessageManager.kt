@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.services.ContactDirectory
 import java.util.*
 import java.util.Collections
 
@@ -10,7 +11,7 @@ import java.util.Collections
  */
 class MessageManager(private val state: ChatState) {
     
-    // Message deduplication - FIXED: Prevent duplicate messages from dual connection paths
+    // Message deduplication for duplicate deliveries from multiple local transports.
     private val processedUIMessages = Collections.synchronizedSet(mutableSetOf<String>())
     private val recentSystemEvents = Collections.synchronizedMap(mutableMapOf<String, Long>())
     private val MESSAGE_DEDUP_TIMEOUT = com.bitchat.android.util.AppConstants.UI.MESSAGE_DEDUP_TIMEOUT_MS // 30 seconds
@@ -100,57 +101,63 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Private Message Management
 
     fun addPrivateMessage(peerID: String, message: BitchatMessage) {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
         val currentPrivateChats = state.getPrivateChatsValue().toMutableMap()
-        if (!currentPrivateChats.containsKey(peerID)) {
-            currentPrivateChats[peerID] = mutableListOf()
+        if (!currentPrivateChats.containsKey(conversationID)) {
+            currentPrivateChats[conversationID] = mutableListOf()
         }
         
-        val chatMessages = currentPrivateChats[peerID]?.toMutableList() ?: mutableListOf()
+        val chatMessages = currentPrivateChats[conversationID]?.toMutableList() ?: mutableListOf()
         chatMessages.add(message)
-        currentPrivateChats[peerID] = chatMessages
-        state.setPrivateChats(currentPrivateChats)
+        currentPrivateChats[conversationID] = chatMessages
+        state.setPrivateChats(ContactDirectory.canonicalizePrivateChats(currentPrivateChats))
         // Reflect into process-wide store
-        try { com.bitchat.android.services.AppStateStore.addPrivateMessage(peerID, message) } catch (_: Exception) { }
+        try { com.bitchat.android.services.AppStateStore.addPrivateMessage(conversationID, message) } catch (_: Exception) { }
         
         // Mark as unread if not currently viewing this chat
-        if (state.getSelectedPrivateChatPeerValue() != peerID && message.sender != state.getNicknameValue()) {
+        if (state.getSelectedPrivateChatPeerValue() != conversationID && message.sender != state.getNicknameValue()) {
             val currentUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
-            currentUnread.add(peerID)
+            currentUnread.add(conversationID)
             state.setUnreadPrivateMessages(currentUnread)
         }
     }
 
     // Variant that does not mark unread (used when we know the message has been read already, e.g., persisted Nostr read store)
     fun addPrivateMessageNoUnread(peerID: String, message: BitchatMessage) {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
         val currentPrivateChats = state.getPrivateChatsValue().toMutableMap()
-        if (!currentPrivateChats.containsKey(peerID)) {
-            currentPrivateChats[peerID] = mutableListOf()
+        if (!currentPrivateChats.containsKey(conversationID)) {
+            currentPrivateChats[conversationID] = mutableListOf()
         }
-        val chatMessages = currentPrivateChats[peerID]?.toMutableList() ?: mutableListOf()
+        val chatMessages = currentPrivateChats[conversationID]?.toMutableList() ?: mutableListOf()
         chatMessages.add(message)
-        currentPrivateChats[peerID] = chatMessages
-        state.setPrivateChats(currentPrivateChats)
+        currentPrivateChats[conversationID] = chatMessages
+        state.setPrivateChats(ContactDirectory.canonicalizePrivateChats(currentPrivateChats))
         // Reflect into process-wide store
-        try { com.bitchat.android.services.AppStateStore.addPrivateMessage(peerID, message) } catch (_: Exception) { }
+        try { com.bitchat.android.services.AppStateStore.addPrivateMessage(conversationID, message) } catch (_: Exception) { }
     }
     
     fun clearPrivateMessages(peerID: String) {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
         val updatedChats = state.getPrivateChatsValue().toMutableMap()
-        updatedChats[peerID] = emptyList()
+        updatedChats[conversationID] = emptyList()
         state.setPrivateChats(updatedChats)
     }
     
     fun initializePrivateChat(peerID: String) {
-        if (state.getPrivateChatsValue().containsKey(peerID)) return
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        if (state.getPrivateChatsValue().containsKey(conversationID)) return
         
         val updatedChats = state.getPrivateChatsValue().toMutableMap()
-        updatedChats[peerID] = emptyList()
+        updatedChats[conversationID] = emptyList()
         state.setPrivateChats(updatedChats)
     }
     
     fun clearPrivateUnreadMessages(peerID: String) {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
         val updatedUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
         updatedUnread.remove(peerID)
+        updatedUnread.remove(conversationID)
         state.setUnreadPrivateMessages(updatedUnread)
     }
     
