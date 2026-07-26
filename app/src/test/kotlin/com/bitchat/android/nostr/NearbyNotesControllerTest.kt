@@ -16,9 +16,13 @@ class NearbyNotesControllerTest {
         unsubscribe = { unsubscribeCount += 1 },
     )
 
+    private fun foregroundController() = controller().also {
+        it.updateAppForeground(true)
+    }
+
     @Test
     fun `active mesh timeline does not subscribe before explicit reveal`() {
-        val controller = controller()
+        val controller = foregroundController()
 
         controller.updateAvailability(
             locationEnabled = true,
@@ -38,7 +42,7 @@ class NearbyNotesControllerTest {
 
     @Test
     fun `reveal remains dormant until a nearby notes surface is active`() {
-        val controller = controller()
+        val controller = foregroundController()
         controller.updateAvailability(true, true, "u4pruydq")
 
         controller.reveal()
@@ -52,7 +56,7 @@ class NearbyNotesControllerTest {
 
     @Test
     fun `last deactivate unsubscribes exactly once`() {
-        val controller = controller()
+        val controller = foregroundController()
         controller.updateAvailability(true, true, "u4pruydq")
         controller.reveal()
         controller.activate()
@@ -68,8 +72,27 @@ class NearbyNotesControllerTest {
     }
 
     @Test
+    fun `backgrounding closes the subscription and foregrounding restores it`() {
+        val controller = foregroundController()
+        controller.updateAvailability(true, true, "u4pruydq")
+        controller.activate()
+        controller.reveal()
+
+        controller.updateAppForeground(false)
+
+        assertEquals(1, unsubscribeCount)
+        assertTrue(controller.revealed.value)
+
+        controller.updateAppForeground(false)
+        assertEquals(1, unsubscribeCount)
+
+        controller.updateAppForeground(true)
+        assertEquals(listOf("u4pruydq", "u4pruydq"), subscriptions)
+    }
+
+    @Test
     fun `disable and permission revocation close the live subscription`() {
-        val controller = controller()
+        val controller = foregroundController()
         controller.updateAvailability(true, true, "u4pruydq")
         controller.activate()
         controller.reveal()
@@ -91,6 +114,7 @@ class NearbyNotesControllerTest {
             subscribe = { events += "subscribe:$it" },
             unsubscribe = { events += "unsubscribe" },
         )
+        controller.updateAppForeground(true)
         controller.updateAvailability(true, true, "u4pruydq")
         controller.activate()
         controller.reveal()

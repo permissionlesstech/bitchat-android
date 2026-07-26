@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * Merely rendering the mesh timeline must not open a building-precision Nostr
  * subscription. A subscription is eligible only after an explicit reveal and
- * while at least one nearby-notes surface is active.
+ * while the app is foregrounded and at least one nearby-notes surface is active.
  */
 @MainThread
 class NearbyNotesController internal constructor(
@@ -25,6 +25,7 @@ class NearbyNotesController internal constructor(
     private var activeHolders = 0
     private var locationEnabled = false
     private var locationAuthorized = false
+    private var appForeground = false
     private var buildingGeohash: String? = null
     private var subscribedGeohash: String? = null
 
@@ -47,6 +48,12 @@ class NearbyNotesController internal constructor(
     /** Releases a matching [activate] hold and unsubscribes after the last one. */
     fun deactivate() {
         activeHolders = (activeHolders - 1).coerceAtLeast(0)
+        reconcileSubscription()
+    }
+
+    /** Closes the live subscription whenever the process leaves the foreground. */
+    fun updateAppForeground(isForeground: Boolean) {
+        appForeground = isForeground
         reconcileSubscription()
     }
 
@@ -78,6 +85,7 @@ class NearbyNotesController internal constructor(
     private fun reconcileSubscription() {
         val target = buildingGeohash.takeIf {
             activeHolders > 0 &&
+                appForeground &&
                 _revealed.value &&
                 locationEnabled &&
                 locationAuthorized
