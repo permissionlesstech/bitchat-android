@@ -47,11 +47,11 @@ class GeohashMessageHandler(
                 if (event.kind != NostrKind.EPHEMERAL_EVENT && event.kind != NostrKind.GEOHASH_PRESENCE) return@launch
                 val tagGeo = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }?.getOrNull(1)
                 if (tagGeo == null || !tagGeo.equals(subscribedGeohash, true)) return@launch
-                if (dedupe(event.id)) return@launch
                 if (!event.isValidSignature()) {
                     Log.w(TAG, "Rejecting geohash event ${event.id.take(8)}... with invalid signature")
                     return@launch
                 }
+                if (dedupe(event.id)) return@launch
 
                 // PoW validation (if enabled) - apply to chat messages primarily
                 if (event.kind == NostrKind.EPHEMERAL_EVENT) {

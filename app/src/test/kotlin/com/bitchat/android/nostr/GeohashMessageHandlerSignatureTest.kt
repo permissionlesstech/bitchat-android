@@ -92,4 +92,38 @@ class GeohashMessageHandlerSignatureTest {
         val stored = chatState.getChannelMessagesValue()["geo:$geohash"]
         assertNull("Forged event must not be rendered as a legitimate message", stored)
     }
+
+    @Test
+    fun onEvent_stillAcceptsGenuineEventAfterForgedCopyWithSameIdWasRejected() {
+        val victim = NostrIdentity.generate()
+        val attacker = NostrIdentity.generate()
+        val genuine = buildSignedEvent(victim, "hello from the real victim")
+
+        // A forged event carrying the SAME id as the genuine one (ids are a content hash,
+        // independent of the signature), but signed by an attacker - relays can deliver this
+        // before the genuine copy arrives from another relay.
+        val forgedWithSameId = genuine.copy(
+            sig = NostrEvent(
+                pubkey = attacker.publicKeyHex,
+                createdAt = genuine.createdAt,
+                kind = NostrKind.EPHEMERAL_EVENT,
+                tags = listOf(listOf("g", geohash)),
+                content = "hello from the real victim"
+            ).sign(attacker.privateKeyHex).sig
+        )
+        assertEquals(genuine.id, forgedWithSameId.id)
+        assertEquals(false, forgedWithSameId.isValidSignature())
+
+        // Forged copy arrives first and must be rejected without poisoning the dedup cache.
+        handler.onEvent(forgedWithSameId, geohash)
+        assertNull(chatState.getChannelMessagesValue()["geo:$geohash"])
+
+        // The genuine copy (same id, valid signature) arrives afterwards from another relay -
+        // it must still be rendered, not silently dropped as a "duplicate".
+        handler.onEvent(genuine, geohash)
+
+        val stored = chatState.getChannelMessagesValue()["geo:$geohash"]
+        assertEquals(1, stored?.size)
+        assertEquals("hello from the real victim", stored?.first()?.content)
+    }
 }
