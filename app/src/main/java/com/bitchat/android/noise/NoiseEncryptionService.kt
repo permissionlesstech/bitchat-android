@@ -188,9 +188,9 @@ class NoiseEncryptionService(private val context: Context) {
      * Initiate a Noise handshake with a peer
      * Returns the first handshake message to send
      */
-    fun initiateHandshake(peerID: String): ByteArray? {
+    fun initiateHandshake(peerID: String, replaceEstablished: Boolean = false): ByteArray? {
         return try {
-            sessionManager.initiateHandshake(peerID)
+            sessionManager.initiateHandshake(peerID, replaceEstablished)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initiate handshake with $peerID: ${e.message}")
             null

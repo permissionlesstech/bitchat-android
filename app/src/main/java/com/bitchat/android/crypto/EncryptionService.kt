@@ -300,9 +300,9 @@ open class EncryptionService(private val context: Context) {
     /**
      * Initiate a Noise handshake with a peer
      */
-    fun initiateHandshake(peerID: String): ByteArray? {
+    fun initiateHandshake(peerID: String, replaceEstablished: Boolean = false): ByteArray? {
         Log.d(TAG, "🤝 Initiating Noise handshake with $peerID")
-        return noiseService.initiateHandshake(peerID)
+        return noiseService.initiateHandshake(peerID, replaceEstablished)
     }
     
     /**

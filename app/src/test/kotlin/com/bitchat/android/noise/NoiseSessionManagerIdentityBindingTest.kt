@@ -259,6 +259,78 @@ class NoiseSessionManagerIdentityBindingTest {
     }
 
     @Test
+    fun `fresh initiator replacement preserves active session until authentication completes`() {
+        val alice = identity()
+        val bob = identity()
+        val aliceManager = manager(alice)
+        val originalBobManager = manager(bob)
+
+        completeHandshake(aliceManager, alice.peerID, originalBobManager, bob.peerID)
+        val originalSession = aliceManager.getSession(bob.peerID)
+
+        val restartedBobManager = manager(bob)
+        val message1 = aliceManager.initiateHandshake(bob.peerID, replaceEstablished = true)!!
+        assertSame(originalSession, aliceManager.getSession(bob.peerID))
+        assertTrue(aliceManager.hasEstablishedSession(bob.peerID))
+
+        val message2 = restartedBobManager.processHandshakeMessage(alice.peerID, message1)!!
+        val message3 = aliceManager.processHandshakeMessage(bob.peerID, message2)!!
+        assertNull(restartedBobManager.processHandshakeMessage(alice.peerID, message3))
+
+        assertNotSame(originalSession, aliceManager.getSession(bob.peerID))
+        val plaintext = "fresh link authenticated".toByteArray()
+        val ciphertext = aliceManager.encrypt(plaintext, bob.peerID)
+        assertArrayEquals(plaintext, restartedBobManager.decrypt(ciphertext, alice.peerID))
+    }
+
+    @Test
+    fun `simultaneous initiator replacements use peer ID tie break and complete`() {
+        val alice = identity()
+        val bob = identity()
+        val aliceManager = manager(alice)
+        val bobManager = manager(bob)
+        completeHandshake(aliceManager, alice.peerID, bobManager, bob.peerID)
+
+        val originalAliceSession = aliceManager.getSession(bob.peerID)
+        val originalBobSession = bobManager.getSession(alice.peerID)
+        val aliceMessage1 = aliceManager.initiateHandshake(
+            bob.peerID,
+            replaceEstablished = true
+        )!!
+        val bobMessage1 = bobManager.initiateHandshake(
+            alice.peerID,
+            replaceEstablished = true
+        )!!
+
+        val aliceCollisionResponse = aliceManager.processHandshakeMessage(
+            bob.peerID,
+            bobMessage1
+        )
+        val bobCollisionResponse = bobManager.processHandshakeMessage(
+            alice.peerID,
+            aliceMessage1
+        )
+
+        if (alice.peerID < bob.peerID) {
+            assertNull(aliceCollisionResponse)
+            val message2 = bobCollisionResponse!!
+            val message3 = aliceManager.processHandshakeMessage(bob.peerID, message2)!!
+            assertNull(bobManager.processHandshakeMessage(alice.peerID, message3))
+        } else {
+            assertNull(bobCollisionResponse)
+            val message2 = aliceCollisionResponse!!
+            val message3 = bobManager.processHandshakeMessage(alice.peerID, message2)!!
+            assertNull(aliceManager.processHandshakeMessage(bob.peerID, message3))
+        }
+
+        assertNotSame(originalAliceSession, aliceManager.getSession(bob.peerID))
+        assertNotSame(originalBobSession, bobManager.getSession(alice.peerID))
+        val plaintext = "collision replacement transport".toByteArray()
+        val ciphertext = aliceManager.encrypt(plaintext, bob.peerID)
+        assertArrayEquals(plaintext, bobManager.decrypt(ciphertext, alice.peerID))
+    }
+
+    @Test
     fun `peer ID derivation rejects malformed keys and non-wire claims`() {
         val peer = identity()
 
