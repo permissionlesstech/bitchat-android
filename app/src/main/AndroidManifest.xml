@@ -31,8 +31,9 @@
       Android 17 (API 37) makes local network protection mandatory for apps targeting it.
       The Wi‑Fi Aware transport reaches peers over link-local IPv6 TCP sockets
       (WifiAwareMeshService.connectAwareClientSocket), so declare this defensively.
-      It belongs to the NEARBY_DEVICES group, but is granted independently of
-      NEARBY_WIFI_DEVICES, so it must be requested explicitly (see PermissionManager).
+      It is granted independently of NEARBY_WIFI_DEVICES so must be requested explicitly
+      (see PermissionManager), but shares the NEARBY_DEVICES group with it, so the two
+      are requested together in a single "Nearby devices" prompt.
     -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- Signature permission for internal UI shutdown broadcasts -->

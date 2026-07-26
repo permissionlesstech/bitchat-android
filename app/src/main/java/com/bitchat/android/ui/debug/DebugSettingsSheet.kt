@@ -37,6 +37,11 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalContext
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
@@ -128,6 +133,36 @@ fun DebugSettingsSheet(
     val bleEnabled by manager.bleEnabled.collectAsState()
     val wifiAwareEnabled by manager.wifiAwareEnabled.collectAsState()
     val wifiAwareVerbose by manager.wifiAwareVerbose.collectAsState()
+
+    // Onboarding only asks for the Wi‑Fi Aware permissions when the feature is already
+    // enabled, and the toggle defaults to off — so enabling it from here has to request
+    // them itself. Without this, WifiAwareController just logs
+    // "Missing NEARBY_WIFI_DEVICES permission" on a 5s retry loop and never starts.
+    val wifiAwarePermissions = remember { PermissionManager(context).wifiAwarePermissions() }
+    val wifiAwarePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        // NEARBY_WIFI_DEVICES is the hard requirement; ACCESS_LOCAL_NETWORK is defensive,
+        // so don't block enabling on it.
+        val nearbyGranted = results[android.Manifest.permission.NEARBY_WIFI_DEVICES] ?: true
+        if (nearbyGranted) {
+            manager.setWifiAwareEnabled(true)
+        } else {
+            manager.addDebugMessage(
+                DebugMessage.SystemMessage("Wi‑Fi Aware needs the Nearby devices permission")
+            )
+        }
+    }
+    val enableWifiAware: () -> Unit = {
+        val missing = wifiAwarePermissions.filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isEmpty()) {
+            manager.setWifiAwareEnabled(true)
+        } else {
+            wifiAwarePermissionLauncher.launch(missing.toTypedArray())
+        }
+    }
     val wifiAwareDiscovered by manager.wifiAwareDiscovered.collectAsState()
     val wifiAwareConnected by manager.wifiAwareConnected.collectAsState()
     val wifiAwareSupported by com.bitchat.android.wifiaware.WifiAwareController.supported.collectAsState()
@@ -345,7 +380,9 @@ fun DebugSettingsSheet(
                             Switch(
                                 checked = wifiAwareEnabled && wifiAwareSupported,
                                 enabled = wifiSwitchEnabled,
-                                onCheckedChange = { manager.setWifiAwareEnabled(it) }
+                                onCheckedChange = { on ->
+                                    if (on) enableWifiAware() else manager.setWifiAwareEnabled(false)
+                                }
                             )
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -643,7 +680,7 @@ fun DebugSettingsSheet(
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             AssistChip(
-                                onClick = { manager.setWifiAwareEnabled(true) },
+                                onClick = enableWifiAware,
                                 enabled = wifiAwareSupported,
                                 label = { Text("Start") }
                             )
