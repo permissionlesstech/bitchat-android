@@ -2,28 +2,22 @@ package com.bitchat.android.ui
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.R
 import com.bitchat.android.geohash.ChannelID
-import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.nostr.LocationNotesManager
 
 /**
- * Location Notes button component for MainHeader
- * Shows in mesh mode when location permission granted AND services enabled
- * Icon turns primary color when notes exist, gray otherwise
+ * Unified notices button for both mesh and geohash timelines.
  */
 @Composable
 fun LocationNotesButton(
@@ -31,37 +25,29 @@ fun LocationNotesButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    val context = LocalContext.current
-    
-    // Get channel and permission state
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
-    val locationManager = remember { LocationChannelManager.getInstance(context) }
-    val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
-    val locationServicesEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
+    val boardPosts by viewModel.boardManager.posts.collectAsStateWithLifecycle()
+    val unseenScopes by viewModel.boardManager.unseenScopes.collectAsStateWithLifecycle()
+    val currentScope = when (val selected = selectedLocationChannel) {
+        is ChannelID.Location -> selected.channel.geohash
+        else -> ""
+    }
+    val hasNotices = boardPosts.any { it.geohash == currentScope }
+    val hasUnseen = currentScope in unseenScopes
 
-    // Check both permission AND location services enabled
-    val locationPermissionGranted = permissionState == LocationChannelManager.PermissionState.AUTHORIZED
-    val locationEnabled = locationPermissionGranted && locationServicesEnabled
-    
-    // Get notes count from LocationNotesManager
-    val notesManager = remember { LocationNotesManager.getInstance() }
-    val notes by notesManager.notes.collectAsStateWithLifecycle()
-    val notesCount = notes.size
-
-    // Only show in mesh mode when location is authorized (iOS pattern)
-    if (selectedLocationChannel is ChannelID.Mesh && locationEnabled) {
-        val hasNotes = notesCount > 0
-        IconButton(
-            onClick = onClick,
-            modifier = modifier.size(24.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Description, // "long.text.page.and.pencil" equivalent
-                contentDescription = stringResource(R.string.cd_location_notes),
-                modifier = Modifier.size(16.dp),
-                tint = if (hasNotes) colorScheme.primary else Color.Gray
-            )
-        }
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.size(48.dp)
+    ) {
+        Icon(
+            imageVector = if (hasUnseen) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+            contentDescription = stringResource(R.string.cd_notices),
+            modifier = Modifier.size(19.dp),
+            tint = when {
+                hasUnseen -> Color(0xFFFF9500)
+                hasNotices -> Color(0xFFFF9500)
+                else -> Color.Gray
+            }
+        )
     }
 }

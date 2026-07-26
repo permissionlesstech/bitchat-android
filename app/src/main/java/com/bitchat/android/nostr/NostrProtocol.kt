@@ -108,13 +108,21 @@ object NostrProtocol {
         content: String,
         geohash: String,
         senderIdentity: NostrIdentity,
-        nickname: String? = null
+        nickname: String? = null,
+        expiresAt: Int? = null,
+        urgent: Boolean = false
     ): NostrEvent = withContext(Dispatchers.Default) {
         val tags = mutableListOf<List<String>>()
         tags.add(listOf("g", geohash))
         
         if (!nickname.isNullOrEmpty()) {
             tags.add(listOf("n", nickname))
+        }
+        expiresAt?.let {
+            tags.add(listOf("expiration", it.toString()))
+        }
+        if (urgent) {
+            tags.add(listOf("t", "urgent"))
         }
         
         val event = NostrEvent(
@@ -126,6 +134,21 @@ object NostrProtocol {
         )
         
         return@withContext senderIdentity.signEvent(event)
+    }
+
+    /** Create a NIP-09 deletion request signed by the original event identity. */
+    suspend fun createDeleteEvent(
+        eventID: String,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = withContext(Dispatchers.Default) {
+        val event = NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = NostrKind.DELETION,
+            tags = listOf(listOf("e", eventID)),
+            content = ""
+        )
+        senderIdentity.signEvent(event)
     }
 
     /**

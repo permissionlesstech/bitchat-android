@@ -400,4 +400,17 @@
   <string name="verify_success_title">Verificado</string>
   <string name="verify_success_body">Você verificou %1$s</string>
   <string name="verify_success_system_message">verificou %1$s</string>
+
+  <string name="cd_notices">avisos</string>
+  <string name="notices_title">avisos</string>
+  <string name="notices_tab_geo_count">geo · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">fixe avisos curtos para as pessoas por perto. eles pulam de celular em celular, mesmo offline, e somem sozinhos depois de alguns dias.</string>
+  <string name="notices_fades">desaparece %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">rede</string>
+  <string name="notices_location_unavailable">localização indisponível</string>
+  <string name="notices_enable_location">habilitar localização</string>
+  <string name="notices_alert_urgent_single">📌 aviso urgente de @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d avisos urgentes novos — toque no pin para ver</string>
 </resources>

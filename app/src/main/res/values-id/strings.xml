@@ -400,4 +400,17 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">pengumuman</string>
+  <string name="notices_title">pengumuman</string>
+  <string name="notices_tab_geo_count">area · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">sematkan pengumuman singkat untuk orang di sekitarmu. berpindah dari ponsel ke ponsel, bahkan saat offline, dan hilang sendiri setelah beberapa hari.</string>
+  <string name="notices_fades">memudar %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">net</string>
+  <string name="notices_location_unavailable">lokasi tidak tersedia</string>
+  <string name="notices_enable_location">aktifkan lokasi</string>
+  <string name="notices_alert_urgent_single">📌 pengumuman mendesak dari @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d pengumuman mendesak baru — ketuk pin untuk melihat</string>
 </resources>

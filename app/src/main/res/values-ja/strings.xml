@@ -400,4 +400,17 @@
   <string name="verify_success_title">検証済み</string>
   <string name="verify_success_body">%1$s を検証しました</string>
   <string name="verify_success_system_message">%1$s を検証しました</string>
+
+  <string name="cd_notices">お知らせ</string>
+  <string name="notices_title">お知らせ</string>
+  <string name="notices_tab_geo_count">エリア · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">近くの人に向けて短いお知らせをピン留め。オフラインでもスマホからスマホへ伝わり、数日後に自動的に消えます。</string>
+  <string name="notices_fades">%1$sに消えます</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">ネット</string>
+  <string name="notices_location_unavailable">位置情報を取得できません</string>
+  <string name="notices_enable_location">位置情報を有効化</string>
+  <string name="notices_alert_urgent_single">📌 @%1$sからの緊急のお知らせ: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 新しい緊急のお知らせが%1$d件 — ピンをタップして表示</string>
 </resources>

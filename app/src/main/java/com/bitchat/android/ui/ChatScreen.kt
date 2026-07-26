@@ -554,9 +554,9 @@ private fun ChatDialogs(
         )
     }
     
-    // Location notes sheet (extracted to separate presenter)
+    // Unified mesh and geohash notices sheet.
     if (showLocationNotesSheet) {
-        LocationNotesSheetPresenter(
+        NoticesSheetPresenter(
             viewModel = viewModel,
             onDismiss = onLocationNotesSheetDismiss
         )

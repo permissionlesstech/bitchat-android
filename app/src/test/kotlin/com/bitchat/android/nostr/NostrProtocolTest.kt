@@ -3,7 +3,9 @@ package com.bitchat.android.nostr
 import com.google.gson.Gson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 
 class NostrProtocolTest {
     private val gson = Gson()
@@ -39,6 +41,38 @@ class NostrProtocolTest {
         val decrypted = NostrProtocol.decryptPrivateMessage(giftWrap, recipient)
 
         assertNull(decrypted)
+    }
+
+    @Test
+    fun createGeohashTextNote_addsExpirationAndUrgentTags() = runBlocking {
+        val identity = NostrIdentity.generate()
+
+        val event = NostrProtocol.createGeohashTextNote(
+            content = "road closed",
+            geohash = "u33dc",
+            senderIdentity = identity,
+            nickname = "alice",
+            expiresAt = 1_700_086_400,
+            urgent = true
+        )
+
+        assertEquals(NostrKind.TEXT_NOTE, event.kind)
+        assertTrue(event.tags.contains(listOf("g", "u33dc")))
+        assertTrue(event.tags.contains(listOf("n", "alice")))
+        assertTrue(event.tags.contains(listOf("expiration", "1700086400")))
+        assertTrue(event.tags.contains(listOf("t", "urgent")))
+        assertTrue(event.isValidSignature())
+    }
+
+    @Test
+    fun createDeleteEvent_isSignedNip09Request() = runBlocking {
+        val identity = NostrIdentity.generate()
+
+        val event = NostrProtocol.createDeleteEvent("event-id", identity)
+
+        assertEquals(NostrKind.DELETION, event.kind)
+        assertEquals(listOf(listOf("e", "event-id")), event.tags)
+        assertTrue(event.isValidSignature())
     }
 
     private fun forgedGiftWrap(

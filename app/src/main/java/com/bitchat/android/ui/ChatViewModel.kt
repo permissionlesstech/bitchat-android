@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import android.app.Application
 import android.util.Log
+import com.bitchat.android.R
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -30,6 +31,8 @@ import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
+import com.bitchat.android.board.BoardManager
+import com.bitchat.android.board.BoardStore
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
@@ -110,6 +113,39 @@ class ChatViewModel(
     }
 
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
+    val boardManager = BoardManager(
+        store = BoardStore.getInstance(application.applicationContext),
+        scope = viewModelScope,
+        meshProvider = { mesh },
+        onUrgentPosts = { geohash, posts ->
+            val text = if (posts.size == 1) {
+                val post = posts.single()
+                application.getString(
+                    R.string.notices_alert_urgent_single,
+                    post.authorNickname.trim().ifEmpty { "anon" },
+                    post.content.truncateNoticeAlert()
+                )
+            } else {
+                application.getString(
+                    R.string.notices_alert_urgent_collapsed,
+                    posts.size
+                )
+            }
+            if (geohash.isEmpty()) {
+                messageManager.addSystemMessage(text)
+            } else {
+                messageManager.addChannelMessage(
+                    "geo:$geohash",
+                    BitchatMessage(
+                        sender = "system",
+                        content = text,
+                        timestamp = Date(),
+                        isRelay = false
+                    )
+                )
+            }
+        }
+    )
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(
       application.applicationContext,
@@ -965,6 +1001,7 @@ class ChatViewModel(
         channelManager.clearAllChannels()
         privateChatManager.clearAllPrivateChats()
         dataManager.clearAllData()
+        boardManager.clearTransientState()
         
         // Clear seen message store
         try {
@@ -1206,6 +1243,8 @@ class ChatViewModel(
      */
     fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
         return geohashViewModel.colorForNostrPubkey(pubkeyHex, isDark)
-}
+    }
 
+    private fun String.truncateNoticeAlert(): String =
+        if (length <= 120) this else take(120) + "…"
 }

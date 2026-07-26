@@ -106,6 +106,7 @@ class MeshCore(
     }
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
+    private val boardStore = com.bitchat.android.board.BoardStore.getInstance(context)
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     private val packetProcessor = PacketProcessor(myPeerID)
     private val directPeers = ConcurrentHashMap.newKeySet<String>()
@@ -121,6 +122,7 @@ class MeshCore(
 
     init {
         messageHandler.packetProcessor = packetProcessor
+        gossipSyncManager.boardPacketsProvider = boardStore::syncCandidates
         peerManager.isPeerDirectlyConnected = { peerID -> directPeers.contains(peerID) }
         setupDelegates()
 
@@ -505,6 +507,21 @@ class MeshCore(
                 val req = RequestSyncPacket.decode(routed.packet.payload) ?: return
                 gossipSyncManager.handleRequestSync(fromPeer, req)
             }
+
+            override fun handleBoardPost(routed: RoutedPacket): Boolean {
+                val wire = com.bitchat.android.board.BoardWireCodec.decode(routed.packet.payload)
+                    ?: return false
+                if (!wire.verifySignature()) return false
+                return when (boardStore.ingest(
+                    wire,
+                    routed.packet,
+                    com.bitchat.android.board.BoardIngestSource.REMOTE
+                )) {
+                    com.bitchat.android.board.BoardIngestResult.ACCEPTED,
+                    com.bitchat.android.board.BoardIngestResult.DUPLICATE -> true
+                    com.bitchat.android.board.BoardIngestResult.REJECTED -> false
+                }
+            }
         }
     }
 
@@ -524,6 +541,38 @@ class MeshCore(
             val signedPacket = signPacketBeforeBroadcast(packet)
             dispatchGlobal(RoutedPacket(signedPacket))
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+        }
+    }
+
+    fun getSigningPublicKey(): ByteArray? = encryptionService.getSigningPublicKey()
+
+    fun signData(data: ByteArray): ByteArray? = encryptionService.signData(data)
+
+    fun sendBoardPayload(payload: ByteArray) {
+        val wire = com.bitchat.android.board.BoardWireCodec.decode(payload) ?: return
+        if (!wire.verifySignature()) return
+        scope.launch {
+            val packet = BitchatPacket(
+                version = 1u,
+                type = MessageType.BOARD_POST.value,
+                senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+                recipientID = null,
+                timestamp = System.currentTimeMillis().coerceAtLeast(0).toULong(),
+                payload = payload,
+                signature = null,
+                ttl = maxTtl
+            )
+            val signed = signPacketBeforeBroadcast(packet)
+            if (signed.signature?.size != com.bitchat.android.board.BoardWireConstants.SIGNATURE_LENGTH) {
+                Log.e("MeshCore", "Refusing to send board packet without an outer signature")
+                return@launch
+            }
+            boardStore.ingest(
+                wire,
+                signed,
+                com.bitchat.android.board.BoardIngestSource.LOCAL
+            )
+            dispatchGlobal(RoutedPacket(signed))
         }
     }
 
@@ -994,6 +1043,7 @@ class MeshCore(
         securityManager.clearAllData()
         peerManager.clearAllPeers()
         peerManager.clearAllFingerprints()
+        boardStore.wipe()
     }
 
     fun clearAllEncryptionData() {

@@ -400,4 +400,17 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">mga paunawa</string>
+  <string name="notices_title">mga paunawa</string>
+  <string name="notices_tab_geo_count">geo · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">mag-pin ng maiikling paunawa para sa mga taong nasa paligid mo. lumilipat ito mula sa isang telepono patungo sa iba, kahit offline, at kusang nawawala pagkatapos ng ilang araw.</string>
+  <string name="notices_fades">maglalaho %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">net</string>
+  <string name="notices_location_unavailable">walang lokasyon</string>
+  <string name="notices_enable_location">i-on ang lokasyon</string>
+  <string name="notices_alert_urgent_single">📌 agarang paunawa mula kay @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d bagong agarang paunawa — i-tap ang pin para makita</string>
 </resources>

@@ -414,4 +414,17 @@
   <string name="verify_success_title">Vérifié</string>
   <string name="verify_success_body">Vous avez vérifié %1$s</string>
   <string name="verify_success_system_message">vérifié %1$s</string>
+
+  <string name="cd_notices">annonces</string>
+  <string name="notices_title">annonces</string>
+  <string name="notices_tab_geo_count">géo · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">épingle de courtes annonces pour les gens autour de toi. elles passent de téléphone en téléphone, même hors ligne, et disparaissent d\'elles-mêmes après quelques jours.</string>
+  <string name="notices_fades">s\'efface %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">net</string>
+  <string name="notices_location_unavailable">localisation indisponible</string>
+  <string name="notices_enable_location">activer la localisation</string>
+  <string name="notices_alert_urgent_single">📌 annonce urgente de @%1$s : %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d nouvelles annonces urgentes — touche l\'épingle pour voir</string>
 </resources>

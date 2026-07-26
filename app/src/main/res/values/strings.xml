@@ -247,6 +247,26 @@
   <string name="location_notes_empty_desc">be the first to add one for this spot.</string>
   <string name="dismiss">dismiss</string>
   <string name="location_notes_input_placeholder">add a note for this place</string>
+  <string name="cd_notices" tools:ignore="MissingTranslation">Notices</string>
+  <string name="notices_title" tools:ignore="MissingTranslation">notices</string>
+  <string name="notices_tab_geo_count" tools:ignore="MissingTranslation">geo · %1$d</string>
+  <string name="notices_tab_mesh_count" tools:ignore="MissingTranslation">mesh · %1$d</string>
+  <string name="notices_description_mesh" tools:ignore="MissingTranslation">pin short notices for people around you. they hop phone to phone, even offline, and disappear on their own after a few days.</string>
+  <string name="notices_urgent" tools:ignore="MissingTranslation">urgent</string>
+  <string name="notices_placeholder" tools:ignore="MissingTranslation">add a notice</string>
+  <string name="notices_post" tools:ignore="MissingTranslation">Post notice</string>
+  <string name="notices_delete" tools:ignore="MissingTranslation">Delete notice</string>
+  <string name="notices_expiry" tools:ignore="MissingTranslation">expires</string>
+  <string name="notices_days" tools:ignore="MissingTranslation,PluralsCandidate">%1$d days</string>
+  <string name="notices_fades" tools:ignore="MissingTranslation">fades %1$s</string>
+  <string name="notices_source_mesh" tools:ignore="MissingTranslation">mesh</string>
+  <string name="notices_source_network" tools:ignore="MissingTranslation">net</string>
+  <string name="notices_location_unavailable" tools:ignore="MissingTranslation">location unavailable</string>
+  <string name="notices_location_unavailable_desc" tools:ignore="MissingTranslation">enable location to view persistent notices near you.</string>
+  <string name="notices_enable_location" tools:ignore="MissingTranslation">enable location</string>
+  <string name="notices_send_failed" tools:ignore="MissingTranslation">could not sign and send this notice</string>
+  <string name="notices_alert_urgent_single" tools:ignore="MissingTranslation">📌 urgent notice from @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed" tools:ignore="MissingTranslation,PluralsCandidate">📌 %1$d new urgent notices — tap the pin to view</string>
 
   <!-- Debug / Diagnostics -->
   <string name="debug_tools">debug tools</string>

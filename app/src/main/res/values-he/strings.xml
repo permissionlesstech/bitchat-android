@@ -53,5 +53,17 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
-</resources>
 
+  <string name="cd_notices">מודעות</string>
+  <string name="notices_title">מודעות</string>
+  <string name="notices_tab_geo_count">אזור · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">הצמד מודעות קצרות לאנשים סביבך. הן עוברות מטלפון לטלפון, גם בלי אינטרנט, ונעלמות מעצמן אחרי כמה ימים.</string>
+  <string name="notices_fades">דוהה %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">רשת</string>
+  <string name="notices_location_unavailable">המיקום לא זמין</string>
+  <string name="notices_enable_location">הפעל מיקום</string>
+  <string name="notices_alert_urgent_single">📌 מודעה דחופה מאת @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d מודעות דחופות חדשות — הקש על הנעץ לצפייה</string>
+</resources>

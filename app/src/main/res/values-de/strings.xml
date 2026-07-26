@@ -401,4 +401,17 @@
   <string name="verify_success_title">Verifiziert</string>
   <string name="verify_success_body">Du hast %1$s verifiziert</string>
   <string name="verify_success_system_message">verifiziert %1$s</string>
+
+  <string name="cd_notices">hinweise</string>
+  <string name="notices_title">hinweise</string>
+  <string name="notices_tab_geo_count">geo · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">hefte kurze hinweise für leute in deiner nähe an. sie springen von handy zu handy, auch offline, und verschwinden nach ein paar tagen von selbst.</string>
+  <string name="notices_fades">verblasst %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">netz</string>
+  <string name="notices_location_unavailable">standort nicht verfügbar</string>
+  <string name="notices_enable_location">standort aktivieren</string>
+  <string name="notices_alert_urgent_single">📌 dringender hinweis von @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d neue dringende hinweise — tippe zum ansehen auf den pin</string>
 </resources>

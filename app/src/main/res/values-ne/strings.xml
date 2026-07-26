@@ -400,4 +400,17 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">सूचनाहरू</string>
+  <string name="notices_title">सूचनाहरू</string>
+  <string name="notices_tab_geo_count">क्षेत्र · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">वरपरका मानिसहरूका लागि छोटा सूचना पिन गर। अफलाइनमा पनि फोनबाट फोनमा पुग्छन् र केही दिनपछि आफैँ हराउँछन्।</string>
+  <string name="notices_fades">%1$s मेटिन्छ</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">नेट</string>
+  <string name="notices_location_unavailable">स्थान उपलब्ध छैन</string>
+  <string name="notices_enable_location">स्थान सक्षम गर</string>
+  <string name="notices_alert_urgent_single">📌 @%1$sको जरुरी सूचना: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d नयाँ जरुरी सूचना — हेर्न पिन ट्याप गर</string>
 </resources>

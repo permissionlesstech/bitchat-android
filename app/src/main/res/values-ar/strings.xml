@@ -400,4 +400,17 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">إعلانات</string>
+  <string name="notices_title">إعلانات</string>
+  <string name="notices_tab_geo_count">جغرافي · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">ثبّت إعلانات قصيرة لمن حولك. تنتقل من هاتف إلى هاتف حتى دون اتصال، وتختفي وحدها بعد أيام قليلة.</string>
+  <string name="notices_fades">يتلاشى %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">نت</string>
+  <string name="notices_location_unavailable">الموقع غير متاح</string>
+  <string name="notices_enable_location">تفعيل الموقع</string>
+  <string name="notices_alert_urgent_single">📌 إعلان عاجل من @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d إعلانات عاجلة جديدة — اضغط على الدبوس للعرض</string>
 </resources>

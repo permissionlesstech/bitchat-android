@@ -130,6 +130,19 @@ class UnifiedMeshService(
         }
     }
 
+    override fun sendBoardPayload(payload: ByteArray) {
+        when {
+            isBleEnabled() -> bluetooth.sendBoardPayload(payload)
+            else -> wifiService()?.sendBoardPayload(payload)
+        }
+    }
+
+    override fun getSigningPublicKey(): ByteArray? =
+        bluetooth.getSigningPublicKey() ?: wifiService()?.getSigningPublicKey()
+
+    override fun signData(data: ByteArray): ByteArray? =
+        bluetooth.signData(data) ?: wifiService()?.signData(data)
+
     override fun prepareFilePrivate(
         recipientPeerID: String,
         file: BitchatFilePacket,

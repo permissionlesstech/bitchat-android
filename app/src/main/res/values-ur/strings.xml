@@ -400,4 +400,17 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">اعلانات</string>
+  <string name="notices_title">اعلانات</string>
+  <string name="notices_tab_geo_count">علاقہ · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">آس پاس کے لوگوں کیلئے مختصر اعلانات پن کریں۔ یہ آف لائن بھی فون سے فون تک پہنچتے ہیں اور کچھ دنوں بعد خود مٹ جاتے ہیں۔</string>
+  <string name="notices_fades">%1$s مٹ جائے گا</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">نیٹ</string>
+  <string name="notices_location_unavailable">لوکیشن دستیاب نہیں</string>
+  <string name="notices_enable_location">لوکیشن فعال کریں</string>
+  <string name="notices_alert_urgent_single">📌 @%1$s کا فوری اعلان: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d نئے فوری اعلانات — دیکھنے کیلئے پن پر ٹیپ کریں</string>
 </resources>
