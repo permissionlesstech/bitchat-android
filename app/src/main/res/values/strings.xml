@@ -109,7 +109,50 @@
   <string name="cd_pick_file">Pick file</string>
 
   <!-- About sheet -->
-  <string name="about_tagline">decentralized mesh messaging with end-to-end encryption</string>
+  <string name="about_tagline">The sidegroup chat</string>
+
+  <!-- About sheet: tabs -->
+  <string name="about_tab_how_to_use">How to use</string>
+  <string name="about_tab_basic_info">Basic info</string>
+
+  <!-- About sheet: how-to-use instructions -->
+  <string name="about_how_to_use_heading">How To Use</string>
+  <string name="about_howto_nickname">Set your nickname by tapping it</string>
+  <string name="about_howto_channels">Tap the channel name to change channels</string>
+  <string name="about_howto_people">Tap the people icon to see who\'s in the channel</string>
+  <string name="about_howto_bookmark">Bookmark a channel to keep it in your list</string>
+  <string name="about_howto_mention">Type @ to mention someone</string>
+  <string name="about_howto_commands">Type / to see the available commands</string>
+  <string name="about_howto_panic">Triple-tap the logo to wipe all data</string>
+
+  <!-- About sheet: section labels -->
+  <string name="about_section_about">About</string>
+  <string name="about_section_theme">Theme</string>
+  <string name="about_section_settings">Settings</string>
+
+  <!-- About sheet: feature list -->
+  <string name="about_offline_comm_title">Offline Communication</string>
+  <string name="about_offline_comm_desc">Chat over a Bluetooth mesh with no internet and no servers. Messages relay through nearby devices to extend range.</string>
+  <string name="about_local_channels_title">Local Channels</string>
+  <string name="about_local_channels_desc">Geohash channels connect you with people nearby, extending the mesh over public relays.</string>
+  <string name="about_no_tracking_title">No Tracking</string>
+  <string name="about_no_tracking_desc">No servers, accounts, or data collection.</string>
+  <string name="about_ephemeral_title">Ephemeral Identity</string>
+  <string name="about_ephemeral_desc">A new peer ID is generated regularly.</string>
+  <string name="about_panic_title">Panic Mode</string>
+  <string name="about_panic_desc">Triple-tap the logo to instantly clear all data.</string>
+
+  <!-- About sheet: security warning -->
+  <string name="about_warning_title">Warning</string>
+  <string name="about_warning_body">Private message security has not yet been fully audited. Do not use for critical situations until this warning disappears.</string>
+
+  <!-- About sheet: settings labels -->
+  <string name="about_tor_title">Tor Network</string>
+  <string name="about_difficulty">Difficulty</string>
+  <string name="about_difficulty_value">%1$d bits • %2$s</string>
+  <string name="about_tor_connected">Connected (%1$d%%)</string>
+  <string name="about_tor_disconnected">Disconnected</string>
+
   <string name="about_offline_mesh_title">Offline Mesh Chat</string>
   <string name="about_offline_mesh_desc">Communicate directly via Bluetooth LE without internet or servers. Messages relay through nearby devices to extend range.</string>
   <string name="about_online_geohash_title">Online Geohash Channels</string>
@@ -213,7 +256,24 @@
 
   <!-- Location channels sheet -->
   <string name="location_channels_title">#location channels</string>
+  <string name="location_channels_heading">Location Channels</string>
   <string name="location_channels_desc">chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps. do not screenshot or share this screen to protect your privacy.</string>
+
+  <!-- Location channels sheet: sections and Tor routing -->
+  <string name="section_bookmarked">Bookmarked</string>
+  <string name="section_nearby">Nearby</string>
+  <string name="location_tor_routing_title">Tor Routing</string>
+  <string name="location_tor_routing_desc">Hides your IP for location channels.</string>
+  <string name="badge_recommended">Recommended</string>
+  <string name="remove_location_access">Remove location access</string>
+
+  <!-- People sheet -->
+  <string name="people_count_title">People (%1$d)</string>
+  <string name="section_on_location">On location</string>
+  <string name="section_teleported_in">Teleported in</string>
+  <string name="section_channels">Channels</string>
+  <string name="section_mesh">Mesh</string>
+
   <string name="grant_location_permission">grant location permission</string>
   <string name="location_permission_denied">location permission denied. enable in settings to use location channels.</string>
 
@@ -378,7 +438,7 @@
   <string name="you_suffix"> (you)</string>
   <string name="pan_zoom_instruction">pan and zoom to select a geohash</string>
   <string name="select">select</string>
-  <string name="type_a_message_placeholder">type a message...</string>
+  <string name="type_a_message_placeholder">Type a message…</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">mention</string>
   <string name="image_counter">%1$d / %2$d</string>

@@ -3,11 +3,17 @@ package com.bitchat.android.ui
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -15,6 +21,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +48,11 @@ import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.net.ArtiTorManager
+import com.bitchat.android.net.TorMode
+import com.bitchat.android.net.TorPreferenceManager
+import com.bitchat.android.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
  * Location Channels Sheet for selecting geohash-based location channels
@@ -109,11 +121,10 @@ fun LocationChannelsSheet(
         }
     }
 
-    // iOS system colors (matches iOS exactly)
     val colorScheme = MaterialTheme.colorScheme
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D) // iOS green
-    val standardBlue = Color(0xFF007AFF) // iOS blue
+    val palette = LocalBitchatPalette.current
+    val standardGreen = palette.accentGreen
+    val standardBlue = palette.accentBlue
 
     if (isPresented) {
         BitchatBottomSheet(
@@ -129,14 +140,28 @@ fun LocationChannelsSheet(
                 ) {
                     // Header Section
                     item(key = "header") {
-                        Text(
-                            text = stringResource(R.string.location_channels_desc),
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        Column(
                             modifier = Modifier
-                                .padding(horizontal = 24.dp)
-                        )
+                                .fillMaxWidth()
+                                .padding(horizontal = SheetHorizontalPadding + 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            SheetHeaderBadge(icon = Icons.Outlined.Public)
+                            Text(
+                                text = stringResource(R.string.location_channels_heading),
+                                fontSize = 20.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Medium,
+                                color = colorScheme.primary
+                            )
+                            Text(
+                                text = stringResource(R.string.location_channels_desc),
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = palette.textSecondary
+                            )
+                        }
                     }
 
                     // Permission controls if services enabled
@@ -156,7 +181,7 @@ fun LocationChannelsSheet(
                                                 text = stringResource(R.string.location_permission_denied),
                                                 fontSize = 11.sp,
                                                 fontFamily = FontFamily.Monospace,
-                                                color = Color.Red.copy(alpha = 0.8f)
+                                                color = palette.accentRed
                                             )
                                             TextButton(
                                                 onClick = {
@@ -208,6 +233,11 @@ fun LocationChannelsSheet(
                     // iOS: let nearby = manager.availableChannels.filter { $0.level != .building }
                     if (availableChannels.isNotEmpty() && locationServicesEnabled) {
                         val nearbyChannels = availableChannels.filter { it.level != GeohashChannelLevel.BUILDING }
+                        if (nearbyChannels.isNotEmpty()) {
+                            item(key = "nearby_header") {
+                                SheetSectionLabel(text = stringResource(R.string.section_nearby))
+                            }
+                        }
                         items(nearbyChannels) { channel ->
                             val coverage = coverageString(channel.geohash.length)
                             val nameBase = locationNames[channel.level]
@@ -224,13 +254,14 @@ fun LocationChannelsSheet(
                                 titleColor = standardGreen,
                                 titleBold = highlight,
                                 trailingContent = {
-                                IconButton(onClick = { bookmarksStore.toggle(channel.geohash) }) {
-                                    Icon(
-                                        imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                                        contentDescription = if (isBookmarked) stringResource(R.string.cd_remove_bookmark) else stringResource(R.string.cd_add_bookmark),
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                                    )
-                                }
+                                    IconButton(onClick = { bookmarksStore.toggle(channel.geohash) }) {
+                                        Icon(
+                                            imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                                            contentDescription = if (isBookmarked) stringResource(R.string.cd_remove_bookmark) else stringResource(R.string.cd_add_bookmark),
+                                            tint = if (isBookmarked) palette.accentGreen else palette.textSecondary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 },
                                 onClick = {
                                     // Selecting a suggested nearby channel is not a teleport
@@ -252,12 +283,13 @@ fun LocationChannelsSheet(
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(16.dp),
                                     strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    color = palette.textSecondary
                                 )
                                 Text(
                                     text = stringResource(R.string.finding_nearby_channels),
                                     fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace
+                                    fontFamily = FontFamily.Monospace,
+                                    color = palette.textSecondary
                                 )
                             }
                         }
@@ -266,16 +298,7 @@ fun LocationChannelsSheet(
                     // Bookmarked geohashes
                     if (bookmarks.isNotEmpty()) {
                         item(key = "bookmarked_header") {
-                            Text(
-                                text = stringResource(R.string.bookmarked),
-                                style = MaterialTheme.typography.labelLarge,
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp)
-                                    .padding(top = 8.dp, bottom = 4.dp)
-                            )
+                            SheetSectionLabel(text = stringResource(R.string.section_bookmarked))
                         }
                         items(bookmarks) { gh ->
                             val level = levelForLength(gh.length)
@@ -298,7 +321,8 @@ fun LocationChannelsSheet(
                                         Icon(
                                             imageVector = Icons.Filled.Bookmark,
                                             contentDescription = stringResource(R.string.cd_remove_bookmark),
-                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                            tint = palette.accentGreen,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                 },
@@ -321,16 +345,17 @@ fun LocationChannelsSheet(
                     // Custom geohash teleport (iOS-style inline form)
                     item(key = "custom_geohash") {
                         Surface(
-                            color = Color.Transparent,
-                            shape = MaterialTheme.shapes.medium,
+                            color = palette.surface,
+                            shape = RoundedCornerShape(10.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 2.dp)
+                                .padding(horizontal = SheetHorizontalPadding, vertical = 3.dp)
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                                    .heightIn(min = 44.dp)
+                                    .padding(start = 14.dp, end = 6.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -338,7 +363,7 @@ fun LocationChannelsSheet(
                                     text = stringResource(R.string.hash_symbol),
                                     fontSize = BASE_FONT_SIZE.sp,
                                     fontFamily = FontFamily.Monospace,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    color = palette.textTertiary
                                 )
 
                                 BasicTextField(
@@ -358,8 +383,9 @@ fun LocationChannelsSheet(
                                     textStyle = androidx.compose.ui.text.TextStyle(
                                         fontSize = BASE_FONT_SIZE.sp,
                                         fontFamily = FontFamily.Monospace,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = colorScheme.primary
                                     ),
+                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(colorScheme.primary),
                                     modifier = Modifier
                                         .weight(1f)
                                         .onFocusChanged { focusState ->
@@ -381,7 +407,7 @@ fun LocationChannelsSheet(
                                                 text = stringResource(R.string.geohash_placeholder),
                                                 fontSize = BASE_FONT_SIZE.sp,
                                                 fontFamily = FontFamily.Monospace,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                                color = palette.textTertiary
                                             )
                                         }
                                         innerTextField()
@@ -405,14 +431,17 @@ fun LocationChannelsSheet(
                                     Icon(
                                         imageVector = Icons.Filled.Map,
                                         contentDescription = stringResource(R.string.cd_open_map),
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                        tint = palette.textSecondary,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
 
                                 val isValid = validateGeohash(normalized)
 
-                                // iOS-style teleport button
-                                Button(
+                                // Compact teleport pill. Dims rather than disappearing when the
+                                // geohash is incomplete so its position stays predictable.
+                                val teleportColor = if (isValid) colorScheme.primary else palette.textTertiary
+                                Surface(
                                     onClick = {
                                         if (isValid) {
                                             val level = levelForLength(normalized.length)
@@ -426,25 +455,29 @@ fun LocationChannelsSheet(
                                         }
                                     },
                                     enabled = isValid,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                                        contentColor = MaterialTheme.colorScheme.onSurface
-                                    )
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = palette.surfaceVariant
                                 ) {
                                     Row(
+                                        modifier = Modifier
+                                            .height(32.dp)
+                                            .padding(horizontal = 10.dp),
                                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            text = stringResource(R.string.teleport),
-                                            fontSize = BASE_FONT_SIZE.sp,
-                                            fontFamily = FontFamily.Monospace
-                                        )
                                         Icon(
                                             imageVector = Icons.Filled.PinDrop,
                                             contentDescription = stringResource(R.string.cd_teleport),
-                                            modifier = Modifier.size(14.dp),
-                                            tint = MaterialTheme.colorScheme.onSurface
+                                            modifier = Modifier.size(12.dp),
+                                            tint = teleportColor
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.teleport).uppercase(),
+                                            fontSize = 11.sp,
+                                            letterSpacing = 0.8.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = teleportColor
                                         )
                                     }
                                 }
@@ -459,51 +492,103 @@ fun LocationChannelsSheet(
                                 text = customError!!,
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace,
-                                color = Color.Red,
+                                color = palette.accentRed,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 24.dp)
+                                    .padding(horizontal = SheetHorizontalPadding + 14.dp, vertical = 4.dp)
                             )
+                        }
+                    }
+
+                    // Tor routing. Mirrors the toggle in About: this is where users actually
+                    // think about IP exposure, because location channels are the feature that
+                    // leaks it.
+                    item(key = "tor_routing") {
+                        val torProvider = remember { ArtiTorManager.getInstance() }
+                        val torAvailable = remember { torProvider.isTorAvailable() }
+                        var torMode by remember { mutableStateOf(TorPreferenceManager.get(context)) }
+
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = SheetHorizontalPadding, vertical = 3.dp)
+                                .padding(top = 16.dp),
+                            color = palette.surface,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.location_tor_routing_title),
+                                            fontSize = 14.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Medium,
+                                            color = if (torAvailable) palette.textPrimary else palette.textTertiary
+                                        )
+                                        BitchatBadge(text = stringResource(R.string.badge_recommended))
+                                    }
+                                    Text(
+                                        text = stringResource(R.string.location_tor_routing_desc),
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = palette.textSecondary
+                                    )
+                                }
+
+                                Switch(
+                                    checked = torMode == TorMode.ON,
+                                    onCheckedChange = { enabled ->
+                                        if (torAvailable) {
+                                            torMode = if (enabled) TorMode.ON else TorMode.OFF
+                                            TorPreferenceManager.set(context, torMode)
+                                        }
+                                    },
+                                    enabled = torAvailable,
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color.White,
+                                        checkedTrackColor = palette.accentGreen,
+                                        uncheckedThumbColor = Color.White,
+                                        uncheckedTrackColor = palette.surfaceVariant
+                                    )
+                                )
+                            }
                         }
                     }
 
                     // Location services toggle button
                     item(key = "location_toggle") {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
-                                .padding(top = 8.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    if (locationServicesEnabled) {
-                                        locationManager.disableLocationServices()
-                                    } else {
-                                        locationManager.enableLocationServices()
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (locationServicesEnabled) {
-                                        Color.Red.copy(alpha = 0.08f)
-                                    } else {
-                                        standardGreen.copy(alpha = 0.12f)
-                                    },
-                                    contentColor = if (locationServicesEnabled) {
-                                        Color(0xFFBF1A1A)
-                                    } else {
-                                        standardGreen
-                                    }
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = if (locationServicesEnabled) stringResource(R.string.disable_location_services) else stringResource(R.string.enable_location_services),
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-                        }
+                        SheetDestructiveButton(
+                            text = if (locationServicesEnabled) {
+                                stringResource(R.string.remove_location_access)
+                            } else {
+                                stringResource(R.string.enable_location_services)
+                            },
+                            isDestructive = locationServicesEnabled,
+                            onClick = {
+                                if (locationServicesEnabled) {
+                                    locationManager.disableLocationServices()
+                                } else {
+                                    locationManager.enableLocationServices()
+                                }
+                            },
+                            modifier = Modifier.padding(
+                                start = SheetHorizontalPadding,
+                                end = SheetHorizontalPadding,
+                                top = 16.dp
+                            )
+                        )
                     }
                 }
 
@@ -561,26 +646,41 @@ private fun ChannelRow(
     trailingContent: (@Composable (() -> Unit))? = null,
     onClick: () -> Unit
 ) {
-    // iOS-style list row (plain button, no card background)
+    val palette = LocalBitchatPalette.current
+
+    // Selected rows step up to surfaceVariant rather than showing a trailing checkmark: with a
+    // leading status dot the fill alone communicates state and keeps the row's right edge free
+    // for the bookmark control.
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) palette.surfaceVariant else palette.surface,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "channelRowContainer"
+    )
+
     Surface(
         onClick = onClick,
-        color = if (isSelected) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
-        } else {
-            Color.Transparent
-        },
-        shape = MaterialTheme.shapes.medium,
+        color = containerColor,
+        shape = RoundedCornerShape(10.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 2.dp)
+            .padding(horizontal = SheetHorizontalPadding, vertical = 3.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .padding(end = 10.dp)
+                        .size(6.dp)
+                        .background(palette.accentGreen, CircleShape)
+                )
+            }
+
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -588,13 +688,16 @@ private fun ChannelRow(
                 // Split title to handle count part with smaller font (iOS style)
                 val (baseTitle, countSuffix) = splitTitleAndCount(title)
 
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         text = baseTitle,
-                        fontSize = BASE_FONT_SIZE.sp,
+                        fontSize = 14.sp,
                         fontFamily = FontFamily.Monospace,
-                        fontWeight = if (titleBold) FontWeight.Bold else FontWeight.Normal,
-                        color = titleColor ?: MaterialTheme.colorScheme.onSurface
+                        fontWeight = if (titleBold) FontWeight.SemiBold else FontWeight.Medium,
+                        color = titleColor ?: palette.textPrimary
                     )
 
                     countSuffix?.let { count ->
@@ -602,32 +705,21 @@ private fun ChannelRow(
                             text = count,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            color = palette.textSecondary
                         )
                     }
                 }
 
                 Text(
                     text = subtitle,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    color = palette.textSecondary
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = stringResource(R.string.cd_selected),
-                        tint = Color(0xFF32D74B), // iOS green for checkmark
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                
-                if (trailingContent != null) {
-                    trailingContent()
-                }
+            if (trailingContent != null) {
+                trailingContent()
             }
         }
     }

@@ -96,7 +96,6 @@
     <string name="pick_image">Bild auswählen</string>
 
     <!-- Über‑Sheet -->
-    <string name="about_tagline">dezentraler Mesh‑Chat mit Ende‑zu‑Ende‑Verschlüsselung</string>
     <string name="about_offline_mesh_title">Offline‑Mesh‑Chat</string>
     <string name="about_offline_mesh_desc">Kommuniziere direkt über Bluetooth LE ohne Internet oder Server. Nachrichten werden über nahe Geräte weitergeleitet, um die Reichweite zu erhöhen.</string>
     <string name="about_online_geohash_title">Online‑Geohash‑Kanäle</string>

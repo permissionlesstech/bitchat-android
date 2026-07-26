@@ -96,7 +96,6 @@
     <string name="pick_image">Hifidy sary</string>
 
     <!-- Momba ny takelaka -->
-    <string name="about_tagline">hafatra mesh tsy misy foibe misy fandokoana farany amin\'ny farany</string>
     <string name="about_offline_mesh_title">Mesh Chat tsy an-tserasera</string>
     <string name="about_offline_mesh_desc">Mifandraisa mivantana amin\'ny alalan\'ny Bluetooth LE tsy misy Internet na mpizara. Ny hafatra dia mamindra amin\'ny alalan\'ny fitaovana akaiky mba hanitarana ny elanelana.</string>
     <string name="about_online_geohash_title">Fantsona Geohash an-tserasera</string>

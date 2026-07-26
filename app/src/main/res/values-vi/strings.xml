@@ -96,7 +96,6 @@
     <string name="pick_image">Chọn hình ảnh</string>
 
     <!-- Sheet giới thiệu -->
-    <string name="about_tagline">trò chuyện mesh phi tập trung với mã hóa đầu cuối</string>
     <string name="about_offline_mesh_title">Trò chuyện Mesh ngoại tuyến</string>
     <string name="about_offline_mesh_desc">Liên lạc trực tiếp qua Bluetooth LE mà không cần Internet hoặc máy chủ. Tin nhắn được chuyển tiếp qua các thiết bị gần để mở rộng phạm vi.</string>
     <string name="about_online_geohash_title">Kênh Geohash trực tuyến</string>

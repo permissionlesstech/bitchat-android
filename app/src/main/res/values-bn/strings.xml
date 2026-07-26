@@ -96,7 +96,6 @@
     <string name="pick_image">ছবি নির্বাচন করুন</string>
 
     <!-- সম্পর্কে শিট -->
-    <string name="about_tagline">এন্ড-টু-এন্ড এনক্রিপশন সহ বিকেন্দ্রীভূত মেশ চ্যাট</string>
     <string name="about_offline_mesh_title">অফলাইন মেশ চ্যাট</string>
     <string name="about_offline_mesh_desc">ইন্টারনেট বা সার্ভার ছাড়াই Bluetooth LE এর মাধ্যমে সরাসরি যোগাযোগ করুন। পরিসর বাড়ানোর জন্য কাছাকাছি ডিভাইসের মাধ্যমে বার্তা রিলে করা হয়।</string>
     <string name="about_online_geohash_title">অনলাইন জিওহ্যাশ চ্যানেল</string>

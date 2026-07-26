@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,17 +17,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 
-// Colors that match the iOS bitchat theme
+// Colors that match the iOS bitchat theme.
+// Surface/outline/error slots are derived from BitchatPalette so that screens which have not
+// yet migrated to the explicit palette still pick up the redesigned tinted surfaces.
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF39FF14),        // Bright green (terminal-like)
     onPrimary = Color.Black,
     secondary = Color(0xFF2ECB10),      // Darker green
     onSecondary = Color.Black,
-    background = Color.Black,
-    onBackground = Color(0xFF39FF14),   // Green on black
-    surface = Color(0xFF111111),        // Very dark gray
+    background = DarkBitchatPalette.background,
+    onBackground = Color(0xFF39FF14),   // Green on near-black
+    surface = DarkBitchatPalette.surface,
     onSurface = Color(0xFF39FF14),      // Green text
-    error = Color(0xFFFF5555),          // Red for errors
+    surfaceVariant = DarkBitchatPalette.surfaceVariant,
+    onSurfaceVariant = DarkBitchatPalette.textSecondary,
+    outline = DarkBitchatPalette.outline,
+    outlineVariant = DarkBitchatPalette.outlineVariant,
+    error = DarkBitchatPalette.accentRed,
     onError = Color.Black
 )
 
@@ -35,11 +42,15 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = Color.White,
     secondary = Color(0xFF006600),      // Even darker green
     onSecondary = Color.White,
-    background = Color.White,
-    onBackground = Color(0xFF008000),   // Dark green on white
-    surface = Color(0xFFF8F8F8),        // Very light gray
+    background = LightBitchatPalette.background,
+    onBackground = Color(0xFF008000),   // Dark green on off-white
+    surface = LightBitchatPalette.surface,
     onSurface = Color(0xFF008000),      // Dark green text
-    error = Color(0xFFCC0000),          // Dark red for errors
+    surfaceVariant = LightBitchatPalette.surfaceVariant,
+    onSurfaceVariant = LightBitchatPalette.textSecondary,
+    outline = LightBitchatPalette.outline,
+    outlineVariant = LightBitchatPalette.outlineVariant,
+    error = LightBitchatPalette.accentRed,
     onError = Color.White
 )
 
@@ -61,6 +72,7 @@ fun BitchatTheme(
     }
 
     val colorScheme = if (shouldUseDark) DarkColorScheme else LightColorScheme
+    val palette = if (shouldUseDark) DarkBitchatPalette else LightBitchatPalette
 
     val view = LocalView.current
     SideEffect {
@@ -83,9 +95,11 @@ fun BitchatTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(LocalBitchatPalette provides palette) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }

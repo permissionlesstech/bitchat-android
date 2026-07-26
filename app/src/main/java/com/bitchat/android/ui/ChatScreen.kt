@@ -5,6 +5,8 @@ package com.bitchat.android.ui
 
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -26,6 +28,8 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.media.FullScreenImageViewer
+import com.bitchat.android.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -40,6 +44,7 @@ import com.bitchat.android.ui.media.FullScreenImageViewer
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
     val colorScheme = MaterialTheme.colorScheme
+    val palette = LocalBitchatPalette.current
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
@@ -114,7 +119,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             .fillMaxSize()
             .background(colorScheme.background) // Extend background to fill entire screen including status bar
     ) {
-        val headerHeight = 42.dp
+        val headerHeight = ChatHeaderHeight
         
         // Main content area that responds to keyboard/window insets
         Column(
@@ -263,14 +268,23 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .offset(y = headerHeight)
                 .zIndex(1f),
-            color = colorScheme.outline.copy(alpha = 0.3f)
+            thickness = 1.dp,
+            color = palette.outlineVariant
         )
 
         // Scroll-to-bottom floating button
         AnimatedVisibility(
             visible = isScrolledUp,
-            enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
+            // Short and eased: the button appears mid-scroll, so a slow entrance draws the eye
+            // away from the messages the user is actually reading.
+            enter = slideInVertically(
+                animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+                initialOffsetY = { it / 2 }
+            ) + fadeIn(tween(BitchatMotion.STANDARD_MS)),
+            exit = slideOutVertically(
+                animationSpec = tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing),
+                targetOffsetY = { it / 2 }
+            ) + fadeOut(tween(BitchatMotion.QUICK_MS)),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 64.dp)
@@ -280,16 +294,16 @@ fun ChatScreen(viewModel: ChatViewModel) {
         ) {
             Surface(
                 shape = CircleShape,
-                color = colorScheme.background,
+                color = palette.surface,
                 tonalElevation = 3.dp,
                 shadowElevation = 6.dp,
-                border = BorderStroke(2.dp, Color(0xFF00C851))
+                border = BorderStroke(1.dp, palette.accentGreen)
             ) {
                 IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
                     Icon(
                         imageVector = Icons.Filled.ArrowDownward,
                         contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom),
-                        tint = Color(0xFF00C851)
+                        tint = palette.accentGreen
                     )
                 }
             }
@@ -394,12 +408,14 @@ fun ChatInputSection(
     colorScheme: ColorScheme,
     showMediaButtons: Boolean
 ) {
+    val palette = LocalBitchatPalette.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = colorScheme.background
     ) {
+        // No divider above the composer: the pill's own border provides the separation, and a
+        // full-width rule on top of it read as a double line.
         Column {
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             // Command suggestions box
             if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
                 CommandSuggestionsBox(
@@ -407,7 +423,7 @@ fun ChatInputSection(
                     onSuggestionClick = onCommandSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
-                HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
+                HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
             }
             // Mention suggestions box
             if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
@@ -416,7 +432,7 @@ fun ChatInputSection(
                     onSuggestionClick = onMentionSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
-                HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
+                HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
             }
             MessageInput(
                 value = messageText,
@@ -434,7 +450,6 @@ fun ChatInputSection(
         }
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatFloatingHeader(
     headerHeight: Dp,
@@ -459,35 +474,38 @@ private fun ChatFloatingHeader(
             .windowInsetsPadding(WindowInsets.statusBars), // Extend into status bar area
         color = colorScheme.background // Solid background color extending into status bar
     ) {
-        TopAppBar(
-            title = {
-                ChatHeaderContent(
-                    selectedPrivatePeer = selectedPrivatePeer,
-                    currentChannel = currentChannel,
-                    nickname = nickname,
-                    viewModel = viewModel,
-                    onBackClick = {
-                        when {
-                            selectedPrivatePeer != null -> viewModel.endPrivateChat()
-                            currentChannel != null -> viewModel.switchToChannel(null)
-                        }
-                    },
-                    onSidebarClick = onSidebarToggle,
-                    onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo,
-                    onLocationChannelsClick = onLocationChannelsClick,
-                    onLocationNotesClick = {
-                        // Ensure location is loaded before showing sheet
-                        locationManager.refreshChannels()
-                        onLocationNotesClick()
+        // A plain Row rather than M3's TopAppBar. TopAppBar silently injects a 4.dp horizontal
+        // pad plus a 12.dp title inset and applies its own minimum heights, which made the
+        // header's spacing impossible to specify exactly.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(headerHeight)
+                .padding(start = 12.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ChatHeaderContent(
+                selectedPrivatePeer = selectedPrivatePeer,
+                currentChannel = currentChannel,
+                nickname = nickname,
+                viewModel = viewModel,
+                onBackClick = {
+                    when {
+                        selectedPrivatePeer != null -> viewModel.endPrivateChat()
+                        currentChannel != null -> viewModel.switchToChannel(null)
                     }
-                )
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent
-            ),
-            modifier = Modifier.height(headerHeight) // Ensure compact header height
-        )
+                },
+                onSidebarClick = onSidebarToggle,
+                onTripleClick = onPanicClear,
+                onShowAppInfo = onShowAppInfo,
+                onLocationChannelsClick = onLocationChannelsClick,
+                onLocationNotesClick = {
+                    // Ensure location is loaded before showing sheet
+                    locationManager.refreshChannels()
+                    onLocationNotesClick()
+                }
+            )
+        }
     }
 }
 

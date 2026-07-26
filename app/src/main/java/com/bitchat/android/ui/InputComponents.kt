@@ -2,6 +2,9 @@ package com.bitchat.android.ui
 // [Goose] TODO: Replace inline file attachment stub with FilePickerButton abstraction that dispatches via FileShareDispatcher
 
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -15,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
@@ -38,6 +42,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.withStyle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.features.voice.normalizeAmplitudeSample
 import com.bitchat.android.features.voice.AudioWaveformExtractor
 import com.bitchat.android.ui.media.RealtimeScrollingWaveform
@@ -53,7 +59,10 @@ import com.bitchat.android.ui.media.FilePickerButton
  * VisualTransformation that styles slash commands with background and color
  * while preserving cursor positioning and click handling
  */
-class SlashCommandVisualTransformation : VisualTransformation {
+class SlashCommandVisualTransformation(
+    private val commandColor: Color,
+    private val commandBackground: Color,
+) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val slashCommandRegex = Regex("(/\\w+)(?=\\s|$)")
         val annotatedString = buildAnnotatedString {
@@ -68,10 +77,10 @@ class SlashCommandVisualTransformation : VisualTransformation {
                 // Add the styled slash command
                 withStyle(
                     style = SpanStyle(
-                        color = Color(0xFF00FF7F), // Bright green
+                        color = commandColor,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Medium,
-                        background = Color(0xFF2D2D2D) // Dark gray background
+                        background = commandBackground
                     )
                 ) {
                     append(match.value)
@@ -97,7 +106,10 @@ class SlashCommandVisualTransformation : VisualTransformation {
  * VisualTransformation that styles mentions with background and color
  * while preserving cursor positioning and click handling
  */
-class MentionVisualTransformation : VisualTransformation {
+class MentionVisualTransformation(
+    private val mentionColor: Color,
+    private val mentionBackground: Color,
+) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val mentionRegex = Regex("@([a-zA-Z0-9_]+)")
         val annotatedString = buildAnnotatedString {
@@ -112,9 +124,12 @@ class MentionVisualTransformation : VisualTransformation {
                 // Add the styled mention
                 withStyle(
                     style = SpanStyle(
-                        color = Color(0xFFFF9500), // Orange
+                        color = mentionColor,
                         fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        // Mirrors the mention chip used in rendered messages, so what you type
+                        // looks like what everyone will see.
+                        background = mentionBackground
                     )
                 ) {
                     append(match.value)
@@ -159,6 +174,24 @@ class CombinedVisualTransformation(private val transformations: List<VisualTrans
 
 
 
+/** Minimum height of the composer pill: a single line of 15.sp text plus 12.dp of padding. */
+private val ComposerMinHeight = 44.dp
+
+/**
+ * Composer corner radius.
+ *
+ * Fixed rather than "50%": at [ComposerMinHeight] this yields a true capsule, and when the field
+ * grows to multiple lines it stays a generously rounded rectangle instead of degenerating into
+ * the stadium shape a percentage radius would produce.
+ */
+private val ComposerShape = RoundedCornerShape(22.dp)
+
+/** Diameter of the circular send affordance nested inside the pill. */
+private val SendButtonSize = 32.dp
+
+/** Tap target for the media affordances sitting outside the pill. */
+private val MediaButtonSize = 40.dp
+
 @Composable
 fun MessageInput(
     value: TextFieldValue,
@@ -174,6 +207,7 @@ fun MessageInput(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val palette = LocalBitchatPalette.current
     val isFocused = remember { mutableStateOf(false) }
     val hasText = value.text.isNotBlank() // Check if there's text for send button state
     val keyboard = LocalSoftwareKeyboardController.current
@@ -182,82 +216,121 @@ fun MessageInput(
     var elapsedMs by remember { mutableStateOf(0L) }
     var amplitude by remember { mutableStateOf(0) }
 
-    Row(
-        modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Text input with placeholder OR visualizer when recording
-        Box(
-            modifier = Modifier.weight(1f)
-        ) {
-            // Always keep the text field mounted to retain focus and avoid IME collapse
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = colorScheme.primary,
-                    fontFamily = FontFamily.Monospace
-                ),
-                cursorBrush = SolidColor(if (isRecording) Color.Transparent else colorScheme.primary),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { 
-                    if (hasText) onSend() // Only send if there's text
-                }),
-                visualTransformation = CombinedVisualTransformation(
-                    listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-                    .onFocusChanged { focusState ->
-                        isFocused.value = focusState.isFocused
-                    }
-            )
+    // Recording turns the pill's outline red; a cross-fade keeps that from flashing.
+    val borderColor by animateColorAsState(
+        targetValue = when {
+            isRecording -> palette.accentRed.copy(alpha = 0.6f)
+            isFocused.value -> palette.outline
+            else -> palette.outlineVariant
+        },
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "composerBorder"
+    )
 
-            // Show placeholder when there's no text and not recording
-            if (value.text.isEmpty() && !isRecording) {
-                Text(
-                    text = stringResource(R.string.type_a_message_placeholder),
-                    style = MaterialTheme.typography.bodyMedium.copy(
+    Row(
+        modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+        // Bottom-aligned so that when the field grows to several lines the send button and the
+        // media buttons stay pinned next to the last line, as in the design's long-text state.
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        // MARK: - The pill. Holds the field and the send button as one visual object.
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = ComposerMinHeight)
+                .background(palette.surfaceVariant, ComposerShape)
+                .border(1.dp, borderColor, ComposerShape),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp)
+            ) {
+                // Always keep the text field mounted to retain focus and avoid IME collapse
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color = colorScheme.primary,
                         fontFamily = FontFamily.Monospace
                     ),
-                    color = colorScheme.onSurface.copy(alpha = 0.5f), // Muted grey
-                    modifier = Modifier.fillMaxWidth()
+                    cursorBrush = SolidColor(if (isRecording) Color.Transparent else colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = {
+                        if (hasText) onSend() // Only send if there's text
+                    }),
+                    // Cap the growth so a pasted wall of text cannot swallow the message list.
+                    maxLines = 6,
+                    visualTransformation = remember(palette) {
+                        CombinedVisualTransformation(
+                            listOf(
+                                SlashCommandVisualTransformation(
+                                    commandColor = palette.accentGreen,
+                                    commandBackground = palette.accentGreen.copy(alpha = 0.14f),
+                                ),
+                                MentionVisualTransformation(
+                                    mentionColor = palette.accentOrange,
+                                    mentionBackground = palette.accentOrange.copy(alpha = MENTION_CHIP_ALPHA),
+                                ),
+                            )
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                        .onFocusChanged { focusState ->
+                            isFocused.value = focusState.isFocused
+                        }
                 )
-            }
 
-            // Overlay the real-time scrolling waveform while recording
-            if (isRecording) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    RealtimeScrollingWaveform(
-                        modifier = Modifier.weight(1f).height(32.dp),
-                        amplitudeNorm = normalizeAmplitudeSample(amplitude)
-                    )
-                    Spacer(Modifier.width(20.dp))
-                    val secs = (elapsedMs / 1000).toInt()
-                    val mm = secs / 60
-                    val ss = secs % 60
-                    val maxSecs = 10 // 10 second max recording time
-                    val maxMm = maxSecs / 60
-                    val maxSs = maxSecs % 60
+                // Show placeholder when there's no text and not recording
+                if (value.text.isEmpty() && !isRecording) {
                     Text(
-                        text = String.format("%02d:%02d / %02d:%02d", mm, ss, maxMm, maxSs),
-                        fontFamily = FontFamily.Monospace,
-                        color = colorScheme.primary,
-                        fontSize = (BASE_FONT_SIZE - 4).sp
+                        text = stringResource(R.string.type_a_message_placeholder),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        color = palette.textTertiary,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
-            }
-        }
-        
-        Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
-        
-        // Voice and image buttons when no text (only visible in Mesh chat)
-        if (value.text.isEmpty() && showMediaButtons) {
-            // Hold-to-record microphone
-            val bg = if (colorScheme.background == Color.Black) Color(0xFF00FF00).copy(alpha = 0.75f) else Color(0xFF008000).copy(alpha = 0.75f)
 
+                // Overlay the real-time scrolling waveform while recording
+                if (isRecording) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        RealtimeScrollingWaveform(
+                            modifier = Modifier.weight(1f).height(24.dp),
+                            amplitudeNorm = normalizeAmplitudeSample(amplitude)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        val secs = (elapsedMs / 1000).toInt()
+                        val mm = secs / 60
+                        val ss = secs % 60
+                        val maxSecs = 10 // 10 second max recording time
+                        val maxMm = maxSecs / 60
+                        val maxSs = maxSecs % 60
+                        Text(
+                            text = String.format("%02d:%02d / %02d:%02d", mm, ss, maxMm, maxSs),
+                            fontFamily = FontFamily.Monospace,
+                            color = palette.accentRed,
+                            fontSize = (BASE_FONT_SIZE - 4).sp
+                        )
+                    }
+                }
+            }
+
+            SendButton(
+                hasText = hasText,
+                isAccented = selectedPrivatePeer != null || currentChannel != null,
+                onSend = onSend,
+                modifier = Modifier.padding(end = 6.dp, bottom = 6.dp)
+            )
+        }
+
+        // MARK: - Media affordances, outside the pill, only while the field is empty.
+        if (value.text.isEmpty() && showMediaButtons) {
             // Ensure latest values are used when finishing recording
             val latestSelectedPeer = rememberUpdatedState(selectedPrivatePeer)
             val latestChannel = rememberUpdatedState(currentChannel)
@@ -265,26 +338,15 @@ fun MessageInput(
 
             // Image button (image picker) - hide during recording
             if (!isRecording) {
-                // Revert to original separate buttons: round File button (left) and the old Image plus button (right)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // DISABLE FILE PICKER
-                    //FilePickerButton(
-                    //    onFileReady = { path ->
-                    //        onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
-                    //    }
-                    //)
-                    ImagePickerButton(
-                        onImageReady = { outPath ->
-                            onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
-                        }
-                    )
-                }
+                ImagePickerButton(
+                    onImageReady = { outPath ->
+                        onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
+                    }
+                )
             }
 
-            Spacer(Modifier.width(1.dp))
-
             VoiceRecordButton(
-                backgroundColor = bg,
+                backgroundColor = colorScheme.primary,
                 onStart = {
                     isRecording = true
                     elapsedMs = 0L
@@ -313,56 +375,65 @@ fun MessageInput(
                     )
                 }
             )
-            
-        } else {
-            // Send button with enabled/disabled state
-            IconButton(
-                onClick = { if (hasText) onSend() }, // Only execute if there's text
-                enabled = hasText, // Enable only when there's text
-                modifier = Modifier.size(32.dp)
-            ) {
-                // Update send button to match input field colors
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .background(
-                            color = if (!hasText) {
-                                // Disabled state - muted grey
-                                colorScheme.onSurface.copy(alpha = 0.3f)
-                            } else if (selectedPrivatePeer != null || currentChannel != null) {
-                                // Orange for both private messages and channels when enabled
-                                Color(0xFFFF9500).copy(alpha = 0.75f)
-                            } else if (colorScheme.background == Color.Black) {
-                                Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
-                            } else {
-                                Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
-                            },
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.ArrowUpward,
-                        contentDescription = stringResource(id = R.string.send_message),
-                        modifier = Modifier.size(20.dp),
-                        tint = if (!hasText) {
-                            // Disabled state - muted grey icon
-                            colorScheme.onSurface.copy(alpha = 0.5f)
-                        } else if (selectedPrivatePeer != null || currentChannel != null) {
-                            // Black arrow on orange for both private and channel modes
-                            Color.Black
-                        } else if (colorScheme.background == Color.Black) {
-                            Color.Black // Black arrow on bright green in dark theme
-                        } else {
-                            Color.White // White arrow on dark green in light theme
-                        }
-                    )
-                }
-            }
         }
     }
 
     // Auto-stop handled inside VoiceRecordButton
+}
+
+/**
+ * Circular send affordance nested in the bottom-right of the composer pill.
+ *
+ * Goes from a flat grey disc to a solid accent the moment there is something to send, which is
+ * the clearest possible signal that the return key will do something.
+ */
+@Composable
+private fun SendButton(
+    hasText: Boolean,
+    isAccented: Boolean,
+    onSend: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
+
+    val targetBackground = when {
+        !hasText -> palette.outline
+        isAccented -> palette.accentOrange
+        else -> colorScheme.primary
+    }
+    val targetTint = when {
+        !hasText -> palette.textTertiary
+        // Both accents are bright enough that black is the only legible arrow colour.
+        else -> Color.Black
+    }
+
+    val background by animateColorAsState(
+        targetValue = targetBackground,
+        animationSpec = tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing),
+        label = "sendButtonBackground"
+    )
+    val tint by animateColorAsState(
+        targetValue = targetTint,
+        animationSpec = tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing),
+        label = "sendButtonTint"
+    )
+
+    Box(
+        modifier = modifier
+            .size(SendButtonSize)
+            .background(background, CircleShape)
+            .clip(CircleShape)
+            .clickable(enabled = hasText) { onSend() },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.ArrowUpward,
+            contentDescription = stringResource(id = R.string.send_message),
+            modifier = Modifier.size(18.dp),
+            tint = tint
+        )
+    }
 }
 
 @Composable
@@ -371,14 +442,14 @@ fun CommandSuggestionsBox(
     onSuggestionClick: (CommandSuggestion) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colorScheme = MaterialTheme.colorScheme
+    val palette = LocalBitchatPalette.current
 
     Column(
         modifier = modifier
             .verticalScroll(rememberScrollState())
-            .background(colorScheme.surface)
-            .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-            .padding(vertical = 8.dp)
+            .background(palette.surface)
+            .border(1.dp, palette.outlineVariant, RoundedCornerShape(8.dp))
+            .padding(vertical = 6.dp)
     ) {
         suggestions.forEach { suggestion: CommandSuggestion ->
             CommandSuggestionItem(
@@ -395,13 +466,14 @@ fun CommandSuggestionItem(
     onClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val palette = LocalBitchatPalette.current
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 3.dp)
-            .background(Color.Gray.copy(alpha = 0.1f)),
+            // Roomier rows: at 3.dp vertical these were below a comfortable tap height.
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -419,7 +491,7 @@ fun CommandSuggestionItem(
                 fontWeight = FontWeight.Medium
             ),
             color = colorScheme.primary,
-            fontSize = (BASE_FONT_SIZE - 4).sp
+            fontSize = (BASE_FONT_SIZE - 2).sp
         )
 
         // Show syntax if any
@@ -429,8 +501,8 @@ fun CommandSuggestionItem(
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontFamily = FontFamily.Monospace
                 ),
-                color = colorScheme.onSurface.copy(alpha = 0.8f),
-                fontSize = (BASE_FONT_SIZE - 5).sp
+                color = palette.textSecondary,
+                fontSize = (BASE_FONT_SIZE - 4).sp
             )
         }
 
@@ -440,8 +512,8 @@ fun CommandSuggestionItem(
             style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = FontFamily.Monospace
             ),
-            color = colorScheme.onSurface.copy(alpha = 0.7f),
-            fontSize = (BASE_FONT_SIZE - 5).sp,
+            color = palette.textTertiary,
+            fontSize = (BASE_FONT_SIZE - 4).sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -454,13 +526,13 @@ fun MentionSuggestionsBox(
     onSuggestionClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    
+    val palette = LocalBitchatPalette.current
+
     Column(
         modifier = modifier
-            .background(colorScheme.surface)
-            .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-            .padding(vertical = 8.dp)
+            .background(palette.surface)
+            .border(1.dp, palette.outlineVariant, RoundedCornerShape(8.dp))
+            .padding(vertical = 6.dp)
     ) {
         suggestions.forEach { suggestion: String ->
             MentionSuggestionItem(
@@ -476,14 +548,13 @@ fun MentionSuggestionItem(
     suggestion: String,
     onClick: () -> Unit
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    
+    val palette = LocalBitchatPalette.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 3.dp)
-            .background(Color.Gray.copy(alpha = 0.1f)),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -492,19 +563,19 @@ fun MentionSuggestionItem(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.SemiBold
             ),
-            color = Color(0xFFFF9500), // Orange like mentions
-            fontSize = (BASE_FONT_SIZE - 4).sp
+            color = palette.accentOrange,
+            fontSize = (BASE_FONT_SIZE - 2).sp
         )
-        
+
         Spacer(modifier = Modifier.weight(1f))
-        
+
         Text(
             text = stringResource(R.string.mention),
             style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = FontFamily.Monospace
             ),
-            color = colorScheme.onSurface.copy(alpha = 0.7f),
-            fontSize = (BASE_FONT_SIZE - 5).sp
+            color = palette.textTertiary,
+            fontSize = (BASE_FONT_SIZE - 4).sp
         )
     }
 }

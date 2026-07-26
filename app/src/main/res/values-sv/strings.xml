@@ -86,7 +86,6 @@
     <string name="close_with_emoji">❌ Stäng</string>
     <string name="pick_image">Välj bild</string>
 
-    <string name="about_tagline">decentraliserad mesh‑meddelanden med ända‑till‑ända‑kryptering</string>
     <string name="about_offline_mesh_title">Offline Mesh‑chatt</string>
     <string name="about_offline_mesh_desc">Kommunicera direkt via Bluetooth LE utan internet eller servrar. Meddelanden reläas av enheter i närheten.</string>
     <string name="about_online_geohash_title">Online Geohash‑kanaler</string>

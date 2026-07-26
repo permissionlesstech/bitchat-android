@@ -96,7 +96,6 @@
     <string name="pick_image">Afbeelding kiezen</string>
 
     <!-- Info-sheet -->
-    <string name="about_tagline">gedecentraliseerde meshcommunicatie met end-to-end-versleuteling</string>
     <string name="about_offline_mesh_title">Offline meshchat</string>
     <string name="about_offline_mesh_desc">Communiceer rechtstreeks via Bluetooth LE zonder internet of servers. Berichten worden doorgestuurd via apparaten in de buurt om het bereik te vergroten.</string>
     <string name="about_online_geohash_title">Online geohash-kanalen</string>

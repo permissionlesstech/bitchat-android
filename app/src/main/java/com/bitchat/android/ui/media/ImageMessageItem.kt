@@ -27,6 +27,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import androidx.compose.material3.ColorScheme
 import com.bitchat.android.core.ui.component.text.AnnotatedClickableText
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 import java.text.SimpleDateFormat
 
 @Composable
@@ -41,16 +42,19 @@ fun ImageMessageItem(
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     onCancelTransfer: ((BitchatMessage) -> Unit)?,
     onImageClick: ((String, List<String>, Int) -> Unit)?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showSender: Boolean = true
 ) {
+    val palette = LocalBitchatPalette.current
     val path = message.content.trim()
     Column(modifier = modifier.fillMaxWidth()) {
         val headerText = com.bitchat.android.ui.formatMessageHeaderAnnotatedString(
             message = message,
             currentUserNickname = currentUserNickname,
             meshService = meshService,
-            colorScheme = colorScheme,
-            timeFormatter = timeFormatter
+            palette = palette,
+            timeFormatter = timeFormatter,
+            includeSender = showSender
         )
         val haptic = LocalHapticFeedback.current
         AnnotatedClickableText(
@@ -67,7 +71,7 @@ fun ImageMessageItem(
             },
             onLongPress = { onMessageLongPress?.invoke(message) },
             fontFamily = FontFamily.Monospace,
-            color = colorScheme.onSurface,
+            color = palette.textPrimary,
         )
 
         val context = LocalContext.current

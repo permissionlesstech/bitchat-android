@@ -86,7 +86,6 @@
     <string name="close_with_emoji">❌ Kapat</string>
     <string name="pick_image">Görsel seç</string>
 
-    <string name="about_tagline">uçtan uca şifrelemeli merkezsiz mesh mesajlaşma</string>
     <string name="about_offline_mesh_title">Çevrimdışı Mesh Sohbeti</string>
     <string name="about_offline_mesh_desc">İnternet/ sunucu olmadan doğrudan Bluetooth LE ile iletişim kur. Mesajlar yakındaki cihazlarca aktarılır.</string>
     <string name="about_online_geohash_title">Çevrimiçi Geohash Kanalları</string>

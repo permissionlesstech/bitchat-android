@@ -19,6 +19,7 @@ import com.bitchat.android.R
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
  * Location Notes button component for MainHeader
@@ -54,13 +55,13 @@ fun LocationNotesButton(
         val hasNotes = notesCount > 0
         IconButton(
             onClick = onClick,
-            modifier = modifier.size(24.dp)
+            modifier = modifier.size(40.dp)
         ) {
             Icon(
                 imageVector = Icons.Outlined.Description, // "long.text.page.and.pencil" equivalent
                 contentDescription = stringResource(R.string.cd_location_notes),
-                modifier = Modifier.size(16.dp),
-                tint = if (hasNotes) colorScheme.primary else Color.Gray
+                modifier = Modifier.size(18.dp),
+                tint = if (hasNotes) colorScheme.primary else LocalBitchatPalette.current.textSecondary
             )
         }
     }

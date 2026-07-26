@@ -96,7 +96,6 @@
     <string name="pick_image">选择图片</string>
 
     <!-- 关于 -->
-    <string name="about_tagline">去中心化 mesh 消息，端到端加密</string>
     <string name="about_offline_mesh_title">离线 Mesh 聊天</string>
     <string name="about_offline_mesh_desc">无需网络或服务器，通过 Bluetooth LE 直接通信。利用附近设备中继消息以扩展范围。</string>
     <string name="about_online_geohash_title">在线 Geohash 频道</string>

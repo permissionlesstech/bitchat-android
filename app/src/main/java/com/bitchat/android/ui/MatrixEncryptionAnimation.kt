@@ -81,6 +81,7 @@ fun MessageWithMatrixAnimation(
     onNicknameClick: ((String) -> Unit)?,
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier,
+    showSender: Boolean = true,
 ) {
     AnimatedMessageDisplay(
         message = message,
@@ -91,6 +92,7 @@ fun MessageWithMatrixAnimation(
         onNicknameClick = onNicknameClick,
         onMessageLongPress = onMessageLongPress,
         modifier = modifier,
+        showSender = showSender,
     )
 }
 
@@ -107,6 +109,7 @@ private fun AnimatedMessageDisplay(
     onNicknameClick: ((String) -> Unit)?,
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier,
+    showSender: Boolean = true,
 ) {
     var animatedContent by remember(message.id, message.content) {
         mutableStateOf(message.content)
@@ -174,6 +177,7 @@ private fun AnimatedMessageDisplay(
         onNicknameClick = onNicknameClick,
         onMessageLongPress = onMessageLongPress,
         modifier = modifier,
+        showSender = showSender,
         bodyContent = animatedContent,
     )
 }

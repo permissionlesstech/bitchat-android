@@ -86,7 +86,6 @@
     <string name="close_with_emoji">❌ Закрыть</string>
     <string name="pick_image">Выбрать изображение</string>
 
-    <string name="about_tagline">децентрализованный mesh‑чат со сквозным шифрованием</string>
     <string name="about_offline_mesh_title">Оффлайн Mesh‑чат</string>
     <string name="about_offline_mesh_desc">Общение напрямую по Bluetooth LE без интернета и серверов. Сообщения ретранслируются близлежащими устройствами.</string>
     <string name="about_online_geohash_title">Онлайн‑каналы Geohash</string>

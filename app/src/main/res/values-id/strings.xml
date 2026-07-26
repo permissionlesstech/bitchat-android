@@ -96,7 +96,6 @@
     <string name="pick_image">Pilih gambar</string>
 
     <!-- Sheet tentang -->
-    <string name="about_tagline">chat mesh terdesentralisasi dengan enkripsi end-to-end</string>
     <string name="about_offline_mesh_title">Chat Mesh Offline</string>
     <string name="about_offline_mesh_desc">Berkomunikasi langsung melalui Bluetooth LE tanpa Internet atau server. Pesan diteruskan melalui perangkat terdekat untuk memperluas jangkauan.</string>
     <string name="about_online_geohash_title">Channel Geohash Online</string>

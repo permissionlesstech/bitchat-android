@@ -96,7 +96,6 @@
     <string name="pick_image">이미지 선택</string>
 
     <!-- 정보 시트 -->
-    <string name="about_tagline">종단간 암호화를 갖춘 탈중앙 메쉬 채팅</string>
     <string name="about_offline_mesh_title">오프라인 메쉬 채팅</string>
     <string name="about_offline_mesh_desc">인터넷이나 서버 없이 Bluetooth LE로 직접 소통합니다. 범위를 확장하기 위해 근처 기기를 통해 메시지가 중계됩니다.</string>
     <string name="about_online_geohash_title">온라인 geohash 채널</string>

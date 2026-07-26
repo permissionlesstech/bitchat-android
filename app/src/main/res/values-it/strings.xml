@@ -96,7 +96,6 @@
     <string name="pick_image">Scegli immagine</string>
 
     <!-- Schermata informazioni -->
-    <string name="about_tagline">messaggistica mesh decentralizzata con crittografia end-to-end</string>
     <string name="about_offline_mesh_title">Chat mesh offline</string>
     <string name="about_offline_mesh_desc">Comunica direttamente tramite Bluetooth LE senza internet o server. I messaggi vengono inoltrati attraverso i dispositivi vicini per estendere la portata.</string>
     <string name="about_online_geohash_title">Canali geohash online</string>

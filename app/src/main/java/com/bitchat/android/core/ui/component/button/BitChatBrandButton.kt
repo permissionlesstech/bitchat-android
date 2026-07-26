@@ -63,7 +63,9 @@ fun BitChatBrandButton(
             imageVector = BitChatIcon,
             contentDescription = contentDescription,
             tint = tint,
-            modifier = Modifier.size(16.dp),
+            // 20.dp rather than 16.dp: the pixel-art bubble has heavy internal negative space,
+            // so it reads noticeably smaller than a solid glyph at the same nominal size.
+            modifier = Modifier.size(20.dp),
         )
     }
 }

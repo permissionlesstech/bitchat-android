@@ -96,7 +96,6 @@
     <string name="pick_image">სურათის არჩევა</string>
 
     <!-- შიტი "შესახებ" -->
-    <string name="about_tagline">დეცენტრალიზებული mesh-ჩათი ბოლო-მდე დაშიფვრით</string>
     <string name="about_offline_mesh_title">ოფლაინ mesh-ჩათი</string>
     <string name="about_offline_mesh_desc">ესაუბრეთ პირდაპირ Bluetooth LE-ის საშუალებით ინტერნეტის ან სერვერების გარეშე. შეტყობინებები გადაიგზავნება ახლომდებარე მოწყობილობებზე, რათა გაიზარდოს დაფარვა.</string>
     <string name="about_online_geohash_title">ონლაინ geohash არხები</string>

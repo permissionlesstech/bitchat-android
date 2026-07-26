@@ -96,7 +96,6 @@
     <string name="pick_image">انتخاب تصویر</string>
 
     <!-- برگهٔ درباره -->
-    <string name="about_tagline">گفت‌وگوی مِش غیرمتمرکز با رمزگذاری سرتاسری</string>
     <string name="about_offline_mesh_title">گفت‌وگوی مِش آفلاین</string>
     <string name="about_offline_mesh_desc">بدون اینترنت یا سرور، مستقیماً از طریق Bluetooth LE ارتباط برقرار کنید. پیام‌ها از طریق دستگاه‌های نزدیک رله می‌شوند تا بُرد افزایش یابد.</string>
     <string name="about_online_geohash_title">کانال‌های geohash آنلاین</string>

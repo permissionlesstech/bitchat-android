@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -41,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.R
@@ -50,6 +51,10 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.ui.media.FileMessageItem
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.MessageBodyTextStyle
+import com.bitchat.android.ui.theme.MessageSenderTextStyle
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -116,25 +121,42 @@ fun MessagesList(
     
     LazyColumn(
         state = listState,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        // Wider side gutters than the old 12.dp: the redesign trades a little line length for
+        // a much calmer edge, and long monospace lines were running into the screen bezel.
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+        // Spacing is owned by each item so that a continuation of the same author can sit
+        // tighter than the start of a new speaker's run.
+        verticalArrangement = Arrangement.spacedBy(0.dp),
         modifier = modifier,
         reverseLayout = true
     ) {
-        items(
-            items = messages.asReversed(),
-            key = { it.id }
-        ) { message ->
-                MessageItem(
-                    message = message,
-                    messages = messages,
-                    currentUserNickname = currentUserNickname,
-                    meshService = meshService,
-                    onNicknameClick = onNicknameClick,
-                    onMessageLongPress = onMessageLongPress,
-                    onCancelTransfer = onCancelTransfer,
-                    onImageClick = onImageClick
-                )
+        val reversed = messages.asReversed()
+        itemsIndexed(
+            items = reversed,
+            key = { _, message -> message.id }
+        ) { reversedIndex, message ->
+            // reverseLayout renders index 0 at the bottom, so the chronological predecessor of
+            // this row lives at a *higher* original index offset. Resolve against the original
+            // list rather than the reversed view to keep the grouping logic readable.
+            val originalIndex = messages.lastIndex - reversedIndex
+            val previous = messages.getOrNull(originalIndex - 1)
+            val isGrouped = MessageGrouping.shouldGroup(previous, message)
+
+            MessageItem(
+                message = message,
+                messages = messages,
+                currentUserNickname = currentUserNickname,
+                meshService = meshService,
+                showSender = !isGrouped,
+                topSpacing = MessageGrouping.topSpacingFor(
+                    isGrouped = isGrouped,
+                    isFirstInList = originalIndex == 0
+                ),
+                onNicknameClick = onNicknameClick,
+                onMessageLongPress = onMessageLongPress,
+                onCancelTransfer = onCancelTransfer,
+                onImageClick = onImageClick
+            )
         }
     }
 }
@@ -146,6 +168,8 @@ fun MessageItem(
     currentUserNickname: String,
     meshService: MeshService,
     messages: List<BitchatMessage> = emptyList(),
+    showSender: Boolean = true,
+    topSpacing: Dp = 0.dp,
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
     onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
@@ -155,7 +179,9 @@ fun MessageItem(
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
     
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = topSpacing),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -174,6 +200,7 @@ fun MessageItem(
                     meshService = meshService,
                     colorScheme = colorScheme,
                     timeFormatter = timeFormatter,
+                    showSender = showSender,
                     onNicknameClick = onNicknameClick,
                     onMessageLongPress = onMessageLongPress,
                     onCancelTransfer = onCancelTransfer,
@@ -211,12 +238,15 @@ fun MessageItem(
         meshService: MeshService,
         colorScheme: ColorScheme,
         timeFormatter: SimpleDateFormat,
+        showSender: Boolean,
         onNicknameClick: ((String) -> Unit)?,
         onMessageLongPress: ((BitchatMessage) -> Unit)?,
         onCancelTransfer: ((BitchatMessage) -> Unit)?,
         onImageClick: ((String, List<String>, Int) -> Unit)?,
         modifier: Modifier = Modifier
     ) {
+    val palette = LocalBitchatPalette.current
+
     // Image special rendering
     if (message.type == BitchatMessageType.Image) {
         com.bitchat.android.ui.media.ImageMessageItem(
@@ -226,6 +256,7 @@ fun MessageItem(
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
+            showSender = showSender,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
@@ -243,6 +274,7 @@ fun MessageItem(
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
+            showSender = showSender,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
@@ -269,8 +301,9 @@ fun MessageItem(
                 message = message,
                 currentUserNickname = currentUserNickname,
                 meshService = meshService,
-                colorScheme = colorScheme,
-                timeFormatter = timeFormatter
+                palette = palette,
+                timeFormatter = timeFormatter,
+                includeSender = showSender
             )
             val haptic = LocalHapticFeedback.current
             AnnotatedClickableText(
@@ -287,7 +320,7 @@ fun MessageItem(
                 },
                 onLongPress = { onMessageLongPress?.invoke(message) },
                 fontFamily = FontFamily.Monospace,
-                color = colorScheme.onSurface,
+                color = palette.textPrimary,
             )
 
             // Try to load the file packet from the path
@@ -363,19 +396,20 @@ fun MessageItem(
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
+            showSender = showSender,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             modifier = modifier
         )
     } else if (message.sender == "system") {
-        // Keep system messages on the compact legacy line.
-        val annotatedText = formatMessageAsAnnotatedString(
-            message = message,
-            currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
-            timeFormatter = timeFormatter
-        )
+        // Background narration: `// Tor started. Routing all chats…`
+        val annotatedText = remember(message, palette) {
+            formatSystemMessage(
+                message = message,
+                palette = palette,
+                timeFormatter = timeFormatter
+            )
+        }
 
         val haptic = LocalHapticFeedback.current
         Text(
@@ -391,8 +425,10 @@ fun MessageItem(
             fontFamily = FontFamily.Monospace,
             softWrap = true,
             overflow = TextOverflow.Visible,
-            style = androidx.compose.ui.text.TextStyle(
-                color = colorScheme.onSurface
+            style = MessageBodyTextStyle.copy(
+                fontSize = (BASE_FONT_SIZE - 2).sp,
+                lineHeight = (BASE_FONT_SIZE + 3).sp,
+                color = palette.textSecondary
             )
         )
     } else {
@@ -402,6 +438,7 @@ fun MessageItem(
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
+            showSender = showSender,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             modifier = modifier,
@@ -419,32 +456,30 @@ internal fun TextMessageLayout(
     onNicknameClick: ((String) -> Unit)?,
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier,
+    showSender: Boolean = true,
     bodyContent: String = message.content,
 ) {
+    val palette = LocalBitchatPalette.current
     val myPeerId = meshService.myPeerID
     val displayMessage = remember(message, bodyContent) {
         if (bodyContent == message.content) message else message.copy(content = bodyContent)
     }
-    val senderText = remember(message, currentUserNickname, myPeerId, colorScheme) {
+    val senderText = remember(message, currentUserNickname, myPeerId, palette) {
         formatTextMessageSender(
             message = message,
             currentUserNickname = currentUserNickname,
             meshService = meshService,
-            colorScheme = colorScheme,
+            palette = palette,
         )
     }
-    val metadataText = remember(message.timestamp, message.powDifficulty, timeFormatter) {
-        formatTextMessageMetadata(
-            message = message,
-            timeFormatter = timeFormatter,
-        )
-    }
-    val bodyText = remember(displayMessage, currentUserNickname, myPeerId, colorScheme) {
+    // The timestamp trails the body rather than occupying its own column, so a short message
+    // no longer reserves a full-width row for eight grey characters.
+    val bodyText = remember(displayMessage, currentUserNickname, palette, timeFormatter) {
         formatTextMessageBody(
             message = displayMessage,
             currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
+            palette = palette,
+            timeFormatter = timeFormatter,
         )
     }
     val isSelf = message.isFromSelf(currentUserNickname, myPeerId)
@@ -457,12 +492,9 @@ internal fun TextMessageLayout(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(MessageGrouping.SENDER_TO_BODY_SPACING),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        if (showSender) {
             AnnotatedClickableText(
                 text = senderText,
                 annotationTags = listOf("nickname_click"),
@@ -476,18 +508,11 @@ internal fun TextMessageLayout(
                     }
                 },
                 onLongPress = handleLongPress,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
                 fontFamily = FontFamily.Monospace,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
-            )
-            AnnotatedClickableText(
-                text = metadataText,
-                annotationTags = emptyList(),
-                onAnnotationClick = { _, _ -> false },
-                onLongPress = handleLongPress,
-                fontFamily = FontFamily.Monospace,
-                softWrap = false,
+                style = MessageSenderTextStyle,
             )
         }
 
@@ -515,7 +540,7 @@ internal fun TextMessageLayout(
             fontFamily = FontFamily.Monospace,
             softWrap = true,
             overflow = TextOverflow.Visible,
-            style = androidx.compose.ui.text.TextStyle(color = colorScheme.onSurface),
+            style = MessageBodyTextStyle.copy(color = palette.textPrimary),
         )
     }
 }

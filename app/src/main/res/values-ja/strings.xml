@@ -96,7 +96,6 @@
     <string name="pick_image">画像を選択</string>
 
     <!-- 概要シート -->
-    <string name="about_tagline">分散型メッシュチャット・エンドツーエンド暗号化</string>
     <string name="about_offline_mesh_title">オフライン・メッシュチャット</string>
     <string name="about_offline_mesh_desc">インターネットやサーバーなしで、Bluetooth LE 経由で直接通信します。近隣のデバイスを経由してメッセージを中継し、到達範囲を広げます。</string>
     <string name="about_online_geohash_title">オンライン Geohash チャンネル</string>

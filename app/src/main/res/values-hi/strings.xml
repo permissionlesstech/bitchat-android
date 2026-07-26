@@ -96,7 +96,6 @@
     <string name="pick_image">छवि चुनें</string>
 
     <!-- अबाउट शीट -->
-    <string name="about_tagline">विकेन्द्रीकृत मेष चैट • एंड‑टू‑एंड एन्क्रिप्शन</string>
     <string name="about_offline_mesh_title">ऑफ़लाइन मेष चैट</string>
     <string name="about_offline_mesh_desc">इंटरनेट या सर्वर के बिना Bluetooth LE के माध्यम से सीधे संवाद करें। संदेशों को पास के उपकरणों के माध्यम से रिले किया जाता है ताकि पहुँच बढ़े।</string>
     <string name="about_online_geohash_title">ऑनलाइन geohash चैनल</string>

@@ -96,7 +96,6 @@
     <string name="pick_image">تصویر چُنو</string>
 
     <!-- بارے شیٹ -->
-    <string name="about_tagline">اینڈ ٹو اینڈ انکرپشن نال غیر مرکزی میش چیٹ</string>
     <string name="about_offline_mesh_title">آف لائن میش چیٹ</string>
     <string name="about_offline_mesh_desc">انٹرنیٹ یا سرور توں بغیر Bluetooth LE راہین سیدھا رابطہ کرو۔ رینج ودھاؤن لئی پیغام نیڑے ڈیوائساں راہین ریلے ہوندے نیں۔</string>
     <string name="about_online_geohash_title">آن لائن geohash چینل</string>

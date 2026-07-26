@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -36,6 +37,7 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
@@ -68,6 +70,8 @@ fun MeshPeerListSheet(
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
+    val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
+    val geohashPeopleCount = geohashPeople.size
     val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
     val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
 
@@ -100,19 +104,33 @@ fun MeshPeerListSheet(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 64.dp, bottom = 20.dp)
                 ) {
+                    // Header: badge + live participant count
+                    item(key = "people_header") {
+                        val peopleCount = when (selectedLocationChannel) {
+                            is ChannelID.Location -> geohashPeopleCount
+                            else -> connectedPeers.count { it != viewModel.myPeerID }
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = SheetHorizontalPadding + 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            SheetHeaderBadge(icon = Icons.Filled.Groups)
+                            Text(
+                                text = stringResource(R.string.people_count_title, peopleCount),
+                                fontSize = 20.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Medium,
+                                color = colorScheme.primary
+                            )
+                        }
+                    }
+
                     // Channels section
                     if (joinedChannels.isNotEmpty()) {
                         item(key = "channels_header") {
-                            Text(
-                                text = stringResource(id = R.string.channels).uppercase(),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = colorScheme.onSurface.copy(alpha = 0.7f),
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp)
-                                    .padding(top = 8.dp, bottom = 4.dp)
-                            )
+                            SheetSectionLabel(text = stringResource(R.string.section_channels))
                         }
 
                         items(
@@ -222,22 +240,21 @@ private fun ChannelRow(
     onChannelClick: () -> Unit,
     onLeaveChannel: () -> Unit,
 ) {
+    val palette = LocalBitchatPalette.current
+
     Surface(
         onClick = onChannelClick,
-        color = if (isSelected) {
-            colorScheme.primaryContainer.copy(alpha = 0.15f)
-        } else {
-            Color.Transparent
-        },
-        shape = MaterialTheme.shapes.medium,
+        color = if (isSelected) palette.surfaceVariant else palette.surface,
+        shape = RoundedCornerShape(10.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 2.dp)
+            .padding(horizontal = SheetHorizontalPadding, vertical = 3.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .heightIn(min = 44.dp)
+                .padding(start = 14.dp, end = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -253,15 +270,13 @@ private fun ChannelRow(
                         colorScheme = colorScheme
                     )
                 }
-                
+
                 Text(
                     text = channel,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = BASE_FONT_SIZE.sp
-                    ),
-                    color = if (isSelected) colorScheme.primary else colorScheme.onSurface,
-                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
+                    color = if (isSelected) colorScheme.primary else palette.textPrimary,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                 )
             }
 
@@ -298,29 +313,20 @@ fun PeopleSection(
         SecureIdentityStateManager(context.applicationContext)
     }
 
+    val palette = LocalBitchatPalette.current
+
     Column(modifier = modifier) {
-        Text(
-            text = stringResource(id = R.string.people).uppercase(),
-            style = MaterialTheme.typography.labelLarge,
-            color = colorScheme.onSurface.copy(alpha = 0.7f),
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(top = 8.dp, bottom = 4.dp)
-        )
+        SheetSectionLabel(text = stringResource(R.string.section_mesh))
 
         if (connectedPeers.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.no_one_connected),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
-                ),
-                color = colorScheme.onSurface.copy(alpha = 0.5f),
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                color = palette.textTertiary,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 40.dp, vertical = 12.dp)
+                    .padding(horizontal = SheetHorizontalPadding + 14.dp, vertical = 12.dp)
             )
         }
 
@@ -547,26 +553,23 @@ private fun PeerItem(
     val isMe = displayName == "You" || peerID == currentNickname
 
     // Get consistent peer color (iOS-compatible)
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    val assignedColor = viewModel.colorForMeshPeer(peerID, isDark)
-    val baseColor = if (isMe) Color(0xFFFF9500) else assignedColor
+    val palette = LocalBitchatPalette.current
+    val assignedColor = viewModel.colorForMeshPeer(peerID, palette.isDark)
+    val baseColor = if (isMe) palette.accentOrange else assignedColor
 
     Surface(
         onClick = onItemClick,
-        color = if (isSelected) {
-            colorScheme.primaryContainer.copy(alpha = 0.15f)
-        } else {
-            Color.Transparent
-        },
-        shape = MaterialTheme.shapes.medium,
+        color = if (isSelected) palette.surfaceVariant else palette.surface,
+        shape = RoundedCornerShape(10.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 2.dp)
+            .padding(horizontal = SheetHorizontalPadding, vertical = 3.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .heightIn(min = 44.dp)
+                .padding(start = 14.dp, end = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -622,11 +625,9 @@ private fun PeerItem(
                     // Base name with peer-specific color
                     Text(
                         text = baseName,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = BASE_FONT_SIZE.sp,
-                            fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
-                        ),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 14.sp,
+                        fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
                         color = baseColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -636,11 +637,10 @@ private fun PeerItem(
                     if (suffix.isNotEmpty()) {
                         Text(
                             text = suffix,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = BASE_FONT_SIZE.sp
-                            ),
-                            color = baseColor.copy(alpha = 0.6f)
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 14.sp,
+                            fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
+                            color = baseColor.copy(alpha = SUFFIX_ALPHA)
                         )
                     }
 

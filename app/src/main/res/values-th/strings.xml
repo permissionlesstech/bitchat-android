@@ -96,7 +96,6 @@
     <string name="pick_image">เลือกภาพ</string>
 
     <!-- แผ่นข้อมูลเกี่ยวกับ -->
-    <string name="about_tagline">แชทเมชแบบกระจายศูนย์พร้อมการเข้ารหัสแบบปลายทางถึงปลายทาง</string>
     <string name="about_offline_mesh_title">แชทเมชออฟไลน์</string>
     <string name="about_offline_mesh_desc">สื่อสารโดยตรงผ่าน Bluetooth LE โดยไม่ใช้อินเทอร์เน็ตหรือเซิร์ฟเวอร์ ข้อความจะถูกส่งต่อผ่านอุปกรณ์ใกล้เคียงเพื่อขยายระยะ</string>
     <string name="about_online_geohash_title">ช่อง geohash ออนไลน์</string>

@@ -1,6 +1,9 @@
 package com.bitchat.android.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,6 +38,8 @@ import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.net.ArtiTorManager
+import com.bitchat.android.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
  * Feature row for displaying app capabilities
@@ -46,11 +51,12 @@ private fun FeatureRow(
     subtitle: String
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+    val palette = LocalBitchatPalette.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.Top
     ) {
         Icon(
@@ -58,22 +64,24 @@ private fun FeatureRow(
             contentDescription = null,
             tint = colorScheme.primary,
             modifier = Modifier
-                .padding(top = 2.dp)
+                .padding(top = 1.dp)
                 .size(22.dp)
         )
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = colorScheme.onSurface
+                color = palette.textPrimary
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurface.copy(alpha = 0.6f),
-                lineHeight = 18.sp
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                color = palette.textSecondary,
+                lineHeight = 17.sp
             )
         }
     }
@@ -89,18 +97,26 @@ private fun ThemeChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    
+    val palette = LocalBitchatPalette.current
+
+    // Cross-fade the chip so switching theme does not read as two separate flashes (the chip
+    // recolouring plus the whole app recolouring underneath it).
+    val containerColor by animateColorAsState(
+        targetValue = if (selected) palette.accentGreen else palette.surfaceVariant,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "themeChipContainer"
+    )
+    val labelColor by animateColorAsState(
+        targetValue = if (selected) Color.White else palette.textSecondary,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "themeChipLabel"
+    )
+
     Surface(
         modifier = modifier,
         onClick = onClick,
         shape = RoundedCornerShape(10.dp),
-        color = if (selected) {
-            if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
-        } else {
-            colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        }
+        color = containerColor
     ) {
         Box(
             modifier = Modifier
@@ -110,9 +126,10 @@ private fun ThemeChip(
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 13.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (selected) Color.White else colorScheme.onSurface.copy(alpha = 0.8f)
+                color = labelColor
             )
         }
     }
@@ -133,23 +150,23 @@ private fun SettingsToggleRow(
     statusIndicator: (@Composable () -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    
+    val palette = LocalBitchatPalette.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (enabled) colorScheme.primary else colorScheme.onSurface.copy(alpha = 0.3f),
+            tint = if (enabled) colorScheme.primary else palette.textTertiary,
             modifier = Modifier.size(22.dp)
         )
-        
-        Spacer(modifier = Modifier.width(14.dp))
-        
+
+        Spacer(modifier = Modifier.width(16.dp))
+
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -160,31 +177,33 @@ private fun SettingsToggleRow(
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (enabled) colorScheme.onSurface else colorScheme.onSurface.copy(alpha = 0.4f)
+                    color = if (enabled) palette.textPrimary else palette.textTertiary
                 )
                 statusIndicator?.invoke()
             }
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurface.copy(alpha = if (enabled) 0.6f else 0.3f),
-                lineHeight = 16.sp
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                color = if (enabled) palette.textSecondary else palette.textTertiary,
+                lineHeight = 17.sp
             )
         }
-        
+
         Spacer(modifier = Modifier.width(16.dp))
-        
+
         Switch(
             checked = checked,
             onCheckedChange = { if (enabled) onCheckedChange(it) },
             enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
+                checkedTrackColor = palette.accentGreen,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = colorScheme.surfaceVariant
+                uncheckedTrackColor = palette.surfaceVariant
             )
         )
     }
@@ -221,12 +240,15 @@ fun AboutSheet(
     }
     val topBarAlpha by animateFloatAsState(
         targetValue = if (isScrolled) 0.98f else 0f,
+        animationSpec = tween(BitchatMotion.EMPHASIZED_MS, easing = FastOutSlowInEasing),
         label = "topBarAlpha"
     )
 
     val colorScheme = MaterialTheme.colorScheme
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    
+    val palette = LocalBitchatPalette.current
+    val isDark = palette.isDark
+    var selectedTab by remember { mutableStateOf(AboutTab.HowToUse) }
+
     if (isPresented) {
         BitchatBottomSheet(
             modifier = modifier,
@@ -236,103 +258,48 @@ fun AboutSheet(
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 80.dp, bottom = 32.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                    contentPadding = PaddingValues(top = 72.dp, bottom = 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     // Header Section - App Identity
-                    item(key = "header") {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.app_name),
-                                style = TextStyle(
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 28.sp,
-                                    letterSpacing = 1.sp
-                                ),
-                                color = colorScheme.onBackground
-                            )
-                            Text(
-                                text = stringResource(R.string.version_prefix, versionName ?: ""),
-                                fontSize = 13.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = colorScheme.onBackground.copy(alpha = 0.5f)
-                            )
-                            Text(
-                                text = stringResource(R.string.about_tagline),
-                                fontSize = 13.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = colorScheme.onBackground.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
+                    item(key = "hero") {
+                        AboutHero(versionName = versionName ?: "")
+                    }
+
+                    item(key = "tabs") {
+                        AboutTabBar(
+                            selected = selectedTab,
+                            onSelect = { selectedTab = it },
+                            modifier = Modifier.padding(top = 24.dp)
+                        )
+                    }
+
+                    if (selectedTab == AboutTab.HowToUse) {
+                        item(key = "how_to_use") {
+                            AboutHowToUseSection()
                         }
                     }
 
+                    if (selectedTab == AboutTab.BasicInfo) {
                     // Features Section - Grouped Card
                     item(key = "features") {
-                        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                            Text(
-                                text = stringResource(R.string.about_appearance).uppercase(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = colorScheme.onBackground.copy(alpha = 0.5f),
-                                letterSpacing = 0.5.sp,
-                                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
-                            )
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = colorScheme.surface,
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Column {
-                                    FeatureRow(
-                                        icon = Icons.Filled.Bluetooth,
-                                        title = stringResource(R.string.about_offline_mesh_title),
-                                        subtitle = stringResource(R.string.about_offline_mesh_desc)
-                                    )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 56.dp),
-                                        color = colorScheme.outline.copy(alpha = 0.12f)
-                                    )
-                                    FeatureRow(
-                                        icon = Icons.Default.Public,
-                                        title = stringResource(R.string.about_online_geohash_title),
-                                        subtitle = stringResource(R.string.about_online_geohash_desc)
-                                    )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 56.dp),
-                                        color = colorScheme.outline.copy(alpha = 0.12f)
-                                    )
-                                    FeatureRow(
-                                        icon = Icons.Default.Lock,
-                                        title = stringResource(R.string.about_e2e_title),
-                                        subtitle = stringResource(R.string.about_e2e_desc)
-                                    )
-                                }
-                            }
+                        Column {
+                            AboutSectionLabel(text = stringResource(R.string.about_section_about))
+                            AboutFeatureCard()
                         }
                     }
 
                     // Appearance Section
                     item(key = "appearance") {
-                        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                            Text(
-                                text = "THEME",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = colorScheme.onBackground.copy(alpha = 0.5f),
-                                letterSpacing = 0.5.sp,
-                                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
-                            )
+                        Column {
+                            AboutSectionLabel(text = stringResource(R.string.about_section_theme))
                             val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
                             Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = colorScheme.surface,
-                                shape = RoundedCornerShape(16.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AboutHorizontalPadding),
+                                color = palette.surface,
+                                shape = AboutCardShape
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -374,18 +341,14 @@ fun AboutSheet(
                         val torStatus by torProvider.statusFlow.collectAsState()
                         val torAvailable = remember { torProvider.isTorAvailable() }
 
-                        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                            Text(
-                                text = "SETTINGS",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = colorScheme.onBackground.copy(alpha = 0.5f),
-                                letterSpacing = 0.5.sp,
-                                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
-                            )
+                        Column {
+                            AboutSectionLabel(text = stringResource(R.string.about_section_settings))
                             Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = colorScheme.surface,
-                                shape = RoundedCornerShape(16.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AboutHorizontalPadding),
+                                color = palette.surface,
+                                shape = AboutCardShape
                             ) {
                                 Column {
                                     // Background Mode Toggle
@@ -404,12 +367,13 @@ fun AboutSheet(
                                             }
                                         }
                                     )
-                                    
+
                                     HorizontalDivider(
-                                        modifier = Modifier.padding(start = 56.dp),
-                                        color = colorScheme.outline.copy(alpha = 0.12f)
+                                        modifier = Modifier.padding(start = 54.dp),
+                                        thickness = 1.dp,
+                                        color = palette.outlineVariant
                                     )
-                                    
+
                                     // Proof of Work Toggle
                                     SettingsToggleRow(
                                         icon = Icons.Filled.Speed,
@@ -418,16 +382,17 @@ fun AboutSheet(
                                         checked = powEnabled,
                                         onCheckedChange = { PoWPreferenceManager.setPowEnabled(it) }
                                     )
-                                    
+
                                     HorizontalDivider(
-                                        modifier = Modifier.padding(start = 56.dp),
-                                        color = colorScheme.outline.copy(alpha = 0.12f)
+                                        modifier = Modifier.padding(start = 54.dp),
+                                        thickness = 1.dp,
+                                        color = palette.outlineVariant
                                     )
-                                    
+
                                     // Tor Toggle
                                     SettingsToggleRow(
                                         icon = Icons.Filled.Security,
-                                        title = "Tor Network",
+                                        title = stringResource(R.string.about_tor_title),
                                         subtitle = stringResource(R.string.about_tor_route),
                                         checked = torMode.value == TorMode.ON,
                                         onCheckedChange = { enabled ->
@@ -440,9 +405,9 @@ fun AboutSheet(
                                         statusIndicator = if (torMode.value == TorMode.ON) {
                                             {
                                                 val statusColor = when {
-                                                    torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
-                                                    torStatus.running -> Color(0xFFFF9500)
-                                                    else -> Color(0xFFFF3B30)
+                                                    torStatus.running && torStatus.bootstrapPercent >= 100 -> palette.accentGreen
+                                                    torStatus.running -> palette.accentOrange
+                                                    else -> palette.accentRed
                                                 }
                                                 Surface(
                                                     color = statusColor,
@@ -454,15 +419,18 @@ fun AboutSheet(
                                     )
                                 }
                             }
-                            
+
                             // Tor unavailable hint
                             if (!torAvailable) {
                                 Text(
                                     text = stringResource(R.string.tor_not_available_in_this_build),
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace,
-                                    color = colorScheme.onBackground.copy(alpha = 0.5f),
-                                    modifier = Modifier.padding(start = 16.dp, top = 8.dp)
+                                    color = palette.textTertiary,
+                                    modifier = Modifier.padding(
+                                        start = AboutHorizontalPadding + 16.dp,
+                                        top = 8.dp
+                                    )
                                 )
                             }
                         }
@@ -472,13 +440,15 @@ fun AboutSheet(
                     item(key = "pow_slider") {
                         val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
                         val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
-                        
+
                         if (powEnabled) {
-                            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            Column(modifier = Modifier.padding(top = 12.dp)) {
                                 Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = colorScheme.surface,
-                                    shape = RoundedCornerShape(16.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = AboutHorizontalPadding),
+                                    color = palette.surface,
+                                    shape = AboutCardShape
                                 ) {
                                     Column(
                                         modifier = Modifier.padding(16.dp),
@@ -490,30 +460,36 @@ fun AboutSheet(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                text = "Difficulty",
-                                                style = MaterialTheme.typography.bodyMedium,
+                                                text = stringResource(R.string.about_difficulty),
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 14.sp,
                                                 fontWeight = FontWeight.Medium,
-                                                color = colorScheme.onSurface
+                                                color = palette.textPrimary
                                             )
                                             Text(
-                                                text = "$powDifficulty bits • ${NostrProofOfWork.estimateMiningTime(powDifficulty)}",
-                                                style = MaterialTheme.typography.bodySmall,
+                                                text = stringResource(
+                                                    R.string.about_difficulty_value,
+                                                    powDifficulty,
+                                                    NostrProofOfWork.estimateMiningTime(powDifficulty)
+                                                ),
                                                 fontFamily = FontFamily.Monospace,
-                                                color = colorScheme.onSurface.copy(alpha = 0.6f)
+                                                fontSize = 12.sp,
+                                                color = palette.textSecondary
                                             )
                                         }
-                                        
+
                                         Slider(
                                             value = powDifficulty.toFloat(),
                                             onValueChange = { PoWPreferenceManager.setPowDifficulty(it.toInt()) },
                                             valueRange = 0f..32f,
                                             steps = 31,
                                             colors = SliderDefaults.colors(
-                                                thumbColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
-                                                activeTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                                                thumbColor = palette.accentGreen,
+                                                activeTrackColor = palette.accentGreen,
+                                                inactiveTrackColor = palette.surfaceVariant
                                             )
                                         )
-                                        
+
                                         Text(
                                             text = when {
                                                 powDifficulty == 0 -> stringResource(R.string.about_pow_desc_none)
@@ -526,7 +502,7 @@ fun AboutSheet(
                                             },
                                             fontSize = 12.sp,
                                             fontFamily = FontFamily.Monospace,
-                                            color = colorScheme.onSurface.copy(alpha = 0.5f)
+                                            color = palette.textTertiary
                                         )
                                     }
                                 }
@@ -539,13 +515,15 @@ fun AboutSheet(
                         val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
                         val torProvider = remember { ArtiTorManager.getInstance() }
                         val torStatus by torProvider.statusFlow.collectAsState()
-                        
+
                         if (torMode.value == TorMode.ON) {
-                            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            Column(modifier = Modifier.padding(top = 12.dp)) {
                                 Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = colorScheme.surface,
-                                    shape = RoundedCornerShape(16.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = AboutHorizontalPadding),
+                                    color = palette.surface,
+                                    shape = AboutCardShape
                                 ) {
                                     Column(
                                         modifier = Modifier.padding(16.dp),
@@ -556,16 +534,21 @@ fun AboutSheet(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             val statusColor = when {
-                                                torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
-                                                torStatus.running -> Color(0xFFFF9500)
-                                                else -> Color(0xFFFF3B30)
+                                                torStatus.running && torStatus.bootstrapPercent >= 100 -> palette.accentGreen
+                                                torStatus.running -> palette.accentOrange
+                                                else -> palette.accentRed
                                             }
                                             Surface(color = statusColor, shape = CircleShape, modifier = Modifier.size(10.dp)) {}
                                             Text(
-                                                text = if (torStatus.running) "Connected (${torStatus.bootstrapPercent}%)" else "Disconnected",
-                                                style = MaterialTheme.typography.bodyMedium,
+                                                text = if (torStatus.running) {
+                                                    stringResource(R.string.about_tor_connected, torStatus.bootstrapPercent)
+                                                } else {
+                                                    stringResource(R.string.about_tor_disconnected)
+                                                },
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 14.sp,
                                                 fontWeight = FontWeight.Medium,
-                                                color = colorScheme.onSurface
+                                                color = palette.textPrimary
                                             )
                                         }
                                         if (torStatus.lastLogLine.isNotEmpty()) {
@@ -573,7 +556,7 @@ fun AboutSheet(
                                                 text = torStatus.lastLogLine.take(120),
                                                 fontSize = 11.sp,
                                                 fontFamily = FontFamily.Monospace,
-                                                color = colorScheme.onSurface.copy(alpha = 0.5f),
+                                                color = palette.textTertiary,
                                                 maxLines = 2
                                             )
                                         }
@@ -583,49 +566,22 @@ fun AboutSheet(
                         }
                     }
 
-                    // Emergency Warning
+                    // Security audit warning
                     item(key = "warning") {
-                        Surface(
-                            modifier = Modifier
-                                .padding(horizontal = 20.dp)
-                                .fillMaxWidth(),
-                            color = colorScheme.error.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Warning,
-                                    contentDescription = null,
-                                    tint = colorScheme.error,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(
-                                        text = stringResource(R.string.about_emergency_title),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = colorScheme.error
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.about_emergency_tip),
-                                        fontSize = 13.sp,
-                                        color = colorScheme.onSurface.copy(alpha = 0.7f)
-                                    )
-                                }
-                            }
-                        }
+                        AboutWarningCard(modifier = Modifier.padding(top = 24.dp))
                     }
+                    } // end BasicInfo tab
 
                     // Footer
                     item(key = "footer") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp),
+                                .padding(
+                                    start = AboutHorizontalPadding,
+                                    end = AboutHorizontalPadding,
+                                    top = 24.dp
+                                ),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
@@ -641,9 +597,9 @@ fun AboutSheet(
                             }
                             Text(
                                 text = stringResource(R.string.about_footer),
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace,
-                                color = colorScheme.onSurface.copy(alpha = 0.4f)
+                                color = palette.textTertiary
                             )
                             Spacer(modifier = Modifier.height(20.dp))
                         }
@@ -656,7 +612,7 @@ fun AboutSheet(
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
                         .height(64.dp)
-                        .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
+                        .background(palette.background.copy(alpha = topBarAlpha))
                 ) {
                     CloseButton(
                         onClick = onDismiss,

@@ -96,7 +96,6 @@
     <string name="pick_image">तस्वीर छान्नुहोस्</string>
 
     <!-- अबाउट शीट -->
-    <string name="about_tagline">विकेन्द्रित मेष सन्देश अन्त्यदेखि अन्त्य इन्क्रिप्सनसहित</string>
     <string name="about_offline_mesh_title">अफलाइन मेष च्याट</string>
     <string name="about_offline_mesh_desc">इन्टरनेट वा सर्भर बिना सिधै Bluetooth LE मार्फत सञ्चार गर्नुहोस्। नजिकका यन्त्रहरूबाट सन्देश रिल레이 हुन्छ।</string>
     <string name="about_online_geohash_title">अनलाइन Geohash च्यानलहरू</string>

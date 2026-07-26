@@ -96,7 +96,6 @@
     <string name="pick_image">اختيار صورة</string>
 
     <!-- ورقة حول التطبيق -->
-    <string name="about_tagline">دردشة شبكية لامركزية مع تشفير طرف إلى طرف</string>
     <string name="about_offline_mesh_title">دردشة شبكية دون اتصال</string>
     <string name="about_offline_mesh_desc">تواصل مباشرة عبر Bluetooth LE بدون إنترنت أو خوادم. تُعاد توجيه الرسائل عبر الأجهزة القريبة لتوسيع النطاق.</string>
     <string name="about_online_geohash_title">قنوات geohash عبر الإنترنت</string>

@@ -96,7 +96,6 @@
     <string name="pick_image">تصویر منتخب کریں</string>
 
     <!-- تفصیلات شیٹ -->
-    <string name="about_tagline">غیر مرکزی میش چیٹ • اینڈ‑ٹو‑اینڈ انکرپشن</string>
     <string name="about_offline_mesh_title">آف لائن میش چیٹ</string>
     <string name="about_offline_mesh_desc">انٹرنیٹ یا سرورز کے بغیر Bluetooth LE کے ذریعے براہ راست بات چیت کریں۔ پیغامات قریبی آلات کے ذریعے ریلے ہوتے ہیں تاکہ رسائی بڑھے۔</string>
     <string name="about_online_geohash_title">آن لائن geohash چینلز</string>

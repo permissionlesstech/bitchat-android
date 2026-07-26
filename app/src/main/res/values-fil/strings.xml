@@ -96,7 +96,6 @@
     <string name="pick_image">Pumili ng larawan</string>
 
     <!-- About sheet -->
-    <string name="about_tagline">desentralisadong mesh messaging na may end‑to‑end encryption</string>
     <string name="about_offline_mesh_title">Offline Mesh Chat</string>
     <string name="about_offline_mesh_desc">Makipag‑usap direkta sa Bluetooth LE nang walang internet o server. Ang mga mensahe ay nire‑relay ng mga kalapit na device.</string>
     <string name="about_online_geohash_title">Online na Geohash na mga Channel</string>
