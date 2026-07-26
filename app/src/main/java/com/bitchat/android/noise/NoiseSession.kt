@@ -1,9 +1,8 @@
 package com.bitchat.android.noise
 
 import android.util.Log
-import com.bitchat.android.noise.southernstorm.protocol.*
-import com.bitchat.android.util.toHexString
-import java.security.SecureRandom
+import com.bitchat.android.noise.southernstorm.protocol.CipherState
+import com.bitchat.android.noise.southernstorm.protocol.HandshakeState
 
 
 /**
@@ -263,7 +262,7 @@ class NoiseSession(
             if (handshakeState?.needsLocalKeyPair() == true) {
                 Log.d(TAG, "Local static key pair is required for XX pattern")
                 
-                val localKeyPair = handshakeState?.getLocalKeyPair()
+                val localKeyPair = handshakeState?.localKeyPair
                 if (localKeyPair != null) {
                     // FIXED: Use the provided persistent identity keys with our local fork
                     // Our local fork properly supports setting pre-existing keys
@@ -393,7 +392,7 @@ class NoiseSession(
             Log.d(TAG, "Read handshake message, payload length: $payloadLength prefix=$readPrefix currentPattern: $currentPattern")
             
             // Check what action the handshake state wants us to take next
-            val action = handshakeStateLocal.getAction()
+            val action = handshakeStateLocal.action
             Log.d(TAG, "Handshake action after processing message: $action")
             
             return when (action) {
@@ -404,7 +403,7 @@ class NoiseSession(
                     currentPattern++
                     val response = responseBuffer.copyOf(responseLength)
                     
-                    Log.d(TAG, "Generated handshake response: ${response.size} bytes, action still: ${handshakeStateLocal.getAction()} currentPattern: $currentPattern")
+                    Log.d(TAG, "Generated handshake response: ${response.size} bytes, action still: ${handshakeStateLocal.action} currentPattern: $currentPattern")
                     completeHandshake()
                     response
                 }
@@ -454,12 +453,12 @@ class NoiseSession(
             // Split handshake state into transport ciphers
             val cipherPair = handshakeState?.split()
             
-            sendCipher = cipherPair?.getSender()
-            receiveCipher = cipherPair?.getReceiver()
+            sendCipher = cipherPair?.sender
+            receiveCipher = cipherPair?.receiver
             
             // Extract remote static key if available
             if (handshakeState?.hasRemotePublicKey() == true) {
-                val remoteDH = handshakeState?.getRemotePublicKey()
+                val remoteDH = handshakeState?.remotePublicKey
                 if (remoteDH != null) {
                     remoteStaticPublicKey = ByteArray(32)
                     remoteDH.getPublicKey(remoteStaticPublicKey!!, 0)
@@ -468,7 +467,7 @@ class NoiseSession(
             }
             
             // Extract handshake hash for channel binding
-            handshakeHash = handshakeState?.getHandshakeHash()
+            handshakeHash = handshakeState?.handshakeHash
             
             // Clean up handshake state
             handshakeState?.destroy()
