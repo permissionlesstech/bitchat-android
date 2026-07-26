@@ -1,8 +1,6 @@
 package com.bitchat.android.ui
 
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -449,9 +447,7 @@ internal fun TextMessageLayout(
             colorScheme = colorScheme,
         )
     }
-    val isSelf = message.senderPeerID == myPeerId ||
-        message.sender == currentUserNickname ||
-        message.sender.startsWith("$currentUserNickname#")
+    val isSelf = message.isFromSelf(currentUserNickname, myPeerId)
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val handleLongPress: () -> Unit = {
@@ -501,45 +497,13 @@ internal fun TextMessageLayout(
             onAnnotationClick = { tag, item ->
                 when (tag) {
                     "geohash_click" -> {
-                        try {
-                            val locationManager =
-                                com.bitchat.android.geohash.LocationChannelManager.getInstance(context)
-                            val level = when (item.length) {
-                                in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
-                                in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
-                                5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
-                                6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
-                                else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
-                            }
-                            val channel = com.bitchat.android.geohash.GeohashChannel(
-                                level,
-                                item.lowercase(),
-                            )
-                            locationManager.setTeleported(true)
-                            locationManager.select(
-                                com.bitchat.android.geohash.ChannelID.Location(channel)
-                            )
-                        } catch (_: Exception) {
-                        }
+                        navigateToGeohash(context, item)
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         true
                     }
 
                     "url_click" -> {
-                        val resolvedUrl = if (
-                            item.startsWith("http://", ignoreCase = true) ||
-                            item.startsWith("https://", ignoreCase = true)
-                        ) {
-                            item
-                        } else {
-                            "https://$item"
-                        }
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(resolvedUrl))
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                        }
+                        openMessageUrl(context, item)
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         true
                     }

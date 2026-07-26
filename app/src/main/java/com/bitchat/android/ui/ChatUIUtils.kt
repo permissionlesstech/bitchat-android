@@ -46,9 +46,7 @@ fun formatMessageAsAnnotatedString(
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
     // Determine if this message was sent by self
-    val isSelf = message.senderPeerID == meshService.myPeerID || 
-                 message.sender == currentUserNickname ||
-                 message.sender.startsWith("$currentUserNickname#")
+    val isSelf = message.isFromSelf(currentUserNickname, meshService.myPeerID)
     
     if (message.sender != "system") {
         // Get base color for this peer (iOS-style color assignment)
@@ -171,9 +169,7 @@ fun formatTextMessageSender(
     val builder = AnnotatedString.Builder()
     val isDark =
         colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    val isSelf = message.senderPeerID == meshService.myPeerID ||
-        message.sender == currentUserNickname ||
-        message.sender.startsWith("$currentUserNickname#")
+    val isSelf = message.isFromSelf(currentUserNickname, meshService.myPeerID)
     val senderColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
     val senderWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
     val (baseName, suffix) = splitSuffix(message.sender)
@@ -248,9 +244,7 @@ fun formatTextMessageBody(
     val builder = AnnotatedString.Builder()
     val isDark =
         colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    val isSelf = message.senderPeerID == meshService.myPeerID ||
-        message.sender == currentUserNickname ||
-        message.sender.startsWith("$currentUserNickname#")
+    val isSelf = message.isFromSelf(currentUserNickname, meshService.myPeerID)
     val accentColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
 
     appendIOSFormattedContent(
@@ -278,9 +272,7 @@ fun formatMessageHeaderAnnotatedString(
     val builder = AnnotatedString.Builder()
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
 
-    val isSelf = message.senderPeerID == meshService.myPeerID ||
-            message.sender == currentUserNickname ||
-            message.sender.startsWith("$currentUserNickname#")
+    val isSelf = message.isFromSelf(currentUserNickname, meshService.myPeerID)
 
     if (message.sender != "system") {
         val baseColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
