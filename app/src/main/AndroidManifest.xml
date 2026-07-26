@@ -26,7 +26,9 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <!-- Android 13+ runtime permission for Wi‑Fi operations (including Aware and Wi‑Fi P2P) -->
-    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
     <!-- Keep hotspot alive while sharing the APK -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 

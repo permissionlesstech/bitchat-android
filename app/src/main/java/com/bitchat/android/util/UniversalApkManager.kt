@@ -6,9 +6,14 @@ import android.os.Build
 import android.util.Log
 import com.bitchat.android.BuildConfig
 import com.bitchat.android.net.OkHttpProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.Request
+import okhttp3.Response
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -260,69 +265,15 @@ class UniversalApkManager(private val context: Context) {
                 }
 
                 val request = requestBuilder.build()
-
-                downloadClient.newCall(request).execute().use { response ->
-                    if (response.code == 416) {
-                        // Our offset is no longer valid for this asset; discard
-                        // the partial state so the retry starts from scratch.
-                        Log.w(TAG, "Server rejected resume range, restarting download")
-                        tempFile.delete()
-                        progressFile.delete()
-                        return@withContext Result.failure(
-                            IOException("Resume rejected by server. Download will restart.")
-                        )
-                    }
-                    if (!response.isSuccessful && response.code != 206) {
-                        return@withContext Result.failure(
-                            IOException("Download failed: ${response.code} ${response.message}")
-                        )
-                    }
-
-                    val body = response.body
-                        ?: return@withContext Result.failure(IOException("Empty response body"))
-
-                    // Handle resume: 206 = partial content (append), 200 = full content (overwrite)
-                    val append = response.code == 206
-                    if (!append && existingBytes > 0) {
-                        Log.d(TAG, "Server didn't honor Range request, starting from scratch")
-                        existingBytes = 0
-                    }
-
-                    // Save resume metadata
-                    saveResumeInfo(url, expectedSize, release.versionName)
-
-                    // Report initial progress when resuming
-                    if (existingBytes > 0 && expectedSize > 0) {
-                        val initialProgress = ((existingBytes * 100) / expectedSize).toInt()
-                        progressCallback?.invoke(initialProgress)
-                    }
-
-                    // Download with progress tracking
-                    body.byteStream().use { input ->
-                        FileOutputStream(tempFile, append).use { output ->
-                            val buffer = ByteArray(BUFFER_SIZE)
-                            var bytesRead: Int
-                            var totalBytesRead = existingBytes
-                            var lastProgress = if (expectedSize > 0) ((existingBytes * 100) / expectedSize).toInt() else 0
-
-                            while (input.read(buffer).also { bytesRead = it } != -1) {
-                                output.write(buffer, 0, bytesRead)
-                                totalBytesRead += bytesRead
-
-                                // Report progress
-                                if (expectedSize > 0) {
-                                    val progress = ((totalBytesRead * 100) / expectedSize).toInt()
-                                    if (progress != lastProgress) {
-                                        lastProgress = progress
-                                        progressCallback?.invoke(progress)
-                                    }
-                                }
-                            }
-
-                            Log.d(TAG, "Download complete: ${totalBytesRead / 1024 / 1024}MB")
-                        }
-                    }
-                }
+                downloadToTempFile(
+                    call = downloadClient.newCall(request),
+                    tempFile = tempFile,
+                    url = url,
+                    expectedSize = expectedSize,
+                    versionName = release.versionName,
+                    existingBytes = existingBytes,
+                    progressCallback = progressCallback
+                )
             }
 
             // Verify checksum if available
@@ -386,12 +337,132 @@ class UniversalApkManager(private val context: Context) {
             Log.d(TAG, "Universal APK downloaded successfully: ${finalFile.path}")
             Result.success(finalFile)
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: IOException) {
             Log.e(TAG, "Network error downloading APK", e)
             Result.failure(e)
         } catch (e: Exception) {
             Log.e(TAG, "Error downloading APK", e)
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Streams an HTTP response into [tempFile] while keeping the coroutine
+     * suspended for the lifetime of the response body. Cancelling the worker
+     * therefore cancels the OkHttp call and promptly unblocks a pending read.
+     */
+    private suspend fun downloadToTempFile(
+        call: Call,
+        tempFile: File,
+        url: String,
+        expectedSize: Long,
+        versionName: String,
+        existingBytes: Long,
+        progressCallback: ((Int) -> Unit)?
+    ) = suspendCancellableCoroutine { continuation ->
+        fun completeSuccessfully() {
+            continuation.resumeWith(Result.success(Unit))
+        }
+
+        fun completeWithError(error: Throwable) {
+            continuation.resumeWith(Result.failure(error))
+        }
+
+        continuation.invokeOnCancellation {
+            call.cancel()
+        }
+
+        try {
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    completeWithError(e)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    try {
+                        response.use {
+                            if (response.code == 416) {
+                                // Our offset is no longer valid for this asset; discard
+                                // the partial state so the retry starts from scratch.
+                                Log.w(TAG, "Server rejected resume range, restarting download")
+                                tempFile.delete()
+                                progressFile.delete()
+                                throw IOException(
+                                    "Resume rejected by server. Download will restart."
+                                )
+                            }
+                            if (!response.isSuccessful && response.code != 206) {
+                                throw IOException(
+                                    "Download failed: ${response.code} ${response.message}"
+                                )
+                            }
+
+                            val body = response.body
+                                ?: throw IOException("Empty response body")
+
+                            // Handle resume: 206 = partial content (append), 200 = full
+                            // content (overwrite).
+                            val append = response.code == 206
+                            val resumedBytes = if (!append && existingBytes > 0) {
+                                Log.d(
+                                    TAG,
+                                    "Server didn't honor Range request, starting from scratch"
+                                )
+                                0L
+                            } else {
+                                existingBytes
+                            }
+
+                            saveResumeInfo(url, expectedSize, versionName)
+
+                            if (resumedBytes > 0 && expectedSize > 0) {
+                                val initialProgress =
+                                    ((resumedBytes * 100) / expectedSize).toInt()
+                                progressCallback?.invoke(initialProgress)
+                            }
+
+                            body.byteStream().use { input ->
+                                FileOutputStream(tempFile, append).use { output ->
+                                    val buffer = ByteArray(BUFFER_SIZE)
+                                    var bytesRead: Int
+                                    var totalBytesRead = resumedBytes
+                                    var lastProgress = if (expectedSize > 0) {
+                                        ((resumedBytes * 100) / expectedSize).toInt()
+                                    } else {
+                                        0
+                                    }
+
+                                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                                        output.write(buffer, 0, bytesRead)
+                                        totalBytesRead += bytesRead
+
+                                        if (expectedSize > 0) {
+                                            val progress =
+                                                ((totalBytesRead * 100) / expectedSize).toInt()
+                                            if (progress != lastProgress) {
+                                                lastProgress = progress
+                                                progressCallback?.invoke(progress)
+                                            }
+                                        }
+                                    }
+
+                                    Log.d(
+                                        TAG,
+                                        "Download complete: ${totalBytesRead / 1024 / 1024}MB"
+                                    )
+                                }
+                            }
+                        }
+                        completeSuccessfully()
+                    } catch (e: Exception) {
+                        completeWithError(e)
+                    }
+                }
+            })
+        } catch (e: Exception) {
+            completeWithError(e)
         }
     }
 
