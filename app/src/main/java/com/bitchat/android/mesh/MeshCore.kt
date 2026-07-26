@@ -17,6 +17,7 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.service.TransportBridgeService
+import com.bitchat.android.services.bridge.BridgeProtocolPacketFactory
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
@@ -527,7 +528,7 @@ class MeshCore(
             if (channel == null) {
                 val nickname = hooks.announcementNicknameProvider?.invoke()
                     ?: delegate?.getNickname()
-                com.bitchat.android.services.bridge.MeshBridgeService.bridgeOutgoing(
+                BridgeMeshPort.bridgeOutgoing(
                     content,
                     myPeerID,
                     packet.timestamp.toLong(),
@@ -572,16 +573,13 @@ class MeshCore(
     ) {
         if (payload.isEmpty()) return
         scope.launch {
-            val packet = BitchatPacket(
-                version = if (payload.size > 0xFFFF) 2u else 1u,
-                type = type.value,
-                senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
-                recipientID = recipientPeerID?.let(MeshPacketUtils::hexStringToByteArray),
-                timestamp = System.currentTimeMillis().toULong(),
+            val packet = BridgeProtocolPacketFactory.protocolPacket(
+                type = type,
                 payload = payload,
-                signature = null,
+                senderPeerId = myPeerID,
+                recipientPeerId = recipientPeerID,
                 ttl = maxTtl
-            )
+            ) ?: return@launch
             val outgoing = if (sign) signPacketBeforeBroadcast(packet) else packet
             if (sign && outgoing.signature?.size != 64) return@launch
             dispatchGlobal(RoutedPacket(outgoing))
@@ -817,11 +815,10 @@ class MeshCore(
                 Log.e("MeshCore", "No signing public key available for announcement")
                 return@launch
             }
-            val announcement = IdentityAnnouncement.forLocalPeer(
+            val announcement = BridgeProtocolPacketFactory.identityAnnouncement(
                 nickname,
                 staticKey,
-                signingKey,
-                com.bitchat.android.services.bridge.MeshBridgeService.advertisedCell()
+                signingKey
             )
             val tlvPayload = buildAnnouncementPayload(announcement, nickname) ?: return@launch
             val announcePacket = BitchatPacket(
@@ -843,11 +840,10 @@ class MeshCore(
             ?: myPeerID
         val staticKey = encryptionService.getStaticPublicKey() ?: return
         val signingKey = encryptionService.getSigningPublicKey() ?: return
-        val announcement = IdentityAnnouncement.forLocalPeer(
+        val announcement = BridgeProtocolPacketFactory.identityAnnouncement(
             nickname,
             staticKey,
-            signingKey,
-            com.bitchat.android.services.bridge.MeshBridgeService.advertisedCell()
+            signingKey
         )
         val tlvPayload = buildAnnouncementPayload(announcement, nickname) ?: return
         val packet = BitchatPacket(

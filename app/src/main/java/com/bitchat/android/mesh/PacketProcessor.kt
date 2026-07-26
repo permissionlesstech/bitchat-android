@@ -150,14 +150,14 @@ class PacketProcessor(private val myPeerID: String) {
             MessageType.FRAGMENT -> handleFragment(routed)
             MessageType.REQUEST_SYNC -> handleRequestSync(routed)
             MessageType.PREKEY_BUNDLE -> {
-                com.bitchat.android.services.bridge.MeshBridgeService.handlePrekeyPacket(packet)
+                BridgeMeshPort.handlePrekeyPacket(packet)
             }
             MessageType.NOSTR_CARRIER -> {
                 val directedToUs = packetRelayManager.isPacketAddressedToMe(packet)
                 val isBroadcast = packet.recipientID == null ||
                     packet.recipientID.contentEquals(delegate?.getBroadcastRecipient())
                 if (directedToUs || isBroadcast) {
-                    com.bitchat.android.services.bridge.MeshBridgeService.handleCarrier(
+                    BridgeMeshPort.handleCarrier(
                         packet.payload,
                         peerID,
                         directedToUs
@@ -171,8 +171,7 @@ class PacketProcessor(private val myPeerID: String) {
                         MessageType.NOISE_HANDSHAKE -> validPacket = handleNoiseHandshake(routed)
                         MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
                         MessageType.COURIER_ENVELOPE -> {
-                            com.bitchat.android.services.bridge.MeshBridgeService
-                                .handleCourierEnvelope(packet.payload)
+                            BridgeMeshPort.handleCourierEnvelope(packet.payload)
                         }
                         MessageType.FILE_TRANSFER -> handleMessage(routed)
                         else -> {

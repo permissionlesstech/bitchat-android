@@ -1,6 +1,5 @@
 package com.bitchat.android.model
 
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.crypto.Mac
@@ -27,26 +26,28 @@ data class CourierEnvelope(
         if (recipientTag.size != TAG_LENGTH) return null
         if (ciphertext.isEmpty() || ciphertext.size > MAX_CIPHERTEXT_BYTES) return null
 
-        val output = ByteArrayOutputStream(ciphertext.size + 40)
-        appendTlv(output, TLV_RECIPIENT_TAG, recipientTag)
-        appendTlv(
-            output,
-            TLV_EXPIRY,
-            ByteBuffer.allocate(Long.SIZE_BYTES).order(ByteOrder.BIG_ENDIAN).putLong(expiry).array()
+        val fields = mutableListOf(
+            Tlv16Codec.Field(TLV_RECIPIENT_TAG, recipientTag),
+            Tlv16Codec.Field(
+                TLV_EXPIRY,
+                ByteBuffer.allocate(Long.SIZE_BYTES)
+                    .order(ByteOrder.BIG_ENDIAN)
+                    .putLong(expiry)
+                    .array()
+            ),
+            Tlv16Codec.Field(TLV_CIPHERTEXT, ciphertext)
         )
-        appendTlv(output, TLV_CIPHERTEXT, ciphertext)
         if (normalizedCopies > 1) {
-            appendTlv(output, TLV_COPIES, byteArrayOf(normalizedCopies.toByte()))
+            fields += Tlv16Codec.Field(TLV_COPIES, byteArrayOf(normalizedCopies.toByte()))
         }
         prekeyId?.let {
             if (it !in 0..0xFFFF_FFFFL) return null
-            appendTlv(
-                output,
+            fields += Tlv16Codec.Field(
                 TLV_PREKEY_ID,
                 ByteBuffer.allocate(Int.SIZE_BYTES).order(ByteOrder.BIG_ENDIAN).putInt(it.toInt()).array()
             )
         }
-        return output.toByteArray()
+        return Tlv16Codec.encode(*fields.toTypedArray())
     }
 
     companion object {
@@ -63,48 +64,39 @@ data class CourierEnvelope(
         private val TAG_CONTEXT = "bitchat-courier-tag-v1".toByteArray(Charsets.UTF_8)
 
         fun decode(data: ByteArray): CourierEnvelope? {
-            var offset = 0
             var recipientTag: ByteArray? = null
             var expiry: Long? = null
             var ciphertext: ByteArray? = null
             var copies = 1
             var prekeyId: Long? = null
 
-            while (offset < data.size) {
-                if (offset + 3 > data.size) return null
-                val type = data[offset].toInt() and 0xFF
-                val length =
-                    ((data[offset + 1].toInt() and 0xFF) shl 8) or
-                        (data[offset + 2].toInt() and 0xFF)
-                offset += 3
-                if (offset + length > data.size) return null
-                val value = data.copyOfRange(offset, offset + length)
-                offset += length
-
-                when (type) {
+            Tlv16Codec.decode(data)?.forEach { field ->
+                when (field.type) {
                     TLV_RECIPIENT_TAG -> {
-                        if (length != TAG_LENGTH) return null
-                        recipientTag = value
+                        if (field.value.size != TAG_LENGTH) return null
+                        recipientTag = field.value
                     }
                     TLV_EXPIRY -> {
-                        if (length != Long.SIZE_BYTES) return null
-                        expiry = ByteBuffer.wrap(value).order(ByteOrder.BIG_ENDIAN).long
+                        if (field.value.size != Long.SIZE_BYTES) return null
+                        expiry = ByteBuffer.wrap(field.value).order(ByteOrder.BIG_ENDIAN).long
                     }
                     TLV_CIPHERTEXT -> {
-                        if (length !in 1..MAX_CIPHERTEXT_BYTES) return null
-                        ciphertext = value
+                        if (field.value.size !in 1..MAX_CIPHERTEXT_BYTES) return null
+                        ciphertext = field.value
                     }
                     TLV_COPIES -> {
-                        if (length != 1) return null
-                        copies = value[0].toInt() and 0xFF
+                        if (field.value.size != 1) return null
+                        copies = field.value[0].toInt() and 0xFF
                     }
                     TLV_PREKEY_ID -> {
-                        if (length != Int.SIZE_BYTES) return null
+                        if (field.value.size != Int.SIZE_BYTES) return null
                         prekeyId =
-                            ByteBuffer.wrap(value).order(ByteOrder.BIG_ENDIAN).int.toLong() and 0xFFFF_FFFFL
+                            ByteBuffer.wrap(field.value)
+                                .order(ByteOrder.BIG_ENDIAN)
+                                .int.toLong() and 0xFFFF_FFFFL
                     }
                 }
-            }
+            } ?: return null
 
             return CourierEnvelope(
                 recipientTag = recipientTag ?: return null,
@@ -135,12 +127,6 @@ data class CourierEnvelope(
                 .map { recipientTag(noiseStaticKey, it) }
         }
 
-        private fun appendTlv(output: ByteArrayOutputStream, type: Int, value: ByteArray) {
-            output.write(type)
-            output.write((value.size ushr 8) and 0xFF)
-            output.write(value.size and 0xFF)
-            output.write(value)
-        }
     }
 
     override fun equals(other: Any?): Boolean =

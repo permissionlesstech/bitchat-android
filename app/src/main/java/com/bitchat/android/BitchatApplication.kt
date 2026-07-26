@@ -60,6 +60,9 @@ class BitchatApplication : Application() {
         // continue while the activity is backgrounded.
         try {
             com.bitchat.android.services.bridge.MeshBridgeService.initialize(this)
+            com.bitchat.android.mesh.BridgeMeshPort.install(
+                com.bitchat.android.services.bridge.MeshBridgeService
+            )
         } catch (_: Exception) { }
 
         // Proactively start the foreground service to keep mesh alive

@@ -2,13 +2,9 @@ package com.bitchat.android.services.bridge
 
 import android.content.Context
 import android.util.Base64
-import android.util.Log
-import androidx.core.content.edit
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.model.PrekeyBundle
 import com.bitchat.android.noise.CourierNoiseCrypto
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
@@ -22,7 +18,12 @@ import java.security.SecureRandom
  * but their consumption assignments are persisted so retries of one message
  * never spend additional prekeys.
  */
-class PrekeyManager private constructor(context: Context) {
+class PrekeyManager internal constructor(
+    private val identity: PrekeyIdentity,
+    private val localStore: LocalPrekeyStore,
+    private val peerStore: PeerPrekeyStore,
+    private val randomBytes: () -> ByteArray
+) {
     data class Sealed(
         val ciphertext: ByteArray,
         val prekeyId: Long?
@@ -34,40 +35,13 @@ class PrekeyManager private constructor(context: Context) {
         val consumedPrekey: Boolean
     )
 
-    private data class LocalRecord(
-        val id: Long,
-        val privateKey: String,
-        val createdAt: Long,
-        var consumedAt: Long? = null
-    )
-
-    private data class PersistedLocal(
-        var records: MutableList<LocalRecord> = mutableListOf(),
-        var nextId: Long = 0,
-        var generatedAt: Long = 0
-    )
-
-    private data class StoredBundle(
-        val noiseKey: String,
-        var generatedAt: Long,
-        var prekeyIds: List<Long>,
-        var prekeyPublicKeys: List<String>,
-        var usedIds: MutableSet<Long>,
-        var assignments: MutableMap<String, Long>,
-        var updatedAt: Long
-    )
-
-    private val appContext = context.applicationContext
-    private val identityState = SecureIdentityStateManager(appContext)
-    private val peerPrefs = appContext.getSharedPreferences(PEER_PREFS, Context.MODE_PRIVATE)
-    private val gson = Gson()
     private val lock = Any()
-    private var local: PersistedLocal? = null
-    private var peerBundles: MutableMap<String, StoredBundle>? = null
+    private var local: LocalPrekeyState? = null
+    private var peerBundles: MutableMap<String, StoredPeerPrekeyBundle>? = null
 
     fun currentSignedBundle(nowMs: Long = System.currentTimeMillis()): PrekeyBundle? = synchronized(lock) {
-        val staticKey = identityState.loadStaticKey()?.second ?: return@synchronized null
-        val signingPrivateKey = identityState.loadSigningKey()?.first ?: return@synchronized null
+        val staticKey = identity.staticKey()?.second ?: return@synchronized null
+        val signingPrivateKey = identity.signingKey()?.first ?: return@synchronized null
         val state = loadLocalLocked()
         replenishLocked(state, nowMs)
         val prekeys = state.records
@@ -112,7 +86,7 @@ class PrekeyManager private constructor(context: Context) {
             if (existing != null && existing.generatedAt >= bundle.generatedAt) return false
 
             val freshIds = bundle.prekeys.map { it.id }.toSet()
-            bundles[key] = StoredBundle(
+            bundles[key] = StoredPeerPrekeyBundle(
                 noiseKey = key,
                 generatedAt = bundle.generatedAt,
                 prekeyIds = bundle.prekeys.map { it.id },
@@ -138,7 +112,7 @@ class PrekeyManager private constructor(context: Context) {
         recipientAdvertisesPrekeys: Boolean,
         nowMs: Long = System.currentTimeMillis()
     ): Sealed {
-        val senderPrivateKey = identityState.loadStaticKey()?.first
+        val senderPrivateKey = identity.staticKey()?.first
             ?: throw IllegalStateException("Noise static identity is unavailable")
         val assigned = if (recipientAdvertisesPrekeys) {
             assignPrekey(messageId, recipientNoiseKey, nowMs)
@@ -164,7 +138,7 @@ class PrekeyManager private constructor(context: Context) {
         nowMs: Long = System.currentTimeMillis()
     ): Opened {
         if (prekeyId == null) {
-            val staticPrivateKey = identityState.loadStaticKey()?.first
+            val staticPrivateKey = identity.staticKey()?.first
                 ?: throw IllegalStateException("Noise static identity is unavailable")
             val opened = CourierNoiseCrypto.open(ciphertext, staticPrivateKey)
             return Opened(opened.payload, opened.senderStaticKey, false)
@@ -202,10 +176,10 @@ class PrekeyManager private constructor(context: Context) {
     }
 
     fun wipe() = synchronized(lock) {
-        local = PersistedLocal()
+        local = LocalPrekeyState()
         peerBundles = mutableMapOf()
-        identityState.clearSecureValues(LOCAL_STORE_KEY)
-        peerPrefs.edit { clear() }
+        localStore.clear()
+        peerStore.clear()
     }
 
     private fun assignPrekey(
@@ -239,17 +213,17 @@ class PrekeyManager private constructor(context: Context) {
         PrekeyBundle.Prekey(id, publicKey)
     }
 
-    private fun replenishLocked(state: PersistedLocal, nowMs: Long): Boolean {
+    private fun replenishLocked(state: LocalPrekeyState, nowMs: Long): Boolean {
         val beforeRecords = state.records.size
         val beforeUnconsumed = state.records.count { it.consumedAt == null }
         pruneLocked(state, nowMs)
         val unconsumed = state.records.count { it.consumedAt == null }
         var changed = unconsumed != beforeUnconsumed
         if (unconsumed < REPLENISH_THRESHOLD) {
-            val random = SecureRandom()
             repeat(PrekeyBundle.MAX_PREKEYS - unconsumed) {
-                val privateKey = ByteArray(PrekeyBundle.KEY_LENGTH).also(random::nextBytes)
-                state.records += LocalRecord(
+                val privateKey = randomBytes()
+                require(privateKey.size == PrekeyBundle.KEY_LENGTH)
+                state.records += LocalPrekeyRecord(
                     id = state.nextId and 0xFFFF_FFFFL,
                     privateKey = encode(privateKey),
                     createdAt = nowMs
@@ -263,50 +237,38 @@ class PrekeyManager private constructor(context: Context) {
         return changed
     }
 
-    private fun pruneLocked(state: PersistedLocal, nowMs: Long) {
+    private fun pruneLocked(state: LocalPrekeyState, nowMs: Long) {
         state.records.removeAll { record ->
             record.consumedAt?.let { nowMs - it > CONSUMED_GRACE_MS }
                 ?: (nowMs - record.createdAt > UNCONSUMED_RETENTION_MS)
         }
     }
 
-    private fun advanceGeneratedAtLocked(state: PersistedLocal, nowMs: Long) {
+    private fun advanceGeneratedAtLocked(state: LocalPrekeyState, nowMs: Long) {
         state.generatedAt = maxOf(nowMs.coerceAtLeast(0), state.generatedAt + 1)
     }
 
-    private fun loadLocalLocked(): PersistedLocal {
+    private fun loadLocalLocked(): LocalPrekeyState {
         local?.let { return it }
-        val loaded = runCatching {
-            identityState.getSecureValue(LOCAL_STORE_KEY)
-                ?.let { gson.fromJson(it, PersistedLocal::class.java) }
-        }.getOrNull() ?: PersistedLocal()
+        val loaded = localStore.load()
         local = loaded
         return loaded
     }
 
-    private fun persistLocalLocked(state: PersistedLocal) {
-        runCatching { identityState.storeSecureValue(LOCAL_STORE_KEY, gson.toJson(state)) }
-            .onFailure { Log.e(TAG, "Failed to persist local prekeys", it) }
+    private fun persistLocalLocked(state: LocalPrekeyState) {
+        localStore.save(state)
     }
 
-    private fun loadPeerBundlesLocked(): MutableMap<String, StoredBundle> {
+    private fun loadPeerBundlesLocked(): MutableMap<String, StoredPeerPrekeyBundle> {
         peerBundles?.let { return it }
-        val type = object : TypeToken<List<StoredBundle>>() {}.type
-        val values: List<StoredBundle> = runCatching {
-            peerPrefs.getString(PEER_BUNDLES_KEY, null)
-                ?.let { json -> gson.fromJson<List<StoredBundle>>(json, type) }
-        }.getOrNull() ?: emptyList()
-        return values
-            .filter { it.prekeyIds.size == it.prekeyPublicKeys.size }
-            .associateByTo(mutableMapOf()) { it.noiseKey }
-            .also { peerBundles = it }
+        return peerStore.load().also { peerBundles = it }
     }
 
-    private fun persistPeerBundlesLocked(bundles: MutableMap<String, StoredBundle>) {
-        peerPrefs.edit { putString(PEER_BUNDLES_KEY, gson.toJson(bundles.values.toList())) }
+    private fun persistPeerBundlesLocked(bundles: Map<String, StoredPeerPrekeyBundle>) {
+        peerStore.save(bundles)
     }
 
-    private fun isFresh(bundle: StoredBundle, nowMs: Long): Boolean =
+    private fun isFresh(bundle: StoredPeerPrekeyBundle, nowMs: Long): Boolean =
         nowMs - bundle.generatedAt <= MAX_BUNDLE_AGE_MS
 
     private fun signEd25519(data: ByteArray, privateKey: ByteArray): ByteArray? = runCatching {
@@ -331,10 +293,7 @@ class PrekeyManager private constructor(context: Context) {
         runCatching { Base64.decode(value, Base64.NO_WRAP) }.getOrNull()
 
     companion object {
-        private const val TAG = "PrekeyManager"
-        private const val LOCAL_STORE_KEY = "courier_prekeys_v1"
         private const val PEER_PREFS = "bitchat_prekey_bundles"
-        private const val PEER_BUNDLES_KEY = "bundles_v1"
         private const val REPLENISH_THRESHOLD = 3
         private const val CONSUMED_GRACE_MS = 48L * 60 * 60 * 1000
         private const val UNCONSUMED_RETENTION_MS = 30L * 24 * 60 * 60 * 1000
@@ -346,7 +305,21 @@ class PrekeyManager private constructor(context: Context) {
 
         fun getInstance(context: Context): PrekeyManager =
             instance ?: synchronized(this) {
-                instance ?: PrekeyManager(context).also { instance = it }
+                instance ?: run {
+                    val application = context.applicationContext
+                    val identityState = SecureIdentityStateManager(application)
+                    val random = SecureRandom()
+                    PrekeyManager(
+                        identity = AndroidPrekeyIdentity(identityState),
+                        localStore = SecureLocalPrekeyStore(identityState),
+                        peerStore = SharedPreferencesPeerPrekeyStore(
+                            application.getSharedPreferences(PEER_PREFS, Context.MODE_PRIVATE)
+                        ),
+                        randomBytes = {
+                            ByteArray(PrekeyBundle.KEY_LENGTH).also(random::nextBytes)
+                        }
+                    ).also { instance = it }
+                }
             }
     }
 }

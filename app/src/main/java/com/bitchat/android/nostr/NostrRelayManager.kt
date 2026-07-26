@@ -19,12 +19,20 @@ import kotlin.math.pow
  * Compatible with iOS implementation with Android-specific optimizations
  */
 class NostrRelayManager private constructor() {
+    private data class QueuedEvent(
+        val event: NostrEvent,
+        val pendingRelays: MutableSet<String>,
+        val queuedAtMs: Long
+    )
     
     companion object {
         @JvmStatic
         val shared = NostrRelayManager()
         
         private const val TAG = "NostrRelayManager"
+        private const val PUBLISH_ACK_TIMEOUT_MS = 10_000L
+        private const val MESSAGE_QUEUE_RETENTION_MS = 24L * 60 * 60 * 1000
+        private const val MAX_MESSAGE_QUEUE_SIZE = 500
         
         /**
          * Get instance for Android compatibility (context-aware calls)
@@ -104,8 +112,9 @@ class NostrRelayManager private constructor() {
     private val eventDeduplicator = NostrEventDeduplicator.getInstance()
     
     // Message queue for reliability
-    private val messageQueue = mutableListOf<Pair<NostrEvent, List<String>>>()
+    private val messageQueue = mutableListOf<QueuedEvent>()
     private val messageQueueLock = Any()
+    private val publishTracker = NostrPublishTracker()
     
     // Coroutine scope for background operations
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -227,7 +236,7 @@ class NostrRelayManager private constructor() {
                 "wss://nostr21.com"
             )
             relaysList.addAll(defaultRelayUrls.map { Relay(it) })
-            _relays.value = relaysList.toList()
+            _relays.value = relaysList.map { it.copy() }
             updateConnectionStatus()
             Log.d(TAG, "✅ NostrRelayManager initialized with ${relaysList.size} default relays")
         } catch (e: Exception) {
@@ -280,11 +289,19 @@ class NostrRelayManager private constructor() {
      * Send an event to specified relays (or all if none specified)
      */
     fun sendEvent(event: NostrEvent, relayUrls: List<String>? = null) {
-        val targetRelays = relayUrls ?: relaysList.map { it.url }
+        val targetRelays = (relayUrls ?: relaysList.map { it.url }).distinct()
+        if (targetRelays.isEmpty()) return
         
         // Add to queue for reliability
         synchronized(messageQueueLock) {
-            messageQueue.add(Pair(event, targetRelays))
+            val now = System.currentTimeMillis()
+            messageQueue.removeAll {
+                now - it.queuedAtMs > MESSAGE_QUEUE_RETENTION_MS || it.event.id == event.id
+            }
+            messageQueue += QueuedEvent(event, targetRelays.toMutableSet(), now)
+            while (messageQueue.size > MAX_MESSAGE_QUEUE_SIZE) {
+                messageQueue.removeAt(0)
+            }
         }
         
         // Attempt immediate send
@@ -295,6 +312,41 @@ class NostrRelayManager private constructor() {
                     sendToRelay(event, webSocket, relayUrl)
                 }
             }
+        }
+    }
+
+    /**
+     * Publish and wait until at least one target relay accepts the event.
+     *
+     * A timeout is not success: callers that persist delivery dedup state must
+     * retain their own retryable payload until [NostrPublishResult.Accepted].
+     */
+    suspend fun sendEventAndAwaitAcceptance(
+        event: NostrEvent,
+        relayUrls: List<String>? = null,
+        timeoutMs: Long = PUBLISH_ACK_TIMEOUT_MS
+    ): NostrPublishResult {
+        val targets = (relayUrls ?: relaysList.map { it.url })
+            .distinct()
+            .mapNotNull { relayUrl ->
+                connections[relayUrl]?.let { relayUrl to it }
+            }
+        if (targets.isEmpty()) return NostrPublishResult.Rejected(emptyMap())
+        val result = publishTracker.begin(event.id, targets.mapTo(mutableSetOf()) { it.first })
+        targets.forEach { (relayUrl, webSocket) ->
+            if (!sendToRelay(event, webSocket, relayUrl)) {
+                publishTracker.record(
+                    eventId = event.id,
+                    relayUrl = relayUrl,
+                    accepted = false,
+                    message = "WebSocket send failed"
+                )
+            }
+        }
+        return try {
+            withTimeoutOrNull(timeoutMs) { result.await() } ?: NostrPublishResult.TimedOut
+        } finally {
+            publishTracker.cancel(event.id, result)
         }
     }
     
@@ -629,8 +681,8 @@ class NostrRelayManager private constructor() {
         }
     }
     
-    private fun sendToRelay(event: NostrEvent, webSocket: WebSocket, relayUrl: String) {
-        try {
+    private fun sendToRelay(event: NostrEvent, webSocket: WebSocket, relayUrl: String): Boolean {
+        return try {
             val request = NostrRequest.Event(event)
             val message = gson.toJson(request, NostrRequest::class.java)
             
@@ -645,8 +697,10 @@ class NostrRelayManager private constructor() {
             } else {
                 Log.e(TAG, "❌ Failed to send event to $relayUrl: WebSocket send failed")
             }
+            success
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to send event to $relayUrl: ${e.message}")
+            false
         }
     }
     
@@ -711,6 +765,13 @@ class NostrRelayManager private constructor() {
                 
                 is NostrResponse.Ok -> {
                     val wasGiftWrap = pendingGiftWrapIDs.remove(response.eventId)
+                    publishTracker.record(
+                        eventId = response.eventId,
+                        relayUrl = relayUrl,
+                        accepted = response.accepted,
+                        message = response.message
+                    )
+                    acknowledgeQueuedEvent(response.eventId, relayUrl, response.accepted)
                     if (response.accepted) {
                         Log.d(TAG, "✅ Event accepted id=${response.eventId.take(16)}... by relay: $relayUrl")
                     } else {
@@ -778,6 +839,22 @@ class NostrRelayManager private constructor() {
             connectToRelay(relayUrl)
         }
     }
+
+    private fun acknowledgeQueuedEvent(eventId: String, relayUrl: String, accepted: Boolean) {
+        synchronized(messageQueueLock) {
+            val iterator = messageQueue.iterator()
+            while (iterator.hasNext()) {
+                val queued = iterator.next()
+                if (queued.event.id != eventId) continue
+                if (accepted) {
+                    iterator.remove()
+                } else {
+                    queued.pendingRelays.remove(relayUrl)
+                    if (queued.pendingRelays.isEmpty()) iterator.remove()
+                }
+            }
+        }
+    }
     
     private fun updateRelayStatus(url: String, isConnected: Boolean, error: Throwable? = null) {
         val relay = relaysList.find { it.url == url } ?: return
@@ -798,7 +875,7 @@ class NostrRelayManager private constructor() {
     }
     
     private fun updateRelaysList() {
-        _relays.value = relaysList.toList()
+        _relays.value = relaysList.map { it.copy() }
     }
     
     private fun updateConnectionStatus() {
@@ -863,9 +940,9 @@ class NostrRelayManager private constructor() {
             synchronized(messageQueueLock) {
                 val iterator = messageQueue.iterator()
                 while (iterator.hasNext()) {
-                    val (event, targetRelays) = iterator.next()
-                    if (relayUrl in targetRelays) {
-                        sendToRelay(event, webSocket, relayUrl)
+                    val queued = iterator.next()
+                    if (relayUrl in queued.pendingRelays) {
+                        sendToRelay(queued.event, webSocket, relayUrl)
                     }
                 }
             }
@@ -890,4 +967,5 @@ class NostrRelayManager private constructor() {
             handleDisconnection(relayUrl, t)
         }
     }
+
 }

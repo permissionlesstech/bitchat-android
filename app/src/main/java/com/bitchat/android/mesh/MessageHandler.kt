@@ -319,7 +319,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             capabilities = announcement.capabilities
         ) ?: false
 
-        com.bitchat.android.services.bridge.MeshBridgeService.handleVerifiedAnnouncement(
+        BridgeMeshPort.handleVerifiedAnnouncement(
             peerID,
             announcement
         )
@@ -465,8 +465,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 timestamp = Date(packet.timestamp.toLong())
             )
             delegate?.onMessageReceived(message)
-            com.bitchat.android.services.bridge.MeshBridgeService
-                .handleAuthenticatedRadioMessage(message.id)
+            BridgeMeshPort.handleAuthenticatedRadioMessage(message.id)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process broadcast message: ${e.message}")
         }

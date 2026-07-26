@@ -40,7 +40,7 @@ import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
-import com.bitchat.android.services.bridge.MeshBridgeService
+import com.bitchat.android.services.bridge.BridgedParticipant
 import com.bitchat.android.util.hexEncodedString
 
 
@@ -69,8 +69,7 @@ fun MeshPeerListSheet(
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
-    val bridgeEnabled by MeshBridgeService.isEnabled.collectAsStateWithLifecycle()
-    val bridgedParticipants by MeshBridgeService.bridgedParticipants.collectAsStateWithLifecycle()
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
     val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
     val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
 
@@ -183,9 +182,9 @@ fun MeshPeerListSheet(
                                     }
                                 )
 
-                                if (bridgeEnabled && bridgedParticipants.isNotEmpty()) {
+                                if (bridgeUiState.enabled && bridgeUiState.participants.isNotEmpty()) {
                                     BridgedPeopleSection(
-                                        participants = bridgedParticipants,
+                                        participants = bridgeUiState.participants,
                                         colorScheme = colorScheme
                                     )
                                 }
@@ -225,7 +224,7 @@ fun MeshPeerListSheet(
 
 @Composable
 private fun BridgedPeopleSection(
-    participants: List<MeshBridgeService.BridgedParticipant>,
+    participants: List<BridgedParticipant>,
     colorScheme: ColorScheme
 ) {
     Column(modifier = Modifier.padding(top = 16.dp)) {

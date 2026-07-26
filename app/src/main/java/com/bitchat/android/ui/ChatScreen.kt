@@ -60,8 +60,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
     val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
     val legacyPrivateMediaConsent by viewModel.legacyPrivateMediaConsent.collectAsStateWithLifecycle()
-    val bridgeEnabled by com.bitchat.android.services.bridge.MeshBridgeService.isEnabled.collectAsStateWithLifecycle()
-    val nearbyOnly by com.bitchat.android.services.bridge.MeshBridgeService.nearbyOnly.collectAsStateWithLifecycle()
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -240,11 +239,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 nickname = nickname,
                 colorScheme = colorScheme,
                 showMediaButtons = showMediaButtons,
-                showBridgeControls = bridgeEnabled &&
+                showBridgeControls = bridgeUiState.enabled &&
                     currentChannel == null &&
                     selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location,
-                nearbyOnly = nearbyOnly,
-                onNearbyOnlyChange = com.bitchat.android.services.bridge.MeshBridgeService::setNearbyOnly
+                nearbyOnly = bridgeUiState.nearbyOnly,
+                onNearbyOnlyChange = viewModel::setBridgeNearbyOnly
             )
         }
 
@@ -532,6 +531,7 @@ private fun ChatDialogs(
     onMeshPeerListDismiss: () -> Unit,
 ) {
     val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
 
     // Password dialog
     PasswordPromptDialog(
@@ -548,7 +548,9 @@ private fun ChatDialogs(
     AboutSheet(
         isPresented = showAppInfo,
         onDismiss = onAppInfoDismiss,
-        onShowDebug = { showDebugSheet = true }
+        onShowDebug = { showDebugSheet = true },
+        bridgeEnabled = bridgeUiState.enabled,
+        onBridgeEnabledChange = viewModel::setBridgeEnabled
     )
     if (showDebugSheet) {
         com.bitchat.android.ui.debug.DebugSettingsSheet(

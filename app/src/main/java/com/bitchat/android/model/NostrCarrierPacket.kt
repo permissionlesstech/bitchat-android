@@ -1,7 +1,6 @@
 package com.bitchat.android.model
 
 import com.bitchat.android.nostr.NostrEvent
-import java.io.ByteArrayOutputStream
 
 /**
  * Wire payload for MessageType.NOSTR_CARRIER (0x28).
@@ -34,11 +33,13 @@ data class NostrCarrierPacket(
         NostrEvent.fromJsonString(String(eventJson, Charsets.UTF_8))
 
     fun encode(): ByteArray {
-        val output = ByteArrayOutputStream(eventJson.size + geohash.length + 12)
-        appendTlv(output, TLV_DIRECTION, byteArrayOf(direction.value.toByte()))
-        appendTlv(output, TLV_GEOHASH, geohash.toByteArray(Charsets.UTF_8))
-        appendTlv(output, TLV_EVENT_JSON, eventJson)
-        return output.toByteArray()
+        return checkNotNull(
+            Tlv16Codec.encode(
+                Tlv16Codec.Field(TLV_DIRECTION, byteArrayOf(direction.value.toByte())),
+                Tlv16Codec.Field(TLV_GEOHASH, geohash.toByteArray(Charsets.UTF_8)),
+                Tlv16Codec.Field(TLV_EVENT_JSON, eventJson)
+            )
+        )
     }
 
     companion object {
@@ -59,34 +60,24 @@ data class NostrCarrierPacket(
             }.getOrNull()
 
         fun decode(data: ByteArray): NostrCarrierPacket? {
-            var offset = 0
             var direction: Direction? = null
             var geohash: String? = null
             var eventJson: ByteArray? = null
 
-            while (offset + 3 <= data.size) {
-                val type = data[offset].toInt() and 0xFF
-                val length =
-                    ((data[offset + 1].toInt() and 0xFF) shl 8) or
-                        (data[offset + 2].toInt() and 0xFF)
-                offset += 3
-                if (offset + length > data.size) return null
-                val value = data.copyOfRange(offset, offset + length)
-                offset += length
-
-                when (type) {
+            Tlv16Codec.decode(data)?.forEach { field ->
+                when (field.type) {
                     TLV_DIRECTION -> {
-                        if (value.size != 1) return null
-                        direction = Direction.fromValue(value[0].toInt() and 0xFF) ?: return null
+                        if (field.value.size != 1) return null
+                        direction =
+                            Direction.fromValue(field.value[0].toInt() and 0xFF) ?: return null
                     }
                     TLV_GEOHASH -> {
-                        geohash = value.toString(Charsets.UTF_8)
+                        geohash = field.value.toString(Charsets.UTF_8)
                     }
-                    TLV_EVENT_JSON -> eventJson = value
+                    TLV_EVENT_JSON -> eventJson = field.value
                 }
-            }
+            } ?: return null
 
-            if (offset != data.size) return null
             return runCatching {
                 NostrCarrierPacket(
                     direction = direction ?: return null,
@@ -96,12 +87,6 @@ data class NostrCarrierPacket(
             }.getOrNull()
         }
 
-        private fun appendTlv(output: ByteArrayOutputStream, type: Int, value: ByteArray) {
-            output.write(type)
-            output.write((value.size ushr 8) and 0xFF)
-            output.write(value.size and 0xFF)
-            output.write(value)
-        }
     }
 
     override fun equals(other: Any?): Boolean =

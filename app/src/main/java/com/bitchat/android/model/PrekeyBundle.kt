@@ -62,12 +62,12 @@ data class PrekeyBundle(
             entries.write(prekey.publicKey)
         }
 
-        return ByteArrayOutputStream(128 + entries.size()).apply {
-            appendTlv(this, TLV_NOISE_STATIC_KEY, noiseStaticPublicKey)
-            appendTlv(this, TLV_PREKEYS, entries.toByteArray())
-            appendTlv(this, TLV_GENERATED_AT, uint64Bytes(generatedAt))
-            appendTlv(this, TLV_SIGNATURE, signature)
-        }.toByteArray()
+        return Tlv16Codec.encode(
+            Tlv16Codec.Field(TLV_NOISE_STATIC_KEY, noiseStaticPublicKey),
+            Tlv16Codec.Field(TLV_PREKEYS, entries.toByteArray()),
+            Tlv16Codec.Field(TLV_GENERATED_AT, uint64Bytes(generatedAt)),
+            Tlv16Codec.Field(TLV_SIGNATURE, signature)
+        )
     }
 
     companion object {
@@ -83,43 +83,33 @@ data class PrekeyBundle(
         private const val TLV_SIGNATURE = 0x04
 
         fun decode(data: ByteArray): PrekeyBundle? {
-            var offset = 0
             var noiseStaticKey: ByteArray? = null
             var prekeys: List<Prekey>? = null
             var generatedAt: Long? = null
             var signature: ByteArray? = null
 
-            while (offset < data.size) {
-                if (offset + 3 > data.size) return null
-                val type = data[offset].toInt() and 0xFF
-                val length =
-                    ((data[offset + 1].toInt() and 0xFF) shl 8) or
-                        (data[offset + 2].toInt() and 0xFF)
-                offset += 3
-                if (offset + length > data.size) return null
-                val value = data.copyOfRange(offset, offset + length)
-                offset += length
-
-                when (type) {
+            Tlv16Codec.decode(data)?.forEach { field ->
+                when (field.type) {
                     TLV_NOISE_STATIC_KEY -> {
-                        if (length != KEY_LENGTH) return null
-                        noiseStaticKey = value
+                        if (field.value.size != KEY_LENGTH) return null
+                        noiseStaticKey = field.value
                     }
                     TLV_PREKEYS -> {
-                        if (length == 0 ||
-                            length % PREKEY_ENTRY_LENGTH != 0 ||
-                            length / PREKEY_ENTRY_LENGTH > MAX_PREKEYS
+                        if (field.value.isEmpty() ||
+                            field.value.size % PREKEY_ENTRY_LENGTH != 0 ||
+                            field.value.size / PREKEY_ENTRY_LENGTH > MAX_PREKEYS
                         ) {
                             return null
                         }
                         val parsed = mutableListOf<Prekey>()
                         var entryOffset = 0
-                        while (entryOffset < value.size) {
-                            val id = ByteBuffer.wrap(value, entryOffset, Int.SIZE_BYTES)
+                        while (entryOffset < field.value.size) {
+                            val id = ByteBuffer.wrap(field.value, entryOffset, Int.SIZE_BYTES)
                                 .order(ByteOrder.BIG_ENDIAN)
                                 .int.toLong() and 0xFFFF_FFFFL
                             entryOffset += Int.SIZE_BYTES
-                            val publicKey = value.copyOfRange(entryOffset, entryOffset + KEY_LENGTH)
+                            val publicKey =
+                                field.value.copyOfRange(entryOffset, entryOffset + KEY_LENGTH)
                             entryOffset += KEY_LENGTH
                             parsed += Prekey(id, publicKey)
                         }
@@ -127,15 +117,15 @@ data class PrekeyBundle(
                         prekeys = parsed
                     }
                     TLV_GENERATED_AT -> {
-                        if (length != Long.SIZE_BYTES) return null
-                        generatedAt = ByteBuffer.wrap(value).order(ByteOrder.BIG_ENDIAN).long
+                        if (field.value.size != Long.SIZE_BYTES) return null
+                        generatedAt = ByteBuffer.wrap(field.value).order(ByteOrder.BIG_ENDIAN).long
                     }
                     TLV_SIGNATURE -> {
-                        if (length != SIGNATURE_LENGTH) return null
-                        signature = value
+                        if (field.value.size != SIGNATURE_LENGTH) return null
+                        signature = field.value
                     }
                 }
-            }
+            } ?: return null
 
             return runCatching {
                 PrekeyBundle(
@@ -145,13 +135,6 @@ data class PrekeyBundle(
                     signature = signature ?: return null
                 )
             }.getOrNull()
-        }
-
-        private fun appendTlv(output: ByteArrayOutputStream, type: Int, value: ByteArray) {
-            output.write(type)
-            output.write((value.size ushr 8) and 0xFF)
-            output.write(value.size and 0xFF)
-            output.write(value)
         }
 
         private fun uint32Bytes(value: Long): ByteArray =

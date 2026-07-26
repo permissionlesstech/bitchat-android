@@ -6,15 +6,27 @@ import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.services.bridge.CourierDepositResult
+import com.bitchat.android.services.bridge.MeshBridgeService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Routes messages between local mesh transports and Nostr, matching iOS behavior.
  */
 class MessageRouter private constructor(
-    private val context: Context,
     private var mesh: MeshService,
-    private val nostr: NostrTransport
+    private val nostr: NostrTransport,
+    private val currentNostrIdentity: () -> com.bitchat.android.nostr.NostrIdentity?
 ) {
+    private data class OutboxMessage(
+        val content: String,
+        val recipientNickname: String,
+        val messageId: String
+    )
+
     enum class RouteResult {
         MESH,
         NOSTR,
@@ -29,8 +41,16 @@ class MessageRouter private constructor(
         fun getInstance(context: Context, mesh: MeshService): MessageRouter {
             val instance = INSTANCE ?: synchronized(this) {
                 INSTANCE ?: run {
-                    val nostr = NostrTransport.getInstance(context)
-                    MessageRouter(context.applicationContext, mesh, nostr).also { instance ->
+                    val application = context.applicationContext
+                    val nostr = NostrTransport.getInstance(application)
+                    MessageRouter(
+                        mesh = mesh,
+                        nostr = nostr,
+                        currentNostrIdentity = {
+                            com.bitchat.android.nostr.NostrIdentityBridge
+                                .getCurrentNostrIdentity(application)
+                        }
+                    ).also { instance ->
                         // Register for favorites changes to flush outbox
                         try {
                             com.bitchat.android.favorites.FavoritesPersistenceService.shared.addListener(instance.favoriteListener)
@@ -46,8 +66,8 @@ class MessageRouter private constructor(
         }
     }
 
-    // Outbox: peerID -> queued (content, nickname, messageID)
-    private val outbox = mutableMapOf<String, MutableList<Triple<String, String, String>>>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val outbox = mutableMapOf<String, MutableList<OutboxMessage>>()
 
     // Listener for favorites changes to flush outbox when npub mapping appears/changes
     private val favoriteListener = object: com.bitchat.android.favorites.FavoritesChangeListener {
@@ -89,16 +109,22 @@ class MessageRouter private constructor(
         } else {
             Log.d(TAG, "Queued PM for ${conversationID} (no mesh, no Nostr mapping) msg_id=${messageID.take(8)}…")
             val q = outbox.getOrPut(conversationID) { mutableListOf() }
-            q.add(Triple(content, recipientNickname, messageID))
+            q.add(OutboxMessage(content, recipientNickname, messageID))
             resolution.noisePublicKey?.let { recipientNoiseKey ->
-                try {
-                    com.bitchat.android.services.bridge.MeshBridgeService.depositCourierDrop(
-                        content = content,
-                        messageId = messageID,
-                        recipientNoiseKey = recipientNoiseKey
-                    )
-                } catch (e: Exception) {
-                    Log.w(TAG, "Courier deposit failed: ${e.message}")
+                scope.launch {
+                    val result = runCatching {
+                        MeshBridgeService.depositCourierDrop(
+                            content = content,
+                            messageId = messageID,
+                            recipientNoiseKey = recipientNoiseKey
+                        )
+                    }.getOrElse { error ->
+                        Log.w(TAG, "Courier deposit failed: ${error.message}")
+                        return@launch
+                    }
+                    if (result is CourierDepositResult.Rejected) {
+                        Log.d(TAG, "Courier deposit rejected: ${result.reason}")
+                    }
                 }
             }
             Log.d(TAG, "Initiating noise handshake after queueing PM for ${conversationID.take(16)}…")
@@ -126,7 +152,15 @@ class MessageRouter private constructor(
         if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(toPeerID)) {
             val recipientHex = com.bitchat.android.nostr.GeohashAliasRegistry.get(toPeerID)
             if (recipientHex != null) {
-                nostr.sendDeliveryAckGeohash(messageID, recipientHex, try { com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(context)!! } catch (_: Exception) { return })
+                nostr.sendDeliveryAckGeohash(
+                    messageID,
+                    recipientHex,
+                    try {
+                        currentNostrIdentity() ?: return
+                    } catch (_: Exception) {
+                        return
+                    }
+                )
                 return
             }
         }
@@ -141,7 +175,11 @@ class MessageRouter private constructor(
         val resolution = ContactDirectory.resolve(toPeerID)
         val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
         if (meshTarget != null && mesh.getPeerInfo(meshTarget)?.isConnected == true && mesh.hasEstablishedSession(meshTarget)) {
-            val myNpub = try { com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(context)?.npub } catch (_: Exception) { null }
+            val myNpub = try {
+                currentNostrIdentity()?.npub
+            } catch (_: Exception) {
+                null
+            }
             val content = FavoriteControlMessage.encode(isFavorite, myNpub)
             val nickname = mesh.getPeerNicknames()[meshTarget] ?: meshTarget
             mesh.sendPrivateMessage(content, meshTarget, nickname, null)
@@ -158,15 +196,25 @@ class MessageRouter private constructor(
         Log.d(TAG, "Flushing outbox for ${conversationID.take(16)}… count=${queued.size}")
         val iterator = queued.iterator()
         while (iterator.hasNext()) {
-            val (content, nickname, messageID) = iterator.next()
+            val queuedMessage = iterator.next()
             val resolution = ContactDirectory.resolve(conversationID)
             val meshTarget = resolution.meshPeerID
             val nostrTarget = resolution.noiseKeyHex ?: conversationID
             if (meshTarget != null && isReady(mesh, meshTarget)) {
-                mesh.sendPrivateMessage(content, meshTarget, nickname, messageID)
+                mesh.sendPrivateMessage(
+                    queuedMessage.content,
+                    meshTarget,
+                    queuedMessage.recipientNickname,
+                    queuedMessage.messageId
+                )
                 iterator.remove()
             } else if (canSendViaNostr(nostrTarget)) {
-                nostr.sendPrivateMessage(content, nostrTarget, nickname, messageID)
+                nostr.sendPrivateMessage(
+                    queuedMessage.content,
+                    nostrTarget,
+                    queuedMessage.recipientNickname,
+                    queuedMessage.messageId
+                )
                 iterator.remove()
             }
         }

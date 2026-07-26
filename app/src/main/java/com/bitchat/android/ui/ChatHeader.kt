@@ -342,8 +342,7 @@ private fun MainHeader(
     val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
-    val bridgeEnabled by com.bitchat.android.services.bridge.MeshBridgeService.isEnabled.collectAsStateWithLifecycle()
-    val bridgedParticipants by com.bitchat.android.services.bridge.MeshBridgeService.bridgedParticipants.collectAsStateWithLifecycle()
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
 
     // Bookmarks store for current geohash toggle (iOS parity)
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -447,7 +446,7 @@ private fun MainHeader(
             )
             Spacer(modifier = Modifier.width(2.dp))
 
-            if (bridgeEnabled) {
+            if (bridgeUiState.enabled) {
                 Icon(
                     imageVector = Icons.Filled.Public,
                     contentDescription = stringResource(R.string.cd_mesh_bridge_active),
@@ -458,7 +457,7 @@ private fun MainHeader(
 
             PeerCounter(
                 connectedPeers = connectedPeers.filter { it != viewModel.myPeerID },
-                bridgedPeopleCount = bridgedParticipants.size,
+                bridgedPeopleCount = bridgeUiState.participants.size,
                 joinedChannels = joinedChannels,
                 hasUnreadChannels = hasUnreadChannels,
                 isConnected = isConnected,

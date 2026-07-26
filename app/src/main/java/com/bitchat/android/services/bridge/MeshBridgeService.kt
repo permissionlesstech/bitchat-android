@@ -1,38 +1,26 @@
 package com.bitchat.android.services.bridge
 
 import android.content.Context
-import android.util.Base64
 import android.util.Log
 import androidx.core.content.edit
 import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.BridgeMeshDelegate
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.model.CourierEnvelope
 import com.bitchat.android.model.IdentityAnnouncement
-import com.bitchat.android.model.NoisePayload
-import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.model.NostrCarrierPacket
 import com.bitchat.android.model.PeerCapabilities
-import com.bitchat.android.model.PrekeyBundle
-import com.bitchat.android.model.PrivateMessagePacket
 import com.bitchat.android.nostr.MeshMessageIdentity
 import com.bitchat.android.nostr.NostrEvent
 import com.bitchat.android.nostr.NostrFilter
-import com.bitchat.android.nostr.NostrIdentity
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrKind
 import com.bitchat.android.nostr.NostrProtocol
 import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.protocol.BitchatPacket
-import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.services.AppStateStore
-import com.bitchat.android.services.ContactDirectory
-import com.bitchat.android.services.ContactIdentityResolver
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,13 +29,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
-import org.bouncycastle.crypto.signers.Ed25519Signer
-import java.security.MessageDigest
 import java.util.Date
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
-import kotlin.random.Random
 
 /**
  * Opt-in bridge policy shared by foreground transport and Compose UI.
@@ -56,26 +43,7 @@ import kotlin.random.Random
  * and did not mark the message nearby-only. Passive `fromBridge` reception is
  * accepted regardless of the switch because it exposes no local traffic.
  */
-object MeshBridgeService {
-    data class BridgedParticipant(
-        val pubkey: String,
-        val nickname: String?,
-        val lastSeenMs: Long
-    ) {
-        val displayName: String
-            get() = "${nickname?.trim()?.takeIf { it.isNotEmpty() } ?: "anon"}#${pubkey.takeLast(4)}"
-    }
-
-    private data class VerifiedPeer(
-        val peerId: String,
-        val nickname: String,
-        val noiseKey: ByteArray,
-        val signingKey: ByteArray,
-        val capabilities: PeerCapabilities?,
-        val bridgeCell: String?,
-        val lastSeenMs: Long
-    )
-
+object MeshBridgeService : BridgeMeshDelegate {
     private data class PendingUplink(
         val depositor: String,
         val cell: String,
@@ -87,16 +55,10 @@ object MeshBridgeService {
         val event: NostrEvent
     )
 
-    private data class PendingDrop(
-        val envelope: CourierEnvelope,
-        val dedupKey: String?
-    )
-
     private const val TAG = "MeshBridgeService"
     private const val PREFS = "bitchat_bridge"
     private const val KEY_ENABLED = "bridge_enabled_v1"
     private const val BRIDGE_SUBSCRIPTION = "mesh-bridge-rendezvous"
-    private const val COURIER_SUBSCRIPTION = "mesh-bridge-courier"
     private const val CELL_PRECISION = 6
     private const val MAX_EVENT_AGE_MS = 15L * 60 * 1000
     private const val MAX_CONTENT_BYTES = 16_000
@@ -112,13 +74,9 @@ object MeshBridgeService {
     private const val INBOUND_PER_MINUTE = 600
     private const val INBOUND_PER_SIGNER_PER_MINUTE = 120
     private const val SIGNATURE_ATTEMPTS_PER_MINUTE = 720
-    private const val MAX_WATCHED_COURIER_PEERS = 16
-    private const val MAX_PENDING_DROPS = 20
-    private const val MAX_DROP_BYTES = 20 * 1024
-    private const val PREKEY_REBROADCAST_MS = 60L * 60 * 1000
-    private const val DROP_DEDUP_MS = 24L * 60 * 60 * 1000
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
+    private val dispatcher = Dispatchers.Default.limitedParallelism(1)
+    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val _isEnabled = MutableStateFlow(false)
     val isEnabled: StateFlow<Boolean> = _isEnabled.asStateFlow()
     private val _nearbyOnly = MutableStateFlow(false)
@@ -131,13 +89,17 @@ object MeshBridgeService {
     @Volatile
     private var appContext: Context? = null
     private var relayManager: NostrRelayManager? = null
-    private var prekeys: PrekeyManager? = null
+    private var prekeyCoordinator: PrekeyCoordinator? = null
+    private var courierCoordinator: CourierCoordinator? = null
     private var prefs: android.content.SharedPreferences? = null
+    @Volatile
+    private var meshProvider: () -> MeshService? = { null }
+    private var clock: () -> Long = System::currentTimeMillis
+    private var jitter: (Long, Long) -> Long = kotlin.random.Random::nextLong
     private var localLocationCell: String? = null
     private var subscribedCells: Set<String> = emptySet()
-    private var subscribedCourierTags: Set<String> = emptySet()
-    private val verifiedPeers = linkedMapOf<String, VerifiedPeer>()
-    private val pendingPrekeyPackets = linkedMapOf<String, BitchatPacket>()
+    private val verifiedPeers = linkedMapOf<String, VerifiedBridgePeer>()
+    private val verifiedPeerSnapshot = AtomicReference<List<VerifiedBridgePeer>>(emptyList())
     private val publishedEventIds = BoundedIdSet(MAX_TRACKED_IDS)
     private val receivedEventIds = BoundedIdSet(MAX_TRACKED_IDS)
     private val meshBroadcastEventIds = BoundedIdSet(MAX_TRACKED_IDS)
@@ -146,7 +108,6 @@ object MeshBridgeService {
     private val radioMessageIds = BoundedIdSet(MAX_TRACKED_IDS)
     private val queuedUplinks = mutableListOf<PendingUplink>()
     private val pendingDownlinks = mutableListOf<PendingDownlink>()
-    private val pendingDrops = mutableListOf<PendingDrop>()
     private val participants = linkedMapOf<String, BridgedParticipant>()
     private val uplinkTimes = mutableMapOf<String, MutableList<Long>>()
     private val inboundTimes = mutableListOf<Long>()
@@ -155,26 +116,47 @@ object MeshBridgeService {
     private val signatureAttemptTimes = mutableListOf<Long>()
     private var downlinkJob: Job? = null
     private var presenceJob: Job? = null
-    private var lastPrekeyBroadcastMs = 0L
-    private var publishedDropKeys: PersistentExpiringIdSet? = null
-    private var seenDropEventIds: PersistentExpiringIdSet? = null
-    private var openedCourierMessageIds: PersistentExpiringIdSet? = null
 
-    fun initialize(context: Context) {
+    fun initialize(
+        context: Context,
+        meshProvider: () -> MeshService? = {
+            com.bitchat.android.service.MeshServiceHolder.unifiedMeshService
+        },
+        clock: () -> Long = System::currentTimeMillis,
+        jitter: (Long, Long) -> Long = kotlin.random.Random::nextLong
+    ) {
         if (appContext != null) return
         synchronized(this) {
             if (appContext != null) return
             val application = context.applicationContext
             appContext = application
+            this.meshProvider = meshProvider
+            this.clock = clock
+            this.jitter = jitter
             relayManager = NostrRelayManager.getInstance(application)
-            prekeys = PrekeyManager.getInstance(application)
+            val prekeyManager = PrekeyManager.getInstance(application)
             prefs = application.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             _isEnabled.value = loadEnabledWithMigration(prefs!!)
             PeerCapabilities.setBridgeEnabled(_isEnabled.value)
-            publishedDropKeys = PersistentExpiringIdSet(prefs!!, "published_drop_keys", MAX_TRACKED_IDS)
-            seenDropEventIds = PersistentExpiringIdSet(prefs!!, "seen_drop_events", MAX_TRACKED_IDS)
-            openedCourierMessageIds =
-                PersistentExpiringIdSet(prefs!!, "opened_courier_messages", MAX_TRACKED_IDS)
+            prekeyCoordinator = PrekeyCoordinator(
+                manager = prekeyManager,
+                meshProvider = ::currentMesh,
+                peersProvider = verifiedPeerSnapshot::get,
+                clock = clock
+            )
+            courierCoordinator = CourierCoordinator(
+                context = application,
+                preferences = checkNotNull(prefs),
+                relayManager = checkNotNull(relayManager),
+                prekeys = prekeyManager,
+                meshProvider = ::currentMesh,
+                peersProvider = verifiedPeerSnapshot::get,
+                onPrekeyConsumed = {
+                    scope.launch { prekeyCoordinator?.broadcast(force = true) }
+                },
+                clock = clock
+            )
+            courierCoordinator?.setEnabled(_isEnabled.value)
         }
 
         val location = LocationChannelManager.getInstance(context)
@@ -192,21 +174,34 @@ object MeshBridgeService {
                 if (connected) {
                     refreshRendezvous(forceSubscriptions = true)
                     flushQueuedUplinks()
-                    flushPendingDrops()
                     publishPresence()
                 }
             }
+        }
+        scope.launch {
+            val defaultRelays = NostrRelayManager.defaultRelays().toSet()
+            relayManager?.relays
+                ?.map { relays ->
+                    relays.asSequence()
+                        .filter { it.isConnected && it.url in defaultRelays }
+                        .map { it.url }
+                        .toSet()
+                }
+                ?.distinctUntilChanged()
+                ?.collect { connectedDefaults ->
+                    if (connectedDefaults.isNotEmpty()) courierCoordinator?.relayConnected()
+                }
         }
         scope.launch {
             if (_isEnabled.value) {
                 relayManager?.connect()
                 location.refreshChannels()
                 refreshRendezvous(forceSubscriptions = true)
-                refreshCourierSubscription()
+                courierCoordinator?.peerStateChanged()
             }
             startPresenceLoop()
             delay(2_000)
-            broadcastPrekeyBundle(force = true)
+            prekeyCoordinator?.broadcast(force = true)
         }
     }
 
@@ -216,12 +211,12 @@ object MeshBridgeService {
         prefs?.edit { putBoolean(KEY_ENABLED, enabled) }
         PeerCapabilities.setBridgeEnabled(enabled)
         _nearbyOnly.value = false
+        courierCoordinator?.setEnabled(enabled)
         scope.launch {
             if (!enabled) {
                 closeSubscriptions()
                 queuedUplinks.clear()
                 pendingDownlinks.clear()
-                pendingDrops.clear()
                 participants.clear()
                 publishParticipants()
                 _activeCell.value = null
@@ -229,8 +224,8 @@ object MeshBridgeService {
                 relayManager?.connect()
                 LocationChannelManager.getInstance(requireContext()).refreshChannels()
                 refreshRendezvous(forceSubscriptions = true)
-                refreshCourierSubscription()
-                broadcastPrekeyBundle(force = true)
+                courierCoordinator?.peerStateChanged()
+                prekeyCoordinator?.broadcast(force = true)
             }
             currentMesh()?.sendBroadcastAnnounce()
         }
@@ -241,9 +236,9 @@ object MeshBridgeService {
     }
 
     /** Cell included in announce TLV 0x06 while the bridge switch is on. */
-    fun advertisedCell(): String? = _activeCell.value.takeIf { _isEnabled.value }
+    override fun advertisedCell(): String? = _activeCell.value.takeIf { _isEnabled.value }
 
-    fun bridgeOutgoing(
+    override fun bridgeOutgoing(
         content: String,
         senderPeerId: String,
         timestampMs: Long,
@@ -278,7 +273,7 @@ object MeshBridgeService {
     }
 
     /** Called only after a public radio packet's Ed25519 signature was accepted. */
-    fun handleAuthenticatedRadioMessage(messageId: String) {
+    override fun handleAuthenticatedRadioMessage(messageId: String) {
         if (messageId.isBlank()) return
         scope.launch {
             radioMessageIds.add(messageId)
@@ -288,33 +283,34 @@ object MeshBridgeService {
         }
     }
 
-    fun handleVerifiedAnnouncement(peerId: String, announcement: IdentityAnnouncement) {
+    override fun handleVerifiedAnnouncement(peerId: String, announcement: IdentityAnnouncement) {
         scope.launch {
-            val peer = VerifiedPeer(
+            val peer = VerifiedBridgePeer(
                 peerId = peerId,
                 nickname = announcement.nickname,
                 noiseKey = announcement.noisePublicKey.copyOf(),
                 signingKey = announcement.signingPublicKey.copyOf(),
                 capabilities = announcement.capabilities,
                 bridgeCell = announcement.bridgeGeohash?.takeIf(::isValidGeohash),
-                lastSeenMs = System.currentTimeMillis()
+                lastSeenMs = clock()
             )
             verifiedPeers[peerId] = peer
             while (verifiedPeers.size > 200) verifiedPeers.remove(verifiedPeers.keys.first())
-            pendingPrekeyPackets.remove(peerId)?.let { ingestPrekeyPacket(it) }
+            publishVerifiedPeerSnapshot()
+            prekeyCoordinator?.handlePeerVerified(peerId)
             if (_isEnabled.value) {
                 refreshRendezvous()
-                refreshCourierSubscription()
+                courierCoordinator?.peerStateChanged()
             }
-            broadcastPrekeyBundle()
+            prekeyCoordinator?.broadcast()
         }
     }
 
-    fun handlePrekeyPacket(packet: BitchatPacket) {
-        scope.launch { ingestPrekeyPacket(packet) }
+    override fun handlePrekeyPacket(packet: BitchatPacket) {
+        scope.launch { prekeyCoordinator?.handlePacket(packet) }
     }
 
-    fun handleCarrier(payload: ByteArray, fromPeerId: String, directedToUs: Boolean) {
+    override fun handleCarrier(payload: ByteArray, fromPeerId: String, directedToUs: Boolean) {
         scope.launch {
             val carrier = NostrCarrierPacket.decode(payload) ?: return@launch
             when (carrier.direction) {
@@ -330,87 +326,26 @@ object MeshBridgeService {
         }
     }
 
-    fun handleCourierEnvelope(payload: ByteArray) {
-        scope.launch {
-            val envelope = CourierEnvelope.decode(payload) ?: return@launch
-            if (!validEnvelopeLifetime(envelope)) return@launch
-            if (isMyCourierTag(envelope.recipientTag)) {
-                openCourierEnvelope(envelope)
-            } else if (_isEnabled.value) {
-                publishOrQueueDrop(envelope, dedupKey = null)
-            }
-        }
+    override fun handleCourierEnvelope(payload: ByteArray) {
+        courierCoordinator?.handleEnvelope(payload)
     }
 
-    /**
-     * Deposit an offline DM either directly to relays or through a reachable
-     * bridge peer. Returns true when a compatible envelope was produced and
-     * accepted by one of those paths.
-     */
-    fun depositCourierDrop(
+    suspend fun depositCourierDrop(
         content: String,
         messageId: String,
         recipientNoiseKey: ByteArray
-    ): Boolean {
-        if (!_isEnabled.value || content.toByteArray(Charsets.UTF_8).size > 255) return false
-        val privatePacket = PrivateMessagePacket(messageId, content).encode() ?: return false
-        val typedPayload = NoisePayload(NoisePayloadType.PRIVATE_MESSAGE, privatePacket).encode()
-        val livePeer = verifiedPeers.values.firstOrNull {
-            it.noiseKey.contentEquals(recipientNoiseKey) &&
-                currentMesh()?.getPeerInfo(it.peerId)?.isConnected == true
-        }
-        val allowsPrekeys = livePeer?.capabilities?.contains(PeerCapabilities.PREKEYS) != false
-        val sealed = runCatching {
-            prekeys?.seal(
-                typedPayload,
-                messageId,
-                recipientNoiseKey,
-                recipientAdvertisesPrekeys = allowsPrekeys
-            )
-        }.getOrNull() ?: return false
-        val now = System.currentTimeMillis()
-        val envelope = CourierEnvelope(
-            recipientTag = CourierEnvelope.recipientTag(
-                recipientNoiseKey,
-                CourierEnvelope.epochDay(now)
-            ),
-            expiry = now + CourierEnvelope.MAX_LIFETIME_MS,
-            ciphertext = sealed.ciphertext,
-            copies = 1,
-            prekeyId = sealed.prekeyId
-        )
-        val encoded = envelope.encode() ?: return false
-        if (encoded.size > MAX_DROP_BYTES) return false
-        val dedupKey = senderDropKey(messageId, recipientNoiseKey)
-        if (publishedDropKeys?.contains(dedupKey) == true) return true
+    ): CourierDepositResult =
+        courierCoordinator?.deposit(content, messageId, recipientNoiseKey)
+            ?: CourierDepositResult.Rejected(CourierDepositResult.Reason.BRIDGE_DISABLED)
 
-        val relayConnected = relayManager?.isConnected?.value == true
-        if (relayConnected) {
-            scope.launch { publishOrQueueDrop(envelope, dedupKey) }
-            return true
-        }
-        val gateway = availableBridgePeer()
-        if (gateway != null) {
-            currentMesh()?.sendCourierEnvelope(encoded, gateway.peerId)
-            return true
-        }
-        scope.launch { enqueueDrop(PendingDrop(envelope, dedupKey)) }
-        return true
-    }
-
-    fun wipe() {
-        // Clear persistent cryptographic and dedup material immediately. The
-        // rest of the process-local bridge state remains serialized on scope.
-        prekeys?.wipe()
-        publishedDropKeys?.clear()
-        seenDropEventIds?.clear()
-        openedCourierMessageIds?.clear()
-        scope.launch {
+    suspend fun wipe() {
+        courierCoordinator?.wipe()
+        kotlinx.coroutines.withContext(dispatcher) {
             closeSubscriptions()
             queuedUplinks.clear()
             pendingDownlinks.clear()
-            pendingDrops.clear()
             verifiedPeers.clear()
+            publishVerifiedPeerSnapshot()
             participants.clear()
             publishedEventIds.clear()
             receivedEventIds.clear()
@@ -418,9 +353,21 @@ object MeshBridgeService {
             rebroadcastEventIds.clear()
             injectedEventIds.clear()
             radioMessageIds.clear()
+            prekeyCoordinator?.wipe()
             _nearbyOnly.value = false
             publishParticipants()
         }
+    }
+
+    private fun publishVerifiedPeerSnapshot() {
+        verifiedPeerSnapshot.set(
+            verifiedPeers.values.map { peer ->
+                peer.copy(
+                    noiseKey = peer.noiseKey.copyOf(),
+                    signingKey = peer.signingKey.copyOf()
+                )
+            }
+        )
     }
 
     private suspend fun refreshRendezvous(forceSubscriptions: Boolean = false) {
@@ -444,7 +391,7 @@ object MeshBridgeService {
             relayManager?.subscribe(
                 filter = NostrFilter.bridgeRendezvous(
                     cells,
-                    since = System.currentTimeMillis() - MAX_EVENT_AGE_MS
+                    since = clock() - MAX_EVENT_AGE_MS
                 ),
                 id = BRIDGE_SUBSCRIPTION,
                 handler = { event -> scope.launch { handleRendezvousEvent(event) } },
@@ -459,7 +406,7 @@ object MeshBridgeService {
         return availableBridgePeer()?.bridgeCell?.take(CELL_PRECISION)
     }
 
-    private fun availableBridgePeer(): VerifiedPeer? =
+    private fun availableBridgePeer(): VerifiedBridgePeer? =
         verifiedPeers.values.firstOrNull { peer ->
             peer.capabilities?.contains(PeerCapabilities.BRIDGE) == true &&
                 peer.bridgeCell != null &&
@@ -586,10 +533,10 @@ object MeshBridgeService {
 
     private fun scheduleDownlink(jitter: Boolean) {
         if (downlinkJob?.isActive == true || pendingDownlinks.isEmpty()) return
-        val now = System.currentTimeMillis()
+        val now = clock()
         downlinkTimes.removeAll { now - it >= 60_000 }
         val waitMs = if (jitter) {
-            Random.nextLong(200, 1_501)
+            jitter(200, 1_501)
         } else {
             (downlinkTimes.minOrNull()?.plus(60_000)?.minus(now) ?: 50).coerceAtLeast(50)
         }
@@ -600,7 +547,7 @@ object MeshBridgeService {
     }
 
     private fun drainDownlinks() {
-        val now = System.currentTimeMillis()
+        val now = clock()
         downlinkTimes.removeAll { now - it >= 60_000 }
         while (pendingDownlinks.isNotEmpty() && downlinkTimes.size < DOWNLINKS_PER_MINUTE) {
             val item = pendingDownlinks.removeAt(0)
@@ -619,7 +566,7 @@ object MeshBridgeService {
             )?.encode() ?: continue
             currentMesh()?.sendNostrCarrier(payload)
             rebroadcastEventIds.add(item.event.id)
-            downlinkTimes += System.currentTimeMillis()
+            downlinkTimes += clock()
         }
         if (pendingDownlinks.isNotEmpty()) scheduleDownlink(jitter = false)
     }
@@ -654,16 +601,16 @@ object MeshBridgeService {
                 pruneParticipants()
                 if (_isEnabled.value) {
                     refreshRendezvous()
-                    refreshCourierSubscription()
+                    courierCoordinator?.peerStateChanged()
                     publishPresence()
-                    broadcastPrekeyBundle()
+                    prekeyCoordinator?.broadcast()
                 }
             }
         }
     }
 
     private fun recordParticipant(pubkey: String, nickname: String?) {
-        val now = System.currentTimeMillis()
+        val now = clock()
         participants.entries.removeAll { now - it.value.lastSeenMs > PARTICIPANT_FRESH_MS }
         if (pubkey !in participants && participants.size >= MAX_PARTICIPANTS) {
             participants.minByOrNull { it.value.lastSeenMs }?.key?.let(participants::remove)
@@ -678,7 +625,7 @@ object MeshBridgeService {
     }
 
     private fun pruneParticipants() {
-        val now = System.currentTimeMillis()
+        val now = clock()
         participants.entries.removeAll { now - it.value.lastSeenMs > PARTICIPANT_FRESH_MS }
         publishParticipants()
     }
@@ -688,7 +635,7 @@ object MeshBridgeService {
     }
 
     private fun allowUplink(depositor: String): Boolean {
-        val now = System.currentTimeMillis()
+        val now = clock()
         val times = uplinkTimes.getOrPut(depositor) { mutableListOf() }
         times.removeAll { now - it >= 60_000 }
         if (times.size >= UPLINKS_PER_MINUTE_PER_DEPOSITOR) return false
@@ -697,7 +644,7 @@ object MeshBridgeService {
     }
 
     private fun allowInbound(signer: String): Boolean {
-        val now = System.currentTimeMillis()
+        val now = clock()
         inboundTimes.removeAll { now - it >= 60_000 }
         if (inboundTimes.size >= INBOUND_PER_MINUTE) return false
         val signerTimes = inboundTimesBySigner.getOrPut(signer) { mutableListOf() }
@@ -709,184 +656,16 @@ object MeshBridgeService {
     }
 
     private fun allowSignatureAttempt(): Boolean {
-        val now = System.currentTimeMillis()
+        val now = clock()
         signatureAttemptTimes.removeAll { now - it >= 60_000 }
         if (signatureAttemptTimes.size >= SIGNATURE_ATTEMPTS_PER_MINUTE) return false
         signatureAttemptTimes += now
         return true
     }
 
-    private fun ingestPrekeyPacket(packet: BitchatPacket) {
-        val bundle = PrekeyBundle.decode(packet.payload) ?: return
-        val owner = ContactIdentityResolver.peerIdForNoiseKey(bundle.noiseStaticPublicKey)
-        val packetOwner = packet.senderID.toHex()
-        if (owner != packetOwner) return
-        val peer = verifiedPeers[owner]
-        if (peer == null ||
-            !peer.noiseKey.contentEquals(bundle.noiseStaticPublicKey)
-        ) {
-            if (pendingPrekeyPackets.size < 64 || owner in pendingPrekeyPackets) {
-                pendingPrekeyPackets[owner] = packet
-            }
-            return
-        }
-        val signature = packet.signature ?: return
-        val signingData = packet.toBinaryDataForSigning() ?: return
-        if (!verifyEd25519(signature, signingData, peer.signingKey)) return
-        prekeys?.verifyAndIngest(bundle, peer.noiseKey, peer.signingKey)
-    }
-
-    private fun broadcastPrekeyBundle(force: Boolean = false) {
-        val now = System.currentTimeMillis()
-        if (!force && now - lastPrekeyBroadcastMs < PREKEY_REBROADCAST_MS) return
-        val bundle = prekeys?.currentSignedBundle(now) ?: return
-        val encoded = bundle.encode() ?: return
-        lastPrekeyBroadcastMs = now
-        currentMesh()?.sendPrekeyBundle(encoded)
-    }
-
-    private fun refreshCourierSubscription() {
-        if (!_isEnabled.value) return
-        val identityKey = SecureIdentityStateManager(requireContext()).loadStaticKey()?.second ?: return
-        val myTags = CourierEnvelope.candidateTags(identityKey).map { it.toHex() }.toSet()
-        val peerTags = verifiedPeers.values
-            .asSequence()
-            .filter { currentMesh()?.getPeerInfo(it.peerId)?.isConnected == true }
-            .take(MAX_WATCHED_COURIER_PEERS)
-            .flatMap {
-                CourierEnvelope.candidateTags(it.noiseKey)
-                    .asSequence()
-                    .map { bytes -> bytes.toHex() }
-            }
-            .toSet()
-        val allTags = myTags + peerTags
-        if (allTags == subscribedCourierTags) return
-        relayManager?.unsubscribe(COURIER_SUBSCRIPTION)
-        subscribedCourierTags = allTags
-        if (allTags.isEmpty()) return
-        relayManager?.subscribe(
-            filter = NostrFilter.courierDrops(
-                allTags,
-                since = System.currentTimeMillis() - CourierEnvelope.MAX_LIFETIME_MS
-            ),
-            id = COURIER_SUBSCRIPTION,
-            handler = { event -> scope.launch { handleDropEvent(event) } },
-            targetRelayUrls = NostrRelayManager.defaultRelays()
-        )
-    }
-
-    private fun handleDropEvent(event: NostrEvent) {
-        if (!_isEnabled.value ||
-            event.kind != NostrKind.COURIER_DROP ||
-            seenDropEventIds?.contains(event.id) == true ||
-            !allowSignatureAttempt() ||
-            !event.isValidSignature()
-        ) {
-            return
-        }
-        val data = runCatching { Base64.decode(event.content, Base64.DEFAULT) }.getOrNull() ?: return
-        if (data.size > MAX_DROP_BYTES) return
-        val envelope = CourierEnvelope.decode(data) ?: return
-        if (!validEnvelopeLifetime(envelope)) return
-        val tagHex = envelope.recipientTag.toHex()
-        if (event.tags.none { it.size >= 2 && it[0] == "x" && it[1] == tagHex }) return
-
-        if (isMyCourierTag(envelope.recipientTag)) {
-            if (openCourierEnvelope(envelope)) {
-                seenDropEventIds?.add(event.id, DROP_DEDUP_MS)
-            }
-            return
-        }
-        val peer = verifiedPeers.values
-            .asSequence()
-            .filter { currentMesh()?.getPeerInfo(it.peerId)?.isConnected == true }
-            .take(MAX_WATCHED_COURIER_PEERS)
-            .firstOrNull {
-                CourierEnvelope.candidateTags(it.noiseKey)
-                    .any { candidate -> candidate.contentEquals(envelope.recipientTag) }
-            }
-        if (peer != null) {
-            currentMesh()?.sendCourierEnvelope(data, peer.peerId)
-            seenDropEventIds?.add(event.id, DROP_DEDUP_MS)
-        }
-    }
-
-    private fun openCourierEnvelope(envelope: CourierEnvelope): Boolean {
-        val opened = runCatching {
-            prekeys?.open(envelope.ciphertext, envelope.prekeyId)
-        }.getOrNull() ?: return false
-        val payload = NoisePayload.decode(opened.payload) ?: return true
-        if (payload.type != NoisePayloadType.PRIVATE_MESSAGE) return true
-        val privateMessage = PrivateMessagePacket.decode(payload.data) ?: return true
-        if (openedCourierMessageIds?.contains(privateMessage.messageID) == true) return true
-        val senderPeerId = ContactIdentityResolver.peerIdForNoiseKey(opened.senderStaticKey)
-        val senderResolution = ContactDirectory.resolve(opened.senderStaticKey.toHex())
-        val message = BitchatMessage(
-            id = privateMessage.messageID,
-            sender = senderResolution.displayName ?: verifiedPeers[senderPeerId]?.nickname ?: "Unknown",
-            content = privateMessage.content,
-            timestamp = Date(),
-            isPrivate = true,
-            recipientNickname = currentMesh()?.myPeerID,
-            senderPeerID = senderPeerId
-        )
-        AppStateStore.addPrivateMessage(
-            ContactIdentityResolver.contactConversationIdForNoiseKey(opened.senderStaticKey),
-            message
-        )
-        openedCourierMessageIds?.add(privateMessage.messageID, DROP_DEDUP_MS)
-        if (opened.consumedPrekey) broadcastPrekeyBundle(force = true)
-        return true
-    }
-
-    private fun publishOrQueueDrop(envelope: CourierEnvelope, dedupKey: String?) {
-        if (!validEnvelopeLifetime(envelope)) return
-        if (relayManager?.isConnected?.value != true) {
-            enqueueDrop(PendingDrop(envelope, dedupKey))
-            return
-        }
-        val encoded = envelope.encode() ?: return
-        if (encoded.size > MAX_DROP_BYTES) return
-        val event = NostrProtocol.createCourierDropEvent(
-            envelope = encoded,
-            recipientTagHex = envelope.recipientTag.toHex(),
-            expiresAtMs = envelope.expiry,
-            senderIdentity = NostrIdentity.generate()
-        )
-        relayManager?.sendEvent(event, NostrRelayManager.defaultRelays())
-        dedupKey?.let { publishedDropKeys?.add(it, DROP_DEDUP_MS) }
-    }
-
-    private fun enqueueDrop(drop: PendingDrop) {
-        if (drop.dedupKey != null && pendingDrops.any { it.dedupKey == drop.dedupKey }) return
-        pendingDrops += drop
-        while (pendingDrops.size > MAX_PENDING_DROPS) pendingDrops.removeAt(0)
-    }
-
-    private fun flushPendingDrops() {
-        if (!_isEnabled.value || relayManager?.isConnected?.value != true) return
-        val queued = pendingDrops.toList()
-        pendingDrops.clear()
-        queued.forEach { publishOrQueueDrop(it.envelope, it.dedupKey) }
-    }
-
-    private fun isMyCourierTag(tag: ByteArray): Boolean {
-        val ownKey = SecureIdentityStateManager(requireContext()).loadStaticKey()?.second ?: return false
-        return CourierEnvelope.candidateTags(ownKey).any { it.contentEquals(tag) }
-    }
-
-    private fun validEnvelopeLifetime(envelope: CourierEnvelope): Boolean {
-        val now = System.currentTimeMillis()
-        return !envelope.isExpired(now) &&
-            envelope.expiry > 0 &&
-            envelope.expiry - now <= CourierEnvelope.MAX_LIFETIME_MS
-    }
-
     private fun closeSubscriptions() {
         relayManager?.unsubscribe(BRIDGE_SUBSCRIPTION)
-        relayManager?.unsubscribe(COURIER_SUBSCRIPTION)
         subscribedCells = emptySet()
-        subscribedCourierTags = emptySet()
     }
 
     private fun isOwnEvent(event: NostrEvent, cell: String): Boolean =
@@ -896,7 +675,7 @@ object MeshBridgeService {
         }.getOrDefault(false)
 
     private fun isFresh(event: NostrEvent): Boolean =
-        abs(System.currentTimeMillis() - event.createdAt * 1000L) <= MAX_EVENT_AGE_MS
+        abs(clock() - event.createdAt * 1000L) <= MAX_EVENT_AGE_MS
 
     private fun isValidGeohash(value: String): Boolean =
         value.length in 1..12 &&
@@ -905,26 +684,7 @@ object MeshBridgeService {
     private fun NostrEvent.tagValue(name: String): String? =
         tags.firstOrNull { it.size >= 2 && it[0] == name }?.get(1)
 
-    private fun senderDropKey(messageId: String, recipientNoiseKey: ByteArray): String {
-        val material = recipientNoiseKey.toHex() + "|" + messageId
-        return MessageDigest.getInstance("SHA-256")
-            .digest(material.toByteArray(Charsets.UTF_8))
-            .toHex()
-    }
-
-    private fun verifyEd25519(signature: ByteArray, data: ByteArray, key: ByteArray): Boolean =
-        runCatching {
-            Ed25519Signer().apply {
-                init(false, Ed25519PublicKeyParameters(key, 0))
-                update(data, 0, data.size)
-            }.verifySignature(signature)
-        }.getOrDefault(false)
-
-    private fun currentMesh(): MeshService? =
-        MeshServiceHolder.unifiedMeshService
-            ?: appContext?.let { context ->
-                runCatching { MeshServiceHolder.getUnifiedOrCreate(context) }.getOrNull()
-            }
+    private fun currentMesh(): MeshService? = meshProvider()
 
     private fun requireContext(): Context =
         checkNotNull(appContext) { "MeshBridgeService.initialize must be called first" }
@@ -944,61 +704,4 @@ object MeshBridgeService {
 
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
-    private class BoundedIdSet(private val capacity: Int) {
-        private val values = LinkedHashSet<String>()
-
-        fun add(id: String): Boolean {
-            if (!values.add(id)) return false
-            while (values.size > capacity) values.remove(values.first())
-            return true
-        }
-
-        fun contains(id: String): Boolean = id in values
-        fun clear() = values.clear()
-    }
-
-    private class PersistentExpiringIdSet(
-        private val preferences: android.content.SharedPreferences,
-        private val key: String,
-        private val capacity: Int
-    ) {
-        private val gson = Gson()
-        private val values: LinkedHashMap<String, Long> = load()
-
-        fun contains(id: String, nowMs: Long = System.currentTimeMillis()): Boolean {
-            prune(nowMs)
-            return (values[id] ?: return false) > nowMs
-        }
-
-        fun add(id: String, lifetimeMs: Long, nowMs: Long = System.currentTimeMillis()) {
-            prune(nowMs)
-            values.remove(id)
-            values[id] = nowMs + lifetimeMs
-            while (values.size > capacity) values.remove(values.keys.first())
-            persist()
-        }
-
-        fun clear() {
-            values.clear()
-            preferences.edit { remove(key) }
-        }
-
-        private fun prune(nowMs: Long) {
-            val changed = values.entries.removeAll { it.value <= nowMs }
-            if (changed) persist()
-        }
-
-        private fun load(): LinkedHashMap<String, Long> {
-            val type = object : TypeToken<Map<String, Long>>() {}.type
-            val decoded: Map<String, Long> = runCatching {
-                preferences.getString(key, null)
-                    ?.let { json -> gson.fromJson<Map<String, Long>>(json, type) }
-            }.getOrNull() ?: emptyMap()
-            return LinkedHashMap(decoded)
-        }
-
-        private fun persist() {
-            preferences.edit { putString(key, gson.toJson(values)) }
-        }
-    }
 }

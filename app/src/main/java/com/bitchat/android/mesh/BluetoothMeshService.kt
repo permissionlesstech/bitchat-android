@@ -8,7 +8,6 @@ import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.RoutedPacket
-import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.protocol.BitchatPacket
@@ -19,6 +18,7 @@ import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.service.TransportBridgeService
+import com.bitchat.android.services.bridge.BridgeProtocolPacketFactory
 import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -908,7 +908,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 val nickname = runCatching {
                     com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID)
                 }.getOrNull()
-                com.bitchat.android.services.bridge.MeshBridgeService.bridgeOutgoing(
+                BridgeMeshPort.bridgeOutgoing(
                     content,
                     myPeerID,
                     packet.timestamp.toLong(),
@@ -938,16 +938,13 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     ) {
         if (payload.isEmpty()) return
         serviceScope.launch {
-            val packet = BitchatPacket(
-                version = if (payload.size > 0xFFFF) 2u else 1u,
-                type = type.value,
-                senderID = hexStringToByteArray(myPeerID),
-                recipientID = recipientPeerID?.let(::hexStringToByteArray),
-                timestamp = System.currentTimeMillis().toULong(),
+            val packet = BridgeProtocolPacketFactory.protocolPacket(
+                type = type,
                 payload = payload,
-                signature = null,
+                senderPeerId = myPeerID,
+                recipientPeerId = recipientPeerID,
                 ttl = MAX_TTL
-            )
+            ) ?: return@launch
             val outgoing = if (sign) signPacketBeforeBroadcast(packet) else packet
             if (sign && outgoing.signature?.size != 64) return@launch
             broadcastRoutedPacket(RoutedPacket(outgoing))
@@ -1286,11 +1283,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             // Create iOS-compatible IdentityAnnouncement with TLV encoding
-            val announcement = IdentityAnnouncement.forLocalPeer(
+            val announcement = BridgeProtocolPacketFactory.identityAnnouncement(
                 nickname,
                 staticKey,
-                signingKey,
-                com.bitchat.android.services.bridge.MeshBridgeService.advertisedCell()
+                signingKey
             )
             var tlvPayload = announcement.encode()
             if (tlvPayload == null) {
@@ -1354,11 +1350,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         }
         
         // Create iOS-compatible IdentityAnnouncement with TLV encoding
-        val announcement = IdentityAnnouncement.forLocalPeer(
+        val announcement = BridgeProtocolPacketFactory.identityAnnouncement(
             nickname,
             staticKey,
-            signingKey,
-            com.bitchat.android.services.bridge.MeshBridgeService.advertisedCell()
+            signingKey
         )
         var tlvPayload = announcement.encode()
         if (tlvPayload == null) {
