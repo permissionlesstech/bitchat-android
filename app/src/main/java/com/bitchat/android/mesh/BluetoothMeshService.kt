@@ -21,6 +21,7 @@ import com.bitchat.android.services.VerificationService
 import com.bitchat.android.service.TransportBridgeService
 import kotlinx.coroutines.*
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.sign
 import kotlin.random.Random
 
@@ -127,6 +128,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private var announceJob: Job? = null
     // Tracks whether this instance has been terminated via stopServices()
     private var terminated = false
+    private val provisionalBleClaims =
+        ConcurrentHashMap<String, AuthenticatedBleLinkPolicy.Claim>()
     
     init {
         Log.i(TAG, "Initializing BluetoothMeshService for peer=$myPeerID")
@@ -285,6 +288,22 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     authenticatedRemoteStaticKey,
                     authenticatedSessionToken
                 )
+                val expectedClaim = provisionalBleClaims.remove(peerID)
+                if (AuthenticatedBleLinkPolicy.matches(expectedClaim, directRelayAddress, ingressLinkID)) {
+                    val authenticatedClaim = checkNotNull(expectedClaim)
+                    if (connectionManager.bindPeerIfCurrent(
+                            authenticatedClaim.deviceAddress,
+                            authenticatedClaim.linkID,
+                            peerID
+                        )
+                    ) {
+                        Log.i(TAG, "Authenticated BLE link $directRelayAddress as $peerID")
+                        try { peerManager.refreshPeerList() } catch (_: Exception) { }
+                        try { gossipSyncManager.scheduleInitialSyncToPeer(peerID, 1_000) } catch (_: Exception) { }
+                    } else {
+                        Log.w(TAG, "Ignoring Noise completion for stale BLE link $directRelayAddress")
+                    }
+                }
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
                     Log.d(TAG, "Key exchange completed with $peerID; sending follow-ups")
@@ -562,17 +581,40 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 val result = messageHandler.handleAnnounceWithResult(routed)
                 if (result !is AnnounceHandlingResult.Accepted) return false
 
-                // Map device address -> peerID only after identity binding, signature, freshness,
-                // and peer replacement policy have all accepted the announce.
                 val deviceAddress = routed.relayAddress
                 val pid = routed.peerID
-                if (deviceAddress != null && pid != null) {
-                    val isDirect = routed.packet.ttl == com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
-                    if (isDirect) {
-                        connectionManager.addressPeerMap[deviceAddress] = pid
-                        Log.d(TAG, "Mapped device $deviceAddress to peer $pid (TTL=${routed.packet.ttl})")
-                        try { peerManager.refreshPeerList() } catch (_: Exception) { }
-                        try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
+                val linkID = routed.ingressLinkID
+                val isDirect = routed.packet.ttl == com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
+                val alreadyAuthenticated = deviceAddress != null &&
+                    pid != null &&
+                    connectionManager.addressPeerMap[deviceAddress] == pid
+                if (deviceAddress != null && linkID != null && pid != null && isDirect && !alreadyAuthenticated) {
+                    try {
+                        val claim = AuthenticatedBleLinkPolicy.Claim(deviceAddress, linkID)
+                        provisionalBleClaims[pid] = claim
+                        val handshakeData = encryptionService.initiateHandshake(pid, replaceEstablished = true)
+                        if (handshakeData != null) {
+                            val handshake = signPacketBeforeBroadcast(
+                                BitchatPacket(
+                                    version = 1u,
+                                    type = MessageType.NOISE_HANDSHAKE.value,
+                                    senderID = hexStringToByteArray(myPeerID),
+                                    recipientID = hexStringToByteArray(pid),
+                                    timestamp = System.currentTimeMillis().toULong(),
+                                    payload = handshakeData,
+                                    ttl = MAX_TTL
+                                )
+                            )
+                            if (!connectionManager.sendPacketToAddress(deviceAddress, handshake)) {
+                                provisionalBleClaims.remove(pid, claim)
+                                Log.w(TAG, "Could not send Noise handshake on BLE link $deviceAddress")
+                            }
+                        } else {
+                            provisionalBleClaims.remove(pid, claim)
+                        }
+                    } catch (e: Exception) {
+                        provisionalBleClaims.remove(pid, AuthenticatedBleLinkPolicy.Claim(deviceAddress, linkID))
+                        Log.w(TAG, "Could not authenticate provisional BLE claim for $pid: ${e.message}")
                     }
                 }
                 try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
@@ -634,7 +676,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         // BluetoothConnectionManager delegates
         connectionManager.delegate = object : BluetoothConnectionManagerDelegate {
-        override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: android.bluetooth.BluetoothDevice?) {
+        override fun onPacketReceived(
+            packet: BitchatPacket,
+            peerID: String,
+            device: android.bluetooth.BluetoothDevice?
+        ) {
+            val ingressLinkID = device?.address?.let(connectionManager::getCurrentLinkID)
             // Log incoming for debug graphs (do not double-count anywhere else)
             try {
                 com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
@@ -645,7 +692,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     myPeerID = myPeerID
                 )
             } catch (_: Exception) { }
-            packetProcessor.processPacket(RoutedPacket(packet, peerID, device?.address))
+            packetProcessor.processPacket(
+                RoutedPacket(packet, peerID, device?.address, ingressLinkID = ingressLinkID)
+            )
         }
             
             override fun onDeviceConnected(device: android.bluetooth.BluetoothDevice) {

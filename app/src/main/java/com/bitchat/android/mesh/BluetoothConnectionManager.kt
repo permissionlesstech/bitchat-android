@@ -88,6 +88,12 @@ class BluetoothConnectionManager(
     // Public property for address-peer mapping
     val addressPeerMap get() = connectionTracker.addressPeerMap
 
+    fun bindPeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
+        connectionTracker.bindPeerIfCurrent(deviceAddress, linkID, peerID)
+
+    fun getCurrentLinkID(deviceAddress: String): String? =
+        connectionTracker.getCurrentLinkID(deviceAddress)
+
     private fun isBleTransportEnabled(): Boolean {
         return try {
             com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
@@ -355,6 +361,16 @@ class BluetoothConnectionManager(
         return packetBroadcaster.sendPacketToPeer(
             RoutedPacket(packet),
             peerID,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
+    fun sendPacketToAddress(deviceAddress: String, packet: BitchatPacket): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+        return packetBroadcaster.sendPacketToAddress(
+            RoutedPacket(packet),
+            deviceAddress,
             serverManager.getGattServer(),
             serverManager.getCharacteristic()
         )

@@ -98,7 +98,7 @@ class NoiseSessionManager(
      * SIMPLIFIED: Initiate handshake - no tie breaker, just start
      */
     @Synchronized
-    fun initiateHandshake(peerID: String): ByteArray? {
+    fun initiateHandshake(peerID: String, replaceEstablished: Boolean = false): ByteArray? {
         Log.d(TAG, "initiateHandshake($peerID)")
 
         val now = System.currentTimeMillis()
@@ -106,8 +106,20 @@ class NoiseSessionManager(
         if (existing != null) {
             when {
                 existing.isEstablished() -> {
-                    Log.d(TAG, "Handshake already established with $peerID, skipping initiate")
-                    return null
+                    if (!replaceEstablished) {
+                        Log.d(TAG, "Handshake already established with $peerID, skipping initiate")
+                        return null
+                    }
+                    val candidate = createSession(peerID, isInitiator = true)
+                    responderCandidates.remove(peerID)?.destroy()
+                    responderCandidates[peerID] = candidate
+                    return try {
+                        candidate.startHandshake()
+                    } catch (e: Exception) {
+                        responderCandidates.remove(peerID, candidate)
+                        candidate.destroy()
+                        throw e
+                    }
                 }
                 existing.isHandshaking() -> {
                     if (!isHandshakeStale(existing, now)) {

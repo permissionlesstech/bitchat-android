@@ -259,6 +259,31 @@ class NoiseSessionManagerIdentityBindingTest {
     }
 
     @Test
+    fun `fresh initiator replacement preserves active session until authentication completes`() {
+        val alice = identity()
+        val bob = identity()
+        val aliceManager = manager(alice)
+        val originalBobManager = manager(bob)
+
+        completeHandshake(aliceManager, alice.peerID, originalBobManager, bob.peerID)
+        val originalSession = aliceManager.getSession(bob.peerID)
+
+        val restartedBobManager = manager(bob)
+        val message1 = aliceManager.initiateHandshake(bob.peerID, replaceEstablished = true)!!
+        assertSame(originalSession, aliceManager.getSession(bob.peerID))
+        assertTrue(aliceManager.hasEstablishedSession(bob.peerID))
+
+        val message2 = restartedBobManager.processHandshakeMessage(alice.peerID, message1)!!
+        val message3 = aliceManager.processHandshakeMessage(bob.peerID, message2)!!
+        assertNull(restartedBobManager.processHandshakeMessage(alice.peerID, message3))
+
+        assertNotSame(originalSession, aliceManager.getSession(bob.peerID))
+        val plaintext = "fresh link authenticated".toByteArray()
+        val ciphertext = aliceManager.encrypt(plaintext, bob.peerID)
+        assertArrayEquals(plaintext, restartedBobManager.decrypt(ciphertext, alice.peerID))
+    }
+
+    @Test
     fun `peer ID derivation rejects malformed keys and non-wire claims`() {
         val peer = identity()
 

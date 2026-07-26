@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.UUID
 
 /**
  * Tracks all Bluetooth connections and handles cleanup
@@ -31,6 +32,7 @@ class BluetoothConnectionTracker(
     private val firstAnnounceSeen = ConcurrentHashMap<String, Boolean>()
     // RSSI tracking from scan results (for devices we discover but may connect as servers)
     private val scanRSSI = ConcurrentHashMap<String, Int>()
+    private val peerBindingLock = Any()
     
     /**
      * Consolidated device connection information
@@ -42,7 +44,9 @@ class BluetoothConnectionTracker(
         val rssi: Int = Int.MIN_VALUE,
         val isClient: Boolean = false,
         val connectedAt: Long = System.currentTimeMillis(),
-        val peerID: String? = null
+        val peerID: String? = null,
+        /** Unique to this GATT connection, even when Android reuses the device address. */
+        val linkID: String = UUID.randomUUID().toString()
     )
     
     override fun start() {
@@ -73,7 +77,11 @@ class BluetoothConnectionTracker(
      */
     fun addDeviceConnection(deviceAddress: String, deviceConn: DeviceConnection) {
         Log.d(TAG, "Tracker: Adding device connection for $deviceAddress (isClient: ${deviceConn.isClient}")
-        connectedDevices[deviceAddress] = deviceConn
+        synchronized(peerBindingLock) {
+            connectedDevices[deviceAddress] = deviceConn
+            // A mapping authenticates a GATT connection, not a reusable Bluetooth address.
+            addressPeerMap.remove(deviceAddress)
+        }
         removePendingConnection(deviceAddress)
         // Mark as awaiting first ANNOUNCE on this connection
         firstAnnounceSeen[deviceAddress] = false
@@ -92,6 +100,17 @@ class BluetoothConnectionTracker(
     fun getDeviceConnection(deviceAddress: String): DeviceConnection? {
         return connectedDevices[deviceAddress]
     }
+
+    fun getCurrentLinkID(deviceAddress: String): String? =
+        connectedDevices[deviceAddress]?.linkID
+
+    fun bindPeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
+        synchronized(peerBindingLock) {
+            if (connectedDevices[deviceAddress]?.linkID != linkID) return@synchronized false
+            addressPeerMap.entries.removeIf { it.value == peerID && it.key != deviceAddress }
+            addressPeerMap[deviceAddress] = peerID
+            true
+        }
     
     /**
      * Get all connected devices
