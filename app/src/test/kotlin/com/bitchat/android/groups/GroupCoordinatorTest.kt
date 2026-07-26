@@ -1,6 +1,7 @@
 package com.bitchat.android.groups
 
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.PeerCapabilities
 import java.security.MessageDigest
 import java.util.Date
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
@@ -14,6 +15,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GroupCoordinatorTest {
+    @Test
+    fun `peer group capability distinguishes unknown unsupported and supported state`() {
+        assertEquals(
+            PeerGroupCapability.UNKNOWN,
+            PeerGroupCapability.fromPeerState(null, hasVerifiedAnnouncement = false)
+        )
+        assertEquals(
+            PeerGroupCapability.UNSUPPORTED,
+            PeerGroupCapability.fromPeerState(null, hasVerifiedAnnouncement = true)
+        )
+        assertEquals(
+            PeerGroupCapability.UNSUPPORTED,
+            PeerGroupCapability.fromPeerState(
+                PeerCapabilities.PRIVATE_MEDIA,
+                hasVerifiedAnnouncement = false
+            )
+        )
+        assertEquals(
+            PeerGroupCapability.SUPPORTED,
+            PeerGroupCapability.fromPeerState(
+                PeerCapabilities.GROUPS,
+                hasVerifiedAnnouncement = false
+            )
+        )
+    }
+
     @Test
     fun `creator invite rotates epoch and sends creator-signed state`() {
         val localKey = privateKey(0x11)
@@ -45,6 +72,38 @@ class GroupCoordinatorTest {
         assertTrue(state.verifyCreatorSignature())
         assertEquals(updated, state.asGroup())
         assertArrayEquals(updatedKey, state.key)
+    }
+
+    @Test
+    fun `invite requires confirmed group capability`() {
+        val localKey = privateKey(0x12)
+        val inviteeKey = privateKey(0x13)
+        val peerID = "13".repeat(8)
+        val context = FakeGroupContext(localKey, "12".repeat(32))
+        context.peerIDs["alice"] = peerID
+        context.connected += peerID
+        context.peerNames[peerID] = "alice"
+        context.identities[peerID] = GroupPeerIdentity(
+            "13".repeat(32),
+            inviteeKey.generatePublicKey().encoded
+        )
+        val coordinator = GroupCoordinator(context)
+        assertTrue(coordinator.createGroup("trail crew").success)
+        val original = context.groupStore.groups.value.single()
+
+        context.groupCapabilities[peerID] = PeerGroupCapability.UNSUPPORTED
+        val unsupported = coordinator.inviteMember("@alice")
+        assertFalse(unsupported.success)
+        assertTrue(unsupported.message.contains("does not support"))
+        assertEquals(original, context.groupStore.groups.value.single())
+        assertTrue(context.invites.isEmpty())
+
+        context.groupCapabilities[peerID] = PeerGroupCapability.UNKNOWN
+        val unknown = coordinator.inviteMember("@alice")
+        assertFalse(unknown.success)
+        assertTrue(unknown.message.contains("not confirmed"))
+        assertEquals(original, context.groupStore.groups.value.single())
+        assertTrue(context.invites.isEmpty())
     }
 
     @Test
@@ -102,6 +161,68 @@ class GroupCoordinatorTest {
         assertTrue(original.peerID in context.removedConversations)
         assertNull(context.selected)
         assertTrue(context.systemMessages.single().contains("removed"))
+    }
+
+    @Test
+    fun `stale removal state cannot delete a newer membership`() {
+        val creatorKey = privateKey(0x76)
+        val localKey = privateKey(0x77)
+        val creatorStatic = ByteArray(32) { 0x78 }
+        val creatorFingerprint = fingerprint(creatorStatic)
+        val localFingerprint = "79".repeat(32)
+        val context = FakeGroupContext(localKey, localFingerprint)
+        val current = incomingGroup(
+            creatorKey,
+            creatorFingerprint,
+            localKey,
+            localFingerprint
+        ).copy(epoch = 3)
+        assertTrue(context.groupStore.upsert(current, ByteArray(32) { 0x7a }))
+        context.selected = current.peerID
+
+        val staleRemoval = current.copy(
+            epoch = 2,
+            members = listOf(current.members.first())
+        )
+        val payload = signedState(staleRemoval, creatorKey, ByteArray(32))
+        GroupCoordinator(context).handleKeyUpdate("creator", creatorStatic, payload)
+
+        assertEquals(current, context.groupStore.group(current.groupID))
+        assertNotNull(context.groupStore.key(current.groupID))
+        assertEquals(current.peerID, context.selected)
+        assertTrue(context.removedConversations.isEmpty())
+        assertTrue(context.systemMessages.isEmpty())
+    }
+
+    @Test
+    fun `creator cannot leave while other members remain`() {
+        val localKey = privateKey(0x14)
+        val memberKey = privateKey(0x15)
+        val context = FakeGroupContext(localKey, "14".repeat(32))
+        val coordinator = GroupCoordinator(context)
+        assertTrue(coordinator.createGroup("trail crew").success)
+        val created = context.groupStore.groups.value.single()
+        val withMember = created.copy(
+            members = created.members + GroupMember(
+                "15".repeat(32),
+                memberKey.generatePublicKey().encoded,
+                "alice"
+            )
+        )
+        assertTrue(
+            context.groupStore.upsert(
+                withMember,
+                context.groupStore.key(created.groupID)!!
+            )
+        )
+
+        val result = coordinator.leaveGroup()
+
+        assertFalse(result.success)
+        assertTrue(result.message.contains("remove all other members"))
+        assertEquals(withMember, context.groupStore.group(created.groupID))
+        assertEquals(withMember.peerID, context.selected)
+        assertTrue(context.removedConversations.isEmpty())
     }
 
     @Test
@@ -222,6 +343,7 @@ private class FakeGroupContext(
     var selected: String? = null
     val peerIDs = mutableMapOf<String, String>()
     val connected = mutableSetOf<String>()
+    val groupCapabilities = mutableMapOf<String, PeerGroupCapability>()
     val peerNames = mutableMapOf<String, String>()
     val identities = mutableMapOf<String, GroupPeerIdentity>()
     val connectedFingerprints = mutableMapOf<String, String>()
@@ -246,6 +368,8 @@ private class FakeGroupContext(
 
     override fun peerIDForNickname(nickname: String) = peerIDs[nickname]
     override fun isPeerConnected(peerID: String) = peerID in connected
+    override fun peerGroupCapability(peerID: String) =
+        groupCapabilities[peerID] ?: PeerGroupCapability.SUPPORTED
     override fun peerNickname(peerID: String) = peerNames[peerID]
     override fun peerIdentity(peerID: String) = identities[peerID]
     override fun connectedPeerID(fingerprint: String) = connectedFingerprints[fingerprint]

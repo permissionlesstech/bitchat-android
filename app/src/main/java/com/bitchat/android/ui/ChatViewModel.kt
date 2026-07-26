@@ -37,6 +37,7 @@ import com.bitchat.android.groups.GroupCoordinatorContext
 import com.bitchat.android.groups.GroupIds
 import com.bitchat.android.groups.GroupPeerIdentity
 import com.bitchat.android.groups.GroupStore
+import com.bitchat.android.groups.PeerGroupCapability
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
@@ -149,6 +150,14 @@ class ChatViewModel(
 
         override fun isPeerConnected(peerID: String): Boolean =
             mesh.getPeerInfo(peerID)?.isConnected == true && mesh.hasEstablishedSession(peerID)
+
+        override fun peerGroupCapability(peerID: String): PeerGroupCapability {
+            val peerInfo = mesh.getPeerInfo(peerID) ?: return PeerGroupCapability.UNKNOWN
+            return PeerGroupCapability.fromPeerState(
+                peerInfo.capabilities,
+                peerInfo.hasVerifiedAnnouncement
+            )
+        }
 
         override fun peerNickname(peerID: String): String? =
             mesh.getPeerNicknames()[peerID]

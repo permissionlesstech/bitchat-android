@@ -2,6 +2,7 @@ package com.bitchat.android.groups
 
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.model.PeerCapabilities
 import java.util.Date
 import java.util.UUID
 
@@ -15,6 +16,23 @@ data class GroupCommandResult(
     val message: String
 )
 
+enum class PeerGroupCapability {
+    SUPPORTED,
+    UNSUPPORTED,
+    UNKNOWN;
+
+    companion object {
+        fun fromPeerState(
+            capabilities: PeerCapabilities?,
+            hasVerifiedAnnouncement: Boolean
+        ): PeerGroupCapability = when {
+            capabilities?.contains(PeerCapabilities.GROUPS) == true -> SUPPORTED
+            capabilities != null || hasVerifiedAnnouncement -> UNSUPPORTED
+            else -> UNKNOWN
+        }
+    }
+}
+
 interface GroupCoordinatorContext {
     val groupStore: GroupStore
     val nickname: String
@@ -27,6 +45,7 @@ interface GroupCoordinatorContext {
 
     fun peerIDForNickname(nickname: String): String?
     fun isPeerConnected(peerID: String): Boolean
+    fun peerGroupCapability(peerID: String): PeerGroupCapability
     fun peerNickname(peerID: String): String?
     fun peerIdentity(peerID: String): GroupPeerIdentity?
     fun connectedPeerID(fingerprint: String): String?
@@ -76,6 +95,13 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         val peerID = context.peerIDForNickname(nickname)
             ?: return error("user '$nickname' was not found")
         if (!context.isPeerConnected(peerID)) return error("$nickname is not connected")
+        when (context.peerGroupCapability(peerID)) {
+            PeerGroupCapability.SUPPORTED -> Unit
+            PeerGroupCapability.UNSUPPORTED ->
+                return error("$nickname does not support private groups")
+            PeerGroupCapability.UNKNOWN ->
+                return error("private-group support for $nickname is not confirmed yet; try again")
+        }
         val identity = context.peerIdentity(peerID)
             ?: return error("$nickname does not have a verified mesh identity")
         if (group.isMember(identity.fingerprint)) return error("$nickname is already a member")
@@ -124,6 +150,9 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
 
     fun leaveGroup(): GroupCommandResult {
         val group = selectedGroup() ?: return error("open a private group first")
+        if (isCreator(group) && group.members.size > 1) {
+            return error("remove all other members before leaving this group")
+        }
         context.closeGroupConversation()
         context.removeGroupConversation(group.peerID)
         context.groupStore.removeGroup(group.groupID)
@@ -260,6 +289,10 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
 
         val ownFingerprint = context.myNoiseFingerprint()
         val existing = context.groupStore.group(state.groupID)
+        // Reject stale state before interpreting a missing-self roster as a
+        // removal. Otherwise an old, valid removal notice could delete a
+        // membership restored by a later creator-signed re-invite.
+        if (existing != null && state.epoch < existing.epoch) return
         if (state.members.none { it.fingerprint == ownFingerprint }) {
             if (existing != null) {
                 if (context.selectedConversationID == existing.peerID) {
@@ -271,7 +304,6 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
             }
             return
         }
-        if (existing != null && state.epoch < existing.epoch) return
         if (!context.groupStore.upsert(state.asGroup(), state.key)) return
 
         if (existing == null) {
