@@ -1,0 +1,185 @@
+name: Build BitChat Android APKs
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - debug
+          - release
+
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  build:
+    name: Build APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Build Debug APK
+        if: ${{ github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == '' }}
+        run: ./gradlew assembleDebug --no-daemon --max-workers=2
+        continue-on-error: false
+
+      - name: Generate Release Keystore
+        if: ${{ github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'release' || github.event.inputs.build_type == '' }}
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          if [ ! -f "bitchat-release.keystore" ]; then
+            echo "Generating keystore for release build..."
+            keytool -genkeypair -v \
+              -keystore bitchat-release.keystore \
+              -alias bitchat \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "${KEYSTORE_PASSWORD:-BitchatRelease2025!}" \
+              -keypass "${KEYSTORE_PASSWORD:-BitchatRelease2025!}" \
+              -dname "CN=BitChat Android, OU=Security, O=Permissionless Tech, L=Global, ST=World, C=US"
+            
+            # Create keystore.properties
+            echo "storeFile=bitchat-release.keystore" > app/keystore.properties
+            echo "storePassword=${KEYSTORE_PASSWORD:-BitchatRelease2025!}" >> app/keystore.properties
+            echo "keyAlias=bitchat" >> app/keystore.properties
+            echo "keyPassword=${KEYSTORE_PASSWORD:-BitchatRelease2025!}" >> app/keystore.properties
+          fi
+
+      - name: Build Release APK
+        if: ${{ github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'release' || github.event.inputs.build_type == '' }}
+        run: ./gradlew assembleRelease --no-daemon --max-workers=2
+        continue-on-error: true
+
+      - name: List APK files
+        run: |
+          echo "=== Debug APKs ==="
+          find app/build/outputs/apk/debug -name "*.apk" -exec ls -lh {} \; 2>/dev/null || echo "No debug APKs found"
+          echo ""
+          echo "=== Release APKs ==="
+          find app/build/outputs/apk/release -name "*.apk" -exec ls -lh {} \; 2>/dev/null || echo "No release APKs found"
+
+      - name: Upload Debug APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apks
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Release APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apks
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Release Keystore
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keystore
+          path: bitchat-release.keystore
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Create Release
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v1.7.2-${{ github.run_number }}
+          name: BitChat Android ${{ github.run_number }}
+          body: |
+            ## BitChat Android Build
+            
+            **Build Number:** ${{ github.run_number }}
+            **Commit:** ${{ github.sha }}
+            
+            ### APKs Included:
+            - Debug APKs (for testing)
+            - Release APKs (signed, for production)
+            
+            ### Installation:
+            1. Download the appropriate APK for your device
+            2. Enable "Install from unknown sources"
+            3. Open the APK to install
+          files: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: build
+    if: always()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run unit tests
+        run: ./gradlew test --no-daemon
+        continue-on-error: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: app/build/reports/tests/
+          retention-days: 7

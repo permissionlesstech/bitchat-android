@@ -63,3 +63,9 @@ google-services.json
 # Arti build artifacts (cloned repo and Rust build cache)
 tools/arti-build/.arti-source/
 tools/arti-build/target/
+
+# Keystore properties (secrets)
+keystore.properties
+
+# Kotlin build sessions
+.kotlin/

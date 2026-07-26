@@ -1,0 +1,36 @@
+name: Build OpenClaw APK
+
+on:
+  push:
+    branches: [ feature/openclaw-integration ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: feature/openclaw-integration
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+      
+      - name: Build Debug APK
+        run: |
+          ./gradlew assembleDebug --console=plain
+      
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openclaw-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 7

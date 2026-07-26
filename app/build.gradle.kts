@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,6 +10,21 @@ plugins {
 android {
     namespace = "com.bitchat.android"
     compileSdk = libs.versions.compileSdk.get().toInt()
+    
+    // Signing configuration for release builds
+    val keystoreFile = file("keystore.properties")
+    if (keystoreFile.exists()) {
+        val props = Properties()
+        props.load(keystoreFile.inputStream())
+        signingConfigs {
+            create("release") {
+                storeFile = file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.bitchat.droid"
@@ -43,6 +60,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Use signing config for release builds
+            if (file("keystore.properties").exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
