@@ -40,13 +40,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.R
+import com.bitchat.android.core.ui.component.text.AnnotatedClickableText
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
@@ -275,23 +275,21 @@ fun MessageItem(
                 timeFormatter = timeFormatter
             )
             val haptic = LocalHapticFeedback.current
-            var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-            Text(
+            AnnotatedClickableText(
                 text = headerText,
+                annotationTags = listOf("nickname_click"),
+                onAnnotationClick = { tag, item ->
+                    if (tag == "nickname_click" && onNicknameClick != null) {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onNicknameClick.invoke(item)
+                        true
+                    } else {
+                        false
+                    }
+                },
+                onLongPress = { onMessageLongPress?.invoke(message) },
                 fontFamily = FontFamily.Monospace,
                 color = colorScheme.onSurface,
-                modifier = Modifier.pointerInput(message.id) {
-                    detectTapGestures(onTap = { pos ->
-                        val layout = headerLayout ?: return@detectTapGestures
-                        val offset = layout.getOffsetForPosition(pos)
-                        val ann = headerText.getStringAnnotations("nickname_click", offset, offset)
-                        if (ann.isNotEmpty() && onNicknameClick != null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onNicknameClick.invoke(ann.first().item)
-                        }
-                    }, onLongPress = { onMessageLongPress?.invoke(message) })
-                },
-                onTextLayout = { headerLayout = it }
             )
 
             // Try to load the file packet from the path
@@ -423,8 +421,6 @@ fun MessageItem(
             message.sender.startsWith("$currentUserNickname#")
         val haptic = LocalHapticFeedback.current
         val context = LocalContext.current
-        var senderLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-        var bodyLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
         Column(
             modifier = modifier
@@ -437,37 +433,26 @@ fun MessageItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
+                AnnotatedClickableText(
                     text = senderText,
-                    modifier = Modifier
-                        .weight(1f)
-                        .pointerInput(message.id, isSelf) {
-                            detectTapGestures(
-                                onTap = { position ->
-                                    if (isSelf || onNicknameClick == null) {
-                                        return@detectTapGestures
-                                    }
-                                    val offset = senderLayout
-                                        ?.getOffsetForPosition(position)
-                                        ?: return@detectTapGestures
-                                    val annotation = senderText.getStringAnnotations(
-                                        tag = "nickname_click",
-                                        start = offset,
-                                        end = offset
-                                    ).firstOrNull() ?: return@detectTapGestures
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onNicknameClick.invoke(annotation.item)
-                                },
-                                onLongPress = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onMessageLongPress?.invoke(message)
-                                }
-                            )
-                        },
+                    annotationTags = listOf("nickname_click"),
+                    onAnnotationClick = { tag, item ->
+                        if (tag == "nickname_click" && !isSelf && onNicknameClick != null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onNicknameClick.invoke(item)
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                    onLongPress = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onMessageLongPress?.invoke(message)
+                    },
+                    modifier = Modifier.weight(1f),
                     fontFamily = FontFamily.Monospace,
                     softWrap = false,
                     overflow = TextOverflow.Ellipsis,
-                    onTextLayout = { senderLayout = it }
                 )
                 Text(
                     text = metadataText,
@@ -476,56 +461,44 @@ fun MessageItem(
                 )
             }
 
-            Text(
+            AnnotatedClickableText(
                 text = bodyText,
-                modifier = Modifier.pointerInput(message.id) {
-                    detectTapGestures(
-                        onTap = { position ->
-                            val offset = bodyLayout
-                                ?.getOffsetForPosition(position)
-                                ?: return@detectTapGestures
-                            val geohash = bodyText.getStringAnnotations(
-                                tag = "geohash_click",
-                                start = offset,
-                                end = offset
-                            ).firstOrNull()?.item
-                            if (geohash != null) {
-                                try {
-                                    val locationManager =
-                                        com.bitchat.android.geohash.LocationChannelManager.getInstance(context)
-                                    val level = when (geohash.length) {
-                                        in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
-                                        in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
-                                        5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
-                                        6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
-                                        else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
-                                    }
-                                    val channel = com.bitchat.android.geohash.GeohashChannel(
-                                        level,
-                                        geohash.lowercase()
-                                    )
-                                    locationManager.setTeleported(true)
-                                    locationManager.select(
-                                        com.bitchat.android.geohash.ChannelID.Location(channel)
-                                    )
-                                } catch (_: Exception) {
+                annotationTags = listOf("geohash_click", "url_click"),
+                onAnnotationClick = { tag, item ->
+                    when (tag) {
+                        "geohash_click" -> {
+                            try {
+                                val locationManager =
+                                    com.bitchat.android.geohash.LocationChannelManager.getInstance(context)
+                                val level = when (item.length) {
+                                    in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
+                                    in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                                    5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
+                                    6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
+                                    else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
                                 }
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                return@detectTapGestures
+                                val channel = com.bitchat.android.geohash.GeohashChannel(
+                                    level,
+                                    item.lowercase()
+                                )
+                                locationManager.setTeleported(true)
+                                locationManager.select(
+                                    com.bitchat.android.geohash.ChannelID.Location(channel)
+                                )
+                            } catch (_: Exception) {
                             }
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            true
+                        }
 
-                            val rawUrl = bodyText.getStringAnnotations(
-                                tag = "url_click",
-                                start = offset,
-                                end = offset
-                            ).firstOrNull()?.item ?: return@detectTapGestures
+                        "url_click" -> {
                             val resolvedUrl = if (
-                                rawUrl.startsWith("http://", ignoreCase = true) ||
-                                rawUrl.startsWith("https://", ignoreCase = true)
+                                item.startsWith("http://", ignoreCase = true) ||
+                                item.startsWith("https://", ignoreCase = true)
                             ) {
-                                rawUrl
+                                item
                             } else {
-                                "https://$rawUrl"
+                                "https://$item"
                             }
                             try {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(resolvedUrl))
@@ -534,18 +507,20 @@ fun MessageItem(
                             } catch (_: Exception) {
                             }
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        },
-                        onLongPress = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onMessageLongPress?.invoke(message)
+                            true
                         }
-                    )
+
+                        else -> false
+                    }
+                },
+                onLongPress = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onMessageLongPress?.invoke(message)
                 },
                 fontFamily = FontFamily.Monospace,
                 softWrap = true,
                 overflow = TextOverflow.Visible,
                 style = androidx.compose.ui.text.TextStyle(color = colorScheme.onSurface),
-                onTextLayout = { bodyLayout = it },
             )
         }
     }
