@@ -1,7 +1,6 @@
 package com.bitchat.android.ui
 
 import com.bitchat.android.ui.theme.BitchatFontFamily
-import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] TODO: Replace inline file attachment stub with FilePickerButton abstraction that dispatches via FileShareDispatcher
 
 
@@ -28,6 +27,8 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -707,13 +708,18 @@ fun MentionSuggestionsBox(
 ) {
     val palette = LocalBitchatPalette.current
 
-    Column(
+    LazyColumn(
         modifier = modifier
+            .heightIn(max = MentionSuggestionsMaxHeight)
+            .clip(MentionSuggestionsShape)
             .background(palette.surface)
-            .border(1.dp, palette.outlineVariant, RoundedCornerShape(8.dp))
-            .padding(vertical = 6.dp)
+            .border(1.dp, palette.outlineVariant, MentionSuggestionsShape),
+        contentPadding = PaddingValues(vertical = MentionSuggestionsVerticalPadding)
     ) {
-        suggestions.forEach { suggestion: String ->
+        items(
+            items = suggestions,
+            key = { suggestion -> suggestion.lowercase() }
+        ) { suggestion ->
             MentionSuggestionItem(
                 suggestion = suggestion,
                 onClick = { onSuggestionClick(suggestion) }
@@ -732,8 +738,9 @@ fun MentionSuggestionItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(MentionSuggestionRowHeight)
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -743,10 +750,13 @@ fun MentionSuggestionItem(
                 fontWeight = FontWeight.SemiBold
             ),
             color = palette.accentOrange,
-            fontSize = (BASE_FONT_SIZE - 2).sp
+            fontSize = (BASE_FONT_SIZE - 2).sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Text(
             text = stringResource(R.string.mention),
@@ -754,7 +764,16 @@ fun MentionSuggestionItem(
                 fontFamily = BitchatFontFamily
             ),
             color = palette.textTertiary,
-            fontSize = (BASE_FONT_SIZE - 4).sp
+            fontSize = (BASE_FONT_SIZE - 4).sp,
+            maxLines = 1
         )
     }
 }
+
+/** Mention autocomplete stays compact even in crowded channels. */
+internal const val MaxVisibleMentionSuggestions = 5
+private val MentionSuggestionRowHeight = 48.dp
+private val MentionSuggestionsVerticalPadding = 6.dp
+private val MentionSuggestionsMaxHeight =
+    (48 * MaxVisibleMentionSuggestions + 12).dp
+private val MentionSuggestionsShape = RoundedCornerShape(8.dp)
