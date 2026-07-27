@@ -73,7 +73,7 @@
 
   <!-- Chat header &amp; accessibility -->
   <string name="cd_nostr_reachable">Nostr reachable</string>
-  <string name="cd_unread_private_messages">Unread private messages</string>
+  <string name="cd_unread_private_messages">Messages</string>
   <string name="cd_location_notes">Location notes</string>
   <string name="cd_teleported">Teleported</string>
   <string name="cd_tor_status">Tor status</string>
