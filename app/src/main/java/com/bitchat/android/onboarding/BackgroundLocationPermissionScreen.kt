@@ -38,8 +38,8 @@ import com.bitchat.android.R
 /**
  * Explanation screen shown before requesting background location permission.
  *
- * Bottom action layout matches [BatteryOptimizationEnabledContent] so the
- * primary / check-again / skip buttons stay pixel-aligned across the two screens.
+ * Bottom action layout matches the battery optimization skip screen so the
+ * primary / check-again / skip buttons stay pixel-aligned across both screens.
  */
 @Composable
 fun BackgroundLocationPermissionScreen(
