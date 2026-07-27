@@ -3,6 +3,17 @@ package com.bitchat.android.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -45,6 +57,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.R
@@ -55,6 +68,7 @@ import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.ui.media.FileMessageItem
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.ui.theme.MessageBodyTextStyle
 import com.bitchat.android.ui.theme.MessageSenderTextStyle
@@ -68,6 +82,82 @@ import java.util.Locale
  * Message display components for ChatScreen
  * Extracted from ChatScreen.kt for better organization
  */
+
+/** How far a newly arrived message travels up into place. */
+private val MessageEntrySlide = 14.dp
+
+/**
+ * Entry motion for a new message: quick, with just enough damping to settle rather than snap.
+ * Runs entirely on a graphics layer, so it costs a transform and nothing else.
+ */
+private val MessageEntrySpec: AnimationSpec<Float> =
+    spring(dampingRatio = 0.85f, stiffness = 1200f)
+
+/**
+ * Motion for messages being pushed out of the way by an arrival. Softer than the entry so the
+ * conversation glides up while the new message itself lands crisply.
+ */
+private val MessagePlacementSpec: FiniteAnimationSpec<IntOffset> = spring(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow,
+    visibilityThreshold = IntOffset.VisibilityThreshold
+)
+
+/** Removals are not worth dwelling on. */
+private val MessageFadeOutSpec: FiniteAnimationSpec<Float> = tween(BitchatMotion.QUICK_MS)
+
+/**
+ * Above this many simultaneous arrivals, entry animations are skipped.
+ *
+ * A history sync or a channel switch can append hundreds of messages in one frame. Animating each
+ * would spend the entire frame budget on motion nobody asked to see, so a burst is adopted
+ * silently and only conversational-pace arrivals animate.
+ */
+internal const val MaxAnimatedArrivals = 6
+
+/**
+ * Remembers which message ids have already been seen, so genuine arrivals can be told apart from
+ * items merely scrolling back into view.
+ *
+ * This distinction is the whole reason the entry animation is usable: `LazyColumn` composes items
+ * on demand, so animating on first composition would replay the animation for every old message
+ * the user scrolled back to.
+ */
+internal class MessageArrivalTracker {
+    val known = HashSet<String>()
+    var seeded = false
+}
+
+/**
+ * Ids that should animate in on this composition pass.
+ *
+ * Deliberately computed during composition rather than in a `LaunchedEffect`: effects run *after*
+ * the frame's composition, by which point a new message's item has already composed and would
+ * have missed its cue.
+ */
+internal fun MessageArrivalTracker.arrivals(messages: List<BitchatMessage>): Set<String> {
+    if (!seeded) {
+        // First load adopts everything silently. A whole screenful animating on open reads as a
+        // glitch, not a flourish.
+        messages.forEach { known.add(it.id) }
+        seeded = true
+        return emptySet()
+    }
+
+    // `HashSet.add` reports whether the id was new, so this both diffs and updates in one pass.
+    val added = messages.filter { known.add(it.id) }
+
+    if (known.size > messages.size) {
+        // Messages disappeared (/clear, channel switch). Drop the stale ids so the set cannot
+        // grow without bound and so re-added messages animate again.
+        known.retainAll(messages.mapTo(HashSet(messages.size)) { it.id })
+    }
+
+    return when {
+        added.isEmpty() || added.size > MaxAnimatedArrivals -> emptySet()
+        else -> added.mapTo(HashSet(added.size)) { it.id }
+    }
+}
 
 @Composable
 fun MessagesList(
@@ -129,6 +219,13 @@ fun MessagesList(
         }
     }
     
+    // Recomputed only when the list actually gains or loses a message, and synchronously, so the
+    // arriving item can read its cue during the same composition pass in which it first appears.
+    val arrivalTracker = remember { MessageArrivalTracker() }
+    val enteringIds = remember(messages.size, messages.lastOrNull()?.id) {
+        arrivalTracker.arrivals(messages)
+    }
+
     val layoutDirection = LocalLayoutDirection.current
     LazyColumn(
         state = listState,
@@ -158,6 +255,24 @@ fun MessagesList(
             val previous = messages.getOrNull(originalIndex - 1)
             val isGrouped = MessageGrouping.shouldGroup(previous, message)
 
+            // Decided once per item instance, so an item recycling back into view during a scroll
+            // never re-animates. Items that are not arriving skip the animation machinery
+            // entirely: no Animatable, no coroutine, and no extra render layer per row.
+            val isArriving = remember(message.id) { message.id in enteringIds }
+            val entryModifier = if (isArriving) {
+                val entry = remember(message.id) { Animatable(0f) }
+                LaunchedEffect(message.id) { entry.animateTo(1f, MessageEntrySpec) }
+                // A draw-time transform only: no measure, no layout, and no recomposition of the
+                // message content on any frame of the animation.
+                Modifier.graphicsLayer {
+                    val progress = entry.value
+                    alpha = progress
+                    translationY = (1f - progress) * MessageEntrySlide.toPx()
+                }
+            } else {
+                Modifier
+            }
+
             MessageItem(
                 message = message,
                 messages = messages,
@@ -171,7 +286,18 @@ fun MessagesList(
                 onNicknameClick = onNicknameClick,
                 onMessageLongPress = onMessageLongPress,
                 onCancelTransfer = onCancelTransfer,
-                onImageClick = onImageClick
+                onImageClick = onImageClick,
+                modifier = Modifier
+                    // Animates the shift when a neighbour is inserted or removed: this is what
+                    // makes the conversation glide up instead of jumping.
+                    .animateItem(
+                        // Entry fade is handled by entryModifier, together with the slide, so the
+                        // two cannot drift out of step.
+                        fadeInSpec = null,
+                        placementSpec = MessagePlacementSpec,
+                        fadeOutSpec = MessageFadeOutSpec
+                    )
+                    .then(entryModifier)
             )
         }
     }
@@ -189,13 +315,14 @@ fun MessageItem(
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
     onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
-    onImageClick: ((String, List<String>, Int) -> Unit)? = null
+    onImageClick: ((String, List<String>, Int) -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
-    
+
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(top = topSpacing),
         verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -557,53 +684,40 @@ internal fun TextMessageLayout(
 fun DeliveryStatusIcon(status: DeliveryStatus) {
     val colorScheme = MaterialTheme.colorScheme
     val palette = LocalBitchatPalette.current
-    
-    when (status) {
-        is DeliveryStatus.Sending -> {
-            Text(
-                text = stringResource(R.string.status_sending),
-                fontSize = 10.sp,
-                color = colorScheme.primary.copy(alpha = 0.6f)
-            )
+
+    // Status advances on its own as acks come back, so a hard glyph swap reads as a flicker.
+    // Keyed on the status *type* rather than the instance, because Delivered/Read carry a
+    // timestamp that would otherwise retrigger the transition on every identical update.
+    AnimatedContent(
+        targetState = status::class,
+        transitionSpec = {
+            fadeIn(tween(BitchatMotion.STANDARD_MS)) togetherWith
+                fadeOut(tween(BitchatMotion.QUICK_MS))
+        },
+        label = "deliveryStatus"
+    ) { statusClass ->
+        val (text, color, weight) = when (statusClass) {
+            DeliveryStatus.Sending::class ->
+                Triple(R.string.status_sending, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
+            // Subtle hollow marker for Sent; a single check is reserved for Delivered (iOS parity).
+            DeliveryStatus.Sent::class ->
+                Triple(R.string.status_pending, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
+            DeliveryStatus.Delivered::class ->
+                Triple(R.string.status_sent, colorScheme.primary.copy(alpha = 0.8f), FontWeight.Normal)
+            DeliveryStatus.Read::class ->
+                Triple(R.string.status_delivered, palette.accentBlue, FontWeight.Bold)
+            DeliveryStatus.Failed::class ->
+                Triple(R.string.status_failed, palette.accentRed, FontWeight.Normal)
+            // A single subdued check, without the numeric label.
+            else ->
+                Triple(R.string.status_sent, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
         }
-        is DeliveryStatus.Sent -> {
-            // Use a subtle hollow marker for Sent; single check is reserved for Delivered (iOS parity)
-            Text(
-                text = stringResource(R.string.status_pending),
-                fontSize = 10.sp,
-                color = colorScheme.primary.copy(alpha = 0.6f)
-            )
-        }
-        is DeliveryStatus.Delivered -> {
-            // Single check for Delivered (matches iOS expectations)
-            Text(
-                text = stringResource(R.string.status_sent),
-                fontSize = 10.sp,
-                color = colorScheme.primary.copy(alpha = 0.8f)
-            )
-        }
-        is DeliveryStatus.Read -> {
-            Text(
-                text = stringResource(R.string.status_delivered),
-                fontSize = 10.sp,
-                color = palette.accentBlue,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        is DeliveryStatus.Failed -> {
-            Text(
-                text = stringResource(R.string.status_failed),
-                fontSize = 10.sp,
-                color = palette.accentRed
-            )
-        }
-        is DeliveryStatus.PartiallyDelivered -> {
-            // Show a single subdued check without numeric label
-            Text(
-                text = stringResource(R.string.status_sent),
-                fontSize = 10.sp,
-                color = colorScheme.primary.copy(alpha = 0.6f)
-            )
-        }
+
+        Text(
+            text = stringResource(text),
+            fontSize = 10.sp,
+            color = color,
+            fontWeight = weight
+        )
     }
 }
