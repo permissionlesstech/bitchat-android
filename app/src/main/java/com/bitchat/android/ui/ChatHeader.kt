@@ -8,6 +8,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.RowScope
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.BitChatBrandButton
+import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.ui.theme.BitchatMotion
@@ -156,7 +158,8 @@ internal fun rememberTorConnectionVisual(normal: Color): TorConnectionVisual {
 
 /**
  * Soft, slow brightness pulse used while Tor is connecting. Keeps scale fixed so layout
- * does not shift; only opacity / a faint halo breathe.
+ * does not shift; only opacity / a faint halo breathe. Glow strength itself cross-fades so
+ * starting/stopping progress never pops.
  */
 @Composable
 internal fun TorAwareHeaderIcon(
@@ -166,7 +169,12 @@ internal fun TorAwareHeaderIcon(
     contentDescription: String?,
     modifier: Modifier = Modifier,
 ) {
-    val pulse = if (isProgress) {
+    val progressFade by animateFloatAsState(
+        targetValue = if (isProgress) 1f else 0f,
+        animationSpec = tween(BitchatMotion.EMPHASIZED_MS, easing = FastOutSlowInEasing),
+        label = "torGlowFade"
+    )
+    val pulse = if (progressFade > 0.01f) {
         val transition = rememberInfiniteTransition(label = "torGlow")
         transition.animateFloat(
             initialValue = 0.42f,
@@ -187,7 +195,7 @@ internal fun TorAwareHeaderIcon(
         contentAlignment = Alignment.Center,
         modifier = modifier.size(HeaderIconSize)
     ) {
-        if (isProgress) {
+        if (progressFade > 0.01f) {
             val glowBrush = remember(tint) {
                 Brush.radialGradient(
                     colorStops = arrayOf(
@@ -200,7 +208,7 @@ internal fun TorAwareHeaderIcon(
             Box(
                 modifier = Modifier
                     .requiredSize(HeaderIconSize + 14.dp)
-                    .graphicsLayer { alpha = pulse * 0.85f }
+                    .graphicsLayer { alpha = pulse * 0.85f * progressFade }
                     .background(glowBrush)
             )
         }
@@ -210,7 +218,9 @@ internal fun TorAwareHeaderIcon(
             modifier = Modifier
                 .size(HeaderIconSize)
                 .graphicsLayer {
-                    alpha = if (isProgress) 0.55f + pulse * 0.45f else 1f
+                    // Idle = solid; in-progress = breathing opacity, lerped by [progressFade].
+                    val breathing = 0.55f + pulse * 0.45f
+                    alpha = 1f - progressFade * (1f - breathing)
                 },
             tint = tint
         )
@@ -226,7 +236,12 @@ internal fun TorAwareHeaderIcon(
     contentDescription: String?,
     modifier: Modifier = Modifier,
 ) {
-    val pulse = if (isProgress) {
+    val progressFade by animateFloatAsState(
+        targetValue = if (isProgress) 1f else 0f,
+        animationSpec = tween(BitchatMotion.EMPHASIZED_MS, easing = FastOutSlowInEasing),
+        label = "torPainterGlowFade"
+    )
+    val pulse = if (progressFade > 0.01f) {
         val transition = rememberInfiniteTransition(label = "torPainterGlow")
         transition.animateFloat(
             initialValue = 0.42f,
@@ -245,7 +260,7 @@ internal fun TorAwareHeaderIcon(
         contentAlignment = Alignment.Center,
         modifier = modifier.size(HeaderIconSize)
     ) {
-        if (isProgress) {
+        if (progressFade > 0.01f) {
             val glowBrush = remember(tint) {
                 Brush.radialGradient(
                     colorStops = arrayOf(
@@ -258,7 +273,7 @@ internal fun TorAwareHeaderIcon(
             Box(
                 modifier = Modifier
                     .requiredSize(HeaderIconSize + 14.dp)
-                    .graphicsLayer { alpha = pulse * 0.85f }
+                    .graphicsLayer { alpha = pulse * 0.85f * progressFade }
                     .background(glowBrush)
             )
         }
@@ -268,13 +283,22 @@ internal fun TorAwareHeaderIcon(
             modifier = Modifier
                 .size(HeaderIconSize)
                 .graphicsLayer {
-                    alpha = if (isProgress) 0.55f + pulse * 0.45f else 1f
+                    val breathing = 0.55f + pulse * 0.45f
+                    alpha = 1f - progressFade * (1f - breathing)
                 },
             tint = tint
         )
     }
 }
 
+/**
+ * Noise session status for private-chat headers.
+ *
+ * Same visual language as the main header's Tor-aware globe: one lock glyph throughout, tint
+ * cross-fades between states, and a soft radial glow pulse while the handshake is in flight.
+ * The old sync/recycle glyph is gone — progress is carried by colour and motion, not by swapping
+ * icons.
+ */
 @Composable
 fun NoiseSessionIcon(
     sessionState: String?,
@@ -282,39 +306,45 @@ fun NoiseSessionIcon(
 ) {
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
-    // The pre-redesign colours for the first two states were `0x87878700`, i.e. alpha 0x87 with
-    // an all-but-transparent RGB - the icons were effectively invisible. They now use the
-    // palette's secondary text colour.
-    val (iconRes, color, contentDescription) = when (sessionState) {
-        "uninitialized" -> Triple(
-            R.drawable.ic_spec_lock_open,
-            colorScheme.onSurfaceVariant,
-            stringResource(R.string.cd_ready_for_handshake)
-        )
-        "handshaking" -> Triple(
-            R.drawable.ic_spec_sync,
-            colorScheme.onSurfaceVariant,
+
+    val (targetTint, isProgress, contentDescription) = when {
+        sessionState == "handshaking" -> Triple(
+            palette.accentOrange,
+            true,
             stringResource(R.string.cd_handshake_in_progress)
         )
-        "established" -> Triple(
-            R.drawable.ic_spec_lock,
+        sessionState == "established" -> Triple(
             colorScheme.primary,
+            false,
             stringResource(R.string.cd_encrypted)
         )
-        else -> { // "failed" or any other state
-            Triple(
-                R.drawable.ic_spec_warning,
-                colorScheme.error,
-                stringResource(R.string.cd_handshake_failed)
-            )
-        }
+        sessionState?.startsWith("failed") == true -> Triple(
+            colorScheme.error,
+            false,
+            stringResource(R.string.cd_handshake_failed)
+        )
+        else -> Triple(
+            // Not yet started — quiet grey lock, same glyph as every other state.
+            colorScheme.onSurfaceVariant,
+            false,
+            stringResource(R.string.cd_ready_for_handshake)
+        )
     }
 
-    Icon(
-        painter = painterResource(iconRes),
+    // Longer than the usual chrome tint so grey → orange → green reads as a continuous wash,
+    // not a snap between discrete states.
+    val animatedTint by animateColorAsState(
+        targetValue = targetTint,
+        animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
+        label = "noiseSessionTint"
+    )
+
+    TorAwareHeaderIcon(
+        painter = painterResource(R.drawable.ic_spec_lock),
+        tint = animatedTint,
+        isProgress = isProgress,
         contentDescription = contentDescription,
-        modifier = modifier,
-        tint = color
+        modifier = modifier
     )
 }
 
@@ -620,17 +650,7 @@ private fun ChannelHeader(
         title = "#$channel",
         onTitleClick = onSidebarClick
     ) {
-        ConversationHeaderAction(
-            onClick = onBackClick,
-            contentDescription = stringResource(R.string.close_plain)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_spec_close),
-                contentDescription = stringResource(R.string.close_plain),
-                modifier = Modifier.size(HeaderIconSize),
-                tint = colorScheme.onSurfaceVariant
-            )
-        }
+        CloseButton(onClick = onBackClick)
     }
 }
 
