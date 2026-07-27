@@ -1,6 +1,7 @@
 package com.bitchat.android.model
 
 import com.bitchat.android.sync.SyncDefaults
+import com.bitchat.android.sync.SyncTypeFlags
 
 /**
  * REQUEST_SYNC payload using GCS (Golomb-Coded Set) parameters.
@@ -12,7 +13,8 @@ import com.bitchat.android.sync.SyncDefaults
 data class RequestSyncPacket(
     val p: Int,
     val m: Long,
-    val data: ByteArray
+    val data: ByteArray,
+    val types: SyncTypeFlags? = null
 ) {
     fun encode(): ByteArray {
         val out = ArrayList<Byte>()
@@ -38,6 +40,7 @@ data class RequestSyncPacket(
         )
         // data
         putTLV(0x03, data)
+        types?.encoded()?.let { putTLV(0x04, it) }
         return out.toByteArray()
     }
 
@@ -50,6 +53,7 @@ data class RequestSyncPacket(
             var p: Int? = null
             var m: Long? = null
             var payload: ByteArray? = null
+            var types: SyncTypeFlags? = null
 
             while (off + 3 <= data.size) {
                 val t = (data[off].toInt() and 0xFF); off += 1
@@ -69,6 +73,9 @@ data class RequestSyncPacket(
                         if (v.size > MAX_ACCEPT_FILTER_BYTES) return null
                         payload = v
                     }
+                    0x04 -> {
+                        SyncTypeFlags.decode(v)?.let { types = it }
+                    }
                 }
             }
 
@@ -76,7 +83,7 @@ data class RequestSyncPacket(
             val mm = m ?: return null
             val dd = payload ?: return null
             if (pp < 1 || mm <= 0L) return null
-            return RequestSyncPacket(pp, mm, dd)
+            return RequestSyncPacket(pp, mm, dd, types)
         }
     }
 }

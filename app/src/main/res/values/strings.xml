@@ -14,6 +14,12 @@
     <string name="back">Back</string>
     <string name="people">People</string>
     <string name="channels">Channels</string>
+    <string name="groups" tools:ignore="MissingTranslation">Groups</string>
+    <string name="private_group" tools:ignore="MissingTranslation">Private group</string>
+    <string name="group_member_count" tools:ignore="MissingTranslation">%1$d members</string>
+    <string name="group_creator" tools:ignore="MissingTranslation">Creator</string>
+    <string name="group_encryption_caption" tools:ignore="MissingTranslation">Encrypted to group members</string>
+    <string name="cd_group_chat" tools:ignore="MissingTranslation">Private group chat</string>
     <string name="online_users">Online Users</string>
     <string name="no_one_connected">No one connected</string>
     <string name="emergency_clear_hint">Triple tap to clear all data</string>

@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import java.util.Date
@@ -19,6 +20,7 @@ class CommandProcessor(
         CommandSuggestion("/block", emptyList(), "[nickname]", "block or list blocked peers"),
         CommandSuggestion("/channels", emptyList(), null, "show all discovered channels"),
         CommandSuggestion("/clear", emptyList(), null, "clear chat messages"),
+        CommandSuggestion("/group", emptyList(), "<create|invite|remove|leave|list>", "manage private groups"),
         CommandSuggestion("/hug", emptyList(), "<nickname>", "send someone a warm hug"),
         CommandSuggestion("/j", listOf("/join"), "<channel>", "join or create a channel"),
         CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", "send private message"),
@@ -45,10 +47,48 @@ class CommandProcessor(
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage, viewModel)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage, viewModel)
             "/channels" -> handleChannelsCommand()
+            "/group" -> handleGroupCommand(parts, viewModel)
             else -> handleUnknownCommand(cmd)
         }
         
         return true
+    }
+
+    private fun handleGroupCommand(parts: List<String>, viewModel: ChatViewModel?) {
+        if (viewModel == null) {
+            addCommandOutput("private groups are unavailable")
+            return
+        }
+        val selectedPeer = state.getSelectedPrivateChatPeerValue()
+        if (viewModel.selectedLocationChannel.value is ChannelID.Location ||
+            selectedPeer?.startsWith("nostr_") == true ||
+            selectedPeer?.startsWith("nostr:") == true
+        ) {
+            addCommandOutput("groups are only for mesh peers in #mesh")
+            return
+        }
+
+        val result = viewModel.handleGroupCommand(
+            parts.drop(1).filter(String::isNotBlank)
+        )
+        addCommandOutput(result.message)
+    }
+
+    private fun addCommandOutput(message: String) {
+        val destination = state.getSelectedPrivateChatPeerValue()
+        if (destination != null) {
+            messageManager.addPrivateMessage(
+                destination,
+                BitchatMessage(
+                    sender = "system",
+                    content = message,
+                    timestamp = Date(),
+                    isPrivate = true
+                )
+            )
+        } else {
+            messageManager.addSystemMessage(message)
+        }
     }
     
     private fun handleJoinCommand(parts: List<String>, myPeerID: String) {
@@ -403,7 +443,17 @@ class CommandProcessor(
             emptyList()
         }
         
-        return baseCommands + channelCommands
+        val selectedPeer = state.getSelectedPrivateChatPeerValue()
+        val isGeohashContext =
+            state.selectedLocationChannel.value is ChannelID.Location ||
+                selectedPeer?.startsWith("nostr_") == true ||
+                selectedPeer?.startsWith("nostr:") == true
+        val contextualBase = if (isGeohashContext) {
+            baseCommands.filterNot { it.command == "/group" }
+        } else {
+            baseCommands
+        }
+        return contextualBase + channelCommands
     }
     
     private fun filterCommands(commands: List<CommandSuggestion>, input: String): List<CommandSuggestion> {

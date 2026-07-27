@@ -418,6 +418,26 @@ class MeshCore(
             override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
                 delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
             }
+
+            override fun onGroupInviteReceived(
+                peerID: String,
+                authenticatedRemoteStaticKey: ByteArray,
+                payload: ByteArray
+            ) {
+                delegate?.didReceiveGroupInvite(peerID, authenticatedRemoteStaticKey, payload)
+            }
+
+            override fun onGroupKeyUpdateReceived(
+                peerID: String,
+                authenticatedRemoteStaticKey: ByteArray,
+                payload: ByteArray
+            ) {
+                delegate?.didReceiveGroupKeyUpdate(peerID, authenticatedRemoteStaticKey, payload)
+            }
+
+            override fun onGroupMessageReceived(payload: ByteArray, timestampMs: Long) {
+                delegate?.didReceiveGroupMessage(payload, timestampMs)
+            }
         }
 
         packetProcessor.delegate = object : PacketProcessorDelegate {
@@ -466,6 +486,11 @@ class MeshCore(
                         gossipSyncManager.onPublicPacketSeen(pkt)
                     }
                 } catch (_: Exception) { }
+            }
+
+            override fun handleGroupMessage(routed: RoutedPacket) {
+                messageHandler.handleGroupMessage(routed)
+                try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
             }
 
             override fun handleLeave(routed: RoutedPacket) {
@@ -722,6 +747,38 @@ class MeshCore(
         sendNoisePayloadToPeer(payload, peerID)
     }
 
+    fun sendGroupInvite(payload: ByteArray, recipientPeerID: String) {
+        sendNoisePayloadToPeer(
+            NoisePayload(NoisePayloadType.GROUP_INVITE, payload),
+            recipientPeerID
+        )
+    }
+
+    fun sendGroupKeyUpdate(payload: ByteArray, recipientPeerID: String) {
+        sendNoisePayloadToPeer(
+            NoisePayload(NoisePayloadType.GROUP_KEY_UPDATE, payload),
+            recipientPeerID
+        )
+    }
+
+    fun broadcastGroupMessage(payload: ByteArray) {
+        if (payload.isEmpty()) return
+        scope.launch {
+            val packet = BitchatPacket(
+                version = if (payload.size > 0xffff) 2u else 1u,
+                type = MessageType.GROUP_MESSAGE.value,
+                senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+                recipientID = SpecialRecipients.BROADCAST,
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = payload,
+                signature = null,
+                ttl = maxTtl
+            )
+            dispatchGlobal(RoutedPacket(packet))
+            try { gossipSyncManager.onPublicPacketSeen(packet) } catch (_: Exception) { }
+        }
+    }
+
     private fun sendNoisePayloadToPeer(payload: NoisePayload, recipientPeerID: String) {
         scope.launch {
             try {
@@ -951,6 +1008,12 @@ class MeshCore(
     fun getIdentityFingerprint(): String = encryptionService.getIdentityFingerprint()
 
     fun getStaticNoisePublicKey(): ByteArray? = encryptionService.getStaticPublicKey()
+
+    fun getSigningPublicKey(): ByteArray? =
+        encryptionService.getSigningPublicKey()?.copyOf()
+
+    fun signData(data: ByteArray): ByteArray? =
+        encryptionService.signData(data)
 
     fun shouldShowEncryptionIcon(peerID: String): Boolean = encryptionService.hasEstablishedSession(peerID)
 

@@ -217,6 +217,8 @@ class NostrDirectMessageHandler(
             }
             NoisePayloadType.VERIFY_CHALLENGE,
             NoisePayloadType.VERIFY_RESPONSE,
+            NoisePayloadType.GROUP_INVITE,
+            NoisePayloadType.GROUP_KEY_UPDATE,
             NoisePayloadType.PEER_STATE -> Unit // Peer state is bound to a live mesh Noise generation.
         }
     }
