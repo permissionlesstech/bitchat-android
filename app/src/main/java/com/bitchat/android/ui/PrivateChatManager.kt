@@ -49,7 +49,11 @@ class PrivateChatManager(
 
     // MARK: - Private Chat Lifecycle
 
-    fun startPrivateChat(peerID: String, meshService: MeshService): Boolean {
+    fun startPrivateChat(
+        peerID: String,
+        meshService: MeshService,
+        unreadAliases: Set<String> = emptySet()
+    ): Boolean {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
         val route = ContactDirectory.resolve(conversationID)
         val meshPeerID = route.meshPeerID ?: peerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
@@ -77,7 +81,7 @@ class PrivateChatManager(
         state.setSelectedPrivateChatPeer(conversationID)
 
         // Clear unread
-        messageManager.clearPrivateUnreadMessages(conversationID)
+        messageManager.clearPrivateUnreadMessages(conversationID, unreadAliases)
 
         // Initialize chat if needed
         messageManager.initializePrivateChat(conversationID)

@@ -108,6 +108,29 @@ class PrivateChatManagerTest {
     }
 
     @Test
+    fun `opening canonical unread conversation clears all source aliases`() {
+        val canonicalID = "contact_alice"
+        val nostrAlias = "nostr_0123456789abcdef"
+        val meshAlias = "0123456789abcdef"
+        val unrelatedConversation = "other-contact"
+        val meshService = mock<MeshService>()
+        state.setUnreadPrivateMessages(
+            setOf(canonicalID, nostrAlias, meshAlias, unrelatedConversation)
+        )
+
+        manager.startPrivateChat(
+            peerID = canonicalID,
+            meshService = meshService,
+            unreadAliases = setOf(canonicalID, nostrAlias, meshAlias)
+        )
+
+        assertEquals(
+            setOf(unrelatedConversation),
+            state.getUnreadPrivateMessagesValue()
+        )
+    }
+
+    @Test
     fun `opening chat skips messages whose receipt send already completed`() {
         val noiseKey = ByteArray(32) { 8 }
         val meshPeerID = ContactIdentityResolver.peerIdForNoiseKey(noiseKey)
