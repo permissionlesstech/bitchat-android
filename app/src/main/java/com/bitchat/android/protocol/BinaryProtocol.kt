@@ -441,7 +441,11 @@ object BinaryProtocol {
                 val compressedPayload = ByteArray(compressedSize)
                 buffer.get(compressedPayload)
 
-                // Security check: Compression bomb protection
+                // Security check: Compression bomb protection.
+                // The absolute cap plus the bounded streaming decompressor
+                // (which never pre-allocates the claimed size) make a ratio
+                // limit unnecessary; a ratio check would also reject valid
+                // high-ratio deflate streams (e.g. zero-filled content).
                 val maxOriginalSize = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
                 if (originalSize <= 0 || originalSize > maxOriginalSize) {
                     Log.w("BinaryProtocol", "🚫 Invalid declared original size: $originalSize")
@@ -449,11 +453,6 @@ object BinaryProtocol {
                 }
                 if (compressedSize == 0) {
                     Log.w("BinaryProtocol", "🚫 Compressed payload is empty but declares originalSize=$originalSize")
-                    return null
-                }
-                val ratio = originalSize.toDouble() / compressedSize.toDouble()
-                if (ratio > 100.0) {
-                    Log.w("BinaryProtocol", "🚫 Suspicious compression ratio: ${ratio}:1")
                     return null
                 }
 

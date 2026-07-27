@@ -945,13 +945,14 @@ class BinaryProtocolTest {
      * Same concept as the v1 compression bomb test but with version=2,
      * which uses a 4-byte original-size field instead of 2-byte.
      *
-     * Covers decode lines 435-439 via the v2 path (4-byte size field).
+     * A 1-byte payload claiming a 10 MB original size cannot inflate to
+     * the declared size; the bounded streaming decompressor must reject
+     * it without allocating the claimed size.
      */
     @Test
     fun `v2 compression bomb is rejected`() {
         // Valid raw deflate final empty stored block (1 byte).
-        // Claim a huge original size to exceed the 50,000:1 ratio guard.
-        // ratio = 10,000,000 / 1 = 10,000,000:1
+        // Claims a huge original size it cannot actually inflate to.
         val compressedData = byteArrayOf(0x03)
         val declaredOriginalSize = 10_000_000
 
@@ -984,28 +985,26 @@ class BinaryProtocolTest {
         val padded = MessagePadding.pad(raw, MessagePadding.optimalBlockSize(raw.size))
         val result = BinaryProtocol.decode(padded)
 
-        assertNull("v2 compression bomb (ratio > 50,000:1) must be rejected", result)
+        assertNull("v2 compression bomb must be rejected without large allocation", result)
     }
 
     /**
      * Compression bomb is rejected
      *
      * Crafts a packet where the declared original size in the compressed
-     * payload section is absurdly large relative to the compressed data,
-     * exceeding the 50,000:1 ratio guard in decodeCore(). Verifies the
-     * decoder returns null instead of attempting decompression.
+     * payload section is absurdly large relative to the compressed data.
+     * Verifies the decoder returns null instead of attempting to allocate
+     * the claimed size.
      *
-     * Without this check, an attacker could send a tiny packet claiming
-     * to decompress into gigabytes, causing an OOM crash that kills the
-     * mesh service and disconnects all peers. The 50,000:1 threshold
-     * blocks this while still allowing legitimate compression ratios
-     * (typical text compresses ~3:1 to ~10:1).
+     * Without this protection, an attacker could send a tiny packet
+     * claiming to decompress into gigabytes, causing an OOM crash that
+     * kills the mesh service and disconnects all peers.
      */
     @Test
     fun `compression bomb is rejected`() {
         // Valid raw deflate final empty stored block (1 byte).
         // v1 uses a 2-byte (UShort) original-size field, so declared size
-        // must fit in 0..65535. ratio = 60,000 / 1 = 60,000:1 > 50,000:1
+        // must fit in 0..65535.
         val tinyCompressed = byteArrayOf(0x03)
         val declaredOriginalSize = 60_000
 
@@ -1039,7 +1038,7 @@ class BinaryProtocolTest {
         val padded = MessagePadding.pad(raw, MessagePadding.optimalBlockSize(raw.size))
         val result = BinaryProtocol.decode(padded)
 
-        assertNull("Compression bomb (ratio > 50,000:1) must be rejected", result)
+        assertNull("Compression bomb must be rejected without large allocation", result)
     }
 
     /**
@@ -1216,8 +1215,8 @@ class BinaryProtocolTest {
     fun `v2 declared original size above MAX_PAYLOAD_LENGTH is rejected`() {
         val maxPayload = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
         val declaredOriginalSize = maxPayload + 1
-        // Large compressed payload so the ratio check alone would NOT reject it:
-        // ratio = (MAX+1) / (MAX/50) = 50:1 < 100:1
+        // Large compressed payload so the declared size alone (not the
+        // ratio) is what must trigger rejection.
         val compressedData = ByteArray(maxPayload / 50) { 0x55 }
 
         val buffer = ByteBuffer.allocate(16 + 8 + 4 + compressedData.size)
@@ -1294,15 +1293,43 @@ class BinaryProtocolTest {
     }
 
     /**
-     * Compression ratio above 100:1 is rejected
+     * Legitimate high-ratio compressed payload round-trips
      *
-     * The ratio guard was tightened from 50,000:1 to 100:1. A packet with
-     * ratio 200:1 previously passed the guard and could still claim up to
-     * ~2 GB from a ~43 KB payload (at the old limit). It must now be
-     * rejected. Typical legitimate text compresses ~3:1 to ~30:1.
+     * Highly repetitive content (e.g. zero-filled file data) compresses
+     * far beyond 100:1. The decoder must accept such valid deflate
+     * streams — the bomb protection comes from the absolute
+     * MAX_PAYLOAD_LENGTH cap and the bounded streaming decompressor, not
+     * from a ratio limit, so encode()/decode() stay symmetric and
+     * compatible with iOS.
      */
     @Test
-    fun `compression ratio above 100 to 1 is rejected`() {
+    fun `legitimate high-ratio compressed payload round-trips`() {
+        val payload = ByteArray(4096) { 0 } // compresses to a handful of bytes (>100:1)
+        val original = makePacket(version = 2u, payload = payload)
+
+        val encoded = BinaryProtocol.encode(original)
+        assertNotNull("Encoding must not return null", encoded)
+
+        val unpadded = MessagePadding.unpad(encoded!!)
+        val flags = unpadded[11].toUByte()
+        assertTrue("IS_COMPRESSED flag must be set",
+            (flags and BinaryProtocol.Flags.IS_COMPRESSED) != 0u.toUByte())
+
+        val decoded = roundTrip(original)
+        assertTrue("high-ratio payload must survive round-trip",
+            original.payload.contentEquals(decoded.payload))
+        assertEquals("payload length must match", original.payload.size, decoded.payload.size)
+    }
+
+    /**
+     * Bogus compressed data with inflated size claim is rejected
+     *
+     * A 1-byte payload claiming a large original size cannot inflate to
+     * the declared size; the streaming decompressor must return null
+     * rather than allocating the claimed size.
+     */
+    @Test
+    fun `bogus compressed data with inflated size claim is rejected`() {
         val compressedData = byteArrayOf(0x03, 0x00, 0x00, 0x00, 0x00) // 5 bytes
         val declaredOriginalSize = 1000 // ratio = 200:1
 
