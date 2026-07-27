@@ -9,8 +9,9 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.*
+import com.google.android.gms.tasks.CancellationTokenSource
 
-class FusedLocationProvider(private val context: Context) : LocationProvider {
+internal class FusedLocationProvider(private val context: Context) : LocationProvider {
 
     companion object {
         private const val TAG = "FusedLocationProvider"
@@ -20,10 +21,13 @@ class FusedLocationProvider(private val context: Context) : LocationProvider {
     
     // Map to keep track of callbacks to remove them later
     private val activeCallbacks = mutableMapOf<(Location) -> Unit, LocationCallback>()
+    private val activeCurrentLocationRequests = mutableSetOf<CancellationTokenSource>()
 
     private fun hasLocationPermission(): Boolean {
-        return ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+        return LiveLocationPrivacyGate.isEnabled &&
+            (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            )
     }
 
     @SuppressLint("MissingPermission")
@@ -36,14 +40,14 @@ class FusedLocationProvider(private val context: Context) : LocationProvider {
         try {
             fusedLocationClient.lastLocation
                 .addOnSuccessListener { location ->
-                    callback(location)
+                    callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
                 }
                 .addOnFailureListener { e ->
-                    Log.e(TAG, "Error getting last known fused location: ${e.message}")
+                    Log.e(TAG, "Error getting last-known fused location")
                     callback(null)
                 }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception getting last known fused location: ${e.message}")
+            Log.e(TAG, "Exception getting last-known fused location")
             callback(null)
         }
     }
@@ -60,17 +64,27 @@ class FusedLocationProvider(private val context: Context) : LocationProvider {
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                 .setDurationMillis(30000)
                 .build()
+            val cancellation = CancellationTokenSource()
 
-            fusedLocationClient.getCurrentLocation(request, null)
+            synchronized(activeCurrentLocationRequests) {
+                activeCurrentLocationRequests.add(cancellation)
+            }
+
+            fusedLocationClient.getCurrentLocation(request, cancellation.token)
                 .addOnSuccessListener { location ->
-                    callback(location)
+                    callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
                 }
                 .addOnFailureListener { e ->
-                    Log.e(TAG, "Error getting fresh fused location: ${e.message}")
+                    Log.e(TAG, "Error getting fresh fused location")
                     callback(null)
                 }
+                .addOnCompleteListener {
+                    synchronized(activeCurrentLocationRequests) {
+                        activeCurrentLocationRequests.remove(cancellation)
+                    }
+                }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception getting fresh fused location: ${e.message}")
+            Log.e(TAG, "Exception getting fresh fused location")
             callback(null)
         }
     }
@@ -91,7 +105,9 @@ class FusedLocationProvider(private val context: Context) : LocationProvider {
 
             val locationCallback = object : LocationCallback() {
                 override fun onLocationResult(result: LocationResult) {
-                    result.lastLocation?.let { callback(it) }
+                    if (LiveLocationPrivacyGate.isEnabled) {
+                        result.lastLocation?.let { callback(it) }
+                    }
                 }
             }
 
@@ -107,7 +123,7 @@ class FusedLocationProvider(private val context: Context) : LocationProvider {
             Log.d(TAG, "Registered fused updates")
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error requesting fused updates: ${e.message}")
+            Log.e(TAG, "Error requesting fused updates")
         }
     }
 
@@ -122,21 +138,25 @@ class FusedLocationProvider(private val context: Context) : LocationProvider {
                 Log.d(TAG, "Removed fused updates")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error removing fused updates: ${e.message}")
+            Log.e(TAG, "Error removing fused updates")
         }
     }
 
     override fun cancel() {
         try {
             synchronized(activeCallbacks) {
-                for ((callback, locationCallback) in activeCallbacks) {
+                for ((_, locationCallback) in activeCallbacks) {
                     fusedLocationClient.removeLocationUpdates(locationCallback)
                 }
                 activeCallbacks.clear()
             }
+            synchronized(activeCurrentLocationRequests) {
+                activeCurrentLocationRequests.forEach { it.cancel() }
+                activeCurrentLocationRequests.clear()
+            }
             Log.d(TAG, "Cancelled all fused updates")
         } catch (e: Exception) {
-            Log.e(TAG, "Error cancelling fused provider: ${e.message}")
+            Log.e(TAG, "Error cancelling fused provider")
         }
     }
 }
