@@ -69,3 +69,6 @@ google-services.json
 # Arti build artifacts (cloned repo and Rust build cache)
 tools/arti-build/.arti-source/
 tools/arti-build/target/
+
+# JVM heap dumps (a Gradle daemon OOM drops these in the repo root)
+*.hprof

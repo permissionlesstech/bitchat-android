@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+    <!-- Body and shackle geometry copied from ic_spec_lock so the two states sit on exactly the
+         same baseline; only the shackle is swung open, hinged on its right leg. -->
+    <group android:translateX="-16" android:translateY="-310">
+        <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.25" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M32.25,329.375H19.75C18.715,329.375 17.875,328.535 17.875,327.5V321.25C17.875,320.215 18.715,319.375 19.75,319.375H32.25C33.285,319.375 34.125,320.215 34.125,321.25V327.5C34.125,328.535 33.285,329.375 32.25,329.375Z"/>
+        <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.25" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M34.125,316.875V315C34.125,312.584 32.1662,310.625 29.75,310.625C27.3338,310.625 25.375,312.584 25.375,315V316.5"/>
+        <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.25" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M26,326.25C27.0355,326.25 27.875,325.411 27.875,324.375C27.875,323.339 27.0355,322.5 26,322.5C24.9645,322.5 24.125,323.339 24.125,324.375C24.125,325.411 24.9645,326.25 26,326.25Z"/>
+    </group>
+</vector>

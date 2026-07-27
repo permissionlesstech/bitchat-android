@@ -71,12 +71,8 @@
     <string name="cd_add_bookmark">Aggiungi segnalibro</string>
 
     <!-- Intestazione chat e accessibilità -->
-    <string name="chat_back">indietro</string>
-    <string name="chat_channel_prefix">canale: %1$s</string>
-    <string name="chat_leave">esci</string>
     <string name="cd_nostr_reachable">Raggiungibile via Nostr</string>
     <string name="cd_unread_private_messages">Messaggi privati non letti</string>
-    <string name="cd_toggle_bookmark">Attiva/disattiva segnalibro</string>
     <string name="cd_teleported">Teletrasportato</string>
     <string name="cd_tor_status">Stato Tor</string>
     <string name="cd_connected_peers">Peer connessi</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">Scegli immagine</string>
 
     <!-- Schermata informazioni -->
-    <string name="about_tagline">messaggistica mesh decentralizzata con crittografia end-to-end</string>
     <string name="about_offline_mesh_title">Chat mesh offline</string>
     <string name="about_offline_mesh_desc">Comunica direttamente tramite Bluetooth LE senza internet o server. I messaggi vengono inoltrati attraverso i dispositivi vicini per estendere la portata.</string>
     <string name="about_online_geohash_title">Canali geohash online</string>
     <string name="about_online_geohash_desc">Connettiti con persone nella tua area usando canali basati su geohash. Estendi la rete mesh usando relay internet pubblici.</string>
     <string name="about_e2e_title">Crittografia end-to-end</string>
     <string name="about_e2e_desc">I messaggi privati sono crittografati. I messaggi dei canali sono pubblici.</string>
-    <string name="about_appearance">aspetto</string>
     <string name="about_system">sistema</string>
     <string name="about_light">chiaro</string>
     <string name="about_dark">scuro</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Stato Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Ultimo: %1$s</string>
     <string name="about_emergency_title">Eliminazione dati di emergenza</string>
-    <string name="about_emergency_tip">Suggerimento: fai triplo clic sul titolo dell\'app per eliminare in emergenza tutti i dati memorizzati, inclusi messaggi, chiavi e impostazioni.</string>
     <string name="about_debug_settings">Impostazioni di debug</string>
     <string name="about_footer">Open Source • Privacy First • Decentralizzato</string>
     <string name="close_plain">Chiudi</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">Apri mappa</string>
     <string name="cd_remove_bookmark">Rimuovi segnalibro</string>
     <string name="cd_teleport">Teletrasporta</string>
-    <string name="cd_selected">Selezionato</string>
     <string name="cd_leave_channel">Esci dal canale</string>
     <string name="cd_reachable_via_nostr">Raggiungibile via Nostr</string>
     <string name="cd_offline_favorite">Preferito offline</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">permessi</string>
     <string name="grant_permissions">Concedi permessi</string>
     <string name="location_tracking_warning">bitchat NON traccia la tua posizione</string>
-    <string name="geohash_people_header">PERSONE</string>
     <string name="nobody_around">nessuno nei dintorni…</string>
     <string name="you_suffix"> (tu)</string>
     <string name="pan_zoom_instruction">scorri e ingrandisci per selezionare un geohash</string>
     <string name="select">seleziona</string>
     <string name="type_a_message_placeholder">scrivi un messaggio…</string>
     <string name="mention">menzione</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Immagine</string>
@@ -307,11 +297,6 @@
     <!-- Accessibilità lettore vocale -->
     <string name="cd_play_voice">Riproduci</string>
     <string name="cd_pause_voice">Pausa</string>
-    <string name="cd_mining_pow">Mining PoW</string>
-    <string name="cd_pow_enabled">PoW abilitato</string>
-    <string name="cd_proof_of_work">Proof of Work</string>
-    <string name="pow_mining_ellipsis">mining…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Descrizioni permessi -->
     <string name="perm_nearby_devices_desc">Necessario per scoprire utenti bitchat tramite Bluetooth</string>

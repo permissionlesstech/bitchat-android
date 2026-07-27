@@ -63,12 +63,8 @@
     <string name="cd_remove_favorite">Sık kullanılandan kaldır</string>
     <string name="cd_add_bookmark">Yer imi ekle</string>
 
-    <string name="chat_back">geri</string>
-    <string name="chat_channel_prefix">kanal: %1$s</string>
-    <string name="chat_leave">ayrıl</string>
     <string name="cd_nostr_reachable">Nostr üzerinden ulaşılabilir</string>
     <string name="cd_unread_private_messages">Okunmamış özel mesaj</string>
-    <string name="cd_toggle_bookmark">Yer imini değiştir</string>
     <string name="cd_teleported">Teleport edildi</string>
     <string name="cd_tor_status">Tor durumu</string>
     <string name="cd_connected_peers">Bağlı eşler</string>
@@ -86,14 +82,12 @@
     <string name="close_with_emoji">❌ Kapat</string>
     <string name="pick_image">Görsel seç</string>
 
-    <string name="about_tagline">uçtan uca şifrelemeli merkezsiz mesh mesajlaşma</string>
     <string name="about_offline_mesh_title">Çevrimdışı Mesh Sohbeti</string>
     <string name="about_offline_mesh_desc">İnternet/ sunucu olmadan doğrudan Bluetooth LE ile iletişim kur. Mesajlar yakındaki cihazlarca aktarılır.</string>
     <string name="about_online_geohash_title">Çevrimiçi Geohash Kanalları</string>
     <string name="about_online_geohash_desc">Geohash tabanlı kanallarla yakınındaki insanlarla bağlantı kur. Herkese açık internet röleleriyle mesh’i genişlet.</string>
     <string name="about_e2e_title">Uçtan Uca Şifreleme</string>
     <string name="about_e2e_desc">Özel mesajlar şifrelidir. Kanal mesajları herkese açıktır.</string>
-    <string name="about_appearance">görünüm</string>
     <string name="about_system">sistem</string>
     <string name="about_light">açık</string>
     <string name="about_dark">koyu</string>
@@ -117,7 +111,6 @@
     <string name="about_tor_status">Tor durumu: %1$s, önyükleme %2$d%%</string>
     <string name="about_last">Son: %1$s</string>
     <string name="about_emergency_title">Acil veri silme</string>
-    <string name="about_emergency_tip">İpucu: tüm verileri silmek için uygulama başlığına üç kez dokun (mesajlar, anahtarlar, ayarlar).</string>
     <string name="about_debug_settings">Hata ayıklama ayarları</string>
     <string name="about_footer">Open Source • Privacy First • Merkezsiz</string>
     <string name="close_plain">Kapat</string>
@@ -136,7 +129,6 @@
     <string name="cd_open_map">Haritayı aç</string>
     <string name="cd_remove_bookmark">Yer imini kaldır</string>
     <string name="cd_teleport">Teleport</string>
-    <string name="cd_selected">Seçildi</string>
     <string name="cd_leave_channel">Kanaldan ayrıl</string>
     <string name="cd_reachable_via_nostr">Nostr üzerinden erişilebilir</string>
     <string name="cd_offline_favorite">Favori (çevrimdışı)</string>
@@ -265,7 +257,6 @@
     <string name="location_tracking_warning">bitchat konumunu takip etmez</string>
     <string name="at_symbol">@</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">KİŞİLER</string>
     <string name="nobody_around">yakında kimse yok…</string>
     <string name="you_suffix"> (sen)</string>
     <string name="pan_zoom_instruction">geohash seçmek için kaydır/zoom yap</string>
@@ -274,7 +265,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">bahset</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>

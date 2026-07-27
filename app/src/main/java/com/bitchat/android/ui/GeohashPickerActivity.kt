@@ -1,5 +1,9 @@
 package com.bitchat.android.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Remove
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
@@ -15,10 +19,6 @@ import android.webkit.WebViewClient
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,14 +30,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.ui.theme.BitchatTheme
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.res.stringResource
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import androidx.core.view.updateLayoutParams
 import com.bitchat.android.geohash.Geohash
@@ -87,15 +87,13 @@ class GeohashPickerActivity : OrientationAwareActivity() {
         val initialPrecision = geohashToFocus?.length ?: 5
 
         setContent {
-            MaterialTheme {
+            BitchatTheme {
                 var currentGeohash by remember { mutableStateOf(geohashToFocus ?: "") }
                 var precision by remember { mutableStateOf(initialPrecision.coerceIn(1, 12)) }
                 var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
-                // iOS system-like colors used across app
                 val colorScheme = MaterialTheme.colorScheme
-                val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-                val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                val standardGreen = colorScheme.primary
 
                 Scaffold { padding ->
                     Box(Modifier.fillMaxSize()) {
@@ -186,7 +184,7 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                                 text = stringResource(R.string.pan_zoom_instruction),
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.Center,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = BitchatFontFamily,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier
                                     .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -211,7 +209,7 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                                 Text(
                                     text = if (currentGeohash.isNotEmpty()) "#${currentGeohash}" else "select location",
                                     fontSize = BASE_FONT_SIZE.sp,
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = BitchatFontFamily,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier
@@ -277,7 +275,7 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                                         Text(
                                             text = stringResource(R.string.select),
                                             fontSize = (BASE_FONT_SIZE - 2).sp,
-                                            fontFamily = FontFamily.Monospace
+                                            fontFamily = BitchatFontFamily
                                         )
                                     }
                                 }

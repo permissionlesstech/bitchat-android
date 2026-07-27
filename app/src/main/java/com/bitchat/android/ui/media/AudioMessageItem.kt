@@ -1,11 +1,11 @@
 package com.bitchat.android.ui.media
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,14 +13,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.text.AnnotatedClickableText
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import androidx.compose.material3.ColorScheme
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 import java.text.SimpleDateFormat
 
 @Composable
@@ -33,8 +34,10 @@ fun AudioMessageItem(
     onNicknameClick: ((String) -> Unit)?,
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     onCancelTransfer: ((BitchatMessage) -> Unit)?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showSender: Boolean = true
 ) {
+    val palette = LocalBitchatPalette.current
     val path = message.content.trim()
     // Derive sending progress if applicable
     val (overrideProgress, overrideColor) = when (val st = message.deliveryStatus) {
@@ -50,9 +53,11 @@ fun AudioMessageItem(
         val headerText = com.bitchat.android.ui.formatMessageHeaderAnnotatedString(
             message = message,
             currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
-            timeFormatter = timeFormatter
+            myPeerID = meshService.myPeerID,
+            palette = palette,
+            contentColor = colorScheme.onSurface,
+            timeFormatter = timeFormatter,
+            includeSender = showSender
         )
         val haptic = LocalHapticFeedback.current
         AnnotatedClickableText(
@@ -68,7 +73,7 @@ fun AudioMessageItem(
                 }
             },
             onLongPress = { onMessageLongPress?.invoke(message) },
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = colorScheme.onSurface,
         )
 
