@@ -424,7 +424,6 @@ class GeohashViewModel(
 
     override fun onCleared() {
         shutdownUiSubscriptions()
-        super.onCleared()
     }
 
     fun shutdownUiSubscriptions() {

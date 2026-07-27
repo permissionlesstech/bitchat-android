@@ -553,7 +553,6 @@ class ChatViewModel(
         ndrInviteRetries.cancelAll()
         geohashViewModel.shutdownUiSubscriptions()
         com.bitchat.android.services.AppStateStore.setSelectedPrivateChatPeer(null)
-        super.onCleared()
         // Note: Mesh service lifecycle is now managed by MainActivity
     }
     
