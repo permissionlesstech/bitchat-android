@@ -153,11 +153,17 @@ class MessageManager(private val state: ChatState) {
         state.setPrivateChats(updatedChats)
     }
     
-    fun clearPrivateUnreadMessages(peerID: String) {
+    fun clearPrivateUnreadMessages(
+        peerID: String,
+        aliases: Set<String> = emptySet()
+    ) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
         val updatedUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
-        updatedUnread.remove(peerID)
-        updatedUnread.remove(conversationID)
+        val normalizedAliases = (aliases + peerID + conversationID)
+            .mapTo(mutableSetOf()) { it.lowercase() }
+        updatedUnread.removeAll { unreadID ->
+            unreadID.lowercase() in normalizedAliases
+        }
         state.setUnreadPrivateMessages(updatedUnread)
     }
     

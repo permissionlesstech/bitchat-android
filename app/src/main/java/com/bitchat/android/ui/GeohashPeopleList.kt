@@ -19,7 +19,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.colorForPeer
 import com.bitchat.android.R
-import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import java.util.*
 
@@ -38,7 +37,7 @@ fun GeohashPeopleList(
     viewModel: ChatViewModel,
     onTapPerson: () -> Unit,
     modifier: Modifier = Modifier,
-    excludedConversationIDs: Set<String> = emptySet()
+    excludedIdentityAliases: Set<String> = emptySet()
 ) {
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
@@ -79,10 +78,10 @@ fun GeohashPeopleList(
             geohashPeople
         }
     }
-    val visiblePeople = remember(peopleIncludingSelf, excludedConversationIDs) {
+    val visiblePeople = remember(peopleIncludingSelf, excludedIdentityAliases) {
         peopleIncludingSelf.filterNot { person ->
-            val alias = "nostr_${person.id.take(16)}"
-            ContactDirectory.canonicalConversationId(alias) in excludedConversationIDs
+            val alias = "nostr_${person.id.take(16)}".lowercase()
+            alias in excludedIdentityAliases
         }
     }
     val sections = remember(visiblePeople, myHex, isTeleported, teleportedGeo) {

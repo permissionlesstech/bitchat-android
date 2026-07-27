@@ -86,11 +86,12 @@ fun MeshPeerListSheet(
     val geohashPeopleCount = geohashPeople.size
     val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
     val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
-    val unreadConversationIDs = remember(unreadConversations) {
-        unreadConversations.mapTo(mutableSetOf()) { it.conversationID }
+    val unreadIdentityAliases = remember(unreadConversations) {
+        unreadConversations
+            .flatMapTo(mutableSetOf()) { it.identityAliases }
     }
     val visibleConnectedPeers = connectedPeers.filterNot { peerID ->
-        ContactDirectory.canonicalConversationId(peerID) in unreadConversationIDs
+        peerID.lowercase() in unreadIdentityAliases
     }
 
     // Bottom sheet state
@@ -131,7 +132,6 @@ fun MeshPeerListSheet(
                         item(key = "unread_private_messages_section") {
                             UnreadDirectMessagesSection(
                                 conversations = unreadConversations,
-                                connectedPeers = connectedPeers,
                                 viewModel = viewModel,
                                 onPrivateChatStart = { conversationID ->
                                     viewModel.showPrivateChatSheet(conversationID)
@@ -203,7 +203,7 @@ fun MeshPeerListSheet(
                                 GeohashPeopleList(
                                     viewModel = viewModel,
                                     onTapPerson = onDismiss,
-                                    excludedConversationIDs = unreadConversationIDs,
+                                    excludedIdentityAliases = unreadIdentityAliases,
                                     modifier = Modifier.padding(
                                         top = if (
                                             joinedChannels.isNotEmpty() ||
@@ -229,7 +229,7 @@ fun MeshPeerListSheet(
                                     selectedPrivatePeer = selectedPrivatePeer,
                                     wifiAwarePeerIDs = wifiAwarePeerIDs,
                                     peopleCount = peopleCount,
-                                    excludedConversationIDs = unreadConversationIDs,
+                                    excludedIdentityAliases = unreadIdentityAliases,
                                     viewModel = viewModel,
                                     onPrivateChatStart = { peerID ->
                                         viewModel.showPrivateChatSheet(peerID)
@@ -344,7 +344,7 @@ fun PeopleSection(
     selectedPrivatePeer: String?,
     wifiAwarePeerIDs: Set<String> = emptySet(),
     peopleCount: Int = 0,
-    excludedConversationIDs: Set<String> = emptySet(),
+    excludedIdentityAliases: Set<String> = emptySet(),
     viewModel: ChatViewModel,
     onPrivateChatStart: (String) -> Unit
 ) {
@@ -461,9 +461,8 @@ fun PeopleSection(
         val offlineFavorites = FavoritesPersistenceService.shared.getOurFavorites()
         offlineFavorites.forEach { fav ->
             val favPeerID = ContactIdentityResolver.noiseKeyHex(fav.peerNoisePublicKey)
-            val conversationID = ContactDirectory.canonicalConversationId(favPeerID)
             if (
-                conversationID !in excludedConversationIDs &&
+                favPeerID.lowercase() !in excludedIdentityAliases &&
                 !isFavoriteMappedToConnected(fav)
             ) {
                 val dn = peerNicknames[favPeerID] ?: fav.peerNickname
@@ -478,10 +477,10 @@ fun PeopleSection(
         val directMap by viewModel.peerDirect.collectAsStateWithLifecycle()
 
         val offlineFavoriteRows = offlineFavorites.filterNot { favorite ->
-            val favoriteConversationID = ContactDirectory.canonicalConversationId(
-                ContactIdentityResolver.noiseKeyHex(favorite.peerNoisePublicKey)
+            val favoriteNoiseKey = ContactIdentityResolver.noiseKeyHex(
+                favorite.peerNoisePublicKey
             )
-            favoriteConversationID in excludedConversationIDs ||
+            favoriteNoiseKey.lowercase() in excludedIdentityAliases ||
                 isFavoriteMappedToConnected(favorite)
         }
         val rowKeys: List<String> = sortedPeers +
@@ -593,7 +592,6 @@ fun PeopleSection(
 @Composable
 private fun UnreadDirectMessagesSection(
     conversations: List<UnreadConversationSummary>,
-    connectedPeers: List<String>,
     viewModel: ChatViewModel,
     onPrivateChatStart: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -622,31 +620,19 @@ private fun UnreadDirectMessagesSection(
                 Column {
                     if (index > 0) SheetCardDivider()
 
-                    val resolution = ContactDirectory.resolve(conversation.conversationID)
-                    val connected = resolution.meshPeerID?.let(connectedPeers::contains) == true ||
-                        conversation.conversationID in connectedPeers
-                    val aliases = ContactDirectory.aliasesForConversation(
-                        conversation.conversationID
-                    )
-                    val sourceGeohash = aliases
-                        .asSequence()
-                        .mapNotNull(GeohashConversationRegistry::get)
-                        .firstOrNull()
-                    val displayName = resolution.displayName
-                        ?.takeUnless { it.isBlank() || it.equals("Unknown", ignoreCase = true) }
-                        ?: conversation.displayName
                     val subtitle = when {
-                        sourceGeohash != null -> "#$sourceGeohash"
+                        conversation.sourceGeohash != null -> "#${conversation.sourceGeohash}"
                         conversation.transport == DirectMessageTransport.NOSTR ->
                             stringResource(R.string.cd_reachable_via_nostr)
-                        !connected -> stringResource(R.string.cd_offline_mesh_chat)
+                        !conversation.isConnected ->
+                            stringResource(R.string.cd_offline_mesh_chat)
                         else -> null
                     }
                     val peerIdentity = conversation.nostrPubkey
                         ?.let(viewModel::peerIdentityForNostrPubkey)
                         ?: viewModel.peerIdentityForMeshPeer(conversation.conversationID)
                     val assignedColor = colorForPeer(peerIdentity, palette)
-                    val (baseNameRaw, suffix) = splitSuffix(displayName)
+                    val (baseNameRaw, suffix) = splitSuffix(conversation.displayName)
 
                     Row(
                         modifier = Modifier

@@ -57,6 +57,10 @@ class UnreadConversationSummaryTest {
         assertEquals(1, rows.size)
         assertEquals("contact_alice", rows.single().conversationID)
         assertEquals(DirectMessageTransport.NOSTR, rows.single().transport)
+        assertEquals(
+            setOf("mesh-alias", "nostr_alias", "contact_alice"),
+            rows.single().identityAliases
+        )
     }
 
     @Test
@@ -102,6 +106,22 @@ class UnreadConversationSummaryTest {
         assertEquals("orphan-peer", row.conversationID)
         assertEquals(1, row.unreadCount)
         assertTrue(row.displayName.isNotBlank())
+    }
+
+    @Test
+    fun `canonical unread lookup returns every matching source alias`() {
+        val aliases = matchingUnreadAliases(
+            unreadConversationIDs = setOf("mesh-alias", "nostr_alias", "other-contact"),
+            canonicalConversationID = "contact_alice",
+            canonicalize = { unreadID ->
+                if (unreadID == "other-contact") unreadID else "contact_alice"
+            }
+        )
+
+        assertEquals(
+            setOf("mesh-alias", "nostr_alias", "contact_alice"),
+            aliases
+        )
     }
 
     private fun incoming(

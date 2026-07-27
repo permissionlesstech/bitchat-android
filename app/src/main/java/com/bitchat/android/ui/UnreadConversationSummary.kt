@@ -19,7 +19,10 @@ internal data class UnreadConversationSummary(
     val unreadCount: Int,
     val latestMessageAt: Long,
     val transport: DirectMessageTransport,
-    val nostrPubkey: String?
+    val nostrPubkey: String?,
+    val identityAliases: Set<String>,
+    val isConnected: Boolean = false,
+    val sourceGeohash: String? = null
 )
 
 internal fun buildUnreadConversationSummaries(
@@ -73,7 +76,9 @@ internal fun buildUnreadConversationSummaries(
             } else {
                 DirectMessageTransport.MESH
             },
-            nostrPubkey = nostrPubkey
+            nostrPubkey = nostrPubkey,
+            identityAliases = (aliases + conversationID)
+                .mapTo(mutableSetOf()) { it.lowercase() }
         )
     }.sortedWith(
         compareByDescending<UnreadConversationSummary> { it.latestMessageAt }
@@ -84,3 +89,17 @@ internal fun buildUnreadConversationSummaries(
 
 private fun isNostrConversationID(value: String): Boolean =
     value.startsWith("nostr_") || value.startsWith("nostr:")
+
+internal fun matchingUnreadAliases(
+    unreadConversationIDs: Set<String>,
+    canonicalConversationID: String,
+    canonicalize: (String) -> String
+): Set<String> {
+    val normalizedCanonicalID = canonicalConversationID.lowercase()
+    return unreadConversationIDs
+        .filterTo(mutableSetOf()) { unreadID ->
+            canonicalize(unreadID).equals(normalizedCanonicalID, ignoreCase = true)
+        }
+        .plus(canonicalConversationID)
+        .mapTo(mutableSetOf()) { it.lowercase() }
+}
