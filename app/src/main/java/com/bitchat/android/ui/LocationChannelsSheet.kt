@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material.icons.filled.Security
@@ -147,31 +148,6 @@ fun LocationChannelsSheet(
                     contentPadding = PaddingValues(top = 72.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
-                    item(key = "header") {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = AboutHorizontalPadding),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            SheetHeaderBadge(icon = Icons.Outlined.Public)
-                            Text(
-                                text = stringResource(R.string.location_channels_heading),
-                                fontSize = 20.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Medium,
-                                color = colorScheme.primary
-                            )
-                            Text(
-                                text = stringResource(R.string.location_channels_desc),
-                                fontSize = 12.sp,
-                                lineHeight = 17.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = palette.textSecondary
-                            )
-                        }
-                    }
-
                     if (locationServicesEnabled &&
                         permissionState == LocationChannelManager.PermissionState.DENIED
                     ) {
@@ -180,7 +156,7 @@ fun LocationChannelsSheet(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = AboutHorizontalPadding)
-                                    .padding(top = 16.dp),
+                                    .padding(top = 8.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
@@ -208,38 +184,64 @@ fun LocationChannelsSheet(
                         }
                     }
 
-                    // Channels card: mesh + nearby + teleport input
-                    item(key = "channels_card") {
+                    // Mesh section: icon + title header, offline subtitle, then selection card
+                    item(key = "mesh_card") {
                         Column {
-                            AboutSectionLabel(text = stringResource(R.string.channels))
+                            ChannelSectionHeader(
+                                icon = Icons.Filled.Hub,
+                                title = stringResource(R.string.mesh_title),
+                                subtitle = stringResource(R.string.mesh_section_subtitle),
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = AboutHorizontalPadding),
+                                    .padding(horizontal = AboutHorizontalPadding)
+                                    .padding(top = 10.dp),
+                                color = palette.surface,
+                                shape = AboutCardShape
+                            ) {
+                                ChannelOptionRow(
+                                    title = meshTitleWithCount(viewModel),
+                                    subtitle = stringResource(
+                                        R.string.location_bluetooth_subtitle,
+                                        bluetoothRangeString()
+                                    ),
+                                    isSelected = selectedChannel is ChannelID.Mesh,
+                                    participantCount = meshCount(viewModel),
+                                    titleColor = standardBlue,
+                                    titleBold = meshCount(viewModel) > 0,
+                                    onClick = {
+                                        locationManager.select(ChannelID.Mesh)
+                                        onDismiss()
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Location channels: globe + title, geohash subtitle, nearby levels + teleport
+                    item(key = "channels_card") {
+                        Column {
+                            ChannelSectionHeader(
+                                icon = Icons.Outlined.Public,
+                                title = stringResource(R.string.location_channels_heading),
+                                subtitle = stringResource(R.string.location_channels_desc),
+                                modifier = Modifier.padding(top = 20.dp)
+                            )
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AboutHorizontalPadding)
+                                    .padding(top = 10.dp),
                                 color = palette.surface,
                                 shape = AboutCardShape
                             ) {
                                 Column {
-                                    ChannelOptionRow(
-                                        title = meshTitleWithCount(viewModel),
-                                        subtitle = stringResource(
-                                            R.string.location_bluetooth_subtitle,
-                                            bluetoothRangeString()
-                                        ),
-                                        isSelected = selectedChannel is ChannelID.Mesh,
-                                        participantCount = meshCount(viewModel),
-                                        titleColor = standardBlue,
-                                        titleBold = meshCount(viewModel) > 0,
-                                        onClick = {
-                                            locationManager.select(ChannelID.Mesh)
-                                            onDismiss()
-                                        }
-                                    )
-
                                     if (locationServicesEnabled) {
                                         if (nearbyChannels.isNotEmpty()) {
-                                            nearbyChannels.forEach { channel ->
-                                                ChannelCardDivider()
+                                            nearbyChannels.forEachIndexed { index, channel ->
+                                                if (index > 0) ChannelCardDivider()
                                                 val coverage = coverageString(channel.geohash.length)
                                                 val nameBase = locationNames[channel.level]
                                                 val namePart = nameBase?.let { formattedNamePrefix(channel.level) + it }
@@ -267,13 +269,13 @@ fun LocationChannelsSheet(
                                                     }
                                                 )
                                             }
-                                        } else if (showNearbyLoading) {
                                             ChannelCardDivider()
+                                        } else if (showNearbyLoading) {
                                             ChannelLoadingRow()
+                                            ChannelCardDivider()
                                         }
                                     }
 
-                                    ChannelCardDivider()
                                     CustomGeohashRow(
                                         customGeohash = customGeohash,
                                         onGeohashChange = { value ->
@@ -507,6 +509,53 @@ private fun ChannelCardDivider() {
 }
 
 /**
+ * Section title row: icon + name on one line, optional short subtitle beneath.
+ */
+@Composable
+private fun ChannelSectionHeader(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val palette = LocalBitchatPalette.current
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = AboutHorizontalPadding),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+            Text(
+                text = title,
+                fontSize = 17.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+                color = colorScheme.primary
+            )
+        }
+        Text(
+            text = subtitle,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            fontFamily = FontFamily.Monospace,
+            color = palette.textSecondary
+        )
+    }
+}
+
+/**
  * Single channel option — settings-row geometry: 22.dp leading slot, title + subtitle, trailing.
  * Selected state is a 12.dp green dot centered in the leading slot (icon-sized footprint).
  */
@@ -518,9 +567,11 @@ private fun ChannelOptionRow(
     participantCount: Int,
     titleColor: Color? = null,
     titleBold: Boolean = false,
+    leadingIcon: ImageVector? = null,
     trailingContent: (@Composable (() -> Unit))? = null,
     onClick: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     val palette = LocalBitchatPalette.current
     val (baseTitle, countSuffix) = splitTitleAndCount(title)
 
@@ -535,12 +586,22 @@ private fun ChannelOptionRow(
             modifier = Modifier.size(ChannelLeadingSlot),
             contentAlignment = Alignment.Center
         ) {
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .size(ChannelSelectedDot)
-                        .background(palette.accentGreen, CircleShape)
-                )
+            when {
+                isSelected -> {
+                    Box(
+                        modifier = Modifier
+                            .size(ChannelSelectedDot)
+                            .background(palette.accentGreen, CircleShape)
+                    )
+                }
+                leadingIcon != null -> {
+                    Icon(
+                        imageVector = leadingIcon,
+                        contentDescription = null,
+                        tint = colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
 

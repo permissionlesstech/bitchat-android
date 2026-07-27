@@ -241,9 +241,10 @@
 
 
   <!-- Location channels sheet -->
-  <string name="location_channels_title">#Location Channels</string>
+  <string name="location_channels_title">Channels</string>
   <string name="location_channels_heading">Location Channels</string>
-  <string name="location_channels_desc">Chat with people near you using geohash channels. Only a coarse geohash is shared, never exact GPS. Do not screenshot or share this screen to protect your privacy.</string>
+  <string name="location_channels_desc">Chat nearby over geohash channels. Only a coarse location is shared, never exact GPS.</string>
+  <string name="mesh_section_subtitle">Offline mesh via Bluetooth. No internet required.</string>
 
   <!-- Location channels sheet: sections and Tor routing -->
   <string name="section_nearby">Nearby</string>
