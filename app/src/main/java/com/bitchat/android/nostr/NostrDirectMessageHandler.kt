@@ -34,11 +34,18 @@ class NostrDirectMessageHandler(
     private val meshDelegateHandler: MeshDelegateHandler,
     private val scope: CoroutineScope,
     private val repo: GeohashRepository,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    private val seenStoreProvider: () -> SeenMessageStore = {
+        SeenMessageStore.getInstance(application)
+    },
+    private val legacyNostrInboundAllowed: (String) -> Boolean = { senderPubkey ->
+        FavoritesPersistenceService.shared
+            .isLegacyNostrInboundAllowed(senderPubkey)
+    }
 ) {
     companion object { private const val TAG = "NostrDirectMessageHandler" }
 
-    private val seenStore by lazy { SeenMessageStore.getInstance(application) }
+    private val seenStore by lazy(seenStoreProvider)
     private val ndrService by lazy { NdrNostrService.getInstance(application) }
     private val ndrAccountEpochs = NdrAccountEpochGuard()
     private val ndrReceiveJobLock = Any()
@@ -126,8 +133,7 @@ class NostrDirectMessageHandler(
                 val (content, rawSenderPubkey, rumorTimestamp) = decryptResult
                 val senderPubkey = rawSenderPubkey.lowercase()
                 val legacyAllowed = runCatching {
-                    FavoritesPersistenceService.shared
-                        .isLegacyNostrInboundAllowed(senderPubkey)
+                    legacyNostrInboundAllowed(senderPubkey)
                 }.getOrDefault(false)
                 if (!legacyAllowed) {
                     Log.w(TAG, "Rejecting legacy DM for an NDR-pinned contact")
@@ -140,7 +146,7 @@ class NostrDirectMessageHandler(
                 processEmbeddedBitChatContent(
                     content = content,
                     senderPubkey = senderPubkey,
-                    timestamp = Date(giftWrap.createdAt * 1000L),
+                    timestamp = Date(rumorTimestamp * 1000L),
                     geohash = geohash,
                     recipientIdentity = identity
                 )

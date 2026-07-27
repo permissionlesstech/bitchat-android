@@ -76,7 +76,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         
         if (processedMessages.contains(messageID)) {
             // Check for ANNOUNCE exception: allow if it looks like a direct neighbor (max TTL)
-            // This ensures we catch the "first announce" on a new connection for binding,
+            // This ensures we observe the same peer on a new direct transport connection,
             // while still dropping looped/relayed duplicates.
             val isFreshAnnounce = messageType == MessageType.ANNOUNCE &&
                     packet.ttl >= com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS

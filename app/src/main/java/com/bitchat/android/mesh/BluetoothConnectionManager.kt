@@ -92,8 +92,8 @@ class BluetoothConnectionManager(
     // Public property for address-peer mapping
     val addressPeerMap get() = connectionTracker.addressPeerMap
 
-    fun bindPeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
-        connectionTracker.bindPeerIfCurrent(deviceAddress, linkID, peerID)
+    fun observePeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
+        connectionTracker.observePeerIfCurrent(deviceAddress, linkID, peerID)
 
     fun getCurrentLinkID(deviceAddress: String): String? =
         connectionTracker.getCurrentLinkID(deviceAddress)

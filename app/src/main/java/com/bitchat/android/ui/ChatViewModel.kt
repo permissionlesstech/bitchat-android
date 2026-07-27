@@ -752,8 +752,11 @@ class ChatViewModel(
     }
 
     private fun nicknameForPeer(peerID: String): String? {
-        return state.peerNicknames.value[peerID]
-            ?: try { mesh.getPeerNicknames()[peerID] } catch (_: Exception) { null }
+        val contact = ContactDirectory.resolve(peerID)
+        val meshPeerID = contact.meshPeerID ?: peerID
+        return contact.displayName
+            ?: state.peerNicknames.value[meshPeerID]
+            ?: try { mesh.getPeerNicknames()[meshPeerID] } catch (_: Exception) { null }
     }
 
     private fun sessionStateForPeer(peerID: String): NoiseSession.NoiseSessionState {
