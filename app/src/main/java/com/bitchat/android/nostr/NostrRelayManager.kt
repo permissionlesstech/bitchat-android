@@ -10,6 +10,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonParser
 import kotlinx.coroutines.*
 import okhttp3.*
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
@@ -254,6 +255,33 @@ class NostrRelayManager private constructor() {
         LiveLocationPrivacyGate.runIfAllowed(liveLocationToken, action)
     }
 
+    /**
+     * Privacy teardown is allowed to bypass an already-revoked token solely to stop
+     * server-side delivery. Live subscription IDs are opaque, so CLOSE carries no
+     * geohash. If a CLOSE cannot be queued, fail closed by dropping that socket.
+     */
+    private fun closeSubscriptionsOnConnectedRelays(subscriptionIds: Set<String>) {
+        if (subscriptionIds.isEmpty()) return
+
+        val closeTargets = NostrLiveSubscriptionPrivacy.closeTargets(
+            liveSubscriptionIds = subscriptionIds,
+            subscriptionsByRelay = subscriptions,
+        )
+        closeTargets.forEach { (relayUrl, relaySubscriptionIds) ->
+            val webSocket = connections[relayUrl] ?: return@forEach
+            relaySubscriptionIds.forEach { subscriptionId ->
+                val request = NostrRequest.Close(subscriptionId)
+                val message = gson.toJson(request, NostrRequest::class.java)
+                val closeQueued = runCatching { webSocket.send(message) }
+                    .getOrDefault(false)
+                if (!closeQueued) {
+                    connections.remove(relayUrl, webSocket)
+                    webSocket.cancel()
+                }
+            }
+        }
+    }
+
     private fun revokeLiveLocationAccess() {
         liveLocationConnectionJobs.forEach(Job::cancel)
         liveLocationConnectionJobs.clear()
@@ -261,6 +289,7 @@ class NostrRelayManager private constructor() {
         val liveSubscriptionIds = activeSubscriptions.values
             .filter { it.liveLocationToken != null }
             .mapTo(mutableSetOf()) { it.id }
+        closeSubscriptionsOnConnectedRelays(liveSubscriptionIds)
         liveSubscriptionIds.forEach { id ->
             activeSubscriptions.remove(id)
             messageHandlers.remove(id)
@@ -452,13 +481,13 @@ class NostrRelayManager private constructor() {
                         var success = false
                         runNetworkAction(subscriptionInfo.liveLocationToken) {
                             success = webSocket.send(message)
+                            if (success) {
+                                val currentSubs = subscriptions[relayUrl] ?: emptySet()
+                                subscriptions[relayUrl] =
+                                    currentSubs + subscriptionInfo.id
+                            }
                         }
-                        if (success) {
-                            // Track subscription for this relay
-                            val currentSubs = subscriptions[relayUrl] ?: emptySet()
-                            subscriptions[relayUrl] = currentSubs + subscriptionInfo.id
-
-                        } else {
+                        if (!success) {
                             Log.w(TAG, "Failed to send subscription: WebSocket send failed")
                         }
                     } catch (e: Exception) {
@@ -485,11 +514,20 @@ class NostrRelayManager private constructor() {
             return
         }
 
+        if (subscriptionInfo.liveLocationToken != null &&
+            !isNetworkActionAllowed(subscriptionInfo.liveLocationToken)
+        ) {
+            closeSubscriptionsOnConnectedRelays(setOf(id))
+            subscriptions.replaceAll { _, ids -> ids - id }
+            return
+        }
+
         val request = NostrRequest.Close(id)
         val message = gson.toJson(request, NostrRequest::class.java)
         
         scope.launch {
             if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) {
+                closeSubscriptionsOnConnectedRelays(setOf(id))
                 subscriptions.replaceAll { _, ids -> ids - id }
                 return@launch
             }
@@ -926,7 +964,7 @@ class NostrRelayManager private constructor() {
     }
     
     private fun generateSubscriptionId(): String {
-        return "sub-${System.currentTimeMillis()}-${(Math.random() * 1000).toInt()}"
+        return "sub-${UUID.randomUUID()}"
     }
     
     /**
@@ -952,13 +990,13 @@ class NostrRelayManager private constructor() {
                 var success = false
                 runNetworkAction(subscriptionInfo.liveLocationToken) {
                     success = webSocket.send(message)
+                    if (success) {
+                        val currentSubs = subscriptions[relayUrl] ?: emptySet()
+                        subscriptions[relayUrl] =
+                            currentSubs + subscriptionInfo.id
+                    }
                 }
-                if (success) {
-                    // Track subscription for this relay
-                    val currentSubs = subscriptions[relayUrl] ?: emptySet()
-                    subscriptions[relayUrl] = currentSubs + subscriptionInfo.id
-
-                } else {
+                if (!success) {
                     Log.w(TAG, "Failed to restore subscription: WebSocket send failed")
                 }
             } catch (e: Exception) {

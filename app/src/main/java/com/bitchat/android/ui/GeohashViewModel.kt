@@ -79,10 +79,17 @@ class GeohashViewModel(
     private var globalPresenceJob: Job? = null
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
     private val activeSamplingGeohashes = mutableSetOf<String>()
+    private val samplingSubscriptionIds = mutableMapOf<String, String>()
+    private val liveSamplingSubscriptionGeohashes = mutableSetOf<String>()
     private var requestedLiveSamplingGeohashes: Set<String> = emptySet()
     private var requestedUserSamplingGeohashes: Set<String> = emptySet()
     private val liveLocationRevocationListener: () -> Unit = {
-        activeSamplingGeohashes.removeAll { it !in requestedUserSamplingGeohashes }
+        val revokedLiveGeohashes = liveSamplingSubscriptionGeohashes.toSet()
+        revokedLiveGeohashes.forEach { geohash ->
+            samplingSubscriptionIds.remove(geohash)
+            activeSamplingGeohashes.remove(geohash)
+        }
+        liveSamplingSubscriptionGeohashes.clear()
         requestedLiveSamplingGeohashes = emptySet()
     }
 
@@ -310,15 +317,25 @@ class GeohashViewModel(
 
         val toRemove = currentSet - newSet
         val toAdd = newSet - currentSet
+        val toPromoteToUserSelection = currentSet
+            .intersect(requestedUserSamplingGeohashes)
+            .intersect(liveSamplingSubscriptionGeohashes)
 
-        if (toAdd.isEmpty() && toRemove.isEmpty()) return
+        if (toAdd.isEmpty() && toRemove.isEmpty() && toPromoteToUserSelection.isEmpty()) return
 
         Log.d(TAG, "🌍 Updating sampling: +${toAdd.size} new, -${toRemove.size} removed")
         
         // Remove old subscriptions
         toRemove.forEach { geohash ->
-            subscriptionManager.unsubscribe("sampling-$geohash")
+            unsubscribeSampling(geohash)
             activeSamplingGeohashes.remove(geohash)
+        }
+
+        // A bookmark must remain functional after live access is revoked. Replace a
+        // live-tagged subscription with an untagged manual subscription immediately.
+        toPromoteToUserSelection.forEach { geohash ->
+            unsubscribeSampling(geohash)
+            if (isAppInForeground()) performSubscribeSampling(geohash)
         }
 
         // Add new subscriptions
@@ -337,7 +354,7 @@ class GeohashViewModel(
         Log.d(TAG, "🌍 Ending geohash sampling (cleaning up ${activeSamplingGeohashes.size} subs)")
         
         activeSamplingGeohashes.toList().forEach { geohash ->
-            subscriptionManager.unsubscribe("sampling-$geohash")
+            unsubscribeSampling(geohash)
         }
         activeSamplingGeohashes.clear()
     }
@@ -496,7 +513,7 @@ class GeohashViewModel(
         geohash: String,
         liveLocationToken: Long?
     ) {
-        val subId = "geohash-$geohash"; currentGeohashMsgSubId = subId
+        val subId = "geohash-${UUID.randomUUID()}"; currentGeohashMsgSubId = subId
         subscriptionManager.subscribeGeohashMessages(
             geohash = geohash,
             sinceMs = System.currentTimeMillis() - 3600000L,
@@ -516,7 +533,7 @@ class GeohashViewModel(
         geohash: String,
         liveLocationToken: Long?
     ) {
-        val subId = "geohash-presence-$geohash"; currentGeohashPresenceSubId = subId
+        val subId = "geohash-presence-${UUID.randomUUID()}"; currentGeohashPresenceSubId = subId
         subscriptionManager.subscribeGeohashPresence(
             geohash = geohash,
             sinceMs = System.currentTimeMillis() - 3600000L,
@@ -565,6 +582,10 @@ class GeohashViewModel(
 
     override fun onStart(owner: LifecycleOwner) {
         Log.d(TAG, "🌍 App foregrounded: resuming Nostr streaming")
+        // Android permission may have changed while backgrounded. Invalidate the
+        // process-wide token before restoring any subscription or heartbeat.
+        locationChannelManager?.syncPermissionState()
+
         // Restore the presence heartbeat firehose for the selected geohash channel.
         // (The chat message stream is kept alive in the background, so it is not restored here.)
         val selected = locationChannelManager?.selectedChannel?.value
@@ -597,7 +618,7 @@ class GeohashViewModel(
         // The chat message stream (kind 20000) is intentionally left active so messages still arrive.
         currentGeohashPresenceSubId?.let { subscriptionManager.unsubscribe(it); currentGeohashPresenceSubId = null }
         // Drop geohash sampling subscriptions
-        activeSamplingGeohashes.forEach { subscriptionManager.unsubscribe("sampling-$it") }
+        activeSamplingGeohashes.forEach(::unsubscribeSampling)
         // Stop broadcasting presence heartbeats
         globalPresenceJob?.cancel(); globalPresenceJob = null
         // Stop participant-refresh polling
@@ -607,14 +628,18 @@ class GeohashViewModel(
     }
 
     private fun performSubscribeSampling(geohash: String) {
+        val subscriptionId = samplingSubscriptionIds.getOrPut(geohash) {
+            "sampling-${UUID.randomUUID()}"
+        }
         // Sampling only needs participant counts, never message bodies, so it subscribes to
         // presence heartbeats only (kind 20001) to keep the payload small.
         val subscribe = {
+            liveSamplingSubscriptionGeohashes.remove(geohash)
             subscriptionManager.subscribeGeohashPresence(
                 geohash = geohash,
                 sinceMs = System.currentTimeMillis() - 86400000L,
                 limit = 200,
-                id = "sampling-$geohash",
+                id = subscriptionId,
                 handler = { event -> geohashMessageHandler.onEvent(event, geohash) }
             )
         }
@@ -629,16 +654,22 @@ class GeohashViewModel(
             if (!isCurrentLiveTarget) return
             val token = LiveLocationPrivacyGate.captureToken() ?: return
             LiveLocationPrivacyGate.runIfAllowed(token) {
+                liveSamplingSubscriptionGeohashes.add(geohash)
                 subscriptionManager.subscribeGeohashPresence(
                     geohash = geohash,
                     sinceMs = System.currentTimeMillis() - 86400000L,
                     limit = 200,
-                    id = "sampling-$geohash",
+                    id = subscriptionId,
                     handler = { event -> geohashMessageHandler.onEvent(event, geohash) },
                     liveLocationToken = token
                 )
             }
         }
+    }
+
+    private fun unsubscribeSampling(geohash: String) {
+        samplingSubscriptionIds.remove(geohash)?.let(subscriptionManager::unsubscribe)
+        liveSamplingSubscriptionGeohashes.remove(geohash)
     }
 
     private fun isAppInForeground(): Boolean {

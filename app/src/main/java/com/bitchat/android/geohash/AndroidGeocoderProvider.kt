@@ -30,7 +30,16 @@ class AndroidGeocoderProvider(context: Context) : GeocoderProvider {
                             maxResults,
                             object : Geocoder.GeocodeListener {
                                 override fun onGeocode(addresses: MutableList<Address>) {
-                                    if (cont.isActive) cont.resume(addresses)
+                                    if (cont.isActive) {
+                                        val result = if (liveLocationToken == null ||
+                                            LiveLocationPrivacyGate.accepts(liveLocationToken)
+                                        ) {
+                                            addresses
+                                        } else {
+                                            emptyList()
+                                        }
+                                        cont.resume(result)
+                                    }
                                 }
 
                                 override fun onError(errorMessage: String?) {
@@ -59,20 +68,25 @@ class AndroidGeocoderProvider(context: Context) : GeocoderProvider {
         } else {
             @Suppress("DEPRECATION")
             try {
-                var addresses: List<Address> = emptyList()
-                val request = {
-                    addresses = geocoder.getFromLocation(
-                        latitude,
-                        longitude,
-                        maxResults
-                    ) ?: emptyList()
-                }
-                if (liveLocationToken == null) {
-                    request()
+                if (liveLocationToken != null &&
+                    !LiveLocationPrivacyGate.accepts(liveLocationToken)
+                ) return emptyList()
+
+                // This legacy API blocks and cannot be cancelled. Never hold the privacy
+                // gate's read lock across the call: revocation must remain immediate.
+                val addresses = geocoder.getFromLocation(
+                    latitude,
+                    longitude,
+                    maxResults
+                ) ?: emptyList()
+
+                if (liveLocationToken == null ||
+                    LiveLocationPrivacyGate.accepts(liveLocationToken)
+                ) {
+                    addresses
                 } else {
-                    LiveLocationPrivacyGate.runIfAllowed(liveLocationToken, request)
+                    emptyList()
                 }
-                addresses
             } catch (e: Exception) {
                 Log.e(TAG, "Geocode failed")
                 emptyList()

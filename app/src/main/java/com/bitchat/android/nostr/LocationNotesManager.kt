@@ -7,6 +7,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.UUID
 
 /**
  * Manages location notes (kind=1 text notes with geohash tags)
@@ -378,7 +379,7 @@ class LocationNotesManager private constructor() {
                 since = null,
                 limit = 200
             )
-            val subId = "location-notes-$gh"
+            val subId = "location-notes-${UUID.randomUUID()}"
             try {
                 var id: String? = null
                 LiveLocationPrivacyGate.runIfAllowed(token) {
