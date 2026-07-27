@@ -37,6 +37,11 @@ class SecureIdentityStateManager {
         private const val KEY_CACHED_FINGERPRINT_NICKNAMES = "cached_fingerprint_nicknames"
         private const val KEY_PRIVATE_MEDIA_CAPABILITY_PINS = "private_media_capability_pins_v1"
         private const val KEY_AUTHENTICATED_PEER_STATES = "authenticated_peer_states_v1"
+        private val NDR_PROTECTION_KEYS = setOf(
+            "favorite_relationships",
+            "favorite_peerid_index",
+            "favorite_ndr_rebind_v1"
+        )
 
         // BLE, Wi-Fi Aware, and Noise services each hold their own manager
         // instance over the same encrypted preferences. Serialize pin updates
@@ -466,18 +471,38 @@ class SecureIdentityStateManager {
      * Clear all identity data (for panic mode)
      */
     @SuppressLint("UseKtx")
-    fun clearIdentityData() {
-        try {
-            synchronized(privateMediaPinsLock) {
+    fun clearIdentityData(): Boolean {
+        return try {
+            val cleared = synchronized(privateMediaPinsLock) {
                 privateMediaPinsEpoch += 1
                 privateMediaPinsEpochAtCreation = privateMediaPinsEpoch
-                if (!prefs.edit().clear().commit()) {
-                    Log.e(TAG, "Identity preference wipe could not be committed")
+                synchronized(lock) {
+                    val protectedValues = NDR_PROTECTION_KEYS.mapNotNull { key ->
+                        prefs.getString(key, null)?.let { value -> key to value }
+                    }.toMap()
+                    val editor = prefs.edit().clear()
+                    protectedValues.forEach { (key, value) ->
+                        editor.putString(key, value)
+                    }
+                    val committed = editor.commit()
+                    val storedValues = prefs.all
+                    val wipeVerified =
+                        storedValues.keys == protectedValues.keys &&
+                            protectedValues.all { (key, value) ->
+                                storedValues[key] == value
+                            }
+                    committed && wipeVerified
                 }
             }
-            Log.w(TAG, "All identity data cleared")
+            if (cleared) {
+                Log.w(TAG, "All identity data cleared")
+            } else {
+                Log.e(TAG, "Identity preference wipe could not be committed safely")
+            }
+            cleared
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear identity data: ${e.message}")
+            false
         }
     }
     
@@ -501,7 +526,23 @@ class SecureIdentityStateManager {
      * Durably store a value before acknowledging an external operation.
      */
     fun storeSecureValueSynchronously(key: String, value: String): Boolean {
-        return prefs.edit().putString(key, value).commit()
+        return commitSecureValuesSynchronously(mapOf(key to value))
+    }
+
+    /**
+     * Atomically commit and read back a set of secure string mutations.
+     */
+    fun commitSecureValuesSynchronously(
+        values: Map<String, String> = emptyMap(),
+        removals: Set<String> = emptySet()
+    ): Boolean = synchronized(lock) {
+        if (values.keys.any { it in removals }) return@synchronized false
+        val editor = prefs.edit()
+        values.forEach { (key, value) -> editor.putString(key, value) }
+        removals.forEach(editor::remove)
+        if (!editor.commit()) return@synchronized false
+        values.all { (key, value) -> prefs.getString(key, null) == value } &&
+            removals.none(prefs::contains)
     }
     
     /**

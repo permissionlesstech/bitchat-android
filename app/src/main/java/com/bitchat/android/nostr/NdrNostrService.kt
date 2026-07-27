@@ -66,6 +66,8 @@ class NdrNostrService(
             requireNotNull(java.io.File(storageDirectoryProvider()).parentFile)
                 .resolve("ndr-established-sessions")
         ),
+    private val panicStorageQuarantine: NdrPanicStorageQuarantine =
+        FileNdrPanicStorageQuarantine(java.io.File(storageDirectoryProvider())),
     private val pairwiseStateExists: (String) -> Boolean = Companion::pairwiseStateExists,
     private val invitePeerResolver: (String) -> String? = Companion::resolvePairwiseInvitePubkeyHex,
     private val retryScheduler: NdrRetryScheduler = Companion.DEFAULT_RETRY_SCHEDULER,
@@ -203,7 +205,10 @@ class NdrNostrService(
     private var configurationFailurePubkeyHex: String? = null
 
     @Volatile
-    private var panicResetBlocked = false
+    private var panicResetBlocked = runCatching {
+        establishedSessionMarkers.isPanicWipeRequired() ||
+            panicStorageQuarantine.isPending()
+    }.getOrDefault(true)
 
     private val activeSubIds = linkedSetOf<String>()
     private val inFlightRelayEventsByActionId = linkedMapOf<String, String>()
@@ -227,6 +232,10 @@ class NdrNostrService(
     val isConfigured: Boolean
         get() = NdrFeatureGate.isEnabled() && pairwiseRuntime != null
 
+    @get:Synchronized
+    val isPanicWipeRequired: Boolean
+        get() = panicResetBlocked
+
     @Synchronized
     fun currentInviteEventJson(): String? {
         if (!NdrFeatureGate.isEnabled()) return null
@@ -240,20 +249,30 @@ class NdrNostrService(
             configurationFailurePubkeyHex = null
             return
         }
+        configureRuntimeIfNeededLocked(identity, drainPendingActions = true)
+    }
+
+    private fun configureRuntimeIfNeededLocked(
+        identity: NostrIdentity,
+        drainPendingActions: Boolean
+    ): Boolean {
         if (panicResetBlocked) {
             Log.e(TAG, "Refusing to configure NDR after an incomplete panic wipe")
-            return
+            return false
         }
         val pubkeyHex = identity.publicKeyHex.lowercase()
         if (configurationFailurePubkeyHex == pubkeyHex) {
             Log.e(TAG, "Refusing to reopen failed NDR storage before reset or identity change")
-            return
+            return false
         }
         if (configurationFailurePubkeyHex != null) {
             configurationFailurePubkeyHex = null
         }
         if (configuredForPubkeyHex == pubkeyHex && pairwiseRuntime != null) {
-            return
+            if (drainPendingActions) {
+                drainAndApplyPubSubEventsLocked()
+            }
+            return true
         }
 
         teardownLocked()
@@ -278,12 +297,18 @@ class NdrNostrService(
             )
             pairwiseRuntime = runtime
             activeRuntimeEpoch = ++nextRuntimeEpoch
-            markEstablishedIfNeededLocked(runtime)
-            drainAndApplyPubSubEventsLocked()
+            if (!persistEstablishedMarkerIfNeededLocked(runtime)) {
+                return false
+            }
+            if (drainPendingActions) {
+                drainAndApplyPubSubEventsLocked()
+            }
+            return true
         } catch (_: Throwable) {
             Log.e(TAG, "Failed to configure NDR")
             teardownLocked()
             configurationFailurePubkeyHex = pubkeyHex
+            return false
         }
     }
 
@@ -295,8 +320,8 @@ class NdrNostrService(
         return try {
             val sessionInfo = runtime.sessionInfo(peer) ?: return false
             knownActivePeerPubkeys.add(peer)
-            markEstablishedIfNeededLocked(runtime)
-            sessionInfo.isActive
+            persistEstablishedMarkerIfNeededLocked(runtime) &&
+                sessionInfo.isActive
         } catch (_: Throwable) {
             false
         }
@@ -316,8 +341,7 @@ class NdrNostrService(
                 false
             } else {
                 knownActivePeerPubkeys.add(peer)
-                markEstablishedIfNeededLocked(runtime)
-                true
+                persistEstablishedMarkerIfNeededLocked(runtime)
             }
         } catch (_: Throwable) {
             false
@@ -364,7 +388,9 @@ class NdrNostrService(
         }
         return try {
             runtime.sendText(peer, text, expiresAtSeconds)
-            markEstablishedIfNeededLocked(runtime)
+            if (!persistEstablishedMarkerIfNeededLocked(runtime)) {
+                return NdrSendResult.FAILED
+            }
             drainAndApplyPubSubEventsLocked()
             NdrSendResult.SENT
         } catch (_: Throwable) {
@@ -377,17 +403,65 @@ class NdrNostrService(
     @Synchronized
     fun retirePeer(peerPubkeyHex: String): Boolean {
         if (!NdrFeatureGate.isEnabled()) return false
+        return retirePeerLocked(peerPubkeyHex, drainPendingActions = true)
+    }
+
+    /**
+     * Open existing native state only to durably retire a rebound peer while rollout is off.
+     */
+    @Synchronized
+    fun retirePeerForMaintenance(
+        identity: NostrIdentity,
+        peerPubkeyHex: String
+    ): Boolean {
+        if (!configureRuntimeIfNeededLocked(identity, drainPendingActions = false)) {
+            return false
+        }
+        return retirePeerLocked(peerPubkeyHex, drainPendingActions = false)
+    }
+
+    private fun retirePeerLocked(
+        peerPubkeyHex: String,
+        drainPendingActions: Boolean
+    ): Boolean {
         val peer = peerPubkeyHex.lowercase()
         if (!NdrInputPolicy.isPubkeyHex(peer)) return false
         val runtime = pairwiseRuntime ?: return false
-        return try {
-            runtime.retirePeer(peer)
-            knownActivePeerPubkeys.remove(peer)
-            drainAndApplyPubSubEventsLocked()
-            true
+        val existedBefore = try {
+            runtime.sessionInfo(peer) != null
         } catch (_: Throwable) {
-            Log.e(TAG, "Failed to retire rebound NDR peer")
-            false
+            return false
+        }
+        if (!existedBefore) {
+            knownActivePeerPubkeys.remove(peer)
+            return true
+        }
+        return try {
+            val retired = runtime.retirePeer(peer)
+            val absentAfter = runtime.sessionInfo(peer) == null
+            if (retired || absentAfter) {
+                knownActivePeerPubkeys.remove(peer)
+                if (drainPendingActions) {
+                    drainAndApplyPubSubEventsLocked()
+                }
+                true
+            } else {
+                false
+            }
+        } catch (_: Throwable) {
+            val absentAfter = runCatching {
+                runtime.sessionInfo(peer) == null
+            }.getOrDefault(false)
+            if (absentAfter) {
+                knownActivePeerPubkeys.remove(peer)
+                if (drainPendingActions) {
+                    runCatching { drainAndApplyPubSubEventsLocked() }
+                }
+                true
+            } else {
+                Log.e(TAG, "Failed to retire rebound NDR peer")
+                false
+            }
         }
     }
 
@@ -425,6 +499,17 @@ class NdrNostrService(
             Log.w(TAG, "Rejecting OOB event with an authenticated-peer mismatch")
             return NdrOutOfBandProcessResult(emptyList())
         }
+        val canMutateSession =
+            inboundInvite?.transport == OutOfBandInviteTransport.EVENT_JSON ||
+                inboundInvite?.transport == OutOfBandInviteTransport.URL ||
+                parsedEvent?.kind == NostrKind.GIFT_WRAP
+        if (!canMutateSession) {
+            Log.w(TAG, "Rejecting non-handshake OOB payload")
+            return NdrOutOfBandProcessResult(emptyList())
+        }
+        if (!persistEstablishedMarkerIfNeededLocked(runtime, force = true)) {
+            return NdrOutOfBandProcessResult(emptyList())
+        }
 
         try {
             when {
@@ -440,9 +525,7 @@ class NdrNostrService(
                     runtime.processOutOfBandResponse(trimmedPayload, expectedPeer)
                     processingSucceeded = true
                 }
-                else -> {
-                    Log.w(TAG, "Rejecting non-handshake OOB payload")
-                }
+                else -> Unit
             }
         } catch (_: NdrSessionNotReadyException) {
             Log.d(TAG, "OOB session is not ready")
@@ -457,9 +540,8 @@ class NdrNostrService(
             }
         }
         if (processingSucceeded &&
-            runCatching { markEstablishedIfNeededLocked(runtime) }.isFailure
+            !persistEstablishedMarkerIfNeededLocked(runtime)
         ) {
-            Log.e(TAG, "Failed to persist NDR established-session marker")
             return NdrOutOfBandProcessResult(emptyList())
         }
         val collectOutOfBandPublishes = onOutOfBandPayload == null
@@ -518,7 +600,9 @@ class NdrNostrService(
 
         try {
             runtime.processEvent(eventJson)
-            markEstablishedIfNeededLocked(runtime)
+            if (!persistEstablishedMarkerIfNeededLocked(runtime)) {
+                return false
+            }
         } catch (_: Throwable) {
             Log.d(TAG, "Ignoring invalid NDR relay event")
             drainAndApplyPubSubEventsLocked()
@@ -891,13 +975,25 @@ class NdrNostrService(
         return pairwiseRuntime === runtime && activeRuntimeEpoch == runtimeEpoch
     }
 
-    private fun markEstablishedIfNeededLocked(runtime: NdrPairwiseRuntime) {
-        val accountPubkeyHex = configuredForPubkeyHex ?: return
-        val hasPairwiseSessionRecord = runtime.knownPeerPubkeys().any { peerPubkeyHex ->
-            runtime.sessionInfo(peerPubkeyHex) != null
-        }
-        if (hasPairwiseSessionRecord) {
-            establishedSessionMarkers.mark(accountPubkeyHex)
+    private fun persistEstablishedMarkerIfNeededLocked(
+        runtime: NdrPairwiseRuntime,
+        force: Boolean = false
+    ): Boolean {
+        val accountPubkeyHex = configuredForPubkeyHex ?: return false
+        return try {
+            val hasPairwiseSessionRecord = force ||
+                runtime.knownPeerPubkeys().any { peerPubkeyHex ->
+                    runtime.sessionInfo(peerPubkeyHex) != null
+                }
+            if (hasPairwiseSessionRecord) {
+                establishedSessionMarkers.mark(accountPubkeyHex)
+            }
+            true
+        } catch (_: Throwable) {
+            Log.e(TAG, "Failed to persist NDR established-session marker")
+            configurationFailurePubkeyHex = accountPubkeyHex
+            teardownLocked()
+            false
         }
     }
 
@@ -999,18 +1095,54 @@ class NdrNostrService(
     fun resetForPanic(): Boolean {
         onDecryptedMessage = null
         teardownLocked()
-        val storageCleared = runCatching(storageResetter)
+        panicResetBlocked = true
+
+        val quarantineEstablished = runCatching {
+            panicStorageQuarantine.begin()
+        }.onFailure {
+            Log.w(TAG, "Failed to establish NDR panic quarantine")
+        }.isSuccess
+        val retryMarkerPersisted = runCatching {
+            establishedSessionMarkers.markPanicWipeRequired()
+        }.onFailure {
+            Log.w(TAG, "Failed to persist NDR panic retry marker")
+        }.isSuccess
+
+        val activeStorageCleared = runCatching(storageResetter)
             .onFailure { Log.w(TAG, "Failed to delete NDR storage") }
             .isSuccess
+        val quarantineCleared = if (quarantineEstablished) {
+            runCatching(panicStorageQuarantine::wipeNativeState)
+                .onFailure { Log.w(TAG, "Failed to wipe quarantined NDR storage") }
+                .isSuccess
+        } else {
+            true
+        }
+        val storageCleared = activeStorageCleared && quarantineCleared
         val markersCleared = storageCleared &&
-            runCatching(establishedSessionMarkers::clearAll)
+            runCatching(establishedSessionMarkers::clearEstablishedSessions)
                 .onFailure { Log.w(TAG, "Failed to delete NDR downgrade markers") }
                 .isSuccess
-        panicResetBlocked = !markersCleared
-        if (markersCleared) {
+        return (quarantineEstablished || retryMarkerPersisted) && markersCleared
+    }
+
+    /**
+     * Clear the retry marker only after host identities and contact pins are wiped.
+     */
+    @Synchronized
+    fun completePanicReset(): Boolean {
+        if (!panicResetBlocked) return true
+        val completed = runCatching {
+            establishedSessionMarkers.clearPanicWipeRequired()
+            panicStorageQuarantine.clear()
+        }.onFailure {
+            Log.w(TAG, "Failed to clear NDR panic retry state")
+        }.isSuccess
+        if (completed) {
+            panicResetBlocked = false
             configurationFailurePubkeyHex = null
         }
-        return !panicResetBlocked
+        return completed
     }
 
     private fun isDoubleRatchetInviteEvent(event: NostrEvent): Boolean {

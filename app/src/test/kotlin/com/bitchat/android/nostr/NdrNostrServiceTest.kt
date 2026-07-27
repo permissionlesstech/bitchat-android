@@ -41,6 +41,29 @@ class NdrNostrServiceTest {
     }
 
     @Test
+    fun disabledRolloutCanRetirePinnedPeerWithoutStartingTransport() {
+        NdrFeatureGate.setEnabledForTests(false)
+        val relay = FakeRelayManager()
+        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey)).apply {
+            pendingEvents += NdrPubSubEvent(
+                kind = "subscribe",
+                actionId = "must-stay-dormant",
+                subid = "messages",
+                filterJson = """{"authors":["$peerPubkey"],"kinds":[1060]}"""
+            )
+        }
+        val factory = FakeNdrRuntimeFactory(runtime)
+        val service = service(relay, factory)
+
+        assertTrue(service.retirePeerForMaintenance(testIdentity(), peerPubkey))
+
+        assertFalse(service.isConfigured)
+        assertEquals(1, factory.createdCount)
+        assertEquals(listOf(peerPubkey), runtime.retiredPeers)
+        assertTrue(relay.subscriptions.isEmpty())
+    }
+
+    @Test
     fun configureCachesPairwiseInviteAndInstallsOnlyKind1060Subscription() {
         val relay = FakeRelayManager()
         val runtime = FakeNdrPairwiseRuntime().apply {
@@ -279,6 +302,7 @@ class NdrNostrServiceTest {
         val scheduled = scheduler.scheduled.single()
 
         assertTrue(service.resetForPanic())
+        assertTrue(service.completePanicReset())
         relay.failSend = false
         scheduler.runNext()
 
@@ -517,6 +541,33 @@ class NdrNostrServiceTest {
     }
 
     @Test
+    fun markerFailureTearsDownAndLatchesBeforeSessionCreatingFfiCall() {
+        val markers = InMemoryMarkerStore().apply {
+            markFailure = java.io.IOException("marker storage unavailable")
+        }
+        val runtime = FakeNdrPairwiseRuntime()
+        val factory = FakeNdrRuntimeFactory(runtime)
+        val service = service(
+            runtimeFactory = factory,
+            markerStore = markers,
+            invitePeerResolver = { peerPubkey }
+        )
+        service.configureIfNeeded(testIdentity())
+
+        val result = service.processOutOfBandEventJson(
+            inviteEvent(peerPubkey),
+            expectedPeerPubkeyHex = peerPubkey
+        )
+
+        assertTrue(result.outboundPayloads.isEmpty())
+        assertTrue(runtime.acceptedInvites.isEmpty())
+        assertTrue(runtime.destroyed)
+        assertEquals(NdrSendResult.FAILED, service.sendIfPossible("blocked", peerPubkey))
+        service.configureIfNeeded(testIdentity())
+        assertEquals(1, factory.createdCount)
+    }
+
+    @Test
     fun authenticatedGiftWrapResponseMayUseEphemeralOuterPubkey() {
         val runtime = FakeNdrPairwiseRuntime()
         val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
@@ -608,6 +659,7 @@ class NdrNostrServiceTest {
         service.configureIfNeeded(testIdentity())
 
         assertTrue(service.resetForPanic())
+        assertTrue(service.completePanicReset())
         service.configureIfNeeded(testIdentity())
 
         relay.canceledConfirmations.single().completion(true)
@@ -669,6 +721,7 @@ class NdrNostrServiceTest {
         }
 
         assertTrue(service.resetForPanic())
+        assertTrue(service.completePanicReset())
 
         assertFalse(service.isConfigured)
         assertNull(service.currentInviteEventJson())
@@ -679,19 +732,78 @@ class NdrNostrServiceTest {
 
     @Test
     fun failedPanicStorageWipeKeepsNdrDisabled() {
+        val markers = InMemoryMarkerStore()
         val runtime = FakeNdrPairwiseRuntime()
         val factory = FakeNdrRuntimeFactory(runtime)
         val service = service(
             runtimeFactory = factory,
-            storageResetter = { throw java.io.IOException("busy") }
+            storageResetter = { throw java.io.IOException("busy") },
+            markerStore = markers
         )
         service.configureIfNeeded(testIdentity())
 
         assertFalse(service.resetForPanic())
+        assertTrue(service.isPanicWipeRequired)
         service.configureIfNeeded(testIdentity())
 
         assertFalse(service.isConfigured)
         assertEquals(1, factory.createdCount)
+
+        val restartedFactory = FakeNdrRuntimeFactory(FakeNdrPairwiseRuntime())
+        val restarted = service(
+            runtimeFactory = restartedFactory,
+            storageResetter = {},
+            markerStore = markers
+        )
+        restarted.configureIfNeeded(testIdentity())
+        assertTrue(restarted.isPanicWipeRequired)
+        assertFalse(restarted.isConfigured)
+        assertEquals(0, restartedFactory.createdCount)
+
+        assertTrue(restarted.resetForPanic())
+        assertTrue(restarted.completePanicReset())
+        restarted.configureIfNeeded(testIdentity())
+        assertFalse(restarted.isPanicWipeRequired)
+        assertTrue(restarted.isConfigured)
+        assertEquals(1, restartedFactory.createdCount)
+    }
+
+    @Test
+    fun failedPrimaryPanicMarkerStillBlocksRestartViaQuarantine() {
+        val markers = InMemoryMarkerStore().apply {
+            panicMarkFailure = java.io.IOException("marker unavailable")
+        }
+        val quarantine = InMemoryPanicStorageQuarantine()
+        val service = service(
+            runtimeFactory = FakeNdrRuntimeFactory(FakeNdrPairwiseRuntime()),
+            storageResetter = {},
+            markerStore = markers,
+            panicStorageQuarantine = quarantine
+        )
+        service.configureIfNeeded(testIdentity())
+
+        assertTrue(service.resetForPanic())
+        assertFalse(markers.isPanicWipeRequired())
+        assertTrue(quarantine.pending)
+
+        val restartedFactory = FakeNdrRuntimeFactory(FakeNdrPairwiseRuntime())
+        val restarted = service(
+            runtimeFactory = restartedFactory,
+            storageResetter = {},
+            markerStore = markers,
+            panicStorageQuarantine = quarantine
+        )
+        restarted.configureIfNeeded(testIdentity())
+
+        assertTrue(restarted.isPanicWipeRequired)
+        assertFalse(restarted.isConfigured)
+        assertEquals(0, restartedFactory.createdCount)
+
+        markers.panicMarkFailure = null
+        assertTrue(restarted.resetForPanic())
+        assertTrue(restarted.completePanicReset())
+        assertFalse(quarantine.pending)
+        assertFalse(restarted.isPanicWipeRequired)
     }
 
     @Test
@@ -728,6 +840,7 @@ class NdrNostrServiceTest {
         }
 
         assertTrue(resetSucceeded)
+        assertTrue(service.completePanicReset())
         assertTrue(runtime.destroyedAfterSendCompleted)
     }
 
@@ -888,16 +1001,30 @@ class NdrNostrServiceTest {
 
     @Test
     fun peerRetirementIsDurableAndFailureAbortsHostRebind() {
-        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey))
+        val failingPeer = "aa".repeat(32)
+        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey, failingPeer))
         val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
         service.configureIfNeeded(testIdentity())
 
         assertTrue(service.retirePeer(peerPubkey))
         assertEquals(listOf(peerPubkey), runtime.retiredPeers)
         assertFalse(service.hasActiveSession(peerPubkey))
+        assertTrue(service.retirePeer(peerPubkey))
 
         runtime.retirePeerFailure = java.io.IOException("storage unavailable")
-        assertFalse(service.retirePeer("aa".repeat(32)))
+        assertFalse(service.retirePeer(failingPeer))
+    }
+
+    @Test
+    fun peerRetirementExceptionAfterDurableRemovalIsIdempotentSuccess() {
+        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey)).apply {
+            retirePeerFailureAfterRemoval = java.io.IOException("response lost")
+        }
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
+        service.configureIfNeeded(testIdentity())
+
+        assertTrue(service.retirePeer(peerPubkey))
+        assertFalse(service.hasActiveSession(peerPubkey))
     }
 
     @Test
@@ -929,6 +1056,7 @@ class NdrNostrServiceTest {
 
         assertEquals(NdrSendResult.FAILED, service.sendIfPossible("hello", peerPubkey))
         assertTrue(service.resetForPanic())
+        assertTrue(service.completePanicReset())
         service.configureIfNeeded(testIdentity())
 
         assertTrue(service.isConfigured)
@@ -940,6 +1068,36 @@ class NdrNostrServiceTest {
         assertTrue(shouldUseLegacyNostrFallback(NdrSendResult.NO_SESSION))
         assertFalse(shouldUseLegacyNostrFallback(NdrSendResult.FAILED))
         assertFalse(shouldUseLegacyNostrFallback(NdrSendResult.SENT))
+        assertFalse(
+            shouldUseLegacyNostrFallback(
+                NdrSendResult.NO_SESSION,
+                ndrRequired = true
+            )
+        )
+        assertFalse(
+            shouldUseLegacyNostrFallback(
+                NdrSendResult.NO_SESSION,
+                rebindBlocked = true
+            )
+        )
+        assertTrue(
+            isLegacyNostrAllowedWhenNdrDisabled(
+                ndrRequired = false,
+                rebindBlocked = false
+            )
+        )
+        assertFalse(
+            isLegacyNostrAllowedWhenNdrDisabled(
+                ndrRequired = true,
+                rebindBlocked = false
+            )
+        )
+        assertFalse(
+            isLegacyNostrAllowedWhenNdrDisabled(
+                ndrRequired = false,
+                rebindBlocked = true
+            )
+        )
     }
 
     private fun service(
@@ -949,6 +1107,8 @@ class NdrNostrServiceTest {
         invitePeerResolver: (String) -> String? = { null },
         retryScheduler: NdrRetryScheduler = FakeRetryScheduler(),
         markerStore: NdrEstablishedSessionMarkerStore = InMemoryMarkerStore(),
+        panicStorageQuarantine: NdrPanicStorageQuarantine =
+            InMemoryPanicStorageQuarantine(),
         pairwiseStateExists: (String) -> Boolean = { false }
     ) = NdrNostrService(
         relayManager = relayManager,
@@ -956,6 +1116,7 @@ class NdrNostrServiceTest {
         storageDirectoryProvider = { "/tmp/ndr-test" },
         storageResetter = storageResetter,
         establishedSessionMarkers = markerStore,
+        panicStorageQuarantine = panicStorageQuarantine,
         pairwiseStateExists = pairwiseStateExists,
         invitePeerResolver = invitePeerResolver,
         retryScheduler = retryScheduler
@@ -1162,16 +1323,52 @@ class NdrNostrServiceTest {
 
     private class InMemoryMarkerStore : NdrEstablishedSessionMarkerStore {
         private val marked = mutableSetOf<String>()
+        var markFailure: Throwable? = null
+        var panicMarkFailure: Throwable? = null
+        private var panicWipeRequired = false
 
         override fun contains(accountPubkeyHex: String): Boolean =
             accountPubkeyHex.lowercase() in marked
 
         override fun mark(accountPubkeyHex: String) {
+            markFailure?.let { throw it }
             marked += accountPubkeyHex.lowercase()
         }
 
-        override fun clearAll() {
+        override fun clearEstablishedSessions() {
             marked.clear()
+        }
+
+        override fun isPanicWipeRequired(): Boolean = panicWipeRequired
+
+        override fun markPanicWipeRequired() {
+            panicMarkFailure?.let { throw it }
+            panicWipeRequired = true
+        }
+
+        override fun clearPanicWipeRequired() {
+            panicWipeRequired = false
+        }
+    }
+
+    private class InMemoryPanicStorageQuarantine : NdrPanicStorageQuarantine {
+        var pending = false
+        var nativeStateWiped = false
+
+        override fun isPending(): Boolean = pending
+
+        override fun begin() {
+            pending = true
+        }
+
+        override fun wipeNativeState() {
+            check(pending)
+            nativeStateWiped = true
+        }
+
+        override fun clear() {
+            check(nativeStateWiped)
+            pending = false
         }
     }
 
@@ -1204,6 +1401,7 @@ class NdrNostrServiceTest {
         var activeSessionLookupFailure: Throwable? = null
         var knownPeerPubkeysFailure: Throwable? = null
         var retirePeerFailure: Throwable? = null
+        var retirePeerFailureAfterRemoval: Throwable? = null
         val retiredPeers = mutableListOf<String>()
         @Volatile
         var sendTextCompleted = false
@@ -1279,8 +1477,10 @@ class NdrNostrServiceTest {
         override fun retirePeer(peerPubkeyHex: String): Boolean {
             retirePeerFailure?.let { throw it }
             retiredPeers += peerPubkeyHex.lowercase()
-            return activeSessionPeers.remove(peerPubkeyHex.lowercase()) ||
+            val removed = activeSessionPeers.remove(peerPubkeyHex.lowercase()) ||
                 halfReadySessionPeers.remove(peerPubkeyHex.lowercase())
+            retirePeerFailureAfterRemoval?.let { throw it }
+            return removed
         }
 
         override fun sendText(

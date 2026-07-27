@@ -125,6 +125,14 @@ class NostrDirectMessageHandler(
 
                 val (content, rawSenderPubkey, rumorTimestamp) = decryptResult
                 val senderPubkey = rawSenderPubkey.lowercase()
+                val legacyAllowed = runCatching {
+                    FavoritesPersistenceService.shared
+                        .isLegacyNostrInboundAllowed(senderPubkey)
+                }.getOrDefault(false)
+                if (!legacyAllowed) {
+                    Log.w(TAG, "Rejecting legacy DM for an NDR-pinned contact")
+                    return@launch
+                }
 
                 // If sender is blocked for geohash contexts, drop any events from this pubkey
                 // Applies to both geohash DMs (geohash != "") and account DMs (geohash == "")
@@ -172,6 +180,14 @@ class NostrDirectMessageHandler(
                     return@launch
                 }
                 val senderPubkey = message.senderPubkeyHex.lowercase()
+                val senderIsCurrent = runCatching {
+                    FavoritesPersistenceService.shared
+                        .isCurrentNdrPeerAuthorized(senderPubkey)
+                }.getOrDefault(false)
+                if (!senderIsCurrent) {
+                    result = NdrDeliveryResult.REJECTED
+                    return@launch
+                }
                 if (dataManager.isGeohashUserBlocked(senderPubkey)) {
                     result = NdrDeliveryResult.REJECTED
                     return@launch

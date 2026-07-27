@@ -118,6 +118,12 @@ class MeshForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        if (!com.bitchat.android.nostr.NdrPanicStartupRecovery
+                .isNetworkStartupAllowed()
+        ) {
+            stopSelf()
+            return
+        }
         notificationManager = NotificationManagerCompat.from(this)
         createChannel()
 
@@ -134,6 +140,12 @@ class MeshForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!com.bitchat.android.nostr.NdrPanicStartupRecovery
+                .isNetworkStartupAllowed()
+        ) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (isShuttingDown && intent?.action == ACTION_START) {
             AppShutdownCoordinator.cancelPendingShutdown()
             isShuttingDown = false

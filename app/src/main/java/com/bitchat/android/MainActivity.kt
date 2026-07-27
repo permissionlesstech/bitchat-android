@@ -82,6 +82,12 @@ class MainActivity : OrientationAwareActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!com.bitchat.android.nostr.NdrPanicStartupRecovery
+                .isNetworkStartupAllowed()
+        ) {
+            finishAndRemoveTask()
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             this.setRecentsScreenshotEnabled(false)
         }

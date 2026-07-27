@@ -16,6 +16,7 @@ data class FavoriteRelationship(
     val peerNoisePublicKey: ByteArray,    // Noise static public key (32 bytes)
     val peerNostrPublicKey: String?,      // npub bech32 string
     val peerNdrSessionPubkeyHex: String? = null,
+    val ndrRequired: Boolean = false,
     val peerNickname: String,
     val isFavorite: Boolean,              // We favorited them
     val theyFavoritedUs: Boolean,         // They favorited us
@@ -33,6 +34,7 @@ data class FavoriteRelationship(
         if (!peerNoisePublicKey.contentEquals(other.peerNoisePublicKey)) return false
         if (peerNostrPublicKey != other.peerNostrPublicKey) return false
         if (peerNdrSessionPubkeyHex != other.peerNdrSessionPubkeyHex) return false
+        if (ndrRequired != other.ndrRequired) return false
         if (peerNickname != other.peerNickname) return false
         if (isFavorite != other.isFavorite) return false
         if (theyFavoritedUs != other.theyFavoritedUs) return false
@@ -44,6 +46,7 @@ data class FavoriteRelationship(
         var result = peerNoisePublicKey.contentHashCode()
         result = 31 * result + (peerNostrPublicKey?.hashCode() ?: 0)
         result = 31 * result + (peerNdrSessionPubkeyHex?.hashCode() ?: 0)
+        result = 31 * result + ndrRequired.hashCode()
         result = 31 * result + peerNickname.hashCode()
         result = 31 * result + isFavorite.hashCode()
         result = 31 * result + theyFavoritedUs.hashCode()
@@ -72,8 +75,9 @@ class FavoritesPersistenceService private constructor(
 
     companion object {
         private const val TAG = "FavoritesPersistenceService"
-        private const val FAVORITES_KEY = "favorite_relationships"            // noiseHex -> relationship
-        private const val PEERID_INDEX_KEY = "favorite_peerid_index"         // peerID(16-hex) -> npub
+        internal const val FAVORITES_KEY = "favorite_relationships"
+        internal const val PEERID_INDEX_KEY = "favorite_peerid_index"
+        internal const val NDR_REBIND_JOURNAL_KEY = "favorite_ndr_rebind_v1"
 
         @Volatile
         private var INSTANCE: FavoritesPersistenceService? = null
@@ -100,9 +104,13 @@ class FavoritesPersistenceService private constructor(
     private val listeners = mutableListOf<FavoritesChangeListener>()
     private var ndrPeerRetirementGuard: ((oldPeerPubkeyHex: String) -> Boolean)? = null
     private val ndrRebindsInProgress = mutableSetOf<String>()
+    private var pendingNdrRebind: FavoriteNdrRebindJournal? = null
+    private var ndrRebindJournalCorrupt = false
+    private var favoritesStorageUnreadable = false
 
     init {
         loadFavorites()
+        loadNdrRebindJournal()
         loadPeerIdIndex()
     }
 
@@ -110,21 +118,26 @@ class FavoritesPersistenceService private constructor(
     @Synchronized
     fun getFavoriteStatus(noisePublicKey: ByteArray): FavoriteRelationship? {
         val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
-        return favorites[keyHex]
+        return favoriteForReadLocked(keyHex)
     }
 
     /** Get favorite status for a mesh peer ID or full Noise public key hex. */
+    @Synchronized
     fun getFavoriteStatus(peerID: String): FavoriteRelationship? {
         val pid = peerID.trim().lowercase()
 
         if (ContactIdentityResolver.isNoiseKeyHex(pid)) {
-            return favorites[pid]
+            return favoriteForReadLocked(pid)
         }
 
         ContactIdentityResolver.fingerprintFromContactConversationId(pid)?.let { fingerprint ->
-            return favorites.values.firstOrNull { relationship ->
+            return favorites.entries.firstNotNullOfOrNull { (keyHex, _) ->
+                val relationship = favoriteForReadLocked(keyHex)
+                    ?: return@firstNotNullOfOrNull null
                 ContactIdentityResolver.fingerprintHex(relationship.peerNoisePublicKey)
                     .equals(fingerprint, ignoreCase = true)
+                    .takeIf { it }
+                    ?.let { relationship }
             }
         }
 
@@ -132,8 +145,12 @@ class FavoritesPersistenceService private constructor(
             peerIdIndex[pid]?.let { indexedNpub ->
                 findNoiseKey(indexedNpub)?.let { return getFavoriteStatus(it) }
             }
-            return favorites.values.firstOrNull { relationship ->
-                ContactIdentityResolver.peerIdForNoiseKey(relationship.peerNoisePublicKey) == pid
+            return favorites.entries.firstNotNullOfOrNull { (keyHex, _) ->
+                val relationship = favoriteForReadLocked(keyHex)
+                    ?: return@firstNotNullOfOrNull null
+                relationship.takeIf {
+                    ContactIdentityResolver.peerIdForNoiseKey(it.peerNoisePublicKey) == pid
+                }
             }
         }
 
@@ -145,65 +162,58 @@ class FavoritesPersistenceService private constructor(
         val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
         val normalizedHex = ContactIdentityResolver.nostrPubkeyHex(nostrPubkey) ?: return false
         val normalizedNpub = ContactIdentityResolver.npubFromHex(normalizedHex) ?: return false
-        var oldPeerPubkeyHex: String? = null
-        var originalNostrHex: String? = null
-        var originalNdrHex: String? = null
-        synchronized(this) {
-            if (keyHex in ndrRebindsInProgress ||
+        recoverPendingNdrRebind()
+        var journal: FavoriteNdrRebindJournal? = null
+        val committedWithoutRetirement = synchronized(this) {
+            if (ndrRebindJournalCorrupt ||
+                favoritesStorageUnreadable ||
+                pendingNdrRebind != null ||
+                ndrRebindsInProgress.isNotEmpty() ||
                 isIdentityBoundToAnotherFavorite(keyHex, normalizedHex)
             ) return false
             val existing = favorites[keyHex]
             val oldPeer = existing?.let(::effectiveNdrPeerPubkeyHex)
             val isRebind = oldPeer != null &&
                 !oldPeer.equals(normalizedHex, ignoreCase = true)
-            val mustRetire = isRebind &&
-                !isIdentityReferencedByAnotherFavorite(keyHex, oldPeer)
+            val wasNdrRequired = existing?.ndrRequired == true ||
+                existing?.peerNdrSessionPubkeyHex != null
+            val requiresRetirement = wasNdrRequired && isRebind
+            val updated = relationshipWithNostrIdentity(
+                existing = existing,
+                noisePublicKey = noisePublicKey,
+                normalizedNpub = normalizedNpub,
+                clearExplicitNdrPeer = requiresRetirement,
+                requireNdr = wasNdrRequired
+            )
+            val mustRetire = requiresRetirement &&
+                !isIdentityReferencedByAnotherFavorite(keyHex, requireNotNull(oldPeer))
             if (!mustRetire) {
-                favorites[keyHex] = relationshipWithNostrIdentity(
-                    existing = existing,
-                    noisePublicKey = noisePublicKey,
-                    normalizedNpub = normalizedNpub,
-                    clearExplicitNdrPeer = isRebind
-                )
-                saveFavorites()
+                commitFavoriteUpdateLocked(keyHex, updated)
             } else {
-                ndrRebindsInProgress.add(keyHex)
-                oldPeerPubkeyHex = oldPeer
-                originalNostrHex = existing.peerNostrPublicKey
-                    ?.let(ContactIdentityResolver::nostrPubkeyHex)
-                originalNdrHex = existing.peerNdrSessionPubkeyHex
+                journal = FavoriteNdrRebindJournal(
+                    noiseKeyHex = keyHex,
+                    oldPeerPubkeyHex = requireNotNull(oldPeer),
+                    expectedNostrPubkeyHex = existing.peerNostrPublicKey
+                        ?.let(ContactIdentityResolver::nostrPubkeyHex),
+                    expectedNdrSessionPubkeyHex = existing.peerNdrSessionPubkeyHex,
+                    expectedNdrRequired = true,
+                    targetNostrPubkeyHex = normalizedHex,
+                    targetNdrSessionPubkeyHex = null,
+                    targetNdrRequired = true,
+                    retireOldPeer = true
+                )
+                beginNdrRebindLocked(requireNotNull(journal))
+                false
             }
         }
 
-        val peerToRetire = oldPeerPubkeyHex
-        if (peerToRetire != null) {
-            if (!retireBeforeRebind(peerToRetire)) {
-                synchronized(this) { ndrRebindsInProgress.remove(keyHex) }
-                Log.e(TAG, "Refusing Nostr identity rebind before old NDR peer is retired")
-                return false
-            }
-            val committed = synchronized(this) {
-                val current = favorites[keyHex]
-                val bindingUnchanged =
-                    current?.peerNostrPublicKey
-                        ?.let(ContactIdentityResolver::nostrPubkeyHex) == originalNostrHex &&
-                        current?.peerNdrSessionPubkeyHex == originalNdrHex
-                val canCommit = bindingUnchanged &&
-                    !isIdentityBoundToAnotherFavorite(keyHex, normalizedHex)
-                if (canCommit) {
-                    favorites[keyHex] = relationshipWithNostrIdentity(
-                        existing = current,
-                        noisePublicKey = noisePublicKey,
-                        normalizedNpub = normalizedNpub,
-                        clearExplicitNdrPeer = true
-                    )
-                    saveFavorites()
-                }
-                ndrRebindsInProgress.remove(keyHex)
-                canCommit
-            }
-            if (!committed) return false
+        val pendingJournal = journal
+        val committed = if (pendingJournal == null) {
+            committedWithoutRetirement
+        } else {
+            completePendingNdrRebind(pendingJournal)
         }
+        if (!committed) return false
 
         notifyChanged(keyHex)
         Log.d(TAG, "Updated Nostr pubkey association for ${keyHex.take(16)}...")
@@ -212,15 +222,25 @@ class FavoritesPersistenceService private constructor(
 
 
     /** Update Nostr pubkey for a specific mesh peerID. */
+    @Synchronized
     fun updateNostrPublicKeyForPeerID(peerID: String, nostrPubkey: String) {
+        if (ndrRebindJournalCorrupt ||
+            favoritesStorageUnreadable ||
+            pendingNdrRebind != null
+        ) return
         val pid = peerID.trim().lowercase()
         val normalizedNpub = ContactIdentityResolver.nostrPubkeyHex(nostrPubkey)
             ?.let { ContactIdentityResolver.npubFromHex(it) }
             ?: nostrPubkey
         if (ContactIdentityResolver.isMeshPeerId(pid)) {
-            peerIdIndex[pid] = normalizedNpub
-            savePeerIdIndex()
-            Log.d(TAG, "Indexed npub for peerID ${pid.take(8)}…")
+            val snapshot = peerIdIndex.toMutableMap().apply {
+                this[pid] = normalizedNpub
+            }
+            if (commitPeerIdIndexSnapshotLocked(snapshot)) {
+                peerIdIndex.clear()
+                peerIdIndex.putAll(snapshot)
+                Log.d(TAG, "Indexed npub for peerID ${pid.take(8)}…")
+            }
         } else {
             Log.w(TAG, "updateNostrPublicKeyForPeerID called with non-16hex peerID: $peerID")
         }
@@ -228,12 +248,14 @@ class FavoritesPersistenceService private constructor(
 
 
     /** Resolve Nostr pubkey via current peerID mapping or stored Noise identity. */
+    @Synchronized
     fun findNostrPubkeyForPeerID(peerID: String): String? {
         val pid = peerID.trim().lowercase()
         return peerIdIndex[pid] ?: getFavoriteStatus(pid)?.peerNostrPublicKey
     }
 
     /** Resolve mesh peerID for a given Nostr pubkey (npub or hex). */
+    @Synchronized
     fun findPeerIDForNostrPubkey(nostrPubkey: String): String? {
         val targetHex = ContactIdentityResolver.nostrPubkeyHex(nostrPubkey) ?: return null
 
@@ -241,9 +263,14 @@ class FavoritesPersistenceService private constructor(
             ContactIdentityResolver.nostrPubkeyHex(stored) == targetHex
         }?.let { return it.key }
 
-        favorites.values.firstOrNull { relationship ->
-            relationship.peerNostrPublicKey?.let { ContactIdentityResolver.nostrPubkeyHex(it) } == targetHex ||
-                relationship.peerNdrSessionPubkeyHex == targetHex
+        favorites.entries.firstNotNullOfOrNull { (keyHex, _) ->
+            val relationship = favoriteForReadLocked(keyHex)
+                ?: return@firstNotNullOfOrNull null
+            relationship.takeIf {
+                it.peerNostrPublicKey
+                    ?.let(ContactIdentityResolver::nostrPubkeyHex) == targetHex ||
+                    it.peerNdrSessionPubkeyHex == targetHex
+            }
         }?.let { relationship ->
             return ContactIdentityResolver.peerIdForNoiseKey(relationship.peerNoisePublicKey)
         }
@@ -255,6 +282,10 @@ class FavoritesPersistenceService private constructor(
     @Synchronized
     fun updateFavoriteStatus(noisePublicKey: ByteArray, nickname: String, isFavorite: Boolean) {
         val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
+        if (ndrRebindJournalCorrupt ||
+            favoritesStorageUnreadable ||
+            pendingNdrRebind?.noiseKeyHex == keyHex
+        ) return
 
         val existing = favorites[keyHex]
 
@@ -277,8 +308,7 @@ class FavoritesPersistenceService private constructor(
             )
         }
 
-        favorites[keyHex] = updated
-        saveFavorites()
+        if (!commitFavoriteUpdateLocked(keyHex, updated)) return
         notifyChanged(keyHex)
 
         Log.d(TAG, "Updated favorite status for $nickname: $isFavorite")
@@ -288,6 +318,10 @@ class FavoritesPersistenceService private constructor(
     @Synchronized
     fun updatePeerFavoritedUs(noisePublicKey: ByteArray, theyFavoritedUs: Boolean) {
         val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
+        if (ndrRebindJournalCorrupt ||
+            favoritesStorageUnreadable ||
+            pendingNdrRebind?.noiseKeyHex == keyHex
+        ) return
         val existing = favorites[keyHex]
 
         if (existing != null) {
@@ -295,118 +329,400 @@ class FavoritesPersistenceService private constructor(
                 theyFavoritedUs = theyFavoritedUs,
                 lastUpdated = Date()
             )
-            favorites[keyHex] = updated
-            saveFavorites()
+            if (!commitFavoriteUpdateLocked(keyHex, updated)) return
             notifyChanged(keyHex)
 
             Log.d(TAG, "Updated peer favorited us for ${keyHex.take(16)}...: $theyFavoritedUs")
         }
     }
 
-    fun getMutualFavorites(): List<FavoriteRelationship> = favorites.values.filter { it.isMutual }
-    fun getOurFavorites(): List<FavoriteRelationship> = favorites.values.filter { it.isFavorite }
-    fun getAllRelationships(): List<FavoriteRelationship> = favorites.values.toList()
+    @Synchronized
+    fun getMutualFavorites(): List<FavoriteRelationship> =
+        favoritesForReadLocked().filter { it.isMutual }
 
     @Synchronized
-    fun clearAllFavorites() {
+    fun getOurFavorites(): List<FavoriteRelationship> =
+        favoritesForReadLocked().filter { it.isFavorite }
+
+    @Synchronized
+    fun getAllRelationships(): List<FavoriteRelationship> = favoritesForReadLocked()
+
+    /**
+     * Clear contact bindings only after the caller has durably wiped native NDR state.
+     */
+    @Synchronized
+    fun clearAllFavoritesAfterNdrReset(): Boolean {
+        val committed = runCatching {
+            stateManager.commitSecureValuesSynchronously(
+                removals = setOf(
+                    FAVORITES_KEY,
+                    PEERID_INDEX_KEY,
+                    NDR_REBIND_JOURNAL_KEY
+                )
+            )
+        }.getOrDefault(false)
+        if (!committed) return false
+
         favorites.clear()
-        saveFavorites()
         peerIdIndex.clear()
-        savePeerIdIndex()
+        pendingNdrRebind = null
+        ndrRebindsInProgress.clear()
+        ndrRebindJournalCorrupt = false
+        favoritesStorageUnreadable = false
         Log.i(TAG, "Cleared all favorites")
         notifyAllCleared()
+        return true
     }
 
     /** Find Noise key by Nostr pubkey */
+    @Synchronized
     fun findNoiseKey(forNostrPubkey: String): ByteArray? {
         val targetHex = ContactIdentityResolver.nostrPubkeyHex(forNostrPubkey) ?: return null
-        return favorites.values.firstOrNull { rel ->
-            rel.peerNostrPublicKey?.let { stored -> ContactIdentityResolver.nostrPubkeyHex(stored) } == targetHex ||
-                rel.peerNdrSessionPubkeyHex == targetHex
-        }?.peerNoisePublicKey
+        return favorites.entries.firstNotNullOfOrNull { (keyHex, _) ->
+            val relationship = favoriteForReadLocked(keyHex)
+                ?: return@firstNotNullOfOrNull null
+            relationship.peerNoisePublicKey.takeIf {
+                relationship.peerNostrPublicKey
+                    ?.let(ContactIdentityResolver::nostrPubkeyHex) == targetHex ||
+                    relationship.peerNdrSessionPubkeyHex == targetHex
+            }
+        }
     }
 
     /** Find Nostr pubkey by Noise key */
+    @Synchronized
     fun findNostrPubkey(forNoiseKey: ByteArray): String? {
         val keyHex = ContactIdentityResolver.noiseKeyHex(forNoiseKey)
-        return favorites[keyHex]?.peerNostrPublicKey
+        return favoriteForReadLocked(keyHex)?.peerNostrPublicKey
     }
 
     /** Persist the owner pubkey used to look up this peer's ratchet session. */
     fun updateNdrSessionPubkeyHex(noisePublicKey: ByteArray, peerPubkeyHex: String): Boolean {
         val normalized = ContactIdentityResolver.nostrPubkeyHex(peerPubkeyHex) ?: return false
         val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
-        var oldPeerPubkeyHex: String? = null
-        var originalNostrHex: String? = null
-        var originalNdrHex: String? = null
-        synchronized(this) {
-            if (keyHex in ndrRebindsInProgress ||
+        recoverPendingNdrRebind()
+        var journal: FavoriteNdrRebindJournal? = null
+        val committedWithoutRetirement = synchronized(this) {
+            if (ndrRebindJournalCorrupt ||
+                favoritesStorageUnreadable ||
+                pendingNdrRebind != null ||
+                ndrRebindsInProgress.isNotEmpty() ||
                 isIdentityBoundToAnotherFavorite(keyHex, normalized)
             ) return false
             val existing = favorites[keyHex] ?: return false
-            if (existing.peerNdrSessionPubkeyHex == normalized) return true
+            if (existing.peerNdrSessionPubkeyHex == normalized && existing.ndrRequired) {
+                return true
+            }
             val oldPeer = effectiveNdrPeerPubkeyHex(existing)
             val isRebind = oldPeer != null &&
                 !oldPeer.equals(normalized, ignoreCase = true)
-            val mustRetire = isRebind &&
-                !isIdentityReferencedByAnotherFavorite(keyHex, oldPeer)
-            if (!mustRetire) {
-                favorites[keyHex] = existing.copy(
-                    peerNdrSessionPubkeyHex = normalized,
-                    lastUpdated = Date()
-                )
-                saveFavorites()
+            val wasNdrRequired = existing.ndrRequired ||
+                existing.peerNdrSessionPubkeyHex != null
+            val requiresRetirement = wasNdrRequired && isRebind
+            val updated = existing.copy(
+                peerNdrSessionPubkeyHex = normalized,
+                ndrRequired = true,
+                lastUpdated = Date()
+            )
+            val mustRetire = requiresRetirement &&
+                !isIdentityReferencedByAnotherFavorite(keyHex, requireNotNull(oldPeer))
+            val needsDurablePin = !existing.ndrRequired
+            if (!mustRetire && (!needsDurablePin || oldPeer == null)) {
+                val committed = commitFavoriteUpdateLocked(keyHex, updated)
+                if (!committed && needsDurablePin) {
+                    favoritesStorageUnreadable = true
+                }
+                committed
             } else {
-                ndrRebindsInProgress.add(keyHex)
-                oldPeerPubkeyHex = oldPeer
-                originalNostrHex = existing.peerNostrPublicKey
-                    ?.let(ContactIdentityResolver::nostrPubkeyHex)
-                originalNdrHex = existing.peerNdrSessionPubkeyHex
+                journal = FavoriteNdrRebindJournal(
+                    noiseKeyHex = keyHex,
+                    oldPeerPubkeyHex = requireNotNull(oldPeer),
+                    expectedNostrPubkeyHex = existing.peerNostrPublicKey
+                        ?.let(ContactIdentityResolver::nostrPubkeyHex),
+                    expectedNdrSessionPubkeyHex = existing.peerNdrSessionPubkeyHex,
+                    expectedNdrRequired = existing.ndrRequired,
+                    targetNostrPubkeyHex = existing.peerNostrPublicKey
+                        ?.let(ContactIdentityResolver::nostrPubkeyHex),
+                    targetNdrSessionPubkeyHex = normalized,
+                    targetNdrRequired = true,
+                    retireOldPeer = mustRetire
+                )
+                beginNdrRebindLocked(requireNotNull(journal))
+                false
             }
         }
 
-        val peerToRetire = oldPeerPubkeyHex
-        if (peerToRetire != null) {
-            if (!retireBeforeRebind(peerToRetire)) {
-                synchronized(this) { ndrRebindsInProgress.remove(keyHex) }
-                Log.e(TAG, "Refusing NDR session rebind before old peer is retired")
-                return false
-            }
-            val committed = synchronized(this) {
-                val current = favorites[keyHex]
-                val bindingUnchanged =
-                    current?.peerNostrPublicKey
-                        ?.let(ContactIdentityResolver::nostrPubkeyHex) == originalNostrHex &&
-                        current?.peerNdrSessionPubkeyHex == originalNdrHex
-                val canCommit = current != null &&
-                    bindingUnchanged &&
-                    !isIdentityBoundToAnotherFavorite(keyHex, normalized)
-                if (canCommit) {
-                    favorites[keyHex] = current.copy(
-                        peerNdrSessionPubkeyHex = normalized,
-                        lastUpdated = Date()
-                    )
-                    saveFavorites()
-                }
-                ndrRebindsInProgress.remove(keyHex)
-                canCommit
-            }
-            if (!committed) return false
+        val pendingJournal = journal
+        val committed = if (pendingJournal == null) {
+            committedWithoutRetirement
+        } else {
+            completePendingNdrRebind(pendingJournal)
         }
+        if (!committed) return false
 
         notifyChanged(keyHex)
         return true
     }
 
     /** Resolve the best ratchet-session lookup key for this Noise identity. */
+    @Synchronized
     fun findNdrSessionPubkeyHex(forNoiseKey: ByteArray): String? {
         val keyHex = ContactIdentityResolver.noiseKeyHex(forNoiseKey)
+        pendingNdrRebind
+            ?.takeIf { it.noiseKeyHex == keyHex }
+            ?.targetEffectivePeerPubkeyHex()
+            ?.let { return it }
         val relationship = favorites[keyHex] ?: return null
         return relationship.peerNdrSessionPubkeyHex
             ?: relationship.peerNostrPublicKey?.let(ContactIdentityResolver::nostrPubkeyHex)
     }
 
+    @Synchronized
+    fun isNdrRequired(forNoiseKey: ByteArray): Boolean {
+        val keyHex = ContactIdentityResolver.noiseKeyHex(forNoiseKey)
+        return favorites[keyHex]?.ndrRequired == true ||
+            pendingNdrRebind?.noiseKeyHex == keyHex
+    }
+
+    @Synchronized
+    fun isNdrRebindBlocked(forNoiseKey: ByteArray): Boolean {
+        val keyHex = ContactIdentityResolver.noiseKeyHex(forNoiseKey)
+        return ndrRebindJournalCorrupt ||
+            favoritesStorageUnreadable ||
+            pendingNdrRebind?.noiseKeyHex == keyHex
+    }
+
+    @Synchronized
+    fun isNdrProtectionStateReadable(): Boolean =
+        !ndrRebindJournalCorrupt && !favoritesStorageUnreadable
+
+    /**
+     * Stored-only binding used for authenticated NDR routes.
+     *
+     * A journal target is not authorized until the target favorite itself is durable.
+     */
+    @Synchronized
+    fun getStoredFavoriteForNdrRoute(
+        noisePublicKey: ByteArray
+    ): FavoriteRelationship? {
+        if (ndrRebindJournalCorrupt || favoritesStorageUnreadable) return null
+        val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
+        val relationship = favorites[keyHex] ?: return null
+        val journal = pendingNdrRebind
+        return if (journal?.noiseKeyHex == keyHex) {
+            relationship.takeIf(journal::matchesTargetBinding)
+        } else {
+            relationship
+        }
+    }
+
+    /**
+     * Accept relay-delivered NDR content only from a currently bound, unquarantined peer.
+     */
+    @Synchronized
+    fun isCurrentNdrPeerAuthorized(peerPubkeyHex: String): Boolean {
+        val normalized = ContactIdentityResolver.nostrPubkeyHex(peerPubkeyHex) ?: return false
+        if (ndrRebindJournalCorrupt || favoritesStorageUnreadable) return false
+        return favorites.entries.any { (keyHex, _) ->
+            val noiseKey = favorites[keyHex]?.peerNoisePublicKey
+                ?: return@any false
+            getStoredFavoriteForNdrRoute(noiseKey)
+                ?.let(::effectiveNdrPeerPubkeyHex)
+                ?.equals(normalized, ignoreCase = true) == true
+        }
+    }
+
+    /**
+     * Legacy kind-1059 is allowed only before a contact has a durable NDR pin.
+     */
+    @Synchronized
+    fun isLegacyNostrInboundAllowed(peerPubkeyHex: String): Boolean {
+        val normalized = ContactIdentityResolver.nostrPubkeyHex(peerPubkeyHex) ?: return false
+        if (ndrRebindJournalCorrupt || favoritesStorageUnreadable) return false
+        val journal = pendingNdrRebind
+        if (journal != null && normalized in journal.quarantinedIdentityPubkeys()) {
+            return false
+        }
+        return favorites.entries.none { (keyHex, relationship) ->
+            keyHex != journal?.noiseKeyHex &&
+                relationship.ndrRequired &&
+                relationshipReferencesIdentity(relationship, normalized)
+        }
+    }
+
     // MARK: - Persistence
+
+    private fun favoriteForReadLocked(keyHex: String): FavoriteRelationship? {
+        val relationship = favorites[keyHex] ?: return null
+        val journal = pendingNdrRebind
+        return if (journal?.noiseKeyHex == keyHex) {
+            journal.applyTarget(relationship)
+        } else {
+            relationship
+        }
+    }
+
+    private fun favoritesForReadLocked(): List<FavoriteRelationship> =
+        favorites.keys.mapNotNull(::favoriteForReadLocked)
+
+    private fun commitFavoriteUpdateLocked(
+        keyHex: String,
+        relationship: FavoriteRelationship
+    ): Boolean {
+        val snapshot = favorites.toMutableMap()
+        snapshot[keyHex] = relationship
+        if (!commitFavoritesSnapshotLocked(snapshot)) return false
+        favorites.clear()
+        favorites.putAll(snapshot)
+        return true
+    }
+
+    private fun commitFavoritesSnapshotLocked(
+        snapshot: Map<String, FavoriteRelationship>
+    ): Boolean = runCatching {
+        stateManager.commitSecureValuesSynchronously(
+            values = mapOf(FAVORITES_KEY to favoritesJson(snapshot))
+        )
+    }.getOrDefault(false)
+
+    private fun commitPeerIdIndexSnapshotLocked(
+        snapshot: Map<String, String>
+    ): Boolean = runCatching {
+        stateManager.commitSecureValuesSynchronously(
+            values = mapOf(PEERID_INDEX_KEY to gson.toJson(snapshot))
+        )
+    }.getOrDefault(false)
+
+    private fun favoritesJson(
+        snapshot: Map<String, FavoriteRelationship>
+    ): String {
+        val data = snapshot.mapValues { (_, relationship) ->
+            FavoriteRelationshipData.fromFavoriteRelationship(relationship)
+        }
+        return gson.toJson(data)
+    }
+
+    private fun beginNdrRebindLocked(journal: FavoriteNdrRebindJournal): Boolean {
+        if (pendingNdrRebind != null ||
+            ndrRebindJournalCorrupt ||
+            favoritesStorageUnreadable
+        ) return false
+        if (!journal.isValid()) return false
+        val journalJson = gson.toJson(journal)
+        val committed = runCatching {
+            stateManager.commitSecureValuesSynchronously(
+                values = mapOf(NDR_REBIND_JOURNAL_KEY to journalJson)
+            )
+        }.getOrDefault(false)
+        if (!committed) {
+            favoritesStorageUnreadable = true
+            return false
+        }
+        pendingNdrRebind = journal
+        ndrRebindsInProgress.add(journal.noiseKeyHex)
+        return true
+    }
+
+    private fun completePendingNdrRebind(
+        expectedJournal: FavoriteNdrRebindJournal
+    ): Boolean {
+        val ownsCurrentBinding = synchronized(this) {
+            val journal = pendingNdrRebind
+            if (journal != expectedJournal ||
+                ndrRebindJournalCorrupt ||
+                favoritesStorageUnreadable
+            ) {
+                false
+            } else {
+                val current = favorites[journal.noiseKeyHex]
+                val currentMatchesExpected = current != null &&
+                    journal.matchesExpectedBinding(current)
+                val currentMatchesTarget = current != null &&
+                    journal.matchesTargetBinding(current)
+                val targetCollides = journal.targetIdentityPubkeys().any { target ->
+                    isIdentityBoundToAnotherFavorite(journal.noiseKeyHex, target)
+                }
+                if (current == null ||
+                    (!currentMatchesExpected && !currentMatchesTarget) ||
+                    targetCollides
+                ) {
+                    ndrRebindJournalCorrupt = true
+                    false
+                } else {
+                    true
+                }
+            }
+        }
+        if (!ownsCurrentBinding) return false
+
+        if (expectedJournal.retireOldPeer &&
+            !retireBeforeRebind(expectedJournal.oldPeerPubkeyHex)
+        ) {
+            Log.e(TAG, "NDR rebind remains quarantined because old peer retirement failed")
+            return false
+        }
+
+        return synchronized(this) {
+            if (pendingNdrRebind != expectedJournal ||
+                ndrRebindJournalCorrupt ||
+                favoritesStorageUnreadable
+            ) {
+                false
+            } else {
+                val current = favorites[expectedJournal.noiseKeyHex]
+                val currentMatchesExpected = current != null &&
+                    expectedJournal.matchesExpectedBinding(current)
+                val currentMatchesTarget = current != null &&
+                    expectedJournal.matchesTargetBinding(current)
+                val targetCollides = expectedJournal.targetIdentityPubkeys().any { target ->
+                    isIdentityBoundToAnotherFavorite(
+                        expectedJournal.noiseKeyHex,
+                        target
+                    )
+                }
+                if (current == null ||
+                    (!currentMatchesExpected && !currentMatchesTarget) ||
+                    targetCollides
+                ) {
+                    ndrRebindJournalCorrupt = true
+                    false
+                } else {
+                    val targetCommitted = currentMatchesTarget ||
+                        commitFavoriteUpdateLocked(
+                            expectedJournal.noiseKeyHex,
+                            expectedJournal.applyTarget(current)
+                        )
+                    val targetVerified = targetCommitted &&
+                        favorites[expectedJournal.noiseKeyHex]
+                            ?.let(expectedJournal::matchesTargetBinding) == true
+                    if (!targetVerified) {
+                        false
+                    } else {
+                        val cleared = runCatching {
+                            stateManager.commitSecureValuesSynchronously(
+                                removals = setOf(NDR_REBIND_JOURNAL_KEY)
+                            )
+                        }.getOrDefault(false)
+                        if (cleared) {
+                            pendingNdrRebind = null
+                            ndrRebindsInProgress.remove(expectedJournal.noiseKeyHex)
+                        }
+                        cleared
+                    }
+                }
+            }
+        }
+    }
+
+    private fun recoverPendingNdrRebind(): Boolean {
+        val journal = synchronized(this) {
+            if (ndrRebindJournalCorrupt || favoritesStorageUnreadable) return false
+            pendingNdrRebind
+        } ?: return true
+        val recovered = completePendingNdrRebind(journal)
+        if (recovered) notifyChanged(journal.noiseKeyHex)
+        return recovered
+    }
 
     private fun loadFavorites() {
         try {
@@ -416,27 +732,55 @@ class FavoritesPersistenceService private constructor(
                 val data: Map<String, FavoriteRelationshipData> = gson.fromJson(favoritesJson, type)
 
                 favorites.clear()
+                var needsNdrPinMigration = false
                 data.forEach { (key, relationshipData) ->
-                    favorites[key] = relationshipData.toFavoriteRelationship()
+                    val relationship = relationshipData.toFavoriteRelationship()
+                    favorites[key] = relationship
+                    val storedNdrPeer = relationshipData.peerNdrSessionPubkeyHex
+                    if (storedNdrPeer != null &&
+                        relationship.peerNdrSessionPubkeyHex == null
+                    ) {
+                        favoritesStorageUnreadable = true
+                    } else if (storedNdrPeer != null &&
+                        (!relationshipData.ndrRequired ||
+                            storedNdrPeer != relationship.peerNdrSessionPubkeyHex)
+                    ) {
+                        needsNdrPinMigration = true
+                    }
+                }
+                if (needsNdrPinMigration &&
+                    !commitFavoritesSnapshotLocked(favorites)
+                ) {
+                    favoritesStorageUnreadable = true
+                    Log.e(TAG, "Failed to durably migrate existing NDR downgrade pins")
                 }
                 Log.d(TAG, "Loaded ${favorites.size} favorite relationships")
             }
         } catch (e: Exception) {
+            favoritesStorageUnreadable = true
             Log.e(TAG, "Failed to load favorites: ${e.message}")
         }
     }
 
-    private fun saveFavorites() {
-        try {
-            val data = favorites.mapValues { (_, relationship) ->
-                FavoriteRelationshipData.fromFavoriteRelationship(relationship)
-            }
-            val favoritesJson = gson.toJson(data)
-            stateManager.storeSecureValue(FAVORITES_KEY, favoritesJson)
-            Log.d(TAG, "Saved ${favorites.size} favorite relationships")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to save favorites: ${e.message}")
+    private fun loadNdrRebindJournal() {
+        val journalJson = runCatching {
+            stateManager.getSecureValue(NDR_REBIND_JOURNAL_KEY)
+        }.getOrElse {
+            ndrRebindJournalCorrupt = true
+            Log.e(TAG, "Failed to read NDR rebind journal")
+            return
+        } ?: return
+
+        val journal = runCatching {
+            gson.fromJson(journalJson, FavoriteNdrRebindJournal::class.java)
+        }.getOrNull()
+        if (journal == null || !journal.isValid()) {
+            ndrRebindJournalCorrupt = true
+            Log.e(TAG, "Invalid NDR rebind journal; keeping transport fail-closed")
+            return
         }
+        pendingNdrRebind = journal
+        ndrRebindsInProgress.add(journal.noiseKeyHex)
     }
 
     private fun loadPeerIdIndex() {
@@ -459,16 +803,6 @@ class FavoritesPersistenceService private constructor(
         }
     }
 
-    private fun savePeerIdIndex() {
-        try {
-            val json = gson.toJson(peerIdIndex)
-            stateManager.storeSecureValue(PEERID_INDEX_KEY, json)
-            Log.d(TAG, "Saved ${peerIdIndex.size} peerID→npub mappings")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to save peerID index: ${e.message}")
-        }
-    }
-
     // MARK: - Listeners
     fun addListener(listener: FavoritesChangeListener) {
         synchronized(listeners) { if (!listeners.contains(listener)) listeners.add(listener) }
@@ -477,11 +811,13 @@ class FavoritesPersistenceService private constructor(
         synchronized(listeners) { listeners.remove(listener) }
     }
 
-    @Synchronized
     fun setNdrPeerRetirementGuard(
         guard: ((oldPeerPubkeyHex: String) -> Boolean)?
     ) {
-        ndrPeerRetirementGuard = guard
+        synchronized(this) {
+            ndrPeerRetirementGuard = guard
+        }
+        if (guard != null) recoverPendingNdrRebind()
     }
 
     private fun effectiveNdrPeerPubkeyHex(
@@ -493,15 +829,18 @@ class FavoritesPersistenceService private constructor(
         existing: FavoriteRelationship?,
         noisePublicKey: ByteArray,
         normalizedNpub: String,
-        clearExplicitNdrPeer: Boolean
+        clearExplicitNdrPeer: Boolean,
+        requireNdr: Boolean
     ): FavoriteRelationship = existing?.copy(
         peerNostrPublicKey = normalizedNpub,
         peerNdrSessionPubkeyHex =
             if (clearExplicitNdrPeer) null else existing.peerNdrSessionPubkeyHex,
+        ndrRequired = requireNdr,
         lastUpdated = Date()
     ) ?: FavoriteRelationship(
         peerNoisePublicKey = noisePublicKey,
         peerNostrPublicKey = normalizedNpub,
+        ndrRequired = requireNdr,
         peerNickname = "Unknown",
         isFavorite = false,
         theyFavoritedUs = false,
@@ -532,10 +871,10 @@ class FavoritesPersistenceService private constructor(
                 ?.let(ContactIdentityResolver::nostrPubkeyHex)
                 ?.equals(peerPubkeyHex, ignoreCase = true) == true
 
-    private fun retireBeforeRebind(oldPeerPubkeyHex: String): Boolean =
-        runCatching {
-            ndrPeerRetirementGuard?.invoke(oldPeerPubkeyHex) == true
-        }.getOrDefault(false)
+    private fun retireBeforeRebind(oldPeerPubkeyHex: String): Boolean {
+        val guard = synchronized(this) { ndrPeerRetirementGuard } ?: return false
+        return runCatching { guard(oldPeerPubkeyHex) }.getOrDefault(false)
+    }
 
     private fun notifyChanged(noiseKeyHex: String) {
         runCatching { AppStateStore.canonicalizePrivateChats() }
@@ -553,6 +892,7 @@ private data class FavoriteRelationshipData(
     val peerNoisePublicKeyHex: String,
     val peerNostrPublicKey: String?,
     val peerNdrSessionPubkeyHex: String? = null,
+    val ndrRequired: Boolean = false,
     val peerNickname: String,
     val isFavorite: Boolean,
     val theyFavoritedUs: Boolean,
@@ -565,6 +905,7 @@ private data class FavoriteRelationshipData(
                 peerNoisePublicKeyHex = ContactIdentityResolver.noiseKeyHex(relationship.peerNoisePublicKey),
                 peerNostrPublicKey = relationship.peerNostrPublicKey,
                 peerNdrSessionPubkeyHex = relationship.peerNdrSessionPubkeyHex,
+                ndrRequired = relationship.ndrRequired,
                 peerNickname = relationship.peerNickname,
                 isFavorite = relationship.isFavorite,
                 theyFavoritedUs = relationship.theyFavoritedUs,
@@ -576,10 +917,13 @@ private data class FavoriteRelationshipData(
 
     fun toFavoriteRelationship(): FavoriteRelationship {
         val noiseKeyBytes = ContactIdentityResolver.bytesFromHex(peerNoisePublicKeyHex) ?: ByteArray(0)
+        val normalizedNdrSessionPubkeyHex = peerNdrSessionPubkeyHex
+            ?.let(ContactIdentityResolver::nostrPubkeyHex)
         return FavoriteRelationship(
             peerNoisePublicKey = noiseKeyBytes,
             peerNostrPublicKey = peerNostrPublicKey,
-            peerNdrSessionPubkeyHex = peerNdrSessionPubkeyHex,
+            peerNdrSessionPubkeyHex = normalizedNdrSessionPubkeyHex,
+            ndrRequired = ndrRequired || normalizedNdrSessionPubkeyHex != null,
             peerNickname = peerNickname,
             isFavorite = isFavorite,
             theyFavoritedUs = theyFavoritedUs,
@@ -587,4 +931,84 @@ private data class FavoriteRelationshipData(
             lastUpdated = Date(lastUpdated)
         )
     }
+}
+
+private data class FavoriteNdrRebindJournal(
+    val version: Int = 1,
+    val noiseKeyHex: String,
+    val oldPeerPubkeyHex: String,
+    val expectedNostrPubkeyHex: String?,
+    val expectedNdrSessionPubkeyHex: String?,
+    val expectedNdrRequired: Boolean,
+    val targetNostrPubkeyHex: String?,
+    val targetNdrSessionPubkeyHex: String?,
+    val targetNdrRequired: Boolean,
+    val retireOldPeer: Boolean
+) {
+    fun isValid(): Boolean {
+        val isPubkey: (String) -> Boolean = {
+            it.length == 64 && it.all { character -> character in "0123456789abcdef" }
+        }
+        return version == 1 &&
+            isPubkey(noiseKeyHex) &&
+            isPubkey(oldPeerPubkeyHex) &&
+            listOfNotNull(
+                expectedNostrPubkeyHex,
+                expectedNdrSessionPubkeyHex,
+                targetNostrPubkeyHex,
+                targetNdrSessionPubkeyHex
+            ).all(isPubkey) &&
+            expectedEffectivePeerPubkeyHex() == oldPeerPubkeyHex &&
+            targetEffectivePeerPubkeyHex() != null &&
+            targetNdrRequired &&
+            (if (retireOldPeer) {
+                (expectedNdrRequired || expectedNdrSessionPubkeyHex != null) &&
+                    targetEffectivePeerPubkeyHex() != oldPeerPubkeyHex
+            } else {
+                !expectedNdrRequired && targetNdrSessionPubkeyHex != null
+            })
+    }
+
+    private fun expectedEffectivePeerPubkeyHex(): String? =
+        expectedNdrSessionPubkeyHex ?: expectedNostrPubkeyHex
+
+    fun targetEffectivePeerPubkeyHex(): String? =
+        targetNdrSessionPubkeyHex ?: targetNostrPubkeyHex
+
+    fun targetIdentityPubkeys(): Set<String> =
+        listOfNotNull(targetNostrPubkeyHex, targetNdrSessionPubkeyHex).toSet()
+
+    fun quarantinedIdentityPubkeys(): Set<String> =
+        buildSet {
+            add(oldPeerPubkeyHex)
+            addAll(
+                listOfNotNull(
+                    expectedNostrPubkeyHex,
+                    expectedNdrSessionPubkeyHex,
+                    targetNostrPubkeyHex,
+                    targetNdrSessionPubkeyHex
+                )
+            )
+        }
+
+    fun matchesExpectedBinding(relationship: FavoriteRelationship): Boolean =
+        relationship.peerNostrPublicKey
+            ?.let(ContactIdentityResolver::nostrPubkeyHex) == expectedNostrPubkeyHex &&
+            relationship.peerNdrSessionPubkeyHex == expectedNdrSessionPubkeyHex &&
+            relationship.ndrRequired == expectedNdrRequired
+
+    fun matchesTargetBinding(relationship: FavoriteRelationship): Boolean =
+        relationship.peerNostrPublicKey
+            ?.let(ContactIdentityResolver::nostrPubkeyHex) == targetNostrPubkeyHex &&
+            relationship.peerNdrSessionPubkeyHex == targetNdrSessionPubkeyHex &&
+            relationship.ndrRequired == targetNdrRequired
+
+    fun applyTarget(relationship: FavoriteRelationship): FavoriteRelationship =
+        relationship.copy(
+            peerNostrPublicKey = targetNostrPubkeyHex
+                ?.let(ContactIdentityResolver::npubFromHex),
+            peerNdrSessionPubkeyHex = targetNdrSessionPubkeyHex,
+            ndrRequired = targetNdrRequired,
+            lastUpdated = Date()
+        )
 }

@@ -12,8 +12,23 @@ import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
-internal fun shouldUseLegacyNostrFallback(result: NdrSendResult): Boolean =
-    result == NdrSendResult.NO_SESSION
+internal fun shouldUseLegacyNostrFallback(
+    result: NdrSendResult,
+    ndrRequired: Boolean = false,
+    rebindBlocked: Boolean = false
+): Boolean =
+    result == NdrSendResult.NO_SESSION && !ndrRequired && !rebindBlocked
+
+internal fun isLegacyNostrAllowedWhenNdrDisabled(
+    ndrRequired: Boolean,
+    rebindBlocked: Boolean
+): Boolean = !ndrRequired && !rebindBlocked
+
+private data class NdrRecipientResolution(
+    val peerPubkeyHex: String,
+    val ndrRequired: Boolean,
+    val rebindBlocked: Boolean
+)
 
 /**
  * Nostr transport for offline private messages and receipts.
@@ -79,7 +94,7 @@ class NostrTransport(
                     Log.e(TAG, "NostrTransport: recipient key is not a valid Nostr pubkey")
                     return@launch
                 }
-                val ndrRecipientHex = resolveNdrRecipientHex(to, recipientHex)
+                val ndrRecipient = resolveNdrRecipient(to, recipientHex)
 
                 val recipientPeerIDForEmbed = try {
                     com.bitchat.android.favorites.FavoritesPersistenceService.shared
@@ -106,7 +121,7 @@ class NostrTransport(
                     content = embedded,
                     fallbackRecipientHex = recipientHex,
                     senderIdentity = senderIdentity,
-                    ndrRecipientHex = ndrRecipientHex,
+                    ndrRecipient = ndrRecipient,
                     expiresAtSeconds = expiresAtSeconds
                 )
                 
@@ -159,7 +174,7 @@ class NostrTransport(
                     scheduleNextReadAck()
                     return@launch
                 }
-                val ndrRecipientHex = resolveNdrRecipientHex(item.peerID, recipientHex)
+                val ndrRecipient = resolveNdrRecipient(item.peerID, recipientHex)
                 
                 val ack = NostrEmbeddedBitChat.encodeAckForNostr(
                     type = NoisePayloadType.READ_RECEIPT,
@@ -178,7 +193,7 @@ class NostrTransport(
                     content = ack,
                     fallbackRecipientHex = recipientHex,
                     senderIdentity = senderIdentity,
-                    ndrRecipientHex = ndrRecipientHex
+                    ndrRecipient = ndrRecipient
                 )
                 
                 scheduleNextReadAck()
@@ -220,7 +235,7 @@ class NostrTransport(
                 if (recipientHex == null) {
                     return@launch
                 }
-                val ndrRecipientHex = resolveNdrRecipientHex(to, recipientHex)
+                val ndrRecipient = resolveNdrRecipient(to, recipientHex)
 
                 val embedded = NostrEmbeddedBitChat.encodePMForNostr(
                     content = content,
@@ -238,7 +253,7 @@ class NostrTransport(
                     content = embedded,
                     fallbackRecipientHex = recipientHex,
                     senderIdentity = senderIdentity,
-                    ndrRecipientHex = ndrRecipientHex
+                    ndrRecipient = ndrRecipient
                 )
                 
             } catch (e: Exception) {
@@ -267,7 +282,7 @@ class NostrTransport(
                 if (recipientHex == null) {
                     return@launch
                 }
-                val ndrRecipientHex = resolveNdrRecipientHex(to, recipientHex)
+                val ndrRecipient = resolveNdrRecipient(to, recipientHex)
 
                 val ack = NostrEmbeddedBitChat.encodeAckForNostr(
                     type = NoisePayloadType.DELIVERED,
@@ -285,7 +300,7 @@ class NostrTransport(
                     content = ack,
                     fallbackRecipientHex = recipientHex,
                     senderIdentity = senderIdentity,
-                    ndrRecipientHex = ndrRecipientHex
+                    ndrRecipient = ndrRecipient
                 )
                 
             } catch (e: Exception) {
@@ -425,14 +440,22 @@ class NostrTransport(
         content: String,
         fallbackRecipientHex: String,
         senderIdentity: NostrIdentity,
-        ndrRecipientHex: String = fallbackRecipientHex,
+        ndrRecipient: NdrRecipientResolution = NdrRecipientResolution(
+            peerPubkeyHex = fallbackRecipientHex,
+            ndrRequired = false,
+            rebindBlocked = false
+        ),
         expiresAtSeconds: ULong? = null
     ): Boolean {
+        if (ndrRecipient.rebindBlocked) {
+            Log.e(TAG, "NostrTransport: recipient rebind is quarantined")
+            return false
+        }
         if (NdrFeatureGate.isEnabled()) {
             ndrService.configureIfNeeded(senderIdentity)
             val sendResult = ndrService.sendIfPossible(
                 text = content,
-                peerPubkeyHex = ndrRecipientHex,
+                peerPubkeyHex = ndrRecipient.peerPubkeyHex,
                 expiresAtSeconds = expiresAtSeconds
             )
             if (sendResult == NdrSendResult.SENT) {
@@ -442,12 +465,22 @@ class NostrTransport(
                 Log.e(TAG, "NostrTransport: expiring message requires a pairwise session")
                 return false
             }
-            if (!shouldUseLegacyNostrFallback(sendResult)) {
+            if (!shouldUseLegacyNostrFallback(
+                    result = sendResult,
+                    ndrRequired = ndrRecipient.ndrRequired,
+                    rebindBlocked = ndrRecipient.rebindBlocked
+                )
+            ) {
                 Log.e(TAG, "NostrTransport: pairwise send failed; refusing legacy downgrade")
                 return false
             }
-        } else if (expiresAtSeconds != null) {
-            Log.e(TAG, "NostrTransport: expiring message requires pairwise transport")
+        } else if (expiresAtSeconds != null ||
+            !isLegacyNostrAllowedWhenNdrDisabled(
+                ndrRequired = ndrRecipient.ndrRequired,
+                rebindBlocked = ndrRecipient.rebindBlocked
+            )
+        ) {
+            Log.e(TAG, "NostrTransport: pairwise transport is required")
             return false
         }
 
@@ -462,15 +495,39 @@ class NostrTransport(
         return false
     }
 
-    private fun resolveNdrRecipientHex(target: String, fallbackRecipientHex: String): String {
-        if (!NdrFeatureGate.isEnabled()) return fallbackRecipientHex
+    private fun resolveNdrRecipient(
+        target: String,
+        fallbackRecipientHex: String
+    ): NdrRecipientResolution {
         return try {
             val favorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared
-            val relationship = favorites.getFavoriteStatus(target) ?: return fallbackRecipientHex
-            favorites.findNdrSessionPubkeyHex(relationship.peerNoisePublicKey)
-                ?: fallbackRecipientHex
+            if (!favorites.isNdrProtectionStateReadable()) {
+                return NdrRecipientResolution(
+                    peerPubkeyHex = fallbackRecipientHex,
+                    ndrRequired = true,
+                    rebindBlocked = true
+                )
+            }
+            val relationship = favorites.getFavoriteStatus(target)
+                ?: return NdrRecipientResolution(
+                    peerPubkeyHex = fallbackRecipientHex,
+                    ndrRequired = false,
+                    rebindBlocked = false
+                )
+            NdrRecipientResolution(
+                peerPubkeyHex =
+                    favorites.findNdrSessionPubkeyHex(relationship.peerNoisePublicKey)
+                        ?: fallbackRecipientHex,
+                ndrRequired = favorites.isNdrRequired(relationship.peerNoisePublicKey),
+                rebindBlocked =
+                    favorites.isNdrRebindBlocked(relationship.peerNoisePublicKey)
+            )
         } catch (_: Exception) {
-            fallbackRecipientHex
+            NdrRecipientResolution(
+                peerPubkeyHex = fallbackRecipientHex,
+                ndrRequired = true,
+                rebindBlocked = true
+            )
         }
     }
     

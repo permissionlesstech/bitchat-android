@@ -13,6 +13,16 @@ class BitchatApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        if (!com.bitchat.android.nostr.NdrPanicStartupRecovery
+                .recoverBeforeNetwork(this)
+        ) {
+            android.util.Log.e(
+                "BitchatApplication",
+                "Network startup blocked until panic wipe retry succeeds"
+            )
+            return
+        }
+
         // Initialize Tor first so any early network goes over Tor
         try {
             val torProvider = ArtiTorManager.getInstance()
@@ -30,16 +40,16 @@ class BitchatApplication : Application() {
             com.bitchat.android.favorites.FavoritesPersistenceService.initialize(this)
             com.bitchat.android.favorites.FavoritesPersistenceService.shared
                 .setNdrPeerRetirementGuard { oldPeerPubkeyHex ->
-                    if (!com.bitchat.android.model.NdrFeatureGate.isEnabled()) {
-                        true
-                    } else {
-                        val identity =
-                            com.bitchat.android.nostr.NostrIdentityBridge
-                                .getCurrentNostrIdentity(this)
-                                ?: return@setNdrPeerRetirementGuard false
-                        val ndr = com.bitchat.android.nostr.NdrNostrService.getInstance(this)
+                    val identity =
+                        com.bitchat.android.nostr.NostrIdentityBridge
+                            .getCurrentNostrIdentity(this)
+                            ?: return@setNdrPeerRetirementGuard false
+                    val ndr = com.bitchat.android.nostr.NdrNostrService.getInstance(this)
+                    if (com.bitchat.android.model.NdrFeatureGate.isEnabled()) {
                         ndr.configureIfNeeded(identity)
                         ndr.retirePeer(oldPeerPubkeyHex)
+                    } else {
+                        ndr.retirePeerForMaintenance(identity, oldPeerPubkeyHex)
                     }
                 }
         } catch (_: Exception) { }

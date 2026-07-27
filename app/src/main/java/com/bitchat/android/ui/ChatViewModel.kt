@@ -1028,6 +1028,14 @@ class ChatViewModel(
             Log.d(TAG, "Ignoring NDR OOB event from a replaced or rebound Noise generation")
             return
         }
+        if (!FavoritesPersistenceService.shared.updateNdrSessionPubkeyHex(
+                noiseKey,
+                expectedPeerPubkeyHex
+            )
+        ) {
+            Log.e(TAG, "Refusing NDR OOB processing before its downgrade pin is durable")
+            return
+        }
         val result = ndrService.processOutOfBandEventJson(
             eventPayload,
             expectedPeerPubkeyHex
@@ -1107,6 +1115,14 @@ class ChatViewModel(
 
         val hasPairwiseSession = ndrService.hasPairwiseSession(peerPubkeyHex)
         if (hasPairwiseSession) {
+            if (!FavoritesPersistenceService.shared.updateNdrSessionPubkeyHex(
+                    noiseKey,
+                    peerPubkeyHex
+                )
+            ) {
+                Log.e(TAG, "Existing NDR session remains quarantined until its pin is durable")
+                return
+            }
             ndrInviteRetries.cancel(peerID)
             ndrBootstrapAttemptMs.remove(peerID)
             ndrNoiseHandshakeAttemptMs.remove(peerID)
@@ -1210,7 +1226,7 @@ class ChatViewModel(
             currentRoute = mesh::currentNdrRoute,
             favoriteBinding = { noiseKey ->
                 val favorites = FavoritesPersistenceService.shared
-                val relationship = favorites.getFavoriteStatus(noiseKey)
+                val relationship = favorites.getStoredFavoriteForNdrRoute(noiseKey)
                     ?: return@isAuthorized null
                 NdrFavoriteRouteBinding(
                     isMutual = relationship.isMutual,
@@ -1254,12 +1270,47 @@ class ChatViewModel(
         try {
             com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
         } catch (_: Exception) { }
+
+        if (!ndrResetSucceeded) {
+            com.bitchat.android.nostr.NdrPanicStartupRecovery.blockNetworkStartup()
+            try {
+                mesh.stopServices()
+            } catch (_: Exception) { }
+            try {
+                com.bitchat.android.nostr.NostrRelayManager
+                    .getInstance(getApplication())
+                    .disconnect()
+            } catch (_: Exception) { }
+            clearAllMeshServiceData()
+            clearAllCryptographicData(ndrResetSucceeded = false)
+            notificationManager.clearAllNotifications()
+            com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())
+            Log.e(
+                TAG,
+                "PANIC MODE INCOMPLETE - identity recreation blocked until NDR wipe retry"
+            )
+            return
+        }
         
         // Clear all mesh service data
         clearAllMeshServiceData()
         
         // Clear all cryptographic data
-        clearAllCryptographicData()
+        val cryptographicClearSucceeded =
+            clearAllCryptographicData(ndrResetSucceeded = true)
+        if (!cryptographicClearSucceeded || !ndrService.completePanicReset()) {
+            com.bitchat.android.nostr.NdrPanicStartupRecovery.blockNetworkStartup()
+            try {
+                mesh.stopServices()
+            } catch (_: Exception) { }
+            try {
+                com.bitchat.android.nostr.NostrRelayManager
+                    .getInstance(getApplication())
+                    .disconnect()
+            } catch (_: Exception) { }
+            Log.e(TAG, "PANIC MODE INCOMPLETE - final wipe commit failed")
+            return
+        }
         
         // Clear all notifications
         notificationManager.clearAllNotifications()
@@ -1346,33 +1397,46 @@ class ChatViewModel(
     /**
      * Clear all cryptographic data including persistent identity
      */
-    private fun clearAllCryptographicData() {
-        try {
+    private fun clearAllCryptographicData(ndrResetSucceeded: Boolean): Boolean {
+        return try {
+            var completed = true
             // Clear encryption service persistent identity (Ed25519 signing keys)
             mesh.clearAllEncryptionData()
             
             // Clear secure identity state (if used)
             try {
                 val identityManager = SecureIdentityStateManager(getApplication())
-                identityManager.clearIdentityData()
-                // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
-                try {
-                    identityManager.clearSecureValues("favorite_relationships", "favorite_peerid_index")
-                } catch (_: Exception) { }
-                Log.d(TAG, "✅ Cleared secure identity state and secure favorites store")
+                if (identityManager.clearIdentityData()) {
+                    Log.d(TAG, "✅ Cleared secure identity state")
+                } else {
+                    Log.e(TAG, "Secure identity wipe was not durably committed")
+                    completed = false
+                }
             } catch (e: Exception) {
                 Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
+                completed = false
             }
 
-            // Clear FavoritesPersistenceService persistent relationships
-            try {
-                FavoritesPersistenceService.shared.clearAllFavorites()
-                Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
-            } catch (_: Exception) { }
+            if (ndrResetSucceeded) {
+                try {
+                    if (FavoritesPersistenceService.shared.clearAllFavoritesAfterNdrReset()) {
+                        Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
+                    } else {
+                        Log.e(TAG, "Favorites clear was not durably committed")
+                        completed = false
+                    }
+                } catch (_: Exception) {
+                    completed = false
+                }
+            } else {
+                Log.e(TAG, "Preserving NDR contact pins because native state wipe failed")
+            }
             
             Log.d(TAG, "✅ Cleared all cryptographic data")
+            completed
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error clearing cryptographic data: ${e.message}")
+            false
         }
     }
 
