@@ -358,7 +358,8 @@ fun PeopleSection(
         // Observe reactive state for favorites and fingerprints
         val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
         val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
-    val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+        val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+        val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
         val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
         val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
 
@@ -367,6 +368,22 @@ fun PeopleSection(
             connectedPeers.associateWith { peerID ->
                 val fingerprint = peerFingerprints[peerID]
                 if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
+            }
+        }
+
+        // Same "they favorited us" signal the private-chat header uses for orange outline stars.
+        val peerTheyFavoritedUsStates = remember(peerFavoritedUs, peerFingerprints, connectedPeers) {
+            connectedPeers.associateWith { peerID ->
+                val fingerprint = peerFingerprints[peerID]
+                if (fingerprint != null && peerFavoritedUs.contains(fingerprint)) {
+                    true
+                } else {
+                    try {
+                        FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.theyFavoritedUs == true
+                    } catch (_: Exception) {
+                        false
+                    }
+                }
             }
         }
 
@@ -474,6 +491,7 @@ fun PeopleSection(
             val peerID = connectedPeerForRow
             val conversationID = ContactDirectory.canonicalConversationId(peerID)
             val isFavorite = peerFavoriteStates[peerID] ?: false
+            val theyFavoritedUs = peerTheyFavoritedUsStates[peerID] ?: false
             val isVerified = peerVerifiedStates[peerID] ?: false
             // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
 
@@ -499,6 +517,7 @@ fun PeopleSection(
                 isWifiAware = peerID in wifiAwarePeerIDs,
                 isSelected = conversationID == selectedPrivatePeer || peerID == selectedPrivatePeer,
                 isFavorite = isFavorite,
+                theyFavoritedUs = theyFavoritedUs,
                 isVerified = isVerified,
                 hasUnreadDM = combinedHasUnread,
                 colorScheme = colorScheme,
@@ -548,6 +567,7 @@ fun PeopleSection(
                 isDirect = false,
                 isSelected = conversationID == selectedPrivatePeer || (mappedConnectedPeerID ?: favPeerID) == selectedPrivatePeer,
                 isFavorite = true,
+                theyFavoritedUs = fav.theyFavoritedUs,
                 isVerified = isVerified,
                 hasUnreadDM = hasUnread,
                 colorScheme = colorScheme,
@@ -577,6 +597,7 @@ private fun PeerItem(
     isWifiAware: Boolean = false,
     isSelected: Boolean,
     isFavorite: Boolean,
+    theyFavoritedUs: Boolean = false,
     isVerified: Boolean,
     hasUnreadDM: Boolean,
     colorScheme: ColorScheme,
@@ -703,13 +724,15 @@ private fun PeerItem(
                 .clickable(onClick = onToggleFavorite),
             contentAlignment = Alignment.Center
         ) {
+            // Three-state star (matches private-chat header): grey outline (no relation),
+            // orange outline (they favorited us), filled orange (we favorited them).
             Icon(
                 painter = painterResource(
                     if (isFavorite) R.drawable.ic_spec_star_filled else R.drawable.ic_spec_star
                 ),
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                 modifier = Modifier.size(PeerRowIconSize),
-                tint = if (isFavorite) palette.accentOrange else palette.textTertiary
+                tint = if (isFavorite || theyFavoritedUs) palette.accentOrange else palette.textTertiary
             )
         }
     }
