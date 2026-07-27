@@ -140,6 +140,97 @@ class FileTransferTest {
     }
 
     @Test
+    fun `decode should skip unknown TLV types instead of dropping the whole file`() {
+        // Given: a packet from a peer that added one TLV this build does not
+        // know (a message id, tag 0x05), placed before CONTENT the way an
+        // encoder that appends content last would emit it.
+        val content = ByteArray(64) { (it % 256).toByte() }
+        val fileName = "photo.jpg".toByteArray(Charsets.UTF_8)
+        val mimeType = "image/jpeg".toByteArray(Charsets.UTF_8)
+        val unknownValue = "some-message-id".toByteArray(Charsets.UTF_8)
+
+        val buf = ByteBuffer.allocate(
+            (1 + 2 + fileName.size) + (1 + 2 + 4) + (1 + 2 + mimeType.size) +
+                (1 + 2 + unknownValue.size) + (1 + 4 + content.size)
+        ).order(ByteOrder.BIG_ENDIAN)
+        buf.put(0x01.toByte()); buf.putShort(fileName.size.toShort()); buf.put(fileName)
+        buf.put(0x02.toByte()); buf.putShort(4); buf.putInt(content.size)
+        buf.put(0x03.toByte()); buf.putShort(mimeType.size.toShort()); buf.put(mimeType)
+        buf.put(0x05.toByte()); buf.putShort(unknownValue.size.toShort()); buf.put(unknownValue)
+        buf.put(0x04.toByte()); buf.putInt(content.size); buf.put(content)
+
+        // When: Decoding
+        val decoded = BitchatFilePacket.decode(buf.array())
+
+        // Then: the unknown TLV costs nothing — the media still arrives.
+        // Rejecting it made every such transfer vanish with no error on either
+        // side, while iOS decoded the very same bytes fine.
+        assertNotNull(decoded)
+        assertEquals("photo.jpg", decoded!!.fileName)
+        assertEquals("image/jpeg", decoded.mimeType)
+        assertEquals(content.size.toLong(), decoded.fileSize)
+        assertEquals(content.size, decoded.content.size)
+        for (i in content.indices) {
+            assertEquals(content[i], decoded.content[i])
+        }
+    }
+
+    @Test
+    fun `decode should skip an unknown TLV that trails the content`() {
+        // Given: the same kind of extension appended AFTER content, which a
+        // decoder that stops at the first unknown tag also loses.
+        val content = ByteArray(16) { 0x7F }
+        val fileName = "note.m4a".toByteArray(Charsets.UTF_8)
+        val trailing = ByteArray(4) { 0x11 }
+
+        val buf = ByteBuffer.allocate(
+            (1 + 2 + fileName.size) + (1 + 4 + content.size) + (1 + 2 + trailing.size)
+        ).order(ByteOrder.BIG_ENDIAN)
+        buf.put(0x01.toByte()); buf.putShort(fileName.size.toShort()); buf.put(fileName)
+        buf.put(0x04.toByte()); buf.putInt(content.size); buf.put(content)
+        buf.put(0x7F.toByte()); buf.putShort(trailing.size.toShort()); buf.put(trailing)
+
+        // When: Decoding
+        val decoded = BitchatFilePacket.decode(buf.array())
+
+        // Then: Defaults still apply and the content is intact
+        assertNotNull(decoded)
+        assertEquals("note.m4a", decoded!!.fileName)
+        assertEquals("application/octet-stream", decoded.mimeType)
+        assertEquals(content.size.toLong(), decoded.fileSize)
+        assertEquals(content.size, decoded.content.size)
+    }
+
+    @Test
+    fun `decode should handle a packet padded with many zero-length unknown TLVs`() {
+        // Given: the cheapest padding a peer can send — a zero-length unknown
+        // TLV is 3 bytes, so one packet can carry hundreds of thousands of
+        // them. Anything the skip path does per TLV (copying the empty value,
+        // formatting a log line) is scaled by the sender, not by us.
+        val padCount = 200_000
+        val content = ByteArray(8) { 0x5A }
+        val fileName = "padded.bin".toByteArray(Charsets.UTF_8)
+
+        val buf = ByteBuffer.allocate(
+            (1 + 2 + fileName.size) + (padCount * 3) + (1 + 4 + content.size)
+        ).order(ByteOrder.BIG_ENDIAN)
+        buf.put(0x01.toByte()); buf.putShort(fileName.size.toShort()); buf.put(fileName)
+        repeat(padCount) {
+            buf.put(0x05.toByte()); buf.putShort(0)
+        }
+        buf.put(0x04.toByte()); buf.putInt(content.size); buf.put(content)
+
+        // When: Decoding
+        val decoded = BitchatFilePacket.decode(buf.array())
+
+        // Then: the real fields still come through and the padding is ignored
+        assertNotNull(decoded)
+        assertEquals("padded.bin", decoded!!.fileName)
+        assertEquals(content.size.toLong(), decoded.fileSize)
+        assertEquals(content.size, decoded.content.size)
+    }
+
+    @Test
     fun `replaceFilePathInContent should correctly format content markers for different file types`() {
         // Given: Different file types
         val imageMessage = BitchatMessage(
