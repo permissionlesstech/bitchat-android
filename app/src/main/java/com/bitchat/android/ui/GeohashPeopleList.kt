@@ -1,13 +1,13 @@
 package com.bitchat.android.ui
 
-import android.util.Log
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.LocationOn
+import android.util.Log
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -193,7 +193,7 @@ private fun GeohashPersonItem(
             Icon(
                 imageVector = Icons.Filled.Email,
                 contentDescription = stringResource(R.string.cd_unread_message),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(18.dp),
                 tint = palette.accentOrange
             )
         } else {
@@ -205,7 +205,7 @@ private fun GeohashPersonItem(
                 else -> "face.smiling" to palette.textSecondary
             }
             
-            // Use appropriate Material icon (closest match to iOS SF Symbols)
+            // Teleported users get the pin (they chose this location); locals get the person.
             val icon = when (iconName) {
                 "face.dashed" -> Icons.Outlined.Explore
                 else -> Icons.Outlined.LocationOn
@@ -214,8 +214,8 @@ private fun GeohashPersonItem(
             Icon(
                 imageVector = icon,
                 contentDescription = if (isTeleported || isMyTeleported) "Teleported user" else "User",
-                modifier = Modifier.size(16.dp),
-                tint = iconColor.copy(alpha = if (iconName == "face.dashed") 0.6f else 1.0f) // Make dashed faces slightly transparent
+                modifier = Modifier.size(18.dp),
+                tint = iconColor.copy(alpha = if (iconName == "face.dashed") 0.6f else 1.0f)
             )
         }
         

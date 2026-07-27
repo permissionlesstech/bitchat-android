@@ -76,7 +76,6 @@
   <string name="chat_leave">leave</string>
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Unread private messages</string>
-  <string name="cd_toggle_bookmark">Toggle bookmark</string>
   <string name="cd_location_notes">Location notes</string>
   <string name="cd_teleported">Teleported</string>
   <string name="cd_tor_status">Tor status</string>
@@ -111,8 +110,8 @@
   <string name="about_tagline">The sidegroup chat</string>
 
   <!-- About sheet: tabs -->
-  <string name="about_tab_how_to_use">How to use</string>
-  <string name="about_tab_basic_info">Basic info</string>
+  <string name="about_tab_info">Info</string>
+  <string name="about_tab_settings">Settings</string>
 
   <!-- About sheet: how-to-use instructions -->
   <string name="about_how_to_use_heading">How To Use</string>

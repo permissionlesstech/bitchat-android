@@ -1,5 +1,17 @@
 package com.bitchat.android.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AlternateEmail
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.animateColorAsState
@@ -19,18 +31,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AlternateEmail
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.WifiOff
-import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -70,10 +70,12 @@ internal val AboutHorizontalPadding = 20.dp
 /** Card corner radius for grouped rows. */
 internal val AboutCardShape = RoundedCornerShape(16.dp)
 
-/** Two top-level views of the sheet. */
+/**
+ * Two top-level views of the sheet: what the app is and how to drive it, versus the knobs.
+ */
 enum class AboutTab {
-    HowToUse,
-    BasicInfo,
+    Info,
+    Settings,
 }
 
 /**
@@ -175,7 +177,7 @@ internal fun AboutTabBar(
     var rowWidth by remember { mutableStateOf(0.dp) }
     val tabWidth = rowWidth / 2
     val indicatorOffset by animateDpAsState(
-        targetValue = if (selected == AboutTab.HowToUse) 0.dp else tabWidth,
+        targetValue = if (selected == AboutTab.Info) 0.dp else tabWidth,
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "aboutTabIndicator"
     )
@@ -190,15 +192,15 @@ internal fun AboutTabBar(
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
             AboutTabLabel(
-                text = stringResource(R.string.about_tab_how_to_use),
-                isSelected = selected == AboutTab.HowToUse,
-                onClick = { onSelect(AboutTab.HowToUse) },
+                text = stringResource(R.string.about_tab_info),
+                isSelected = selected == AboutTab.Info,
+                onClick = { onSelect(AboutTab.Info) },
                 modifier = Modifier.weight(1f)
             )
             AboutTabLabel(
-                text = stringResource(R.string.about_tab_basic_info),
-                isSelected = selected == AboutTab.BasicInfo,
-                onClick = { onSelect(AboutTab.BasicInfo) },
+                text = stringResource(R.string.about_tab_settings),
+                isSelected = selected == AboutTab.Settings,
+                onClick = { onSelect(AboutTab.Settings) },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -272,8 +274,8 @@ private fun AboutInstructionRow(
             contentDescription = null,
             tint = colorScheme.primary,
             modifier = Modifier
-                .padding(top = 2.dp)
-                .size(18.dp)
+                .padding(top = 1.dp)
+                .size(22.dp)
         )
         Text(
             text = text,
@@ -315,7 +317,7 @@ internal fun AboutHowToUseSection(modifier: Modifier = Modifier) {
             text = stringResource(R.string.about_howto_channels)
         )
         AboutInstructionRow(
-            icon = Icons.Filled.Groups,
+            icon = Icons.Filled.Person,
             text = stringResource(R.string.about_howto_people)
         )
         AboutInstructionRow(
@@ -428,7 +430,7 @@ private fun AboutFeatureRow(
             tint = colorScheme.primary,
             modifier = Modifier
                 .padding(top = 1.dp)
-                .size(22.dp)
+                .size(24.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -580,7 +582,7 @@ internal fun SheetHeaderBadge(
             imageVector = icon,
             contentDescription = null,
             tint = colorScheme.primary,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(26.dp)
         )
     }
 }

@@ -1,6 +1,8 @@
 package com.bitchat.android.ui
 
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,8 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -393,24 +393,7 @@ fun MessageItem(
         return
     }
 
-    // Check if this message should be animated during PoW mining
-    val shouldAnimate = shouldAnimateMessage(message.id)
-    
-    // If animation is needed, use the matrix animation component for content only
-    if (shouldAnimate) {
-        // Display message with matrix animation for content
-        MessageWithMatrixAnimation(
-            message = message,
-            currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
-            timeFormatter = timeFormatter,
-            showSender = showSender,
-            onNicknameClick = onNicknameClick,
-            onMessageLongPress = onMessageLongPress,
-            modifier = modifier
-        )
-    } else if (message.sender == "system") {
+    if (message.sender == "system") {
         // Background narration: `// Tor started. Routing all chats…`
         val annotatedText = remember(message, palette) {
             formatSystemMessage(

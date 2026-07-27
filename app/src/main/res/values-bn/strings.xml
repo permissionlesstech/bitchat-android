@@ -75,7 +75,6 @@
     <string name="chat_leave">ছেড়ে দিন</string>
     <string name="cd_nostr_reachable">Nostr এর মাধ্যমে পৌঁছানো যায়</string>
     <string name="cd_unread_private_messages">অপঠিত ব্যক্তিগত বার্তা</string>
-    <string name="cd_toggle_bookmark">বুকমার্ক টগল করুন</string>
     <string name="cd_teleported">টেলিপোর্ট করা হয়েছে</string>
     <string name="cd_tor_status">Tor অবস্থা</string>
     <string name="cd_connected_peers">সংযুক্ত পিয়ার</string>

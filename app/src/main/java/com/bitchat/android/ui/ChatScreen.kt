@@ -4,6 +4,8 @@ package com.bitchat.android.ui
 // [Goose] Installing FileShareDispatcher handler in ChatScreen to forward file sends to ViewModel
 
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -14,8 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.IconButton
@@ -303,6 +303,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     Icon(
                         imageVector = Icons.Filled.ArrowDownward,
                         contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom),
+                        modifier = Modifier.size(22.dp),
                         tint = palette.accentGreen
                     )
                 }

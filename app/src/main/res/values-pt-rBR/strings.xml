@@ -75,7 +75,6 @@
     <string name="chat_leave">sair</string>
     <string name="cd_nostr_reachable">Acessível via Nostr</string>
     <string name="cd_unread_private_messages">Mensagens privadas não lidas</string>
-    <string name="cd_toggle_bookmark">Alternar favorito</string>
     <string name="cd_teleported">Teletransportado</string>
     <string name="cd_tor_status">Status do Tor</string>
     <string name="cd_connected_peers">Peers conectados</string>

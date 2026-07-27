@@ -75,7 +75,6 @@
     <string name="chat_leave">verlaten</string>
     <string name="cd_nostr_reachable">Bereikbaar via Nostr</string>
     <string name="cd_unread_private_messages">Ongelezen privéberichten</string>
-    <string name="cd_toggle_bookmark">Bladwijzer omschakelen</string>
     <string name="cd_teleported">Geteleporteerd</string>
     <string name="cd_tor_status">Tor-status</string>
     <string name="cd_connected_peers">Verbonden peers</string>

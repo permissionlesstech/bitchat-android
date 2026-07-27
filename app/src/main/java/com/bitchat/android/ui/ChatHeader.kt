@@ -1,10 +1,20 @@
 package com.bitchat.android.ui
 
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -14,10 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,14 +51,29 @@ import com.bitchat.android.ui.theme.LocalBitchatPalette
  * Extracted from ChatScreen.kt for better organization
  */
 
-/** Height of the chat top bar. Taller than the old 42.dp so 40.dp tap targets fit properly. */
-val ChatHeaderHeight = 48.dp
+/** Height of the chat top bar. Taller than the old 42.dp so 44.dp tap targets fit properly. */
+val ChatHeaderHeight = 52.dp
 
-/** Standard icon size in the header. */
-private val HeaderIconSize = 18.dp
+/**
+ * The single icon size used by every glyph in the top bar.
+ *
+ * Previously the bar mixed 12/14/16/18.dp icons, which is why it read as a collection of
+ * unrelated glyphs rather than one control strip. One size for everything, and large enough to
+ * actually see.
+ */
+internal val HeaderIconSize = 22.dp
+
+/**
+ * Text size for the top bar's labels: nickname, channel name, peer count.
+ *
+ * A step up from the 15.sp body scale. The bar is the app's primary status readout and was
+ * noticeably harder to read than the messages below it; the extra point costs nothing because
+ * the bar's height is driven by [HeaderTapTarget], not by the text.
+ */
+private val HeaderTextSize = 17.sp
 
 /** Minimum tap target for every interactive element in the header. */
-private val HeaderTapTarget = 40.dp
+private val HeaderTapTarget = 44.dp
 
 /** Corner radius for the header's tappable label+icon clusters. */
 private val HeaderClusterShape = RoundedCornerShape(8.dp)
@@ -81,6 +102,14 @@ private fun HeaderIconButton(
     }
 }
 
+/**
+ * Connection status indicator.
+ *
+ * Only visible while the connection is still coming up (or has failed). A steady green "all
+ * good" light is noise: the absence of the indicator already means everything is fine, and the
+ * eye stops registering an always-on dot anyway. It fades and scales in/out so appearing and
+ * disappearing reads as a state change rather than a glitch.
+ */
 @Composable
 fun TorStatusDot(
     modifier: Modifier = Modifier
@@ -88,27 +117,35 @@ fun TorStatusDot(
     val palette = LocalBitchatPalette.current
     val torProvider = remember { com.bitchat.android.net.ArtiTorManager.getInstance() }
     val torStatus by torProvider.statusFlow.collectAsState()
-    
-    if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
-        val targetColor = when {
-            torStatus.running && torStatus.bootstrapPercent < 100 -> palette.accentOrange
-            torStatus.running && torStatus.bootstrapPercent >= 100 -> palette.accentGreen
-            else -> palette.accentRed
-        }
-        // Cross-fade rather than snap: Tor flips through bootstrapping states frequently and a
-        // hard colour cut in the corner of the screen reads as a glitch.
+
+    val isEnabled = torStatus.mode != com.bitchat.android.net.TorMode.OFF
+    val isEstablished = torStatus.running && torStatus.bootstrapPercent >= 100
+    val isVisible = isEnabled && !isEstablished
+
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(tween(BitchatMotion.STANDARD_MS)) +
+            scaleIn(
+                initialScale = 0.4f,
+                animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing)
+            ),
+        exit = fadeOut(tween(BitchatMotion.QUICK_MS)) +
+            scaleOut(
+                targetScale = 0.4f,
+                animationSpec = tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing)
+            ),
+    ) {
+        // Bootstrapping vs. failed. Cross-faded, because Tor flips between these frequently and
+        // a hard colour cut in the corner of the screen reads as a rendering fault.
         val dotColor by animateColorAsState(
-            targetValue = targetColor,
+            targetValue = if (torStatus.running) palette.accentOrange else palette.accentRed,
             animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
             label = "torDotColor"
         )
-        Canvas(
-            modifier = modifier
-        ) {
-            val radius = size.minDimension / 2
+        Canvas(modifier = modifier) {
             drawCircle(
                 color = dotColor,
-                radius = radius,
+                radius = size.minDimension / 2,
                 center = Offset(size.width / 2, size.height / 2)
             )
         }
@@ -179,15 +216,17 @@ fun NicknameEditor(
         Text(
             text = stringResource(R.string.at_symbol),
             style = MaterialTheme.typography.bodyMedium,
+            fontSize = HeaderTextSize,
             color = colorScheme.primary.copy(alpha = 0.7f)
         )
-        
+
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 color = colorScheme.primary,
-                fontFamily = FontFamily.Monospace
+                fontFamily = FontFamily.Monospace,
+                fontSize = HeaderTextSize
             ),
             cursorBrush = SolidColor(colorScheme.primary),
             singleLine = true,
@@ -198,7 +237,7 @@ fun NicknameEditor(
                 }
             ),
             modifier = Modifier
-                .widthIn(max = 140.dp)
+                .widthIn(max = 150.dp)
                 .horizontalScroll(scrollState)
         )
     }
@@ -250,9 +289,9 @@ fun PeerCounter(
             .padding(horizontal = 6.dp)
     ) {
         Icon(
-            // `Groups` reads as a crowd at 18.dp, where `Group`'s two-person silhouette turns
-            // into an indistinct blob.
-            imageVector = Icons.Filled.Groups,
+            // A single silhouette rather than a crowd: at 22.dp a multi-person glyph collapses
+            // into an indistinct blob, and the number beside it already conveys "how many".
+            imageVector = Icons.Filled.Person,
             contentDescription = when (selectedLocationChannel) {
                 is com.bitchat.android.geohash.ChannelID.Location -> stringResource(R.string.cd_geohash_participants)
                 else -> stringResource(R.string.cd_connected_peers)
@@ -261,17 +300,20 @@ fun PeerCounter(
             tint = animatedCountColor
         )
 
-        Text(
-            text = "$peopleCount",
+        AnimatedCount(
+            count = peopleCount,
             style = MaterialTheme.typography.bodyMedium,
+            fontSize = HeaderTextSize,
             color = animatedCountColor,
             fontWeight = FontWeight.Medium
         )
-        
+
         if (joinedChannels.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.channel_count_prefix) + "${joinedChannels.size}",
+            AnimatedCount(
+                count = joinedChannels.size,
+                prefix = stringResource(R.string.channel_count_prefix),
                 style = MaterialTheme.typography.bodyMedium,
+                fontSize = HeaderTextSize,
                 color = if (isConnected) palette.accentGreen else palette.accentRed,
                 fontWeight = FontWeight.Medium
             )
@@ -343,7 +385,7 @@ private fun ChannelHeader(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.back),
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(HeaderIconSize),
                 tint = colorScheme.primary
             )
         }
@@ -352,6 +394,7 @@ private fun ChannelHeader(
         Text(
             text = "#$channel",
             style = MaterialTheme.typography.titleMedium,
+            fontSize = HeaderTextSize,
             color = colorScheme.primary,
             modifier = Modifier
                 .align(Alignment.Center)
@@ -368,6 +411,7 @@ private fun ChannelHeader(
             Text(
                 text = stringResource(R.string.chat_leave),
                 style = MaterialTheme.typography.labelMedium,
+                fontSize = 15.sp,
                 color = palette.accentRed
             )
         }
@@ -395,11 +439,6 @@ private fun MainHeader(
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
 
-    // Bookmarks store for current geohash toggle (iOS parity)
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
-    val bookmarks by bookmarksStore.bookmarks.collectAsStateWithLifecycle()
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -423,6 +462,7 @@ private fun MainHeader(
             Text(
                 text = "/",
                 style = MaterialTheme.typography.bodyMedium,
+                fontSize = HeaderTextSize,
                 // Dimmed: the slash is a separator, not content. At full brightness it competed
                 // with the nickname beside it.
                 color = colorScheme.primary.copy(alpha = 0.45f),
@@ -435,12 +475,26 @@ private fun MainHeader(
             )
         }
 
-        // MARK: - Status cluster. Order matches the design: bookmark, channel, people.
+        // MARK: - Status cluster.
+        //
+        // Order, left to right: connection state, unread DMs, notes, channel, people.
+        // The connection indicator leads because it is the only item that can invalidate
+        // everything to its right, and because it appears and disappears on its own — a fixed
+        // leftmost slot means the rest of the cluster never shifts when it does.
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            // Tight, because every child below is its own >=40.dp tap target.
+            // Tight, because every child below is its own >=44.dp tap target.
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
+            // Connection status. The Box holds the slot open at a constant width so the icons to
+            // its right stay put whether or not the dot is currently showing.
+            Box(
+                modifier = Modifier.size(HeaderIconSize),
+                contentAlignment = Alignment.Center
+            ) {
+                TorStatusDot(modifier = Modifier.size(8.dp))
+            }
+
             // Unread private messages badge (click to open most recent DM)
             if (hasUnreadPrivateMessages.isNotEmpty()) {
                 HeaderIconButton(
@@ -462,37 +516,9 @@ private fun MainHeader(
                 onClick = onLocationNotesClick
             )
 
-            // Tor status dot. Wrapped in a fixed box so its optical position no longer depends
-            // on ad-hoc asymmetric padding.
-            Box(modifier = Modifier.size(16.dp), contentAlignment = Alignment.Center) {
-                TorStatusDot(modifier = Modifier.size(6.dp))
-            }
-
-            // PoW status indicator
-            PoWStatusIndicator(
-                modifier = Modifier,
-                style = PoWIndicatorStyle.COMPACT
-            )
-
-            // Bookmark toggle for current geohash (not shown for mesh)
-            val currentGeohash: String? = when (val sc = selectedLocationChannel) {
-                is com.bitchat.android.geohash.ChannelID.Location -> sc.channel.geohash
-                else -> null
-            }
-            if (currentGeohash != null) {
-                val isBookmarked = bookmarks.contains(currentGeohash)
-                HeaderIconButton(
-                    onClick = { bookmarksStore.toggle(currentGeohash) },
-                    contentDescription = stringResource(R.string.cd_toggle_bookmark)
-                ) {
-                    Icon(
-                        imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                        contentDescription = stringResource(R.string.cd_toggle_bookmark),
-                        tint = if (isBookmarked) palette.accentGreen else palette.textSecondary,
-                        modifier = Modifier.size(HeaderIconSize)
-                    )
-                }
-            }
+            // Bookmarking lives in the Location Channels sheet, one tap away via the channel
+            // button below. Duplicating it here bought a shortcut for a rare action at the cost
+            // of a slot in the app's most crowded row.
 
             LocationChannelsButton(
                 viewModel = viewModel,
@@ -532,8 +558,11 @@ private fun LocationChannelsButton(
 
     val isLocation = selectedChannel is com.bitchat.android.geohash.ChannelID.Location
     val badgeText = when (val channel = selectedChannel) {
+        // Geohashes keep the '#' because that is how they are written and typed everywhere else.
         is com.bitchat.android.geohash.ChannelID.Location -> "#${channel.channel.geohash}"
-        else -> "#mesh"
+        // The local mesh is not a hashtag channel, and the Bluetooth glyph already says what it
+        // is, so it is plain "mesh".
+        else -> stringResource(R.string.mesh_label)
     }
     val badgeColor = if (isLocation) palette.accentGreen else palette.accentBlue
     val badgeIcon = if (isLocation) Icons.Outlined.Public else Icons.Filled.Bluetooth
@@ -557,6 +586,7 @@ private fun LocationChannelsButton(
         Text(
             text = badgeText,
             style = MaterialTheme.typography.bodyMedium,
+            fontSize = HeaderTextSize,
             fontWeight = FontWeight.Medium,
             color = badgeColor,
             maxLines = 1
@@ -567,7 +597,7 @@ private fun LocationChannelsButton(
             Icon(
                 imageVector = Icons.Default.PinDrop,
                 contentDescription = stringResource(R.string.cd_teleported),
-                modifier = Modifier.size(12.dp),
+                modifier = Modifier.size(HeaderIconSize),
                 tint = badgeColor
             )
         }

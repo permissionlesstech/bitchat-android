@@ -75,7 +75,6 @@
     <string name="chat_leave">umalis</string>
     <string name="cd_nostr_reachable">Maabot sa Nostr</string>
     <string name="cd_unread_private_messages">Hindi nabasang pribadong mensahe</string>
-    <string name="cd_toggle_bookmark">I‑toggle ang bookmark</string>
     <string name="cd_teleported">Naiteleport</string>
     <string name="cd_tor_status">Katayuan ng Tor</string>
     <string name="cd_connected_peers">Nakakonektang peers</string>

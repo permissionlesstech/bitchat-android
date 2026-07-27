@@ -75,7 +75,6 @@
     <string name="chat_leave">باہر آؤ</string>
     <string name="cd_nostr_reachable">Nostr راہین پہنچ ممکن اے</string>
     <string name="cd_unread_private_messages">انہ پڑھیا ذاتی پیغام</string>
-    <string name="cd_toggle_bookmark">بُک مارک ٹوگل کرو</string>
     <string name="cd_teleported">ٹیلپورٹ کیتا گیا</string>
     <string name="cd_tor_status">Tor حالت</string>
     <string name="cd_connected_peers">جُڑے پیئر</string>

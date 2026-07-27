@@ -75,7 +75,6 @@
     <string name="chat_leave">hiala</string>
     <string name="cd_nostr_reachable">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
     <string name="cd_unread_private_messages">Hafatra manokana tsy voavaky</string>
-    <string name="cd_toggle_bookmark">Hanova bookmark</string>
     <string name="cd_teleported">Nafindra toerana</string>
     <string name="cd_tor_status">Toe-javatra Tor</string>
     <string name="cd_connected_peers">Mpiara-miasa mifandray</string>

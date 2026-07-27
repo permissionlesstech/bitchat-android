@@ -75,7 +75,6 @@
     <string name="chat_leave">离开</string>
     <string name="cd_nostr_reachable">可通过 Nostr 联系</string>
     <string name="cd_unread_private_messages">未读私信</string>
-    <string name="cd_toggle_bookmark">切换书签</string>
     <string name="cd_teleported">已传送</string>
     <string name="cd_tor_status">Tor 状态</string>
     <string name="cd_connected_peers">已连接节点</string>

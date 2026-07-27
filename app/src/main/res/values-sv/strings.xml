@@ -67,7 +67,6 @@
     <string name="chat_leave">lämna</string>
     <string name="cd_nostr_reachable">Nås via Nostr</string>
     <string name="cd_unread_private_messages">Olästa privata meddelanden</string>
-    <string name="cd_toggle_bookmark">Växla bokmärke</string>
     <string name="cd_teleported">Teleporterad</string>
     <string name="cd_tor_status">Tor‑status</string>
     <string name="cd_connected_peers">Anslutna noder</string>

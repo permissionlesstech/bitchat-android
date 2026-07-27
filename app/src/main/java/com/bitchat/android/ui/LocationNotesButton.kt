@@ -1,8 +1,8 @@
 package com.bitchat.android.ui
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,12 +55,12 @@ fun LocationNotesButton(
         val hasNotes = notesCount > 0
         IconButton(
             onClick = onClick,
-            modifier = modifier.size(40.dp)
+            modifier = modifier.size(44.dp)
         ) {
             Icon(
-                imageVector = Icons.Outlined.Description, // "long.text.page.and.pencil" equivalent
+                imageVector = Icons.Outlined.Description,
                 contentDescription = stringResource(R.string.cd_location_notes),
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(HeaderIconSize),
                 tint = if (hasNotes) colorScheme.primary else LocalBitchatPalette.current.textSecondary
             )
         }

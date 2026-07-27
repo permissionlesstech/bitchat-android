@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.core.ui.icon.BitChatIcon
 import kotlinx.coroutines.Job
@@ -30,6 +31,7 @@ fun BitChatBrandButton(
     contentDescription: String,
     modifier: Modifier = Modifier,
     tint: Color = MaterialTheme.colorScheme.primary,
+    iconSize: Dp = 22.dp,
 ) {
     var tapCount by remember { mutableIntStateOf(0) }
     var resetJob by remember { mutableStateOf<Job?>(null) }
@@ -63,9 +65,7 @@ fun BitChatBrandButton(
             imageVector = BitChatIcon,
             contentDescription = contentDescription,
             tint = tint,
-            // 20.dp rather than 16.dp: the pixel-art bubble has heavy internal negative space,
-            // so it reads noticeably smaller than a solid glyph at the same nominal size.
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(iconSize),
         )
     }
 }

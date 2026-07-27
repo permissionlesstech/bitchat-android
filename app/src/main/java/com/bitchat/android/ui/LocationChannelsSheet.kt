@@ -1,5 +1,12 @@
 package com.bitchat.android.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.PinDrop
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Public
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -15,13 +22,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.PinDrop
-import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -218,6 +218,7 @@ fun LocationChannelsSheet(
                             title = meshTitleWithCount(viewModel),
                             subtitle = stringResource(R.string.location_bluetooth_subtitle, bluetoothRangeString()),
                             isSelected = selectedChannel is ChannelID.Mesh,
+                            participantCount = meshCount(viewModel),
                             titleColor = standardBlue,
                             titleBold = meshCount(viewModel) > 0,
                             trailingContent = null,
@@ -251,6 +252,7 @@ fun LocationChannelsSheet(
                                 title = geohashTitleWithCount(channel, participantCount),
                                 subtitle = subtitlePrefix + (namePart?.let { " • $it" } ?: ""),
                                 isSelected = isChannelSelected(channel, selectedChannel),
+                                participantCount = participantCount,
                                 titleColor = standardGreen,
                                 titleBold = highlight,
                                 trailingContent = {
@@ -259,7 +261,7 @@ fun LocationChannelsSheet(
                                             imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                                             contentDescription = if (isBookmarked) stringResource(R.string.cd_remove_bookmark) else stringResource(R.string.cd_add_bookmark),
                                             tint = if (isBookmarked) palette.accentGreen else palette.textSecondary,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
                                 },
@@ -314,6 +316,7 @@ fun LocationChannelsSheet(
                                 title = title,
                                 subtitle = subtitle,
                                 isSelected = isChannelSelected(channel, selectedChannel),
+                                participantCount = participantCount,
                                 titleColor = null,
                                 titleBold = participantCount > 0,
                                 trailingContent = {
@@ -322,7 +325,7 @@ fun LocationChannelsSheet(
                                             imageVector = Icons.Filled.Bookmark,
                                             contentDescription = stringResource(R.string.cd_remove_bookmark),
                                             tint = palette.accentGreen,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
                                 },
@@ -432,7 +435,7 @@ fun LocationChannelsSheet(
                                         imageVector = Icons.Filled.Map,
                                         contentDescription = stringResource(R.string.cd_open_map),
                                         tint = palette.textSecondary,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
 
@@ -468,7 +471,7 @@ fun LocationChannelsSheet(
                                         Icon(
                                             imageVector = Icons.Filled.PinDrop,
                                             contentDescription = stringResource(R.string.cd_teleport),
-                                            modifier = Modifier.size(12.dp),
+                                            modifier = Modifier.size(14.dp),
                                             tint = teleportColor
                                         )
                                         Text(
@@ -641,6 +644,8 @@ private fun ChannelRow(
     title: String,
     subtitle: String,
     isSelected: Boolean,
+    /** Drives the count animation; the number itself is already baked into [title]. */
+    participantCount: Int,
     titleColor: Color? = null,
     titleBold: Boolean = false,
     trailingContent: (@Composable (() -> Unit))? = null,
@@ -701,7 +706,10 @@ private fun ChannelRow(
                     )
 
                     countSuffix?.let { count ->
-                        Text(
+                        AnimatedCountLabel(
+                            // Participant counts are polled from the relays, so they change
+                            // while the sheet is open.
+                            count = participantCount,
                             text = count,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,

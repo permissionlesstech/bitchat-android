@@ -1,34 +1,37 @@
 package com.bitchat.android.core.ui.component.button
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.R
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 @Composable
 fun CloseButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier.Companion
+    modifier: Modifier = Modifier
 ) {
+    val palette = LocalBitchatPalette.current
     IconButton(
         onClick = onClick,
-        modifier = modifier
-            .size(32.dp),
+        // 44.dp to match every other tap target in the app's chrome.
+        modifier = modifier.size(44.dp),
         colors = IconButtonDefaults.iconButtonColors(
-            contentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-            containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)
+            contentColor = palette.textSecondary,
+            containerColor = palette.surfaceVariant
         )
     ) {
         Icon(
             imageVector = Icons.Default.Close,
-            contentDescription = "Close",
-            modifier = Modifier.Companion.size(18.dp)
+            contentDescription = stringResource(R.string.close_plain),
+            modifier = Modifier.size(18.dp)
         )
     }
 }

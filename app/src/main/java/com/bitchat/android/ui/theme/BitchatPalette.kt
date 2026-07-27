@@ -22,7 +22,7 @@ data class BitchatPalette(
     val isDark: Boolean,
 
     // MARK: - Surfaces
-    /** Screen, header and composer background. Slightly green-tinted near-black. */
+    /** Screen, header and composer background. True black in dark mode. */
     val background: Color,
     /** Sheets, cards and list rows: one step above [background]. */
     val surface: Color,
@@ -56,7 +56,10 @@ data class BitchatPalette(
 
 val DarkBitchatPalette = BitchatPalette(
     isDark = true,
-    background = Color(0xFF070D07),
+    // True black. OLED panels switch these pixels off entirely, which is both the terminal
+    // aesthetic the app is going for and a real battery win on a screen that is mostly
+    // background.
+    background = Color(0xFF000000),
     surface = Color(0xFF0E150E),
     surfaceVariant = Color(0xFF182118),
     outline = Color(0xFF2A3A2A),
@@ -73,7 +76,7 @@ val DarkBitchatPalette = BitchatPalette(
 
 val LightBitchatPalette = BitchatPalette(
     isDark = false,
-    background = Color(0xFFFBFDFB),
+    background = Color(0xFFFFFFFF),
     surface = Color(0xFFF2F6F2),
     surfaceVariant = Color(0xFFE7EDE7),
     outline = Color(0xFFCBD6CB),

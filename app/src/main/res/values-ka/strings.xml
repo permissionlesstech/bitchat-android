@@ -75,7 +75,6 @@
     <string name="chat_leave">გასვლა</string>
     <string name="cd_nostr_reachable">მისაწვდომია Nostr-ით</string>
     <string name="cd_unread_private_messages">წაუკითხავი პირადი შეტყობინებები</string>
-    <string name="cd_toggle_bookmark">სანიშნეს გადართვა</string>
     <string name="cd_teleported">ტელეპორტირებული</string>
     <string name="cd_tor_status">Tor-ის სტატუსი</string>
     <string name="cd_connected_peers">დაკავშირებული პირები</string>

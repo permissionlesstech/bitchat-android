@@ -1,19 +1,25 @@
 package com.bitchat.android.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import com.bitchat.android.R
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +43,7 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
@@ -116,8 +123,9 @@ fun MeshPeerListSheet(
                                 .padding(horizontal = SheetHorizontalPadding + 14.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            SheetHeaderBadge(icon = Icons.Filled.Groups)
-                            Text(
+                            SheetHeaderBadge(icon = Icons.Filled.Person)
+                            AnimatedCountLabel(
+                                count = peopleCount,
                                 text = stringResource(R.string.people_count_title, peopleCount),
                                 fontSize = 20.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -212,13 +220,13 @@ fun MeshPeerListSheet(
                         if (selectedLocationChannel !is ChannelID.Location) {
                             IconButton(
                                 onClick = onShowVerification,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(44.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.QrCode,
                                     contentDescription = stringResource(R.string.verify_title),
-                                    tint = colorScheme.onSurface.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(18.dp)
+                                    tint = LocalBitchatPalette.current.textSecondary,
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
@@ -230,6 +238,9 @@ fun MeshPeerListSheet(
 
     }
 }
+
+/** Icon size for rows inside the sheets: one step down from the top bar. */
+private val PeerRowIconSize = 18.dp
 
 @Composable
 private fun ChannelRow(
@@ -580,28 +591,26 @@ private fun PeerItem(
             ) {
                 // Connection/status indicator
                 if (hasUnreadDM) {
-                    // Show mail icon for unread DMs (iOS orange)
                     Icon(
                         imageVector = Icons.Filled.Email,
                         contentDescription = stringResource(R.string.cd_unread_message),
-                        modifier = Modifier.size(16.dp),
-                        tint = Color(0xFFFF9500) // iOS orange
+                        modifier = Modifier.size(PeerRowIconSize),
+                        tint = palette.accentOrange
                     )
                 } else if (showNostrGlobe) {
-                    // Purple globe to indicate Nostr availability
                     Icon(
                         imageVector = Icons.Filled.Public,
                         contentDescription = stringResource(R.string.cd_reachable_via_nostr),
-                        modifier = Modifier.size(16.dp),
-                        tint = Color(0xFF9C27B0) // Purple
+                        modifier = Modifier.size(PeerRowIconSize),
+                        tint = palette.accentPurple
                     )
                 } else if (!isDirect && isFavorite) {
-                    // Offline favorited user: show outlined circle icon
+                    // Offline favourite: routed glyph, dimmed to read as unavailable.
                     Icon(
                         imageVector = Icons.Outlined.Circle,
                         contentDescription = stringResource(R.string.cd_offline_favorite),
-                        modifier = Modifier.size(16.dp),
-                        tint = Color.Gray
+                        modifier = Modifier.size(PeerRowIconSize),
+                        tint = palette.textTertiary
                     )
                 } else {
                     Icon(
@@ -615,8 +624,8 @@ private fun PeerItem(
                             isDirect -> "Direct Bluetooth"
                             else -> "Routed"
                         },
-                        modifier = Modifier.size(16.dp),
-                        tint = colorScheme.onSurface.copy(alpha = 0.6f)
+                        modifier = Modifier.size(PeerRowIconSize),
+                        tint = palette.textSecondary
                     )
                 }
 
@@ -649,8 +658,8 @@ private fun PeerItem(
                         Icon(
                             imageVector = Icons.Filled.Wifi,
                             contentDescription = "Direct Wi-Fi Aware",
-                            modifier = Modifier.size(13.dp),
-                            tint = colorScheme.onSurface.copy(alpha = 0.8f)
+                            modifier = Modifier.size(PeerRowIconSize),
+                            tint = palette.textSecondary
                         )
                     }
                 }
@@ -660,9 +669,9 @@ private fun PeerItem(
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.Filled.Verified,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = Color(0xFF32D74B) // iOS Green
+                    contentDescription = stringResource(R.string.verify_title),
+                    modifier = Modifier.size(PeerRowIconSize),
+                    tint = palette.accentGreen
                 )
             }
 
@@ -673,13 +682,13 @@ private fun PeerItem(
                 // Favorite star with proper filled/outlined states
                 IconButton(
                     onClick = onToggleFavorite,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
                         imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
                         contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                        modifier = Modifier.size(16.dp),
-                        tint = if (isFavorite) Color(0xFFFFD700) else Color(0xFF4CAF50)
+                        modifier = Modifier.size(PeerRowIconSize),
+                        tint = if (isFavorite) palette.accentOrange else palette.textTertiary
                     )
                 }
             }
@@ -696,25 +705,41 @@ private fun UnreadBadge(
     colorScheme: ColorScheme,
     modifier: Modifier = Modifier
 ) {
-    if (count > 0) {
+    val palette = LocalBitchatPalette.current
+    // Scale/fade in and out so a badge appearing while the sheet is open is noticed, and one
+    // clearing does not just blink away.
+    AnimatedVisibility(
+        visible = count > 0,
+        enter = fadeIn(tween(BitchatMotion.STANDARD_MS)) +
+            scaleIn(
+                initialScale = 0.5f,
+                animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing)
+            ),
+        exit = fadeOut(tween(BitchatMotion.QUICK_MS)) +
+            scaleOut(
+                targetScale = 0.5f,
+                animationSpec = tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing)
+            ),
+        modifier = modifier
+    ) {
         Box(
-            modifier = modifier
+            modifier = Modifier
                 .background(
-                    color = Color(0xFFFFD700), // Yellow color
+                    color = palette.accentOrange,
                     shape = RoundedCornerShape(10.dp)
                 )
                 .padding(horizontal = 6.dp, vertical = 2.dp)
                 .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(
+            AnimatedCountLabel(
+                count = count,
                 text = if (count > 99) "99+" else count.toString(),
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                ),
-                color = Color.Black // Black text on yellow background
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = Color.Black
             )
         }
     }

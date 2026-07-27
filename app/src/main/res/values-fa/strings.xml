@@ -75,7 +75,6 @@
     <string name="chat_leave">خروج</string>
     <string name="cd_nostr_reachable">قابل دسترس از طریق Nostr</string>
     <string name="cd_unread_private_messages">پیام‌های خصوصی خوانده‌نشده</string>
-    <string name="cd_toggle_bookmark">تغییر وضعیت نشانک</string>
     <string name="cd_teleported">انتقال مکانی</string>
     <string name="cd_tor_status">وضعیت Tor</string>
     <string name="cd_connected_peers">همتایان متصل</string>

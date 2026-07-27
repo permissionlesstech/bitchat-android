@@ -75,7 +75,6 @@
     <string name="chat_leave">छोड़ें</string>
     <string name="cd_nostr_reachable">Nostr के माध्यम से उपलब्ध</string>
     <string name="cd_unread_private_messages">अपठित निजी संदेश</string>
-    <string name="cd_toggle_bookmark">बुकमार्क टॉगल करें</string>
     <string name="cd_teleported">टेलीपोर्ट हुआ</string>
     <string name="cd_tor_status">Tor स्थिति</string>
     <string name="cd_connected_peers">कनेक्टेड पीयर्स</string>

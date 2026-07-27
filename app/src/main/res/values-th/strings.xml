@@ -75,7 +75,6 @@
     <string name="chat_leave">ออก</string>
     <string name="cd_nostr_reachable">ติดต่อได้ผ่าน Nostr</string>
     <string name="cd_unread_private_messages">ข้อความส่วนตัวยังไม่ได้อ่าน</string>
-    <string name="cd_toggle_bookmark">สลับที่คั่นหน้า</string>
     <string name="cd_teleported">เทเลพอร์ตแล้ว</string>
     <string name="cd_tor_status">สถานะ Tor</string>
     <string name="cd_connected_peers">เพียร์ที่เชื่อมต่อ</string>

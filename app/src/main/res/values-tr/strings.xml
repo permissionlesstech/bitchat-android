@@ -67,7 +67,6 @@
     <string name="chat_leave">ayrıl</string>
     <string name="cd_nostr_reachable">Nostr üzerinden ulaşılabilir</string>
     <string name="cd_unread_private_messages">Okunmamış özel mesaj</string>
-    <string name="cd_toggle_bookmark">Yer imini değiştir</string>
     <string name="cd_teleported">Teleport edildi</string>
     <string name="cd_tor_status">Tor durumu</string>
     <string name="cd_connected_peers">Bağlı eşler</string>

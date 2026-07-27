@@ -1,5 +1,12 @@
 package com.bitchat.android.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -10,13 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -246,7 +246,7 @@ fun AboutSheet(
 
     val colorScheme = MaterialTheme.colorScheme
     val palette = LocalBitchatPalette.current
-    var selectedTab by remember { mutableStateOf(AboutTab.HowToUse) }
+    var selectedTab by remember { mutableStateOf(AboutTab.Info) }
 
     if (isPresented) {
         BitchatBottomSheet(
@@ -273,21 +273,22 @@ fun AboutSheet(
                         )
                     }
 
-                    if (selectedTab == AboutTab.HowToUse) {
+                    if (selectedTab == AboutTab.Info) {
+                        // What the app is, then how to drive it. Both are reference material a
+                        // new user reads once, so they belong on the same tab.
+                        item(key = "features") {
+                            Column {
+                                AboutSectionLabel(text = stringResource(R.string.about_section_about))
+                                AboutFeatureCard()
+                            }
+                        }
+
                         item(key = "how_to_use") {
                             AboutHowToUseSection()
                         }
                     }
 
-                    if (selectedTab == AboutTab.BasicInfo) {
-                    // Features Section - Grouped Card
-                    item(key = "features") {
-                        Column {
-                            AboutSectionLabel(text = stringResource(R.string.about_section_about))
-                            AboutFeatureCard()
-                        }
-                    }
-
+                    if (selectedTab == AboutTab.Settings) {
                     // Appearance Section
                     item(key = "appearance") {
                         Column {
@@ -569,7 +570,7 @@ fun AboutSheet(
                     item(key = "warning") {
                         AboutWarningCard(modifier = Modifier.padding(top = 24.dp))
                     }
-                    } // end BasicInfo tab
+                    } // end Settings tab
 
                     // Footer
                     item(key = "footer") {

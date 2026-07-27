@@ -1,5 +1,9 @@
 package com.bitchat.android.ui.media
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.PhotoCamera
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -10,10 +14,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Camera
-import androidx.compose.material.icons.filled.Photo
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -91,8 +91,8 @@ fun ImagePickerButton(
 
     Box(
         modifier = modifier
-            // 40.dp to match the header's tap targets and the composer's send button.
-            .size(40.dp)
+            // Matches the header's tap targets and the composer's send button.
+            .size(44.dp)
             .clip(CircleShape)
             .combinedClickable(
                 onClick = { imagePicker.launch("image/*") },
@@ -110,7 +110,7 @@ fun ImagePickerButton(
             imageVector = Icons.Filled.PhotoCamera,
             contentDescription = stringResource(com.bitchat.android.R.string.pick_image),
             tint = LocalBitchatPalette.current.textSecondary,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(22.dp)
         )
     }
 

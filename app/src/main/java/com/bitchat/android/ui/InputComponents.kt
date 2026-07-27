@@ -2,6 +2,8 @@ package com.bitchat.android.ui
 // [Goose] TODO: Replace inline file attachment stub with FilePickerButton abstraction that dispatches via FileShareDispatcher
 
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -12,8 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -187,10 +187,10 @@ private val ComposerMinHeight = 44.dp
 private val ComposerShape = RoundedCornerShape(22.dp)
 
 /** Diameter of the circular send affordance nested inside the pill. */
-private val SendButtonSize = 32.dp
+private val SendButtonSize = 36.dp
 
-/** Tap target for the media affordances sitting outside the pill. */
-private val MediaButtonSize = 40.dp
+/** Icon size shared by the composer's glyphs, matching the top bar. */
+internal val ComposerIconSize = 22.dp
 
 @Composable
 fun MessageInput(
@@ -325,7 +325,7 @@ fun MessageInput(
                 hasText = hasText,
                 isAccented = selectedPrivatePeer != null || currentChannel != null,
                 onSend = onSend,
-                modifier = Modifier.padding(end = 6.dp, bottom = 6.dp)
+                modifier = Modifier.padding(end = 4.dp, bottom = 4.dp)
             )
         }
 
@@ -430,7 +430,7 @@ private fun SendButton(
         Icon(
             imageVector = Icons.Filled.ArrowUpward,
             contentDescription = stringResource(id = R.string.send_message),
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(ComposerIconSize),
             tint = tint
         )
     }

@@ -75,7 +75,6 @@
     <string name="chat_leave">退出</string>
     <string name="cd_nostr_reachable">Nostr 経由で到達可能</string>
     <string name="cd_unread_private_messages">未読のプライベートメッセージ</string>
-    <string name="cd_toggle_bookmark">ブックマークを切り替え</string>
     <string name="cd_teleported">テレポート済み</string>
     <string name="cd_tor_status">Tor ステータス</string>
     <string name="cd_connected_peers">接続中のピア</string>
