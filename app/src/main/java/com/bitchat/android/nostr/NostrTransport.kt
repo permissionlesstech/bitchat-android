@@ -70,21 +70,19 @@ class NostrTransport(
                     return@launch
                 }
                 
-                Log.d(TAG, "NostrTransport: preparing PM to ${recipientNostrPubkey.take(16)}... for peerID ${to.take(8)}... id=${messageID.take(8)}...")
-                
                 val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
                 if (recipientHex == null) {
                     Log.e(TAG, "NostrTransport: recipient key is not a valid Nostr pubkey")
                     return@launch
                 }
                 val ndrRecipientHex = resolveNdrRecipientHex(to, recipientHex)
-                
+
                 val recipientPeerIDForEmbed = try {
                     com.bitchat.android.favorites.FavoritesPersistenceService.shared
                         .findPeerIDForNostrPubkey(recipientNostrPubkey)
                 } catch (_: Exception) { null }
                 if (recipientPeerIDForEmbed.isNullOrBlank()) {
-                    Log.e(TAG, "NostrTransport: no peerID stored for recipient npub; cannot embed PM. npub=${recipientNostrPubkey.take(16)}...")
+                    Log.e(TAG, "NostrTransport: no peerID stored for recipient npub; cannot embed PM")
                     return@launch
                 }
                 val embedded = NostrEmbeddedBitChat.encodePMForNostr(
@@ -151,8 +149,6 @@ class NostrTransport(
                     return@launch
                 }
                 
-                Log.d(TAG, "NostrTransport: preparing READ ack for id=${item.receipt.originalMessageID.take(8)}... to ${recipientNostrPubkey.take(16)}...")
-                
                 val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
                 if (recipientHex == null) {
                     scheduleNextReadAck()
@@ -214,15 +210,13 @@ class NostrTransport(
                 }
                 
                 val content = FavoriteControlMessage.encode(isFavorite, senderIdentity.npub)
-                
-                Log.d(TAG, "NostrTransport: preparing FAVORITE($isFavorite) to ${recipientNostrPubkey.take(16)}...")
-                
+
                 val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
                 if (recipientHex == null) {
                     return@launch
                 }
                 val ndrRecipientHex = resolveNdrRecipientHex(to, recipientHex)
-                
+
                 val embedded = NostrEmbeddedBitChat.encodePMForNostr(
                     content = content,
                     messageID = UUID.randomUUID().toString(),
@@ -264,14 +258,12 @@ class NostrTransport(
                     return@launch
                 }
                 
-                Log.d(TAG, "NostrTransport: preparing DELIVERED ack for id=${messageID.take(8)}... to ${recipientNostrPubkey.take(16)}...")
-                
                 val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
                 if (recipientHex == null) {
                     return@launch
                 }
                 val ndrRecipientHex = resolveNdrRecipientHex(to, recipientHex)
-                
+
                 val ack = NostrEmbeddedBitChat.encodeAckForNostr(
                     type = NoisePayloadType.DELIVERED,
                     messageID = messageID,
@@ -306,8 +298,6 @@ class NostrTransport(
     ) {
         transportScope.launch {
             try {
-                Log.d(TAG, "GeoDM: send DELIVERED -> recip=${toRecipientHex.take(8)}... mid=${messageID.take(8)}... from=${fromIdentity.publicKeyHex.take(8)}...")
-                
                 val embedded = NostrEmbeddedBitChat.encodeAckForNostrNoRecipient(
                     type = NoisePayloadType.DELIVERED,
                     messageID = messageID,
@@ -341,8 +331,6 @@ class NostrTransport(
     ) {
         transportScope.launch {
             try {
-                Log.d(TAG, "GeoDM: send READ -> recip=${toRecipientHex.take(8)}... mid=${messageID.take(8)}... from=${fromIdentity.publicKeyHex.take(8)}...")
-                
                 val embedded = NostrEmbeddedBitChat.encodeAckForNostrNoRecipient(
                     type = NoisePayloadType.READ_RECEIPT,
                     messageID = messageID,
@@ -400,11 +388,6 @@ class NostrTransport(
             try {
                 if (toRecipientHex.isEmpty()) return@launch
 
-                Log.d(
-                    TAG,
-                    "GeoDM: send PM -> recip=${toRecipientHex.take(8)}... mid=${messageID.take(8)}... from=${fromIdentity.publicKeyHex.take(8)}... geohash=$geohash"
-                )
-
                 // Build embedded BitChat packet without recipient peer ID
                 val embedded = NostrEmbeddedBitChat.encodePMForNostrNoRecipient(
                     content = content,
@@ -422,7 +405,6 @@ class NostrTransport(
                 )
 
                 giftWraps.forEach { event ->
-                    Log.d(TAG, "NostrTransport: sending geohash PM giftWrap id=${event.id.take(16)}...")
                     NostrRelayManager.registerPendingGiftWrap(event.id)
                     NostrRelayManager.getInstance(context).sendEvent(event)
                 }

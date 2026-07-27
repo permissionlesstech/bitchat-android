@@ -87,6 +87,8 @@ interface NdrRelayManager {
 
 interface NdrSessionManager {
     fun init()
+    fun knownPeerOwnerPubkeys(): List<String>
+    fun setupUser(userPubkeyHex: String)
     fun acceptInviteFromEventJson(eventJson: String, ownerPubkeyHintHex: String?): NdrAcceptInviteResult
     fun acceptInviteFromUrl(inviteUrl: String, ownerPubkeyHintHex: String?): NdrAcceptInviteResult
     fun processEvent(eventJson: String)

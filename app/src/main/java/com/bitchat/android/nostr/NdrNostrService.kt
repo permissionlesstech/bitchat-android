@@ -1,7 +1,10 @@
 package com.bitchat.android.nostr
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
+import androidx.core.content.edit
 import com.bitchat.android.model.NdrFeatureGate
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -84,7 +87,7 @@ class NdrNostrService(
                 },
                 deviceIdProvider = {
                     preferences.getString("device_id", null) ?: java.util.UUID.randomUUID().toString().also {
-                        preferences.edit().putString("device_id", it).apply()
+                        preferences.edit { putString("device_id", it) }
                     }
                 },
                 storageResetter = {
@@ -93,11 +96,18 @@ class NdrNostrService(
                     }
                 },
                 deviceIdResetter = {
-                    check(preferences.edit().remove("device_id").commit()) {
-                        "Failed to clear NDR device id"
-                    }
+                    removeDeviceIdSynchronously(preferences)
                 }
             )
+        }
+
+        @SuppressLint("UseKtx")
+        private fun removeDeviceIdSynchronously(preferences: SharedPreferences) {
+            // KTX's commit=true overload discards Editor.commit()'s result, but
+            // panic reset must fail closed unless the device-id wipe is durable.
+            check(preferences.edit().remove("device_id").commit()) {
+                "Failed to clear NDR device id"
+            }
         }
 
         private fun resolveInviteOwnerPubkeyHex(payload: String): String? {
@@ -141,6 +151,9 @@ class NdrNostrService(
     private var panicResetBlocked = false
 
     private val activeSubIds = linkedSetOf<String>()
+    private val appKeysSubscriptionIdByOwner = linkedMapOf<String, String>()
+    private val appKeysOwnerBySubscriptionId = linkedMapOf<String, String>()
+    private val durableAppKeysOwners = linkedSetOf<String>()
     private val pendingInvitesByOwner = linkedMapOf<String, PendingOutOfBandInvite>()
     private val bufferedDecryptedMessages = ArrayDeque<NdrDecryptedMessage>()
 
@@ -186,6 +199,7 @@ class NdrNostrService(
             )
             runtime.init()
             sessionManager = runtime
+            restoreDurableAppKeysSubscriptionsLocked(runtime)
             drainAndApplyPubSubEventsLocked()
         } catch (_: Throwable) {
             Log.e(TAG, "Failed to configure NDR")
@@ -254,6 +268,7 @@ class NdrNostrService(
             return NdrOutOfBandProcessResult(emptyList())
         }
         var acceptResult: NdrAcceptInviteResult? = null
+        var processingSucceeded = false
 
         // Invite payloads carry an owner identity we can bind to the authenticated
         // favorite. Other OOB responses may be gift wraps whose outer pubkey is
@@ -277,13 +292,16 @@ class NdrNostrService(
                 inboundInvite?.transport == OutOfBandInviteTransport.EVENT_JSON -> {
                     acceptResult = runtime.acceptInviteFromEventJson(trimmedPayload, expectedPeer)
                     pendingInvitesByOwner.remove(expectedPeer)
+                    processingSucceeded = true
                 }
                 inboundInvite?.transport == OutOfBandInviteTransport.URL -> {
                     acceptResult = runtime.acceptInviteFromUrl(trimmedPayload, expectedPeer)
                     pendingInvitesByOwner.remove(expectedPeer)
+                    processingSucceeded = true
                 }
                 parsedEvent?.kind == NostrKind.GIFT_WRAP -> {
                     runtime.processOutOfBandResponse(trimmedPayload, expectedPeer)
+                    processingSucceeded = true
                 }
                 else -> {
                     Log.w(TAG, "Rejecting non-handshake OOB payload")
@@ -303,6 +321,9 @@ class NdrNostrService(
             Log.d(TAG, "Ignoring invalid OOB event")
         }
 
+        if (processingSucceeded && hasActiveSession(expectedPeer)) {
+            ensureDurableAppKeysSubscriptionLocked(expectedPeer, runtime)
+        }
         val outOfBandPublishes =
             drainAndApplyPubSubEventsLocked(collectOutOfBandPublishes = true)
         val sessionLookupPubkeyHex = acceptResult?.ownerPubkeyHex?.lowercase()
@@ -368,6 +389,9 @@ class NdrNostrService(
                     runtime.acceptInviteFromUrl(pending.payload, ownerPubkeyHex)
             }
             pendingInvitesByOwner.remove(ownerPubkeyHex)
+            if (hasActiveSession(ownerPubkeyHex)) {
+                ensureDurableAppKeysSubscriptionLocked(ownerPubkeyHex, runtime)
+            }
         } catch (_: NdrSessionNotReadyException) {
             return
         } catch (_: Throwable) {
@@ -422,22 +446,51 @@ class NdrNostrService(
             "subscribe" -> {
                 val subid = event.subid ?: return
                 val filterJson = event.filterJson ?: return
-                if (shouldIgnoreNdrSubscription(filterJson)) {
+                val filter = try {
+                    parseFilterJson(filterJson)
+                } catch (_: Throwable) {
+                    Log.w(TAG, "Ignoring malformed NDR relay filter")
                     return
                 }
+                if (shouldIgnoreNdrSubscription(filter)) return
                 if (!activeSubIds.add(subid)) {
                     return
                 }
-                val filter = parseFilterJson(filterJson)
-                relayManager.subscribe(filter, subid) { inbound ->
-                    processInboundRelayEvent(inbound)
+                val appKeysOwner = appKeysSubscriptionOwner(filter)
+                if (appKeysOwner != null) {
+                    if (appKeysSubscriptionIdByOwner.containsKey(appKeysOwner)) {
+                        activeSubIds.remove(subid)
+                        return
+                    }
+                    appKeysSubscriptionIdByOwner[appKeysOwner] = subid
+                    appKeysOwnerBySubscriptionId[subid] = appKeysOwner
+                }
+                try {
+                    relayManager.subscribe(filter, subid) { inbound ->
+                        processInboundRelayEvent(inbound)
+                    }
+                } catch (_: Throwable) {
+                    activeSubIds.remove(subid)
+                    if (appKeysOwner != null) {
+                        appKeysSubscriptionIdByOwner.remove(appKeysOwner)
+                        appKeysOwnerBySubscriptionId.remove(subid)
+                        durableAppKeysOwners.remove(appKeysOwner)
+                    }
+                    Log.w(TAG, "Failed to install NDR relay filter")
                 }
             }
 
             "unsubscribe" -> {
                 val subid = event.subid ?: return
-                relayManager.unsubscribe(subid)
-                activeSubIds.remove(subid)
+                appKeysOwnerBySubscriptionId.remove(subid)?.let { owner ->
+                    if (appKeysSubscriptionIdByOwner[owner] == subid) {
+                        appKeysSubscriptionIdByOwner.remove(owner)
+                        durableAppKeysOwners.remove(owner)
+                    }
+                }
+                if (activeSubIds.remove(subid)) {
+                    relayManager.unsubscribe(subid)
+                }
             }
 
             "publish_signed" -> {
@@ -494,6 +547,9 @@ class NdrNostrService(
                 .onFailure { Log.w(TAG, "Failed to unsubscribe NDR relay filter") }
         }
         activeSubIds.clear()
+        appKeysSubscriptionIdByOwner.clear()
+        appKeysOwnerBySubscriptionId.clear()
+        durableAppKeysOwners.clear()
         pendingInvitesByOwner.clear()
         bufferedDecryptedMessages.clear()
         cachedInviteEventJson = null
@@ -578,21 +634,41 @@ class NdrNostrService(
         }
     }
 
-    private fun shouldIgnoreNdrSubscription(filterJson: String): Boolean {
-        return try {
-            val root = JsonParser.parseString(filterJson).asJsonObject
-            val kinds = root.getAsJsonArray("kinds")?.mapNotNull { it.asInt } ?: emptyList()
-            if (NostrKind.GIFT_WRAP in kinds) {
-                return true
-            }
-            if (30078 !in kinds) {
-                return false
-            }
-            val labelValues = root.getAsJsonArray("#l")?.mapNotNull { it.asString } ?: emptyList()
-            labelValues.contains("double-ratchet/invites")
-        } catch (_: Throwable) {
-            false
+    private fun shouldIgnoreNdrSubscription(filter: NostrFilter): Boolean {
+        val kinds = filter.kinds.orEmpty()
+        // BitChat exchanges every invite/response bootstrap payload over an
+        // authenticated local transport, never through public relay discovery.
+        return NostrKind.GIFT_WRAP in kinds || 30078 in kinds
+    }
+
+    private fun restoreDurableAppKeysSubscriptionsLocked(runtime: NdrSessionManager) {
+        runtime.knownPeerOwnerPubkeys().forEach { owner ->
+            ensureDurableAppKeysSubscriptionLocked(owner, runtime)
         }
+    }
+
+    private fun ensureDurableAppKeysSubscriptionLocked(
+        ownerPubkeyHex: String,
+        runtime: NdrSessionManager
+    ) {
+        val owner = ownerPubkeyHex.lowercase()
+            .takeIf(NdrInputPolicy::isPubkeyHex)
+            ?: return
+        if (owner in durableAppKeysOwners) return
+        try {
+            // setupUser emits both AppKeys and invite-discovery filters. The
+            // former stays live for device revocation; policy drops the latter.
+            runtime.setupUser(owner)
+            durableAppKeysOwners.add(owner)
+        } catch (_: Throwable) {
+            Log.w(TAG, "Failed to retain NDR AppKeys updates")
+        }
+    }
+
+    private fun appKeysSubscriptionOwner(filter: NostrFilter): String? {
+        if (filter.kinds != listOf(NDR_APP_KEYS_KIND)) return null
+        val owner = filter.authors?.singleOrNull()?.lowercase() ?: return null
+        return owner.takeIf(NdrInputPolicy::isPubkeyHex)
     }
 
     private fun parseFilterJson(filterJson: String): NostrFilter {
@@ -633,6 +709,13 @@ private class UniffiNdrSessionManager(
 ) : NdrSessionManager {
     override fun init() {
         handle.`init`()
+    }
+
+    override fun knownPeerOwnerPubkeys(): List<String> =
+        handle.`knownPeerOwnerPubkeys`()
+
+    override fun setupUser(userPubkeyHex: String) {
+        handle.`setupUser`(userPubkeyHex)
     }
 
     override fun acceptInviteFromEventJson(

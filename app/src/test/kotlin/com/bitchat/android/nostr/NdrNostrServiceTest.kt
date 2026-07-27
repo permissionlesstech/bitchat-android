@@ -59,6 +59,11 @@ class NdrNostrServiceTest {
             )
             drainedEvents += NdrPubSubEvent(
                 kind = "subscribe",
+                subid = "unlabeled-invite-discovery",
+                filterJson = """{"authors":["peer"],"kinds":[30078]}"""
+            )
+            drainedEvents += NdrPubSubEvent(
+                kind = "subscribe",
                 subid = "messages",
                 filterJson = """{"authors":["peer"],"kinds":[1060]}"""
             )
@@ -83,6 +88,59 @@ class NdrNostrServiceTest {
         assertEquals("invite1", NostrEvent.fromJsonString(service.currentInviteEventJson()!!)?.id)
         assertEquals(listOf("messages"), relayManager.subscriptions.map { it.id })
         assertEquals("/tmp/ndr-test/${"22".repeat(32)}", runtimeFactory.lastStoragePath)
+    }
+
+    @Test
+    fun configureRestoresKnownPeerAppKeysFeedAndForwardsLaterRoster() {
+        val peer = "ab".repeat(32)
+        val relayManager = FakeRelayManager()
+        val runtime = FakeNdrSessionManager().apply {
+            knownPeerOwners += peer
+            setupUserEvents[peer] = listOf(
+                NdrPubSubEvent(
+                    kind = "subscribe",
+                    subid = "restored-app-keys",
+                    filterJson = """{"authors":["$peer"],"kinds":[37368]}"""
+                ),
+                NdrPubSubEvent(
+                    kind = "subscribe",
+                    subid = "restored-invite-discovery",
+                    filterJson = """{"authors":["$peer"],"kinds":[30078]}"""
+                )
+            )
+        }
+        val service = NdrNostrService(
+            relayManager = relayManager,
+            runtimeFactory = FakeNdrRuntimeFactory(runtime),
+            storageDirectoryProvider = { "/tmp/ndr-test" },
+            deviceIdProvider = { "device-1" }
+        )
+
+        service.configureIfNeeded(testIdentity())
+
+        assertEquals(listOf(peer), runtime.setupUserCalls)
+        val rosterSubscription = relayManager.subscriptions.single()
+        assertEquals(listOf(37368), rosterSubscription.filter.kinds)
+        assertEquals(listOf(peer), rosterSubscription.filter.authors)
+
+        relayManager.emit(
+            rosterSubscription.id,
+            NostrEvent(
+                id = "01".repeat(32),
+                pubkey = peer,
+                createdAt = 2,
+                kind = 37368,
+                tags = listOf(listOf("type", "app_keys_roster_snapshot")),
+                content = "later-signed-roster",
+                sig = "sig"
+            )
+        )
+
+        assertEquals(1, runtime.processedEvents.size)
+        assertEquals(
+            "01".repeat(32),
+            NostrEvent.fromJsonString(runtime.processedEvents.single())?.id
+        )
     }
 
     @Test
@@ -175,6 +233,51 @@ class NdrNostrServiceTest {
         assertEquals(1, outbound.outboundPayloads.size)
         assertEquals("response1", NostrEvent.fromJsonString(outbound.outboundPayloads.single())?.id)
         assertTrue(relayManager.sentEvents.isEmpty())
+    }
+
+    @Test
+    fun successfulOwnerBootstrapPromotesDurableAppKeysFeed() {
+        val owner = "cc".repeat(32)
+        val relayManager = FakeRelayManager()
+        val runtime = FakeNdrSessionManager(mutableSetOf(owner)).apply {
+            acceptInviteEventResult = NdrAcceptInviteResult(
+                ownerPubkeyHex = owner,
+                inviterDevicePubkeyHex = "aa".repeat(32),
+                deviceId = "owner-device",
+                createdNewSession = true
+            )
+            setupUserEvents[owner] = listOf(
+                NdrPubSubEvent(
+                    kind = "subscribe",
+                    subid = "durable-owner-app-keys",
+                    filterJson = """{"authors":["$owner"],"kinds":[37368]}"""
+                ),
+                NdrPubSubEvent(
+                    kind = "subscribe",
+                    subid = "owner-invite-discovery",
+                    filterJson = """{"authors":["$owner"],"kinds":[30078]}"""
+                )
+            )
+        }
+        val service = NdrNostrService(
+            relayManager = relayManager,
+            runtimeFactory = FakeNdrRuntimeFactory(runtime),
+            storageDirectoryProvider = { "/tmp/ndr-test" },
+            deviceIdProvider = { "device-1" },
+            inviteOwnerResolver = { owner }
+        )
+        service.configureIfNeeded(testIdentity())
+
+        service.processOutOfBandEventJson(
+            """
+                {"id":"invite1","pubkey":"${"aa".repeat(32)}","created_at":1,"kind":30078,"tags":[["l","double-ratchet/invites"]],"content":"invite","sig":"sig"}
+            """.trimIndent(),
+            expectedPeerPubkeyHex = owner
+        )
+
+        assertEquals(listOf(owner), runtime.setupUserCalls)
+        assertEquals(listOf(37368), relayManager.subscriptions.single().filter.kinds)
+        assertTrue(relayManager.subscriptions.none { 30078 in it.filter.kinds.orEmpty() })
     }
 
     @Test
@@ -411,12 +514,30 @@ class NdrNostrServiceTest {
             {"id":"invite1","pubkey":"$device","created_at":1,"kind":30078,"tags":[["l","double-ratchet/invites"]],"content":"invite","sig":"sig"}
         """.trimIndent()
         val relayManager = FakeRelayManager()
-        val runtime = FakeNdrSessionManager().apply {
+        val runtime = FakeNdrSessionManager(mutableSetOf(owner)).apply {
             acceptInviteFailuresRemaining = 1
+            acceptInviteEventResult = NdrAcceptInviteResult(
+                ownerPubkeyHex = owner,
+                inviterDevicePubkeyHex = device,
+                deviceId = "owner-device",
+                createdNewSession = true
+            )
             blockedAcceptInviteEvents += NdrPubSubEvent(
                 kind = "subscribe",
                 subid = "invite-owner-app-keys",
                 filterJson = """{"authors":["$owner"],"kinds":[37368],"limit":16}"""
+            )
+            setupUserEvents[owner] = listOf(
+                NdrPubSubEvent(
+                    kind = "subscribe",
+                    subid = "duplicate-owner-app-keys",
+                    filterJson = """{"authors":["$owner"],"kinds":[37368]}"""
+                ),
+                NdrPubSubEvent(
+                    kind = "subscribe",
+                    subid = "owner-invite-discovery",
+                    filterJson = """{"authors":["$owner"],"kinds":[30078]}"""
+                )
             )
             acceptInviteEvents += NdrPubSubEvent(
                 kind = "publish_signed",
@@ -480,6 +601,11 @@ class NdrNostrServiceTest {
         )
 
         assertEquals(2, runtime.acceptedInvites.size)
+        assertEquals(listOf(owner), runtime.setupUserCalls)
+        assertEquals(
+            listOf("invite-owner-app-keys"),
+            relayManager.subscriptions.map { it.id }
+        )
         assertEquals(listOf(owner to listOf(response)), retriedPayloads)
     }
 
@@ -720,6 +846,9 @@ class NdrNostrServiceTest {
         val acceptedInviteOwnerHints = mutableListOf<String?>()
         val acceptedInviteUrlOwnerHints = mutableListOf<String?>()
         val sendTextCalls = mutableListOf<String>()
+        val knownPeerOwners = mutableListOf<String>()
+        val setupUserCalls = mutableListOf<String>()
+        val setupUserEvents = mutableMapOf<String, List<NdrPubSubEvent>>()
         var acceptInviteEventResult = NdrAcceptInviteResult(
             ownerPubkeyHex = "aa".repeat(32),
             inviterDevicePubkeyHex = "bb".repeat(32),
@@ -742,6 +871,14 @@ class NdrNostrServiceTest {
         var destroyedAfterSendCompleted: Boolean = false
 
         override fun init() = Unit
+
+        override fun knownPeerOwnerPubkeys(): List<String> =
+            knownPeerOwners.toList()
+
+        override fun setupUser(userPubkeyHex: String) {
+            setupUserCalls += userPubkeyHex
+            drainedEvents.addAll(setupUserEvents[userPubkeyHex].orEmpty())
+        }
 
         override fun acceptInviteFromEventJson(
             eventJson: String,
