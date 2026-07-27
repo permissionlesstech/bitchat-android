@@ -966,10 +966,19 @@ private fun ChannelSettingsToggleRow(
 
 // MARK: - Helper Functions
 
+/** Separates the channel name from the animated people-count label in composed titles. */
+private const val TITLE_COUNT_SEP = '\u001F'
+
 private fun splitTitleAndCount(title: String): Pair<String, String?> {
+    val sep = title.indexOf(TITLE_COUNT_SEP)
+    if (sep != -1) {
+        return Pair(title.substring(0, sep), title.substring(sep + 1).ifEmpty { null })
+    }
+    // Legacy "[n people]" form
     val lastBracketIndex = title.lastIndexOf('[')
     return if (lastBracketIndex != -1) {
-        Pair(title.substring(0, lastBracketIndex).trim(), title.substring(lastBracketIndex))
+        val count = title.substring(lastBracketIndex + 1).removeSuffix("]")
+        Pair(title.substring(0, lastBracketIndex).trim(), count.ifEmpty { null })
     } else {
         Pair(title, null)
     }
@@ -981,7 +990,7 @@ private fun meshTitleWithCount(viewModel: ChatViewModel): String {
     val ctx = LocalContext.current
     val peopleText = ctx.resources.getQuantityString(R.plurals.people_count, meshCount, meshCount)
     val meshLabel = stringResource(R.string.mesh_title)
-    return "$meshLabel [$peopleText]"
+    return "$meshLabel$TITLE_COUNT_SEP$peopleText"
 }
 
 private fun meshCount(viewModel: ChatViewModel): Int {
@@ -1006,7 +1015,7 @@ private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int
         GeohashChannelLevel.PROVINCE -> stringResource(R.string.location_level_province)
         GeohashChannelLevel.REGION -> stringResource(R.string.location_level_region)
     }
-    return "$levelName [$peopleText]"
+    return "$levelName$TITLE_COUNT_SEP$peopleText"
 }
 
 @Composable
@@ -1019,7 +1028,7 @@ private fun geohashHashTitleWithCount(geohash: String, participantCount: Int): S
     } else {
         ctx.resources.getQuantityString(R.plurals.people_count, participantCount, participantCount)
     }
-    return "#$geohash [$peopleText]"
+    return "#$geohash$TITLE_COUNT_SEP$peopleText"
 }
 
 private fun isChannelSelected(channel: GeohashChannel, selectedChannel: ChannelID?): Boolean {
