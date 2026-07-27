@@ -154,6 +154,9 @@ fun LocationChannelsSheet(
     val nearbyChannels = remember(availableChannels) {
         availableChannels.filter { it.level != GeohashChannelLevel.BUILDING }
     }
+    val selectedChannelOutsideNearby = remember(selectedChannel, nearbyChannels) {
+        selectedLocationChannelOutsideNearby(selectedChannel, nearbyChannels)
+    }
     val showNearbyLoading = nearbyChannels.isEmpty() &&
         permissionState == LocationChannelManager.PermissionState.AUTHORIZED &&
         locationServicesEnabled
@@ -272,6 +275,35 @@ fun LocationChannelsSheet(
                                 shape = AboutCardShape
                             ) {
                                 Column {
+                                    selectedChannelOutsideNearby?.let { channel ->
+                                        val coverage = coverageString(channel.geohash.length)
+                                        val name = bookmarkNames[channel.geohash]
+                                        val subtitle = "#${channel.geohash} • $coverage" +
+                                            (name?.let { " • ${formattedNamePrefix(channel.level)}$it" } ?: "")
+                                        val participantCount = geohashParticipantCounts[channel.geohash] ?: 0
+                                        val isBookmarked = bookmarksStore.isBookmarked(channel.geohash)
+
+                                        ChannelOptionRow(
+                                            title = geohashTitleWithCount(channel, participantCount),
+                                            subtitle = subtitle,
+                                            isSelected = true,
+                                            participantCount = participantCount,
+                                            titleColor = standardGreen,
+                                            titleBold = participantCount > 0,
+                                            trailingContent = {
+                                                ChannelBookmarkButton(
+                                                    bookmarked = isBookmarked,
+                                                    onClick = { bookmarksStore.toggle(channel.geohash) }
+                                                )
+                                            },
+                                            onClick = {
+                                                locationManager.select(ChannelID.Location(channel))
+                                                onDismiss()
+                                            }
+                                        )
+                                        SheetCardDivider()
+                                    }
+
                                     if (locationServicesEnabled) {
                                         if (nearbyChannels.isNotEmpty()) {
                                             nearbyChannels.forEachIndexed { index, channel ->
@@ -949,6 +981,24 @@ private fun isChannelSelected(channel: GeohashChannel, selectedChannel: ChannelI
     return when (selectedChannel) {
         is ChannelID.Location -> selectedChannel.channel == channel
         else -> false
+    }
+}
+
+/**
+ * Returns the active location channel when it has no row in the nearby-channel list.
+ *
+ * This commonly happens after teleporting to a remote geohash. Keeping the selected channel in the
+ * main channel card makes its selection and bookmark action available even before it is bookmarked.
+ */
+internal fun selectedLocationChannelOutsideNearby(
+    selectedChannel: ChannelID?,
+    nearbyChannels: List<GeohashChannel>
+): GeohashChannel? {
+    val selected = (selectedChannel as? ChannelID.Location)?.channel ?: return null
+    return selected.takeUnless { active ->
+        nearbyChannels.any { nearby ->
+            nearby.geohash.equals(active.geohash, ignoreCase = true)
+        }
     }
 }
 

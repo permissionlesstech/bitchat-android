@@ -127,6 +127,51 @@ class MessageArrivalTrackerTest {
     }
 
     @Test
+    fun `a wholesale replacement animates nothing`() {
+        // Switching channels, or /clear followed by fresh content: the incoming list shares no ids
+        // with the outgoing one, so it is a different conversation rather than a burst of arrivals.
+        val tracker = MessageArrivalTracker()
+        tracker.arrivals(listOf(msg("a"), msg("b")))
+
+        val other = listOf(msg("x"), msg("y"))
+        assertTrue(
+            "a different conversation must not slide every message in",
+            tracker.arrivals(other).isEmpty()
+        )
+    }
+
+    @Test
+    fun `a small replacement below the burst cap still animates nothing`() {
+        // The burst cap alone would not catch this: two messages is well under it.
+        val tracker = MessageArrivalTracker()
+        tracker.arrivals(listOf(msg("a"), msg("b"), msg("c")))
+
+        assertTrue(tracker.arrivals(listOf(msg("x"), msg("y"))).isEmpty())
+    }
+
+    @Test
+    fun `a replacement that overlaps is treated as normal arrivals`() {
+        // Still the same conversation if anything carries over, so genuine new messages animate.
+        val tracker = MessageArrivalTracker()
+        val kept = msg("a")
+        tracker.arrivals(listOf(kept, msg("b")))
+
+        assertEquals(setOf("c"), tracker.arrivals(listOf(kept, msg("c"))))
+    }
+
+    @Test
+    fun `after a wholesale replacement, later arrivals animate normally`() {
+        val tracker = MessageArrivalTracker()
+        tracker.arrivals(listOf(msg("a")))
+
+        val switched = mutableListOf(msg("x"))
+        tracker.arrivals(switched)          // adopted silently
+
+        switched += msg("y")
+        assertEquals(setOf("y"), tracker.arrivals(switched))
+    }
+
+    @Test
     fun `the known set never outgrows the conversation`() {
         val tracker = MessageArrivalTracker()
         val messages = mutableListOf(msg("a"), msg("b"))

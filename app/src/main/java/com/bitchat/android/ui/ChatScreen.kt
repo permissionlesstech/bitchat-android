@@ -187,6 +187,20 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
+    // Identity of the timeline on screen, derived exactly like displayMessages above. Drives the
+    // per-conversation scroll position and animation state in MessagesList.
+    val conversationKey = when {
+        currentChannel != null -> "channel:$currentChannel"
+        else -> {
+            val locationChannel = selectedLocationChannel
+            if (locationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+                "geo:${locationChannel.channel.geohash}"
+            } else {
+                "mesh"
+            }
+        }
+    }
+
     // Determine whether to show media buttons (only hide in geohash location chats)
     val showMediaButtons = when {
         currentChannel != null -> true
@@ -229,6 +243,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 currentUserNickname = nickname,
                 meshService = viewModel.meshServiceFacade,
                 modifier = Modifier.fillMaxSize(),
+                conversationKey = conversationKey,
                 contentPadding = PaddingValues(
                     top = statusBarHeight + headerHeight +
                         (if (showNotesStrip) notesStripHeight else 0.dp),

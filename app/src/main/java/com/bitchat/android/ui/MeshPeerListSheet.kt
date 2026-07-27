@@ -887,6 +887,7 @@ fun PrivateChatSheet(
                         currentUserNickname = nickname,
                         meshService = viewModel.meshServiceFacade,
                         modifier = Modifier.weight(1f),
+                        conversationKey = "dm:$peerID",
                         forceScrollToBottom = forceScrollToBottom,
                         onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
                         onNicknameClick = { /* handle mention */ },

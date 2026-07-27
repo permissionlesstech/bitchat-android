@@ -29,8 +29,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
@@ -42,6 +42,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -153,6 +154,12 @@ internal fun MessageArrivalTracker.arrivals(messages: List<BitchatMessage>): Set
         return emptySet()
     }
 
+    // A list with nothing in common with the last one is a different conversation, not a burst of
+    // arrivals — /clear, or a switch the caller did not give us a distinct key for. Adopt it
+    // silently rather than sliding in every message at once.
+    val isWholesaleReplacement =
+        messages.isNotEmpty() && known.isNotEmpty() && messages.none { it.id in known }
+
     // `HashSet.add` reports whether the id was new, so this both diffs and updates in one pass.
     val added = messages.filter { known.add(it.id) }
 
@@ -163,6 +170,7 @@ internal fun MessageArrivalTracker.arrivals(messages: List<BitchatMessage>): Set
     }
 
     return when {
+        isWholesaleReplacement -> emptySet()
         added.isEmpty() || added.size > MaxAnimatedArrivals -> emptySet()
         else -> added.mapTo(HashSet(added.size)) { it.id }
     }
@@ -181,6 +189,14 @@ fun MessagesList(
      * has to reserve room for their heights here rather than by shrinking the viewport.
      */
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    /**
+     * Identity of the conversation being shown — a channel, a geohash, a peer.
+     *
+     * Everything below that is per-conversation state is keyed on this. Without it, switching
+     * channels reused the previous conversation's scroll offset, follow flag and seen-message set,
+     * so the new channel opened at a stale position and then animated itself into place.
+     */
+    conversationKey: Any? = null,
     forceScrollToBottom: Boolean = false,
     onScrolledUpChanged: ((Boolean) -> Unit)? = null,
     onNicknameClick: ((String) -> Unit)? = null,
@@ -188,11 +204,19 @@ fun MessagesList(
     onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
     onImageClick: ((String, List<String>, Int) -> Unit)? = null
 ) {
-    val listState = rememberLazyListState()
-    
+    // A fresh scroll position per conversation. Sharing one state meant a switch inherited the
+    // previous channel's offset and then had to correct itself, which is what the jump was.
+    //
+    // Passing the key as an *input* rather than as `key =` is deliberate: it discards the saved
+    // offset on every switch, so a conversation always opens on its newest message instead of
+    // wherever the reader happened to be some time ago, with unseen messages below them.
+    val listState = rememberSaveable(conversationKey, saver = LazyListState.Saver) {
+        LazyListState()
+    }
+
     // Track if this is the first time messages are being loaded
-    var hasScrolledToInitialPosition by remember { mutableStateOf(false) }
-    var followIncomingMessages by remember { mutableStateOf(true) }
+    var hasScrolledToInitialPosition by remember(conversationKey) { mutableStateOf(false) }
+    var followIncomingMessages by remember(conversationKey) { mutableStateOf(true) }
     
     // Smart scroll: auto-scroll to bottom for initial load, then follow unless user scrolls away
     LaunchedEffect(messages.size) {
@@ -208,7 +232,7 @@ fun MessagesList(
     }
     
     // Track whether user has scrolled away from the latest messages
-    val isAtLatest by remember {
+    val isAtLatest by remember(listState) {
         derivedStateOf {
             val firstVisibleIndex = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: -1
             firstVisibleIndex <= 2
@@ -230,8 +254,10 @@ fun MessagesList(
     
     // Recomputed only when the list actually gains or loses a message, and synchronously, so the
     // arriving item can read its cue during the same composition pass in which it first appears.
-    val arrivalTracker = remember { MessageArrivalTracker() }
-    val enteringIds = remember(messages.size, messages.lastOrNull()?.id) {
+    // Reset per conversation, so a switch adopts the incoming messages silently instead of
+    // treating a whole channel's backlog as brand-new arrivals and sliding each one in.
+    val arrivalTracker = remember(conversationKey) { MessageArrivalTracker() }
+    val enteringIds = remember(conversationKey, messages.size, messages.lastOrNull()?.id) {
         arrivalTracker.arrivals(messages)
     }
 
@@ -240,9 +266,9 @@ fun MessagesList(
     // growing a line — and animating those made the whole conversation lurch. So it is armed only
     // briefly around a genuine change to the list, and is otherwise off, letting items track the
     // viewport exactly.
-    var placementArmed by remember { mutableStateOf(false) }
-    var previousMessageCount by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(messages.size) {
+    var placementArmed by remember(conversationKey) { mutableStateOf(false) }
+    var previousMessageCount by remember(conversationKey) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(conversationKey, messages.size) {
         val previous = previousMessageCount
         previousMessageCount = messages.size
         // Skip the first composition: the list settling into its initial padding is not a change
