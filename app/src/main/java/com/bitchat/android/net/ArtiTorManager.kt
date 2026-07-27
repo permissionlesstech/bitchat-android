@@ -130,7 +130,6 @@ class ArtiTorManager private constructor() {
             val logListener = ArtiLogListener { logLine ->
                 val text = logLine ?: return@ArtiLogListener
                 val s = text
-                Log.i(TAG, "arti: $s")
                 lastLogTime.set(System.currentTimeMillis())
                 _statusFlow.update { it.copy(lastLogLine = s) }
                 handleArtiLogLine(s)
@@ -198,10 +197,6 @@ class ArtiTorManager private constructor() {
                 if (mode == s.mode && mode != TorMode.OFF &&
                     (lifecycleState == LifecycleState.STARTING || lifecycleState == LifecycleState.RUNNING)
                 ) {
-                    Log.i(
-                        TAG,
-                        "applyMode: already in progress/running mode=$mode, state=$lifecycleState; skip"
-                    )
                     return
                 }
                 when (mode) {
@@ -264,7 +259,6 @@ class ArtiTorManager private constructor() {
     private suspend fun startArti(application: Application, useDelay: Boolean = false) {
         try {
             stopArtiAndWait()
-            Log.i(TAG, "Starting Arti on port $currentSocksPort…")
             if (useDelay) {
                 delay(RESTART_DELAY_MS)
             }
@@ -296,10 +290,7 @@ class ArtiTorManager private constructor() {
             if (isBindError && bindRetryAttempts < MAX_RETRY_ATTEMPTS) {
                 bindRetryAttempts++
                 currentSocksPort++
-                Log.w(
-                    TAG,
-                    "Port bind failed (attempt $bindRetryAttempts/$MAX_RETRY_ATTEMPTS), retrying with port $currentSocksPort"
-                )
+                Log.w(TAG, "Port bind failed (attempt $bindRetryAttempts/$MAX_RETRY_ATTEMPTS), retrying with port $currentSocksPort")
                 socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
                 resetNetworkConnections()
                 startArti(application, useDelay = false)
@@ -347,7 +338,6 @@ class ArtiTorManager private constructor() {
         try {
             val proxy = artiProxy
             if (proxy != null) {
-                Log.i(TAG, "Stopping Arti…")
                 try {
                     proxy.stop()
                 } catch (_: Throwable) {
@@ -397,10 +387,7 @@ class ArtiTorManager private constructor() {
                     if (currentMode == TorMode.ON) {
                         val bootstrapPercent = _statusFlow.value.bootstrapPercent
                         if (bootstrapPercent < 100) {
-                            Log.w(
-                                TAG,
-                                "Inactivity detected (${timeSinceLastActivity}ms), restarting Arti"
-                            )
+                            Log.w(TAG, "Inactivity detected (${timeSinceLastActivity}ms), restarting Arti")
                             currentApplication?.let { app ->
                                 appScope.launch {
                                     restartArti(app)
@@ -429,7 +416,6 @@ class ArtiTorManager private constructor() {
                 delay(delayMs)
                 val currentMode = _statusFlow.value.mode
                 if (currentMode == TorMode.ON) {
-                    Log.i(TAG, "Retrying Arti start (attempt $retryAttempts)")
                     restartArti(application)
                 }
             }
@@ -465,7 +451,6 @@ class ArtiTorManager private constructor() {
         when {
             s.contains("AMEx: state changed to Initialized", ignoreCase = true) -> {
                 if (currentLifecycle != LifecycleState.STARTING && currentLifecycle != LifecycleState.RUNNING) {
-                    Log.w(TAG, "Ignoring stale 'Initialized' log (lifecycle: $currentLifecycle)")
                     return
                 }
                 _statusFlow.update { it.copy(state = TorState.STARTING) }
@@ -474,7 +459,6 @@ class ArtiTorManager private constructor() {
 
             s.contains("AMEx: state changed to Starting", ignoreCase = true) -> {
                 if (currentLifecycle != LifecycleState.STARTING && currentLifecycle != LifecycleState.RUNNING) {
-                    Log.w(TAG, "Ignoring stale 'Starting' log (lifecycle: $currentLifecycle)")
                     return
                 }
                 _statusFlow.update { it.copy(state = TorState.STARTING) }
@@ -486,7 +470,6 @@ class ArtiTorManager private constructor() {
                 ignoreCase = true
             ) -> {
                 if (currentLifecycle != LifecycleState.RUNNING) {
-                    Log.w(TAG, "Ignoring bootstrap log (lifecycle: $currentLifecycle)")
                     return
                 }
                 _statusFlow.update {
@@ -502,7 +485,6 @@ class ArtiTorManager private constructor() {
 
             s.contains("We have found that guard [scrubbed] is usable.", ignoreCase = true) -> {
                 if (currentLifecycle != LifecycleState.RUNNING) {
-                    Log.w(TAG, "Ignoring guard discovery log (lifecycle: $currentLifecycle)")
                     return
                 }
                 _statusFlow.update {
@@ -517,7 +499,6 @@ class ArtiTorManager private constructor() {
 
             s.contains("AMEx: state changed to Stopping", ignoreCase = true) -> {
                 if (currentLifecycle != LifecycleState.STOPPING) {
-                    Log.w(TAG, "Ignoring stale 'Stopping' log (lifecycle: $currentLifecycle)")
                     return
                 }
                 _statusFlow.update {
@@ -530,10 +511,6 @@ class ArtiTorManager private constructor() {
 
             s.contains("AMEx: state changed to Stopped", ignoreCase = true) -> {
                 if (currentLifecycle != LifecycleState.STOPPING && currentLifecycle != LifecycleState.STOPPED) {
-                    Log.w(
-                        TAG,
-                        "Ignoring stale 'Stopped' log (lifecycle: $currentLifecycle, preventing state corruption)"
-                    )
                     return
                 }
                 _statusFlow.update {

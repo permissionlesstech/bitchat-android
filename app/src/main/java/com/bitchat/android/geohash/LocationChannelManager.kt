@@ -145,20 +145,16 @@ class LocationChannelManager private constructor(private val context: Context) {
      * UNIFIED: Only requests location if location services are enabled by user
      */
     fun enableLocationChannels() {
-        Log.d(TAG, "enableLocationChannels() called")
-        
         if (!_locationServicesEnabled.value || !_systemLocationEnabled.value) {
             Log.w(TAG, "Location services disabled (app or system) - not requesting location")
             return
         }
-        
+
 
         if (getCurrentPermissionStatus() == PermissionState.AUTHORIZED) {
-            Log.d(TAG, "Permission authorized - requesting location")
             _permissionState.value = PermissionState.AUTHORIZED
             requestOneShotLocation()
         } else {
-            Log.d(TAG, "Permission not granted")
             _permissionState.value = PermissionState.DENIED
         }
     }
@@ -177,8 +173,6 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Uses requestLocationUpdates for continuous updates, plus a one-shot to prime state immediately
      */
     fun beginLiveRefresh(interval: Long = 5000L) {
-        Log.d(TAG, "Beginning live refresh (continuous updates)")
-
         if (_permissionState.value != PermissionState.AUTHORIZED) {
             Log.w(TAG, "Cannot start live refresh - permission not authorized")
             return
@@ -204,7 +198,6 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Stop periodic refreshes when selector UI is dismissed
      */
     fun endLiveRefresh() {
-        Log.d(TAG, "Ending live refresh")
         locationProvider.removeLocationUpdates(locationUpdateCallback)
     }
 
@@ -231,7 +224,6 @@ class LocationChannelManager private constructor(private val context: Context) {
                     )
                     val isTeleportedNow = currentGeohash != channel.channel.geohash
                     _teleported.value = isTeleportedNow
-                    Log.d(TAG, "Teleported (immediate recompute): $isTeleportedNow (current: $currentGeohash, selected: ${channel.channel.geohash})")
                 }
             }
         }
@@ -241,7 +233,6 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Set teleported status (for manual geohash teleportation)
      */
     fun setTeleported(teleported: Boolean) {
-        Log.d(TAG, "Setting teleported status: $teleported")
         _teleported.value = teleported
     }
 
@@ -249,7 +240,6 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Enable location services (user-controlled toggle)
      */
     fun enableLocationServices() {
-        Log.d(TAG, "enableLocationServices() called by user")
         _locationServicesEnabled.value = true
         saveLocationServicesState(true)
         
@@ -263,7 +253,6 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Disable location services (user-controlled toggle)
      */
     fun disableLocationServices() {
-        Log.d(TAG, "disableLocationServices() called by user")
         _locationServicesEnabled.value = false
         saveLocationServicesState(false)
         
@@ -298,21 +287,17 @@ class LocationChannelManager private constructor(private val context: Context) {
             return
         }
 
-        Log.d(TAG, "Requesting one-shot location")
         // Set loading state initially
         _isLoadingLocation.value = true
-        
+
         locationProvider.getLastKnownLocation { cached ->
             // If we have a cached location and it's reasonably recent (e.g. < 5 mins), use it
             // For now, we just use it if it exists, similar to previous logic
             if (cached != null) {
-                Log.d(TAG, "Using last known location: ${cached.latitude}, ${cached.longitude}")
                 onLocationUpdated(cached)
             } else {
-                Log.d(TAG, "No last known location available, requesting fresh...")
                 locationProvider.requestFreshLocation { fresh ->
                     if (fresh != null) {
-                        Log.d(TAG, "Fresh location received: ${fresh.latitude}, ${fresh.longitude}")
                         onLocationUpdated(fresh)
                     } else {
                         Log.w(TAG, "Failed to get fresh location")
@@ -348,7 +333,6 @@ class LocationChannelManager private constructor(private val context: Context) {
         val newState = if (hasPermission) PermissionState.AUTHORIZED else PermissionState.DENIED
 
         if (_permissionState.value != newState) {
-            Log.d(TAG, "Permission state updated to: $newState")
             _permissionState.value = newState
         }
 
@@ -356,11 +340,9 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     private fun computeChannels(location: Location) {
-        Log.d(TAG, "Computing channels for location: ${location.latitude}, ${location.longitude}")
-        
         val levels = GeohashChannelLevel.allCases()
         val result = mutableListOf<GeohashChannel>()
-        
+
         for (level in levels) {
             val geohash = Geohash.encode(
                 latitude = location.latitude,
@@ -368,8 +350,6 @@ class LocationChannelManager private constructor(private val context: Context) {
                 precision = level.precision
             )
             result.add(GeohashChannel(level = level, geohash = geohash))
-            
-            Log.v(TAG, "Generated ${level.displayName}: $geohash")
         }
         
         _availableChannels.value = result
@@ -388,7 +368,6 @@ class LocationChannelManager private constructor(private val context: Context) {
                 )
                 val isTeleported = currentGeohash != selectedChannelValue.channel.geohash
                 _teleported.value = isTeleported
-                Log.d(TAG, "Teleported status: $isTeleported (current: $currentGeohash, selected: ${selectedChannelValue.channel.geohash})")
             }
         }
     }
@@ -399,8 +378,6 @@ class LocationChannelManager private constructor(private val context: Context) {
 
         geocodingJob = scope.launch(Dispatchers.IO) {
             try {
-                Log.d(TAG, "Starting reverse geocoding")
-                
                 val addresses = geocoderProvider.getFromLocation(location.latitude, location.longitude, 1)
 
                 if (!isActive) return@launch
@@ -408,7 +385,6 @@ class LocationChannelManager private constructor(private val context: Context) {
                 if (addresses.isNotEmpty()) {
                     val address = addresses[0]
                     val names = namesByLevel(address)
-                    Log.d(TAG, "Reverse geocoding result: $names")
                     _locationNames.value = names
                 } else {
                     Log.w(TAG, "No reverse geocoding results")
@@ -482,7 +458,6 @@ class LocationChannelManager private constructor(private val context: Context) {
                 )
             }
             dataManager?.saveLastGeohashChannel(channelData)
-            Log.d(TAG, "Saved channel selection: ${channel.displayName}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save channel selection: ${e.message}")
         }
@@ -499,13 +474,10 @@ class LocationChannelManager private constructor(private val context: Context) {
                 val channel = persisted?.toChannel()
                 if (channel != null) {
                     _selectedChannel.value = channel
-                    Log.d(TAG, "Restored persisted channel: ${channel.displayName}")
                 } else {
-                    Log.d(TAG, "Could not restore persisted channel, defaulting to Mesh")
                     _selectedChannel.value = ChannelID.Mesh
                 }
             } else {
-                Log.d(TAG, "No persisted channel found, defaulting to Mesh")
                 _selectedChannel.value = ChannelID.Mesh
             }
         } catch (e: JsonSyntaxException) {
@@ -540,7 +512,6 @@ class LocationChannelManager private constructor(private val context: Context) {
         dataManager?.clearLastGeohashChannel()
         _selectedChannel.value = ChannelID.Mesh
         _teleported.value = false
-        Log.d(TAG, "Cleared persisted channel selection")
     }
 
     // MARK: - Location Services State Persistence
@@ -551,7 +522,6 @@ class LocationChannelManager private constructor(private val context: Context) {
     private fun saveLocationServicesState(enabled: Boolean) {
         try {
             dataManager?.saveLocationServicesEnabled(enabled)
-            Log.d(TAG, "Saved location services state: $enabled")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save location services state: ${e.message}")
         }
@@ -564,7 +534,6 @@ class LocationChannelManager private constructor(private val context: Context) {
         try {
             val enabled = dataManager?.isLocationServicesEnabled() ?: false
             _locationServicesEnabled.value = enabled
-            Log.d(TAG, "Loaded location services state: $enabled")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load location services state: ${e.message}")
             _locationServicesEnabled.value = false
@@ -575,7 +544,6 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Cleanup resources
      */
     fun cleanup() {
-        Log.d(TAG, "Cleaning up LocationChannelManager")
         endLiveRefresh()
         locationProvider.cancel()
         
