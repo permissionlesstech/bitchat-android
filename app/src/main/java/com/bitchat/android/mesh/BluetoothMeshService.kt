@@ -111,6 +111,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
+    private val meshPingManager = MeshPingManager(myPeerID, serviceScope) { packet ->
+        broadcastRoutedPacket(RoutedPacket(packet))
+    }
     private lateinit var gossipSyncManager: GossipSyncManager
     // Service-level notification manager for background (no-UI) DMs
     private val serviceNotificationManager = com.bitchat.android.ui.NotificationManager(
@@ -663,6 +666,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 val req = RequestSyncPacket.decode(routed.packet.payload) ?: return
                 gossipSyncManager.handleRequestSync(fromPeer, req)
             }
+
+            override fun handlePing(routed: RoutedPacket) = meshPingManager.handlePing(routed)
+
+            override fun handlePong(routed: RoutedPacket) = meshPingManager.handlePong(routed)
         }
         
         // BluetoothConnectionManager delegates
@@ -728,6 +735,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 }
             }
         }
+    }
+
+    fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit) {
+        meshPingManager.ping(peerID, callback)
     }
 
     private fun registerProvisionalBleClaim(

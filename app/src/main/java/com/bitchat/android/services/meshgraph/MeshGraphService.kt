@@ -71,6 +71,31 @@ class MeshGraphService private constructor() {
         }
     }
 
+    /**
+     * Returns a shortest path using only bidirectionally confirmed topology claims.
+     */
+    fun computeRoute(fromPeerID: String, toPeerID: String): List<String>? {
+        if (fromPeerID == toPeerID) return listOf(fromPeerID)
+        val adjacency = mutableMapOf<String, MutableSet<String>>()
+        graphState.value.edges.filter(GraphEdge::isConfirmed).forEach { edge ->
+            adjacency.getOrPut(edge.a) { mutableSetOf() }.add(edge.b)
+            adjacency.getOrPut(edge.b) { mutableSetOf() }.add(edge.a)
+        }
+        val queue = ArrayDeque<List<String>>()
+        val visited = mutableSetOf(fromPeerID)
+        queue.add(listOf(fromPeerID))
+        while (queue.isNotEmpty()) {
+            val path = queue.removeFirst()
+            adjacency[path.last()].orEmpty().sorted().forEach { neighbor ->
+                if (!visited.add(neighbor)) return@forEach
+                val next = path + neighbor
+                if (neighbor == toPeerID) return next
+                queue.add(next)
+            }
+        }
+        return null
+    }
+
     private fun publishSnapshot() {
         // Collect all known nodes from nicknames and announcements
         val allNodes = mutableSetOf<String>()

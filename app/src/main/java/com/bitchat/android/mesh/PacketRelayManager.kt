@@ -4,6 +4,7 @@ import com.bitchat.android.protocol.MessageType
 import android.util.Log
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.protocol.MeshDiagnosticsConstants
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import kotlin.random.Random
@@ -100,6 +101,14 @@ class PacketRelayManager(private val myPeerID: String) {
         // Apply relay logic based on packet type and debug switch
         val shouldRelay = isRelayEnabled() && shouldRelayPacket(relayPacket, peerID)
         if (shouldRelay) {
+            if (MessageType.fromValue(packet.type) in setOf(MessageType.PING, MessageType.PONG)) {
+                delay(
+                    Random.nextLong(
+                        MeshDiagnosticsConstants.RELAY_JITTER_MIN_MILLIS,
+                        MeshDiagnosticsConstants.RELAY_JITTER_MAX_MILLIS + 1,
+                    )
+                )
+            }
             relayPacket(RoutedPacket(relayPacket, peerID, routed.relayAddress))
         } else {
             Log.d(TAG, "Relay decision: NOT relaying packet type ${packet.type}")
@@ -132,6 +141,9 @@ class PacketRelayManager(private val myPeerID: String) {
      * Determine if we should relay this packet based on type and network conditions
      */
     private fun shouldRelayPacket(packet: BitchatPacket, fromPeerID: String): Boolean {
+        if (MessageType.fromValue(packet.type) in setOf(MessageType.PING, MessageType.PONG)) {
+            return true
+        }
         // Always relay if TTL is high enough (indicates important message)
         if (packet.ttl >= 4u) {
             Log.d(TAG, "High TTL (${packet.ttl}), relaying")

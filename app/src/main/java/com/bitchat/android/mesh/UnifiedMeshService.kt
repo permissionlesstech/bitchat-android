@@ -185,6 +185,14 @@ class UnifiedMeshService(
         }
     }
 
+    override fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit) {
+        when {
+            isBleConnected(peerID) || (isBleEnabled() && !isWifiConnected(peerID)) ->
+                bluetooth.sendMeshPing(peerID, callback)
+            else -> wifiService()?.sendMeshPing(peerID, callback) ?: callback(null)
+        }
+    }
+
     override fun getPeerNicknames(): Map<String, String> {
         val merged = linkedMapOf<String, String>()
         try { merged.putAll(wifiService()?.getPeerNicknames().orEmpty()) } catch (_: Exception) { }

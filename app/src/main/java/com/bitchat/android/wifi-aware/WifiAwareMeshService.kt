@@ -16,6 +16,7 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.mesh.FragmentingPacketSender
 import com.bitchat.android.mesh.MeshCore
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.MeshPingResult
 import com.bitchat.android.mesh.MeshTransport
 import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatFilePacket
@@ -1501,6 +1502,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
      */
     override fun sendAnnouncementToPeer(peerID: String) {
         meshCore.sendAnnouncementToPeer(peerID)
+    }
+
+    override fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit) {
+        meshCore.sendMeshPing(peerID, callback)
     }
 
     /** @return Mapping of peer IDs to nicknames. */
