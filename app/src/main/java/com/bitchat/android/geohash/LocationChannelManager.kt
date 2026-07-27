@@ -162,9 +162,12 @@ class LocationChannelManager private constructor(private val context: Context) {
     /**
      * Refresh available channels from current location
      */
-    fun refreshChannels() {
+    fun refreshChannels(
+        forceFresh: Boolean = false,
+        updatePlaceNames: Boolean = true
+    ) {
         if (syncPermissionState() == PermissionState.AUTHORIZED && isLocationServicesEnabled()) {
-            requestOneShotLocation()
+            requestOneShotLocation(forceFresh, updatePlaceNames)
         }
     }
 
@@ -355,7 +358,10 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     // MARK: - Location Operations
 
-    private fun requestOneShotLocation() {
+    private fun requestOneShotLocation(
+        forceFresh: Boolean = false,
+        updatePlaceNames: Boolean = true
+    ) {
         if (!isLocationServicesEnabled() ||
             syncPermissionState() != PermissionState.AUTHORIZED
         ) {
@@ -367,37 +373,53 @@ class LocationChannelManager private constructor(private val context: Context) {
         val token = LiveLocationPrivacyGate.captureToken() ?: return
         _isLoadingLocation.value = true
 
+        if (forceFresh) {
+            requestFreshLocation(token, updatePlaceNames)
+            return
+        }
+
         val started = LiveLocationPrivacyGate.runIfAllowed(token) {
             locationProvider.getLastKnownLocation { cached ->
                 if (!canUseLiveLocation(token)) return@getLastKnownLocation
 
                 if (cached != null) {
-                    onLocationUpdated(cached, token)
+                    onLocationUpdated(cached, token, updatePlaceNames)
                 } else {
-                    LiveLocationPrivacyGate.runIfAllowed(token) {
-                        locationProvider.requestFreshLocation { fresh ->
-                            if (!canUseLiveLocation(token)) return@requestFreshLocation
-
-                            if (fresh != null) {
-                                onLocationUpdated(fresh, token)
-                            } else {
-                                Log.w(TAG, "Failed to get fresh location")
-                                _isLoadingLocation.value = false
-                            }
-                        }
-                    }
+                    requestFreshLocation(token, updatePlaceNames)
                 }
             }
         }
         if (!started) _isLoadingLocation.value = false
     }
 
-    private fun onLocationUpdated(location: Location, token: Long) {
+    private fun requestFreshLocation(
+        token: Long,
+        updatePlaceNames: Boolean
+    ) {
+        val started = LiveLocationPrivacyGate.runIfAllowed(token) {
+            locationProvider.requestFreshLocation { fresh ->
+                if (!canUseLiveLocation(token)) return@requestFreshLocation
+                if (fresh != null) {
+                    onLocationUpdated(fresh, token, updatePlaceNames)
+                } else {
+                    Log.w(TAG, "Failed to get fresh location")
+                    _isLoadingLocation.value = false
+                }
+            }
+        }
+        if (!started) _isLoadingLocation.value = false
+    }
+
+    private fun onLocationUpdated(
+        location: Location,
+        token: Long,
+        updatePlaceNames: Boolean = true
+    ) {
         LiveLocationPrivacyGate.runIfAllowed(token) {
             if (!_systemLocationEnabled.value || !hasRuntimeLocationPermission()) return@runIfAllowed
             _isLoadingLocation.value = false
             computeChannels(location, token)
-            reverseGeocodeIfNeeded(location, token)
+            if (updatePlaceNames) reverseGeocodeIfNeeded(location, token)
         }
     }
 
@@ -650,6 +672,12 @@ class LocationChannelManager private constructor(private val context: Context) {
         _selectedChannel.value = ChannelID.Mesh
         selectedLocationSource = null
         _teleported.value = false
+    }
+
+    /** Remove exact/transient location state without destroying the singleton. */
+    fun panicReset() {
+        clearLiveLocationState()
+        clearPersistedChannel()
     }
 
     // MARK: - Location Services State Persistence

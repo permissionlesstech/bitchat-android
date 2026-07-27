@@ -139,12 +139,37 @@ class PacketProcessor(private val myPeerID: String) {
             MessageType.LEAVE -> handleLeave(routed)
             MessageType.FRAGMENT -> handleFragment(routed)
             MessageType.REQUEST_SYNC -> handleRequestSync(routed)
+            MessageType.PREKEY_BUNDLE -> {
+                BridgeMeshPort.handlePrekeyPacket(packet)
+            }
+            MessageType.NOSTR_CARRIER -> {
+                val directedToUs = packetRelayManager.isPacketAddressedToMe(packet)
+                val isBroadcast = packet.recipientID == null ||
+                    packet.recipientID.contentEquals(delegate?.getBroadcastRecipient())
+                if (directedToUs || isBroadcast) {
+                    BridgeMeshPort.handleCarrier(
+                        packet.payload,
+                        peerID,
+                        directedToUs
+                    )
+                }
+            }
             else -> {
                 // Handle private packet types (address check required)
                 if (packetRelayManager.isPacketAddressedToMe(packet)) {
                     when (messageType) {
                         MessageType.NOISE_HANDSHAKE -> validPacket = handleNoiseHandshake(routed)
                         MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
+                        MessageType.COURIER_ENVELOPE -> {
+                            val directIngress =
+                                packet.ttl == com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS &&
+                                    delegate?.isPeerDirectlyConnected(peerID) == true
+                            BridgeMeshPort.handleCourierEnvelope(
+                                packet = packet,
+                                fromPeerId = peerID,
+                                directIngress = directIngress
+                            )
+                        }
                         MessageType.FILE_TRANSFER -> handleMessage(routed)
                         else -> {
                             validPacket = false
@@ -289,6 +314,7 @@ interface PacketProcessorDelegate {
     // Network information
     fun getNetworkSize(): Int
     fun getBroadcastRecipient(): ByteArray
+    fun isPeerDirectlyConnected(peerID: String): Boolean = false
     
     // Message type handlers
     fun handleNoiseHandshake(routed: RoutedPacket): Boolean

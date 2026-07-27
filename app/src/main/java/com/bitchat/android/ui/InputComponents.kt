@@ -171,7 +171,10 @@ fun MessageInput(
     currentChannel: String?,
     nickname: String,
     showMediaButtons: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBridgeControls: Boolean = false,
+    nearbyOnly: Boolean = false,
+    onNearbyOnlyChange: (Boolean) -> Unit = {}
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isFocused = remember { mutableStateOf(false) }
@@ -187,6 +190,25 @@ fun MessageInput(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        if (showBridgeControls) {
+            IconToggleButton(
+                checked = nearbyOnly,
+                onCheckedChange = onNearbyOnlyChange,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = if (nearbyOnly) Icons.Filled.Bluetooth else Icons.Filled.Public,
+                    contentDescription = if (nearbyOnly) {
+                        stringResource(R.string.cd_nearby_only_on)
+                    } else {
+                        stringResource(R.string.cd_nearby_only_off)
+                    },
+                    tint = if (nearbyOnly) Color(0xFFFF9500) else Color(0xFF00A7C4),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
         // Text input with placeholder OR visualizer when recording
         Box(
             modifier = Modifier.weight(1f)

@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 object AppStateStore {
     // Global de-dup set by message id to avoid duplicate keys in Compose lists
     private val seenMessageIds = mutableSetOf<String>()
-    private val seenPublicMessageKeys = mutableSetOf<String>()
+    private val publicMessageReconciler = PublicMessageReconciler()
     private val peerIdsByTransport = mutableMapOf<String, Set<String>>()
     // Direct (single-hop) peer IDs per transport, used to gossip a unified neighbor set.
     private val directPeerIdsByTransport = mutableMapOf<String, Set<String>>()
@@ -87,25 +87,32 @@ object AppStateStore {
 
     fun addPublicMessage(msg: BitchatMessage) {
         synchronized(this) {
-            val publicKey = publicMessageKey(msg)
-            if (seenMessageIds.contains(msg.id) || seenPublicMessageKeys.contains(publicKey)) return
+            val result = publicMessageReconciler.reconcile(
+                existing = _publicMessages.value,
+                incoming = msg,
+                messageIdAlreadySeen = msg.id in seenMessageIds
+            )
+            _publicMessages.value = result.messages
+            if (!result.accepted) return
             seenMessageIds.add(msg.id)
-            seenPublicMessageKeys.add(publicKey)
-            _publicMessages.value = _publicMessages.value + msg
         }
     }
 
-    fun addPrivateMessage(peerID: String, msg: BitchatMessage) {
+    fun hasRadioPublicMessage(messageId: String): Boolean = synchronized(this) {
+        _publicMessages.value.any { !it.isBridged && it.id == messageId }
+    }
+
+    fun addPrivateMessage(peerID: String, msg: BitchatMessage): Boolean =
         synchronized(this) {
-            if (seenMessageIds.contains(msg.id)) return
+            if (seenMessageIds.contains(msg.id)) return@synchronized false
             seenMessageIds.add(msg.id)
             val conversationID = ContactDirectory.canonicalConversationId(peerID)
             val map = _privateMessages.value.toMutableMap()
             val list = (map[conversationID] ?: emptyList()) + msg
             map[conversationID] = list
             _privateMessages.value = ContactDirectory.canonicalizePrivateChats(map)
+            true
         }
-    }
 
     private fun statusPriority(status: DeliveryStatus?): Int = when (status) {
         null -> 0
@@ -206,7 +213,7 @@ object AppStateStore {
     fun clear() {
         synchronized(this) {
             seenMessageIds.clear()
-            seenPublicMessageKeys.clear()
+            publicMessageReconciler.clear()
             peerIdsByTransport.clear()
             directPeerIdsByTransport.clear()
             _peers.value = emptyList()
@@ -216,14 +223,4 @@ object AppStateStore {
         }
     }
 
-    private fun publicMessageKey(msg: BitchatMessage): String {
-        val sender = msg.senderPeerID ?: msg.sender
-        return listOf(
-            sender,
-            msg.timestamp.time.toString(),
-            msg.type.name,
-            msg.channel ?: "",
-            msg.content
-        ).joinToString("\u001F")
-    }
 }

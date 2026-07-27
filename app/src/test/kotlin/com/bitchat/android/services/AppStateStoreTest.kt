@@ -3,6 +3,8 @@ package com.bitchat.android.services
 import com.bitchat.android.model.BitchatMessage
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.Date
@@ -54,6 +56,55 @@ class AppStateStoreTest {
         AppStateStore.addPublicMessage(second)
 
         assertEquals(listOf(first, second), AppStateStore.publicMessages.value)
+    }
+
+    @Test
+    fun `untrusted bridge radio hint cannot reserve another signed event id`() {
+        val first = BitchatMessage(
+            id = "signed-event-a",
+            sender = "alice#1111",
+            content = "same public coordinates",
+            timestamp = Date(1_700_000_000_000L),
+            senderPeerID = "bridge:1111",
+            isBridged = true,
+            bridgeRadioMessageIdHint = "radio-hint"
+        )
+        val second = first.copy(
+            id = "signed-event-b",
+            sender = "mallory#2222",
+            senderPeerID = "bridge:2222"
+        )
+
+        AppStateStore.addPublicMessage(first)
+        AppStateStore.addPublicMessage(second)
+
+        assertEquals(listOf(first, second), AppStateStore.publicMessages.value)
+    }
+
+    @Test
+    fun `authenticated radio row replaces bridge aliases with the same hint`() {
+        val bridged = BitchatMessage(
+            id = "signed-event",
+            sender = "alice#1111",
+            content = "hello",
+            timestamp = Date(1_700_000_000_000L),
+            senderPeerID = "bridge:1111",
+            isBridged = true,
+            bridgeRadioMessageIdHint = "radio-message-id"
+        )
+        val radio = BitchatMessage(
+            id = "radio-message-id",
+            sender = "alice",
+            content = "hello",
+            timestamp = bridged.timestamp,
+            senderPeerID = "0011223344556677"
+        )
+
+        AppStateStore.addPublicMessage(bridged)
+        AppStateStore.addPublicMessage(radio)
+
+        assertEquals(listOf(radio), AppStateStore.publicMessages.value)
+        assertEquals(true, AppStateStore.hasRadioPublicMessage(radio.id))
     }
 
     @Test
@@ -123,6 +174,20 @@ class AppStateStoreTest {
 
         assertEquals(setOf(contactID), AppStateStore.privateMessages.value.keys)
         assertEquals(listOf(message), AppStateStore.privateMessages.value[contactID])
+    }
+
+    @Test
+    fun `private message insertion reports duplicates before ingress side effects`() {
+        val message = BitchatMessage(
+            id = "same-message",
+            sender = "alice",
+            content = "hello",
+            timestamp = Date(1)
+        )
+
+        assertTrue(AppStateStore.addPrivateMessage("peer", message))
+        assertFalse(AppStateStore.addPrivateMessage("peer", message))
+        assertEquals(listOf(message), AppStateStore.privateMessages.value["peer"])
     }
 
     @Test

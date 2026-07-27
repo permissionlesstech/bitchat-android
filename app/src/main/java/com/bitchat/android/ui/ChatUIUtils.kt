@@ -122,6 +122,16 @@ fun formatMessageAsAnnotatedString(
         
         // iOS-style timestamp at the END (smaller, grey)
         // Timestamp (and optional PoW badge)
+        if (message.isBridged) {
+            builder.pushStyle(
+                SpanStyle(
+                    color = Color(0xFF00A7C4),
+                    fontSize = (BASE_FONT_SIZE - 2).sp
+                )
+            )
+            builder.append(" 🌐")
+            builder.pop()
+        }
         builder.pushStyle(SpanStyle(
             color = Color.Gray.copy(alpha = 0.7f),
             fontSize = (BASE_FONT_SIZE - 4).sp

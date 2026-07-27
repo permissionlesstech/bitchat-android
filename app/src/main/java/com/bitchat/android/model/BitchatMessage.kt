@@ -69,7 +69,15 @@ data class BitchatMessage(
     val encryptedContent: ByteArray? = null,
     val isEncrypted: Boolean = false,
     val deliveryStatus: DeliveryStatus? = null,
-    val powDifficulty: Int? = null
+    val powDifficulty: Int? = null,
+    /** Rendered from a signed bridge rendezvous event rather than local radio. */
+    val isBridged: Boolean = false,
+    /**
+     * Untrusted radio-coordinate hint from the bridge event. It may merge a
+     * duplicate when the authenticated radio copy arrives, but never owns the
+     * bridge row's primary ID.
+     */
+    val bridgeRadioMessageIdHint: String? = null
 ) : Parcelable {
 
     /**
@@ -354,5 +362,4 @@ data class BitchatMessage(
         return result
     }
 }
-
 

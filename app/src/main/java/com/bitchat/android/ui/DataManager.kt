@@ -14,9 +14,21 @@ class DataManager(private val context: Context) {
     
     companion object {
         private const val TAG = "DataManager"
+        private const val PREFS_NAME = "bitchat_prefs"
+        private const val BLOCKED_USERS_KEY = "blocked_users"
+
+        /**
+         * Reads the current persisted block list for ingress paths that have a
+         * full Noise key but no live mesh peer/session.
+         */
+        fun isFingerprintBlocked(context: Context, fingerprint: String): Boolean =
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getStringSet(BLOCKED_USERS_KEY, emptySet())
+                ?.contains(fingerprint) == true
     }
-    
-    private val prefs: SharedPreferences = context.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
     
     // Channel-related maps that need to persist state
@@ -199,12 +211,12 @@ class DataManager(private val context: Context) {
     // MARK: - Blocked Users Management
     
     fun loadBlockedUsers() {
-        val savedBlockedUsers = prefs.getStringSet("blocked_users", emptySet()) ?: emptySet()
+        val savedBlockedUsers = prefs.getStringSet(BLOCKED_USERS_KEY, emptySet()) ?: emptySet()
         _blockedUsers.addAll(savedBlockedUsers)
     }
     
     fun saveBlockedUsers() {
-        prefs.edit().putStringSet("blocked_users", _blockedUsers).apply()
+        prefs.edit().putStringSet(BLOCKED_USERS_KEY, _blockedUsers).apply()
     }
     
     fun addBlockedUser(fingerprint: String) {

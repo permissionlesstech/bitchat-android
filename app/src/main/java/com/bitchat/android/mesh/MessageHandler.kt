@@ -9,6 +9,7 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.sync.PacketIdUtil
+import com.bitchat.android.nostr.MeshMessageIdentity
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
@@ -299,6 +300,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             capabilities = announcement.capabilities
         ) ?: false
 
+        BridgeMeshPort.handleVerifiedAnnouncement(
+            peerID,
+            announcement
+        )
+
         // Update mesh graph from gossip neighbors (only if TLV present)
         try {
             val neighborsOrNull = com.bitchat.android.services.meshgraph.GossipTLV.decodeNeighborsFromAnnouncementPayload(packet.payload)
@@ -414,13 +420,18 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
 
             // Fallback: plain text
             val message = BitchatMessage(
-                id = PacketIdUtil.computeIdHex(packet).uppercase(),
+                id = MeshMessageIdentity.stableId(
+                    peerID,
+                    packet.timestamp.toLong(),
+                    String(packet.payload, Charsets.UTF_8)
+                ),
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
                 timestamp = Date(packet.timestamp.toLong())
             )
             delegate?.onMessageReceived(message)
+            BridgeMeshPort.handleAuthenticatedRadioMessage(message.id)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process broadcast message: ${e.message}")
         }

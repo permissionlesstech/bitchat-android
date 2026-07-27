@@ -76,6 +76,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
     val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
     val legacyPrivateMediaConsent by viewModel.legacyPrivateMediaConsent.collectAsStateWithLifecycle()
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -347,7 +348,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 currentChannel = currentChannel,
                 nickname = nickname,
                 colorScheme = colorScheme,
-                showMediaButtons = showMediaButtons
+                showMediaButtons = showMediaButtons,
+                showBridgeControls = bridgeUiState.enabled &&
+                    currentChannel == null &&
+                    selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location,
+                nearbyOnly = bridgeUiState.nearbyOnly,
+                onNearbyOnlyChange = viewModel::setBridgeNearbyOnly
             )
         }
 
@@ -567,7 +573,10 @@ fun ChatInputSection(
     currentChannel: String?,
     nickname: String,
     colorScheme: ColorScheme,
-    showMediaButtons: Boolean
+    showMediaButtons: Boolean,
+    showBridgeControls: Boolean = false,
+    nearbyOnly: Boolean = false,
+    onNearbyOnlyChange: (Boolean) -> Unit = {}
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -604,6 +613,9 @@ fun ChatInputSection(
                 currentChannel = currentChannel,
                 nickname = nickname,
                 showMediaButtons = showMediaButtons,
+                showBridgeControls = showBridgeControls,
+                nearbyOnly = nearbyOnly,
+                onNearbyOnlyChange = onNearbyOnlyChange,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -694,6 +706,7 @@ private fun ChatDialogs(
     onMeshPeerListDismiss: () -> Unit,
 ) {
     val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
 
     // Password dialog
     PasswordPromptDialog(
@@ -710,7 +723,9 @@ private fun ChatDialogs(
     AboutSheet(
         isPresented = showAppInfo,
         onDismiss = onAppInfoDismiss,
-        onShowDebug = { showDebugSheet = true }
+        onShowDebug = { showDebugSheet = true },
+        bridgeEnabled = bridgeUiState.enabled,
+        onBridgeEnabledChange = viewModel::setBridgeEnabled
     )
     if (showDebugSheet) {
         com.bitchat.android.ui.debug.DebugSettingsSheet(

@@ -153,6 +153,7 @@ fun NicknameEditor(
 @Composable
 fun PeerCounter(
     connectedPeers: List<String>,
+    bridgedPeopleCount: Int,
     joinedChannels: Set<String>,
     hasUnreadChannels: Map<String, Int>,
     isConnected: Boolean,
@@ -173,10 +174,10 @@ fun PeerCounter(
         }
         is com.bitchat.android.geohash.ChannelID.Mesh,
         null -> {
-            // Mesh channel: show Bluetooth-connected peers (excluding self)
-            val count = connectedPeers.size
+            // Mesh channel: show directly connected and bridge-visible people.
+            val count = connectedPeers.size + bridgedPeopleCount
             val meshBlue = Color(0xFF007AFF) // iOS-style blue for mesh
-            Pair(count, if (isConnected && count > 0) meshBlue else Color.Gray)
+            Pair(count, if ((isConnected || bridgedPeopleCount > 0) && count > 0) meshBlue else Color.Gray)
         }
     }
     
@@ -341,6 +342,7 @@ private fun MainHeader(
     val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
 
     // Bookmarks store for current geohash toggle (iOS parity)
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -445,8 +447,19 @@ private fun MainHeader(
                 style = PoWIndicatorStyle.COMPACT
             )
             Spacer(modifier = Modifier.width(2.dp))
+
+            if (bridgeUiState.enabled) {
+                Icon(
+                    imageVector = Icons.Filled.Public,
+                    contentDescription = stringResource(R.string.cd_mesh_bridge_active),
+                    tint = Color(0xFF00A7C4),
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+
             PeerCounter(
                 connectedPeers = connectedPeers.filter { it != viewModel.myPeerID },
+                bridgedPeopleCount = bridgeUiState.participants.size,
                 joinedChannels = joinedChannels,
                 hasUnreadChannels = hasUnreadChannels,
                 isConnected = isConnected,

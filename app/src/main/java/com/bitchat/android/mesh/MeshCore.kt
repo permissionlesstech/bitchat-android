@@ -17,6 +17,7 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.service.TransportBridgeService
+import com.bitchat.android.services.bridge.BridgeProtocolPacketFactory
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
@@ -62,7 +63,7 @@ class MeshCore(
             store = authenticatedPeerStateStore,
             localStateProvider = {
                 AuthenticatedPeerState(
-                    PeerCapabilities.LOCAL_SUPPORTED,
+                    PeerCapabilities.localSupported(),
                     requireNotNull(encryptionService.getSigningPublicKey())
                 )
             },
@@ -441,6 +442,9 @@ class MeshCore(
                 return SpecialRecipients.BROADCAST
             }
 
+            override fun isPeerDirectlyConnected(peerID: String): Boolean =
+                peerManager.getPeerInfo(peerID)?.isDirectConnection == true
+
             override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
@@ -510,6 +514,7 @@ class MeshCore(
 
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
+        val bridgePolicyAtSend = BridgeMeshPort.outboundPolicy()
         scope.launch {
             val packet = BitchatPacket(
                 version = 1u,
@@ -524,6 +529,70 @@ class MeshCore(
             val signedPacket = signPacketBeforeBroadcast(packet)
             dispatchGlobal(RoutedPacket(signedPacket))
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+            if (channel == null) {
+                val nickname = hooks.announcementNicknameProvider?.invoke()
+                    ?: delegate?.getNickname()
+                BridgeMeshPort.bridgeOutgoing(
+                    content,
+                    myPeerID,
+                    packet.timestamp.toLong(),
+                    nickname,
+                    bridgePolicyAtSend
+                )
+            }
+        }
+    }
+
+    fun sendNostrCarrier(payload: ByteArray, recipientPeerID: String? = null) {
+        sendRawProtocolPacket(
+            type = MessageType.NOSTR_CARRIER,
+            payload = payload,
+            recipientPeerID = recipientPeerID,
+            sign = true
+        )
+    }
+
+    fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String) {
+        sendRawProtocolPacket(
+            type = MessageType.COURIER_ENVELOPE,
+            payload = payload,
+            recipientPeerID = recipientPeerID,
+            sign = true
+        )
+    }
+
+    fun sendPrekeyBundle(payload: ByteArray) {
+        sendRawProtocolPacket(
+            type = MessageType.PREKEY_BUNDLE,
+            payload = payload,
+            recipientPeerID = null,
+            sign = true
+        )
+    }
+
+    private fun sendRawProtocolPacket(
+        type: MessageType,
+        payload: ByteArray,
+        recipientPeerID: String?,
+        sign: Boolean
+    ) {
+        if (payload.isEmpty()) return
+        scope.launch {
+            val packet = BridgeProtocolPacketFactory.protocolPacket(
+                type = type,
+                payload = payload,
+                senderPeerId = myPeerID,
+                recipientPeerId = recipientPeerID,
+                ttl = maxTtl
+            ) ?: return@launch
+            val outgoing = if (sign) signPacketBeforeBroadcast(packet) else packet
+            if (sign &&
+                type != MessageType.COURIER_ENVELOPE &&
+                outgoing.signature?.size != 64
+            ) {
+                return@launch
+            }
+            dispatchGlobal(RoutedPacket(outgoing))
         }
     }
 
@@ -756,7 +825,11 @@ class MeshCore(
                 Log.e("MeshCore", "No signing public key available for announcement")
                 return@launch
             }
-            val announcement = IdentityAnnouncement.forLocalPeer(nickname, staticKey, signingKey)
+            val announcement = BridgeProtocolPacketFactory.identityAnnouncement(
+                nickname,
+                staticKey,
+                signingKey
+            )
             val tlvPayload = buildAnnouncementPayload(announcement, nickname) ?: return@launch
             val announcePacket = BitchatPacket(
                 type = MessageType.ANNOUNCE.value,
@@ -777,7 +850,11 @@ class MeshCore(
             ?: myPeerID
         val staticKey = encryptionService.getStaticPublicKey() ?: return
         val signingKey = encryptionService.getSigningPublicKey() ?: return
-        val announcement = IdentityAnnouncement.forLocalPeer(nickname, staticKey, signingKey)
+        val announcement = BridgeProtocolPacketFactory.identityAnnouncement(
+            nickname,
+            staticKey,
+            signingKey
+        )
         val tlvPayload = buildAnnouncementPayload(announcement, nickname) ?: return
         val packet = BitchatPacket(
             type = MessageType.ANNOUNCE.value,

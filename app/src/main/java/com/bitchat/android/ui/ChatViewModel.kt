@@ -9,6 +9,9 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
@@ -30,6 +33,8 @@ import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
+import com.bitchat.android.services.bridge.BridgeUiState
+import com.bitchat.android.services.bridge.MeshBridgeService
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
@@ -202,6 +207,21 @@ class ChatViewModel(
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
     val teleportedGeo: StateFlow<Set<String>> = state.teleportedGeo
     val geohashParticipantCounts: StateFlow<Map<String, Int>> = state.geohashParticipantCounts
+    val bridgeUiState: StateFlow<BridgeUiState> = combine(
+        MeshBridgeService.isEnabled,
+        MeshBridgeService.nearbyOnly,
+        MeshBridgeService.bridgedParticipants
+    ) { enabled, nearbyOnly, participants ->
+        BridgeUiState(enabled, nearbyOnly, participants)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = BridgeUiState(
+            enabled = MeshBridgeService.isEnabled.value,
+            nearbyOnly = MeshBridgeService.nearbyOnly.value,
+            participants = MeshBridgeService.bridgedParticipants.value
+        )
+    )
     val meshServiceFacade: MeshService
         get() = mesh
     val myPeerID: String
@@ -248,6 +268,15 @@ class ChatViewModel(
                     state.setUnreadPrivateMessages(unread)
                 } catch (_: Exception) { }
             } } catch (_: Exception) { }
+        }
+        viewModelScope.launch {
+            com.bitchat.android.services.bridge.CourierMessagePort.messages.collect { message ->
+                // The coordinator already inserted the message into AppStateStore
+                // after authenticating and block-checking its full Noise key.
+                // Reuse normal mesh ingress for unread tracking, haptics, and
+                // notification suppression while the conversation is focused.
+                meshDelegateHandler.didReceiveMessage(message)
+            }
         }
         viewModelScope.launch {
             try { com.bitchat.android.services.AppStateStore.channelMessages.collect { byChannel ->
@@ -340,7 +369,6 @@ class ChatViewModel(
     }
     
     override fun onCleared() {
-        super.onCleared()
         // Note: Mesh service lifecycle is now managed by MainActivity
     }
     
@@ -819,6 +847,14 @@ class ChatViewModel(
         state.setShowMeshPeerList(true)
     }
 
+    fun setBridgeEnabled(enabled: Boolean) {
+        MeshBridgeService.setEnabled(enabled)
+    }
+
+    fun setBridgeNearbyOnly(enabled: Boolean) {
+        MeshBridgeService.setNearbyOnly(enabled)
+    }
+
     fun hideMeshPeerList() {
         state.setShowMeshPeerList(false)
     }
@@ -921,6 +957,12 @@ class ChatViewModel(
     // MARK: - Emergency Clear
     
     fun panicClearAllData() {
+        viewModelScope.launch {
+            panicClearAllDataInternal()
+        }
+    }
+
+    private suspend fun panicClearAllDataInternal() {
         Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
         try {
             com.bitchat.android.geohash.LocationChannelManager
@@ -931,6 +973,13 @@ class ChatViewModel(
         // A pending one-shot downgrade confirmation must not survive panic or
         // become actionable against the fresh post-wipe identity.
         mediaSendingManager.clearPendingPrivateMediaConsent()
+        com.bitchat.android.services.MessageRouter.tryGetInstance()?.wipeOutbox()
+
+        // Revoke all bridge publication/courier authority before clearing
+        // UI, transport, or identity state.
+        try {
+            com.bitchat.android.services.bridge.MeshBridgeService.wipe()
+        } catch (_: Exception) { }
         
         // Clear all UI managers
         messageManager.clearAllMessages()
@@ -945,7 +994,7 @@ class ChatViewModel(
         
         // Clear all mesh service data
         clearAllMeshServiceData()
-        
+
         // Clear all cryptographic data
         clearAllCryptographicData()
         
@@ -965,7 +1014,7 @@ class ChatViewModel(
 
             try {
                 val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-                locationManager.clearPersistedChannel()
+                locationManager.panicReset()
             } catch (_: Exception) { }
 
             geohashViewModel.panicReset()
