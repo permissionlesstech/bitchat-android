@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -294,10 +295,10 @@ internal fun TorAwareHeaderIcon(
 /**
  * Noise session status for private-chat headers.
  *
- * Same visual language as the main header's Tor-aware globe: one lock glyph throughout, tint
- * cross-fades between states, and a soft radial glow pulse while the handshake is in flight.
- * The old sync/recycle glyph is gone — progress is carried by colour and motion, not by swapping
- * icons.
+ * Same visual language as the main header's Tor-aware globe: tint cross-fades between states,
+ * and a soft radial glow pulse while the handshake is in flight. The glyph itself is the open
+ * lock until a session is established (or fails), then the closed lock — both share the same
+ * baseline so a [Crossfade] reads as the shackle settling shut rather than an icon swap.
  */
 @Composable
 fun NoiseSessionIcon(
@@ -324,28 +325,42 @@ fun NoiseSessionIcon(
             stringResource(R.string.cd_handshake_failed)
         )
         else -> Triple(
-            // Not yet started — quiet grey lock, same glyph as every other state.
+            // Not yet started — quiet grey open lock.
             colorScheme.onSurfaceVariant,
             false,
             stringResource(R.string.cd_ready_for_handshake)
         )
     }
 
-    // Longer than the usual chrome tint so grey → orange → green reads as a continuous wash,
-    // not a snap between discrete states.
+    // Closed once the handshake resolves (success or failure); open while idle or in flight.
+    val lockIconRes = when {
+        sessionState == "established" || sessionState?.startsWith("failed") == true ->
+            R.drawable.ic_spec_lock
+        else -> R.drawable.ic_spec_lock_open
+    }
+
+    // Match the tint wash so open → closed and grey → orange → green land together.
+    val lockTransitionMs = 480
+
     val animatedTint by animateColorAsState(
         targetValue = targetTint,
-        animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = lockTransitionMs, easing = FastOutSlowInEasing),
         label = "noiseSessionTint"
     )
 
-    TorAwareHeaderIcon(
-        painter = painterResource(R.drawable.ic_spec_lock),
-        tint = animatedTint,
-        isProgress = isProgress,
-        contentDescription = contentDescription,
-        modifier = modifier
-    )
+    Crossfade(
+        targetState = lockIconRes,
+        animationSpec = tween(durationMillis = lockTransitionMs, easing = FastOutSlowInEasing),
+        modifier = modifier,
+        label = "noiseLockGlyph"
+    ) { iconRes ->
+        TorAwareHeaderIcon(
+            painter = painterResource(iconRes),
+            tint = animatedTint,
+            isProgress = isProgress,
+            contentDescription = contentDescription,
+        )
+    }
 }
 
 /**
