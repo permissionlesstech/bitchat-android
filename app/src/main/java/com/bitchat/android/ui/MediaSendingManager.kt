@@ -43,7 +43,7 @@ class MediaSendingManager(
         get() = getMeshService()
     companion object {
         private const val TAG = "MediaSendingManager"
-        private const val MAX_FILE_SIZE = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES // 50MB limit
+        private const val MAX_FILE_SIZE = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES
         private const val PENDING_PRIVATE_MEDIA_TIMEOUT_MS = 15_000L
     }
 
@@ -82,6 +82,46 @@ class MediaSendingManager(
     private var pendingAutomaticTimeoutRequestId: String? = null
 
     /**
+     * Enforce the send-size cap with a user-visible failure posted to the
+     * conversation the user is sending from. Returns true if the file is
+     * oversized and the send was aborted.
+     */
+    private fun rejectIfOversized(
+        file: java.io.File,
+        toPeerIDOrNull: String?,
+        channelOrNull: String?
+    ): Boolean {
+        val size = file.length()
+        if (size <= MAX_FILE_SIZE) return false
+        Log.e(TAG, "❌ File too large: $size bytes (max: $MAX_FILE_SIZE)")
+        val sizeMb = size / (1024 * 1024)
+        val maxMb = MAX_FILE_SIZE / (1024 * 1024)
+        val text = "cannot send ${file.name}: file is too large (${sizeMb} MB, max $maxMb MB)"
+        when {
+            toPeerIDOrNull != null -> {
+                val sys = BitchatMessage(
+                    sender = "system",
+                    content = text,
+                    timestamp = Date(),
+                    isRelay = false
+                )
+                messageManager.addPrivateMessageNoUnread(toPeerIDOrNull, sys)
+            }
+            channelOrNull != null -> {
+                val sys = BitchatMessage(
+                    sender = "system",
+                    content = text,
+                    timestamp = Date(),
+                    isRelay = false
+                )
+                messageManager.addChannelMessage(channelOrNull, sys)
+            }
+            else -> messageManager.addSystemMessage(text)
+        }
+        return true
+    }
+
+    /**
      * Send a voice note (audio file)
      */
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
@@ -103,8 +143,7 @@ class MediaSendingManager(
                     return@withContext null
                 }
 
-                if (file.length() > MAX_FILE_SIZE) {
-                    Log.e(TAG, "File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                if (rejectIfOversized(file, toPeerIDOrNull, channelOrNull)) {
                     return@withContext null
                 }
 
@@ -148,8 +187,7 @@ class MediaSendingManager(
                     return@withContext null
                 }
 
-                if (file.length() > MAX_FILE_SIZE) {
-                    Log.e(TAG, "File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                if (rejectIfOversized(file, toPeerIDOrNull, channelOrNull)) {
                     return@withContext null
                 }
 
@@ -193,8 +231,7 @@ class MediaSendingManager(
                     return@withContext null
                 }
 
-                if (file.length() > MAX_FILE_SIZE) {
-                    Log.e(TAG, "File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                if (rejectIfOversized(file, toPeerIDOrNull, channelOrNull)) {
                     return@withContext null
                 }
 

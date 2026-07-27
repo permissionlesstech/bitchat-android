@@ -107,6 +107,28 @@ source-route metadata. It does not imply multi-gigabyte mesh transfer support.
   transport threshold; the data portion is at most 469 bytes and becomes
   smaller when recipient or source-route overhead is present.
 
+#### Compressed expansion rollout gate (resolved)
+
+Android's bounded decoder applies the same 10 MiB expanded-payload ceiling to every outer
+message type. It also requires a non-empty compressed body, an exact declared output size, and a
+complete deflate stream. The `FILE_TRANSFER (0x22)` byte cannot safely grant a larger ceiling: it is
+attacker-controlled before packet signature verification, and the current receive pipeline must
+inflate before it can perform that verification.
+
+New Android senders cap files just below 10 MiB (reserving envelope overhead) and refuse to encode
+any payload above the receiver ceiling; exceeding the cap surfaces a user-visible error in chat.
+Support for legacy >10 MiB compressed transfers is explicitly ended: legacy Android senders can
+still produce a highly compressible public file between 10 MiB and their 50 MiB UI limit that the
+bounded decoder rejects. Grandfathering 50 MiB is not safe after only a type check: inflation
+allocates the declared payload and
+`BitchatFilePacket.decode` currently copies the content again, creating a greater than 100 MiB peak
+for a maximum-size transfer.
+
+Before enabling that legacy range, receive processing needs an authenticated admission decision
+made before large allocation plus streaming inflation/TLV parsing into a bounded temporary file (or
+another ownership-preserving design that avoids the second full-size copy). The sender limit and a
+wire capability/version transition must then be coordinated so old and new clients fail predictably.
+
 ### 1.3 File Transfer TLV payload (BitchatFilePacket)
 
 The file payload is a TLV structure with mixed length field sizes to support large contents efficiently.
