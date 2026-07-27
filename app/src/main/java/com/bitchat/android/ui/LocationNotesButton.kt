@@ -1,7 +1,5 @@
 package com.bitchat.android.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -17,6 +15,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.R
 import com.bitchat.android.geohash.ChannelID
@@ -66,7 +65,7 @@ fun LocationNotesButton(
             contentAlignment = Alignment.Center
         ) {
             TorAwareHeaderIcon(
-                imageVector = Icons.Outlined.Description,
+                painter = painterResource(R.drawable.ic_spec_chat_bubbles),
                 tint = torVisual.tint,
                 isProgress = torVisual.isProgress,
                 contentDescription = contentDescription

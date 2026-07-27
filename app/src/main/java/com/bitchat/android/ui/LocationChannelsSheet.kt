@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -192,7 +193,7 @@ fun LocationChannelsSheet(
                     item(key = "mesh_card") {
                         Column {
                             SheetIconSectionHeader(
-                                icon = Icons.Filled.Hub,
+                                iconRes = R.drawable.ic_spec_range,
                                 title = stringResource(R.string.mesh_title),
                                 subtitle = stringResource(R.string.mesh_section_subtitle),
                                 modifier = Modifier.padding(top = 8.dp)
@@ -230,7 +231,7 @@ fun LocationChannelsSheet(
 
                     item(key = "location_channels_header") {
                         SheetIconSectionHeader(
-                            icon = Icons.Outlined.Public,
+                            iconRes = R.drawable.ic_spec_globe,
                             title = stringResource(R.string.location_channels_heading),
                             subtitle = stringResource(R.string.location_channels_desc),
                             modifier = Modifier.padding(top = 20.dp)
@@ -726,7 +727,13 @@ private fun ChannelBookmarkButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = if (bookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+            painter = painterResource(
+                if (bookmarked) {
+                    R.drawable.ic_spec_bookmark_filled
+                } else {
+                    R.drawable.ic_spec_bookmark_outline
+                }
+            ),
             contentDescription = stringResource(
                 if (bookmarked) R.string.cd_remove_bookmark else R.string.cd_add_bookmark
             ),

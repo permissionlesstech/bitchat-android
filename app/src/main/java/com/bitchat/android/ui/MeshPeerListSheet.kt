@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -122,7 +123,7 @@ fun MeshPeerListSheet(
                         item(key = "channels_section") {
                             Column {
                                 SheetIconSectionHeader(
-                                    icon = Icons.Filled.Tag,
+                                    iconRes = R.drawable.ic_spec_chat_bubbles,
                                     title = stringResource(R.string.channels),
                                     modifier = Modifier.padding(top = 8.dp)
                                 )
@@ -321,7 +322,7 @@ fun PeopleSection(
 
     Column(modifier = modifier) {
         SheetIconSectionHeader(
-            icon = Icons.Filled.Person,
+            iconRes = R.drawable.ic_spec_people,
             title = stringResource(R.string.people_count_title, peopleCount)
         )
 
@@ -616,7 +617,7 @@ private fun PeerItem(
                 )
             } else if (showNostrGlobe) {
                 Icon(
-                    imageVector = Icons.Filled.Public,
+                    painter = painterResource(R.drawable.ic_spec_globe),
                     contentDescription = stringResource(R.string.cd_reachable_via_nostr),
                     modifier = Modifier.size(PeerRowIconSize),
                     tint = palette.accentPurple
@@ -690,7 +691,7 @@ private fun PeerItem(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                painter = painterResource(R.drawable.ic_spec_star),
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                 modifier = Modifier.size(PeerRowIconSize),
                 tint = if (isFavorite) palette.accentOrange else palette.textTertiary
@@ -971,7 +972,7 @@ fun PrivateChatSheet(
                             when {
                                 isNostrPeer || isNostrReachableFavorite -> {
                                     Icon(
-                                        imageVector = Icons.Filled.Public,
+                                        painter = painterResource(R.drawable.ic_spec_globe),
                                         contentDescription = stringResource(R.string.cd_nostr_reachable),
                                         modifier = Modifier.size(14.dp),
                                         tint = Color(0xFF9C27B0)
@@ -1039,7 +1040,7 @@ fun PrivateChatSheet(
                                 modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(
-                                    imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                                    painter = painterResource(R.drawable.ic_spec_star),
                                     contentDescription = if (isFavorite) stringResource(R.string.cd_remove_favorite) else stringResource(R.string.cd_add_favorite),
                                     modifier = Modifier.size(16.dp),
                                     tint = if (isFavorite) Color(0xFFFFD700) else colorScheme.onSurface.copy(alpha = 0.6f)

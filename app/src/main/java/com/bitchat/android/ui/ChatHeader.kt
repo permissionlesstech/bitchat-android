@@ -32,7 +32,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -203,6 +205,64 @@ internal fun TorAwareHeaderIcon(
     }
 }
 
+/** Painter-resource counterpart used by the extracted Figma SVG family. */
+@Composable
+internal fun TorAwareHeaderIcon(
+    painter: Painter,
+    tint: Color,
+    isProgress: Boolean,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+) {
+    val pulse = if (isProgress) {
+        val transition = rememberInfiniteTransition(label = "torPainterGlow")
+        transition.animateFloat(
+            initialValue = 0.42f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "torPainterGlowPulse"
+        ).value
+    } else {
+        1f
+    }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.size(HeaderIconSize)
+    ) {
+        if (isProgress) {
+            val glowBrush = remember(tint) {
+                Brush.radialGradient(
+                    colorStops = arrayOf(
+                        0.0f to tint.copy(alpha = 0.55f),
+                        0.45f to tint.copy(alpha = 0.22f),
+                        1.0f to Color.Transparent,
+                    )
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .requiredSize(HeaderIconSize + 14.dp)
+                    .graphicsLayer { alpha = pulse * 0.85f }
+                    .background(glowBrush)
+            )
+        }
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            modifier = Modifier
+                .size(HeaderIconSize)
+                .graphicsLayer {
+                    alpha = if (isProgress) 0.55f + pulse * 0.45f else 1f
+                },
+            tint = tint
+        )
+    }
+}
+
 @Composable
 fun NoiseSessionIcon(
     sessionState: String?,
@@ -342,7 +402,7 @@ fun PeerCounter(
         Icon(
             // A single silhouette rather than a crowd: at 22.dp a multi-person glyph collapses
             // into an indistinct blob, and the number beside it already conveys "how many".
-            imageVector = Icons.Filled.Person,
+            painter = painterResource(R.drawable.ic_spec_people),
             contentDescription = when (selectedLocationChannel) {
                 is com.bitchat.android.geohash.ChannelID.Location -> stringResource(R.string.cd_geohash_participants)
                 else -> stringResource(R.string.cd_connected_peers)
@@ -628,7 +688,11 @@ private fun LocationChannelsButton(
     } else {
         TorConnectionVisual(tint = channelColor, isProgress = false)
     }
-    val badgeIcon = if (isLocation) Icons.Outlined.Public else Icons.Filled.Hub
+    val badgeIconRes = if (isLocation) {
+        R.drawable.ic_spec_globe
+    } else {
+        R.drawable.ic_spec_range
+    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -645,7 +709,7 @@ private fun LocationChannelsButton(
             .padding(start = 0.dp, end = 6.dp)
     ) {
         TorAwareHeaderIcon(
-            imageVector = badgeIcon,
+            painter = painterResource(badgeIconRes),
             tint = torVisual.tint,
             isProgress = torVisual.isProgress,
             contentDescription = stringResource(R.string.cd_tor_status)

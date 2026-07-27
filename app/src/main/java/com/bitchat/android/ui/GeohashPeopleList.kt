@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
@@ -60,7 +61,7 @@ fun GeohashPeopleList(
     Column(modifier = modifier) {
         if (geohashPeople.isEmpty()) {
             SheetIconSectionHeader(
-                icon = Icons.Outlined.Person,
+                iconRes = R.drawable.ic_spec_people,
                 title = stringResource(R.string.section_people)
             )
             Surface(
@@ -163,7 +164,7 @@ fun GeohashPeopleList(
 
             if (namedPeople.isNotEmpty()) {
                 SheetIconSectionHeader(
-                    icon = Icons.Outlined.Person,
+                    iconRes = R.drawable.ic_spec_people,
                     title = stringResource(R.string.section_people)
                 )
                 PeopleCard(people = namedPeople, row = { personRow(it) })
@@ -171,7 +172,7 @@ fun GeohashPeopleList(
 
             if (anonPeople.isNotEmpty()) {
                 SheetIconSectionHeader(
-                    icon = Icons.Outlined.HelpOutline,
+                    iconRes = R.drawable.ic_spec_teleport,
                     title = stringResource(R.string.section_anon),
                     modifier = Modifier.padding(top = if (namedPeople.isNotEmpty()) 20.dp else 0.dp)
                 )
@@ -307,9 +308,9 @@ private fun GeohashPersonItem(
         isMe -> "face.smiling" to palette.accentOrange
         else -> "face.smiling" to palette.textSecondary
     }
-    val statusIcon = when (iconName) {
-        "face.dashed" -> Icons.Outlined.Explore
-        else -> Icons.Outlined.LocationOn
+    val statusIconRes = when (iconName) {
+        "face.dashed" -> R.drawable.ic_spec_teleport
+        else -> R.drawable.ic_spec_person
     }
 
     val (baseNameRaw, suffixRaw) = splitSuffix(person.displayName)
@@ -341,7 +342,7 @@ private fun GeohashPersonItem(
                 )
             } else {
                 Icon(
-                    imageVector = statusIcon,
+                    painter = painterResource(statusIconRes),
                     contentDescription = if (isTeleported || isMyTeleported) "Teleported user" else "User",
                     modifier = Modifier.size(22.dp),
                     tint = iconColor.copy(alpha = if (iconName == "face.dashed") 0.6f else 1.0f)

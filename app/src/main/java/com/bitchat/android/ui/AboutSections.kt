@@ -1,15 +1,6 @@
 package com.bitchat.android.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AlternateEmail
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.WifiOff
-import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.animateColorAsState
@@ -45,6 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -122,7 +114,7 @@ internal fun AboutSectionLabel(
  */
 @Composable
 internal fun SheetIconSectionHeader(
-    icon: ImageVector,
+    @DrawableRes iconRes: Int,
     title: String,
     subtitle: String? = null,
     modifier: Modifier = Modifier
@@ -141,7 +133,7 @@ internal fun SheetIconSectionHeader(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Icon(
-                imageVector = icon,
+                painter = painterResource(iconRes),
                 contentDescription = null,
                 tint = colorScheme.primary,
                 modifier = Modifier.size(22.dp)
@@ -332,7 +324,7 @@ private fun AboutTabLabel(
 /** One line of the "How To Use" list: an icon plus a single instruction. */
 @Composable
 private fun AboutInstructionRow(
-    icon: ImageVector,
+    @DrawableRes iconRes: Int,
     text: String
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -346,7 +338,7 @@ private fun AboutInstructionRow(
         verticalAlignment = Alignment.Top
     ) {
         Icon(
-            imageVector = icon,
+            painter = painterResource(iconRes),
             contentDescription = null,
             tint = colorScheme.primary,
             modifier = Modifier
@@ -385,31 +377,31 @@ internal fun AboutHowToUseSection(modifier: Modifier = Modifier) {
         )
 
         AboutInstructionRow(
-            icon = Icons.Filled.AlternateEmail,
+            iconRes = R.drawable.ic_spec_person,
             text = stringResource(R.string.about_howto_nickname)
         )
         AboutInstructionRow(
-            icon = Icons.Outlined.Public,
+            iconRes = R.drawable.ic_spec_globe,
             text = stringResource(R.string.about_howto_channels)
         )
         AboutInstructionRow(
-            icon = Icons.Filled.Person,
+            iconRes = R.drawable.ic_spec_people,
             text = stringResource(R.string.about_howto_people)
         )
         AboutInstructionRow(
-            icon = Icons.Outlined.BookmarkBorder,
+            iconRes = R.drawable.ic_spec_bookmark_outline,
             text = stringResource(R.string.about_howto_bookmark)
         )
         AboutInstructionRow(
-            icon = Icons.Filled.AlternateEmail,
+            iconRes = R.drawable.ic_spec_mention,
             text = stringResource(R.string.about_howto_mention)
         )
         AboutInstructionRow(
-            icon = Icons.Filled.Terminal,
+            iconRes = R.drawable.ic_spec_command,
             text = stringResource(R.string.about_howto_commands)
         )
         AboutInstructionRow(
-            icon = Icons.Filled.DeleteForever,
+            iconRes = R.drawable.ic_spec_waveform,
             text = stringResource(R.string.about_howto_panic)
         )
     }
@@ -422,22 +414,22 @@ internal fun AboutHowToUseSection(modifier: Modifier = Modifier) {
 internal fun AboutFeatureCard(modifier: Modifier = Modifier) {
     val features = listOf(
         Triple(
-            Icons.Filled.WifiOff,
+            R.drawable.ic_spec_wifi_off,
             R.string.about_offline_mesh_title,
             R.string.about_offline_mesh_desc
         ),
         Triple(
-            Icons.Outlined.Lock,
+            R.drawable.ic_spec_lock,
             R.string.about_e2e_title,
             R.string.about_e2e_desc
         ),
         Triple(
-            Icons.Outlined.Public,
+            R.drawable.ic_spec_globe,
             R.string.about_online_geohash_title,
             R.string.about_online_geohash_desc
         ),
         Triple(
-            Icons.Outlined.VisibilityOff,
+            R.drawable.ic_spec_eye_off,
             R.string.about_no_tracking_title,
             R.string.about_no_tracking_desc
         ),
@@ -446,7 +438,7 @@ internal fun AboutFeatureCard(modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
         features.forEach { (icon, titleRes, descRes) ->
             AboutFeatureRow(
-                icon = icon,
+                iconRes = icon,
                 title = stringResource(titleRes),
                 subtitle = stringResource(descRes)
             )
@@ -456,7 +448,7 @@ internal fun AboutFeatureCard(modifier: Modifier = Modifier) {
 
 @Composable
 private fun AboutFeatureRow(
-    icon: ImageVector,
+    @DrawableRes iconRes: Int,
     title: String,
     subtitle: String
 ) {
@@ -471,7 +463,7 @@ private fun AboutFeatureRow(
         verticalAlignment = Alignment.Top
     ) {
         Icon(
-            imageVector = icon,
+            painter = painterResource(iconRes),
             contentDescription = null,
             tint = colorScheme.primary,
             modifier = Modifier
@@ -617,4 +609,3 @@ internal fun SheetDestructiveButton(
         }
     }
 }
-
