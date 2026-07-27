@@ -432,4 +432,7 @@
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">Info openen</string>
+  <string name="nearby_notes_reveal">kijk of hier notities zijn achtergelaten</string>
+  <string name="nearby_notes_one">1 notitie hier achtergelaten — tik om te lezen</string>
+  <string name="nearby_notes_many">%d notities hier achtergelaten — tik om te lezen</string>
 </resources>
