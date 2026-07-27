@@ -62,7 +62,7 @@ internal class MeshPingManager(
 
     private fun consumeInboundBudget(link: String): Boolean {
         val now = System.currentTimeMillis()
-        val timestamps = inboundByLink.getOrPut(link) { ArrayDeque() }
+        val timestamps = inboundByLink.computeIfAbsent(link) { ArrayDeque() }
         synchronized(timestamps) {
             while (timestamps.firstOrNull()?.let {
                     now - it >= MeshDiagnosticsConstants.INBOUND_RATE_WINDOW_MILLIS
