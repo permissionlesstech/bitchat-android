@@ -522,7 +522,7 @@ object BinaryProtocol {
                 route = route
             )
             
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             Log.e("BinaryProtocol", "Error decoding packet: ${e.message}")
             return null
         }

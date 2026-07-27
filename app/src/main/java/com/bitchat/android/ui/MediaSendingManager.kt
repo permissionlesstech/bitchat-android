@@ -82,6 +82,22 @@ class MediaSendingManager(
     private var pendingAutomaticTimeoutRequestId: String? = null
 
     /**
+     * Enforce the send-size cap with a user-visible failure.
+     * Returns true if the file is oversized and the send was aborted.
+     */
+    private fun rejectIfOversized(file: java.io.File): Boolean {
+        val size = file.length()
+        if (size <= MAX_FILE_SIZE) return false
+        Log.e(TAG, "❌ File too large: $size bytes (max: $MAX_FILE_SIZE)")
+        val sizeMb = size / (1024 * 1024)
+        val maxMb = MAX_FILE_SIZE / (1024 * 1024)
+        messageManager.addSystemMessage(
+            "cannot send ${file.name}: file is too large (${sizeMb} MB, max $maxMb MB)"
+        )
+        return true
+    }
+
+    /**
      * Send a voice note (audio file)
      */
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
@@ -103,8 +119,7 @@ class MediaSendingManager(
                     return@withContext null
                 }
 
-                if (file.length() > MAX_FILE_SIZE) {
-                    Log.e(TAG, "File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                if (rejectIfOversized(file)) {
                     return@withContext null
                 }
 
@@ -148,8 +163,7 @@ class MediaSendingManager(
                     return@withContext null
                 }
 
-                if (file.length() > MAX_FILE_SIZE) {
-                    Log.e(TAG, "File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                if (rejectIfOversized(file)) {
                     return@withContext null
                 }
 
@@ -193,8 +207,7 @@ class MediaSendingManager(
                     return@withContext null
                 }
 
-                if (file.length() > MAX_FILE_SIZE) {
-                    Log.e(TAG, "File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                if (rejectIfOversized(file)) {
                     return@withContext null
                 }
 
