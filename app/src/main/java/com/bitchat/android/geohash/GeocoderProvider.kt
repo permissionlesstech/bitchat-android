@@ -9,5 +9,10 @@ interface GeocoderProvider {
     /**
      * Get a list of Address objects from latitude and longitude.
      */
-    suspend fun getFromLocation(latitude: Double, longitude: Double, maxResults: Int): List<Address>
+    suspend fun getFromLocation(
+        latitude: Double,
+        longitude: Double,
+        maxResults: Int,
+        liveLocationToken: Long? = null
+    ): List<Address>
 }

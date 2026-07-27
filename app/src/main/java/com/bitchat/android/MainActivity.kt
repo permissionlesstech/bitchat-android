@@ -817,7 +817,7 @@ class MainActivity : OrientationAwareActivity() {
                 val geohash = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_GEOHASH)
                 
                 if (geohash != null) {
-                    Log.d("MainActivity", "Opening geohash chat #$geohash from notification")
+                    Log.d("MainActivity", "Opening geohash chat from notification")
                     
                     // Switch to the geohash channel - create appropriate geohash channel level
                     val level = when (geohash.length) {

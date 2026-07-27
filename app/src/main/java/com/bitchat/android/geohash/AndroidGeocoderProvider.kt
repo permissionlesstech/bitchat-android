@@ -14,27 +14,44 @@ class AndroidGeocoderProvider(context: Context) : GeocoderProvider {
     private val geocoder = Geocoder(context, Locale.getDefault())
     private val TAG = "AndroidGeocoderProvider"
 
-    override suspend fun getFromLocation(latitude: Double, longitude: Double, maxResults: Int): List<Address> {
+    override suspend fun getFromLocation(
+        latitude: Double,
+        longitude: Double,
+        maxResults: Int,
+        liveLocationToken: Long?
+    ): List<Address> {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             suspendCancellableCoroutine { cont ->
                 try {
-                    geocoder.getFromLocation(
-                        latitude,
-                        longitude,
-                        maxResults,
-                        object : Geocoder.GeocodeListener {
-                            override fun onGeocode(addresses: MutableList<Address>) {
-                                if (cont.isActive) cont.resume(addresses)
-                            }
+                    val startRequest = {
+                        geocoder.getFromLocation(
+                            latitude,
+                            longitude,
+                            maxResults,
+                            object : Geocoder.GeocodeListener {
+                                override fun onGeocode(addresses: MutableList<Address>) {
+                                    if (cont.isActive) cont.resume(addresses)
+                                }
 
-                            override fun onError(errorMessage: String?) {
-                                if (cont.isActive) {
-                                    Log.e(TAG, "Geocode error: $errorMessage")
-                                    cont.resume(emptyList())
+                                override fun onError(errorMessage: String?) {
+                                    if (cont.isActive) {
+                                        Log.e(TAG, "Geocode error")
+                                        cont.resume(emptyList())
+                                    }
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
+                    val started = if (liveLocationToken == null) {
+                        startRequest()
+                        true
+                    } else {
+                        LiveLocationPrivacyGate.runIfAllowed(
+                            liveLocationToken,
+                            startRequest
+                        )
+                    }
+                    if (!started && cont.isActive) cont.resume(emptyList())
                 } catch (e: Exception) {
                     if (cont.isActive) cont.resumeWithException(e)
                 }
@@ -42,9 +59,22 @@ class AndroidGeocoderProvider(context: Context) : GeocoderProvider {
         } else {
             @Suppress("DEPRECATION")
             try {
-                geocoder.getFromLocation(latitude, longitude, maxResults) ?: emptyList()
+                var addresses: List<Address> = emptyList()
+                val request = {
+                    addresses = geocoder.getFromLocation(
+                        latitude,
+                        longitude,
+                        maxResults
+                    ) ?: emptyList()
+                }
+                if (liveLocationToken == null) {
+                    request()
+                } else {
+                    LiveLocationPrivacyGate.runIfAllowed(liveLocationToken, request)
+                }
+                addresses
             } catch (e: Exception) {
-                Log.e(TAG, "Geocode failed", e)
+                Log.e(TAG, "Geocode failed")
                 emptyList()
             }
         }

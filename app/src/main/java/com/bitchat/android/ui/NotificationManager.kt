@@ -138,7 +138,7 @@ class NotificationManager(
      */
     fun setCurrentGeohash(geohash: String?) {
         currentGeohash = geohash
-        Log.d(TAG, "Current geohash changed: $geohash")
+        Log.d(TAG, "Current geohash changed")
     }
 
     /**
@@ -446,11 +446,11 @@ class NotificationManager(
         val shouldNotify = isAppInBackground || (!isAppInBackground && currentGeohash != geohash)
 
         if (!shouldNotify) {
-            Log.d(TAG, "Skipping geohash notification - app in foreground and viewing geohash $geohash")
+            Log.d(TAG, "Skipping geohash notification while viewing the channel")
             return
         }
 
-        Log.d(TAG, "Showing geohash notification for $geohash from $senderNickname (mention: $isMention, first: $isFirstMessage)")
+        Log.d(TAG, "Showing geohash notification (mention: $isMention, first: $isFirstMessage)")
 
         val notification = GeohashNotification(
             geohash = geohash,
@@ -652,7 +652,7 @@ class NotificationManager(
             showGeohashSummaryNotification()
         }
 
-        Log.d(TAG, "Cleared notifications for geohash: $geohash")
+        Log.d(TAG, "Cleared notifications for geohash")
     }
 
     /**

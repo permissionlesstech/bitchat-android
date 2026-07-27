@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.bitchat.android.geohash.DEFAULT_LIVE_LOCATION_ENABLED
 import com.google.gson.Gson
 import kotlin.random.Random
 
@@ -54,7 +55,7 @@ class DataManager(private val context: Context) {
     
     fun saveLastGeohashChannel(channelData: String) {
         prefs.edit().putString("last_geohash_channel", channelData).apply()
-        Log.d(TAG, "Saved last geohash channel: $channelData")
+        Log.d(TAG, "Saved last geohash channel")
     }
     
     fun clearLastGeohashChannel() {
@@ -65,12 +66,12 @@ class DataManager(private val context: Context) {
     // MARK: - Location Services State
     
     fun saveLocationServicesEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean("location_services_enabled", enabled).apply()
+        prefs.edit().putBoolean("location_services_enabled", enabled).commit()
         Log.d(TAG, "Saved location services enabled state: $enabled")
     }
     
     fun isLocationServicesEnabled(): Boolean {
-        return prefs.getBoolean("location_services_enabled", true) // Default to enabled
+        return prefs.getBoolean("location_services_enabled", DEFAULT_LIVE_LOCATION_ENABLED)
     }
     
     // MARK: - Channel Data Management
