@@ -58,13 +58,12 @@ import com.bitchat.android.ui.theme.LocalBitchatPalette
 val ChatHeaderHeight = 52.dp
 
 /**
- * The single icon size used by every glyph in the top bar.
+ * The single visible glyph size used by every icon in the top bar.
  *
- * Previously the bar mixed 12/14/16/18.dp icons, which is why it read as a collection of
- * unrelated glyphs rather than one control strip. One size for everything, and large enough to
- * actually see.
+ * The Figma header pairs 16 px icons with compact labels. At our 17sp header scale, 19dp preserves
+ * that icon-to-cap-height relationship without affecting the surrounding 44dp touch targets.
  */
-internal val HeaderIconSize = 22.dp
+internal val HeaderIconSize = 19.dp
 
 /**
  * Text size for the top bar's labels: nickname, channel name, peer count.
@@ -392,7 +391,7 @@ fun PeerCounter(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = modifier
             .clip(HeaderClusterShape)
             .pressScaleClickable(onClick = onClick)
@@ -400,8 +399,8 @@ fun PeerCounter(
             .padding(horizontal = 6.dp)
     ) {
         Icon(
-            // A single silhouette rather than a crowd: at 22.dp a multi-person glyph collapses
-            // into an indistinct blob, and the number beside it already conveys "how many".
+            // The extracted people glyph stays legible at the compact header scale; the number
+            // beside it carries the precise count.
             painter = painterResource(R.drawable.ic_spec_people),
             contentDescription = when (selectedLocationChannel) {
                 is com.bitchat.android.geohash.ChannelID.Location -> stringResource(R.string.cd_geohash_participants)
@@ -696,7 +695,7 @@ private fun LocationChannelsButton(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier
             .clip(HeaderClusterShape)
             .pressScaleClickable(

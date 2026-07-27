@@ -691,7 +691,9 @@ private fun PeerItem(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_spec_star),
+                painter = painterResource(
+                    if (isFavorite) R.drawable.ic_spec_star_filled else R.drawable.ic_spec_star
+                ),
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                 modifier = Modifier.size(PeerRowIconSize),
                 tint = if (isFavorite) palette.accentOrange else palette.textTertiary
@@ -1040,7 +1042,13 @@ fun PrivateChatSheet(
                                 modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(
-                                    painter = painterResource(R.drawable.ic_spec_star),
+                                    painter = painterResource(
+                                        if (isFavorite) {
+                                            R.drawable.ic_spec_star_filled
+                                        } else {
+                                            R.drawable.ic_spec_star
+                                        }
+                                    ),
                                     contentDescription = if (isFavorite) stringResource(R.string.cd_remove_favorite) else stringResource(R.string.cd_add_favorite),
                                     modifier = Modifier.size(16.dp),
                                     tint = if (isFavorite) Color(0xFFFFD700) else colorScheme.onSurface.copy(alpha = 0.6f)
