@@ -598,7 +598,7 @@ private fun MainHeader(
 }
 
 /**
- * Current channel indicator: a globe for geohash channels, a Bluetooth glyph for the local mesh.
+ * Current channel indicator: a globe for geohash channels, a mesh glyph for the local mesh.
  *
  * The design brief asked for the "addition of globe icon to represent channels". Previously this
  * was a text-only badge wrapped in an M3 [Button], which imposed a hidden 58.dp minimum width
@@ -618,18 +618,18 @@ private fun LocationChannelsButton(
     val badgeText = when (val channel = selectedChannel) {
         // Geohashes keep the '#' because that is how they are written and typed everywhere else.
         is com.bitchat.android.geohash.ChannelID.Location -> "#${channel.channel.geohash}"
-        // The local mesh is not a hashtag channel, and the Bluetooth glyph already says what it
-        // is, so it is plain "mesh".
+        // The local mesh is not a hashtag channel, and the mesh glyph already says what it is,
+        // so it is plain "mesh".
         else -> stringResource(R.string.mesh_label)
     }
     val channelColor = if (isLocation) palette.accentGreen else palette.accentBlue
-    // Tor status only tints the globe (location channels). Mesh Bluetooth stays blue.
+    // Tor status only tints the globe (location channels). The local mesh stays blue.
     val torVisual = if (isLocation) {
         rememberTorConnectionVisual(normal = channelColor)
     } else {
         TorConnectionVisual(tint = channelColor, isProgress = false)
     }
-    val badgeIcon = if (isLocation) Icons.Outlined.Public else Icons.Filled.Bluetooth
+    val badgeIcon = if (isLocation) Icons.Outlined.Public else Icons.Filled.Hub
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
