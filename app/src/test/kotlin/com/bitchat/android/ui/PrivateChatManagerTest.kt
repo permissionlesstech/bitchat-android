@@ -10,6 +10,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -125,6 +126,32 @@ class PrivateChatManagerTest {
         assertEquals(
             setOf(unrelatedConversation),
             state.getUnreadPrivateMessagesValue()
+        )
+    }
+
+    @Test
+    fun `canonical conversation send does not require resolved nickname`() {
+        val conversationID =
+            ContactIdentityResolver.contactConversationIdForNoiseKey(ByteArray(32) { 4 })
+        var callbackInvoked = false
+
+        manager.sendPrivateMessage(
+            content = "hello",
+            peerID = conversationID,
+            recipientNickname = null,
+            senderNickname = "bob",
+            myPeerID = "self"
+        ) { content, recipientID, nickname, _ ->
+            callbackInvoked = true
+            assertEquals("hello", content)
+            assertEquals(conversationID, recipientID)
+            assertEquals("", nickname)
+        }
+
+        assertTrue(callbackInvoked)
+        assertEquals(
+            "hello",
+            state.getPrivateChatsValue()[conversationID]?.single()?.content
         )
     }
 }

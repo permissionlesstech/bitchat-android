@@ -542,6 +542,28 @@ class SecurityManagerTest {
         )
     }
 
+    @Test
+    fun `handshake dedup entries expire by time and allow delayed retry`() = runBlocking {
+        val payload = byteArrayOf(0x71, 0x72, 0x73)
+        val routed = handshakePacket(payload)
+
+        assertTrue(securityManager.handleNoiseHandshake(routed))
+        assertTrue(fakeEncryptionService.handshakeCalls == 1)
+
+        assertFalse("Identical frame inside the dedup window must be dropped",
+            securityManager.handleNoiseHandshake(routed))
+        assertTrue(fakeEncryptionService.handshakeCalls == 1)
+
+        securityManager.cleanupOldData(
+            System.currentTimeMillis() +
+                com.bitchat.android.util.AppConstants.Security.KEY_EXCHANGE_DEDUP_TIMEOUT_MS + 1_000
+        )
+
+        assertTrue("Expired dedup entries must not block a delayed retry",
+            securityManager.handleNoiseHandshake(routed))
+        assertTrue(fakeEncryptionService.handshakeCalls == 2)
+    }
+
     private fun setupKnownPeer(peerID: String, signingKey: ByteArray) {
         val info = PeerInfo(
             id = peerID,

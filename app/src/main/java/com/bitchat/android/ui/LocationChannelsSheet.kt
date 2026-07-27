@@ -399,6 +399,18 @@ fun LocationChannelsSheet(
                             AboutSectionLabel(
                                 text = stringResource(R.string.location_channels_nearby)
                             )
+                            if (!appLocationEnabled) {
+                                SheetDestructiveButton(
+                                    text = stringResource(R.string.enable_location_services),
+                                    isDestructive = false,
+                                    onClick = { locationManager.enableLocationServices() },
+                                    modifier = Modifier.padding(
+                                        start = AboutHorizontalPadding,
+                                        end = AboutHorizontalPadding,
+                                        bottom = 10.dp
+                                    )
+                                )
+                            }
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -561,27 +573,19 @@ fun LocationChannelsSheet(
                         }
                     }
 
-                    item(key = "location_toggle") {
-                        SheetDestructiveButton(
-                            text = if (appLocationEnabled) {
-                                stringResource(R.string.disable_location_services)
-                            } else {
-                                stringResource(R.string.enable_location_services)
-                            },
-                            isDestructive = appLocationEnabled,
-                            onClick = {
-                                if (appLocationEnabled) {
-                                    locationManager.disableLocationServices()
-                                } else {
-                                    locationManager.enableLocationServices()
-                                }
-                            },
-                            modifier = Modifier.padding(
-                                start = AboutHorizontalPadding,
-                                end = AboutHorizontalPadding,
-                                top = 24.dp
+                    if (appLocationEnabled) {
+                        item(key = "location_toggle") {
+                            SheetDestructiveButton(
+                                text = stringResource(R.string.disable_location_services),
+                                isDestructive = true,
+                                onClick = { locationManager.disableLocationServices() },
+                                modifier = Modifier.padding(
+                                    start = AboutHorizontalPadding,
+                                    end = AboutHorizontalPadding,
+                                    top = 24.dp
+                                )
                             )
-                        )
+                        }
                     }
                 }
 
