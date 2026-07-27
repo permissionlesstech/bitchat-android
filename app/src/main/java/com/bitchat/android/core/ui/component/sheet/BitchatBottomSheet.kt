@@ -49,7 +49,6 @@ fun BitchatBottomSheet(
                 runCatching { sheetState.hide() }
                 onDismissRequest()
             }
-            Unit
         }
     }
 

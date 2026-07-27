@@ -2,7 +2,6 @@ package com.bitchat.android.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -63,7 +62,7 @@ fun LocationNotesButton(
             modifier = modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .clickable(onClickLabel = contentDescription) { onClick() },
+                .pressScaleClickable(onClick = onClick, onClickLabel = contentDescription),
             contentAlignment = Alignment.Center
         ) {
             TorAwareHeaderIcon(

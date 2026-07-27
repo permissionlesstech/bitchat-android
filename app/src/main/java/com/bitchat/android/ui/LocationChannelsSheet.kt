@@ -169,7 +169,6 @@ fun LocationChannelsSheet(
                     delay(SelectionConfirmDelayMs)
                     animatedDismiss?.invoke() ?: onDismiss()
                 }
-                Unit
             }
 
             Box(modifier = Modifier.fillMaxWidth()) {

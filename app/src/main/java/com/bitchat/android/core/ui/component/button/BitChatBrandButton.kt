@@ -1,8 +1,11 @@
 package com.bitchat.android.core.ui.component.button
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,8 +15,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -45,34 +49,44 @@ fun BitChatBrandButton(
     val interactionSource = remember { MutableInteractionSource() }
     val pressScale = rememberPressScale(interactionSource)
 
-    IconButton(
-        onClick = {
-            tapCount += 1
-            resetJob?.cancel()
+    // A plain Box rather than an IconButton: IconButton insists on drawing a ripple, which was the
+    // only press background left in the header once every other control moved to scale-only
+    // feedback.
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClickLabel = contentDescription
+            ) {
+                tapCount += 1
+                resetJob?.cancel()
 
-            if (tapCount == 3) {
-                tapCount = 0
-                resetJob = null
-                currentOnTripleClick()
-            } else {
-                resetJob = coroutineScope.launch {
-                    delay(MultiClickThreshold)
-                    if (tapCount == 1) {
-                        currentOnClick()
-                    }
+                if (tapCount == 3) {
                     tapCount = 0
                     resetJob = null
+                    currentOnTripleClick()
+                } else {
+                    resetJob = coroutineScope.launch {
+                        delay(MultiClickThreshold)
+                        if (tapCount == 1) {
+                            currentOnClick()
+                        }
+                        tapCount = 0
+                        resetJob = null
+                    }
                 }
-            }
-        },
-        modifier = modifier.scale(pressScale),
-        interactionSource = interactionSource,
+            },
+        contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = BitChatIcon,
             contentDescription = contentDescription,
             tint = tint,
-            modifier = Modifier.size(iconSize),
+            modifier = Modifier
+                .size(iconSize)
+                .scale(pressScale),
         )
     }
 }

@@ -452,21 +452,25 @@ private fun ChannelHeader(
                 .align(Alignment.Center)
                 .clip(HeaderClusterShape)
                 .pressScaleClickable(onClick = onSidebarClick)
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .heightIn(min = HeaderTapTarget)
+                .wrapContentHeight(Alignment.CenterVertically)
+                .padding(horizontal = 10.dp)
         )
 
         // Leave button - positioned on the right
-        TextButton(
-            onClick = onLeaveChannel,
-            modifier = Modifier.align(Alignment.CenterEnd)
-        ) {
-            Text(
-                text = stringResource(R.string.chat_leave),
-                style = MaterialTheme.typography.labelMedium,
-                fontSize = 15.sp,
-                color = palette.accentRed
-            )
-        }
+        Text(
+            text = stringResource(R.string.chat_leave),
+            style = MaterialTheme.typography.labelMedium,
+            fontSize = 15.sp,
+            color = palette.accentRed,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .clip(HeaderClusterShape)
+                .pressScaleClickable(onClick = onLeaveChannel)
+                .heightIn(min = HeaderTapTarget)
+                .wrapContentHeight(Alignment.CenterVertically)
+                .padding(horizontal = 10.dp)
+        )
     }
 }
 
@@ -632,7 +636,10 @@ private fun LocationChannelsButton(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier
             .clip(HeaderClusterShape)
-            .clickable(onClickLabel = stringResource(R.string.location_channels_title)) { onClick() }
+            .pressScaleClickable(
+                onClick = onClick,
+                onClickLabel = stringResource(R.string.location_channels_title)
+            )
             .height(HeaderTapTarget)
             // No start padding: the notes icon is paired directly to the left; keep end
             // padding so the gap to PeerCounter matches other cluster separations.
