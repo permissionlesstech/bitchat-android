@@ -72,6 +72,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
+import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.services.VerificationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -235,7 +236,8 @@ private fun VerificationHeader(
             fontFamily = FontFamily.Monospace,
             color = accent
         )
-        CloseButton(onClick = onClose)
+        val dismiss = LocalSheetDismiss.current
+        CloseButton(onClick = { dismiss?.invoke() ?: onClose() })
     }
 }
 

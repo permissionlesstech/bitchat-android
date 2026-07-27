@@ -27,20 +27,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.res.stringResource
-import com.bitchat.android.R
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.BitChatBrandButton
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
@@ -96,7 +97,7 @@ private fun HeaderIconButton(
         modifier = modifier
             .size(HeaderTapTarget)
             .clip(CircleShape)
-            .clickable(onClickLabel = contentDescription) { onClick() },
+            .pressScaleClickable(onClick = onClick, onClickLabel = contentDescription),
         contentAlignment = Alignment.Center
     ) {
         content()
@@ -167,14 +168,27 @@ internal fun TorAwareHeaderIcon(
         1f
     }
 
-    Box(contentAlignment = Alignment.Center, modifier = modifier) {
+    // Fixed layout footprint = icon size. Glow is drawn larger via requiredSize so it never
+    // pushes neighbouring text when the pulse starts/stops.
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.size(HeaderIconSize)
+    ) {
         if (isProgress) {
-            // Soft halo behind the glyph — opacity tracks the pulse, never solid.
+            val glowBrush = remember(tint) {
+                Brush.radialGradient(
+                    colorStops = arrayOf(
+                        0.0f to tint.copy(alpha = 0.55f),
+                        0.45f to tint.copy(alpha = 0.22f),
+                        1.0f to Color.Transparent,
+                    )
+                )
+            }
             Box(
                 modifier = Modifier
-                    .size(HeaderIconSize + 10.dp)
-                    .graphicsLayer { alpha = pulse * 0.28f }
-                    .background(tint.copy(alpha = 1f), CircleShape)
+                    .requiredSize(HeaderIconSize + 14.dp)
+                    .graphicsLayer { alpha = pulse * 0.85f }
+                    .background(glowBrush)
             )
         }
         Icon(
@@ -183,7 +197,6 @@ internal fun TorAwareHeaderIcon(
             modifier = Modifier
                 .size(HeaderIconSize)
                 .graphicsLayer {
-                    // Pulse icon opacity gently when in progress; settle to full when idle.
                     alpha = if (isProgress) 0.55f + pulse * 0.45f else 1f
                 },
             tint = tint
@@ -323,7 +336,7 @@ fun PeerCounter(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         modifier = modifier
             .clip(HeaderClusterShape)
-            .clickable { onClick() }
+            .pressScaleClickable(onClick = onClick)
             .height(HeaderTapTarget)
             .padding(horizontal = 6.dp)
     ) {
@@ -438,7 +451,7 @@ private fun ChannelHeader(
             modifier = Modifier
                 .align(Alignment.Center)
                 .clip(HeaderClusterShape)
-                .clickable { onSidebarClick() }
+                .pressScaleClickable(onClick = onSidebarClick)
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         )
 
@@ -498,20 +511,27 @@ private fun MainHeader(
                 modifier = Modifier.size(HeaderTapTarget),
             )
 
-            Text(
-                text = "/",
-                style = MaterialTheme.typography.bodyMedium,
-                fontSize = HeaderTextSize,
-                // Dimmed: the slash is a separator, not content. At full brightness it competed
-                // with the nickname beside it.
-                color = colorScheme.primary.copy(alpha = 0.45f),
-                modifier = Modifier.padding(horizontal = 2.dp)
-            )
+            // Nudge toward the brand glyph: the 44.dp tap target leaves more optical gap than
+            // spacing between the mark and the path label.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.offset(x = (-6).dp)
+            ) {
+                Text(
+                    text = "/",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = HeaderTextSize,
+                    // Dimmed: the slash is a separator, not content. At full brightness it competed
+                    // with the nickname beside it.
+                    color = colorScheme.primary.copy(alpha = 0.45f),
+                    modifier = Modifier.padding(end = 2.dp)
+                )
 
-            NicknameEditor(
-                value = nickname,
-                onValueChange = onNicknameChange
-            )
+                NicknameEditor(
+                    value = nickname,
+                    onValueChange = onNicknameChange
+                )
+            }
         }
 
         // MARK: - Status cluster.

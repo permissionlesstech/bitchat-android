@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
+import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 
 private data class SecurityStatusInfo(
@@ -161,7 +162,8 @@ private fun SecurityVerificationHeader(
             color = accent
         )
         Spacer(modifier = Modifier.weight(1f))
-        CloseButton(onClick = onClose)
+        val dismiss = LocalSheetDismiss.current
+        CloseButton(onClick = { dismiss?.invoke() ?: onClose() })
     }
 }
 

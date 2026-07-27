@@ -5,12 +5,18 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.LocationOn
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -19,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
+import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import java.util.*
 
@@ -92,14 +99,15 @@ fun GeohashPeopleList(
                 }
             }
 
+            // Self first, then anyone who chose a nickname, then the anons — all by recency
+            // within their group. A busy geohash is mostly anonymous drive-by participants, and
+            // letting them sort by recency alone buried the handful of people worth recognising.
             val orderedPeople = remember(geohashPeople, myHex) {
-                geohashPeople.sortedWith { a, b ->
-                    when {
-                        myHex != null && a.id == myHex && b.id != myHex -> -1
-                        myHex != null && b.id == myHex && a.id != myHex -> 1
-                        else -> b.lastSeen.compareTo(a.lastSeen)
-                    }
-                }
+                geohashPeople.sortedWith(
+                    compareByDescending<GeoPerson> { myHex != null && it.id == myHex }
+                        .thenBy { it.isAnonymous() }
+                        .thenByDescending { it.lastSeen }
+                )
             }
 
             val baseNameCounts = remember(geohashPeople) {
@@ -145,21 +153,7 @@ fun GeohashPeopleList(
                     icon = Icons.Outlined.LocationOn,
                     title = stringResource(R.string.section_on_location)
                 )
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = AboutHorizontalPadding)
-                        .padding(top = 10.dp),
-                    color = palette.surface,
-                    shape = AboutCardShape
-                ) {
-                    Column {
-                        localPeople.forEachIndexed { index, person ->
-                            if (index > 0) SheetCardDivider()
-                            personRow(person)
-                        }
-                    }
-                }
+                PeopleCard(people = localPeople, row = { personRow(it) })
             }
 
             if (teleportedPeople.isNotEmpty()) {
@@ -168,21 +162,102 @@ fun GeohashPeopleList(
                     title = stringResource(R.string.section_teleported_in),
                     modifier = Modifier.padding(top = if (localPeople.isNotEmpty()) 20.dp else 0.dp)
                 )
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = AboutHorizontalPadding)
-                        .padding(top = 10.dp),
-                    color = palette.surface,
-                    shape = AboutCardShape
-                ) {
-                    Column {
-                        teleportedPeople.forEachIndexed { index, person ->
-                            if (index > 0) SheetCardDivider()
-                            personRow(person)
+                PeopleCard(people = teleportedPeople, row = { personRow(it) })
+            }
+        }
+    }
+}
+
+/** Anonymous participants beyond this many are hidden behind the "n more" affordance. */
+internal const val MaxVisibleAnons = 5
+
+/**
+ * Whether this participant never set a nickname.
+ *
+ * The app labels them `anon` or `anon1234` before the `#abcd` disambiguator, so the base name is
+ * what identifies them.
+ */
+internal fun GeoPerson.isAnonymous(): Boolean {
+    val base = splitSuffix(displayName).first
+    return base == "anon" || (base.startsWith("anon") && base.drop(4).all { it.isDigit() })
+}
+
+/**
+ * One grouped card of people, with a cap on how many anonymous participants are shown.
+ *
+ * A popular geohash can hold dozens of anons, which pushed everyone worth recognising off screen and
+ * turned the sheet into a wall of near-identical rows. Named participants are always listed in full;
+ * anons are trimmed to [MaxVisibleAnons], and the overflow is collapsed behind a count. The last
+ * visible anon fades out under a gradient so the truncation is legible as truncation rather than
+ * looking like the list simply ended.
+ */
+@Composable
+private fun PeopleCard(
+    people: List<GeoPerson>,
+    row: @Composable (GeoPerson) -> Unit
+) {
+    val palette = LocalBitchatPalette.current
+
+    val named = people.filterNot { it.isAnonymous() }
+    val anons = people.filter { it.isAnonymous() }
+    val visibleAnons = anons.take(MaxVisibleAnons)
+    val hiddenAnonCount = anons.size - visibleAnons.size
+    val visible = named + visibleAnons
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = AboutHorizontalPadding)
+            .padding(top = 10.dp),
+        color = palette.surface,
+        shape = AboutCardShape
+    ) {
+        Column {
+            AnimatedRowColumn(items = visible, key = { it.id }) { index, person ->
+                Column {
+                    if (index > 0) SheetCardDivider()
+                    if (hiddenAnonCount > 0 && index == visible.lastIndex) {
+                        // Fade only the final row, so the gradient reads as "the list continues"
+                        // rather than dimming content that is still meant to be read.
+                        Box {
+                            row(person)
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                palette.surface.copy(alpha = 0f),
+                                                palette.surface.copy(alpha = 0.85f)
+                                            )
+                                        )
+                                    )
+                            )
                         }
+                    } else {
+                        row(person)
                     }
                 }
+            }
+
+            AnimatedVisibility(
+                visible = hiddenAnonCount > 0,
+                enter = fadeIn(tween(BitchatMotion.STANDARD_MS)),
+                exit = fadeOut(tween(BitchatMotion.QUICK_MS))
+            ) {
+                Text(
+                    text = stringResource(R.string.people_n_more, hiddenAnonCount),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    color = palette.textTertiary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = SheetRowHorizontal,
+                            end = SheetRowHorizontal,
+                            bottom = SheetRowVertical
+                        )
+                )
             }
         }
     }

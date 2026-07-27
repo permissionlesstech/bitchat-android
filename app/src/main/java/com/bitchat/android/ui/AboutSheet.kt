@@ -5,6 +5,8 @@ import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -30,6 +32,7 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
+import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
@@ -101,17 +104,43 @@ private fun SettingsToggleRow(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val palette = LocalBitchatPalette.current
+    val interactionSource = remember { MutableInteractionSource() }
+
+    // Colours cross-fade so a row becoming available (Tor finishing bootstrap) eases in rather
+    // than popping.
+    val iconTint by animateColorAsState(
+        targetValue = if (enabled) colorScheme.primary else palette.textTertiary,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "settingsRowIcon"
+    )
+    val titleColor by animateColorAsState(
+        targetValue = if (enabled) palette.textPrimary else palette.textTertiary,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "settingsRowTitle"
+    )
+    val subtitleColor by animateColorAsState(
+        targetValue = if (enabled) palette.textSecondary else palette.textTertiary,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "settingsRowSubtitle"
+    )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            // The whole row toggles, not just the switch: a 14.dp-tall switch is a poor target
+            // when there is a full-width row sitting right next to it.
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = enabled
+            ) { onCheckedChange(!checked) }
             .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (enabled) colorScheme.primary else palette.textTertiary,
+            tint = iconTint,
             modifier = Modifier.size(22.dp)
         )
 
@@ -130,7 +159,7 @@ private fun SettingsToggleRow(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (enabled) palette.textPrimary else palette.textTertiary
+                    color = titleColor
                 )
                 statusIndicator?.invoke()
             }
@@ -138,7 +167,7 @@ private fun SettingsToggleRow(
                 text = subtitle,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 12.sp,
-                color = if (enabled) palette.textSecondary else palette.textTertiary,
+                color = subtitleColor,
                 lineHeight = 17.sp
             )
         }
@@ -149,6 +178,7 @@ private fun SettingsToggleRow(
             checked = checked,
             onCheckedChange = { if (enabled) onCheckedChange(it) },
             enabled = enabled,
+            interactionSource = interactionSource,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = palette.accentGreen,
@@ -416,7 +446,8 @@ fun AboutSheet(
                                                 fontWeight = FontWeight.Medium,
                                                 color = palette.textPrimary
                                             )
-                                            Text(
+                                            AnimatedCountLabel(
+                                                count = powDifficulty,
                                                 text = stringResource(
                                                     R.string.about_difficulty_value,
                                                     powDifficulty,
@@ -440,7 +471,8 @@ fun AboutSheet(
                                             )
                                         )
 
-                                        Text(
+                                        AnimatedCountLabel(
+                                            count = powDifficulty,
                                             text = when {
                                                 powDifficulty == 0 -> stringResource(R.string.about_pow_desc_none)
                                                 powDifficulty <= 8 -> stringResource(R.string.about_pow_desc_very_low)
@@ -560,8 +592,9 @@ fun AboutSheet(
                         .height(64.dp)
                         .background(palette.background.copy(alpha = topBarAlpha))
                 ) {
+                    val dismiss = LocalSheetDismiss.current
                     CloseButton(
-                        onClick = onDismiss,
+                        onClick = { dismiss?.invoke() ?: onDismiss() },
                         modifier = modifier
                             .align(Alignment.CenterEnd)
                             .padding(horizontal = 16.dp),

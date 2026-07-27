@@ -448,11 +448,21 @@ fun PeopleSection(
                 if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
 
-        var peerIndex = 0
+        // Every row this card will show, in final order, so the animated list can key on identity
+        // and animate reordering. Offline favourites are appended after the connected peers.
+        // Collected once for the whole card rather than once per row.
+        val directMap by viewModel.peerDirect.collectAsStateWithLifecycle()
 
-        sortedPeers.forEach { peerID ->
-            if (peerIndex > 0) SheetCardDivider()
-            peerIndex++
+        val offlineFavoriteRows = offlineFavorites.filterNot { isFavoriteMappedToConnected(it) }
+        val rowKeys: List<String> = sortedPeers +
+            offlineFavoriteRows.map { ContactIdentityResolver.noiseKeyHex(it.peerNoisePublicKey) }
+
+        AnimatedRowColumn(items = rowKeys, key = { it }) { rowIndex, rowKey ->
+        Column {
+        if (rowIndex > 0) SheetCardDivider()
+        val connectedPeerForRow = sortedPeers.firstOrNull { it == rowKey }
+        if (connectedPeerForRow != null) {
+            val peerID = connectedPeerForRow
             val conversationID = ContactDirectory.canonicalConversationId(peerID)
             val isFavorite = peerFavoriteStates[peerID] ?: false
             val isVerified = peerVerifiedStates[peerID] ?: false
@@ -472,7 +482,6 @@ fun PeopleSection(
             val (bName, _) = splitSuffix(displayName)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
-            val directMap by viewModel.peerDirect.collectAsStateWithLifecycle()
             val isDirectLive = directMap[peerID] ?: try { viewModel.getMeshPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false }
             PeerItem(
                 peerID = peerID,
@@ -494,15 +503,12 @@ fun PeopleSection(
                 showNostrGlobe = false,
                 showHashSuffix = showHash
             )
-        }
-
-        // Append offline favorites we actively favorite (and not currently connected)
-        offlineFavorites.forEach { fav ->
-            val favPeerID = ContactIdentityResolver.noiseKeyHex(fav.peerNoisePublicKey)
-            if (isFavoriteMappedToConnected(fav)) return@forEach
-
-            if (peerIndex > 0) SheetCardDivider()
-            peerIndex++
+        } else {
+            // Offline favourite: still worth showing, reachable over Nostr.
+            val fav = offlineFavoriteRows.first {
+                ContactIdentityResolver.noiseKeyHex(it.peerNoisePublicKey) == rowKey
+            }
+            val favPeerID = rowKey
 
             val nostrConvKey: String? = try {
                 FavoritesPersistenceService.shared.findNostrPubkey(fav.peerNoisePublicKey)
@@ -546,6 +552,8 @@ fun PeopleSection(
                 showNostrGlobe = (fav.isMutual && fav.peerNostrPublicKey != null),
                 showHashSuffix = showHash
             )
+        }
+        }
         }
             }
         }

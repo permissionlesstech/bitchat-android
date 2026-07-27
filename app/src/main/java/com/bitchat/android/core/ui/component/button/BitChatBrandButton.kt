@@ -12,11 +12,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.core.ui.icon.BitChatIcon
+import com.bitchat.android.ui.rememberPressScale
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -39,6 +42,9 @@ fun BitChatBrandButton(
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnTripleClick by rememberUpdatedState(onTripleClick)
 
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressScale = rememberPressScale(interactionSource)
+
     IconButton(
         onClick = {
             tapCount += 1
@@ -59,7 +65,8 @@ fun BitChatBrandButton(
                 }
             }
         },
-        modifier = modifier,
+        modifier = modifier.scale(pressScale),
+        interactionSource = interactionSource,
     ) {
         Icon(
             imageVector = BitChatIcon,

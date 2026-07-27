@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.CompositionLocalProvider
 import com.bitchat.android.core.ui.component.button.CloseButton
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,8 +31,9 @@ fun BitchatSheetTopBar(
         navigationIcon = { navigationIcon?.invoke() },
         actions = {
             actions()
+            val dismiss = LocalSheetDismiss.current
             CloseButton(
-                onClick = onClose,
+                onClick = { dismiss?.invoke() ?: onClose() },
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
         },
@@ -59,8 +61,9 @@ fun BitchatSheetCenterTopBar(
         navigationIcon = { navigationIcon?.invoke() },
         actions = {
             actions()
+            val dismiss = LocalSheetDismiss.current
             CloseButton(
-                onClick = onClose,
+                onClick = { dismiss?.invoke() ?: onClose() },
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
         },

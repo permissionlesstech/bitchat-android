@@ -1,5 +1,14 @@
 package com.bitchat.android.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Hub
@@ -43,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashBookmarksStore
@@ -54,6 +64,7 @@ import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -67,6 +78,14 @@ private val ChannelRowVertical = SheetRowVertical
 private val ChannelDividerInset = SheetRowDividerInset
 /** 2× the previous 6.dp selected indicator; sits centered in [ChannelLeadingSlot]. */
 private val ChannelSelectedDot = SheetRowSelectedDot
+
+/**
+ * Pause between applying a channel selection and dismissing the sheet.
+ *
+ * Just enough for the active dot to land on the chosen row, so the tap is acknowledged rather than
+ * answered by the sheet simply disappearing.
+ */
+private const val SelectionConfirmDelayMs = 180L
 
 /**
  * Location Channels sheet: grouped card rows matching About → Settings.
@@ -141,6 +160,18 @@ fun LocationChannelsSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
         ) {
+            // Selection is applied immediately so the active dot snaps to the new row, then the
+            // sheet slides away after a beat. Long enough to register the change, short enough
+            // that it never feels like waiting.
+            val animatedDismiss = LocalSheetDismiss.current
+            val confirmSelectionThenDismiss: () -> Unit = {
+                coroutineScope.launch {
+                    delay(SelectionConfirmDelayMs)
+                    animatedDismiss?.invoke() ?: onDismiss()
+                }
+                Unit
+            }
+
             Box(modifier = Modifier.fillMaxWidth()) {
                 LazyColumn(
                     state = listState,
@@ -324,9 +355,22 @@ fun LocationChannelsSheet(
                                 }
                             }
 
-                            if (customError != null) {
+                            AnimatedVisibility(
+                                visible = customError != null,
+                                enter = fadeIn(tween(BitchatMotion.STANDARD_MS)) +
+                                    expandVertically(
+                                        tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing)
+                                    ),
+                                exit = fadeOut(tween(BitchatMotion.QUICK_MS)) +
+                                    shrinkVertically(
+                                        tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing)
+                                    )
+                            ) {
+                                // Held across the exit animation: by the time it plays, the error
+                                // itself has already been cleared.
+                                val shownError = remember(customError) { customError ?: "" }
                                 Text(
-                                    text = customError!!,
+                                    text = shownError,
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace,
                                     color = palette.accentRed,
@@ -658,7 +702,24 @@ private fun CustomGeohashRow(
     val palette = LocalBitchatPalette.current
     val normalized = customGeohash.trim().lowercase().replace("#", "")
     val isValid = validateGeohash(normalized)
-    val teleportColor = if (isValid) colorScheme.primary else palette.textTertiary
+    // Typing the last character of a valid geohash arms the button; cross-fading both the label
+    // and its container makes that the moment the row confirms the input is usable.
+    val teleportColor by animateColorAsState(
+        targetValue = if (isValid) colorScheme.primary else palette.textTertiary,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "teleportLabel"
+    )
+    val teleportContainer by animateColorAsState(
+        targetValue = if (isValid) {
+            colorScheme.primary.copy(alpha = 0.16f)
+        } else {
+            palette.surfaceVariant
+        },
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "teleportContainer"
+    )
+    val teleportInteraction = remember { MutableInteractionSource() }
+    val teleportScale = rememberPressScale(teleportInteraction, pressedScale = 0.92f)
 
     Row(
         modifier = Modifier
@@ -718,7 +779,8 @@ private fun CustomGeohashRow(
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .clickable(onClick = onOpenMap),
+                .clip(CircleShape)
+                .pressScaleClickable(onClick = onOpenMap),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -733,7 +795,9 @@ private fun CustomGeohashRow(
             onClick = onTeleport,
             enabled = isValid,
             shape = RoundedCornerShape(8.dp),
-            color = palette.surfaceVariant
+            color = teleportContainer,
+            interactionSource = teleportInteraction,
+            modifier = Modifier.scale(teleportScale)
         ) {
             Text(
                 text = stringResource(R.string.teleport).uppercase(),
