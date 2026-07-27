@@ -30,6 +30,9 @@ internal fun interface NostrPrivateMessageSender {
     )
 }
 
+@JvmInline
+internal value class MessageRouterResetToken(val epoch: Long)
+
 class MessageRouter internal constructor(
     private val context: Context,
     private var mesh: MeshService,
@@ -508,22 +511,30 @@ class MessageRouter internal constructor(
 
     /** Panic/reset must invalidate callbacks from the previous account and drop plaintext. */
     @Synchronized
-    fun discardForAccountReset(): Long {
+    internal fun discardForAccountReset(): MessageRouterResetToken {
         stopOutboxScheduler()
         accountResetBlocked = true
         outboxEpoch += 1
         inFlightNostrAttempts.clear()
         outbox.clear()
         retryState.clear()
-        return outboxEpoch
+        return MessageRouterResetToken(outboxEpoch)
     }
 
     @Synchronized
-    fun completeAccountReset(resetToken: Long): Boolean {
-        if (resetToken != outboxEpoch) return false
+    internal fun completeAccountReset(resetToken: MessageRouterResetToken): Boolean {
+        if (resetToken.epoch != outboxEpoch) return false
         accountResetBlocked = false
         startOutboxScheduler()
         return true
+    }
+
+    @Synchronized
+    internal fun installReplacementMeshForAccountReset(replacement: MeshService) {
+        check(accountResetBlocked) {
+            "Replacement mesh may only be installed behind an account reset barrier"
+        }
+        mesh = replacement
     }
 
     internal val queuedMessageCount: Int

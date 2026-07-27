@@ -23,6 +23,9 @@ class BitchatApplication : Application() {
             return
         }
 
+        // Start the single process-wide power policy before transport components are constructed.
+        com.bitchat.android.mesh.PowerManager.getInstance(this).start()
+
         // Initialize Tor first so any early network goes over Tor
         try {
             val torProvider = ArtiTorManager.getInstance()
@@ -76,6 +79,10 @@ class BitchatApplication : Application() {
             com.bitchat.android.nostr.GeohashAliasRegistry.initialize(this)
             com.bitchat.android.nostr.GeohashConversationRegistry.initialize(this)
         } catch (_: Exception) { }
+
+        // Own relay connectivity, selected-channel subscriptions, and presence scheduling at the
+        // process level so closing the Activity does not disconnect Nostr.
+        try { com.bitchat.android.nostr.NostrBackgroundRuntime.initialize(this) } catch (_: Exception) { }
 
         // Initialize mesh service preferences
         try { com.bitchat.android.service.MeshServicePreferences.init(this) } catch (_: Exception) { }

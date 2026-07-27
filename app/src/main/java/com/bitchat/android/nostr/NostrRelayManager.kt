@@ -2,23 +2,28 @@ package com.bitchat.android.nostr
 
 import android.util.Log
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
-import com.google.gson.Gson
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import com.google.gson.JsonArray
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.google.gson.JsonParser
 import kotlinx.coroutines.*
 import okhttp3.*
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.min
 import kotlin.math.pow
 
 internal fun isNip20ConfirmedSuccess(accepted: Boolean, message: String?): Boolean =
     accepted || message?.startsWith("duplicate:") == true
+
+internal class RelayAccountResetToken internal constructor(
+    internal val generation: Long
+)
 
 /**
  * Manages WebSocket connections to Nostr relays
@@ -34,13 +39,17 @@ class NostrRelayManager internal constructor(
     companion object {
         @JvmStatic
         val shared = NostrRelayManager()
-        
+
         private const val TAG = "NostrRelayManager"
+        private const val MAX_QUEUED_EVENTS = 500
+        const val OWNER_LEGACY = "legacy"
+        const val OWNER_BACKGROUND = "background"
         
         /**
          * Get instance for Android compatibility (context-aware calls)
          */
         fun getInstance(context: android.content.Context): NostrRelayManager {
+            shared.appContext = context.applicationContext
             return shared
         }
 
@@ -58,7 +67,7 @@ class NostrRelayManager internal constructor(
         private const val BACKOFF_MULTIPLIER = com.bitchat.android.util.AppConstants.Nostr.BACKOFF_MULTIPLIER
         private const val MAX_RECONNECT_ATTEMPTS = com.bitchat.android.util.AppConstants.Nostr.MAX_RECONNECT_ATTEMPTS
         private const val CONFIRMED_PUBLISH_TIMEOUT_MS = 15_000L
-        
+
         fun defaultRelays(): List<String> = DEFAULT_RELAYS
     }
     
@@ -87,11 +96,13 @@ class NostrRelayManager internal constructor(
     // Internal state
     private val relaysList = mutableListOf<Relay>()
     private val connections = ConcurrentHashMap<String, WebSocket>()
+    private val reconnectJobs = ConcurrentHashMap<String, Job>()
+    private val desiredConnected = AtomicBoolean(false)
     private val subscriptions = ConcurrentHashMap<String, Set<String>>() // relay URL -> subscription IDs
     private val messageHandlers = ConcurrentHashMap<String, (NostrEvent) -> Unit>()
     private val commitAwareMessageHandlers =
         ConcurrentHashMap<String, (NostrEvent) -> Boolean>()
-    private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
+    private val pendingGiftWrapGenerations = ConcurrentHashMap<String, Long>()
     
     // Persistent subscription tracking for robust reconnection
     private val activeSubscriptions = ConcurrentHashMap<String, SubscriptionInfo>() // subscription ID -> info
@@ -105,24 +116,21 @@ class NostrRelayManager internal constructor(
         val handler: (NostrEvent) -> Unit,
         val targetRelayUrls: Set<String>? = null, // null means all relays
         val createdAt: Long = System.currentTimeMillis(),
-        val liveLocationToken: Long? = null
-    )
-    
-    // Message queue for reliability
-    private data class QueuedEvent(
-        val event: NostrEvent,
-        val targetRelays: List<String>,
+        val originGeohash: String? = null,
+        val owner: String = OWNER_LEGACY,
         val liveLocationToken: Long? = null,
         val accountGeneration: Long
     )
 
-    private val messageQueue = mutableListOf<QueuedEvent>()
-    private val messageQueueLock = Any()
+    // Bounded per-relay delivery queue for reconnect reliability.
+    private val messageQueue = NostrPendingEventQueue(MAX_QUEUED_EVENTS)
+
     private val accountGeneration = AtomicLong(0L)
     private val accountGenerationLock = Any()
     private val accountResetOperationLock = Any()
-    @Volatile
-    private var accountResetBlocked = false
+    @Volatile private var accountResetBlocked = false
+    private var preparedResetGeneration = Long.MIN_VALUE
+    private var discardedResetGeneration = Long.MIN_VALUE
 
     private data class ConfirmedPublish(
         val awaitingRelayUrls: MutableSet<String>,
@@ -137,19 +145,26 @@ class NostrRelayManager internal constructor(
         val ordinaryHandler: ((NostrEvent) -> Unit)?
     )
 
-    private data class DisconnectionOutcome(
-        val confirmedCompletions: List<Pair<String, ConfirmedPublish>>,
-        val reconnectDelayMs: Long?,
-        val connectionToken: Long?
+    private val confirmedPublishes = ConcurrentHashMap<String, ConfirmedPublish>()
+
+    private data class AccountResetCleanup(
+        val jobs: List<Job>,
+        val sockets: List<WebSocket>,
+        val confirmedPublishes: List<ConfirmedPublish>
     )
 
-    private val confirmedPublishes = ConcurrentHashMap<String, ConfirmedPublish>()
-    @Volatile
-    private var ndrConnectionAvailableHandler: (() -> Unit)? = null
+    private data class NdrConnectionHandler(
+        val accountGeneration: Long,
+        val callback: () -> Unit
+    )
+
+    @Volatile private var ndrConnectionAvailableHandler: NdrConnectionHandler? = null
     
     // Subscription validation timer
     private var subscriptionValidationJob: Job? = null
-    private val SUBSCRIPTION_VALIDATION_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.SUBSCRIPTION_VALIDATION_INTERVAL_MS // 30 seconds
+    private val powerManager: com.bitchat.android.mesh.PowerManager?
+        get() = appContext?.let { com.bitchat.android.mesh.PowerManager.getInstance(it) }
+    @Volatile private var appContext: android.content.Context? = null
     
     // OkHttp client for WebSocket connections (via provider to honor Tor)
     private val httpClient: OkHttpClient
@@ -210,11 +225,7 @@ class NostrRelayManager internal constructor(
                     }
                 }
                 if (registered) {
-                    ensureConnectionsFor(
-                        selected,
-                        liveLocationToken,
-                        generation
-                    )
+                    ensureConnectionsFor(selected, liveLocationToken, generation)
                 }
             }
         } catch (e: Exception) {
@@ -239,6 +250,7 @@ class NostrRelayManager internal constructor(
         handler: (NostrEvent) -> Unit,
         includeDefaults: Boolean = false,
         nRelays: Int = 5,
+        owner: String = OWNER_LEGACY,
         liveLocationToken: Long? = null,
         expectedAccountGeneration: Long = accountGeneration.get()
     ): String {
@@ -252,15 +264,19 @@ class NostrRelayManager internal constructor(
             liveLocationToken,
             generation
         )
-        if (!isNetworkActionAllowed(liveLocationToken)) return id
+        if (!isCurrentAccountGeneration(generation) ||
+            !isNetworkActionAllowed(liveLocationToken)
+        ) return id
         val relayUrls = getRelaysForGeohash(geohash)
         return subscribe(
             filter = filter,
             id = id,
             handler = handler,
             targetRelayUrls = relayUrls,
+            owner = owner,
             liveLocationToken = liveLocationToken,
-            expectedAccountGeneration = generation
+            expectedAccountGeneration = generation,
+            originGeohash = geohash
         )
     }
 
@@ -285,7 +301,9 @@ class NostrRelayManager internal constructor(
             liveLocationToken,
             generation
         )
-        if (!isNetworkActionAllowed(liveLocationToken)) return
+        if (!isCurrentAccountGeneration(generation) ||
+            !isNetworkActionAllowed(liveLocationToken)
+        ) return
         val relayUrls = getRelaysForGeohash(geohash)
         if (relayUrls.isEmpty()) {
             Log.w(TAG, "No target relays for geohash event; falling back to defaults")
@@ -333,18 +351,36 @@ class NostrRelayManager internal constructor(
         )
         closeTargets.forEach { (relayUrl, relaySubscriptionIds) ->
             val webSocket = connections[relayUrl] ?: return@forEach
-            relaySubscriptionIds.forEach { subscriptionId ->
+            for (subscriptionId in relaySubscriptionIds) {
+                if (!isCurrentAccountGeneration(generation) ||
+                    connections[relayUrl] !== webSocket
+                ) return
                 val request = NostrRequest.Close(subscriptionId)
                 val message = gson.toJson(request, NostrRequest::class.java)
-                var closeQueued = false
-                synchronized(accountGenerationLock) {
-                    if (!isCurrentAccountGeneration(generation)) return
-                    closeQueued = runCatching { webSocket.send(message) }
-                        .getOrDefault(false)
-                }
+                val closeQueued = runCatching { webSocket.send(message) }
+                    .getOrDefault(false)
                 if (!closeQueued) {
                     connections.remove(relayUrl, webSocket)
+                    subscriptions.remove(relayUrl)
                     webSocket.cancel()
+                    updateRelayStatus(
+                        relayUrl,
+                        isConnected = false,
+                        error = IllegalStateException("Failed to close revoked subscription")
+                    )
+                    if (desiredConnected.get() &&
+                        relayUrl in nonLiveRelayUrls &&
+                        isCurrentAccountGeneration(generation)
+                    ) {
+                        scope.launch {
+                            connectToRelay(
+                                relayUrl,
+                                liveLocationToken = null,
+                                generation = generation
+                            )
+                        }
+                    }
+                    break
                 }
             }
         }
@@ -352,35 +388,50 @@ class NostrRelayManager internal constructor(
 
     private fun revokeLiveLocationAccess() {
         val generation = accountGeneration.get()
-        liveLocationConnectionJobs.forEach(Job::cancel)
-        liveLocationConnectionJobs.clear()
+        if (!isCurrentAccountGeneration(generation)) return
 
         val liveSubscriptionIds = activeSubscriptions.values
             .filter { it.liveLocationToken != null }
             .mapTo(mutableSetOf()) { it.id }
         closeSubscriptionsOnConnectedRelays(liveSubscriptionIds, generation)
-        liveSubscriptionIds.forEach { id ->
-            activeSubscriptions.remove(id)
-            messageHandlers.remove(id)
-        }
-        subscriptions.replaceAll { _, ids -> ids - liveSubscriptionIds }
+        val (socketsToCancel, reconnectsToCancel, connectionJobsToCancel) =
+            synchronized(accountGenerationLock) {
+                if (!isCurrentAccountGeneration(generation)) return
+                liveSubscriptionIds.forEach { id ->
+                    val subscription = activeSubscriptions[id]
+                    if (subscription?.accountGeneration == generation) {
+                        activeSubscriptions.remove(id, subscription)
+                        messageHandlers.remove(id)
+                        commitAwareMessageHandlers.remove(id)
+                    }
+                }
+                subscriptions.replaceAll { _, ids -> ids - liveSubscriptionIds }
 
-        synchronized(messageQueueLock) {
-            messageQueue.removeAll { it.liveLocationToken != null }
-        }
+                messageQueue.removeLiveLocationEvents(generation)
 
-        liveGeohashTokens.keys.forEach(geohashToRelays::remove)
-        liveGeohashTokens.clear()
+                liveGeohashTokens.keys.forEach(geohashToRelays::remove)
+                liveGeohashTokens.clear()
 
-        val liveOnlyRelayUrls = liveLocationRelayTokens.keys
-            .filterNotTo(mutableSetOf()) { it in nonLiveRelayUrls }
-        liveOnlyRelayUrls.forEach { relayUrl ->
-            connections.remove(relayUrl)?.cancel()
-        }
-        synchronized(relaysList) {
-            relaysList.removeAll { it.url in liveOnlyRelayUrls }
-        }
-        liveLocationRelayTokens.clear()
+                val liveOnlyRelayUrls = liveLocationRelayTokens.keys
+                    .filterNotTo(mutableSetOf()) { it in nonLiveRelayUrls }
+                val sockets = liveOnlyRelayUrls.mapNotNull { relayUrl ->
+                    subscriptions.remove(relayUrl)
+                    connections.remove(relayUrl)
+                }
+                val reconnects = liveOnlyRelayUrls.mapNotNull { relayUrl ->
+                    reconnectJobs.remove(relayUrl)
+                }
+                synchronized(relaysList) {
+                    relaysList.removeAll { it.url in liveOnlyRelayUrls }
+                }
+                liveLocationRelayTokens.clear()
+                val connectionJobs = liveLocationConnectionJobs.toList()
+                liveLocationConnectionJobs.clear()
+                Triple(sockets, reconnects, connectionJobs)
+            }
+        connectionJobsToCancel.forEach(Job::cancel)
+        reconnectsToCancel.forEach(Job::cancel)
+        socketsToCancel.forEach { it.cancel() }
         updateRelaysList()
         updateConnectionStatus()
     }
@@ -393,22 +444,35 @@ class NostrRelayManager internal constructor(
         val generation = expectedAccountGeneration
         if (!isCurrentAccountGeneration(generation)) return
         if (!isNetworkActionAllowed(liveLocationToken)) return
-        // Ensure relays are tracked for UI/status
-        relayUrls.forEach { url ->
-            if (relaysList.none { it.url == url }) {
-                relaysList.add(Relay(url))
+        // Ensure relays are tracked for UI/status.
+        val tracked = synchronized(accountGenerationLock) {
+            if (!isCurrentAccountGeneration(generation)) {
+                false
+            } else {
+                synchronized(relaysList) {
+                    relayUrls.forEach { url ->
+                        if (relaysList.none { it.url == url }) {
+                            relaysList.add(Relay(url))
+                        }
+                    }
+                }
+                true
             }
         }
+        if (!tracked) return
         updateRelaysList()
 
+        if (!desiredConnected.get()) return
         val job = scope.launch {
-            if (!isCurrentAccountGeneration(generation) ||
+            if (!desiredConnected.get() ||
+                !isCurrentAccountGeneration(generation) ||
                 !isNetworkActionAllowed(liveLocationToken)
             ) return@launch
             relayUrls.forEach { relayUrl ->
                 launch {
-                    if (!connections.containsKey(relayUrl) &&
+                    if (desiredConnected.get() &&
                         isCurrentAccountGeneration(generation) &&
+                        !connections.containsKey(relayUrl) &&
                         isNetworkActionAllowed(liveLocationToken)
                     ) {
                         connectToRelay(relayUrl, liveLocationToken, generation)
@@ -417,7 +481,14 @@ class NostrRelayManager internal constructor(
             }
         }
         if (liveLocationToken != null) {
-            liveLocationConnectionJobs.add(job)
+            val registered = synchronized(accountGenerationLock) {
+                isCurrentAccountGeneration(generation) &&
+                    liveLocationConnectionJobs.add(job)
+            }
+            if (!registered) {
+                job.cancel()
+                return
+            }
             job.invokeOnCompletion { liveLocationConnectionJobs.remove(job) }
         }
     }
@@ -448,17 +519,28 @@ class NostrRelayManager internal constructor(
      * Connect to all configured relays
      */
     fun connect() {
-        val generation = accountGeneration.get()
+        val (generation, relayUrls) = synchronized(accountGenerationLock) {
+            val current = accountGeneration.get()
+            if (!isCurrentAccountGeneration(current)) return
+            desiredConnected.set(true)
+            current to synchronized(relaysList) {
+                relaysList.map { it.url }
+            }
+        }
+        Log.i(TAG, "Connecting to ${relayUrls.size} Nostr relays")
         scope.launch {
-            if (!isCurrentAccountGeneration(generation)) return@launch
-            relaysList.forEach { relay ->
+            if (!desiredConnected.get() ||
+                !isCurrentAccountGeneration(generation)
+            ) return@launch
+            relayUrls.forEach { relayUrl ->
                 launch {
-                    val liveToken = liveLocationRelayTokens[relay.url]
-                        ?.takeIf { relay.url !in nonLiveRelayUrls }
-                    if (isCurrentAccountGeneration(generation) &&
+                    val liveToken = liveLocationRelayTokens[relayUrl]
+                        ?.takeIf { relayUrl !in nonLiveRelayUrls }
+                    if (desiredConnected.get() &&
+                        isCurrentAccountGeneration(generation) &&
                         (liveToken == null || LiveLocationPrivacyGate.accepts(liveToken))
                     ) {
-                        connectToRelay(relay.url, liveToken, generation)
+                        connectToRelay(relayUrl, liveToken, generation)
                     }
                 }
             }
@@ -472,28 +554,33 @@ class NostrRelayManager internal constructor(
      * Disconnect from all relays
      */
     fun disconnect() {
+        Log.i(TAG, "Disconnecting from all Nostr relays")
+        desiredConnected.set(false)
+
         // Stop subscription validation
         stopSubscriptionValidation()
+        reconnectJobs.values.forEach(Job::cancel)
+        reconnectJobs.clear()
+        liveLocationConnectionJobs.forEach(Job::cancel)
+        liveLocationConnectionJobs.clear()
+
+        val sockets = connections.values.toList()
+        connections.clear()
+        sockets.forEach { webSocket ->
+            webSocket.close(1000, "Manual disconnect")
+        }
 
         confirmedPublishes.entries.toList().forEach { (eventId, tracker) ->
             completeConfirmedPublish(eventId, tracker, accepted = false)
         }
-        
-        connections.values.forEach { webSocket ->
-            webSocket.close(1000, "Manual disconnect")
-        }
-        connections.clear()
-        val disconnectedAt = System.currentTimeMillis()
-        relaysList.forEach { relay ->
-            if (relay.isConnected) {
-                relay.lastDisconnectedAt = disconnectedAt
-            }
-            relay.isConnected = false
-        }
-        
-        // Clear subscriptions
+
+        // Preserve logical subscriptions for controlled resets, but forget per-socket state.
         subscriptions.clear()
-        
+        relaysList.forEach {
+            it.isConnected = false
+            it.nextReconnectTime = null
+        }
+        updateRelaysList()
         updateConnectionStatus()
     }
     
@@ -508,23 +595,29 @@ class NostrRelayManager internal constructor(
     ): Boolean {
         val generation = expectedAccountGeneration
         if (!isCurrentAccountGeneration(generation)) return false
-        val targetRelays = relayUrls ?: relaysList.map { it.url }
+        val configuredRelays = relayUrls ?: synchronized(relaysList) {
+            relaysList.map { it.url }
+        }
+        val targetRelays = configuredRelays
+            .filter { it.isNotBlank() }
+            .distinct()
+        if (targetRelays.isEmpty()) return false
 
-        var accepted = false
-        val queued = runNetworkAction(liveLocationToken) {
-            synchronized(messageQueueLock) {
-                if (!isCurrentAccountGeneration(generation)) return@runNetworkAction
-                messageQueue.add(
-                    QueuedEvent(
+        var queueId: Long? = null
+        val allowed = runNetworkAction(liveLocationToken) {
+            queueId = synchronized(accountGenerationLock) {
+                if (!isCurrentAccountGeneration(generation)) {
+                    null
+                } else {
+                    messageQueue.enqueue(
                         event = event,
-                        targetRelays = targetRelays,
+                        relayUrls = targetRelays,
                         liveLocationToken = liveLocationToken,
                         accountGeneration = generation
                     )
-                )
-                accepted = true
+                }
             }
-            if (!accepted) return@runNetworkAction
+            val admittedQueueId = queueId ?: return@runNetworkAction
             scope.launch {
                 if (!isCurrentAccountGeneration(generation) ||
                     !isNetworkActionAllowed(liveLocationToken)
@@ -532,23 +625,26 @@ class NostrRelayManager internal constructor(
                 targetRelays.forEach { relayUrl ->
                     val webSocket = connections[relayUrl]
                     if (webSocket != null) {
-                        sendToRelay(
-                            event,
-                            webSocket,
-                            relayUrl,
-                            liveLocationToken,
-                            generation
-                        )
+                        if (sendToRelay(
+                                event = event,
+                                webSocket = webSocket,
+                                relayUrl = relayUrl,
+                                liveLocationToken = liveLocationToken,
+                                generation = generation
+                            )
+                        ) {
+                            messageQueue.markDelivered(admittedQueueId, relayUrl)
+                        }
                     }
                 }
             }
         }
-        return queued && accepted
+        return allowed && queueId != null
     }
 
     /**
-     * Sends without using the process-local retry queue and completes only
-     * after at least one relay returns an accepted NIP-01 OK.
+     * Publish without the retry queue and complete after one relay confirms the
+     * event, or after every connected target rejects/disconnects.
      */
     fun sendEventConfirmed(
         event: NostrEvent,
@@ -560,7 +656,13 @@ class NostrRelayManager internal constructor(
             completion(false)
             return
         }
-        val requestedRelays = (relayUrls ?: relaysList.map { it.url }).toSet()
+
+        val configuredRelays = relayUrls ?: synchronized(relaysList) {
+            relaysList.map { it.url }
+        }
+        val requestedRelays = configuredRelays
+            .filter { it.isNotBlank() }
+            .toSet()
         val connectedTargets = requestedRelays.filterTo(linkedSetOf()) {
             connections.containsKey(it)
         }
@@ -576,16 +678,17 @@ class NostrRelayManager internal constructor(
             completion = completion,
             accountGeneration = generation
         )
-        if (confirmedPublishes.putIfAbsent(event.id, tracker) != null) {
+        val registered = synchronized(accountGenerationLock) {
+            isCurrentAccountGeneration(generation) &&
+                confirmedPublishes.putIfAbsent(event.id, tracker) == null
+        }
+        if (!registered) {
             completion(false)
             return
         }
+
         tracker.timeoutJob = scope.launch {
             delay(CONFIRMED_PUBLISH_TIMEOUT_MS)
-            if (!isCurrentAccountGeneration(generation)) {
-                completeConfirmedPublish(event.id, tracker, accepted = false)
-                return@launch
-            }
             completeConfirmedPublish(event.id, tracker, accepted = false)
         }
 
@@ -593,10 +696,10 @@ class NostrRelayManager internal constructor(
             val webSocket = connections[relayUrl]
             if (webSocket == null ||
                 !sendToRelay(
-                    event,
-                    webSocket,
-                    relayUrl,
-                    accountGeneration = generation
+                    event = event,
+                    webSocket = webSocket,
+                    relayUrl = relayUrl,
+                    generation = generation
                 )
             ) {
                 tracker.awaitingRelayUrls.remove(relayUrl)
@@ -604,7 +707,6 @@ class NostrRelayManager internal constructor(
         }
         if (tracker.awaitingRelayUrls.isEmpty()) {
             completeConfirmedPublish(event.id, tracker, accepted = false)
-            return
         }
     }
 
@@ -616,7 +718,13 @@ class NostrRelayManager internal constructor(
     }
 
     fun setNdrConnectionAvailableHandler(handler: () -> Unit) {
-        ndrConnectionAvailableHandler = handler
+        val generation = accountGeneration.get()
+        synchronized(accountGenerationLock) {
+            if (isCurrentAccountGeneration(generation)) {
+                ndrConnectionAvailableHandler =
+                    NdrConnectionHandler(generation, handler)
+            }
+        }
     }
 
     private fun completeConfirmedPublish(
@@ -641,28 +749,33 @@ class NostrRelayManager internal constructor(
         id: String = generateSubscriptionId(),
         handler: (NostrEvent) -> Unit,
         targetRelayUrls: List<String>? = null,
+        owner: String = OWNER_LEGACY,
         liveLocationToken: Long? = null,
-        expectedAccountGeneration: Long = accountGeneration.get()
+        expectedAccountGeneration: Long = accountGeneration.get(),
+        originGeohash: String? = null
     ): String {
+        val generation = expectedAccountGeneration
         val subscriptionInfo = SubscriptionInfo(
             id = id,
             filter = filter,
             handler = handler,
             targetRelayUrls = targetRelayUrls?.toSet(),
-            liveLocationToken = liveLocationToken
+            originGeohash = originGeohash,
+            owner = owner,
+            liveLocationToken = liveLocationToken,
+            accountGeneration = generation
         )
         registerSubscription(
             subscriptionInfo = subscriptionInfo,
             ordinaryHandler = handler,
-            expectedAccountGeneration = expectedAccountGeneration
+            expectedAccountGeneration = generation
         )
         return id
     }
 
     /**
-     * NDR relay copies are considered seen only after the durable runtime
-     * commits them. A transient storage failure must leave another relay copy
-     * eligible for processing.
+     * NDR relay copies become deduplicated only after durable processing. A
+     * rejected registration is reported so the native action remains pending.
      */
     fun subscribeAfterSuccessfulProcessing(
         filter: NostrFilter,
@@ -675,7 +788,8 @@ class NostrRelayManager internal constructor(
             id = id,
             filter = filter,
             handler = {},
-            targetRelayUrls = targetRelayUrls?.toSet()
+            targetRelayUrls = targetRelayUrls?.toSet(),
+            accountGeneration = expectedAccountGeneration
         )
         return registerSubscription(
             subscriptionInfo = subscriptionInfo,
@@ -685,9 +799,8 @@ class NostrRelayManager internal constructor(
     }
 
     /**
-     * Installs the complete handler mode before any relay can observe the REQ.
-     * Some WebSocket implementations can synchronously deliver a cached EVENT
-     * from inside send(), so handler replacement after send is already too late.
+     * Install the complete handler mode before any REQ can synchronously deliver
+     * a cached event from a test or WebSocket implementation.
      */
     private fun registerSubscription(
         subscriptionInfo: SubscriptionInfo,
@@ -703,10 +816,12 @@ class NostrRelayManager internal constructor(
                 if (!isCurrentAccountGeneration(generation)) return@synchronized
                 activeSubscriptions[subscriptionInfo.id] = subscriptionInfo
                 if (commitAwareHandler != null) {
-                    commitAwareMessageHandlers[subscriptionInfo.id] = commitAwareHandler
+                    commitAwareMessageHandlers[subscriptionInfo.id] =
+                        commitAwareHandler
                     messageHandlers.remove(subscriptionInfo.id)
                 } else {
-                    messageHandlers[subscriptionInfo.id] = requireNotNull(ordinaryHandler)
+                    messageHandlers[subscriptionInfo.id] =
+                        requireNotNull(ordinaryHandler)
                     commitAwareMessageHandlers.remove(subscriptionInfo.id)
                 }
                 registered = true
@@ -726,6 +841,7 @@ class NostrRelayManager internal constructor(
         generation: Long
     ) {
         if (!isCurrentAccountGeneration(generation) ||
+            subscriptionInfo.accountGeneration != generation ||
             !isNetworkActionAllowed(subscriptionInfo.liveLocationToken)
         ) return
         val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
@@ -738,20 +854,21 @@ class NostrRelayManager internal constructor(
             val targetRelays = subscriptionInfo.targetRelayUrls?.toList() ?: connections.keys.toList()
             
             targetRelays.forEach { relayUrl ->
+                if (!isCurrentAccountGeneration(generation)) return@launch
                 val webSocket = connections[relayUrl]
                 if (webSocket != null) {
                     try {
                         var success = false
                         runNetworkAction(subscriptionInfo.liveLocationToken) {
-                            synchronized(accountGenerationLock) {
-                                if (isCurrentAccountGeneration(generation)) {
-                                    success = webSocket.send(message)
-                                    if (success) {
-                                        val currentSubs = subscriptions[relayUrl] ?: emptySet()
-                                        subscriptions[relayUrl] =
-                                            currentSubs + subscriptionInfo.id
-                                    }
-                                }
+                            if (isCurrentAccountGeneration(generation) &&
+                                connections[relayUrl] === webSocket
+                            ) {
+                                success = webSocket.send(message)
+                            }
+                            if (success && isCurrentAccountGeneration(generation)) {
+                                val currentSubs = subscriptions[relayUrl] ?: emptySet()
+                                subscriptions[relayUrl] =
+                                    currentSubs + subscriptionInfo.id
                             }
                         }
                         if (!success) {
@@ -772,17 +889,23 @@ class NostrRelayManager internal constructor(
     /**
      * Unsubscribe from a subscription
      */
-    fun unsubscribe(id: String) {
-        val generation = accountGeneration.get()
+    fun unsubscribe(
+        id: String,
+        expectedAccountGeneration: Long = accountGeneration.get()
+    ) {
+        val generation = expectedAccountGeneration
         // Remove from persistent tracking
         val subscriptionInfo = synchronized(accountGenerationLock) {
             if (!isCurrentAccountGeneration(generation)) {
                 null
             } else {
-                activeSubscriptions.remove(id).also {
-                    messageHandlers.remove(id)
-                    commitAwareMessageHandlers.remove(id)
-                }
+                activeSubscriptions[id]
+                    ?.takeIf { it.accountGeneration == generation }
+                    ?.also {
+                        activeSubscriptions.remove(id, it)
+                        messageHandlers.remove(id)
+                        commitAwareMessageHandlers.remove(id)
+                    }
             }
         }
         
@@ -809,14 +932,15 @@ class NostrRelayManager internal constructor(
                 return@launch
             }
             connections.forEach { (relayUrl, webSocket) ->
+                if (!isCurrentAccountGeneration(generation)) return@launch
                 val currentSubs = subscriptions[relayUrl]
                 if (currentSubs?.contains(id) == true) {
                     try {
                         runNetworkAction(subscriptionInfo.liveLocationToken) {
-                            synchronized(accountGenerationLock) {
-                                if (isCurrentAccountGeneration(generation)) {
-                                    webSocket.send(message)
-                                }
+                            if (isCurrentAccountGeneration(generation) &&
+                                connections[relayUrl] === webSocket
+                            ) {
+                                webSocket.send(message)
                             }
                         }
                         if (isCurrentAccountGeneration(generation)) {
@@ -829,6 +953,20 @@ class NostrRelayManager internal constructor(
             }
         }
     }
+
+    fun unsubscribeOwner(
+        owner: String,
+        expectedAccountGeneration: Long = accountGeneration.get()
+    ) {
+        if (!isCurrentAccountGeneration(expectedAccountGeneration)) return
+        activeSubscriptions.values
+            .filter {
+                it.owner == owner &&
+                    it.accountGeneration == expectedAccountGeneration
+            }
+            .map { it.id }
+            .forEach { unsubscribe(it, expectedAccountGeneration) }
+    }
     
     /**
      * Manually retry connection to a specific relay
@@ -837,6 +975,10 @@ class NostrRelayManager internal constructor(
         val generation = accountGeneration.get()
         if (!isCurrentAccountGeneration(generation)) return
         val relay = relaysList.find { it.url == relayUrl } ?: return
+        synchronized(accountGenerationLock) {
+            if (!isCurrentAccountGeneration(generation)) return
+            desiredConnected.set(true)
+        }
         val liveToken = liveLocationRelayTokens[relayUrl]
             ?.takeIf { relayUrl !in nonLiveRelayUrls }
         if (!isNetworkActionAllowed(liveToken)) return
@@ -846,12 +988,14 @@ class NostrRelayManager internal constructor(
         relay.nextReconnectTime = null
         
         // Disconnect if connected
-        connections[relayUrl]?.close(1000, "Manual retry")
-        connections.remove(relayUrl)
+        reconnectJobs.remove(relayUrl)?.cancel()
+        connections.remove(relayUrl)?.close(1000, "Manual retry")
         
         // Attempt immediate reconnection
         scope.launch {
-            if (isCurrentAccountGeneration(generation)) {
+            if (desiredConnected.get() &&
+                isCurrentAccountGeneration(generation)
+            ) {
                 connectToRelay(relayUrl, liveToken, generation)
             }
         }
@@ -862,6 +1006,9 @@ class NostrRelayManager internal constructor(
      * This will automatically restore all subscriptions when reconnected
      */
     fun resetAllConnections() {
+        val generation = accountGeneration.get()
+        if (!isCurrentAccountGeneration(generation)) return
+        val shouldReconnect = desiredConnected.get()
         disconnect()
         
         // Reset all relay states
@@ -871,8 +1018,8 @@ class NostrRelayManager internal constructor(
             relay.lastError = null
         }
         
-        // Reconnect - subscriptions will be automatically restored in onOpen
-        connect()
+        // Reconnect only when connectivity was desired before the controlled reset.
+        if (shouldReconnect && isCurrentAccountGeneration(generation)) connect()
     }
     
     /**
@@ -881,11 +1028,18 @@ class NostrRelayManager internal constructor(
      */
     fun reestablishAllSubscriptions() {
         val generation = accountGeneration.get()
+        if (!isCurrentAccountGeneration(generation)) return
         scope.launch {
             if (!isCurrentAccountGeneration(generation)) return@launch
             connections.forEach { (relayUrl, webSocket) ->
-                if (isCurrentAccountGeneration(generation)) {
-                    restoreSubscriptionsForRelay(relayUrl, webSocket, generation)
+                if (isCurrentAccountGeneration(generation) &&
+                    connections[relayUrl] === webSocket
+                ) {
+                    restoreSubscriptionsForRelay(
+                        relayUrl,
+                        webSocket,
+                        generation
+                    )
                 }
             }
         }
@@ -907,9 +1061,7 @@ class NostrRelayManager internal constructor(
             geohashToRelays.clear()
 
             // Clear any queued messages waiting to be sent
-            synchronized(messageQueueLock) {
-                messageQueue.clear()
-            }
+            messageQueue.clear()
 
             Log.i(TAG, "Cleared all Nostr subscriptions and routing caches")
         } catch (e: Exception) {
@@ -918,72 +1070,151 @@ class NostrRelayManager internal constructor(
     }
 
     /**
-     * Discard every process-local relay artifact that belongs to the old
-     * account. Unlike a normal disconnect, panic/quit must never replay queued
-     * kind-1059 gift wraps after identity replacement.
+     * Refuse fresh work, then discard every process-local relay artifact owned
+     * by the old account. The opaque token prevents one reset from reopening a
+     * newer reset.
      */
-    fun discardForAccountReset(): Long {
+    internal fun discardForAccountReset(): RelayAccountResetToken {
         val resetToken = beginAccountReset()
         discardForAccountReset(resetToken)
         return resetToken
     }
 
-    /**
-     * Clear old-account state only while this caller still owns the reset.
-     * Reset operations are serialized so a stale reset cannot clear state after
-     * a newer reset has already reopened the replacement account.
-     */
-    fun discardForAccountReset(resetToken: Long): Boolean =
-        synchronized(accountResetOperationLock) resetOperation@{
-            synchronized(accountGenerationLock) {
-                if (!accountResetBlocked ||
-                    accountGeneration.get() != resetToken
-                ) return@resetOperation false
-            }
+    internal fun discardForAccountReset(
+        resetToken: RelayAccountResetToken
+    ): Boolean {
+        val cleanup = prepareAccountResetCleanup(resetToken) ?: return false
 
-            // Invalidate every already-launched send/connect/listener/reconnect job
-            // before clearing state or closing sockets. Account-scoped handler
-            // jobs use their own cancel-and-mutation barrier.
-            synchronized(messageQueueLock) {
-                messageQueue.clear()
+        cleanup.jobs.forEach(Job::cancel)
+        cleanup.sockets.forEach { socket ->
+            runCatching { socket.close(1000, "Account reset") }
+                .onFailure { socket.cancel() }
+        }
+        cleanup.confirmedPublishes.forEach { tracker ->
+            tracker.timeoutJob?.cancel()
+            runCatching { tracker.completion(false) }
+                .onFailure {
+                    Log.w(TAG, "Confirmed publish reset callback failed")
+                }
+        }
+
+        return synchronized(accountResetOperationLock) {
+            synchronized(accountGenerationLock) {
+                val generation = resetToken.generation
+                if (!accountResetBlocked ||
+                    accountGeneration.get() != generation ||
+                    preparedResetGeneration != generation
+                ) {
+                    false
+                } else {
+                    discardedResetGeneration = generation
+                    true
+                }
             }
-            liveLocationConnectionJobs.forEach(Job::cancel)
+        }
+    }
+
+    private fun prepareAccountResetCleanup(
+        resetToken: RelayAccountResetToken
+    ): AccountResetCleanup? = synchronized(accountResetOperationLock) {
+        synchronized(accountGenerationLock) generationCheck@{
+            val generation = resetToken.generation
+            if (!accountResetBlocked ||
+                accountGeneration.get() != generation
+            ) return@generationCheck null
+
+            desiredConnected.set(false)
+            val jobs = buildList {
+                subscriptionValidationJob?.let(::add)
+                addAll(reconnectJobs.values)
+                addAll(liveLocationConnectionJobs)
+            }
+            subscriptionValidationJob = null
+            reconnectJobs.clear()
             liveLocationConnectionJobs.clear()
-            pendingGiftWrapIDs.clear()
-            disconnect()
-            clearAllSubscriptions()
+
+            val sockets = connections.values.toList()
+            connections.clear()
+            val pendingConfirmations =
+                confirmedPublishes.values.toList()
+            confirmedPublishes.clear()
+
+            activeSubscriptions.clear()
+            messageHandlers.clear()
+            commitAwareMessageHandlers.clear()
+            subscriptions.clear()
+            messageQueue.clear()
+            pendingGiftWrapGenerations.clear()
+            ndrConnectionAvailableHandler = null
+            eventDeduplicator.clear()
+
+            geohashToRelays.clear()
             liveGeohashTokens.clear()
             liveLocationRelayTokens.clear()
             nonLiveRelayUrls.clear()
-            true
-        }
+            nonLiveRelayUrls.addAll(DEFAULT_RELAYS)
+            synchronized(relaysList) {
+                relaysList.removeAll { it.url !in DEFAULT_RELAYS }
+                DEFAULT_RELAYS.forEach { url ->
+                    val relay = relaysList.find { it.url == url }
+                    if (relay == null) {
+                        relaysList.add(Relay(url))
+                    } else {
+                        relay.isConnected = false
+                        relay.lastError = null
+                        relay.nextReconnectTime = null
+                        relay.reconnectAttempts = 0
+                    }
+                }
+            }
+            preparedResetGeneration = generation
+            discardedResetGeneration = Long.MIN_VALUE
+            updateRelaysList()
+            updateConnectionStatus()
 
-    /** Refuse new account work and invalidate all previously captured generations. */
-    fun beginAccountReset(): Long =
+            AccountResetCleanup(
+                jobs = jobs,
+                sockets = sockets,
+                confirmedPublishes = pendingConfirmations
+            )
+        }
+    }
+
+    internal fun beginAccountReset(): RelayAccountResetToken =
         synchronized(accountGenerationLock) {
             accountResetBlocked = true
-            accountGeneration.incrementAndGet()
+            preparedResetGeneration = Long.MIN_VALUE
+            discardedResetGeneration = Long.MIN_VALUE
+            RelayAccountResetToken(accountGeneration.incrementAndGet())
         }
 
-    /** Permit fresh relay work only when this caller owns the latest reset. */
-    fun completeAccountReset(resetToken: Long): Boolean =
-        synchronized(accountResetOperationLock) resetOperation@{
+    internal fun completeAccountReset(
+        resetToken: RelayAccountResetToken
+    ): Boolean =
+        synchronized(accountResetOperationLock) {
             synchronized(accountGenerationLock) {
+                val generation = resetToken.generation
                 if (!accountResetBlocked ||
-                    accountGeneration.get() != resetToken
-                ) return@resetOperation false
-                // Tokens captured while the reset was blocked must never become
-                // valid work for the replacement account.
-                accountGeneration.incrementAndGet()
-                accountResetBlocked = false
-                true
+                    accountGeneration.get() != generation ||
+                    discardedResetGeneration != generation
+                ) {
+                    false
+                } else {
+                    // Work captured while admission was blocked must not become
+                    // valid when the replacement account is opened.
+                    accountGeneration.incrementAndGet()
+                    accountResetBlocked = false
+                    preparedResetGeneration = Long.MIN_VALUE
+                    discardedResetGeneration = Long.MIN_VALUE
+                    true
+                }
             }
         }
 
-    internal fun queuedEventCountForTesting(): Int =
-        synchronized(messageQueueLock) { messageQueue.size }
+    internal fun queuedEventCountForTesting(): Int = messageQueue.size()
 
-    internal fun pendingGiftWrapCountForTesting(): Int = pendingGiftWrapIDs.size
+    internal fun pendingGiftWrapCountForTesting(): Int =
+        pendingGiftWrapGenerations.size
 
     internal fun accountGenerationForTesting(): Long = accountGeneration.get()
 
@@ -996,7 +1227,7 @@ class NostrRelayManager internal constructor(
         if (!isCurrentAccountGeneration(expectedAccountGeneration)) {
             false
         } else {
-            pendingGiftWrapIDs.add(id)
+            pendingGiftWrapGenerations[id] = expectedAccountGeneration
             true
         }
     }
@@ -1006,15 +1237,6 @@ class NostrRelayManager internal constructor(
 
     private fun isCurrentAccountGeneration(generation: Long): Boolean =
         !accountResetBlocked && accountGeneration.get() == generation
-
-    private inline fun <T> withAccountCallback(
-        generation: Long,
-        rejected: T,
-        callback: () -> T
-    ): T {
-        if (!isCurrentAccountGeneration(generation)) return rejected
-        return callback()
-    }
     
     /**
      * Get detailed status for all relays
@@ -1097,46 +1319,77 @@ class NostrRelayManager internal constructor(
      * Start periodic subscription validation to ensure robustness
      */
     private fun startSubscriptionValidation(generation: Long) {
-        synchronized(accountGenerationLock) {
-            if (!isCurrentAccountGeneration(generation)) return
-            stopSubscriptionValidation() // Stop any existing validation
+        if (!isCurrentAccountGeneration(generation)) return
+        stopSubscriptionValidation() // Stop any existing validation
 
-            subscriptionValidationJob = scope.launch {
-            while (isActive) {
-                delay(SUBSCRIPTION_VALIDATION_INTERVAL)
-                if (!isCurrentAccountGeneration(generation)) return@launch
-                
-                try {
-                    val report = validateSubscriptionConsistency()
-                    if (!report.isConsistent && report.connectedRelayCount > 0) {
-                        Log.w(TAG, "Nostr subscription inconsistencies detected")
-                        
-                        // Auto-repair: re-establish subscriptions for relays with missing ones
-                        connections.forEach { (relayUrl, webSocket) ->
-                            val currentSubs = subscriptions[relayUrl] ?: emptySet()
-                            val expectedSubs = activeSubscriptions.keys.filter { subId ->
-                                val subInfo = activeSubscriptions[subId]
-                                subInfo?.targetRelayUrls == null || subInfo.targetRelayUrls.contains(relayUrl)
-                            }.toSet()
-                            
-                            val missingSubs = expectedSubs - currentSubs
-                            if (missingSubs.isNotEmpty()) {
-                                Log.i(TAG, "Auto-repairing ${missingSubs.size} missing subscriptions")
-                                restoreSubscriptionsForRelay(
-                                    relayUrl,
-                                    webSocket,
-                                    generation
-                                )
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error during subscription validation: ${e.message}")
+        subscriptionValidationJob = scope.launch {
+            if (!isCurrentAccountGeneration(generation)) return@launch
+            val manager = powerManager
+            if (manager == null) {
+                runSubscriptionValidationLoop(
+                    intervalMs = com.bitchat.android.util.AppConstants.Nostr
+                        .SUBSCRIPTION_VALIDATION_INTERVAL_MS,
+                    generation = generation
+                )
+                return@launch
+            }
+
+            manager.profile
+                .map { it.nostr.subscriptionValidationMs }
+                .distinctUntilChanged()
+                .collectLatest { intervalMs ->
+                    runSubscriptionValidationLoop(intervalMs, generation)
+                }
+        }
+    }
+
+    private suspend fun runSubscriptionValidationLoop(
+        intervalMs: Long,
+        generation: Long
+    ) {
+        while (currentCoroutineContext().isActive &&
+            desiredConnected.get() &&
+            isCurrentAccountGeneration(generation)
+        ) {
+            delay(intervalMs)
+            if (!desiredConnected.get() ||
+                !isCurrentAccountGeneration(generation)
+            ) break
+            validateAndRepairSubscriptions(generation)
+        }
+    }
+
+    private fun validateAndRepairSubscriptions(generation: Long) {
+        if (!isCurrentAccountGeneration(generation)) return
+        try {
+            val report = validateSubscriptionConsistency()
+            if (report.isConsistent || report.connectedRelayCount == 0) return
+
+            Log.w(TAG, "Nostr subscription inconsistencies detected")
+            connections.forEach { (relayUrl, webSocket) ->
+                if (!isCurrentAccountGeneration(generation)) return
+                val currentSubs = subscriptions[relayUrl] ?: emptySet()
+                val expectedSubs = activeSubscriptions.keys.filter { subId ->
+                    val subInfo = activeSubscriptions[subId]
+                    subInfo?.accountGeneration == generation &&
+                        (subInfo.targetRelayUrls == null ||
+                            subInfo.targetRelayUrls.contains(relayUrl))
+                }.toSet()
+
+                if ((expectedSubs - currentSubs).isNotEmpty() &&
+                    connections[relayUrl] === webSocket
+                ) {
+                    Log.i(TAG, "Auto-repairing missing subscriptions")
+                    restoreSubscriptionsForRelay(
+                        relayUrl,
+                        webSocket,
+                        generation
+                    )
                 }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during subscription validation: ${e.message}")
         }
-        }
-
     }
     
     /**
@@ -1156,7 +1409,8 @@ class NostrRelayManager internal constructor(
     ) {
         val connectionToken = liveLocationToken
             ?.takeIf { urlString !in nonLiveRelayUrls }
-        if (!isCurrentAccountGeneration(generation) ||
+        if (!desiredConnected.get() ||
+            !isCurrentAccountGeneration(generation) ||
             !isNetworkActionAllowed(connectionToken)
         ) return
         // Skip if we already have a connection
@@ -1169,26 +1423,36 @@ class NostrRelayManager internal constructor(
                 .url(urlString)
                 .build()
             
-            runNetworkAction(connectionToken) {
-                synchronized(accountGenerationLock) {
-                    if (!isCurrentAccountGeneration(generation)) {
-                        return@synchronized
-                    }
-                    val webSocket = httpClient.newWebSocket(
-                        request,
-                        RelayWebSocketListener(urlString, connectionToken, generation)
+            val started = runNetworkAction(connectionToken) {
+                val webSocket = httpClient.newWebSocket(
+                    request,
+                    RelayWebSocketListener(
+                        relayUrl = urlString,
+                        liveLocationToken = connectionToken,
+                        generation = generation
                     )
-                    if (isCurrentAccountGeneration(generation)) {
-                        connections[urlString] = webSocket
-                    } else {
-                        webSocket.cancel()
+                )
+                val existing = connections.putIfAbsent(urlString, webSocket)
+                when {
+                    existing != null -> webSocket.close(1000, "Duplicate connection")
+                    !desiredConnected.get() ||
+                        !isCurrentAccountGeneration(generation) ||
+                        !isNetworkActionAllowed(connectionToken) -> {
+                        connections.remove(urlString, webSocket)
+                        webSocket.close(1000, "Connection no longer desired")
                     }
                 }
             }
+            if (!started) return
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create WebSocket connection")
-            handleDisconnection(urlString, e, liveLocationToken, generation)
+            handleConnectionCreationFailure(
+                relayUrl = urlString,
+                error = e,
+                liveLocationToken = connectionToken,
+                generation = generation
+            )
         }
     }
     
@@ -1197,10 +1461,11 @@ class NostrRelayManager internal constructor(
         webSocket: WebSocket,
         relayUrl: String,
         liveLocationToken: Long? = null,
-        accountGeneration: Long = this.accountGeneration.get()
+        generation: Long = accountGeneration.get()
     ): Boolean {
-        if (!isCurrentAccountGeneration(accountGeneration) ||
-            !isNetworkActionAllowed(liveLocationToken)
+        if (!isCurrentAccountGeneration(generation) ||
+            !isNetworkActionAllowed(liveLocationToken) ||
+            connections[relayUrl] !== webSocket
         ) return false
         return try {
             val request = NostrRequest.Event(event)
@@ -1208,28 +1473,32 @@ class NostrRelayManager internal constructor(
 
             var success = false
             runNetworkAction(liveLocationToken) {
-                synchronized(accountGenerationLock) {
-                    if (isCurrentAccountGeneration(accountGeneration)) {
-                        success = webSocket.send(message)
-                    }
+                if (isCurrentAccountGeneration(generation) &&
+                    connections[relayUrl] === webSocket
+                ) {
+                    success = webSocket.send(message)
                 }
             }
-            if (success) {
+            if (success &&
+                isCurrentAccountGeneration(generation) &&
+                connections[relayUrl] === webSocket
+            ) {
                 // Update relay stats
-                val relay = relaysList.find { it.url == relayUrl }
-                relay?.let { it.messagesSent += 1 }
+                relaysList.find { it.url == relayUrl }?.let { relay ->
+                    relay.messagesSent += 1
+                }
                 updateRelaysList()
                 true
             } else {
-                Log.e(TAG, "Failed to send event to $relayUrl: WebSocket send failed")
+                Log.e(TAG, "Failed to send event: WebSocket send failed")
                 false
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send event to $relayUrl: ${e.message}")
+            Log.e(TAG, "Failed to send event")
             false
         }
     }
-    
+
     private fun handleMessage(
         message: String,
         relayUrl: String,
@@ -1247,65 +1516,67 @@ class NostrRelayManager internal constructor(
             
             when (response) {
                 is NostrResponse.Event -> {
-                    val dispatch = synchronized(accountGenerationLock) {
-                        if (!isCurrentAccountGeneration(generation)) return
-                        val relay = relaysList.find { it.url == relayUrl }
-                        relay?.let { it.messagesReceived += 1 }
-                        updateRelaysList()
-                        val subscriptionInfo =
-                            activeSubscriptions[response.subscriptionId]
-                                ?: return
-                        EventDispatch(
-                            subscriptionInfo = subscriptionInfo,
-                            commitAwareHandler =
-                                commitAwareMessageHandlers[response.subscriptionId],
-                            ordinaryHandler =
-                                messageHandlers[response.subscriptionId]
-                        )
+                    // Update relay stats
+                    relaysList.find { it.url == relayUrl }?.let { relay ->
+                        relay.messagesReceived += 1
                     }
-                    val subscriptionInfo = dispatch.subscriptionInfo
-                    if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) return
-                    val matches = try {
-                        subscriptionInfo.filter.matches(response.event)
-                    } catch (_: Exception) {
-                        true
-                    }
-                    if (!matches) {
-                        // Do not deduplicate an event that another subscription may accept.
-                        return
+                    updateRelaysList()
+
+                    // CLIENT-SIDE FILTER ENFORCEMENT: Ensure this event matches the subscription's filter
+                    val subscriptionInfo = activeSubscriptions[response.subscriptionId]
+                        ?: return
+                    if (subscriptionInfo.accountGeneration != generation ||
+                        !isCurrentAccountGeneration(generation) ||
+                        !isNetworkActionAllowed(subscriptionInfo.liveLocationToken)
+                    ) return
+                    subscriptionInfo.let { subInfo ->
+                        val matches = try { subInfo.filter.matches(response.event) } catch (e: Exception) { true }
+                        if (!matches) {
+                            // Do NOT call deduplicator here to allow the correct subscription to process it later
+                            return
+                        }
                     }
 
+                    val dispatch = EventDispatch(
+                        subscriptionInfo = subscriptionInfo,
+                        commitAwareHandler =
+                            commitAwareMessageHandlers[response.subscriptionId],
+                        ordinaryHandler =
+                            messageHandlers[response.subscriptionId]
+                    )
                     val commitAwareHandler = dispatch.commitAwareHandler
                     if (commitAwareHandler != null) {
                         scope.launch {
-                            withAccountCallback(generation, false) {
-                                eventDeduplicator.processEventAfterSuccess(response.event) { event ->
-                                    isCurrentAccountGeneration(generation) &&
-                                        commitAwareHandler(event)
-                                }
+                            if (!isCurrentAccountGeneration(generation)) {
+                                return@launch
+                            }
+                            eventDeduplicator.processEventAfterSuccess(
+                                response.event
+                            ) { event ->
+                                isCurrentAccountGeneration(generation) &&
+                                    commitAwareHandler(event)
                             }
                         }
                         return
                     }
 
                     val handler = dispatch.ordinaryHandler
-                    if (handler != null) {
-                        withAccountCallback(generation, Unit) {
-                            eventDeduplicator.processEvent(response.event) { event ->
-                                scope.launch(Dispatchers.Main) {
-                                    withAccountCallback(generation, Unit) {
-                                        if (isNetworkActionAllowed(
-                                                subscriptionInfo.liveLocationToken
-                                            )) {
-                                            handler(event)
-                                        }
-                                    }
-                                }
+                    if (handler == null) {
+                        Log.w(TAG, "⚠️ No handler for Nostr subscription")
+                        return
+                    }
+                    eventDeduplicator.processEvent(response.event) { event ->
+                        scope.launch(Dispatchers.Main) {
+                            if (isCurrentAccountGeneration(generation) &&
+                                isNetworkActionAllowed(
+                                    subscriptionInfo.liveLocationToken
+                                )
+                            ) {
+                                handler(event)
                             }
                         }
-                    } else {
-                        Log.w(TAG, "⚠️ No handler for Nostr subscription")
                     }
+
                 }
 
                 is NostrResponse.EndOfStoredEvents -> {
@@ -1313,33 +1584,37 @@ class NostrRelayManager internal constructor(
                 }
 
                 is NostrResponse.Ok -> {
-                    var completion: Pair<ConfirmedPublish, Boolean>? = null
-                    val wasGiftWrap = synchronized(accountGenerationLock) {
-                        if (!isCurrentAccountGeneration(generation)) return
-                        val pending = pendingGiftWrapIDs.remove(response.eventId)
-                        confirmedPublishes[response.eventId]?.let { tracker ->
-                            if (isNip20ConfirmedSuccess(
-                                    response.accepted,
-                                    response.message
+                    val wasGiftWrap = pendingGiftWrapGenerations.remove(
+                        response.eventId,
+                        generation
+                    )
+                    val tracker = confirmedPublishes[response.eventId]
+                        ?.takeIf { it.accountGeneration == generation }
+                    if (tracker != null) {
+                        when {
+                            isNip20ConfirmedSuccess(
+                                response.accepted,
+                                response.message
+                            ) -> completeConfirmedPublish(
+                                response.eventId,
+                                tracker,
+                                accepted = true
+                            )
+
+                            tracker.awaitingRelayUrls.remove(relayUrl) &&
+                                tracker.awaitingRelayUrls.isEmpty() ->
+                                completeConfirmedPublish(
+                                    response.eventId,
+                                    tracker,
+                                    accepted = false
                                 )
-                            ) {
-                                completion = tracker to true
-                            } else if (tracker.awaitingRelayUrls.remove(relayUrl) &&
-                                tracker.awaitingRelayUrls.isEmpty()
-                            ) {
-                                completion = tracker to false
-                            }
                         }
-                        pending
                     }
-                    completion?.let { (tracker, accepted) ->
-                        completeConfirmedPublish(
-                            response.eventId,
-                            tracker,
-                            accepted
+                    if (!isNip20ConfirmedSuccess(
+                            response.accepted,
+                            response.message
                         )
-                    }
-                    if (!isNip20ConfirmedSuccess(response.accepted, response.message)) {
+                    ) {
                         val level = if (wasGiftWrap) Log.WARN else Log.ERROR
                         Log.println(level, TAG, "Event rejected by relay: ${response.message ?: "no reason"}")
                     }
@@ -1360,87 +1635,119 @@ class NostrRelayManager internal constructor(
     
     private fun handleDisconnection(
         relayUrl: String,
+        webSocket: WebSocket,
         error: Throwable,
         liveLocationToken: Long? = null,
-        generation: Long = accountGeneration.get(),
-        webSocket: WebSocket? = null
+        generation: Long
     ) {
-        val outcome = synchronized(accountGenerationLock) {
-            if (!isCurrentAccountGeneration(generation)) return
-            if (webSocket != null && !connections.remove(relayUrl, webSocket)) {
-                return
-            }
-            val connectionToken = liveLocationToken
-                ?.takeIf { relayUrl !in nonLiveRelayUrls }
-            val confirmedCompletions = confirmedPublishes.entries
-                .toList()
-                .mapNotNull { (eventId, tracker) ->
-                    if (tracker.awaitingRelayUrls.remove(relayUrl) &&
-                        tracker.awaitingRelayUrls.isEmpty()
-                    ) {
-                        eventId to tracker
-                    } else {
-                        null
-                    }
-                }
+        if (!isCurrentAccountGeneration(generation)) {
+            connections.remove(relayUrl, webSocket)
+            return
+        }
+        // Ignore callbacks from intentionally closed or replaced sockets. They must not remove a
+        // newer socket or schedule a reconnect after a controlled disconnect/privacy revocation.
+        if (!connections.remove(relayUrl, webSocket)) return
+        subscriptions.remove(relayUrl)
+        handleCurrentDisconnection(
+            relayUrl,
+            error,
+            liveLocationToken,
+            generation
+        )
+    }
 
-            // Keep subscriptions for restoration on reconnection.
-            updateRelayStatus(relayUrl, false, error)
+    private fun handleConnectionCreationFailure(
+        relayUrl: String,
+        error: Throwable,
+        liveLocationToken: Long?,
+        generation: Long
+    ) {
+        if (!desiredConnected.get() ||
+            !isCurrentAccountGeneration(generation) ||
+            connections.containsKey(relayUrl)
+        ) return
+        handleCurrentDisconnection(
+            relayUrl,
+            error,
+            liveLocationToken,
+            generation
+        )
+    }
 
-            var reconnectDelayMs: Long? = null
-            if (isNetworkActionAllowed(connectionToken)) {
-                val errorMessage = error.message?.lowercase() ?: ""
-                val dnsFailure =
-                    errorMessage.contains("hostname could not be found") ||
-                        errorMessage.contains("dns") ||
-                        errorMessage.contains("unable to resolve host")
-                if (dnsFailure) {
-                    Log.w(TAG, "Nostr relay DNS failure; not retrying")
-                } else {
-                    val relay = relaysList.find { it.url == relayUrl }
-                    if (relay != null) {
-                        relay.reconnectAttempts++
-                        if (relay.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-                            Log.w(TAG, "Max Nostr relay reconnection attempts reached")
-                        } else {
-                            val delayMs = min(
-                                INITIAL_BACKOFF_INTERVAL *
-                                    BACKOFF_MULTIPLIER.pow(
-                                        relay.reconnectAttempts - 1.0
-                                    ),
-                                MAX_BACKOFF_INTERVAL.toDouble()
-                            ).toLong()
-                            reconnectDelayMs = delayMs
-                            relay.nextReconnectTime =
-                                System.currentTimeMillis() + delayMs
-                            Log.d(TAG, "Scheduling Nostr relay reconnection")
-                        }
-                    }
-                }
+    private fun handleCurrentDisconnection(
+        relayUrl: String,
+        error: Throwable,
+        liveLocationToken: Long?,
+        generation: Long
+    ) {
+        if (!isCurrentAccountGeneration(generation)) return
+        val connectionToken = liveLocationToken
+            ?.takeIf { relayUrl !in nonLiveRelayUrls }
+
+        updateRelayStatus(relayUrl, false, error)
+        confirmedPublishes.entries.toList().forEach { (eventId, tracker) ->
+            if (tracker.accountGeneration == generation &&
+                tracker.awaitingRelayUrls.remove(relayUrl) &&
+                tracker.awaitingRelayUrls.isEmpty()
+            ) {
+                completeConfirmedPublish(
+                    eventId,
+                    tracker,
+                    accepted = false
+                )
             }
-            DisconnectionOutcome(
-                confirmedCompletions = confirmedCompletions,
-                reconnectDelayMs = reconnectDelayMs,
-                connectionToken = connectionToken
-            )
+        }
+        if (!desiredConnected.get() ||
+            !isCurrentAccountGeneration(generation) ||
+            !isNetworkActionAllowed(connectionToken)
+        ) return
+
+        // Check if this is a DNS error
+        val errorMessage = error.message?.lowercase() ?: ""
+        if (errorMessage.contains("hostname could not be found") ||
+            errorMessage.contains("dns") ||
+            errorMessage.contains("unable to resolve host")) {
+
+            val relay = relaysList.find { it.url == relayUrl }
+            if (relay?.lastError == null) {
+                Log.w(TAG, "Nostr relay DNS failure; not retrying")
+            }
+            return
         }
 
-        outcome.confirmedCompletions.forEach { (eventId, tracker) ->
-            completeConfirmedPublish(eventId, tracker, accepted = false)
+        // Implement exponential backoff for non-DNS errors
+        val relay = relaysList.find { it.url == relayUrl } ?: return
+        relay.reconnectAttempts++
+
+        // Stop attempting after max attempts
+        if (relay.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            Log.w(TAG, "Max Nostr relay reconnection attempts reached")
+            return
         }
-        outcome.reconnectDelayMs?.let { delayMs ->
-            scope.launch {
-                delay(delayMs)
-                if (isCurrentAccountGeneration(generation) &&
-                    isNetworkActionAllowed(outcome.connectionToken)
-                ) {
-                    connectToRelay(
-                        relayUrl,
-                        outcome.connectionToken,
-                        generation
-                    )
-                }
+
+        // Calculate backoff interval
+        val backoffInterval = min(
+            INITIAL_BACKOFF_INTERVAL * BACKOFF_MULTIPLIER.pow(relay.reconnectAttempts - 1.0),
+            MAX_BACKOFF_INTERVAL.toDouble()
+        ).toLong()
+
+        relay.nextReconnectTime = System.currentTimeMillis() + backoffInterval
+
+        Log.d(TAG, "Scheduling Nostr relay reconnection")
+
+        reconnectJobs.remove(relayUrl)?.cancel()
+        val reconnectJob = scope.launch {
+            delay(backoffInterval)
+            if (desiredConnected.get() &&
+                isCurrentAccountGeneration(generation) &&
+                isNetworkActionAllowed(connectionToken)
+            ) {
+                connectToRelay(relayUrl, connectionToken, generation)
             }
+        }
+        reconnectJobs[relayUrl] = reconnectJob
+        reconnectJob.invokeOnCompletion {
+            reconnectJobs.remove(relayUrl, reconnectJob)
         }
     }
     
@@ -1483,10 +1790,12 @@ class NostrRelayManager internal constructor(
         webSocket: WebSocket,
         generation: Long
     ) {
-        if (!isCurrentAccountGeneration(generation)) return
+        if (!isCurrentAccountGeneration(generation) ||
+            connections[relayUrl] !== webSocket
+        ) return
         val subscriptionsToRestore = activeSubscriptions.values.filter { subscriptionInfo ->
             // Include subscription if it targets all relays or specifically targets this relay
-            isCurrentAccountGeneration(generation) &&
+            subscriptionInfo.accountGeneration == generation &&
                 isNetworkActionAllowed(subscriptionInfo.liveLocationToken) &&
                 (subscriptionInfo.targetRelayUrls == null ||
                     subscriptionInfo.targetRelayUrls.contains(relayUrl))
@@ -1497,21 +1806,24 @@ class NostrRelayManager internal constructor(
         }
 
         subscriptionsToRestore.forEach { subscriptionInfo ->
+            if (!isCurrentAccountGeneration(generation) ||
+                connections[relayUrl] !== webSocket
+            ) return
             try {
                 val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
                 val message = gson.toJson(request, NostrRequest::class.java)
 
                 var success = false
                 runNetworkAction(subscriptionInfo.liveLocationToken) {
-                    synchronized(accountGenerationLock) {
-                        if (isCurrentAccountGeneration(generation)) {
-                            success = webSocket.send(message)
-                            if (success) {
-                                val currentSubs = subscriptions[relayUrl] ?: emptySet()
-                                subscriptions[relayUrl] =
-                                    currentSubs + subscriptionInfo.id
-                            }
-                        }
+                    if (isCurrentAccountGeneration(generation) &&
+                        connections[relayUrl] === webSocket
+                    ) {
+                        success = webSocket.send(message)
+                    }
+                    if (success && isCurrentAccountGeneration(generation)) {
+                        val currentSubs = subscriptions[relayUrl] ?: emptySet()
+                        subscriptions[relayUrl] =
+                            currentSubs + subscriptionInfo.id
                     }
                 }
                 if (!success) {
@@ -1533,51 +1845,58 @@ class NostrRelayManager internal constructor(
     ) : WebSocketListener() {
         
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            synchronized(accountGenerationLock) {
-                if (!isCurrentAccountGeneration(generation) ||
-                    !isNetworkActionAllowed(liveLocationToken) ||
-                    connections[relayUrl] !== webSocket
-                ) {
-                    connections.remove(relayUrl, webSocket)
-                    webSocket.cancel()
-                    return
-                }
-                updateRelayStatus(relayUrl, true)
+            if (!desiredConnected.get() ||
+                !isCurrentAccountGeneration(generation) ||
+                connections[relayUrl] !== webSocket ||
+                !isNetworkActionAllowed(liveLocationToken)
+            ) {
+                connections.remove(relayUrl, webSocket)
+                webSocket.close(1000, "Stale connection")
+                return
             }
-            val callbackAccepted = withAccountCallback(generation, false) {
-                runCatching { ndrConnectionAvailableHandler?.invoke() }
-                    .onFailure { Log.w(TAG, "NDR reconnect callback failed") }
-                true
-            }
-            if (!callbackAccepted) return
-            synchronized(accountGenerationLock) {
-                if (!isCurrentAccountGeneration(generation)) return
-                restoreSubscriptionsForRelay(relayUrl, webSocket, generation)
+            reconnectJobs.remove(relayUrl)?.cancel()
+            updateRelayStatus(relayUrl, true)
 
-                // Process any queued messages for this relay
-                synchronized(messageQueueLock) {
-                    val iterator = messageQueue.iterator()
-                    while (iterator.hasNext()) {
-                        val queued = iterator.next()
-                        if (queued.accountGeneration == generation &&
-                            isCurrentAccountGeneration(generation) &&
-                            relayUrl in queued.targetRelays &&
-                            isNetworkActionAllowed(queued.liveLocationToken)
-                        ) {
-                            sendToRelay(
-                                queued.event,
-                                webSocket,
-                                relayUrl,
-                                queued.liveLocationToken,
-                                generation
-                            )
-                        }
-                    }
+            // Restore all active subscriptions for this relay
+            restoreSubscriptionsForRelay(relayUrl, webSocket, generation)
+
+            // Process only events still pending for this relay, outside the queue lock.
+            val queuedForRelay = messageQueue.pendingForRelay(
+                relayUrl = relayUrl,
+                accountGeneration = generation
+            ).filter { isNetworkActionAllowed(it.liveLocationToken) }
+            queuedForRelay.forEach { delivery ->
+                if (delivery.accountGeneration == generation &&
+                    isCurrentAccountGeneration(generation) &&
+                    connections[relayUrl] === webSocket &&
+                    sendToRelay(
+                        delivery.event,
+                        webSocket,
+                        relayUrl,
+                        delivery.liveLocationToken,
+                        generation
+                    )
+                ) {
+                    messageQueue.markDelivered(delivery.queueId, relayUrl)
                 }
+            }
+
+            val connectionHandler = ndrConnectionAvailableHandler
+            if (connectionHandler?.accountGeneration == generation &&
+                isCurrentAccountGeneration(generation) &&
+                connections[relayUrl] === webSocket
+            ) {
+                runCatching { connectionHandler.callback() }
+                    .onFailure {
+                        Log.w(TAG, "NDR reconnect callback failed")
+                    }
             }
         }
         
         override fun onMessage(webSocket: WebSocket, text: String) {
+            if (!isCurrentAccountGeneration(generation) ||
+                connections[relayUrl] !== webSocket
+            ) return
             handleMessage(text, relayUrl, generation)
         }
         
@@ -1586,32 +1905,24 @@ class NostrRelayManager internal constructor(
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            if (!isCurrentAccountGeneration(generation)) {
-                connections.remove(relayUrl, webSocket)
-                return
-            }
             val error = Exception("WebSocket closed: $code $reason")
             handleDisconnection(
                 relayUrl,
+                webSocket,
                 error,
                 liveLocationToken,
-                generation,
-                webSocket
+                generation
             )
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            if (!isCurrentAccountGeneration(generation)) {
-                connections.remove(relayUrl, webSocket)
-                return
-            }
             Log.e(TAG, "Nostr WebSocket failure")
             handleDisconnection(
                 relayUrl,
+                webSocket,
                 t,
                 liveLocationToken,
-                generation,
-                webSocket
+                generation
             )
         }
     }

@@ -92,7 +92,7 @@ object AppConstants {
         const val SCAN_OFF_DURATION_ULTRA_LOW_MS: Long = 29_000L
         const val MAX_CONNECTIONS_NORMAL: Int = 8
         const val MAX_CONNECTIONS_POWER_SAVE: Int = 8
-        const val MAX_CONNECTIONS_ULTRA_LOW: Int = 4
+        const val MAX_CONNECTIONS_ULTRA_LOW: Int = 8
     }
 
     object Nostr {

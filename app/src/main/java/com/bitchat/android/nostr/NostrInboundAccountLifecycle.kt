@@ -1,12 +1,16 @@
 package com.bitchat.android.nostr
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 
 internal data class NostrInboundAccountContext(
     val epoch: NostrAccountEpoch,
     val receiveJob: Job
-)
+) {
+    val receiveScope = CoroutineScope(Dispatchers.IO + receiveJob)
+}
 
 /**
  * Process-wide lifetime for all account-bound Nostr receive work.

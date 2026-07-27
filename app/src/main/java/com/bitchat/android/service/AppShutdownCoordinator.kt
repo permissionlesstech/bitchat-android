@@ -54,34 +54,21 @@ object AppShutdownCoordinator {
             try {
                 // Quit is an account-lifetime boundary, not a transient service
                 // pause: no queued plaintext or relay event may survive it.
-                try {
-                    com.bitchat.android.nostr.NostrTransport
-                        .tryGetInstance()
-                        ?.discardForAccountReset()
-                } catch (_: Exception) { }
-                try {
-                    com.bitchat.android.services.MessageRouter
-                        .tryGetInstance()
-                        ?.discardForAccountReset()
-                } catch (_: Exception) { }
-                try {
-                    com.bitchat.android.nostr.NostrInboundAccountLifecycle
-                        .invalidate()
-                } catch (_: Exception) { }
-                val relayManager = runCatching {
-                    com.bitchat.android.nostr.NostrRelayManager.getInstance(app)
-                }.getOrNull()
-                val relayResetToken = runCatching {
-                    relayManager?.beginAccountReset()
+                val accountReset = runCatching {
+                    com.bitchat.android.nostr.AccountResetCoordinator.begin(
+                        application = app,
+                        terminal = true
+                    )
                 }.getOrNull()
                 try {
                     com.bitchat.android.nostr.NdrNostrService
                         .getInstance(app)
                         .shutdownForProcessExit()
                 } catch (_: Exception) { }
-                if (relayResetToken != null) {
+                if (accountReset != null) {
                     runCatching {
-                        relayManager?.discardForAccountReset(relayResetToken)
+                        com.bitchat.android.nostr.AccountResetCoordinator
+                            .discardRelay(accountReset)
                     }
                 }
 
@@ -94,6 +81,11 @@ object AppShutdownCoordinator {
 
                 // Stop mesh (best-effort)
                 try { mesh?.stopServices() } catch (_: Exception) { }
+                try {
+                    com.bitchat.android.mesh.PowerManager
+                        .getInstance(app)
+                        .shutdown()
+                } catch (_: Exception) { }
 
                 // Stop Tor temporarily (do not change user setting)
                 val torProvider = ArtiTorManager.getInstance()

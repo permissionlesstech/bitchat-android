@@ -3,10 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.ui.ChatState
-import com.bitchat.android.ui.MessageManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -18,11 +15,9 @@ import java.util.Date
  */
 class GeohashMessageHandler(
     private val application: Application,
-    private val state: ChatState,
-    private val messageManager: MessageManager,
     private val repo: GeohashRepository,
-    private val scope: CoroutineScope,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    private val addChannelMessage: (String, BitchatMessage) -> Unit
 ) {
     companion object { private const val TAG = "GeohashMessageHandler" }
 
@@ -31,6 +26,7 @@ class GeohashMessageHandler(
     private val seen = HashSet<String>()
     private val max = 2000
 
+    @Synchronized
     private fun dedupe(id: String): Boolean {
         if (seen.contains(id)) return true
         seen.add(id)
@@ -42,6 +38,12 @@ class GeohashMessageHandler(
         return false
     }
 
+    @Synchronized
+    internal fun clearAccountState() {
+        processedIds.clear()
+        seen.clear()
+    }
+
     internal fun onEvent(
         event: NostrEvent,
         subscribedGeohash: String,
@@ -50,7 +52,7 @@ class GeohashMessageHandler(
         val accountContext =
             NostrInboundAccountLifecycle.contextFor(accountEpoch)
                 ?: return
-        scope.launch(Dispatchers.Default + accountContext.receiveJob) {
+        accountContext.receiveScope.launch {
             try {
                 if (!NostrInboundAccountLifecycle.isCurrent(accountEpoch)) {
                     return@launch
@@ -75,14 +77,6 @@ class GeohashMessageHandler(
 
                 val isTeleportPresence = event.tags.any { it.size >= 2 && it[0] == "t" && it[1] == "teleport" } &&
                                          event.content.trim().isEmpty()
-                val emitMessage =
-                    event.kind != NostrKind.GEOHASH_PRESENCE &&
-                        !isTeleportPresence &&
-                        !NostrIdentityBridge.deriveIdentity(
-                            subscribedGeohash,
-                            application
-                        ).publicKeyHex.equals(pubkey, true)
-
                 NostrInboundAccountLifecycle.runIfCurrent(accountEpoch) {
                     if (dedupe(event.id)) return@runIfCurrent
                     repo.updateParticipant(
@@ -104,6 +98,13 @@ class GeohashMessageHandler(
                         "nostr_${pubkey.take(16)}",
                         pubkey
                     )
+                    val emitMessage =
+                        event.kind != NostrKind.GEOHASH_PRESENCE &&
+                            !isTeleportPresence &&
+                            !NostrIdentityBridge.deriveIdentity(
+                                subscribedGeohash,
+                                application
+                            ).publicKeyHex.equals(pubkey, true)
                     if (emitMessage) {
                         val hasNonce = try {
                             NostrProofOfWork.hasNonce(event)
@@ -132,12 +133,14 @@ class GeohashMessageHandler(
                                 null
                             }
                         )
-                        messageManager.addChannelMessage(
+                        addChannelMessage(
                             "geo:$subscribedGeohash",
                             msg
                         )
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "onEvent error: ${e.message}")
             }

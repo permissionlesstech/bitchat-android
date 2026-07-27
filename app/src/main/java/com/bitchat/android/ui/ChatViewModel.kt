@@ -24,6 +24,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.NdrFeatureGate
 import com.bitchat.android.model.PeerCapabilities
+import com.bitchat.android.nostr.AccountResetCoordinator
 import com.bitchat.android.nostr.NdrBootstrapAction
 import com.bitchat.android.nostr.NdrBootstrapDecider
 import com.bitchat.android.nostr.NdrBootstrapTriggerCoordinator
@@ -46,6 +47,7 @@ import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
 import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.identity.SecureIdentityStateManager
@@ -75,6 +77,8 @@ class ChatViewModel(
     companion object {
         private const val TAG = "ChatViewModel"
     }
+
+    private val panicResetInProgress = AtomicBoolean(false)
 
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
         mediaSendingManager.sendVoiceNote(toPeerIDOrNull, channelOrNull, filePath)
@@ -194,8 +198,6 @@ class ChatViewModel(
         application = application,
         state = state,
         messageManager = messageManager,
-        privateChatManager = privateChatManager,
-        meshDelegateHandler = meshDelegateHandler,
         dataManager = dataManager,
         notificationManager = notificationManager
     )
@@ -549,6 +551,8 @@ class ChatViewModel(
             ndrService.onOutOfBandPayload = null
         }
         ndrInviteRetries.cancelAll()
+        geohashViewModel.shutdownUiSubscriptions()
+        com.bitchat.android.services.AppStateStore.setSelectedPrivateChatPeer(null)
         super.onCleared()
         // Note: Mesh service lifecycle is now managed by MainActivity
     }
@@ -1381,24 +1385,27 @@ class ChatViewModel(
     // MARK: - Emergency Clear
     
     fun panicClearAllData() {
+        if (!panicResetInProgress.compareAndSet(false, true)) return
+        viewModelScope.launch(Dispatchers.Default) {
+            try {
+                performPanicClearAllData()
+            } finally {
+                panicResetInProgress.set(false)
+            }
+        }
+    }
+
+    private fun performPanicClearAllData() {
         Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
-        // Freeze transport admission before erasing router plaintext so a
-        // concurrent UI send cannot create fresh work in the reset window.
-        val resetTransport = com.bitchat.android.nostr.NostrTransport
-            .getInstance(getApplication())
-        val transportResetToken = resetTransport.discardForAccountReset()
-        val resetRouter = com.bitchat.android.services.MessageRouter
-            .getInstance(getApplication(), mesh)
-        val routerResetToken = resetRouter.discardForAccountReset()
-        geohashViewModel.invalidateDoubleRatchetAccount()
+        val resetLease = AccountResetCoordinator.begin(getApplication()) ?: run {
+            Log.w(TAG, "Panic reset ignored after terminal application shutdown")
+            return
+        }
         try {
             com.bitchat.android.geohash.LocationChannelManager
                 .getInstance(getApplication())
                 .disableLocationServices()
         } catch (_: Exception) { }
-        val resetRelay = com.bitchat.android.nostr.NostrRelayManager
-            .getInstance(getApplication())
-        val relayResetToken = resetRelay.beginAccountReset()
 
         // A pending one-shot downgrade confirmation must not survive panic or
         // become actionable against the fresh post-wipe identity.
@@ -1410,7 +1417,10 @@ class ChatViewModel(
         // NDR reset is synchronized and therefore quiesces any native send that
         // entered before panic. Advance the relay generation only afterwards,
         // then clear every event produced by that old runtime.
-        resetRelay.discardForAccountReset(relayResetToken)
+        if (!AccountResetCoordinator.discardRelay(resetLease)) {
+            Log.w(TAG, "A newer account reset superseded relay cleanup")
+            return
+        }
         ndrBootstrapAttemptMs.clear()
         ndrNoiseHandshakeAttemptMs.clear()
         ndrInviteRetries.cancelAll()
@@ -1486,7 +1496,7 @@ class ChatViewModel(
                 locationManager.clearPersistedChannel()
             } catch (_: Exception) { }
 
-            geohashViewModel.panicReset(reinitialize = false)
+            geohashViewModel.panicReset()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
         }
@@ -1496,25 +1506,25 @@ class ChatViewModel(
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
         
-        // Recreate mesh service with fresh identity
-        recreateMeshServiceAfterPanic()
         try {
-            resetTransport.senderPeerID = mesh.myPeerID
-            val transportReopened =
-                resetTransport.completeAccountReset(transportResetToken)
-            val routerReopened =
-                resetRouter.completeAccountReset(routerResetToken)
-            val relayReopened =
-                resetRelay.completeAccountReset(relayResetToken)
-            if (!transportReopened || !routerReopened || !relayReopened) {
+            val reopened = AccountResetCoordinator.complete(
+                lease = resetLease,
+                installReplacement = {
+                    recreateMeshServiceAfterPanic()
+                    mesh
+                },
+                startReplacement = { replacement ->
+                    replacement.startServices()
+                    replacement.sendBroadcastAnnounce()
+                }
+            )
+            if (!reopened) {
                 Log.w(TAG, "A newer account reset superseded panic reinitialization")
                 return
             }
-            geohashViewModel.initialize()
-            mesh.startServices()
-            mesh.sendBroadcastAnnounce()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reopen network transports after panic: ${e.message}")
+            return
         }
 
         Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")

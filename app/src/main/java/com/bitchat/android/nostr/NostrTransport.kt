@@ -65,6 +65,9 @@ private data class NdrRecipientResolution(
     val rebindBlocked: Boolean
 )
 
+@JvmInline
+internal value class NostrTransportResetToken(val epoch: Long)
+
 /**
  * Nostr transport for offline private messages and receipts.
  */
@@ -141,22 +144,26 @@ class NostrTransport(
      * token and is refused at the final relay handoff; throttled receipts are
      * discarded immediately.
      */
-    fun discardForAccountReset(): Long =
+    internal fun discardForAccountReset(): NostrTransportResetToken =
         synchronized(accountStateLock) {
             accountResetBlocked = true
             transportAccountEpoch += 1
             readQueue.clear()
             activeReadSequence = null
-            transportAccountEpoch
+            NostrTransportResetToken(transportAccountEpoch)
         }
 
     /**
      * Allow fresh work only when the caller still owns the latest reset.
      * A later panic/quit must not be reopened by an older reset finishing late.
      */
-    fun completeAccountReset(resetToken: Long): Boolean =
+    internal fun completeAccountReset(
+        resetToken: NostrTransportResetToken
+    ): Boolean =
         synchronized(accountStateLock) {
-            if (resetToken != transportAccountEpoch) return@synchronized false
+            if (resetToken.epoch != transportAccountEpoch) {
+                return@synchronized false
+            }
             accountResetBlocked = false
             true
         }

@@ -16,9 +16,9 @@ import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.ChatState
-import com.bitchat.android.ui.MeshDelegateHandler
 import com.bitchat.android.ui.PrivateChatManager
 import com.bitchat.android.ui.PrivateMessageOrigin
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,7 +30,7 @@ class NostrDirectMessageHandler(
     private val application: Application,
     private val state: ChatState,
     private val privateChatManager: PrivateChatManager,
-    private val meshDelegateHandler: MeshDelegateHandler,
+    private val updateDeliveryStatus: (String, DeliveryStatus) -> Unit,
     private val scope: CoroutineScope,
     private val repo: GeohashRepository,
     private val dataManager: com.bitchat.android.ui.DataManager,
@@ -46,8 +46,7 @@ class NostrDirectMessageHandler(
 
     private val seenStore by lazy(seenStoreProvider)
     private val ndrService by lazy { NdrNostrService.getInstance(application) }
-    @Volatile
-    private var ndrCallbackInstalled = false
+    private val accountLock = Any()
 
     // Simple event deduplication
     private val processedIds = ArrayDeque<String>()
@@ -79,63 +78,75 @@ class NostrDirectMessageHandler(
      * subscription handler so a delayed old subscription cannot join a newer
      * account merely because its event arrives later.
      */
-    internal fun configureAccount(identity: NostrIdentity): NostrAccountEpoch {
-        val accountContext = NostrInboundAccountLifecycle.begin(
-            accountPubkeyHex = identity.publicKeyHex,
-            parentJob = scope.coroutineContext[Job]
-        )
-        if (!NdrFeatureGate.isEnabled()) {
-            if (ndrCallbackInstalled) {
-                ndrService.onDecryptedMessage = null
-                ndrCallbackInstalled = false
+    internal fun configureAccount(identity: NostrIdentity): NostrAccountEpoch =
+        synchronized(accountLock) {
+            val accountContext = NostrInboundAccountLifecycle.begin(
+                accountPubkeyHex = identity.publicKeyHex,
+                parentJob = scope.coroutineContext[Job]
+            )
+            // A prior account's callback must not consume and discard pending
+            // deliveries while the replacement runtime is initialized.
+            ndrService.onDecryptedMessage = null
+            val configured = ndrService.configureIfNeeded(identity) {
+                NostrInboundAccountLifecycle.isCurrent(accountContext.epoch)
             }
-            return accountContext.epoch
-        }
-        // A prior account's callback must not consume and discard pending
-        // deliveries while the replacement runtime is initialized.
-        ndrService.onDecryptedMessage = null
-        ndrService.configureIfNeeded(identity)
-        ndrService.onDecryptedMessage = callback@{ message, completion ->
-            if (!NdrFeatureGate.isEnabled() ||
+            if (!configured ||
+                !NdrFeatureGate.isEnabled() ||
                 !NostrInboundAccountLifecycle.isCurrent(accountContext.epoch)
             ) {
-                completion(NdrDeliveryResult.REJECTED)
-                return@callback
+                return@synchronized accountContext.epoch
             }
-            val currentIdentity =
-                NostrIdentityBridge.getCurrentNostrIdentity(application)
-            if (currentIdentity == null) {
-                completion(NdrDeliveryResult.RETRY)
-                return@callback
-            }
-            if (!currentIdentity.publicKeyHex.equals(
-                    accountContext.epoch.accountPubkeyHex,
-                    ignoreCase = true
+
+            val callback = callback@{
+                    message: NdrDecryptedMessage,
+                    completion: (NdrDeliveryResult) -> Unit ->
+                if (!NdrFeatureGate.isEnabled() ||
+                    !NostrInboundAccountLifecycle.isCurrent(accountContext.epoch)
+                ) {
+                    completion(NdrDeliveryResult.REJECTED)
+                    return@callback
+                }
+                val currentIdentity =
+                    NostrIdentityBridge.getCurrentNostrIdentity(application)
+                if (currentIdentity == null) {
+                    completion(NdrDeliveryResult.RETRY)
+                    return@callback
+                }
+                if (!currentIdentity.publicKeyHex.equals(
+                        accountContext.epoch.accountPubkeyHex,
+                        ignoreCase = true
+                    )
+                ) {
+                    completion(NdrDeliveryResult.REJECTED)
+                    return@callback
+                }
+                onDoubleRatchetMessage(
+                    message,
+                    currentIdentity,
+                    accountContext.epoch,
+                    accountContext.receiveScope,
+                    completion
                 )
-            ) {
-                completion(NdrDeliveryResult.REJECTED)
-                return@callback
             }
-            onDoubleRatchetMessage(
-                message,
-                currentIdentity,
-                accountContext.epoch,
-                accountContext.receiveJob,
-                completion
-            )
+            ndrService.onDecryptedMessage = callback
+            if (!NostrInboundAccountLifecycle.isCurrent(accountContext.epoch)) {
+                ndrService.onDecryptedMessage = null
+                return@synchronized accountContext.epoch
+            }
+            accountContext.epoch
         }
-        ndrCallbackInstalled = true
-        return accountContext.epoch
-    }
 
     internal fun currentAccountEpoch(): NostrAccountEpoch? =
         NostrInboundAccountLifecycle.currentEpoch()
 
     fun invalidateAccount() {
-        NostrInboundAccountLifecycle.invalidate()
-        if (ndrCallbackInstalled) {
+        synchronized(accountLock) {
+            NostrInboundAccountLifecycle.invalidate()
             ndrService.onDecryptedMessage = null
-            ndrCallbackInstalled = false
+            synchronized(this) {
+                processedIds.clear()
+                seen.clear()
+            }
         }
     }
 
@@ -148,10 +159,15 @@ class NostrDirectMessageHandler(
         val accountContext =
             NostrInboundAccountLifecycle.contextFor(accountEpoch)
                 ?: return null
-        return scope.launch(Dispatchers.Default + accountContext.receiveJob) {
+        return accountContext.receiveScope.launch {
             try {
                 if (!isAccountEpochCurrent(accountEpoch)) return@launch
-                if (dedupe(giftWrap.id)) return@launch
+                var duplicate = false
+                if (!runIfAccountMutationCurrent(accountEpoch, null) {
+                        duplicate = dedupe(giftWrap.id)
+                    }
+                ) return@launch
+                if (duplicate) return@launch
 
                 val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
                 if (messageAge > 173700) return@launch // 48 hours + 15 mins
@@ -186,6 +202,8 @@ class NostrDirectMessageHandler(
                     accountEpoch = accountEpoch
                 )
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 Log.e(TAG, "Failed to process gift wrap")
             }
@@ -196,10 +214,10 @@ class NostrDirectMessageHandler(
         message: NdrDecryptedMessage,
         identity: NostrIdentity,
         accountEpoch: NostrAccountEpoch,
-        receiveJob: Job,
+        receiveScope: CoroutineScope,
         completion: (NdrDeliveryResult) -> Unit
     ) {
-        scope.launch(Dispatchers.Default + receiveJob) {
+        receiveScope.launch {
             var result = NdrDeliveryResult.RETRY
             try {
                 if (!NdrFeatureGate.isEnabled() ||
@@ -256,6 +274,8 @@ class NostrDirectMessageHandler(
                     ndrEventId = dedupeId,
                     expiresAtSeconds = applicationMessage.expiresAtSeconds
                 )
+            } catch (_: CancellationException) {
+                result = NdrDeliveryResult.REJECTED
             } catch (_: Exception) {
                 Log.e(TAG, "Failed to process double-ratchet message")
                 result = NdrDeliveryResult.RETRY
@@ -470,7 +490,10 @@ class NostrDirectMessageHandler(
                 var consumed = false
                 withContext(Dispatchers.Main) {
                     runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
-                        meshDelegateHandler.didReceiveDeliveryAck(messageId, conversationID)
+                        updateDeliveryStatus(
+                            messageId,
+                            DeliveryStatus.Delivered(conversationID, Date())
+                        )
                         consumed = true
                     }
                 }
@@ -481,7 +504,10 @@ class NostrDirectMessageHandler(
                 var consumed = false
                 withContext(Dispatchers.Main) {
                     runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
-                        meshDelegateHandler.didReceiveReadReceipt(messageId, conversationID)
+                        updateDeliveryStatus(
+                            messageId,
+                            DeliveryStatus.Read(conversationID, Date())
+                        )
                         consumed = true
                     }
                 }
@@ -490,60 +516,68 @@ class NostrDirectMessageHandler(
             NoisePayloadType.FILE_TRANSFER -> {
                 val file = BitchatFilePacket.decode(payload.data)
                 if (file != null) {
-                    if (ndrEventId != null &&
-                        state.getPrivateChatsValue()[conversationID]
-                            .orEmpty()
-                            .any { it.id.equals(ndrEventId, ignoreCase = true) }
-                    ) {
-                        return NdrDeliveryResult.DUPLICATE
-                    }
+                    var savedPath: String? = null
+                    var retained = false
                     var message: BitchatMessage? = null
-                    if (!runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
-                            val savedPath =
-                                com.bitchat.android.features.file.FileUtils.saveIncomingFile(
-                                    context = application,
-                                    file = file,
-                                    stableId = ndrEventId
-                                )
-                            message = BitchatMessage(
-                                id = ndrEventId ?: java.util.UUID.randomUUID().toString().uppercase(),
-                                sender = senderNickname,
-                                content = savedPath,
-                                type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
-                                timestamp = timestamp,
-                                isRelay = false,
-                                isPrivate = true,
-                                recipientNickname = state.getNicknameValue(),
-                                senderPeerID = conversationID,
-                                senderNostrPubkey = senderPubkey
-                            )
+                    try {
+                        if (ndrEventId != null &&
+                            state.getPrivateChatsValue()[conversationID]
+                                .orEmpty()
+                                .any { it.id.equals(ndrEventId, ignoreCase = true) }
+                        ) {
+                            return NdrDeliveryResult.DUPLICATE
                         }
-                    ) return NdrDeliveryResult.REJECTED
-                    val savedPath = message?.content
-                    if (isExpired(expiresAtSeconds)) {
-                        savedPath?.let { java.io.File(it).delete() }
-                        return NdrDeliveryResult.REJECTED
-                    }
-                    var consumed = false
-                    withContext(Dispatchers.Main) {
-                        runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
-                            message?.let {
-                                privateChatManager.handleIncomingPrivateMessage(
-                                    message = it,
-                                    suppressUnread = false,
-                                    origin = PrivateMessageOrigin.NOSTR
+                        if (!runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
+                                val path =
+                                    com.bitchat.android.features.file.FileUtils.saveIncomingFile(
+                                        context = application,
+                                        file = file,
+                                        stableId = ndrEventId
+                                    )
+                                savedPath = path
+                                message = BitchatMessage(
+                                    id = ndrEventId
+                                        ?: java.util.UUID.randomUUID().toString().uppercase(),
+                                    sender = senderNickname,
+                                    content = path,
+                                    type =
+                                        com.bitchat.android.features.file.FileUtils
+                                            .messageTypeForMime(file.mimeType),
+                                    timestamp = timestamp,
+                                    isRelay = false,
+                                    isPrivate = true,
+                                    recipientNickname = state.getNicknameValue(),
+                                    senderPeerID = conversationID,
+                                    senderNostrPubkey = senderPubkey
                                 )
-                                consumed = true
+                            }
+                        ) return NdrDeliveryResult.REJECTED
+                        if (isExpired(expiresAtSeconds)) {
+                            return NdrDeliveryResult.REJECTED
+                        }
+                        var consumed = false
+                        withContext(Dispatchers.Main) {
+                            runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
+                                message?.let {
+                                    privateChatManager.handleIncomingPrivateMessage(
+                                        message = it,
+                                        suppressUnread = false,
+                                        origin = PrivateMessageOrigin.NOSTR
+                                    )
+                                    consumed = true
+                                }
                             }
                         }
-                    }
-                    if (consumed) {
-                        NdrDeliveryResult.CONSUMED
-                    } else {
-                        if (isExpired(expiresAtSeconds)) {
+                        retained = consumed
+                        if (consumed) {
+                            NdrDeliveryResult.CONSUMED
+                        } else {
+                            NdrDeliveryResult.REJECTED
+                        }
+                    } finally {
+                        if (!retained) {
                             savedPath?.let { java.io.File(it).delete() }
                         }
-                        NdrDeliveryResult.REJECTED
                     }
                 } else {
                     Log.w(TAG, "Failed to decode Nostr file transfer from $conversationID")

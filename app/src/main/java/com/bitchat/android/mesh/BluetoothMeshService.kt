@@ -131,7 +131,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     var delegate: BluetoothMeshDelegate? = null
     
     // Coroutines
-    private var announceJob: Job? = null
     // Tracks whether this instance has been terminated via stopServices()
     private var terminated = false
     
@@ -245,23 +244,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         }
     }
 
-    /**
-     * Send broadcast announcement every 30 seconds
-     */
-    private fun sendPeriodicBroadcastAnnounce() {
-        announceJob?.cancel()
-        announceJob = serviceScope.launch {
-            while (isActive) {
-                try {
-                    delay(30000) // 30 seconds
-                    sendBroadcastAnnounce()
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error in periodic broadcast announce: ${e.message}")
-                }
-            }
-        }
-    }
-    
     /**
      * Setup delegate connections between components
      */
@@ -827,8 +809,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             isActive = true
             TransportBridgeService.register("BLE", this)
             
-            // Start periodic announcements for peer discovery and connectivity
-            sendPeriodicBroadcastAnnounce()
             // Start periodic syncs
             com.bitchat.android.service.MeshServiceHolder.startSharedGossip("BLE")
         } else {
@@ -850,8 +830,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private fun pauseServicesForTransportDisable() {
         Log.i(TAG, "Disabling BLE mesh transport")
         isActive = false
-        announceJob?.cancel()
-        announceJob = null
         com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
         TransportBridgeService.unregister("BLE")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
@@ -871,8 +849,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         Log.i(TAG, "Stopping Bluetooth mesh service")
         isActive = false
-        announceJob?.cancel()
-        announceJob = null
         TransportBridgeService.unregister("BLE")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }

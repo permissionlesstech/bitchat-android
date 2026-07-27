@@ -10,6 +10,34 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class NostrRelayManagerLifecycleSmokeTest {
     @Test
+    fun `owner teardown is synchronous and preserves other subscription owners`() {
+        val manager = NostrRelayManager.shared
+        manager.disconnect()
+        manager.clearAllSubscriptions()
+        val filter = NostrFilter(kinds = listOf(NostrKind.TEXT_NOTE))
+
+        manager.subscribe(
+            filter = filter,
+            id = "background-contract",
+            handler = {},
+            targetRelayUrls = emptyList(),
+            owner = NostrRelayManager.OWNER_BACKGROUND
+        )
+        manager.subscribe(
+            filter = filter,
+            id = "ui-contract",
+            handler = {},
+            targetRelayUrls = emptyList(),
+            owner = "test-ui"
+        )
+
+        manager.unsubscribeOwner("test-ui")
+
+        assertEquals(setOf("background-contract"), manager.getActiveSubscriptions().keys)
+        manager.clearAllSubscriptions()
+    }
+
+    @Test
     fun `disconnected manager maintains subscription and empty publish invariants locally`() {
         val manager = NostrRelayManager.shared
         val setupReset = manager.discardForAccountReset()
@@ -28,7 +56,7 @@ class NostrRelayManagerLifecycleSmokeTest {
         assertEquals(1, manager.getActiveSubscriptionCount())
         assertTrue(manager.getActiveSubscriptions().containsKey(id))
         assertTrue(manager.validateSubscriptionConsistency().isConsistent)
-        manager.sendEvent(signedEvent(), relayUrls = emptyList())
+        assertFalse(manager.sendEvent(signedEvent(), relayUrls = emptyList()))
         manager.retryConnection("wss://not-configured.example")
 
         manager.unsubscribe(id)
@@ -48,7 +76,7 @@ class NostrRelayManagerLifecycleSmokeTest {
         val oldGeneration = manager.accountGenerationForTesting()
         val event = signedEvent()
         assertTrue(manager.registerPendingGiftWrap(event.id, oldGeneration))
-        manager.sendEvent(event, relayUrls = emptyList())
+        manager.sendEvent(event, relayUrls = targetRelays)
 
         assertEquals(1, manager.queuedEventCountForTesting())
         assertEquals(1, manager.pendingGiftWrapCountForTesting())
@@ -73,11 +101,11 @@ class NostrRelayManagerLifecycleSmokeTest {
         val resetToken = manager.discardForAccountReset()
         val event = signedEvent()
 
-        assertFalse(manager.sendEvent(event, relayUrls = emptyList()))
+        assertFalse(manager.sendEvent(event, relayUrls = targetRelays))
         assertEquals(0, manager.queuedEventCountForTesting())
 
         assertTrue(manager.completeAccountReset(resetToken))
-        assertTrue(manager.sendEvent(event, relayUrls = emptyList()))
+        assertTrue(manager.sendEvent(event, relayUrls = targetRelays))
         assertEquals(1, manager.queuedEventCountForTesting())
 
         val cleanupReset = manager.discardForAccountReset()
@@ -93,12 +121,12 @@ class NostrRelayManagerLifecycleSmokeTest {
 
         assertFalse(manager.discardForAccountReset(firstReset))
         assertFalse(manager.completeAccountReset(firstReset))
-        assertFalse(manager.sendEvent(event, relayUrls = emptyList()))
+        assertFalse(manager.sendEvent(event, relayUrls = targetRelays))
         assertEquals(0, manager.queuedEventCountForTesting())
 
         assertTrue(manager.discardForAccountReset(secondReset))
         assertTrue(manager.completeAccountReset(secondReset))
-        assertTrue(manager.sendEvent(event, relayUrls = emptyList()))
+        assertTrue(manager.sendEvent(event, relayUrls = targetRelays))
 
         val cleanupReset = manager.discardForAccountReset()
         assertTrue(manager.completeAccountReset(cleanupReset))
@@ -158,4 +186,6 @@ class NostrRelayManagerLifecycleSmokeTest {
             content = "local"
         ).sign(privateKey)
     }
+
+    private val targetRelays = listOf(NostrRelayManager.defaultRelays().first())
 }

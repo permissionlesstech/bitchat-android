@@ -7,12 +7,17 @@ import kotlinx.coroutines.CoroutineScope
 
 /**
  * NostrSubscriptionManager
- * - Encapsulates subscription lifecycle with NostrRelayManager
+ * - Encapsulates ordered subscription lifecycle with NostrRelayManager.
+ *
+ * Relay-manager operations are already non-blocking and schedule network I/O on their own scope.
+ * Keeping this facade synchronous prevents lifecycle cancellation from dropping unsubscribe work
+ * and guarantees that a channel switch closes the old subscription before opening the new one.
  */
 class NostrSubscriptionManager(
     private val application: Application,
     @Suppress("UNUSED_PARAMETER")
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope? = null,
+    private val owner: String = NostrRelayManager.OWNER_LEGACY
 ) {
     companion object { private const val TAG = "NostrSubscriptionManager" }
 
@@ -28,13 +33,22 @@ class NostrSubscriptionManager(
             .onFailure { Log.e(TAG, "disconnect failed: ${it.message}") }
     }
 
-    fun subscribeGiftWraps(pubkey: String, sinceMs: Long, id: String, handler: (NostrEvent) -> Unit) {
+    fun subscribeGiftWraps(
+        pubkey: String,
+        sinceMs: Long,
+        id: String,
+        handler: (NostrEvent) -> Unit,
+        liveLocationToken: Long? = null
+    ) {
+        if (!isAllowed(liveLocationToken)) return
         val generation = relayManager.captureAccountGeneration()
         val filter = NostrFilter.giftWrapsFor(pubkey, sinceMs)
         relayManager.subscribe(
             filter = filter,
             id = id,
             handler = handler,
+            owner = owner,
+            liveLocationToken = liveLocationToken,
             expectedAccountGeneration = generation
         )
     }
@@ -48,9 +62,7 @@ class NostrSubscriptionManager(
         handler: (NostrEvent) -> Unit,
         liveLocationToken: Long? = null
     ) {
-        if (liveLocationToken != null &&
-            !LiveLocationPrivacyGate.accepts(liveLocationToken)
-        ) return
+        if (!isAllowed(liveLocationToken)) return
         val generation = relayManager.captureAccountGeneration()
         val filter = NostrFilter.geohashMessages(geohash, sinceMs, limit)
         relayManager.subscribeForGeohash(
@@ -60,6 +72,7 @@ class NostrSubscriptionManager(
             handler,
             includeDefaults = false,
             nRelays = 5,
+            owner = owner,
             liveLocationToken = liveLocationToken,
             expectedAccountGeneration = generation
         )
@@ -74,9 +87,7 @@ class NostrSubscriptionManager(
         handler: (NostrEvent) -> Unit,
         liveLocationToken: Long? = null
     ) {
-        if (liveLocationToken != null &&
-            !LiveLocationPrivacyGate.accepts(liveLocationToken)
-        ) return
+        if (!isAllowed(liveLocationToken)) return
         val generation = relayManager.captureAccountGeneration()
         val filter = NostrFilter.geohashPresence(geohash, sinceMs, limit)
         relayManager.subscribeForGeohash(
@@ -86,12 +97,32 @@ class NostrSubscriptionManager(
             handler,
             includeDefaults = false,
             nRelays = 5,
+            owner = owner,
             liveLocationToken = liveLocationToken,
             expectedAccountGeneration = generation
         )
     }
 
     fun unsubscribe(id: String) {
-        runCatching { relayManager.unsubscribe(id) }
+        val generation = relayManager.captureAccountGeneration()
+        runCatching {
+            relayManager.unsubscribe(
+                id,
+                expectedAccountGeneration = generation
+            )
+        }
     }
+
+    fun unsubscribeAllOwned() {
+        val generation = relayManager.captureAccountGeneration()
+        runCatching {
+            relayManager.unsubscribeOwner(
+                owner,
+                expectedAccountGeneration = generation
+            )
+        }
+    }
+
+    private fun isAllowed(liveLocationToken: Long?): Boolean =
+        liveLocationToken == null || LiveLocationPrivacyGate.accepts(liveLocationToken)
 }

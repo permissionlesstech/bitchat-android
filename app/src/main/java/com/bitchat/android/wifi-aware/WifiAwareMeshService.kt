@@ -78,10 +78,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         private const val CLIENT_SOCKET_RETRY_DELAY_MS = 750L
         private const val CLIENT_SOCKET_ATTEMPTS = 3
         private const val CLIENT_ROLE_REVERSAL_FAILURES = 3
-        // Discovery freshness window for reconnection maintenance
-        private const val DISCOVERY_STALE_MS = 5L * 60 * 1000
-        private const val DISCOVERY_IDLE_REFRESH_MS = 2L * 60 * 1000
-        private const val DISCOVERY_SESSION_REFRESH_MIN_INTERVAL_MS = 90L * 1000
         private const val ROLE_REVERSAL_PREFIX = "ROLE_SERVER:"
     }
 
@@ -91,6 +87,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     // Peer ID must match BluetoothMeshService: first 16 hex chars of identity fingerprint (8 bytes)
     override val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val powerManager = com.bitchat.android.mesh.PowerManager.getInstance(context.applicationContext)
     private val wifiTransport = WifiAwareTransport()
     private lateinit var meshCore: MeshCore
     private lateinit var fragmentingSender: FragmentingPacketSender
@@ -173,6 +170,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             hooks = MeshCore.Hooks(
                 onMessageReceived = { message -> handleMessageReceived(message) },
                 onAnnounceProcessed = { routed, _ ->
+                    publishControllerDebugSnapshot()
                     routed.peerID?.let { pid ->
                         DirectLinkAnnouncementPolicy.observationFor(routed, MAX_TTL)
                             ?.let(::observeDirectIngressLink)
@@ -628,6 +626,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         val now = System.currentTimeMillis()
         discoveredTimestamps[peerId] = now
         lastDiscoveryActivityAt.set(now)
+        publishControllerDebugSnapshot()
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -644,7 +643,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         if (!com.bitchat.android.wifiaware.WifiAwareController.enabled.value) return false
 
         val lastRefresh = lastDiscoveryRefreshAt.get()
-        if ((now - lastRefresh) < DISCOVERY_SESSION_REFRESH_MIN_INTERVAL_MS) return false
+        val minRefreshMs = powerManager.profile.value.wifiAware.discoverySessionRefreshMinMs
+        if ((now - lastRefresh) < minRefreshMs) return false
         if (!lastDiscoveryRefreshAt.compareAndSet(lastRefresh, now)) return false
 
         Log.i(TAG, "Refreshing Wi-Fi Aware discovery sessions ($reason)")
@@ -659,7 +659,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         serviceScope.launch {
             while (isActive) {
                 try {
-                    delay(15_000) // Check every 15 seconds
+                    val schedule = powerManager.profile.value.wifiAware
+                    delay(schedule.connectionMaintenanceMs)
                     if (!isActive) break
 
                     val now = System.currentTimeMillis()
@@ -667,18 +668,19 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     // 0. Prune stale discovery entries. PeerHandles become invalid when the
                     // discovery sessions restart, so we must not keep pinging old handles forever.
                     val staleIds = discoveredTimestamps.filter { (id, ts) ->
-                        (now - ts) >= DISCOVERY_STALE_MS && !connectionTracker.isConnected(id)
+                        (now - ts) >= schedule.discoveryStaleMs && !connectionTracker.isConnected(id)
                     }.keys.toSet()
                     if (staleIds.isNotEmpty()) {
                         staleIds.forEach { discoveredTimestamps.remove(it) }
                         handleToPeerId.entries.removeIf { it.value in staleIds }
                         staleIds.forEach { subscribeHandles.remove(it) }
                         staleIds.forEach { publishHandles.remove(it) }
+                        publishControllerDebugSnapshot()
                     }
 
                     // 1. Identify peers that are discovered (recently seen) but not currently connected
                     val recentDiscovered = discoveredTimestamps.filter { (id, ts) ->
-                        (now - ts) < DISCOVERY_STALE_MS // Seen in last 5 minutes
+                        (now - ts) < schedule.discoveryStaleMs
                     }.keys
 
                     // 2. Filter out those who are already connected
@@ -728,7 +730,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                             disconnectedPeers.isNotEmpty() && missingUsableHandle && !attemptedReconnect -> {
                                 refreshDiscoverySessions("missing peer handle", now)
                             }
-                            recentDiscovered.isEmpty() && idleFor >= DISCOVERY_IDLE_REFRESH_MS -> {
+                            recentDiscovered.isEmpty() && idleFor >= schedule.discoveryIdleRefreshMs -> {
                                 refreshDiscoverySessions("idle discovery", now)
                             }
                         }
@@ -871,6 +873,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         val synced = SyncedSocket(client)
                         activeSocket = synced
                         connectionTracker.onClientConnected(peerId, synced)
+                        publishControllerDebugSnapshot()
                         // We only ever accept a single data socket per server request. Close the
                         // listening ServerSocket now so it can't block a future re-serve (its
                         // presence makes hasOpenServerSocket() true for the life of the process)
@@ -938,30 +941,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         pubSession: PublishDiscoverySession,
         peerHandle: PeerHandle
     ) {
-        // TCP keep-alive pings
-        serviceScope.launch {
-            try {
-                while (connectionTracker.isConnected(peerId)) {
-                    // write empty byte array effectively sends [4 bytes length=0] which is our ping
-                    try {
-                        client.write(ByteArray(0))
-                    } catch (_: IOException) {
-                        // The write side is dead. Don't just stop pinging: actively tear down so the
-                        // half-open socket stops counting as "connected" and maintenance can retry.
-                        handlePeerDisconnection(peerId, client)
-                        break
-                    }
-                    delay(2_000)
-                }
-            } catch (_: Exception) {}
-        }
-        // Discovery keep-alive
-        serviceScope.launch {
-            var msgId = 0
-            while (connectionTracker.isConnected(peerId)) {
-                try { pubSession.sendMessage(peerHandle, msgId++, ByteArray(0)) } catch (_: Exception) { break }
-                delay(20_000)
-            }
+        startProfiledKeepAlive(client, peerId) { msgId ->
+            pubSession.sendMessage(peerHandle, msgId, ByteArray(0))
         }
     }
 
@@ -1129,6 +1110,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         val synced = SyncedSocket(sock)
                         activeSocket = synced
                         connectionTracker.onClientConnected(peerId, synced)
+                        publishControllerDebugSnapshot()
                         clientSocketFailures.remove(peerId)
                         try { meshCore.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                         listenerExec.execute { listenToPeer(synced, peerId) }
@@ -1172,28 +1154,50 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         peerId: String,
         peerHandle: PeerHandle
     ) {
-        // TCP keep-alive
+        startProfiledKeepAlive(sock, peerId) { msgId ->
+            subscribeSession?.sendMessage(peerHandle, msgId, ByteArray(0))
+        }
+    }
+
+    /**
+     * One coroutine per peer schedules both TCP and discovery deadlines. This avoids two
+     * independently waking jobs while still adapting after every send to the latest profile.
+     */
+    private fun startProfiledKeepAlive(
+        socket: SyncedSocket,
+        peerId: String,
+        sendDiscovery: (Int) -> Unit
+    ) {
         serviceScope.launch {
-            try {
-                while (connectionTracker.isConnected(peerId)) {
+            var discoveryMessageId = 0
+            var nextTcpAt = 0L
+            var nextDiscoveryAt = 0L
+            while (connectionTracker.isConnected(peerId)) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                val schedule = powerManager.profile.value.wifiAware
+
+                if (now >= nextTcpAt) {
                     try {
-                        sock.write(ByteArray(0))
+                        socket.write(ByteArray(0))
                     } catch (_: IOException) {
-                        // The write side is dead. Tear down so the half-open socket stops counting
-                        // as "connected" and maintenance can retry instead of silently stalling.
-                        handlePeerDisconnection(peerId, sock)
+                        handlePeerDisconnection(peerId, socket)
                         break
                     }
-                    delay(2_000)
+                    nextTcpAt = now + schedule.tcpKeepAliveMs
                 }
-            } catch (_: Exception) {}
-        }
-        // Discovery keep-alive
-        serviceScope.launch {
-            var msgId = 0
-            while (connectionTracker.isConnected(peerId)) {
-                try { subscribeSession?.sendMessage(peerHandle, msgId++, ByteArray(0)) } catch (_: Exception) { break }
-                delay(20_000)
+
+                if (now >= nextDiscoveryAt) {
+                    try {
+                        sendDiscovery(discoveryMessageId++)
+                    } catch (_: Exception) {
+                        // The TCP data path remains usable; discovery maintenance will recover its
+                        // session independently without dropping this idle connection.
+                    }
+                    nextDiscoveryAt = now + schedule.discoveryKeepAliveMs
+                }
+
+                val nextWakeAt = minOf(nextTcpAt, nextDiscoveryAt)
+                delay((nextWakeAt - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(250L))
             }
         }
     }
@@ -1271,6 +1275,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             )
         } catch (_: Exception) { }
         try { meshCore.setDirectConnection(observation.peerID, true) } catch (_: Exception) { }
+        try {
+            meshCore.gossipSyncManager.scheduleInitialSyncToPeer(observation.peerID, 1_000)
+        } catch (_: Exception) { }
+        publishControllerDebugSnapshot()
 
         Log.i(
             TAG,
@@ -1357,6 +1365,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 }
             }
             // Else: socket replaced or inactive; do not remove peer/session, as a new socket has likely taken over
+            publishControllerDebugSnapshot()
         }
     }
 
@@ -1583,6 +1592,16 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     /** Returns recently discovered peer IDs via Aware discovery (may not be connected). */
     fun getDiscoveredPeerIds(): Set<String> =
         (handleToPeerId.values + discoveredTimestamps.keys).filter { it.isNotBlank() }.toSet()
+
+    private fun publishControllerDebugSnapshot() {
+        try {
+            com.bitchat.android.wifiaware.WifiAwareController.publishDebugSnapshot(
+                connected = getDeviceAddressToPeerMapping(),
+                known = getPeerNicknames(),
+                discovered = getDiscoveredPeerIds()
+            )
+        } catch (_: Exception) { }
+    }
 
     /**
      * Utility for logs/UI: pretty-prints one peer-to-address mapping per line.

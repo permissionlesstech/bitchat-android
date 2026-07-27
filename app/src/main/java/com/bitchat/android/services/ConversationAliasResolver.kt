@@ -65,7 +65,6 @@ object ConversationAliasResolver {
         if (didMerge) {
             currentChats[targetConversationID] = targetList
                 .distinctBy { it.id }
-                .sortedBy { it.timestamp.time }
             state.setPrivateChats(ContactDirectory.canonicalizePrivateChats(currentChats))
 
             // Move unread flags

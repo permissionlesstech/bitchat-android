@@ -133,6 +133,9 @@ class ArtiTorManager private constructor() {
                 lastLogTime.set(System.currentTimeMillis())
                 _statusFlow.update { it.copy(lastLogLine = s) }
                 handleArtiLogLine(s)
+                if (_statusFlow.value.bootstrapPercent < 100) {
+                    armBootstrapInactivityWatchdog()
+                }
             }
 
             artiProxy = ArtiProxy.Builder(application)
@@ -374,29 +377,30 @@ class ArtiTorManager private constructor() {
     }
 
     private fun startInactivityMonitoring() {
-        inactivityJob?.cancel()
-        inactivityJob = appScope.launch {
-            while (true) {
-                delay(INACTIVITY_TIMEOUT_MS)
-                val currentTime = System.currentTimeMillis()
-                val lastActivity = lastLogTime.get()
-                val timeSinceLastActivity = currentTime - lastActivity
+        armBootstrapInactivityWatchdog()
+    }
 
-                if (timeSinceLastActivity > INACTIVITY_TIMEOUT_MS) {
-                    val currentMode = _statusFlow.value.mode
-                    if (currentMode == TorMode.ON) {
-                        val bootstrapPercent = _statusFlow.value.bootstrapPercent
-                        if (bootstrapPercent < 100) {
-                            Log.w(TAG, "Inactivity detected (${timeSinceLastActivity}ms), restarting Arti")
-                            currentApplication?.let { app ->
-                                appScope.launch {
-                                    restartArti(app)
-                                }
-                            }
-                            break
-                        }
-                    }
-                }
+    /**
+     * One-shot startup watchdog. Arti log activity re-arms it and successful bootstrap cancels it,
+     * so a healthy background Tor process has no permanent five-second polling coroutine.
+     */
+    private fun armBootstrapInactivityWatchdog() {
+        inactivityJob?.cancel()
+        if (lifecycleState != LifecycleState.RUNNING || _statusFlow.value.bootstrapPercent >= 100) {
+            inactivityJob = null
+            return
+        }
+        inactivityJob = appScope.launch {
+            delay(INACTIVITY_TIMEOUT_MS)
+            val timeSinceLastActivity = System.currentTimeMillis() - lastLogTime.get()
+            if (
+                timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS &&
+                _statusFlow.value.mode == TorMode.ON &&
+                _statusFlow.value.bootstrapPercent < 100 &&
+                lifecycleState == LifecycleState.RUNNING
+            ) {
+                Log.w(TAG, "Bootstrap inactivity detected (${timeSinceLastActivity}ms), restarting Arti")
+                currentApplication?.let { restartArti(it) }
             }
         }
     }
@@ -494,6 +498,7 @@ class ArtiTorManager private constructor() {
                         running = true
                     )
                 }
+                stopInactivityMonitoring()
                 completeWaitersIf(TorState.RUNNING)
             }
 
