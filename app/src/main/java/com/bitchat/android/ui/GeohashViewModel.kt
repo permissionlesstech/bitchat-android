@@ -42,10 +42,9 @@ class GeohashViewModel(
     companion object { private const val TAG = "GeohashViewModel" }
 
     private val repo = GeohashRepository(application, state, dataManager)
-    private val uiSubscriptionOwner = "geohash-ui-${System.identityHashCode(this)}"
+    private val uiSubscriptionOwner = "geohash-ui-${UUID.randomUUID()}"
     private val subscriptionManager = NostrSubscriptionManager(
         application,
-        viewModelScope,
         owner = uiSubscriptionOwner
     )
     private val geohashMessageHandler = GeohashMessageHandler(
@@ -75,6 +74,7 @@ class GeohashViewModel(
     private val liveSamplingSubscriptionGeohashes = mutableSetOf<String>()
     private var requestedLiveSamplingGeohashes: Set<String> = emptySet()
     private var requestedUserSamplingGeohashes: Set<String> = emptySet()
+    private var uiSubscriptionsShutdown = false
     private val liveLocationRevocationListener: () -> Unit = {
         val revokedLiveGeohashes = liveSamplingSubscriptionGeohashes.toSet()
         revokedLiveGeohashes.forEach { geohash ->
@@ -424,11 +424,13 @@ class GeohashViewModel(
     }
 
     override fun onCleared() {
-        super.onCleared()
         shutdownUiSubscriptions()
+        super.onCleared()
     }
 
     fun shutdownUiSubscriptions() {
+        if (uiSubscriptionsShutdown) return
+        uiSubscriptionsShutdown = true
         subscriptionManager.unsubscribeAllOwned()
         geoTimer?.cancel()
         geoTimer = null

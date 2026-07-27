@@ -61,7 +61,6 @@ object NostrBackgroundRuntime {
             locationChannels = LocationChannelManager.getInstance(app)
             subscriptions = NostrSubscriptionManager(
                 app,
-                scope,
                 owner = NostrRelayManager.OWNER_BACKGROUND
             )
         }
@@ -94,7 +93,13 @@ object NostrBackgroundRuntime {
     }
 
     fun ensureConversationDm(geohash: String) {
-        if (!initialized || geohash == activeGeohash || geohash == conversationGeohash) return
+        if (!initialized || geohash == conversationGeohash) return
+        val selectedLiveToken = activeGeohashLiveToken
+        val selectedChannelSubscriptionIsUsable =
+            geohash == activeGeohash &&
+                (selectedLiveToken == null ||
+                    LiveLocationPrivacyGate.accepts(selectedLiveToken))
+        if (selectedChannelSubscriptionIsUsable) return
         conversationGeohash?.let { subscriptions.unsubscribe("geo-dm-conversation-$it") }
         conversationGeohash = geohash
         subscribeGeohashDm(
@@ -119,8 +124,9 @@ object NostrBackgroundRuntime {
     private fun observeSelectedChannel() {
         scope.launch {
             locationChannels.selectedChannel.collectLatest { channel ->
-                val next = (channel as? ChannelID.Location)?.channel?.geohash
-                val nextToken = (channel as? ChannelID.Location)?.let {
+                val locationChannel = channel as? ChannelID.Location
+                val next = locationChannel?.channel?.geohash
+                val nextToken = locationChannel?.let {
                     locationChannels.liveLocationTokenForSelectedChannel(it.channel)
                 }
                 val previous = activeGeohash
@@ -139,9 +145,8 @@ object NostrBackgroundRuntime {
                     conversationGeohash = null
                 }
                 next?.let { geohash ->
-                    val isLiveDerived = (channel as? ChannelID.Location)?.let {
-                        locationChannels.isSelectedChannelLiveDerived(it.channel)
-                    } == true
+                    val isLiveDerived =
+                        locationChannels.isSelectedChannelLiveDerived(locationChannel.channel)
                     if (!isLiveDerived || nextToken != null) {
                         subscribeSelectedGeohash(geohash, nextToken)
                     }
@@ -171,21 +176,28 @@ object NostrBackgroundRuntime {
         liveLocationToken: Long?
     ) {
         scope.launch {
-            if (liveLocationToken != null &&
-                !LiveLocationPrivacyGate.accepts(liveLocationToken)
-            ) return@launch
-            val identity = NostrIdentityBridge.deriveIdentity(geohash, application)
-            subscriptions.subscribeGiftWraps(
-                pubkey = identity.publicKeyHex,
-                sinceMs = System.currentTimeMillis() - 172_800_000L,
-                id = subscriptionId,
-                handler = { event -> dispatch { it.geohashDm(event, geohash, identity) } },
-                liveLocationToken = liveLocationToken
-            )
-            GeohashAliasRegistry.put(
-                "nostr_${identity.publicKeyHex.take(16)}",
-                identity.publicKeyHex
-            )
+            val subscribe = {
+                val identity = NostrIdentityBridge.deriveIdentity(geohash, application)
+                subscriptions.subscribeGiftWraps(
+                    pubkey = identity.publicKeyHex,
+                    sinceMs = System.currentTimeMillis() - 172_800_000L,
+                    id = subscriptionId,
+                    handler = { event ->
+                        dispatch { it.geohashDm(event, geohash, identity) }
+                    },
+                    liveLocationToken = liveLocationToken
+                )
+                GeohashAliasRegistry.put(
+                    "nostr_${identity.publicKeyHex.take(16)}",
+                    identity.publicKeyHex
+                )
+            }
+
+            if (liveLocationToken == null) {
+                subscribe()
+            } else {
+                LiveLocationPrivacyGate.runIfAllowed(liveLocationToken, subscribe)
+            }
         }
     }
 

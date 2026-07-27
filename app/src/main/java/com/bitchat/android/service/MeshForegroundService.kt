@@ -112,7 +112,8 @@ class MeshForegroundService : Service() {
     private val unifiedMeshService: com.bitchat.android.mesh.MeshService?
         get() = MeshServiceHolder.unifiedMeshService
     private val serviceJob = Job()
-    private val scope = CoroutineScope(Dispatchers.Default + serviceJob)
+    // Service lifecycle callbacks and notification state are main-thread confined.
+    private val scope = CoroutineScope(Dispatchers.Main.immediate + serviceJob)
     private var isInForeground: Boolean = false
     private var isShuttingDown: Boolean = false
     private var lastNotifiedPeerCount: Int? = null

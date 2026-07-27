@@ -6,7 +6,6 @@ import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.noise.NoiseSession
-import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +13,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -77,18 +77,21 @@ class UnifiedMeshService(
     private fun startAnnouncementScheduler() {
         if (announcementJob?.isActive == true) return
         announcementJob = serviceScope.launch {
-            combine(powerManager.profile, AppStateStore.directPeers) { profile, peers ->
-                profile.meshAnnouncementIntervalMs to peers.isNotEmpty()
-            }.collectLatest { (intervalMs, hasRecipients) ->
-                if (!hasRecipients) return@collectLatest
-                // Connection-specific paths already send an immediate announce. Begin the
-                // periodic cadence after the configured interval to avoid a transition burst.
-                while (isActive) {
-                    delay(intervalMs)
-                    if (AppStateStore.directPeers.value.isNotEmpty()) sendBroadcastAnnounce()
+            powerManager.profile
+                .map { profile ->
+                    profile.meshAnnouncementIntervalMs to profile.hasDirectPeers
+                }
+                .distinctUntilChanged()
+                .collectLatest { (intervalMs, hasRecipients) ->
+                    if (!hasRecipients) return@collectLatest
+                    // Connection-specific paths already send an immediate announce. Begin the
+                    // periodic cadence after the configured interval to avoid a transition burst.
+                    while (isActive) {
+                        delay(intervalMs)
+                        if (powerManager.profile.value.hasDirectPeers) sendBroadcastAnnounce()
+                    }
                 }
             }
-        }
     }
 
     override fun sendMessage(content: String, mentions: List<String>, channel: String?) {
