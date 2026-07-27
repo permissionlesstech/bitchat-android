@@ -33,7 +33,8 @@ class PrivateChatManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val dataManager: DataManager,
-    private val noiseSessionDelegate: NoiseSessionDelegate
+    private val noiseSessionDelegate: NoiseSessionDelegate,
+    private val hasReadReceiptBeenSent: (messageID: String) -> Boolean = { false }
 ) {
 
     companion object {
@@ -398,7 +399,7 @@ class PrivateChatManager(
                 senderPeerID == meshPeerID ||
                     ContactDirectory.canonicalConversationId(senderPeerID) == canonicalConversationID
                 )
-            if (isFromTarget && meshPeerID != null) {
+            if (isFromTarget && meshPeerID != null && !hasReadReceiptBeenSent(msg.id)) {
                 try {
                     if (hasMesh) {
                         meshService.sendReadReceipt(msg.id, meshPeerID, myNickname)

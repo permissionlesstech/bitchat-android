@@ -67,7 +67,7 @@ class NostrDirectMessageHandlerTest {
         )
         val seenStore = mock<SeenMessageStore>()
         whenever(seenStore.hasDelivered(any())).thenReturn(true)
-        whenever(seenStore.hasRead(any())).thenReturn(false)
+        whenever(seenStore.hasBeenReadLocally(any())).thenReturn(false)
         val handler = NostrDirectMessageHandler(
             application = application,
             state = state,

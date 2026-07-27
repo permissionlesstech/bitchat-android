@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,6 +17,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import java.util.Date
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -29,6 +31,7 @@ class MeshDelegateHandlerStateContractTest {
     private lateinit var mesh: MeshService
     private lateinit var handler: MeshDelegateHandler
     private lateinit var haptics: AtomicInteger
+    private lateinit var locallyReadMessageIDs: MutableList<String>
 
     @Before
     fun setUp() {
@@ -41,6 +44,7 @@ class MeshDelegateHandlerStateContractTest {
         notifications = mock()
         mesh = mock()
         haptics = AtomicInteger()
+        locallyReadMessageIDs = mutableListOf()
         handler = MeshDelegateHandler(
             state = state,
             messageManager = messages,
@@ -50,7 +54,8 @@ class MeshDelegateHandlerStateContractTest {
             coroutineScope = scope,
             onHapticFeedback = { haptics.incrementAndGet() },
             getMyPeerID = { "self" },
-            getMeshService = { mesh }
+            getMeshService = { mesh },
+            markMessageReadLocally = locallyReadMessageIDs::add
         )
     }
 
@@ -87,6 +92,39 @@ class MeshDelegateHandlerStateContractTest {
 
         handler.didReceiveDeliveryAck("outgoing", "peer-a")
         assertTrue(state.messages.value.single().deliveryStatus is DeliveryStatus.Read)
+    }
+
+    @Test
+    fun `focused private message schedules receipt before recording local read`() {
+        val peerID = "1122334455667788"
+        val incoming = BitchatMessage(
+            id = "focused-private-message",
+            sender = "alice",
+            content = "hello",
+            timestamp = Date(1),
+            isPrivate = true,
+            senderPeerID = peerID
+        )
+        whenever(notifications.getAppBackgroundState()).thenReturn(false)
+        whenever(notifications.getCurrentPrivateChatPeer()).thenReturn(peerID)
+        whenever(mesh.getPeerInfo(peerID)).thenReturn(
+            PeerInfo(
+                id = peerID,
+                nickname = "alice",
+                isConnected = true,
+                isDirectConnection = true,
+                noisePublicKey = ByteArray(32) { 1 },
+                signingPublicKey = null,
+                isVerifiedNickname = false,
+                lastSeen = System.currentTimeMillis()
+            )
+        )
+        whenever(mesh.hasEstablishedSession(peerID)).thenReturn(true)
+
+        handler.didReceiveMessage(incoming)
+
+        verify(mesh).sendReadReceipt(incoming.id, peerID, "Résumé")
+        assertEquals(listOf(incoming.id), locallyReadMessageIDs)
     }
 
     @Test
