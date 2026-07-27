@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -203,8 +204,11 @@ fun MessageItem(
         // Cashu ecash tokens in the message render as payment chips below the text
         val cashuTokens = remember(message.content) { MessageSpecialParser.findCashuTokens(message.content) }
         if (cashuTokens.isNotEmpty()) {
-            Row(
+            // FlowRow so 2-3 chips wrap within the message width instead of
+            // overflowing past the viewport where they can't be tapped
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.padding(top = 4.dp)
             ) {
                 cashuTokens.forEach { match ->

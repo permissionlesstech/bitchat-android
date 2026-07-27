@@ -405,6 +405,7 @@ class CommandProcessor(
 
         val selectedPeer = state.getSelectedPrivateChatPeerValue()
         if (selectedPeer != null) {
+            var route: com.bitchat.android.services.MessageRouter.RouteResult? = null
             privateChatManager.sendPrivateMessage(
                 token,
                 selectedPeer,
@@ -412,9 +413,19 @@ class CommandProcessor(
                 state.getNicknameValue(),
                 myPeerID
             ) { content, peerIdParam, recipientNicknameParam, messageId ->
-                sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId, viewModel)
+                route = sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId, viewModel)
             }
-            systemMessage("sent ${summary} — cashu is a bearer token; whoever redeems it first gets the funds")
+            // MessageRouter only queues to its in-memory outbox when no route is
+            // ready — reporting "sent" here would lie about a bearer token that
+            // may never arrive.
+            when (route) {
+                com.bitchat.android.services.MessageRouter.RouteResult.QUEUED ->
+                    systemMessage("queued ${summary} — no route to the recipient right now; it will send when mesh/Nostr connectivity opens. cashu is a bearer token; whoever redeems it first gets the funds")
+                com.bitchat.android.services.MessageRouter.RouteResult.DROPPED ->
+                    systemMessage("could not send ${summary} — no route to the recipient via mesh or Nostr")
+                else ->
+                    systemMessage("sent ${summary} — cashu is a bearer token; whoever redeems it first gets the funds")
+            }
             return
         }
 
@@ -639,13 +650,14 @@ class CommandProcessor(
         recipientNickname: String,
         messageId: String,
         viewModel: ChatViewModel?
-    ) {
-        if (viewModel != null) {
+    ): com.bitchat.android.services.MessageRouter.RouteResult? {
+        return if (viewModel != null) {
             com.bitchat.android.services.MessageRouter
                 .getInstance(viewModel.getApplication(), meshService)
                 .sendPrivate(content, peerID, recipientNickname, messageId)
         } else {
             meshService.sendPrivateMessage(content, peerID, recipientNickname, messageId)
+            null // fire-and-forget fallback; no route info available
         }
     }
 }
