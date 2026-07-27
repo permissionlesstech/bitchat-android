@@ -460,6 +460,7 @@ class CommandProcessor(
             else -> messageManager.addMessage(message)
         }
     }
+
     private fun handlePingCommand(parts: List<String>, meshService: MeshService) {
         if (!isMeshContext()) {
             addCommandOutput("mesh diagnostics are only available in #mesh")
@@ -509,6 +510,9 @@ class CommandProcessor(
         }
         val graph = MeshGraphService.getInstance()
         val route = graph.computeRoute(meshService.myPeerID, peerID)
+            ?: meshService.getPeerInfo(peerID)
+                ?.takeIf { it.isConnected && it.isDirectConnection }
+                ?.let { listOf(meshService.myPeerID, peerID) }
         if (route == null) {
             addCommandOutput("no known path to $targetName")
             return
@@ -520,7 +524,9 @@ class CommandProcessor(
                 else -> meshService.getPeerNicknames()[id] ?: id.take(8)
             }
         }
-        addCommandOutput("estimated path: ${labels.joinToString(" → ")} (${route.size - 1} hops)")
+        val hopCount = route.size - 1
+        val hops = if (hopCount == 1) "1 hop" else "$hopCount hops"
+        addCommandOutput("estimated path: ${labels.joinToString(" → ")} ($hops)")
     }
 
     private sealed interface CommandDestination {

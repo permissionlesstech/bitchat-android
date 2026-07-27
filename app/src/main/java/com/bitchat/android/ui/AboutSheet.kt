@@ -1262,7 +1262,7 @@ fun AboutSheet(
                                     Text(
                                         text = "network → mesh topology",
                                         fontSize = 13.sp,
-                                        fontFamily = FontFamily.Monospace,
+                                        fontFamily = BitchatFontFamily,
                                         color = colorScheme.primary,
                                     )
                                 }

@@ -5,7 +5,9 @@ import android.util.Log
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.NoiseSession
+import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +40,10 @@ class UnifiedMeshService(
     private val powerManager = PowerManager.getInstance(context.applicationContext)
     private var announcementJob: Job? = null
 
+    private val diagnosticsScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val meshPingManager = MeshPingManager(bluetooth.myPeerID, diagnosticsScope) { packet ->
+        TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
+    }
     override val myPeerID: String
         get() = bluetooth.myPeerID
 
@@ -240,11 +246,7 @@ class UnifiedMeshService(
     }
 
     override fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit) {
-        when {
-            isBleConnected(peerID) || (isBleEnabled() && !isWifiConnected(peerID)) ->
-                bluetooth.sendMeshPing(peerID, callback)
-            else -> wifiService()?.sendMeshPing(peerID, callback) ?: callback(null)
-        }
+        meshPingManager.ping(peerID, callback)
     }
 
     override fun getPeerNicknames(): Map<String, String> {
@@ -358,6 +360,13 @@ class UnifiedMeshService(
         try { merged.putAll(bluetooth.getDeviceAddressToPeerMapping()) } catch (_: Exception) { }
         return merged
     }
+
+    override fun getDirectBlePeerIDs(): Set<String> =
+        try {
+            bluetooth.getDeviceAddressToPeerMapping().values.toSet()
+        } catch (_: Exception) {
+            emptySet()
+        }
 
     override fun printDeviceAddressesForPeers(): String {
         return buildString {
