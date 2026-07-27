@@ -412,11 +412,6 @@ class CommandProcessor(
         }
         val graph = MeshGraphService.getInstance()
         val route = graph.computeRoute(meshService.myPeerID, peerID)
-            ?: if (meshService.getPeerNicknames().containsKey(peerID)) {
-                listOf(meshService.myPeerID, peerID)
-            } else {
-                null
-            }
         if (route == null) {
             addCommandOutput("no known path to $targetName")
             return
