@@ -13,6 +13,9 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 class NdrNostrServiceTest {
+    private val localPubkey = "22".repeat(32)
+    private val peerPubkey = "cc".repeat(32)
+
     @Before
     fun enableNdrForTest() {
         NdrFeatureGate.setEnabledForTests(true)
@@ -26,276 +29,472 @@ class NdrNostrServiceTest {
     @Test
     fun disabledRolloutGateRefusesToCreateRuntime() {
         NdrFeatureGate.setEnabledForTests(false)
-        val runtime = FakeNdrSessionManager()
-        val runtimeFactory = FakeNdrRuntimeFactory(runtime)
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
-            runtimeFactory = runtimeFactory,
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
-        )
+        val runtime = FakeNdrPairwiseRuntime()
+        val factory = FakeNdrRuntimeFactory(runtime)
+        val service = service(runtimeFactory = factory)
 
         service.configureIfNeeded(testIdentity())
 
         assertFalse(service.isConfigured)
-        assertEquals(0, runtimeFactory.createdCount)
-        assertFalse(service.sendIfPossible("hello", "aa".repeat(32)))
+        assertEquals(0, factory.createdCount)
+        assertEquals(NdrSendResult.NO_SESSION, service.sendIfPossible("hello", peerPubkey))
     }
 
     @Test
-    fun configureCachesInviteAndSkipsOobSubscriptions() {
-        val relayManager = FakeRelayManager()
-        val runtime = FakeNdrSessionManager().apply {
-            drainedEvents += NdrPubSubEvent(
-                kind = "publish_signed",
-                eventJson = """
-                    {"id":"invite1","pubkey":"sender","created_at":1,"kind":30078,"tags":[["l","double-ratchet/invites"]],"content":"invite","sig":"sig"}
-                """.trimIndent()
-            )
-            drainedEvents += NdrPubSubEvent(
+    fun configureCachesPairwiseInviteAndInstallsOnlyKind1060Subscription() {
+        val relay = FakeRelayManager()
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            currentInvite = inviteEvent(peerPubkey)
+            pendingEvents += NdrPubSubEvent(
                 kind = "subscribe",
-                subid = "giftwrap-oob",
-                filterJson = """{"kinds":[1059],"#p":["peer"]}"""
-            )
-            drainedEvents += NdrPubSubEvent(
-                kind = "subscribe",
-                subid = "unlabeled-invite-discovery",
-                filterJson = """{"authors":["peer"],"kinds":[30078]}"""
-            )
-            drainedEvents += NdrPubSubEvent(
-                kind = "subscribe",
+                actionId = "message-sub",
                 subid = "messages",
-                filterJson = """{"authors":["peer"],"kinds":[1060]}"""
+                filterJson = """{"authors":["$peerPubkey"],"kinds":[1060]}"""
+            )
+            pendingEvents += NdrPubSubEvent(
+                kind = "subscribe",
+                actionId = "appkeys-sub",
+                subid = "appkeys",
+                filterJson = """{"authors":["$peerPubkey"],"kinds":[37368]}"""
+            )
+            pendingEvents += NdrPubSubEvent(
+                kind = "subscribe",
+                actionId = "invite-sub",
+                subid = "invites",
+                filterJson = """{"authors":["$peerPubkey"],"kinds":[30078]}"""
+            )
+            pendingEvents += NdrPubSubEvent(
+                kind = "subscribe",
+                actionId = "recipient-sub",
+                subid = "recipient",
+                filterJson = """{"kinds":[1060],"#p":["$localPubkey"]}"""
             )
         }
-        val runtimeFactory = FakeNdrRuntimeFactory(runtime)
-        val service = NdrNostrService(
-            relayManager = relayManager,
-            runtimeFactory = runtimeFactory,
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
-        )
-
-        service.configureIfNeeded(
-            NostrIdentity(
-                privateKeyHex = "11".repeat(32),
-                publicKeyHex = "22".repeat(32),
-                npub = "npub-test",
-                createdAt = 1L
-            )
-        )
-
-        assertEquals("invite1", NostrEvent.fromJsonString(service.currentInviteEventJson()!!)?.id)
-        assertEquals(listOf("messages"), relayManager.subscriptions.map { it.id })
-        assertEquals("/tmp/ndr-test/${"22".repeat(32)}", runtimeFactory.lastStoragePath)
-    }
-
-    @Test
-    fun configureRestoresKnownPeerAppKeysFeedAndForwardsLaterRoster() {
-        val peer = "ab".repeat(32)
-        val relayManager = FakeRelayManager()
-        val runtime = FakeNdrSessionManager().apply {
-            knownPeerOwners += peer
-            setupUserEvents[peer] = listOf(
-                NdrPubSubEvent(
-                    kind = "subscribe",
-                    subid = "restored-app-keys",
-                    filterJson = """{"authors":["$peer"],"kinds":[37368]}"""
-                ),
-                NdrPubSubEvent(
-                    kind = "subscribe",
-                    subid = "restored-invite-discovery",
-                    filterJson = """{"authors":["$peer"],"kinds":[30078]}"""
-                )
-            )
-        }
-        val service = NdrNostrService(
-            relayManager = relayManager,
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
-        )
+        val factory = FakeNdrRuntimeFactory(runtime)
+        val service = service(relay, factory)
 
         service.configureIfNeeded(testIdentity())
 
-        assertEquals(listOf(peer), runtime.setupUserCalls)
-        val rosterSubscription = relayManager.subscriptions.single()
-        assertEquals(listOf(37368), rosterSubscription.filter.kinds)
-        assertEquals(listOf(peer), rosterSubscription.filter.authors)
+        assertEquals(
+            inviteEvent(peerPubkey),
+            service.currentInviteEventJson()
+        )
+        assertEquals(listOf("messages"), relay.subscriptions.map { it.id })
+        assertEquals(
+            setOf("message-sub", "appkeys-sub", "invite-sub", "recipient-sub"),
+            runtime.ackedActionIds.toSet()
+        )
+        assertEquals(
+            "/tmp/ndr-test/pairwise-v1/$localPubkey",
+            factory.lastStoragePath
+        )
+    }
 
-        relayManager.emit(
-            rosterSubscription.id,
+    @Test
+    fun appKeysRelayTrafficIsRejectedWithoutEnteringRuntimeOrRelay() {
+        val relay = FakeRelayManager()
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += NdrPubSubEvent(
+                kind = "publish",
+                actionId = "appkeys-publish",
+                sessionId = "appkeys-session",
+                eventJson = appKeysEvent(peerPubkey)
+            )
+        }
+        val service = service(relay, FakeNdrRuntimeFactory(runtime))
+        service.configureIfNeeded(testIdentity())
+
+        service.processInboundRelayEvent(
             NostrEvent(
                 id = "01".repeat(32),
-                pubkey = peer,
-                createdAt = 2,
+                pubkey = peerPubkey,
+                createdAt = 1,
                 kind = 37368,
                 tags = listOf(listOf("type", "app_keys_roster_snapshot")),
-                content = "later-signed-roster",
+                content = "roster",
                 sig = "sig"
             )
         )
 
-        assertEquals(1, runtime.processedEvents.size)
-        assertEquals(
-            "01".repeat(32),
-            NostrEvent.fromJsonString(runtime.processedEvents.single())?.id
-        )
+        assertTrue(runtime.processedEvents.isEmpty())
+        assertTrue(relay.sentEvents.isEmpty())
+        assertTrue("appkeys-publish" in runtime.ackedActionIds)
     }
 
     @Test
-    fun configureBuffersDecryptedMessagesUntilCallbackIsInstalled() {
-        val runtime = FakeNdrSessionManager().apply {
-            drainedEvents += NdrPubSubEvent(
-                kind = "decrypted_message",
-                senderPubkeyHex = "ab".repeat(32),
-                content = "bitchat1:pending",
-                eventId = "01".repeat(32)
+    fun relayPublishIsAcknowledgedOnlyAfterHostQueueAcceptsIt() {
+        val event = messageEvent(peerPubkey)
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += NdrPubSubEvent(
+                kind = "publish",
+                actionId = "relay-publish",
+                sessionId = "relay-session",
+                eventJson = event.toJsonString()
             )
         }
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
+        val failingRelay = FakeRelayManager(failSend = true)
+        val scheduler = FakeRetryScheduler()
+        val service = service(
+            failingRelay,
+            FakeNdrRuntimeFactory(runtime),
+            retryScheduler = scheduler
         )
 
         service.configureIfNeeded(testIdentity())
-        var delivered: NdrDecryptedMessage? = null
-        service.onDecryptedMessage = { delivered = it }
+        assertFalse("relay-publish" in runtime.ackedActionIds)
+        assertEquals(1_000L, scheduler.scheduled.single().delayMs)
 
-        assertEquals("bitchat1:pending", delivered?.content)
-        assertEquals("ab".repeat(32), delivered?.conversationPubkeyHex)
+        failingRelay.failSend = false
+        scheduler.runNext()
+
+        assertTrue("relay-publish" in runtime.ackedActionIds)
+        assertEquals(listOf(event.id), failingRelay.sentEvents.map { it.id })
     }
 
     @Test
-    fun decryptedMessageBufferIsBoundedAndDropsOldest() {
-        val runtime = FakeNdrSessionManager().apply {
+    fun recipientTaggedRelayPublishIsRejectedWithoutLeavingHost() {
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += NdrPubSubEvent(
+                kind = "publish",
+                actionId = "recipient-publish",
+                sessionId = "recipient-session",
+                eventJson = messageEvent(peerPubkey).copy(
+                    tags = listOf(listOf("p", localPubkey))
+                ).toJsonString()
+            )
+        }
+        val relay = FakeRelayManager()
+        val service = service(relay, FakeNdrRuntimeFactory(runtime))
+
+        service.configureIfNeeded(testIdentity())
+
+        assertTrue(relay.sentEvents.isEmpty())
+        assertEquals(listOf("recipient-publish"), runtime.ackedActionIds)
+    }
+
+    @Test
+    fun outOfBandAdmissionBlocksOnlyTheMatchingSessionPublish() {
+        val blockedEvent = messageEvent(peerPubkey).copy(id = "31".repeat(32))
+        val unrelatedEvent = messageEvent(peerPubkey).copy(id = "32".repeat(32))
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += NdrPubSubEvent(
+                kind = "publish",
+                actionId = "blocked-publish",
+                sessionId = "session-a",
+                eventJson = blockedEvent.toJsonString()
+            )
+            pendingEvents += NdrPubSubEvent(
+                kind = "out_of_band",
+                actionId = "oob-a",
+                sessionId = "session-a",
+                eventJson = giftWrapEvent(),
+                peerPubkeyHex = peerPubkey
+            )
+            pendingEvents += NdrPubSubEvent(
+                kind = "publish",
+                actionId = "unrelated-publish",
+                sessionId = "session-b",
+                eventJson = unrelatedEvent.toJsonString()
+            )
+        }
+        var oobCompletion: ((Boolean) -> Unit)? = null
+        val relay = FakeRelayManager()
+        val service = service(relay, FakeNdrRuntimeFactory(runtime))
+        service.onOutOfBandPayload = { _, completion -> oobCompletion = completion }
+
+        service.configureIfNeeded(testIdentity())
+
+        assertEquals(listOf(unrelatedEvent.id), relay.sentEvents.map(NostrEvent::id))
+        assertFalse("blocked-publish" in runtime.ackedActionIds)
+        assertTrue("unrelated-publish" in runtime.ackedActionIds)
+
+        oobCompletion?.invoke(true)
+
+        assertEquals(
+            listOf(unrelatedEvent.id, blockedEvent.id),
+            relay.sentEvents.map(NostrEvent::id)
+        )
+        assertTrue("oob-a" in runtime.ackedActionIds)
+        assertTrue("blocked-publish" in runtime.ackedActionIds)
+    }
+
+    @Test
+    fun pendingOrRejectedRelayConfirmationNeverAcknowledgesOrDuplicatesInFlightSend() {
+        val event = messageEvent(peerPubkey)
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += NdrPubSubEvent(
+                kind = "publish",
+                actionId = "relay-publish",
+                sessionId = "relay-session",
+                eventJson = event.toJsonString()
+            )
+        }
+        val relay = FakeRelayManager(confirmationResult = null)
+        val scheduler = FakeRetryScheduler()
+        val service = service(
+            relay,
+            FakeNdrRuntimeFactory(runtime),
+            retryScheduler = scheduler
+        )
+
+        service.configureIfNeeded(testIdentity())
+        service.processInboundRelayEvent(messageEvent(peerPubkey))
+
+        assertEquals(1, relay.sentEvents.size)
+        assertFalse("relay-publish" in runtime.ackedActionIds)
+
+        relay.confirmations.removeFirst().completion(false)
+        service.processInboundRelayEvent(messageEvent(peerPubkey))
+
+        assertEquals(1, relay.sentEvents.size)
+        assertEquals(1_000L, scheduler.scheduled.last().delayMs)
+        scheduler.runNext()
+
+        assertEquals(2, relay.sentEvents.size)
+        assertFalse("relay-publish" in runtime.ackedActionIds)
+
+        relay.confirmations.removeFirst().completion(false)
+        assertEquals(2_000L, scheduler.scheduled.last().delayMs)
+        relay.reconnect()
+        assertEquals(3, relay.sentEvents.size)
+
+        relay.confirmations.removeFirst().completion(true)
+        assertTrue("relay-publish" in runtime.ackedActionIds)
+    }
+
+    @Test
+    fun teardownCancelsScheduledPublishRetry() {
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += relayPublishAction("relay-publish", peerPubkey)
+        }
+        val relay = FakeRelayManager(failSend = true)
+        val scheduler = FakeRetryScheduler()
+        val service = service(
+            relayManager = relay,
+            runtimeFactory = FakeNdrRuntimeFactory(runtime),
+            storageResetter = {},
+            retryScheduler = scheduler
+        )
+        service.configureIfNeeded(testIdentity())
+        val scheduled = scheduler.scheduled.single()
+
+        assertTrue(service.resetForPanic())
+        relay.failSend = false
+        scheduler.runNext()
+
+        assertTrue(scheduled.canceled)
+        assertTrue(relay.sentEvents.isEmpty())
+    }
+
+    @Test
+    fun bufferedDeliveryIsAcknowledgedOnlyAfterConsumerCompletion() {
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += decryptedAction("delivery-1", peerPubkey, "bitchat1:pending")
+        }
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
+        service.configureIfNeeded(testIdentity())
+
+        var delivered: NdrDecryptedMessage? = null
+        var completion: ((NdrDeliveryResult) -> Unit)? = null
+        service.onDecryptedMessage = { message, callback ->
+            delivered = message
+            completion = callback
+        }
+
+        assertEquals("delivery-1", delivered?.actionId)
+        assertFalse("delivery-1" in runtime.ackedActionIds)
+
+        completion?.invoke(NdrDeliveryResult.CONSUMED)
+
+        assertTrue("delivery-1" in runtime.ackedActionIds)
+    }
+
+    @Test
+    fun retryResultLeavesDeliveryPendingAndAllowsRedelivery() {
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += decryptedAction("delivery-retry", peerPubkey, "bitchat1:pending")
+        }
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
+        var deliveryCount = 0
+        service.onDecryptedMessage = { _, completion ->
+            deliveryCount += 1
+            completion(NdrDeliveryResult.RETRY)
+        }
+        service.configureIfNeeded(testIdentity())
+
+        assertEquals(1, deliveryCount)
+        assertFalse("delivery-retry" in runtime.ackedActionIds)
+
+        service.processInboundRelayEvent(messageEvent(peerPubkey))
+
+        assertEquals(2, deliveryCount)
+        assertFalse("delivery-retry" in runtime.ackedActionIds)
+    }
+
+    @Test
+    fun definitiveRejectedDeliveryIsAcknowledged() {
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += decryptedAction("delivery-rejected", peerPubkey, "invalid")
+        }
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
+        service.onDecryptedMessage = { _, completion ->
+            completion(NdrDeliveryResult.REJECTED)
+        }
+
+        service.configureIfNeeded(testIdentity())
+
+        assertTrue("delivery-rejected" in runtime.ackedActionIds)
+    }
+
+    @Test
+    fun missingConsumerLeavesEveryDeliveryDurableWithoutEviction() {
+        val runtime = FakeNdrPairwiseRuntime().apply {
             repeat(129) { index ->
-                drainedEvents += NdrPubSubEvent(
-                    kind = "decrypted_message",
-                    senderPubkeyHex = "ab".repeat(32),
-                    content = "bitchat1:pending-$index",
-                    eventId = index.toString(16).padStart(64, '0')
+                pendingEvents += decryptedAction(
+                    actionId = "delivery-$index",
+                    sender = peerPubkey,
+                    content = "bitchat1:pending-$index"
                 )
             }
         }
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
-        )
-
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
         service.configureIfNeeded(testIdentity())
+        assertTrue(runtime.ackedActionIds.isEmpty())
+        assertEquals(129, runtime.pendingEvents.size)
+
         val delivered = mutableListOf<String>()
-        service.onDecryptedMessage = { delivered += it.content }
+        service.onDecryptedMessage = { message, completion ->
+            delivered += message.content
+            completion(NdrDeliveryResult.CONSUMED)
+        }
 
-        assertEquals(128, delivered.size)
-        assertEquals("bitchat1:pending-1", delivered.first())
+        assertEquals(129, delivered.size)
+        assertEquals("bitchat1:pending-0", delivered.first())
         assertEquals("bitchat1:pending-128", delivered.last())
+        assertEquals(129, runtime.ackedActionIds.distinct().size)
     }
 
     @Test
-    fun processOutOfBandInviteReturnsGiftWrapResponseWithoutPublishingIt() {
-        val relayManager = FakeRelayManager()
-        val runtime = FakeNdrSessionManager().apply {
-            acceptInviteEvents += NdrPubSubEvent(
-                kind = "publish_signed",
-                eventJson = """
-                    {"id":"response1","pubkey":"sender","created_at":1,"kind":1059,"tags":[["p","peer"]],"content":"wrapped","sig":"sig"}
-                """.trimIndent()
-            )
+    fun outOfBandInviteReturnsResponseWithoutRelayPublishOrEarlyAck() {
+        val response = giftWrapEvent()
+        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey)).apply {
+            acceptInviteEvents += outOfBandAction("response-action", response)
+            acceptInviteResult = NdrAcceptInviteResult(peerPubkey, createdNewSession = true)
         }
-        val service = NdrNostrService(
-            relayManager = relayManager,
+        val relay = FakeRelayManager()
+        val service = service(
+            relayManager = relay,
             runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" },
-            inviteOwnerResolver = ::eventPubkey
-        )
-        service.configureIfNeeded(
-            NostrIdentity(
-                privateKeyHex = "11".repeat(32),
-                publicKeyHex = "22".repeat(32),
-                npub = "npub-test",
-                createdAt = 1L
-            )
-        )
-
-        val outbound = service.processOutOfBandEventJson(
-            """
-                {"id":"invite1","pubkey":"${"cc".repeat(32)}","created_at":1,"kind":30078,"tags":[["l","double-ratchet/invites"]],"content":"invite","sig":"sig"}
-            """.trimIndent(),
-            expectedPeerPubkeyHex = "cc".repeat(32)
-        )
-
-        assertEquals(1, outbound.outboundPayloads.size)
-        assertEquals("response1", NostrEvent.fromJsonString(outbound.outboundPayloads.single())?.id)
-        assertTrue(relayManager.sentEvents.isEmpty())
-    }
-
-    @Test
-    fun successfulOwnerBootstrapPromotesDurableAppKeysFeed() {
-        val owner = "cc".repeat(32)
-        val relayManager = FakeRelayManager()
-        val runtime = FakeNdrSessionManager(mutableSetOf(owner)).apply {
-            acceptInviteEventResult = NdrAcceptInviteResult(
-                ownerPubkeyHex = owner,
-                inviterDevicePubkeyHex = "aa".repeat(32),
-                deviceId = "owner-device",
-                createdNewSession = true
-            )
-            setupUserEvents[owner] = listOf(
-                NdrPubSubEvent(
-                    kind = "subscribe",
-                    subid = "durable-owner-app-keys",
-                    filterJson = """{"authors":["$owner"],"kinds":[37368]}"""
-                ),
-                NdrPubSubEvent(
-                    kind = "subscribe",
-                    subid = "owner-invite-discovery",
-                    filterJson = """{"authors":["$owner"],"kinds":[30078]}"""
-                )
-            )
-        }
-        val service = NdrNostrService(
-            relayManager = relayManager,
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" },
-            inviteOwnerResolver = { owner }
-        )
-        service.configureIfNeeded(testIdentity())
-
-        service.processOutOfBandEventJson(
-            """
-                {"id":"invite1","pubkey":"${"aa".repeat(32)}","created_at":1,"kind":30078,"tags":[["l","double-ratchet/invites"]],"content":"invite","sig":"sig"}
-            """.trimIndent(),
-            expectedPeerPubkeyHex = owner
-        )
-
-        assertEquals(listOf(owner), runtime.setupUserCalls)
-        assertEquals(listOf(37368), relayManager.subscriptions.single().filter.kinds)
-        assertTrue(relayManager.subscriptions.none { 30078 in it.filter.kinds.orEmpty() })
-    }
-
-    @Test
-    fun outOfBandProcessingRequiresAuthenticatedOwner() {
-        val runtime = FakeNdrSessionManager()
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" },
-            inviteOwnerResolver = { "cc".repeat(32) }
+            invitePeerResolver = { peerPubkey }
         )
         service.configureIfNeeded(testIdentity())
 
         val result = service.processOutOfBandEventJson(
-            """
-                {"id":"invite1","pubkey":"${"cc".repeat(32)}","created_at":1,"kind":30078,"tags":[["l","double-ratchet/invites"]],"content":"invite","sig":"sig"}
-            """.trimIndent()
+            inviteEvent(peerPubkey),
+            expectedPeerPubkeyHex = peerPubkey
+        )
+
+        assertEquals(peerPubkey, result.sessionLookupPubkeyHex)
+        assertEquals(listOf("response-action"), result.outboundPayloads.map { it.actionId })
+        assertEquals(response, result.outboundPayloads.single().eventJson)
+        assertEquals(peerPubkey, result.outboundPayloads.single().peerPubkeyHex)
+        assertTrue(relay.sentEvents.isEmpty())
+        assertFalse("response-action" in runtime.ackedActionIds)
+
+        assertTrue(service.acknowledgeOutOfBandPayload(result.outboundPayloads.single()))
+        assertTrue("response-action" in runtime.ackedActionIds)
+    }
+
+    @Test
+    fun pendingOutOfBandActionReplaysOnConfigureAndAcksOnlyAfterAsyncAdmission() {
+        val response = giftWrapEvent()
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += outOfBandAction("pending-oob", response)
+        }
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
+        var delivered: NdrOutOfBandPayload? = null
+        var completion: ((Boolean) -> Unit)? = null
+        service.onOutOfBandPayload = { payload, callback ->
+            delivered = payload
+            completion = callback
+        }
+
+        service.configureIfNeeded(testIdentity())
+
+        assertEquals("pending-oob", delivered?.actionId)
+        assertEquals(peerPubkey, delivered?.peerPubkeyHex)
+        assertFalse("pending-oob" in runtime.ackedActionIds)
+
+        completion?.invoke(true)
+
+        assertTrue("pending-oob" in runtime.ackedActionIds)
+    }
+
+    @Test
+    fun failedOutOfBandAdmissionRemainsDurableAndReplaysOnReconnect() {
+        val relay = FakeRelayManager()
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += outOfBandAction("pending-oob", giftWrapEvent())
+        }
+        val service = service(relay, FakeNdrRuntimeFactory(runtime))
+        val completions = mutableListOf<(Boolean) -> Unit>()
+        service.onOutOfBandPayload = { _, completion ->
+            completions += completion
+        }
+        service.configureIfNeeded(testIdentity())
+
+        assertEquals(1, completions.size)
+        completions.single().invoke(false)
+        assertFalse("pending-oob" in runtime.ackedActionIds)
+
+        relay.reconnect()
+
+        assertEquals(2, completions.size)
+        completions.last().invoke(true)
+        assertTrue("pending-oob" in runtime.ackedActionIds)
+    }
+
+    @Test
+    fun outOfBandRetriesAreBoundedUntilRouteAvailabilityChanges() {
+        val scheduler = FakeRetryScheduler()
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += outOfBandAction("pending-oob", giftWrapEvent())
+        }
+        val service = service(
+            runtimeFactory = FakeNdrRuntimeFactory(runtime),
+            retryScheduler = scheduler
+        )
+        var attempts = 0
+        service.onOutOfBandPayload = { _, completion ->
+            attempts += 1
+            completion(false)
+        }
+
+        service.configureIfNeeded(testIdentity())
+        repeat(5) { scheduler.runNext() }
+
+        assertEquals(6, attempts)
+        assertTrue(scheduler.scheduled.isEmpty())
+        assertFalse("pending-oob" in runtime.ackedActionIds)
+
+        service.onOutOfBandTransportAvailable()
+
+        assertEquals(7, attempts)
+        assertTrue(scheduler.scheduled.isNotEmpty())
+    }
+
+    @Test
+    fun inviteWhosePeerDoesNotMatchAuthenticatedFavoriteIsRejectedBeforeRuntime() {
+        val runtime = FakeNdrPairwiseRuntime()
+        val service = service(
+            runtimeFactory = FakeNdrRuntimeFactory(runtime),
+            invitePeerResolver = { "aa".repeat(32) }
+        )
+        service.configureIfNeeded(testIdentity())
+
+        val result = service.processOutOfBandEventJson(
+            inviteEvent("aa".repeat(32)),
+            expectedPeerPubkeyHex = peerPubkey
         )
 
         assertTrue(result.outboundPayloads.isEmpty())
@@ -303,42 +502,43 @@ class NdrNostrServiceTest {
     }
 
     @Test
-    fun outOfBandPathRejectsNonHandshakeEvents() {
-        val runtime = FakeNdrSessionManager()
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
+    fun outOfBandProcessingRequiresAuthenticatedPeer() {
+        val runtime = FakeNdrPairwiseRuntime()
+        val service = service(
             runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
+            invitePeerResolver = { peerPubkey }
         )
         service.configureIfNeeded(testIdentity())
 
-        service.processOutOfBandEventJson(
-            """
-                {"id":"message1","pubkey":"${"cc".repeat(32)}","created_at":1,"kind":1060,"tags":[],"content":"ciphertext","sig":"sig"}
-            """.trimIndent(),
-            expectedPeerPubkeyHex = "cc".repeat(32)
-        )
+        val result = service.processOutOfBandEventJson(inviteEvent(peerPubkey))
 
-        assertTrue(runtime.processedEvents.isEmpty())
-        assertTrue(runtime.processedOutOfBandResponses.isEmpty())
+        assertTrue(result.outboundPayloads.isEmpty())
+        assertTrue(runtime.acceptedInvites.isEmpty())
     }
 
     @Test
-    fun relayPathRejectsKindsOutsideNdrProtocol() {
-        val runtime = FakeNdrSessionManager()
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
-        )
+    fun authenticatedGiftWrapResponseMayUseEphemeralOuterPubkey() {
+        val runtime = FakeNdrPairwiseRuntime()
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
+        service.configureIfNeeded(testIdentity())
+        val response = giftWrapEvent()
+
+        service.processOutOfBandEventJson(response, peerPubkey)
+
+        assertEquals(listOf(response to peerPubkey), runtime.processedOutOfBandResponses)
+        assertTrue(runtime.processedEvents.isEmpty())
+    }
+
+    @Test
+    fun relayPathAcceptsOnlyKind1060() {
+        val runtime = FakeNdrPairwiseRuntime()
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
         service.configureIfNeeded(testIdentity())
 
         service.processInboundRelayEvent(
             NostrEvent(
-                id = "event1",
-                pubkey = "cc".repeat(32),
+                id = "02".repeat(32),
+                pubkey = peerPubkey,
                 createdAt = 1,
                 kind = NostrKind.TEXT_NOTE,
                 tags = emptyList(),
@@ -346,358 +546,171 @@ class NdrNostrServiceTest {
                 sig = "sig"
             )
         )
-
-        assertTrue(runtime.processedEvents.isEmpty())
-    }
-
-    @Test
-    fun inboundDecryptedMessageCallsCallback() {
-        val relayManager = FakeRelayManager()
-        val runtime = FakeNdrSessionManager().apply {
-            processEvents += NdrPubSubEvent(
-                kind = "decrypted_message",
-                senderPubkeyHex = "ab".repeat(32),
-                senderDevicePubkeyHex = "bc".repeat(32),
-                conversationOwnerPubkeyHex = "cd".repeat(32),
-                content = "bitchat1:payload",
-                eventId = "01".repeat(32)
-            )
-        }
-        val service = NdrNostrService(
-            relayManager = relayManager,
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
-        )
-        service.configureIfNeeded(
-            NostrIdentity(
-                privateKeyHex = "11".repeat(32),
-                publicKeyHex = "22".repeat(32),
-                npub = "npub-test",
-                createdAt = 1L
-            )
-        )
-
-        var message: NdrDecryptedMessage? = null
-        service.onDecryptedMessage = { message = it }
-
         service.processInboundRelayEvent(
-            NostrEvent(
-                id = "outer-1",
-                pubkey = "cd".repeat(32),
-                createdAt = 123,
-                kind = 1060,
-                tags = listOf(listOf("p", "22".repeat(32))),
-                content = "ciphertext",
-                sig = "sig"
+            messageEvent(peerPubkey).copy(
+                id = "03".repeat(32),
+                tags = listOf(listOf("p", localPubkey))
             )
         )
+        service.processInboundRelayEvent(messageEvent(peerPubkey))
 
-        assertEquals("01".repeat(32), message?.eventId)
-        assertEquals("bitchat1:payload", message?.content)
-        assertEquals("ab".repeat(32), message?.senderPubkeyHex)
-        assertEquals("bc".repeat(32), message?.senderDevicePubkeyHex)
-        assertEquals("cd".repeat(32), message?.conversationOwnerPubkeyHex)
+        assertEquals(1, runtime.processedEvents.size)
+        assertEquals(1060, NostrEvent.fromJsonString(runtime.processedEvents.single())?.kind)
     }
 
     @Test
-    fun processOutOfBandInviteUsesOwnerRatherThanDeviceSigner() {
-        val relayManager = FakeRelayManager()
-        val runtime = FakeNdrSessionManager(
-            activeSessionPeers = mutableSetOf("cc".repeat(32))
-        ).apply {
-            acceptInviteEventResult = NdrAcceptInviteResult(
-                ownerPubkeyHex = "cc".repeat(32),
-                inviterDevicePubkeyHex = "aa".repeat(32),
-                deviceId = "device-1",
-                createdNewSession = true
-            )
+    fun latePublishConfirmationFromPreviousAccountCannotAckReplacementRuntime() {
+        val oldRuntime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += relayPublishAction("shared-action", peerPubkey)
         }
-        val service = NdrNostrService(
-            relayManager = relayManager,
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" },
-            inviteOwnerResolver = { "cc".repeat(32) }
-        )
-        service.configureIfNeeded(
-            NostrIdentity(
-                privateKeyHex = "11".repeat(32),
-                publicKeyHex = "22".repeat(32),
-                npub = "npub-test",
-                createdAt = 1L
-            )
-        )
-
-        val result = service.processOutOfBandEventJson(
-            """
-                {"id":"invite1","pubkey":"${"aa".repeat(32)}","created_at":1,"kind":30078,"tags":[["l","double-ratchet/invites"]],"content":"invite","sig":"sig"}
-            """.trimIndent(),
-            expectedPeerPubkeyHex = "cc".repeat(32)
-        )
-
-        assertEquals("cc".repeat(32), result.sessionLookupPubkeyHex)
-        assertEquals(listOf("cc".repeat(32)), runtime.acceptedInviteOwnerHints)
-    }
-
-    @Test
-    fun rejectsInviteWhoseOwnerDoesNotMatchAuthenticatedFavorite() {
-        val runtime = FakeNdrSessionManager()
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" },
-            inviteOwnerResolver = ::eventPubkey
-        )
-        service.configureIfNeeded(
-            NostrIdentity(
-                privateKeyHex = "11".repeat(32),
-                publicKeyHex = "22".repeat(32),
-                npub = "npub-test",
-                createdAt = 1L
-            )
-        )
-
-        val result = service.processOutOfBandEventJson(
-            """
-                {"id":"invite1","pubkey":"${"aa".repeat(32)}","created_at":1,"kind":30078,"tags":[["l","double-ratchet/invites"]],"content":"invite","sig":"sig"}
-            """.trimIndent(),
-            expectedPeerPubkeyHex = "cc".repeat(32)
-        )
-
-        assertTrue(result.outboundPayloads.isEmpty())
-        assertTrue(runtime.acceptedInvites.isEmpty())
-    }
-
-    @Test
-    fun acceptsAuthenticatedGiftWrapResponseWithEphemeralOuterPubkey() {
-        val runtime = FakeNdrSessionManager()
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
-        )
-        service.configureIfNeeded(
-            NostrIdentity(
-                privateKeyHex = "11".repeat(32),
-                publicKeyHex = "22".repeat(32),
-                npub = "npub-test",
-                createdAt = 1L
-            )
-        )
-        val giftWrap = """
-            {"id":"response1","pubkey":"${"ee".repeat(32)}","created_at":1,"kind":1059,"tags":[["p","${"22".repeat(32)}"]],"content":"wrapped","sig":"sig"}
-        """.trimIndent()
-
-        service.processOutOfBandEventJson(
-            giftWrap,
-            expectedPeerPubkeyHex = "cc".repeat(32)
-        )
-
-        assertEquals(
-            listOf(giftWrap to "cc".repeat(32)),
-            runtime.processedOutOfBandResponses
-        )
-        assertTrue(runtime.processedEvents.isEmpty())
-    }
-
-    @Test
-    fun missingOwnerRosterRetainsAndRetriesInviteOnceAppKeysArrive() {
-        val owner = "cc".repeat(32)
-        val device = "aa".repeat(32)
-        val response = """
-            {"id":"response1","pubkey":"sender","created_at":1,"kind":1059,"tags":[["p","peer"]],"content":"wrapped","sig":"sig"}
-        """.trimIndent()
-        val invite = """
-            {"id":"invite1","pubkey":"$device","created_at":1,"kind":30078,"tags":[["l","double-ratchet/invites"]],"content":"invite","sig":"sig"}
-        """.trimIndent()
-        val relayManager = FakeRelayManager()
-        val runtime = FakeNdrSessionManager(mutableSetOf(owner)).apply {
-            acceptInviteFailuresRemaining = 1
-            acceptInviteEventResult = NdrAcceptInviteResult(
-                ownerPubkeyHex = owner,
-                inviterDevicePubkeyHex = device,
-                deviceId = "owner-device",
-                createdNewSession = true
-            )
-            blockedAcceptInviteEvents += NdrPubSubEvent(
-                kind = "subscribe",
-                subid = "invite-owner-app-keys",
-                filterJson = """{"authors":["$owner"],"kinds":[37368],"limit":16}"""
-            )
-            setupUserEvents[owner] = listOf(
-                NdrPubSubEvent(
-                    kind = "subscribe",
-                    subid = "duplicate-owner-app-keys",
-                    filterJson = """{"authors":["$owner"],"kinds":[37368]}"""
-                ),
-                NdrPubSubEvent(
-                    kind = "subscribe",
-                    subid = "owner-invite-discovery",
-                    filterJson = """{"authors":["$owner"],"kinds":[30078]}"""
-                )
-            )
-            acceptInviteEvents += NdrPubSubEvent(
-                kind = "publish_signed",
-                eventJson = response
-            )
+        val newRuntime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += relayPublishAction("shared-action", peerPubkey)
         }
-        val service = NdrNostrService(
-            relayManager = relayManager,
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" },
-            inviteOwnerResolver = { owner }
+        val relay = FakeRelayManager(confirmationResult = null)
+        val service = service(
+            relayManager = relay,
+            runtimeFactory = SequencedNdrRuntimeFactory(listOf(oldRuntime, newRuntime))
         )
         service.configureIfNeeded(testIdentity())
-        val retriedPayloads = mutableListOf<Pair<String, List<String>>>()
-        service.onOutOfBandPayloadsReady = { peerOwner, payloads ->
-            retriedPayloads += peerOwner to payloads
+
+        service.configureIfNeeded(
+            NostrIdentity(
+                privateKeyHex = "33".repeat(32),
+                publicKeyHex = "44".repeat(32),
+                npub = "npub-replacement",
+                createdAt = 2L
+            )
+        )
+
+        assertEquals(1, relay.canceledConfirmations.size)
+        relay.canceledConfirmations.single().completion(true)
+        assertTrue(newRuntime.ackedActionIds.isEmpty())
+
+        relay.confirmations.single().completion(true)
+        assertEquals(listOf("shared-action"), newRuntime.ackedActionIds)
+        assertTrue(oldRuntime.ackedActionIds.isEmpty())
+    }
+
+    @Test
+    fun latePublishConfirmationAfterPanicCannotAckSameAccountReplacement() {
+        val oldRuntime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += relayPublishAction("shared-action", peerPubkey)
         }
-
-        val first = service.processOutOfBandEventJson(invite, owner)
-        val duplicate = service.processOutOfBandEventJson(invite, owner)
-        val rotatedInvite = service.processOutOfBandEventJson(
-            invite.replace("\"id\":\"invite1\"", "\"id\":\"invite2\""),
-            owner
+        val newRuntime = FakeNdrPairwiseRuntime().apply {
+            pendingEvents += relayPublishAction("shared-action", peerPubkey)
+        }
+        val relay = FakeRelayManager(confirmationResult = null)
+        val service = service(
+            relayManager = relay,
+            runtimeFactory = SequencedNdrRuntimeFactory(listOf(oldRuntime, newRuntime)),
+            storageResetter = {}
         )
+        service.configureIfNeeded(testIdentity())
 
-        assertTrue(first.outboundPayloads.isEmpty())
-        assertTrue(duplicate.outboundPayloads.isEmpty())
-        assertTrue(rotatedInvite.outboundPayloads.isEmpty())
-        assertEquals(1, runtime.acceptedInvites.size)
-        assertEquals(
-            listOf("invite-owner-app-keys"),
-            relayManager.subscriptions.map { it.id }
+        assertTrue(service.resetForPanic())
+        service.configureIfNeeded(testIdentity())
+
+        relay.canceledConfirmations.single().completion(true)
+        assertTrue(newRuntime.ackedActionIds.isEmpty())
+
+        relay.confirmations.single().completion(true)
+        assertEquals(listOf("shared-action"), newRuntime.ackedActionIds)
+        assertTrue(oldRuntime.ackedActionIds.isEmpty())
+    }
+
+    @Test
+    fun lateDeliveryAndOobCompletionCannotAckReplacementRuntime() {
+        val oldRuntime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey)).apply {
+            pendingEvents += decryptedAction("shared-delivery", peerPubkey, "bitchat1:pending")
+            acceptInviteEvents += outOfBandAction("shared-oob", giftWrapEvent())
+            acceptInviteResult = NdrAcceptInviteResult(peerPubkey, createdNewSession = true)
+        }
+        val newRuntime = FakeNdrPairwiseRuntime()
+        val service = service(
+            runtimeFactory = SequencedNdrRuntimeFactory(listOf(oldRuntime, newRuntime)),
+            invitePeerResolver = { peerPubkey }
         )
+        var deliveryCompletion: ((NdrDeliveryResult) -> Unit)? = null
+        service.onDecryptedMessage = { _, completion ->
+            deliveryCompletion = completion
+        }
+        service.configureIfNeeded(testIdentity())
+        val oldPayload = service.processOutOfBandEventJson(
+            inviteEvent(peerPubkey),
+            peerPubkey
+        ).outboundPayloads.single()
 
-        relayManager.emit(
-            "invite-owner-app-keys",
-            NostrEvent(
-                id = "not-app-keys",
-                pubkey = owner,
-                createdAt = 2,
-                kind = 37368,
-                tags = listOf(listOf("type", "something_else")),
-                content = "ignored",
-                sig = "sig"
+        service.configureIfNeeded(
+            NostrIdentity(
+                privateKeyHex = "33".repeat(32),
+                publicKeyHex = "44".repeat(32),
+                npub = "npub-replacement",
+                createdAt = 2L
             )
         )
-        assertEquals(1, runtime.acceptedInvites.size)
+        deliveryCompletion?.invoke(NdrDeliveryResult.CONSUMED)
 
-        relayManager.emit(
-            "invite-owner-app-keys",
-            NostrEvent(
-                id = "app-keys-1",
-                pubkey = owner,
-                createdAt = 2,
-                kind = 37368,
-                tags = listOf(listOf("type", "app_keys_roster_snapshot")),
-                content = "signed-roster",
-                sig = "sig"
-            )
-        )
-
-        assertEquals(2, runtime.acceptedInvites.size)
-        assertEquals(listOf(owner), runtime.setupUserCalls)
-        assertEquals(
-            listOf("invite-owner-app-keys"),
-            relayManager.subscriptions.map { it.id }
-        )
-        assertEquals(listOf(owner to listOf(response)), retriedPayloads)
+        assertFalse(service.acknowledgeOutOfBandPayload(oldPayload))
+        assertTrue(newRuntime.ackedActionIds.isEmpty())
+        assertTrue(oldRuntime.ackedActionIds.isEmpty())
     }
 
     @Test
     fun panicResetDestroysRuntimeAndClearsPersistentState() {
-        val runtime = FakeNdrSessionManager()
+        val runtime = FakeNdrPairwiseRuntime()
         var storageReset = false
-        var deviceIdReset = false
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
+        val service = service(
             runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" },
-            storageResetter = { storageReset = true },
-            deviceIdResetter = { deviceIdReset = true }
+            storageResetter = { storageReset = true }
         )
-        service.configureIfNeeded(
-            NostrIdentity(
-                privateKeyHex = "11".repeat(32),
-                publicKeyHex = "22".repeat(32),
-                npub = "npub-test",
-                createdAt = 1L
-            )
-        )
-        service.onDecryptedMessage = {}
-        service.onOutOfBandPayloadsReady = { _, _ -> }
+        service.configureIfNeeded(testIdentity())
+        service.onDecryptedMessage = { _, completion ->
+            completion(NdrDeliveryResult.CONSUMED)
+        }
 
         assertTrue(service.resetForPanic())
 
         assertFalse(service.isConfigured)
         assertNull(service.currentInviteEventJson())
         assertNull(service.onDecryptedMessage)
-        assertNull(service.onOutOfBandPayloadsReady)
         assertTrue(runtime.destroyed)
         assertTrue(storageReset)
-        assertTrue(deviceIdReset)
     }
 
     @Test
     fun failedPanicStorageWipeKeepsNdrDisabled() {
-        val runtime = FakeNdrSessionManager()
-        val runtimeFactory = FakeNdrRuntimeFactory(runtime)
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
-            runtimeFactory = runtimeFactory,
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" },
+        val runtime = FakeNdrPairwiseRuntime()
+        val factory = FakeNdrRuntimeFactory(runtime)
+        val service = service(
+            runtimeFactory = factory,
             storageResetter = { throw java.io.IOException("busy") }
         )
-        val identity = NostrIdentity(
-            privateKeyHex = "11".repeat(32),
-            publicKeyHex = "22".repeat(32),
-            npub = "npub-test",
-            createdAt = 1L
-        )
-        service.configureIfNeeded(identity)
+        service.configureIfNeeded(testIdentity())
 
         assertFalse(service.resetForPanic())
-        service.configureIfNeeded(identity)
+        service.configureIfNeeded(testIdentity())
 
         assertFalse(service.isConfigured)
-        assertEquals(1, runtimeFactory.createdCount)
+        assertEquals(1, factory.createdCount)
     }
 
     @Test
     fun panicResetWaitsForInFlightRuntimeMutation() {
-        val peer = "aa".repeat(32)
         val sendEntered = CountDownLatch(1)
         val releaseSend = CountDownLatch(1)
         val resetFinished = CountDownLatch(1)
-        val runtime = FakeNdrSessionManager(mutableSetOf(peer)).apply {
+        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey)).apply {
             sendTextEntered = sendEntered
             releaseSendText = releaseSend
         }
-        val service = NdrNostrService(
-            relayManager = FakeRelayManager(),
+        val service = service(
             runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" },
             storageResetter = {}
         )
-        service.configureIfNeeded(
-            NostrIdentity(
-                privateKeyHex = "11".repeat(32),
-                publicKeyHex = "22".repeat(32),
-                npub = "npub-test",
-                createdAt = 1L
-            )
-        )
+        service.configureIfNeeded(testIdentity())
 
         val sendThread = thread(start = true, name = "ndr-test-send") {
-            service.sendIfPossible("hello", peer)
+            service.sendIfPossible("hello", peerPubkey)
         }
         assertTrue(sendEntered.await(2, TimeUnit.SECONDS))
 
@@ -719,229 +732,578 @@ class NdrNostrServiceTest {
     }
 
     @Test
-    fun sendIfPossibleReturnsFalseWhenNoActiveSessionExists() {
-        val relayManager = FakeRelayManager()
-        val runtime = FakeNdrSessionManager().apply {
-            sendTextResult = listOf("outer-1")
-        }
-        val service = NdrNostrService(
-            relayManager = relayManager,
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
-        )
-        service.configureIfNeeded(
-            NostrIdentity(
-                privateKeyHex = "11".repeat(32),
-                publicKeyHex = "22".repeat(32),
-                npub = "npub-test",
-                createdAt = 1L
+    fun sendRequiresActivePairwiseSessionAndPublishesExactlyOneKind1060() {
+        val relay = FakeRelayManager()
+        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey)).apply {
+            sendTextEvents += NdrPubSubEvent(
+                kind = "publish",
+                actionId = "message-action",
+                sessionId = "message-session",
+                eventJson = messageEvent(localPubkey).toJsonString()
             )
+        }
+        val service = service(relay, FakeNdrRuntimeFactory(runtime))
+        service.configureIfNeeded(testIdentity())
+
+        assertEquals(
+            NdrSendResult.NO_SESSION,
+            service.sendIfPossible("hello", "aa".repeat(32))
+        )
+        assertEquals(NdrSendResult.SENT, service.sendIfPossible("hello", peerPubkey))
+
+        assertEquals(listOf(peerPubkey), runtime.sendTextCalls)
+        assertEquals(listOf(1060), relay.sentEvents.map { it.kind })
+        assertTrue("message-action" in runtime.ackedActionIds)
+    }
+
+    @Test
+    fun outboundAbsoluteExpirationIsForwardedToPairwiseRuntime() {
+        val expiresAtSeconds = 4_102_444_800uL
+        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey))
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
+        service.configureIfNeeded(testIdentity())
+
+        val result = service.sendIfPossible(
+            text = "disappearing",
+            peerPubkeyHex = peerPubkey,
+            expiresAtSeconds = expiresAtSeconds
         )
 
-        assertFalse(service.sendIfPossible("hello", "aa".repeat(32)))
+        assertEquals(NdrSendResult.SENT, result)
+        assertEquals(listOf(peerPubkey), runtime.sendTextCalls)
+        assertEquals(listOf(expiresAtSeconds), runtime.sendTextExpirationCalls)
+    }
+
+    @Test
+    fun activePairwiseSessionSendFailureIsNotReportedAsNoSession() {
+        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey)).apply {
+            sendTextFailure = java.io.IOException("storage unavailable")
+        }
+        val relay = FakeRelayManager()
+        val service = service(relay, FakeNdrRuntimeFactory(runtime))
+        service.configureIfNeeded(testIdentity())
+
+        val result = service.sendIfPossible("hello", peerPubkey)
+
+        assertEquals(NdrSendResult.FAILED, result)
+        assertTrue(relay.sentEvents.isEmpty())
+    }
+
+    @Test
+    fun persistedHalfReadyPairwiseSessionNeverFallsBackAfterRestart() {
+        val markers = InMemoryMarkerStore()
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            halfReadySessionPeers += peerPubkey
+        }
+        val service = service(
+            runtimeFactory = FakeNdrRuntimeFactory(runtime),
+            markerStore = markers
+        )
+        service.configureIfNeeded(testIdentity())
+
+        assertTrue(service.hasPairwiseSession(peerPubkey))
+        assertFalse(service.hasActiveSession(peerPubkey))
+        assertEquals(
+            NdrSendResult.FAILED,
+            service.sendIfPossible("must-not-downgrade", peerPubkey)
+        )
+        assertTrue(runtime.sendTextCalls.isEmpty())
+        assertTrue(markers.contains(localPubkey))
+
+        val replacementFactory = FakeNdrRuntimeFactory(FakeNdrPairwiseRuntime())
+        val restartedWithMissingState = service(
+            runtimeFactory = replacementFactory,
+            markerStore = markers,
+            pairwiseStateExists = { false }
+        )
+        restartedWithMissingState.configureIfNeeded(testIdentity())
+
+        assertFalse(restartedWithMissingState.isConfigured)
+        assertEquals(0, replacementFactory.createdCount)
+    }
+
+    @Test
+    fun activeSessionLookupFailureFailsClosed() {
+        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey))
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
+        service.configureIfNeeded(testIdentity())
+        assertTrue(service.hasActiveSession(peerPubkey))
+        runtime.activeSessionLookupFailure = java.io.IOException("database unavailable")
+
+        assertEquals(
+            NdrSendResult.FAILED,
+            service.sendIfPossible("hello", peerPubkey)
+        )
         assertTrue(runtime.sendTextCalls.isEmpty())
     }
 
     @Test
-    fun sendIfPossibleReturnsTrueWhenActiveSessionQueuesNoRelayPublish() {
-        val peer = "aa".repeat(32)
-        val relayManager = FakeRelayManager()
-        val runtime = FakeNdrSessionManager(mutableSetOf(peer)).apply {
-            sendTextResult = emptyList()
-        }
-        val service = NdrNostrService(
-            relayManager = relayManager,
-            runtimeFactory = FakeNdrRuntimeFactory(runtime),
-            storageDirectoryProvider = { "/tmp/ndr-test" },
-            deviceIdProvider = { "device-1" }
+    fun configurationFailureFailsClosedUntilIdentityChanges() {
+        val replacementRuntime = FakeNdrPairwiseRuntime()
+        val factory = FailingThenSucceedingNdrRuntimeFactory(replacementRuntime)
+        val service = service(runtimeFactory = factory)
+
+        service.configureIfNeeded(testIdentity())
+        service.configureIfNeeded(testIdentity())
+
+        assertFalse(service.isConfigured)
+        assertEquals(1, factory.createdCount)
+        assertEquals(
+            NdrSendResult.FAILED,
+            service.sendIfPossible("must-not-downgrade", peerPubkey)
         )
+
         service.configureIfNeeded(
             NostrIdentity(
-                privateKeyHex = "11".repeat(32),
-                publicKeyHex = "22".repeat(32),
-                npub = "npub-test",
-                createdAt = 1L
+                privateKeyHex = "33".repeat(32),
+                publicKeyHex = "44".repeat(32),
+                npub = "npub-replacement",
+                createdAt = 2L
             )
         )
 
-        assertTrue(service.sendIfPossible("hello", peer))
-        assertEquals(listOf(peer), runtime.sendTextCalls)
+        assertTrue(service.isConfigured)
+        assertEquals(2, factory.createdCount)
     }
 
-    private fun extractNostrKind(eventJson: String): Int {
-        return requireNotNull(NostrEvent.fromJsonString(eventJson)?.kind)
+    @Test
+    fun establishedMarkerWithMissingPairwiseStateFailsClosedBeforeRuntimeOpen() {
+        val markers = InMemoryMarkerStore().apply { mark(localPubkey) }
+        val factory = FakeNdrRuntimeFactory(FakeNdrPairwiseRuntime())
+        val service = service(
+            runtimeFactory = factory,
+            markerStore = markers,
+            pairwiseStateExists = { false }
+        )
+
+        service.configureIfNeeded(testIdentity())
+
+        assertFalse(service.isConfigured)
+        assertEquals(0, factory.createdCount)
+        assertEquals(
+            NdrSendResult.FAILED,
+            service.sendIfPossible("must-not-downgrade", peerPubkey)
+        )
     }
 
-    private fun eventPubkey(eventJson: String): String? {
-        return NostrEvent.fromJsonString(eventJson)?.pubkey
+    @Test
+    fun peerRetirementIsDurableAndFailureAbortsHostRebind() {
+        val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey))
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime))
+        service.configureIfNeeded(testIdentity())
+
+        assertTrue(service.retirePeer(peerPubkey))
+        assertEquals(listOf(peerPubkey), runtime.retiredPeers)
+        assertFalse(service.hasActiveSession(peerPubkey))
+
+        runtime.retirePeerFailure = java.io.IOException("storage unavailable")
+        assertFalse(service.retirePeer("aa".repeat(32)))
     }
+
+    @Test
+    fun runtimeInitializationFailureDestroysPartialRuntimeAndFailsClosed() {
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            knownPeerPubkeysFailure = java.io.IOException("database unavailable")
+        }
+        val factory = FakeNdrRuntimeFactory(runtime)
+        val service = service(runtimeFactory = factory)
+
+        service.configureIfNeeded(testIdentity())
+        service.configureIfNeeded(testIdentity())
+
+        assertTrue(runtime.destroyed)
+        assertFalse(service.isConfigured)
+        assertEquals(1, factory.createdCount)
+        assertEquals(NdrSendResult.FAILED, service.sendIfPossible("hello", peerPubkey))
+    }
+
+    @Test
+    fun successfulPanicResetClearsConfigurationFailureLatch() {
+        val replacementRuntime = FakeNdrPairwiseRuntime()
+        val factory = FailingThenSucceedingNdrRuntimeFactory(replacementRuntime)
+        val service = service(
+            runtimeFactory = factory,
+            storageResetter = {}
+        )
+        service.configureIfNeeded(testIdentity())
+
+        assertEquals(NdrSendResult.FAILED, service.sendIfPossible("hello", peerPubkey))
+        assertTrue(service.resetForPanic())
+        service.configureIfNeeded(testIdentity())
+
+        assertTrue(service.isConfigured)
+        assertEquals(2, factory.createdCount)
+    }
+
+    @Test
+    fun legacyFallbackPolicyAllowsOnlyMissingPairwiseSession() {
+        assertTrue(shouldUseLegacyNostrFallback(NdrSendResult.NO_SESSION))
+        assertFalse(shouldUseLegacyNostrFallback(NdrSendResult.FAILED))
+        assertFalse(shouldUseLegacyNostrFallback(NdrSendResult.SENT))
+    }
+
+    private fun service(
+        relayManager: FakeRelayManager = FakeRelayManager(),
+        runtimeFactory: NdrPairwiseRuntimeFactory,
+        storageResetter: () -> Unit = {},
+        invitePeerResolver: (String) -> String? = { null },
+        retryScheduler: NdrRetryScheduler = FakeRetryScheduler(),
+        markerStore: NdrEstablishedSessionMarkerStore = InMemoryMarkerStore(),
+        pairwiseStateExists: (String) -> Boolean = { false }
+    ) = NdrNostrService(
+        relayManager = relayManager,
+        runtimeFactory = runtimeFactory,
+        storageDirectoryProvider = { "/tmp/ndr-test" },
+        storageResetter = storageResetter,
+        establishedSessionMarkers = markerStore,
+        pairwiseStateExists = pairwiseStateExists,
+        invitePeerResolver = invitePeerResolver,
+        retryScheduler = retryScheduler
+    )
 
     private fun testIdentity() = NostrIdentity(
         privateKeyHex = "11".repeat(32),
-        publicKeyHex = "22".repeat(32),
+        publicKeyHex = localPubkey,
         npub = "npub-test",
         createdAt = 1L
     )
 
+    private fun inviteEvent(pubkey: String): String = """
+        {"id":"${"10".repeat(32)}","pubkey":"$pubkey","created_at":1,"kind":30078,"tags":[["l","double-ratchet/invites"]],"content":"invite","sig":"sig"}
+    """.trimIndent()
+
+    private fun giftWrapEvent(): String = """
+        {"id":"${"11".repeat(32)}","pubkey":"${"ee".repeat(32)}","created_at":1,"kind":1059,"tags":[["p","$localPubkey"]],"content":"wrapped","sig":"sig"}
+    """.trimIndent()
+
+    private fun appKeysEvent(pubkey: String): String = """
+        {"id":"${"12".repeat(32)}","pubkey":"$pubkey","created_at":1,"kind":37368,"tags":[["type","app_keys_roster_snapshot"]],"content":"roster","sig":"sig"}
+    """.trimIndent()
+
+    private fun messageEvent(pubkey: String) = NostrEvent(
+        id = "13".repeat(32),
+        pubkey = pubkey,
+        createdAt = 1,
+        kind = 1060,
+        tags = emptyList(),
+        content = "ciphertext",
+        sig = "sig"
+    )
+
+    private fun relayPublishAction(actionId: String, pubkey: String) = NdrPubSubEvent(
+        kind = "publish",
+        actionId = actionId,
+        sessionId = "session-$actionId",
+        eventJson = messageEvent(pubkey).toJsonString()
+    )
+
+    private fun outOfBandAction(
+        actionId: String,
+        eventJson: String,
+        peer: String = peerPubkey
+    ) = NdrPubSubEvent(
+        kind = "out_of_band",
+        actionId = actionId,
+        sessionId = "session-$actionId",
+        eventJson = eventJson,
+        peerPubkeyHex = peer
+    )
+
+    private fun decryptedAction(
+        actionId: String,
+        sender: String,
+        content: String
+    ) = NdrPubSubEvent(
+        kind = "delivery",
+        actionId = actionId,
+        senderPubkeyHex = sender,
+        content = content,
+        eventId = actionId.hashCode().toUInt().toString(16).padStart(64, '0')
+    )
+
     private class FakeNdrRuntimeFactory(
-        private val runtime: FakeNdrSessionManager
-    ) : NdrSessionManagerFactory {
+        private val runtime: FakeNdrPairwiseRuntime
+    ) : NdrPairwiseRuntimeFactory {
         var lastStoragePath: String? = null
         var createdCount: Int = 0
 
         override fun newWithStoragePath(
             ourPubkeyHex: String,
             ourIdentityPrivkeyHex: String,
-            deviceId: String,
-            storagePath: String,
-            ownerPubkeyHex: String?
-        ): NdrSessionManager {
+            storagePath: String
+        ): NdrPairwiseRuntime {
             lastStoragePath = storagePath
             createdCount += 1
             return runtime
         }
     }
 
-    private class FakeRelayManager : NdrRelayManager {
+    private class SequencedNdrRuntimeFactory(
+        runtimes: List<FakeNdrPairwiseRuntime>
+    ) : NdrPairwiseRuntimeFactory {
+        private val remaining = ArrayDeque(runtimes)
+
+        override fun newWithStoragePath(
+            ourPubkeyHex: String,
+            ourIdentityPrivkeyHex: String,
+            storagePath: String
+        ): NdrPairwiseRuntime = remaining.removeFirst()
+    }
+
+    private class FailingThenSucceedingNdrRuntimeFactory(
+        private val runtime: FakeNdrPairwiseRuntime
+    ) : NdrPairwiseRuntimeFactory {
+        var createdCount = 0
+
+        override fun newWithStoragePath(
+            ourPubkeyHex: String,
+            ourIdentityPrivkeyHex: String,
+            storagePath: String
+        ): NdrPairwiseRuntime {
+            createdCount += 1
+            if (createdCount == 1) throw java.io.IOException("database unavailable")
+            return runtime
+        }
+    }
+
+    private class FakeRelayManager(
+        var failSend: Boolean = false,
+        var failSubscribe: Boolean = false,
+        var confirmationResult: Boolean? = true
+    ) : NdrRelayManager {
         data class Subscription(
             val id: String,
             val filter: NostrFilter,
-            val handler: (NostrEvent) -> Unit
+            val handler: (NostrEvent) -> Boolean
+        )
+        data class Confirmation(
+            val eventId: String,
+            val completion: (Boolean) -> Unit
         )
 
         val subscriptions = mutableListOf<Subscription>()
         val unsubscribed = mutableListOf<String>()
         val sentEvents = mutableListOf<NostrEvent>()
+        val confirmations = ArrayDeque<Confirmation>()
+        val canceledConfirmations = mutableListOf<Confirmation>()
+        private var connectionAvailableHandler: (() -> Unit)? = null
 
-        override fun subscribe(filter: NostrFilter, id: String, handler: (NostrEvent) -> Unit) {
-            subscriptions += Subscription(id = id, filter = filter, handler = handler)
+        override fun subscribe(filter: NostrFilter, id: String, handler: (NostrEvent) -> Boolean) {
+            if (failSubscribe) throw java.io.IOException("subscribe failed")
+            subscriptions += Subscription(id, filter, handler)
         }
 
         override fun unsubscribe(id: String) {
             unsubscribed += id
         }
 
-        override fun sendEvent(event: NostrEvent) {
+        override fun sendEventConfirmed(
+            event: NostrEvent,
+            completion: (accepted: Boolean) -> Unit
+        ) {
+            if (failSend) throw java.io.IOException("send failed")
             sentEvents += event
+            val result = confirmationResult
+            if (result == null) {
+                confirmations.addLast(Confirmation(event.id, completion))
+            } else {
+                completion(result)
+            }
         }
 
-        fun emit(id: String, event: NostrEvent) {
-            requireNotNull(subscriptions.lastOrNull { it.id == id }).handler(event)
+        override fun cancelConfirmedEvent(eventId: String) {
+            val retained = ArrayDeque<Confirmation>()
+            while (confirmations.isNotEmpty()) {
+                val confirmation = confirmations.removeFirst()
+                if (confirmation.eventId == eventId) {
+                    canceledConfirmations += confirmation
+                    confirmation.completion(false)
+                } else {
+                    retained.addLast(confirmation)
+                }
+            }
+            confirmations.addAll(retained)
+        }
+
+        override fun setOnConnectionAvailable(handler: () -> Unit) {
+            connectionAvailableHandler = handler
+        }
+
+        fun reconnect() {
+            connectionAvailableHandler?.invoke()
         }
     }
 
-    private class FakeNdrSessionManager(
+    private class FakeRetryScheduler : NdrRetryScheduler {
+        data class ScheduledTask(
+            val delayMs: Long,
+            val task: () -> Unit,
+            var canceled: Boolean = false
+        )
+
+        val scheduled = ArrayDeque<ScheduledTask>()
+
+        override fun schedule(delayMs: Long, task: () -> Unit): NdrRetryCancellation {
+            val scheduledTask = ScheduledTask(delayMs, task)
+            scheduled.addLast(scheduledTask)
+            return NdrRetryCancellation { scheduledTask.canceled = true }
+        }
+
+        fun runNext() {
+            while (scheduled.isNotEmpty()) {
+                val scheduledTask = scheduled.removeFirst()
+                if (!scheduledTask.canceled) {
+                    scheduledTask.task()
+                    return
+                }
+            }
+        }
+    }
+
+    private class InMemoryMarkerStore : NdrEstablishedSessionMarkerStore {
+        private val marked = mutableSetOf<String>()
+
+        override fun contains(accountPubkeyHex: String): Boolean =
+            accountPubkeyHex.lowercase() in marked
+
+        override fun mark(accountPubkeyHex: String) {
+            marked += accountPubkeyHex.lowercase()
+        }
+
+        override fun clearAll() {
+            marked.clear()
+        }
+    }
+
+    private class FakeNdrPairwiseRuntime(
         private val activeSessionPeers: MutableSet<String> = mutableSetOf()
-    ) : NdrSessionManager {
-        val drainedEvents = ArrayDeque<NdrPubSubEvent>()
+    ) : NdrPairwiseRuntime {
+        val halfReadySessionPeers = mutableSetOf<String>()
+        val pendingEvents = mutableListOf<NdrPubSubEvent>()
+        val ackedActionIds = mutableListOf<String>()
         val processedEvents = mutableListOf<String>()
         val processedOutOfBandResponses = mutableListOf<Pair<String, String>>()
         val acceptedInvites = mutableListOf<String>()
         val acceptedInviteUrls = mutableListOf<String>()
         val acceptInviteEvents = mutableListOf<NdrPubSubEvent>()
         val acceptInviteUrlEvents = mutableListOf<NdrPubSubEvent>()
-        val blockedAcceptInviteEvents = mutableListOf<NdrPubSubEvent>()
         val processEvents = mutableListOf<NdrPubSubEvent>()
-        val acceptedInviteOwnerHints = mutableListOf<String?>()
-        val acceptedInviteUrlOwnerHints = mutableListOf<String?>()
+        val sendTextEvents = mutableListOf<NdrPubSubEvent>()
         val sendTextCalls = mutableListOf<String>()
-        val knownPeerOwners = mutableListOf<String>()
-        val setupUserCalls = mutableListOf<String>()
-        val setupUserEvents = mutableMapOf<String, List<NdrPubSubEvent>>()
-        var acceptInviteEventResult = NdrAcceptInviteResult(
-            ownerPubkeyHex = "aa".repeat(32),
-            inviterDevicePubkeyHex = "bb".repeat(32),
-            deviceId = "device-1",
+        val sendTextExpirationCalls = mutableListOf<ULong?>()
+        var acceptInviteResult = NdrAcceptInviteResult(
+            peerPubkeyHex = "aa".repeat(32),
             createdNewSession = true
         )
-        var acceptInviteUrlResult = NdrAcceptInviteResult(
-            ownerPubkeyHex = "aa".repeat(32),
-            inviterDevicePubkeyHex = "bb".repeat(32),
-            deviceId = "device-1",
-            createdNewSession = true
-        )
-        var sendTextResult: List<String> = listOf("outer-1")
-        var acceptInviteFailuresRemaining: Int = 0
-        var destroyed: Boolean = false
+        var acceptInviteUrlResult = acceptInviteResult
+        var currentInvite: String? = null
+        var destroyed = false
         var sendTextEntered: CountDownLatch? = null
         var releaseSendText: CountDownLatch? = null
+        var sendTextFailure: Throwable? = null
+        var activeSessionLookupFailure: Throwable? = null
+        var knownPeerPubkeysFailure: Throwable? = null
+        var retirePeerFailure: Throwable? = null
+        val retiredPeers = mutableListOf<String>()
         @Volatile
-        var sendTextCompleted: Boolean = false
-        var destroyedAfterSendCompleted: Boolean = false
+        var sendTextCompleted = false
+        var destroyedAfterSendCompleted = false
 
-        override fun init() = Unit
+        override fun currentInviteEventJson(): String? = currentInvite
 
-        override fun knownPeerOwnerPubkeys(): List<String> =
-            knownPeerOwners.toList()
-
-        override fun setupUser(userPubkeyHex: String) {
-            setupUserCalls += userPubkeyHex
-            drainedEvents.addAll(setupUserEvents[userPubkeyHex].orEmpty())
-        }
+        override fun currentInviteUrl(root: String): String? = null
 
         override fun acceptInviteFromEventJson(
             eventJson: String,
-            ownerPubkeyHintHex: String?
+            expectedPeerPubkeyHex: String
         ): NdrAcceptInviteResult {
             acceptedInvites += eventJson
-            acceptedInviteOwnerHints += ownerPubkeyHintHex
-            if (acceptInviteFailuresRemaining > 0) {
-                acceptInviteFailuresRemaining -= 1
-                drainedEvents.addAll(blockedAcceptInviteEvents)
-                throw NdrSessionNotReadyException("missing owner roster")
-            }
-            drainedEvents.addAll(acceptInviteEvents)
-            return acceptInviteEventResult
+            pendingEvents += acceptInviteEvents
+            return acceptInviteResult
         }
 
         override fun acceptInviteFromUrl(
             inviteUrl: String,
-            ownerPubkeyHintHex: String?
+            expectedPeerPubkeyHex: String
         ): NdrAcceptInviteResult {
             acceptedInviteUrls += inviteUrl
-            acceptedInviteUrlOwnerHints += ownerPubkeyHintHex
-            drainedEvents.addAll(acceptInviteUrlEvents)
+            pendingEvents += acceptInviteUrlEvents
             return acceptInviteUrlResult
         }
 
         override fun processEvent(eventJson: String) {
             processedEvents += eventJson
-            drainedEvents.addAll(processEvents)
+            pendingEvents += processEvents
         }
 
         override fun processOutOfBandResponse(
             eventJson: String,
-            expectedOwnerPubkeyHex: String
+            expectedPeerPubkeyHex: String
         ) {
-            processedOutOfBandResponses += eventJson to expectedOwnerPubkeyHex
+            processedOutOfBandResponses += eventJson to expectedPeerPubkeyHex
         }
 
-        override fun drainEvents(): List<NdrPubSubEvent> = buildList {
-            while (drainedEvents.isNotEmpty()) {
-                add(drainedEvents.removeFirst())
+        override fun pendingActions(nowSeconds: ULong): List<NdrPubSubEvent> =
+            pendingEvents.toList()
+
+        override fun ackActions(actionIds: List<String>) {
+            ackedActionIds += actionIds
+            pendingEvents.removeAll { it.actionId in actionIds }
+        }
+
+        override fun sessionInfo(peerPubkeyHex: String): NdrPairwiseSessionInfo? {
+            activeSessionLookupFailure?.let { throw it }
+            val peer = peerPubkeyHex.lowercase()
+            return when {
+                peer in activeSessionPeers ->
+                    NdrPairwiseSessionInfo(
+                        sendReady = true,
+                        receiveReady = true,
+                        trackedSenderPubkeys = listOf(peer)
+                    )
+                peer in halfReadySessionPeers ->
+                    NdrPairwiseSessionInfo(
+                        sendReady = false,
+                        receiveReady = false,
+                        trackedSenderPubkeys = emptyList()
+                    )
+                else -> null
             }
         }
 
-        override fun getActiveSessionState(peerPubkeyHex: String): String? {
-            return peerPubkeyHex.takeIf { activeSessionPeers.contains(it.lowercase()) }?.let { """{"peer":"$it"}""" }
+        override fun knownPeerPubkeys(): List<String> {
+            knownPeerPubkeysFailure?.let { throw it }
+            return (activeSessionPeers + halfReadySessionPeers).toList()
+        }
+
+        override fun retirePeer(peerPubkeyHex: String): Boolean {
+            retirePeerFailure?.let { throw it }
+            retiredPeers += peerPubkeyHex.lowercase()
+            return activeSessionPeers.remove(peerPubkeyHex.lowercase()) ||
+                halfReadySessionPeers.remove(peerPubkeyHex.lowercase())
         }
 
         override fun sendText(
             recipientPubkeyHex: String,
             text: String,
             expiresAtSeconds: ULong?
-        ): List<String> {
+        ): NdrPairwiseSendResult {
             sendTextCalls += recipientPubkeyHex
+            sendTextExpirationCalls += expiresAtSeconds
             sendTextEntered?.countDown()
             releaseSendText?.await(2, TimeUnit.SECONDS)
+            sendTextFailure?.let { throw it }
             sendTextCompleted = true
-            return sendTextResult
+            pendingEvents += sendTextEvents
+            return NdrPairwiseSendResult(
+                innerEventId = "21".repeat(32),
+                outerEventId = "22".repeat(32)
+            )
         }
 
         override fun getOurPubkeyHex(): String = "22".repeat(32)
 
-        override fun getTotalSessions(): ULong = 0u
+        override fun getTotalSessions(): ULong = activeSessionPeers.size.toULong()
 
         override fun destroy() {
             destroyedAfterSendCompleted = sendTextCompleted

@@ -8,6 +8,8 @@ import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -193,7 +195,8 @@ object FileUtils {
      */
     fun saveIncomingFile(
         context: Context,
-        file: com.bitchat.android.model.BitchatFilePacket
+        file: com.bitchat.android.model.BitchatFilePacket,
+        stableId: String? = null
     ): String {
         val lowerMime = file.mimeType.lowercase()
         val isImage = lowerMime.startsWith("image/")
@@ -217,6 +220,17 @@ object FileUtils {
             ?: (if (isImage) "img" else "file"))
             .replace(Regex("[^A-Za-z0-9._-]"), "_")
         val ext = extFromMime(lowerMime)
+        if (stableId != null) {
+            require(stableId.matches(Regex("^[0-9a-fA-F]{64}$"))) {
+                "Stable incoming file ID must be a 32-byte hex event ID"
+            }
+            val transmittedName = (file.fileName.takeIf { it.isNotBlank() }
+                ?: if (isImage) "image$ext" else "file$ext")
+                .replace(Regex("[^A-Za-z0-9._-]"), "_")
+                .take(80)
+            val stableName = "ndr_${stableId.lowercase()}_$transmittedName"
+            return saveIncomingFileAtomically(dir, stableName, file.content)
+        }
         var safeName = if (baseName.contains('.')) baseName else baseName + ext
         var idx = 1
         while (java.io.File(dir, safeName).exists() && idx < 1000) {
@@ -259,6 +273,37 @@ object FileUtils {
                 tmp.writeBytes(file.content)
                 tmp.absolutePath
             }
+        }
+    }
+
+    private fun saveIncomingFileAtomically(
+        directory: File,
+        fileName: String,
+        content: ByteArray
+    ): String {
+        val target = File(directory, fileName)
+        if (target.isFile &&
+            target.length() == content.size.toLong() &&
+            runCatching { target.readBytes().contentEquals(content) }.getOrDefault(false)
+        ) {
+            return target.absolutePath
+        }
+
+        val temporary = File(directory, ".$fileName.${UUID.randomUUID()}.tmp")
+        try {
+            FileOutputStream(temporary).use { output ->
+                output.write(content)
+                output.fd.sync()
+            }
+            Files.move(
+                temporary.toPath(),
+                target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            )
+            return target.absolutePath
+        } finally {
+            temporary.delete()
         }
     }
 

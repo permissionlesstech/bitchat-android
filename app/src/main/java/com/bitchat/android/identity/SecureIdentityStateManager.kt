@@ -496,6 +496,13 @@ class SecureIdentityStateManager {
     fun storeSecureValue(key: String, value: String) {
         prefs.edit().putString(key, value).apply()
     }
+
+    /**
+     * Durably store a value before acknowledging an external operation.
+     */
+    fun storeSecureValueSynchronously(key: String, value: String): Boolean {
+        return prefs.edit().putString(key, value).commit()
+    }
     
     /**
      * Retrieve a string value from secure preferences

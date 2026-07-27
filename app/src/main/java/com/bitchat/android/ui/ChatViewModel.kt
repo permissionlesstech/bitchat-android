@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.NdrMeshRoute
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
@@ -21,7 +22,14 @@ import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.nostr.NdrBootstrapAction
 import com.bitchat.android.nostr.NdrBootstrapDecider
 import com.bitchat.android.nostr.NdrBootstrapTriggerCoordinator
+import com.bitchat.android.nostr.NdrFavoriteRouteBinding
+import com.bitchat.android.nostr.NdrInviteRetryCoordinator
+import com.bitchat.android.nostr.NdrInviteRetryRequest
+import com.bitchat.android.nostr.NdrInviteRetryToken
 import com.bitchat.android.nostr.NdrNostrService
+import com.bitchat.android.nostr.NdrOutOfBandPayload
+import com.bitchat.android.nostr.NdrOutOfBandRoutePolicy
+import com.bitchat.android.nostr.NostrEvent
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.protocol.BitchatPacket
 
@@ -31,7 +39,6 @@ import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
 import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.random.Random
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.identity.SecureIdentityStateManager
@@ -171,8 +178,40 @@ class ChatViewModel(
     private val ndrService by lazy { NdrNostrService.getInstance(getApplication()) }
     private val ndrBootstrapAttemptMs = ConcurrentHashMap<String, Long>()
     private val ndrNoiseHandshakeAttemptMs = ConcurrentHashMap<String, Long>()
-    private val ndrPendingOutOfBandPayloads =
-        ConcurrentHashMap<String, ConcurrentLinkedQueue<String>>()
+    private val ndrAvailablePeers = ConcurrentHashMap.newKeySet<String>()
+    private val ndrInviteRetries = NdrInviteRetryCoordinator(
+        scope = viewModelScope,
+        isStillValid = { request ->
+            val token = request.token
+            !ndrService.hasPairwiseSession(token.peerPubkeyHex) &&
+                NostrEvent.fromJsonString(ndrService.currentInviteEventJson() ?: "")
+                    ?.id == token.inviteEventId &&
+                isCurrentNdrRouteAuthorized(token.route, token.peerPubkeyHex)
+        },
+        send = { request, completion ->
+            val token = request.token
+            mesh.sendNdrEvent(
+                route = token.route,
+                payload = request.eventJson,
+                isStillAuthorized = {
+                    !ndrService.hasPairwiseSession(token.peerPubkeyHex) &&
+                        NostrEvent.fromJsonString(ndrService.currentInviteEventJson() ?: "")
+                            ?.id == token.inviteEventId &&
+                        isCurrentNdrRouteAuthorized(token.route, token.peerPubkeyHex)
+                },
+                completion = completion
+            )
+        },
+        onAdmitted = { request ->
+            ndrBootstrapAttemptMs[request.token.peerID] = System.currentTimeMillis()
+        }
+    )
+    private val ndrOutOfBandDeliveryHandler: (
+        NdrOutOfBandPayload,
+        (Boolean) -> Unit
+    ) -> Unit = { payload, completion ->
+        routeNdrOutOfBandPayload(payload, completion)
+    }
     private val ndrBootstrapTriggers = NdrBootstrapTriggerCoordinator(
         connectedPeerIDs = { state.getConnectedPeersValue() },
         noiseKeyHexForPeer = { peerID ->
@@ -186,25 +225,19 @@ class ChatViewModel(
         override fun onFavoriteChanged(noiseKeyHex: String) {
             viewModelScope.launch {
                 ndrBootstrapTriggers.onFavoriteChanged(noiseKeyHex)
+                ndrService.onOutOfBandTransportAvailable()
             }
         }
 
         override fun onAllCleared() {
             viewModelScope.launch {
+                ndrInviteRetries.cancelAll()
                 ndrBootstrapAttemptMs.clear()
                 ndrNoiseHandshakeAttemptMs.clear()
-                ndrPendingOutOfBandPayloads.clear()
+                ndrAvailablePeers.clear()
             }
         }
     }
-    private val ndrOutOfBandPayloadListener: (String, List<String>) -> Unit =
-        listener@{ ownerPubkeyHex, payloads ->
-            if (!NdrFeatureGate.isEnabled()) return@listener
-            enqueuePendingNdrOutOfBandPayloads(ownerPubkeyHex, payloads)
-            viewModelScope.launch {
-                state.getConnectedPeersValue().forEach(::maybeBootstrapDoubleRatchetIfNeeded)
-            }
-        }
 
 
 
@@ -370,9 +403,7 @@ class ChatViewModel(
         // Initialize favorites persistence service
         com.bitchat.android.favorites.FavoritesPersistenceService.initialize(getApplication())
         FavoritesPersistenceService.shared.addListener(ndrFavoriteListener)
-        if (NdrFeatureGate.isEnabled()) {
-            ndrService.onOutOfBandPayloadsReady = ndrOutOfBandPayloadListener
-        }
+        ndrService.onOutOfBandPayload = ndrOutOfBandDeliveryHandler
 
         // Load verified fingerprints from secure storage
         verificationHandler.loadVerifiedFingerprints()
@@ -393,9 +424,10 @@ class ChatViewModel(
         runCatching {
             FavoritesPersistenceService.shared.removeListener(ndrFavoriteListener)
         }
-        if (ndrService.onOutOfBandPayloadsReady === ndrOutOfBandPayloadListener) {
-            ndrService.onOutOfBandPayloadsReady = null
+        if (ndrService.onOutOfBandPayload === ndrOutOfBandDeliveryHandler) {
+            ndrService.onOutOfBandPayload = null
         }
+        ndrInviteRetries.cancelAll()
         super.onCleared()
         // Note: Mesh service lifecycle is now managed by MainActivity
     }
@@ -970,6 +1002,13 @@ class ChatViewModel(
     
     override fun didUpdatePeerList(peers: List<String>) {
         meshDelegateHandler.didUpdatePeerList(peers)
+        val currentPeers = peers.toSet()
+        val routeBecameAvailable = currentPeers.any(ndrAvailablePeers::add)
+        ndrAvailablePeers.retainAll(currentPeers)
+        ndrInviteRetries.retainPeers(currentPeers)
+        if (routeBecameAvailable) {
+            ndrService.onOutOfBandTransportAvailable()
+        }
         peers.forEach { peerID ->
             viewModelScope.launch {
                 maybeBootstrapDoubleRatchetIfNeeded(peerID)
@@ -997,21 +1036,17 @@ class ChatViewModel(
         verificationHandler.didReceiveVerifyResponse(peerID, payload)
     }
 
-    override fun didReceiveNdrEvent(peerID: String, payload: ByteArray, timestampMs: Long) {
+    override fun didReceiveNdrEvent(
+        route: NdrMeshRoute,
+        payload: ByteArray,
+        timestampMs: Long
+    ) {
         if (!NdrFeatureGate.isEnabled()) return
         val eventPayload = payload.toString(Charsets.UTF_8)
         if (eventPayload.isBlank()) return
 
-        val peerInfo = mesh.getPeerInfo(peerID) ?: return
-        if (!mesh.peerSupportsAuthenticatedCapability(
-                peerID,
-                PeerCapabilities.NOSTR_DOUBLE_RATCHET
-            )
-        ) {
-            Log.d(TAG, "Ignoring NDR OOB event without authenticated capability")
-            return
-        }
-        val noiseKey = peerInfo.noisePublicKey ?: return
+        val peerID = route.peerID
+        val noiseKey = route.authenticatedSession.remoteStaticKey
         val relationship = FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
         if (relationship?.isMutual != true) {
             Log.d(TAG, "Ignoring NDR OOB event without mutual favorite")
@@ -1022,6 +1057,10 @@ class ChatViewModel(
         ndrService.configureIfNeeded(identity)
         val expectedPeerPubkeyHex =
             FavoritesPersistenceService.shared.findNdrSessionPubkeyHex(noiseKey) ?: return
+        if (!isCurrentNdrRouteAuthorized(route, expectedPeerPubkeyHex)) {
+            Log.d(TAG, "Ignoring NDR OOB event from a replaced or rebound Noise generation")
+            return
+        }
         val result = ndrService.processOutOfBandEventJson(
             eventPayload,
             expectedPeerPubkeyHex
@@ -1029,27 +1068,28 @@ class ChatViewModel(
         val sessionLookupPubkeyHex = listOfNotNull(
             result.sessionLookupPubkeyHex,
             expectedPeerPubkeyHex
-        ).firstOrNull(ndrService::hasActiveSession)
+        ).firstOrNull(ndrService::hasPairwiseSession)
 
         if (sessionLookupPubkeyHex != null) {
-            FavoritesPersistenceService.shared.updateNdrSessionPubkeyHex(
+            val bindingCommitted =
+                FavoritesPersistenceService.shared.updateNdrSessionPubkeyHex(
                 noiseKey,
                 sessionLookupPubkeyHex
             )
+            if (!bindingCommitted) {
+                Log.e(TAG, "Refusing to advance NDR bootstrap after session rebind failed")
+                return
+            }
+            ndrInviteRetries.cancel(peerID)
             ndrBootstrapAttemptMs.remove(peerID)
             ndrNoiseHandshakeAttemptMs.remove(peerID)
         }
-        enqueuePendingNdrOutOfBandPayloads(
-            expectedPeerPubkeyHex,
-            result.outboundPayloads
-        )
-        viewModelScope.launch {
-            routePendingNdrOutOfBandPayloads(peerID, expectedPeerPubkeyHex)
-        }
+        ndrService.replayPendingOutOfBandPayloads()
     }
 
     override fun didResolvePrivateMediaPolicy(peerID: String) {
         mediaSendingManager.retryPendingPrivateMedia(peerID)
+        ndrService.onOutOfBandTransportAvailable()
         viewModelScope.launch {
             ndrBootstrapTriggers.onAuthenticatedPolicyResolved(peerID)
         }
@@ -1068,25 +1108,39 @@ class ChatViewModel(
     }
 
     private fun maybeBootstrapDoubleRatchetIfNeeded(peerID: String) {
-        if (!NdrFeatureGate.isEnabled()) return
-        val peerInfo = mesh.getPeerInfo(peerID) ?: return
-        val noiseKey = peerInfo.noisePublicKey ?: return
-        val relationship = FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey) ?: return
-        if (!relationship.isMutual) return
+        if (!NdrFeatureGate.isEnabled()) {
+            ndrInviteRetries.cancel(peerID)
+            return
+        }
+        val peerInfo = mesh.getPeerInfo(peerID)
+        val noiseKey = peerInfo?.noisePublicKey
+        val relationship = noiseKey?.let(FavoritesPersistenceService.shared::getFavoriteStatus)
+        if (noiseKey == null || relationship?.isMutual != true) {
+            ndrInviteRetries.cancel(peerID)
+            return
+        }
         if (!mesh.peerSupportsAuthenticatedCapability(
                 peerID,
                 PeerCapabilities.NOSTR_DOUBLE_RATCHET
             )
-        ) return
+        ) {
+            ndrInviteRetries.cancel(peerID)
+            return
+        }
 
         val peerPubkeyHex =
-            FavoritesPersistenceService.shared.findNdrSessionPubkeyHex(noiseKey) ?: return
-        routePendingNdrOutOfBandPayloads(peerID, peerPubkeyHex)
+            FavoritesPersistenceService.shared.findNdrSessionPubkeyHex(noiseKey)
+        if (peerPubkeyHex == null) {
+            ndrInviteRetries.cancel(peerID)
+            return
+        }
+        ndrService.replayPendingOutOfBandPayloads()
         val identity = NostrIdentityBridge.getCurrentNostrIdentity(getApplication()) ?: return
         ndrService.configureIfNeeded(identity)
 
-        val hasActiveSession = ndrService.hasActiveSession(peerPubkeyHex)
-        if (hasActiveSession) {
+        val hasPairwiseSession = ndrService.hasPairwiseSession(peerPubkeyHex)
+        if (hasPairwiseSession) {
+            ndrInviteRetries.cancel(peerID)
             ndrBootstrapAttemptMs.remove(peerID)
             ndrNoiseHandshakeAttemptMs.remove(peerID)
             return
@@ -1098,7 +1152,7 @@ class ChatViewModel(
 
         when (
             NdrBootstrapDecider.decide(
-                hasActiveDoubleRatchet = hasActiveSession,
+                hasActiveDoubleRatchet = hasPairwiseSession,
                 hasEstablishedNoiseSession = hasEstablishedNoiseSession,
                 nowMs = now,
                 lastInviteAttemptMs = ndrBootstrapAttemptMs[peerID] ?: 0L,
@@ -1115,40 +1169,90 @@ class ChatViewModel(
         }
 
         val invitePayload = ndrService.currentInviteEventJson() ?: return
+        val inviteEventId = NostrEvent.fromJsonString(invitePayload)
+            ?.id
+            ?.takeIf { it.length == 64 }
+            ?: return
         ndrNoiseHandshakeAttemptMs.remove(peerID)
-        if (mesh.sendNdrEvent(peerID, invitePayload)) {
-            ndrBootstrapAttemptMs[peerID] = now
-        }
+        val route = authorizedNdrRoute(peerID, peerPubkeyHex) ?: return
+        ndrInviteRetries.start(
+            NdrInviteRetryRequest(
+                token = NdrInviteRetryToken(
+                    peerID = peerID,
+                    peerPubkeyHex = peerPubkeyHex,
+                    inviteEventId = inviteEventId,
+                    route = route
+                ),
+                eventJson = invitePayload
+            )
+        )
     }
 
-    private fun enqueuePendingNdrOutOfBandPayloads(
-        ownerPubkeyHex: String,
-        payloads: List<String>
+    private fun routeNdrOutOfBandPayload(
+        payload: NdrOutOfBandPayload,
+        completion: (Boolean) -> Unit
     ) {
-        if (!NdrFeatureGate.isEnabled()) return
-        val owner = ownerPubkeyHex.lowercase()
-        if (!owner.matches(Regex("^[0-9a-f]{64}$"))) return
-        val queue = ndrPendingOutOfBandPayloads.computeIfAbsent(owner) {
-            ConcurrentLinkedQueue()
+        if (!NdrFeatureGate.isEnabled() || payload.eventJson.isBlank()) {
+            completion(false)
+            return
         }
-        payloads
+        val peerPubkeyHex = payload.peerPubkeyHex.lowercase()
+        val candidatePeerIDs = linkedSetOf<String>()
+        FavoritesPersistenceService.shared
+            .findPeerIDForNostrPubkey(peerPubkeyHex)
+            ?.let(candidatePeerIDs::add)
+        candidatePeerIDs.addAll(state.getConnectedPeersValue())
+        candidatePeerIDs.addAll(mesh.getPeerNicknames().keys)
+
+        val route = candidatePeerIDs
             .asSequence()
-            .filter(String::isNotBlank)
-            .forEach(queue::offer)
+            .mapNotNull { authorizedNdrRoute(it, peerPubkeyHex) }
+            .firstOrNull()
+        if (route == null) {
+            completion(false)
+            return
+        }
+        mesh.sendNdrEvent(
+            route = route,
+            payload = payload.eventJson,
+            isStillAuthorized = {
+                isCurrentNdrRouteAuthorized(route, peerPubkeyHex)
+            },
+            completion = completion
+        )
     }
 
-    private fun routePendingNdrOutOfBandPayloads(
+    private fun authorizedNdrRoute(
         peerID: String,
-        ownerPubkeyHex: String
-    ) {
-        if (!NdrFeatureGate.isEnabled()) return
-        val owner = ownerPubkeyHex.lowercase()
-        val queue = ndrPendingOutOfBandPayloads[owner] ?: return
-        while (true) {
-            val payload = queue.peek() ?: return
-            if (!mesh.sendNdrEvent(peerID, payload)) return
-            queue.poll()
+        peerPubkeyHex: String
+    ): NdrMeshRoute? {
+        val route = mesh.currentNdrRoute(peerID) ?: return null
+        return route.takeIf {
+            isCurrentNdrRouteAuthorized(it, peerPubkeyHex)
         }
+    }
+
+    private fun isCurrentNdrRouteAuthorized(
+        route: NdrMeshRoute,
+        peerPubkeyHex: String
+    ): Boolean {
+        if (!NdrFeatureGate.isEnabled()) return false
+        return NdrOutOfBandRoutePolicy.isAuthorized(
+            route = route,
+            expectedPeerPubkeyHex = peerPubkeyHex,
+            currentRoute = mesh::currentNdrRoute,
+            favoriteBinding = { noiseKey ->
+                val favorites = FavoritesPersistenceService.shared
+                val relationship = favorites.getFavoriteStatus(noiseKey)
+                    ?: return@isAuthorized null
+                NdrFavoriteRouteBinding(
+                    isMutual = relationship.isMutual,
+                    peerPubkeyHex = relationship.peerNdrSessionPubkeyHex
+                        ?: relationship.peerNostrPublicKey
+                            ?.let(ContactIdentityResolver::nostrPubkeyHex)
+                )
+            }
+        )
     }
     
     // MARK: - Emergency Clear
@@ -1166,7 +1270,7 @@ class ChatViewModel(
         }
         ndrBootstrapAttemptMs.clear()
         ndrNoiseHandshakeAttemptMs.clear()
-        ndrPendingOutOfBandPayloads.clear()
+        ndrInviteRetries.cancelAll()
         
         // Clear all UI managers
         messageManager.clearAllMessages()
@@ -1211,8 +1315,6 @@ class ChatViewModel(
         if (ndrResetSucceeded && NdrFeatureGate.isEnabled()) {
             // GeohashViewModel.panicReset() recreates the account identity and
             // reinstalls the decrypted-message callback through initialize().
-            // Reinstall this VM-owned callback for roster-delayed OOB responses.
-            ndrService.onOutOfBandPayloadsReady = ndrOutOfBandPayloadListener
         }
 
         // Reset nickname

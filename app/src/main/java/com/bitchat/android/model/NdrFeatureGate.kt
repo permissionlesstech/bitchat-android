@@ -5,8 +5,8 @@ import com.bitchat.android.BuildConfig
 /**
  * Coordinated rollout gate for Nostr double-ratchet transport.
  *
- * Production builds stay fail-closed until the kind-1402 envelope migration
- * is implemented and the maintainers explicitly enable the rollout.
+ * Production builds stay fail-closed until the pairwise NDR implementations
+ * are reviewed and ready to be enabled together on Apple and Android.
  */
 object NdrFeatureGate {
     @Volatile

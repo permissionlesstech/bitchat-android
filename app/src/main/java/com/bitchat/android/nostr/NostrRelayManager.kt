@@ -14,11 +14,19 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import kotlin.math.pow
 
+internal fun isNip20ConfirmedSuccess(accepted: Boolean, message: String?): Boolean =
+    accepted || message?.startsWith("duplicate:") == true
+
 /**
  * Manages WebSocket connections to Nostr relays
  * Compatible with iOS implementation with Android-specific optimizations
  */
-class NostrRelayManager private constructor() {
+class NostrRelayManager internal constructor(
+    private val scope: CoroutineScope =
+        CoroutineScope(Dispatchers.IO + SupervisorJob()),
+    private val eventDeduplicator: NostrEventDeduplicator =
+        NostrEventDeduplicator.getInstance()
+) {
     
     companion object {
         @JvmStatic
@@ -46,6 +54,7 @@ class NostrRelayManager private constructor() {
         private const val MAX_BACKOFF_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.MAX_BACKOFF_INTERVAL_MS    // 5 minutes
         private const val BACKOFF_MULTIPLIER = com.bitchat.android.util.AppConstants.Nostr.BACKOFF_MULTIPLIER
         private const val MAX_RECONNECT_ATTEMPTS = com.bitchat.android.util.AppConstants.Nostr.MAX_RECONNECT_ATTEMPTS
+        private const val CONFIRMED_PUBLISH_TIMEOUT_MS = 15_000L
         
         // Track gift-wraps we initiated for logging
         private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
@@ -84,6 +93,8 @@ class NostrRelayManager private constructor() {
     private val connections = ConcurrentHashMap<String, WebSocket>()
     private val subscriptions = ConcurrentHashMap<String, Set<String>>() // relay URL -> subscription IDs
     private val messageHandlers = ConcurrentHashMap<String, (NostrEvent) -> Unit>()
+    private val commitAwareMessageHandlers =
+        ConcurrentHashMap<String, (NostrEvent) -> Boolean>()
     
     // Persistent subscription tracking for robust reconnection
     private val activeSubscriptions = ConcurrentHashMap<String, SubscriptionInfo>() // subscription ID -> info
@@ -100,15 +111,19 @@ class NostrRelayManager private constructor() {
         val originGeohash: String? = null // used for logging and grouping
     )
     
-    // Event deduplication system
-    private val eventDeduplicator = NostrEventDeduplicator.getInstance()
-    
     // Message queue for reliability
     private val messageQueue = mutableListOf<Pair<NostrEvent, List<String>>>()
     private val messageQueueLock = Any()
-    
-    // Coroutine scope for background operations
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    private data class ConfirmedPublish(
+        val awaitingRelayUrls: MutableSet<String>,
+        val completion: (Boolean) -> Unit,
+        @Volatile var timeoutJob: Job? = null
+    )
+
+    private val confirmedPublishes = ConcurrentHashMap<String, ConfirmedPublish>()
+    @Volatile
+    private var ndrConnectionAvailableHandler: (() -> Unit)? = null
     
     // Subscription validation timer
     private var subscriptionValidationJob: Job? = null
@@ -261,6 +276,10 @@ class NostrRelayManager private constructor() {
         
         // Stop subscription validation
         stopSubscriptionValidation()
+
+        confirmedPublishes.entries.toList().forEach { (eventId, tracker) ->
+            completeConfirmedPublish(eventId, tracker, accepted = false)
+        }
         
         connections.values.forEach { webSocket ->
             webSocket.close(1000, "Manual disconnect")
@@ -294,6 +313,73 @@ class NostrRelayManager private constructor() {
             }
         }
     }
+
+    /**
+     * Sends without using the process-local retry queue and completes only
+     * after at least one relay returns an accepted NIP-01 OK.
+     */
+    fun sendEventConfirmed(
+        event: NostrEvent,
+        relayUrls: List<String>? = null,
+        completion: (Boolean) -> Unit
+    ) {
+        val requestedRelays = (relayUrls ?: relaysList.map { it.url }).toSet()
+        val connectedTargets = requestedRelays.filterTo(linkedSetOf()) {
+            connections.containsKey(it)
+        }
+        if (connectedTargets.isEmpty()) {
+            completion(false)
+            return
+        }
+
+        val tracker = ConfirmedPublish(
+            awaitingRelayUrls = ConcurrentHashMap.newKeySet<String>().apply {
+                addAll(connectedTargets)
+            },
+            completion = completion
+        )
+        if (confirmedPublishes.putIfAbsent(event.id, tracker) != null) {
+            completion(false)
+            return
+        }
+        tracker.timeoutJob = scope.launch {
+            delay(CONFIRMED_PUBLISH_TIMEOUT_MS)
+            completeConfirmedPublish(event.id, tracker, accepted = false)
+        }
+
+        connectedTargets.forEach { relayUrl ->
+            val webSocket = connections[relayUrl]
+            if (webSocket == null || !sendToRelay(event, webSocket, relayUrl)) {
+                tracker.awaitingRelayUrls.remove(relayUrl)
+            }
+        }
+        if (tracker.awaitingRelayUrls.isEmpty()) {
+            completeConfirmedPublish(event.id, tracker, accepted = false)
+            return
+        }
+    }
+
+    fun cancelConfirmedEvent(eventId: String) {
+        val tracker = confirmedPublishes.remove(eventId) ?: return
+        tracker.timeoutJob?.cancel()
+        runCatching { tracker.completion(false) }
+            .onFailure { Log.w(TAG, "Confirmed publish cancellation callback failed") }
+    }
+
+    fun setNdrConnectionAvailableHandler(handler: () -> Unit) {
+        ndrConnectionAvailableHandler = handler
+    }
+
+    private fun completeConfirmedPublish(
+        eventId: String,
+        tracker: ConfirmedPublish,
+        accepted: Boolean
+    ) {
+        if (!confirmedPublishes.remove(eventId, tracker)) return
+        tracker.timeoutJob?.cancel()
+        runCatching { tracker.completion(accepted) }
+            .onFailure { Log.w(TAG, "Confirmed publish callback failed") }
+    }
     
     /**
      * Subscribe to events matching a filter
@@ -312,14 +398,54 @@ class NostrRelayManager private constructor() {
             handler = handler,
             targetRelayUrls = targetRelayUrls?.toSet()
         )
-        
-        activeSubscriptions[id] = subscriptionInfo
-        messageHandlers[id] = handler
+        return registerSubscription(
+            subscriptionInfo = subscriptionInfo,
+            ordinaryHandler = handler
+        )
+    }
 
-        // Send subscription to appropriate relays
+    /**
+     * NDR relay copies are considered seen only after the durable runtime
+     * commits them. A transient storage failure must leave another relay copy
+     * eligible for processing.
+     */
+    fun subscribeAfterSuccessfulProcessing(
+        filter: NostrFilter,
+        id: String,
+        handler: (NostrEvent) -> Boolean
+    ): String {
+        val subscriptionInfo = SubscriptionInfo(
+            id = id,
+            filter = filter,
+            handler = {}
+        )
+        return registerSubscription(
+            subscriptionInfo = subscriptionInfo,
+            commitAwareHandler = handler
+        )
+    }
+
+    /**
+     * Installs the complete handler mode before any relay can observe the REQ.
+     * Some WebSocket implementations can synchronously deliver a cached EVENT
+     * from inside send(), so handler replacement after send is already too late.
+     */
+    private fun registerSubscription(
+        subscriptionInfo: SubscriptionInfo,
+        ordinaryHandler: ((NostrEvent) -> Unit)? = null,
+        commitAwareHandler: ((NostrEvent) -> Boolean)? = null
+    ): String {
+        require((ordinaryHandler == null) != (commitAwareHandler == null))
+        activeSubscriptions[subscriptionInfo.id] = subscriptionInfo
+        if (commitAwareHandler != null) {
+            commitAwareMessageHandlers[subscriptionInfo.id] = commitAwareHandler
+            messageHandlers.remove(subscriptionInfo.id)
+        } else {
+            messageHandlers[subscriptionInfo.id] = requireNotNull(ordinaryHandler)
+            commitAwareMessageHandlers.remove(subscriptionInfo.id)
+        }
         sendSubscriptionToRelays(subscriptionInfo)
-        
-        return id
+        return subscriptionInfo.id
     }
     
     /**
@@ -363,6 +489,7 @@ class NostrRelayManager private constructor() {
         // Remove from persistent tracking
         val subscriptionInfo = activeSubscriptions.remove(id)
         messageHandlers.remove(id)
+        commitAwareMessageHandlers.remove(id)
         
         if (subscriptionInfo == null) {
             Log.w(TAG, "Attempted to unsubscribe from unknown subscription: $id")
@@ -446,6 +573,7 @@ class NostrRelayManager private constructor() {
             // Clear persistent subscription tracking
             activeSubscriptions.clear()
             messageHandlers.clear()
+            commitAwareMessageHandlers.clear()
             subscriptions.clear()
 
             // Clear routing caches (per-geohash relay selections)
@@ -606,8 +734,8 @@ class NostrRelayManager private constructor() {
         }
     }
     
-    private fun sendToRelay(event: NostrEvent, webSocket: WebSocket, relayUrl: String) {
-        try {
+    private fun sendToRelay(event: NostrEvent, webSocket: WebSocket, relayUrl: String): Boolean {
+        return try {
             val request = NostrRequest.Event(event)
             val message = gson.toJson(request, NostrRequest::class.java)
 
@@ -615,13 +743,16 @@ class NostrRelayManager private constructor() {
             if (success) {
                 // Update relay stats
                 val relay = relaysList.find { it.url == relayUrl }
-                relay?.messagesSent = (relay?.messagesSent ?: 0) + 1
+                relay?.let { it.messagesSent += 1 }
                 updateRelaysList()
+                true
             } else {
                 Log.e(TAG, "Failed to send event to $relayUrl: WebSocket send failed")
+                false
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send event to $relayUrl: ${e.message}")
+            false
         }
     }
     
@@ -639,7 +770,7 @@ class NostrRelayManager private constructor() {
                 is NostrResponse.Event -> {
                     // Update relay stats
                     val relay = relaysList.find { it.url == relayUrl }
-                    relay?.messagesReceived = (relay?.messagesReceived ?: 0) + 1
+                    relay?.let { it.messagesReceived += 1 }
                     updateRelaysList()
                     
                     // CLIENT-SIDE FILTER ENFORCEMENT: Ensure this event matches the subscription's filter
@@ -649,6 +780,17 @@ class NostrRelayManager private constructor() {
                             // Do NOT call deduplicator here to allow the correct subscription to process it later
                             return
                         }
+                    }
+
+                    val commitAwareHandler =
+                        commitAwareMessageHandlers[response.subscriptionId]
+                    if (commitAwareHandler != null) {
+                        scope.launch {
+                            eventDeduplicator.processEventAfterSuccess(response.event) { event ->
+                                commitAwareHandler(event)
+                            }
+                        }
+                        return
                     }
 
                     // DEDUPLICATION: Check if we've already processed this event
@@ -671,7 +813,16 @@ class NostrRelayManager private constructor() {
 
                 is NostrResponse.Ok -> {
                     val wasGiftWrap = pendingGiftWrapIDs.remove(response.eventId)
-                    if (!response.accepted) {
+                    confirmedPublishes[response.eventId]?.let { tracker ->
+                        if (isNip20ConfirmedSuccess(response.accepted, response.message)) {
+                            completeConfirmedPublish(response.eventId, tracker, accepted = true)
+                        } else if (tracker.awaitingRelayUrls.remove(relayUrl) &&
+                            tracker.awaitingRelayUrls.isEmpty()
+                        ) {
+                            completeConfirmedPublish(response.eventId, tracker, accepted = false)
+                        }
+                    }
+                    if (!isNip20ConfirmedSuccess(response.accepted, response.message)) {
                         val level = if (wasGiftWrap) Log.WARN else Log.ERROR
                         Log.println(level, TAG, "Event rejected by relay $relayUrl: ${response.message ?: "no reason"}")
                     }
@@ -692,6 +843,13 @@ class NostrRelayManager private constructor() {
     
     private fun handleDisconnection(relayUrl: String, error: Throwable) {
         connections.remove(relayUrl)
+        confirmedPublishes.entries.toList().forEach { (eventId, tracker) ->
+            if (tracker.awaitingRelayUrls.remove(relayUrl) &&
+                tracker.awaitingRelayUrls.isEmpty()
+            ) {
+                completeConfirmedPublish(eventId, tracker, accepted = false)
+            }
+        }
         // NOTE: Don't remove subscriptions here - keep them for restoration on reconnection
         // subscriptions.remove(relayUrl)  // REMOVED - this was causing subscription loss
         
@@ -810,6 +968,8 @@ class NostrRelayManager private constructor() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
             Log.i(TAG, "Connected to Nostr relay: $relayUrl")
             updateRelayStatus(relayUrl, true)
+            runCatching { ndrConnectionAvailableHandler?.invoke() }
+                .onFailure { Log.w(TAG, "NDR reconnect callback failed") }
             
             // Restore all active subscriptions for this relay
             restoreSubscriptionsForRelay(relayUrl, webSocket)

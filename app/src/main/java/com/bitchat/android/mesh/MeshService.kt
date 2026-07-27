@@ -1,6 +1,25 @@
 package com.bitchat.android.mesh
 
 import com.bitchat.android.model.BitchatFilePacket
+import com.bitchat.android.noise.AuthenticatedNoiseSession
+
+data class NdrTransportTarget(
+    val endpointId: String,
+    val generationToken: Any
+)
+
+/**
+ * One exact authenticated Noise generation on one transport.
+ *
+ * NDR OOB responses must never be routed through a reusable peer alias:
+ * replacing the Noise session invalidates this token.
+ */
+data class NdrMeshRoute(
+    val transportId: String,
+    val peerID: String,
+    val authenticatedSession: AuthenticatedNoiseSession,
+    val transportTarget: NdrTransportTarget
+)
 
 /**
  * Transport-agnostic mesh service API for UI and routing layers.
@@ -19,7 +38,15 @@ interface MeshService {
     fun sendFavoriteNotification(peerID: String, isFavorite: Boolean) {}
     fun sendVerifyChallenge(peerID: String, noiseKeyHex: String, nonceA: ByteArray)
     fun sendVerifyResponse(peerID: String, noiseKeyHex: String, nonceA: ByteArray)
-    fun sendNdrEvent(peerID: String, payload: String): Boolean
+    fun currentNdrRoute(peerID: String, transportId: String? = null): NdrMeshRoute? = null
+    fun sendNdrEvent(
+        route: NdrMeshRoute,
+        payload: String,
+        isStillAuthorized: () -> Boolean,
+        completion: (admitted: Boolean) -> Unit
+    ) {
+        completion(false)
+    }
     fun sendFileBroadcast(file: BitchatFilePacket)
     fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket)
     fun prepareFilePrivate(

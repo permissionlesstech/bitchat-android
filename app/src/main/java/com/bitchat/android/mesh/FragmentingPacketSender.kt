@@ -12,6 +12,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Shared transport send wrapper that applies bitchat packet fragmentation and
@@ -100,6 +101,77 @@ class FragmentingPacketSender(
         }
         job.start()
         return true
+    }
+
+    /**
+     * Completes successfully only after every fragment has been admitted by
+     * the exact transport target. [preflight] is re-run for every fragment so
+     * a replaced session, revoked favorite, or disconnected link stops the
+     * transfer without acknowledging its durable caller.
+     */
+    fun sendConfirmed(
+        routed: RoutedPacket,
+        description: String,
+        preflight: () -> Boolean,
+        sendSingle: (RoutedPacket) -> Boolean,
+        completion: (Boolean) -> Unit
+    ) {
+        val completionDelivered = AtomicBoolean(false)
+        fun complete(admitted: Boolean) {
+            if (completionDelivered.compareAndSet(false, true)) {
+                completion(admitted)
+            }
+        }
+
+        val transferId = transferIdFor(routed)
+        val packets = packetsForTransport(routed)
+        if (packets == null) {
+            complete(false)
+            return
+        }
+        val total = packets.size
+        val job = scope.launch(start = CoroutineStart.LAZY) {
+            var sent = 0
+            try {
+                if (transferId != null) {
+                    TransferProgressManager.start(transferId, total)
+                }
+                for (packet in packets) {
+                    if (!isActive || !preflight()) return@launch
+                    val fragment = routed.copy(
+                        packet = packet,
+                        transferId = transferId,
+                        preparedPackets = null
+                    )
+                    if (!sendSingle(fragment)) return@launch
+                    sent += 1
+                    if (transferId != null) {
+                        TransferProgressManager.progress(transferId, sent, total)
+                    }
+                    if (sent < total) {
+                        delay(interFragmentDelayMs)
+                    }
+                }
+                if (transferId != null) {
+                    TransferProgressManager.complete(transferId, total)
+                }
+                complete(true)
+            } catch (e: Exception) {
+                Log.e(logTag, "Confirmed fragment send failed for $description: ${e.message}", e)
+            } finally {
+                complete(false)
+            }
+        }
+        if (transferId != null) {
+            transferJobs[transferId] = job
+            job.invokeOnCompletion {
+                transferJobs.remove(transferId, job)
+                complete(false)
+            }
+        } else {
+            job.invokeOnCompletion { complete(false) }
+        }
+        job.start()
     }
 
     fun cancelTransfer(transferId: String): Boolean {

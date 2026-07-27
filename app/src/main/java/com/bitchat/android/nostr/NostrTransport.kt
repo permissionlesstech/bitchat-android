@@ -12,6 +12,9 @@ import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
+internal fun shouldUseLegacyNostrFallback(result: NdrSendResult): Boolean =
+    result == NdrSendResult.NO_SESSION
+
 /**
  * Nostr transport for offline private messages and receipts.
  */
@@ -53,7 +56,8 @@ class NostrTransport(
         content: String,
         to: String,
         recipientNickname: String,
-        messageID: String
+        messageID: String,
+        expiresAtSeconds: ULong? = null
     ) {
         transportScope.launch {
             try {
@@ -102,7 +106,8 @@ class NostrTransport(
                     content = embedded,
                     fallbackRecipientHex = recipientHex,
                     senderIdentity = senderIdentity,
-                    ndrRecipientHex = ndrRecipientHex
+                    ndrRecipientHex = ndrRecipientHex,
+                    expiresAtSeconds = expiresAtSeconds
                 )
                 
             } catch (e: Exception) {
@@ -420,13 +425,30 @@ class NostrTransport(
         content: String,
         fallbackRecipientHex: String,
         senderIdentity: NostrIdentity,
-        ndrRecipientHex: String = fallbackRecipientHex
+        ndrRecipientHex: String = fallbackRecipientHex,
+        expiresAtSeconds: ULong? = null
     ): Boolean {
         if (NdrFeatureGate.isEnabled()) {
             ndrService.configureIfNeeded(senderIdentity)
-            if (ndrService.sendIfPossible(content, ndrRecipientHex)) {
+            val sendResult = ndrService.sendIfPossible(
+                text = content,
+                peerPubkeyHex = ndrRecipientHex,
+                expiresAtSeconds = expiresAtSeconds
+            )
+            if (sendResult == NdrSendResult.SENT) {
                 return true
             }
+            if (expiresAtSeconds != null && sendResult == NdrSendResult.NO_SESSION) {
+                Log.e(TAG, "NostrTransport: expiring message requires a pairwise session")
+                return false
+            }
+            if (!shouldUseLegacyNostrFallback(sendResult)) {
+                Log.e(TAG, "NostrTransport: pairwise send failed; refusing legacy downgrade")
+                return false
+            }
+        } else if (expiresAtSeconds != null) {
+            Log.e(TAG, "NostrTransport: expiring message requires pairwise transport")
+            return false
         }
 
         NostrProtocol.createPrivateMessage(

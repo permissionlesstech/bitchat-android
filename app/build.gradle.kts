@@ -36,7 +36,8 @@ android {
             "GITHUB_RELEASE_CERT_SHA256",
             "\"$normalizedGithubReleaseCertSha256\""
         )
-        // Maintainer-coordinated rollout remains dark until kind-1402 lands.
+        // Keep NDR dark until the Apple and Android implementations are
+        // reviewed and ready to be enabled together.
         buildConfigField("boolean", "NDR_ROLLOUT_ENABLED", "false")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -182,6 +183,8 @@ dependencies {
     // Testing
     testImplementation(libs.bundles.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.bundles.compose.testing)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

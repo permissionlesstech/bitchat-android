@@ -2,38 +2,49 @@ package com.bitchat.android.nostr
 
 data class NdrPubSubEvent(
     val kind: String,
+    val actionId: String = kind,
     val subid: String? = null,
     val filterJson: String? = null,
     val eventJson: String? = null,
+    val peerPubkeyHex: String? = null,
+    val sessionId: String? = null,
     val senderPubkeyHex: String? = null,
-    val senderDevicePubkeyHex: String? = null,
-    val conversationOwnerPubkeyHex: String? = null,
     val content: String? = null,
-    val eventId: String? = null
+    val eventId: String? = null,
+    val expiresAtSeconds: ULong? = null
 )
 
 data class NdrDecryptedMessage(
     val content: String,
     val senderPubkeyHex: String,
-    val senderDevicePubkeyHex: String? = null,
-    val conversationOwnerPubkeyHex: String? = null,
-    val eventId: String? = null
-) {
-    /**
-     * Iris sets [conversationOwnerPubkeyHex] on a local-sibling copy. The
-     * authenticated author remains [senderPubkeyHex], while app routing must
-     * use the remote conversation owner.
-     */
-    val conversationPubkeyHex: String
-        get() = conversationOwnerPubkeyHex ?: senderPubkeyHex
+    val eventId: String,
+    val actionId: String,
+    val expiresAtSeconds: ULong? = null
+)
 
-    val isLocalSiblingCopy: Boolean
-        get() = conversationOwnerPubkeyHex != null
+enum class NdrDeliveryResult {
+    CONSUMED,
+    DUPLICATE,
+    REJECTED,
+    RETRY;
 
-    fun isAttributedToLocalAccount(localAccountPubkeyHex: String): Boolean =
-        !isLocalSiblingCopy ||
-            senderPubkeyHex.equals(localAccountPubkeyHex, ignoreCase = true)
+    val shouldAcknowledge: Boolean
+        get() = this != RETRY
 }
+
+enum class NdrSendResult {
+    SENT,
+    NO_SESSION,
+    FAILED
+}
+
+data class NdrOutOfBandPayload(
+    val actionId: String,
+    val eventJson: String,
+    val peerPubkeyHex: String,
+    internal val runtimeEpoch: Long? = null,
+    internal val runtime: NdrPairwiseRuntime? = null
+)
 
 internal object NdrInputPolicy {
     const val MAX_ENCODED_EVENT_BYTES = 64 * 1024
@@ -50,27 +61,25 @@ internal object NdrInputPolicy {
         value.length <= MAX_ENCODED_EVENT_BYTES &&
             value.toByteArray(Charsets.UTF_8).size <= MAX_ENCODED_EVENT_BYTES
 
-    fun hasBoundedTags(event: NostrEvent): Boolean {
-        if (event.tags.size > MAX_EVENT_TAGS) return false
-        return event.tags.all { tag ->
-            tag.size <= MAX_EVENT_TAG_VALUES &&
-                tag.all { value ->
-                    value.length <= MAX_EVENT_TAG_VALUE_BYTES &&
-                        value.toByteArray(Charsets.UTF_8).size <= MAX_EVENT_TAG_VALUE_BYTES
-                }
+    fun hasBoundedTags(event: NostrEvent): Boolean = runCatching {
+        event.tags.size <= MAX_EVENT_TAGS &&
+            event.tags.all { tag ->
+                tag.size <= MAX_EVENT_TAG_VALUES &&
+                    tag.all { value ->
+                        value.length <= MAX_EVENT_TAG_VALUE_BYTES &&
+                            value.toByteArray(Charsets.UTF_8).size <= MAX_EVENT_TAG_VALUE_BYTES
+                    }
         }
-    }
+    }.getOrDefault(false)
 }
 
 data class NdrAcceptInviteResult(
-    val ownerPubkeyHex: String,
-    val inviterDevicePubkeyHex: String,
-    val deviceId: String,
+    val peerPubkeyHex: String,
     val createdNewSession: Boolean
 )
 
 data class NdrOutOfBandProcessResult(
-    val outboundPayloads: List<String>,
+    val outboundPayloads: List<NdrOutOfBandPayload>,
     val sessionLookupPubkeyHex: String? = null
 )
 
@@ -80,33 +89,67 @@ class NdrSessionNotReadyException(
 ) : Exception(message, cause)
 
 interface NdrRelayManager {
-    fun subscribe(filter: NostrFilter, id: String, handler: (NostrEvent) -> Unit)
+    fun subscribe(filter: NostrFilter, id: String, handler: (NostrEvent) -> Boolean)
     fun unsubscribe(id: String)
-    fun sendEvent(event: NostrEvent)
+    fun sendEventConfirmed(event: NostrEvent, completion: (accepted: Boolean) -> Unit)
+    fun cancelConfirmedEvent(eventId: String)
+    fun setOnConnectionAvailable(handler: () -> Unit)
 }
 
-interface NdrSessionManager {
-    fun init()
-    fun knownPeerOwnerPubkeys(): List<String>
-    fun setupUser(userPubkeyHex: String)
-    fun acceptInviteFromEventJson(eventJson: String, ownerPubkeyHintHex: String?): NdrAcceptInviteResult
-    fun acceptInviteFromUrl(inviteUrl: String, ownerPubkeyHintHex: String?): NdrAcceptInviteResult
+fun interface NdrRetryCancellation {
+    fun cancel()
+}
+
+fun interface NdrRetryScheduler {
+    fun schedule(delayMs: Long, task: () -> Unit): NdrRetryCancellation
+}
+
+data class NdrPairwiseSessionInfo(
+    val sendReady: Boolean,
+    val receiveReady: Boolean,
+    val trackedSenderPubkeys: List<String>
+) {
+    val isActive: Boolean
+        get() = sendReady || receiveReady
+}
+
+data class NdrPairwiseSendResult(
+    val innerEventId: String,
+    val outerEventId: String
+)
+
+interface NdrPairwiseRuntime {
+    fun currentInviteEventJson(): String?
+    fun currentInviteUrl(root: String): String?
+    fun acceptInviteFromEventJson(
+        eventJson: String,
+        expectedPeerPubkeyHex: String
+    ): NdrAcceptInviteResult
+    fun acceptInviteFromUrl(
+        inviteUrl: String,
+        expectedPeerPubkeyHex: String
+    ): NdrAcceptInviteResult
     fun processEvent(eventJson: String)
-    fun processOutOfBandResponse(eventJson: String, expectedOwnerPubkeyHex: String)
-    fun drainEvents(): List<NdrPubSubEvent>
-    fun getActiveSessionState(peerPubkeyHex: String): String?
-    fun sendText(recipientPubkeyHex: String, text: String, expiresAtSeconds: ULong? = null): List<String>
+    fun processOutOfBandResponse(eventJson: String, expectedPeerPubkeyHex: String)
+    fun pendingActions(nowSeconds: ULong): List<NdrPubSubEvent>
+    fun ackActions(actionIds: List<String>)
+    fun sessionInfo(peerPubkeyHex: String): NdrPairwiseSessionInfo?
+    fun knownPeerPubkeys(): List<String>
+    fun retirePeer(peerPubkeyHex: String): Boolean
+    fun sendText(
+        recipientPubkeyHex: String,
+        text: String,
+        expiresAtSeconds: ULong? = null
+    ): NdrPairwiseSendResult
     fun getOurPubkeyHex(): String
     fun getTotalSessions(): ULong
     fun destroy()
 }
 
-interface NdrSessionManagerFactory {
+interface NdrPairwiseRuntimeFactory {
     fun newWithStoragePath(
         ourPubkeyHex: String,
         ourIdentityPrivkeyHex: String,
-        deviceId: String,
-        storagePath: String,
-        ownerPubkeyHex: String?
-    ): NdrSessionManager
+        storagePath: String
+    ): NdrPairwiseRuntime
 }

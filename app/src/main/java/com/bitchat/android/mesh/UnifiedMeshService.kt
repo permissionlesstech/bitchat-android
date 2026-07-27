@@ -23,6 +23,7 @@ class UnifiedMeshService(
 
     companion object {
         private const val TAG = "UnifiedMeshService"
+        private const val BLE_NDR_TRANSPORT_ID = "BLE"
     }
 
     override val myPeerID: String
@@ -114,16 +115,37 @@ class UnifiedMeshService(
         }
     }
 
-    override fun sendNdrEvent(peerID: String, payload: String): Boolean {
-        if (!NdrFeatureGate.isEnabled()) return false
-        val capability = com.bitchat.android.model.PeerCapabilities.NOSTR_DOUBLE_RATCHET
-        return when {
-            bleSupportsAuthenticatedCapability(peerID, capability) ->
-                bluetooth.sendNdrEvent(peerID, payload)
-            wifiSupportsAuthenticatedCapability(peerID, capability) ->
-                wifiService()?.sendNdrEvent(peerID, payload) == true
-            else -> false
+    override fun currentNdrRoute(peerID: String, transportId: String?): NdrMeshRoute? {
+        if (!NdrFeatureGate.isEnabled()) return null
+        return when (transportId) {
+            null -> bluetooth.currentNdrRoute(peerID)
+                ?: wifiService()?.currentNdrRoute(peerID)
+            BLE_NDR_TRANSPORT_ID ->
+                bluetooth.currentNdrRoute(peerID, transportId)
+            else -> wifiService()?.currentNdrRoute(peerID, transportId)
         }
+    }
+
+    override fun sendNdrEvent(
+        route: NdrMeshRoute,
+        payload: String,
+        isStillAuthorized: () -> Boolean,
+        completion: (admitted: Boolean) -> Unit
+    ) {
+        if (!NdrFeatureGate.isEnabled()) {
+            completion(false)
+            return
+        }
+        if (route.transportId == BLE_NDR_TRANSPORT_ID) {
+            bluetooth.sendNdrEvent(route, payload, isStillAuthorized, completion)
+            return
+        }
+        val wifi = wifiService()
+        if (wifi == null) {
+            completion(false)
+            return
+        }
+        wifi.sendNdrEvent(route, payload, isStillAuthorized, completion)
     }
 
     override fun sendFileBroadcast(file: BitchatFilePacket) {
@@ -402,8 +424,8 @@ class UnifiedMeshService(
         delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
     }
 
-    override fun didReceiveNdrEvent(peerID: String, payload: ByteArray, timestampMs: Long) {
-        delegate?.didReceiveNdrEvent(peerID, payload, timestampMs)
+    override fun didReceiveNdrEvent(route: NdrMeshRoute, payload: ByteArray, timestampMs: Long) {
+        delegate?.didReceiveNdrEvent(route, payload, timestampMs)
     }
 
     override fun didResolvePrivateMediaPolicy(peerID: String) {

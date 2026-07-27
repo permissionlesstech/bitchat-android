@@ -26,6 +26,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Shared mesh coordinator that wires all mesh-layer components and provides common APIs
@@ -433,7 +434,18 @@ class MeshCore(
                         authenticatedSession
                     )
                 ) {
-                    delegate?.didReceiveNdrEvent(peerID, payload, timestampMs)
+                    val transportTarget =
+                        transport.currentNdrTransportTarget(peerID) ?: return
+                    delegate?.didReceiveNdrEvent(
+                        NdrMeshRoute(
+                            transportId = transport.id,
+                            peerID = peerID,
+                            authenticatedSession = authenticatedSession,
+                            transportTarget = transportTarget
+                        ),
+                        payload,
+                        timestampMs
+                    )
                 }
             }
         }
@@ -740,31 +752,105 @@ class MeshCore(
         sendNoisePayloadToPeer(payload, peerID)
     }
 
-    fun sendNdrEvent(peerID: String, eventPayload: String): Boolean {
-        if (!NdrFeatureGate.isEnabled()) return false
-        if (eventPayload.isBlank()) return false
+    fun currentNdrRoute(peerID: String, transportId: String? = null): NdrMeshRoute? {
+        if (!NdrFeatureGate.isEnabled() ||
+            (transportId != null && transportId != transport.id)
+        ) return null
         val authenticatedSession = authenticatedSessionProvingCapability(
             peerID,
             PeerCapabilities.NOSTR_DOUBLE_RATCHET
-        ) ?: return false
-        sendNoisePayloadToPeer(
-            NoisePayload(
-                type = NoisePayloadType.NDR_EVENT,
-                data = eventPayload.toByteArray(Charsets.UTF_8)
-            ),
-            peerID,
-            authenticatedSession
+        ) ?: return null
+        val transportTarget = transport.currentNdrTransportTarget(peerID) ?: return null
+        return NdrMeshRoute(
+            transportId = transport.id,
+            peerID = peerID,
+            authenticatedSession = authenticatedSession,
+            transportTarget = transportTarget
         )
-        return true
+    }
+
+    fun sendNdrEvent(
+        route: NdrMeshRoute,
+        eventPayload: String,
+        isStillAuthorized: () -> Boolean,
+        completion: (admitted: Boolean) -> Unit
+    ) {
+        if (!NdrFeatureGate.isEnabled() ||
+            route.transportId != transport.id ||
+            eventPayload.isBlank()
+        ) {
+            completion(false)
+            return
+        }
+        val completionDelivered = AtomicBoolean(false)
+        fun complete(admitted: Boolean) {
+            if (completionDelivered.compareAndSet(false, true)) {
+                runCatching { completion(admitted) }
+            }
+        }
+        scope.launch {
+            var handedToTransport = false
+            try {
+                val preflight = {
+                    currentNdrRoute(route.peerID, route.transportId) == route &&
+                        isStillAuthorized()
+                }
+                if (!preflight()) return@launch
+                val encrypted = encryptionService.encryptForSession(
+                    NoisePayload(
+                        type = NoisePayloadType.NDR_EVENT,
+                        data = eventPayload.toByteArray(Charsets.UTF_8)
+                    ).encode(),
+                    route.peerID,
+                    route.authenticatedSession
+                )
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_ENCRYPTED.value,
+                    senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+                    recipientID = MeshPacketUtils.hexStringToByteArray(route.peerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = encrypted,
+                    signature = null,
+                    ttl = maxTtl
+                )
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                handedToTransport = true
+                transport.sendPacketToNdrTargetConfirmed(
+                    peerID = route.peerID,
+                    target = route.transportTarget,
+                    routed = RoutedPacket(signedPacket),
+                    preflight = preflight,
+                    completion = ::complete
+                )
+            } catch (e: Exception) {
+                Log.e("MeshCore", "Failed to send NDR event to ${route.peerID}: ${e.message}")
+            } finally {
+                if (!handedToTransport) complete(false)
+            }
+        }
     }
 
     private fun sendNoisePayloadToPeer(
         payload: NoisePayload,
         recipientPeerID: String,
-        expectedSession: com.bitchat.android.noise.AuthenticatedNoiseSession? = null
+        expectedSession: com.bitchat.android.noise.AuthenticatedNoiseSession? = null,
+        preflight: () -> Boolean = { true },
+        directAdmissionPeerID: String? = null,
+        completion: ((admitted: Boolean) -> Unit)? = null
     ) {
-        scope.launch {
+        val completionDelivered = AtomicBoolean(false)
+        fun complete(admitted: Boolean) {
+            if (completionDelivered.compareAndSet(false, true)) {
+                runCatching { completion?.invoke(admitted) }
+            }
+        }
+        val job = scope.launch {
+            var admitted = false
             try {
+                if (!preflight()) {
+                    return@launch
+                }
                 val encrypted = if (expectedSession == null) {
                     encryptionService.encrypt(payload.encode(), recipientPeerID)
                 } else {
@@ -784,10 +870,21 @@ class MeshCore(
                     signature = null,
                     ttl = maxTtl
                 )
-                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                admitted = if (directAdmissionPeerID != null) {
+                    transport.sendPacketToPeer(directAdmissionPeerID, signedPacket)
+                } else {
+                    dispatchGlobal(RoutedPacket(signedPacket))
+                    true
+                }
             } catch (e: Exception) {
                 Log.e("MeshCore", "Failed to send Noise payload to $recipientPeerID: ${e.message}")
+            } finally {
+                complete(admitted)
             }
+        }
+        job.invokeOnCompletion {
+            complete(false)
         }
     }
 

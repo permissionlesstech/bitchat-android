@@ -1,37 +1,56 @@
 package com.bitchat.android.nostr
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
-import androidx.core.content.edit
 import com.bitchat.android.model.NdrFeatureGate
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import kotlin.math.min
 
 class NdrNostrService(
     private val relayManager: NdrRelayManager,
-    private val runtimeFactory: NdrSessionManagerFactory,
+    private val runtimeFactory: NdrPairwiseRuntimeFactory,
     private val storageDirectoryProvider: () -> String,
-    private val deviceIdProvider: () -> String,
     private val storageResetter: () -> Unit = {
         val storageDirectory = java.io.File(storageDirectoryProvider())
         if (storageDirectory.exists() && !storageDirectory.deleteRecursively()) {
             throw java.io.IOException("Failed to delete ${storageDirectory.absolutePath}")
         }
     },
-    private val deviceIdResetter: () -> Unit = {},
-    private val inviteOwnerResolver: (String) -> String? = Companion::resolveInviteOwnerPubkeyHex
+    private val establishedSessionMarkers: NdrEstablishedSessionMarkerStore =
+        FileNdrEstablishedSessionMarkerStore(
+            requireNotNull(java.io.File(storageDirectoryProvider()).parentFile)
+                .resolve("ndr-established-sessions")
+        ),
+    private val pairwiseStateExists: (String) -> Boolean = Companion::pairwiseStateExists,
+    private val invitePeerResolver: (String) -> String? = Companion::resolvePairwiseInvitePubkeyHex,
+    private val retryScheduler: NdrRetryScheduler = Companion.DEFAULT_RETRY_SCHEDULER,
+    private val nowSecondsProvider: () -> ULong = {
+        (System.currentTimeMillis() / 1_000L).coerceAtLeast(0L).toULong()
+    }
 ) {
 
     companion object {
         private const val TAG = "NdrNostrService"
-        private const val COMPACT_INVITE_URL_ROOT = "https://b"
-        private const val NDR_APP_KEYS_KIND = 37368
-        private const val NDR_APP_KEYS_TYPE = "app_keys_roster_snapshot"
         private const val NDR_MESSAGE_KIND = 1060
-        private const val MAX_BUFFERED_DECRYPTED_MESSAGES = 128
+        private const val PUBLISH_RETRY_INITIAL_DELAY_MS = 1_000L
+        private const val PUBLISH_RETRY_MAX_DELAY_MS = 30_000L
+        private const val OOB_RETRY_INITIAL_DELAY_MS = 250L
+        private const val OOB_RETRY_MAX_DELAY_MS = 4_000L
+        private const val OOB_RETRY_MAX_ATTEMPTS = 5
+        private const val PAIRWISE_STATE_PREFIX = "ndr-pairwise-state-v1-"
+        private const val PAIRWISE_STATE_SUFFIX = ".json"
+
+        private val RETRY_EXECUTOR = Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "ndr-publish-retry").apply { isDaemon = true }
+        }
+        private val DEFAULT_RETRY_SCHEDULER = NdrRetryScheduler { delayMs, task ->
+            val future = RETRY_EXECUTOR.schedule(task, delayMs, TimeUnit.MILLISECONDS)
+            NdrRetryCancellation { future.cancel(false) }
+        }
 
         @Volatile
         private var INSTANCE: NdrNostrService? = null
@@ -44,36 +63,51 @@ class NdrNostrService(
 
         private fun create(context: Context): NdrNostrService {
             val storageDirectory = context.filesDir.resolve("ndr")
-            val preferences = context.getSharedPreferences("bitchat_ndr", Context.MODE_PRIVATE)
+            val establishedMarkerDirectory =
+                context.filesDir.resolve("ndr-established-sessions")
             val relayManager = object : NdrRelayManager {
-                override fun subscribe(filter: NostrFilter, id: String, handler: (NostrEvent) -> Unit) {
-                    NostrRelayManager.getInstance(context).subscribe(filter, id, handler)
+                override fun subscribe(
+                    filter: NostrFilter,
+                    id: String,
+                    handler: (NostrEvent) -> Boolean
+                ) {
+                    NostrRelayManager.getInstance(context)
+                        .subscribeAfterSuccessfulProcessing(filter, id, handler)
                 }
 
                 override fun unsubscribe(id: String) {
                     NostrRelayManager.getInstance(context).unsubscribe(id)
                 }
 
-                override fun sendEvent(event: NostrEvent) {
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                override fun sendEventConfirmed(
+                    event: NostrEvent,
+                    completion: (accepted: Boolean) -> Unit
+                ) {
+                    NostrRelayManager.getInstance(context)
+                        .sendEventConfirmed(event, completion = completion)
+                }
+
+                override fun cancelConfirmedEvent(eventId: String) {
+                    NostrRelayManager.getInstance(context).cancelConfirmedEvent(eventId)
+                }
+
+                override fun setOnConnectionAvailable(handler: () -> Unit) {
+                    NostrRelayManager.getInstance(context)
+                        .setNdrConnectionAvailableHandler(handler)
                 }
             }
 
-            val runtimeFactory = object : NdrSessionManagerFactory {
+            val runtimeFactory = object : NdrPairwiseRuntimeFactory {
                 override fun newWithStoragePath(
                     ourPubkeyHex: String,
                     ourIdentityPrivkeyHex: String,
-                    deviceId: String,
-                    storagePath: String,
-                    ownerPubkeyHex: String?
-                ): NdrSessionManager {
-                    return UniffiNdrSessionManager(
-                        uniffi.ndr_ffi.SessionManagerHandle.newWithStoragePath(
+                    storagePath: String
+                ): NdrPairwiseRuntime {
+                    return UniffiNdrPairwiseRuntime(
+                        uniffi.ndr_ffi.PairwiseManager.newWithStoragePath(
                             ourPubkeyHex,
                             ourIdentityPrivkeyHex,
-                            deviceId,
-                            storagePath,
-                            ownerPubkeyHex
+                            storagePath
                         )
                     )
                 }
@@ -85,90 +119,113 @@ class NdrNostrService(
                 storageDirectoryProvider = {
                     storageDirectory.apply { mkdirs() }.absolutePath
                 },
-                deviceIdProvider = {
-                    preferences.getString("device_id", null) ?: java.util.UUID.randomUUID().toString().also {
-                        preferences.edit { putString("device_id", it) }
-                    }
-                },
                 storageResetter = {
                     if (storageDirectory.exists() && !storageDirectory.deleteRecursively()) {
                         throw java.io.IOException("Failed to delete ${storageDirectory.absolutePath}")
                     }
                 },
-                deviceIdResetter = {
-                    removeDeviceIdSynchronously(preferences)
-                }
+                establishedSessionMarkers =
+                    FileNdrEstablishedSessionMarkerStore(establishedMarkerDirectory)
             )
         }
 
-        @SuppressLint("UseKtx")
-        private fun removeDeviceIdSynchronously(preferences: SharedPreferences) {
-            // KTX's commit=true overload discards Editor.commit()'s result, but
-            // panic reset must fail closed unless the device-id wipe is durable.
-            check(preferences.edit().remove("device_id").commit()) {
-                "Failed to clear NDR device id"
-            }
-        }
-
-        private fun resolveInviteOwnerPubkeyHex(payload: String): String? {
+        private fun resolvePairwiseInvitePubkeyHex(payload: String): String? {
             return try {
                 val invite = if (payload.startsWith("{")) {
-                    uniffi.ndr_ffi.InviteHandle.fromEventJson(payload)
+                    uniffi.ndr_ffi.PairwiseInvite.fromEventJson(payload)
                 } else {
-                    uniffi.ndr_ffi.InviteHandle.fromUrl(payload)
+                    uniffi.ndr_ffi.PairwiseInvite.fromUrl(payload)
                 }
-                invite.use { it.`getOwnerPubkeyHex`().lowercase() }
+                invite.use {
+                    it.`getPeerPubkeyHex`()
+                        .lowercase()
+                        .takeIf(NdrInputPolicy::isPubkeyHex)
+                }
             } catch (_: Throwable) {
                 null
             }
         }
+
+        private fun pairwiseStateExists(storagePath: String): Boolean {
+            val directory = java.io.File(storagePath)
+            return directory.isDirectory &&
+                directory.listFiles()?.any { file ->
+                    file.isFile &&
+                        file.name.startsWith(PAIRWISE_STATE_PREFIX) &&
+                        file.name.endsWith(PAIRWISE_STATE_SUFFIX)
+                } == true
+        }
     }
 
     @Volatile
-    var onDecryptedMessage: ((NdrDecryptedMessage) -> Unit)? = null
+    var onDecryptedMessage: ((
+        message: NdrDecryptedMessage,
+        completion: (NdrDeliveryResult) -> Unit
+        ) -> Unit)? = null
         @Synchronized set(value) {
             field = value
             if (value != null && NdrFeatureGate.isEnabled()) {
-                while (bufferedDecryptedMessages.isNotEmpty()) {
-                    value(bufferedDecryptedMessages.removeFirst())
-                }
+                drainAndApplyPubSubEventsLocked()
             }
         }
 
     @Volatile
-    var onOutOfBandPayloadsReady: ((ownerPubkeyHex: String, payloads: List<String>) -> Unit)? = null
+    var onOutOfBandPayload: ((
+        payload: NdrOutOfBandPayload,
+        completion: (admitted: Boolean) -> Unit
+        ) -> Unit)? = null
+        @Synchronized set(value) {
+            field = value
+            if (value != null && NdrFeatureGate.isEnabled()) {
+                drainAndApplyPubSubEventsLocked()
+            }
+        }
 
     @Volatile
-    private var sessionManager: NdrSessionManager? = null
+    private var pairwiseRuntime: NdrPairwiseRuntime? = null
 
     @Volatile
     private var configuredForPubkeyHex: String? = null
 
     @Volatile
-    private var cachedInviteEventJson: String? = null
+    private var configurationFailurePubkeyHex: String? = null
 
     @Volatile
     private var panicResetBlocked = false
 
     private val activeSubIds = linkedSetOf<String>()
-    private val appKeysSubscriptionIdByOwner = linkedMapOf<String, String>()
-    private val appKeysOwnerBySubscriptionId = linkedMapOf<String, String>()
-    private val durableAppKeysOwners = linkedSetOf<String>()
-    private val pendingInvitesByOwner = linkedMapOf<String, PendingOutOfBandInvite>()
-    private val bufferedDecryptedMessages = ArrayDeque<NdrDecryptedMessage>()
+    private val inFlightRelayEventsByActionId = linkedMapOf<String, String>()
+    private val publishRetryAttempts = linkedMapOf<String, Int>()
+    private val publishRetryTasks = linkedMapOf<String, NdrRetryCancellation>()
+    private val outOfBandRetryAttempts = linkedMapOf<String, Int>()
+    private val outOfBandRetryTasks = linkedMapOf<String, NdrRetryCancellation>()
+    private val dispatchedDeliveryActionIds = linkedSetOf<String>()
+    private val dispatchedOutOfBandActionIds = linkedSetOf<String>()
+    private val knownActivePeerPubkeys = linkedSetOf<String>()
+    private var nextRuntimeEpoch = 0L
+    private var activeRuntimeEpoch: Long? = null
+
+    init {
+        relayManager.setOnConnectionAvailable {
+            onRelayConnectionAvailable()
+        }
+    }
 
     @get:Synchronized
     val isConfigured: Boolean
-        get() = NdrFeatureGate.isEnabled() && sessionManager != null
+        get() = NdrFeatureGate.isEnabled() && pairwiseRuntime != null
 
     @Synchronized
-    fun currentInviteEventJson(): String? =
-        cachedInviteEventJson.takeIf { NdrFeatureGate.isEnabled() }
+    fun currentInviteEventJson(): String? {
+        if (!NdrFeatureGate.isEnabled()) return null
+        return runCatching { pairwiseRuntime?.currentInviteEventJson() }.getOrNull()
+    }
 
     @Synchronized
     fun configureIfNeeded(identity: NostrIdentity) {
         if (!NdrFeatureGate.isEnabled()) {
             teardownLocked()
+            configurationFailurePubkeyHex = null
             return
         }
         if (panicResetBlocked) {
@@ -176,7 +233,14 @@ class NdrNostrService(
             return
         }
         val pubkeyHex = identity.publicKeyHex.lowercase()
-        if (configuredForPubkeyHex == pubkeyHex && sessionManager != null) {
+        if (configurationFailurePubkeyHex == pubkeyHex) {
+            Log.e(TAG, "Refusing to reopen failed NDR storage before reset or identity change")
+            return
+        }
+        if (configurationFailurePubkeyHex != null) {
+            configurationFailurePubkeyHex = null
+        }
+        if (configuredForPubkeyHex == pubkeyHex && pairwiseRuntime != null) {
             return
         }
 
@@ -184,35 +248,65 @@ class NdrNostrService(
         configuredForPubkeyHex = pubkeyHex
 
         try {
+            val storagePath = java.io.File(
+                storageDirectoryProvider(),
+                "pairwise-v1/$pubkeyHex"
+            ).absolutePath
+            if (establishedSessionMarkers.contains(pubkeyHex) &&
+                !pairwiseStateExists(storagePath)
+            ) {
+                throw java.io.IOException(
+                    "Established pairwise state is missing for $pubkeyHex"
+                )
+            }
             val runtime = runtimeFactory.newWithStoragePath(
                 ourPubkeyHex = pubkeyHex,
                 ourIdentityPrivkeyHex = identity.privateKeyHex,
-                deviceId = deviceIdProvider(),
-                // The FFI storage adapter uses fixed filenames. Namespace them
-                // by account owner so an identity switch cannot load another
-                // account's ratchet database.
-                storagePath = java.io.File(
-                    storageDirectoryProvider(),
-                    pubkeyHex
-                ).absolutePath,
-                ownerPubkeyHex = null
+                storagePath = storagePath
             )
-            runtime.init()
-            sessionManager = runtime
-            restoreDurableAppKeysSubscriptionsLocked(runtime)
+            pairwiseRuntime = runtime
+            activeRuntimeEpoch = ++nextRuntimeEpoch
+            markEstablishedIfNeededLocked(runtime)
             drainAndApplyPubSubEventsLocked()
         } catch (_: Throwable) {
             Log.e(TAG, "Failed to configure NDR")
             teardownLocked()
+            configurationFailurePubkeyHex = pubkeyHex
         }
     }
 
     @Synchronized
     fun hasActiveSession(peerPubkeyHex: String): Boolean {
         if (!NdrFeatureGate.isEnabled()) return false
-        val runtime = sessionManager ?: return false
+        val runtime = pairwiseRuntime ?: return false
+        val peer = peerPubkeyHex.lowercase()
         return try {
-            runtime.getActiveSessionState(peerPubkeyHex.lowercase()) != null
+            val sessionInfo = runtime.sessionInfo(peer) ?: return false
+            knownActivePeerPubkeys.add(peer)
+            markEstablishedIfNeededLocked(runtime)
+            sessionInfo.isActive
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
+     * True for any durable native session record, including the half-ready state between the
+     * authenticated OOB response and bootstrap kind-1060 delivery.
+     */
+    @Synchronized
+    fun hasPairwiseSession(peerPubkeyHex: String): Boolean {
+        if (!NdrFeatureGate.isEnabled()) return false
+        val runtime = pairwiseRuntime ?: return false
+        val peer = peerPubkeyHex.lowercase()
+        return try {
+            if (runtime.sessionInfo(peer) == null) {
+                false
+            } else {
+                knownActivePeerPubkeys.add(peer)
+                markEstablishedIfNeededLocked(runtime)
+                true
+            }
         } catch (_: Throwable) {
             false
         }
@@ -221,26 +315,66 @@ class NdrNostrService(
     @Synchronized
     fun activeSessionStateJson(peerPubkeyHex: String): String? {
         if (!NdrFeatureGate.isEnabled()) return null
-        val runtime = sessionManager ?: return null
+        val runtime = pairwiseRuntime ?: return null
         return try {
-            runtime.getActiveSessionState(peerPubkeyHex.lowercase())
+            runtime.sessionInfo(peerPubkeyHex.lowercase())?.let { info ->
+                """{"send_ready":${info.sendReady},"receive_ready":${info.receiveReady}}"""
+            }
         } catch (_: Throwable) {
             null
         }
     }
 
     @Synchronized
-    fun sendIfPossible(text: String, peerPubkeyHex: String): Boolean {
-        if (!NdrFeatureGate.isEnabled()) return false
-        val runtime = sessionManager ?: return false
-        if (!hasActiveSession(peerPubkeyHex)) return false
+    fun sendIfPossible(
+        text: String,
+        peerPubkeyHex: String,
+        expiresAtSeconds: ULong? = null
+    ): NdrSendResult {
+        if (!NdrFeatureGate.isEnabled()) return NdrSendResult.NO_SESSION
+        val runtime = pairwiseRuntime ?: return if (configurationFailurePubkeyHex != null) {
+            NdrSendResult.FAILED
+        } else {
+            NdrSendResult.NO_SESSION
+        }
+        val peer = peerPubkeyHex.lowercase()
+        val sessionInfo = try {
+            runtime.sessionInfo(peer)
+        } catch (_: Throwable) {
+            return NdrSendResult.FAILED
+        }
+        if (sessionInfo == null) {
+            return NdrSendResult.NO_SESSION
+        }
+        knownActivePeerPubkeys.add(peer)
+        if (!sessionInfo.sendReady) {
+            return NdrSendResult.FAILED
+        }
         return try {
-            runtime.sendText(peerPubkeyHex.lowercase(), text, null)
+            runtime.sendText(peer, text, expiresAtSeconds)
+            markEstablishedIfNeededLocked(runtime)
             drainAndApplyPubSubEventsLocked()
-            true
+            NdrSendResult.SENT
         } catch (_: Throwable) {
             Log.d(TAG, "NDR send failed")
             drainAndApplyPubSubEventsLocked()
+            NdrSendResult.FAILED
+        }
+    }
+
+    @Synchronized
+    fun retirePeer(peerPubkeyHex: String): Boolean {
+        if (!NdrFeatureGate.isEnabled()) return false
+        val peer = peerPubkeyHex.lowercase()
+        if (!NdrInputPolicy.isPubkeyHex(peer)) return false
+        val runtime = pairwiseRuntime ?: return false
+        return try {
+            runtime.retirePeer(peer)
+            knownActivePeerPubkeys.remove(peer)
+            drainAndApplyPubSubEventsLocked()
+            true
+        } catch (_: Throwable) {
+            Log.e(TAG, "Failed to retire rebound NDR peer")
             false
         }
     }
@@ -253,7 +387,7 @@ class NdrNostrService(
         if (!NdrFeatureGate.isEnabled()) {
             return NdrOutOfBandProcessResult(emptyList())
         }
-        val runtime = sessionManager ?: return NdrOutOfBandProcessResult(emptyList())
+        val runtime = pairwiseRuntime ?: return NdrOutOfBandProcessResult(emptyList())
         val trimmedPayload = eventJson.trim()
         val expectedPeer = expectedPeerPubkeyHex
             ?.lowercase()
@@ -262,41 +396,32 @@ class NdrNostrService(
         if (!NdrInputPolicy.isWithinEncodedEventLimit(trimmedPayload)) {
             return NdrOutOfBandProcessResult(emptyList())
         }
-        val inboundInvite = parseOutOfBandInvite(trimmedPayload)
         val parsedEvent = NostrEvent.fromJsonString(trimmedPayload)
         if (parsedEvent != null && !NdrInputPolicy.hasBoundedTags(parsedEvent)) {
             return NdrOutOfBandProcessResult(emptyList())
         }
+        val inboundInvite = runCatching {
+            parseOutOfBandInvite(trimmedPayload)
+        }.getOrNull()
         var acceptResult: NdrAcceptInviteResult? = null
         var processingSucceeded = false
 
-        // Invite payloads carry an owner identity we can bind to the authenticated
-        // favorite. Other OOB responses may be gift wraps whose outer pubkey is
-        // intentionally ephemeral, so they must not be compared to the owner key.
-        val claimedPeer = inboundInvite?.ownerPubkeyHex
+        // Pairwise invites must be authored by the exact peer authenticated by
+        // the Noise session. Gift-wrap response authors remain ephemeral.
+        val claimedPeer = inboundInvite?.peerPubkeyHex
         if (claimedPeer != null && claimedPeer != expectedPeer) {
-            Log.w(TAG, "Rejecting OOB event with an authenticated-owner mismatch")
+            Log.w(TAG, "Rejecting OOB event with an authenticated-peer mismatch")
             return NdrOutOfBandProcessResult(emptyList())
-        }
-        if (inboundInvite != null) {
-            if (pendingInvitesByOwner.containsKey(expectedPeer)) {
-                return NdrOutOfBandProcessResult(
-                    outboundPayloads = emptyList(),
-                    sessionLookupPubkeyHex = expectedPeer
-                )
-            }
         }
 
         try {
             when {
                 inboundInvite?.transport == OutOfBandInviteTransport.EVENT_JSON -> {
                     acceptResult = runtime.acceptInviteFromEventJson(trimmedPayload, expectedPeer)
-                    pendingInvitesByOwner.remove(expectedPeer)
                     processingSucceeded = true
                 }
                 inboundInvite?.transport == OutOfBandInviteTransport.URL -> {
                     acceptResult = runtime.acceptInviteFromUrl(trimmedPayload, expectedPeer)
-                    pendingInvitesByOwner.remove(expectedPeer)
                     processingSucceeded = true
                 }
                 parsedEvent?.kind == NostrKind.GIFT_WRAP -> {
@@ -307,39 +432,32 @@ class NdrNostrService(
                     Log.w(TAG, "Rejecting non-handshake OOB payload")
                 }
             }
-        } catch (t: NdrSessionNotReadyException) {
-            if (inboundInvite != null) {
-                pendingInvitesByOwner[expectedPeer] = PendingOutOfBandInvite(
-                    payload = trimmedPayload,
-                    transport = inboundInvite.transport
-                )
-                Log.d(TAG, "Retaining invite until its signed device roster arrives")
-            } else {
-                Log.d(TAG, "OOB session is not ready")
-            }
+        } catch (_: NdrSessionNotReadyException) {
+            Log.d(TAG, "OOB session is not ready")
         } catch (_: Throwable) {
             Log.d(TAG, "Ignoring invalid OOB event")
         }
 
-        if (processingSucceeded && hasActiveSession(expectedPeer)) {
-            ensureDurableAppKeysSubscriptionLocked(expectedPeer, runtime)
-        }
-        val outOfBandPublishes =
-            drainAndApplyPubSubEventsLocked(collectOutOfBandPublishes = true)
-        val sessionLookupPubkeyHex = acceptResult?.ownerPubkeyHex?.lowercase()
-            ?: expectedPeer
-
-        if (inboundInvite != null &&
-            inboundInvite.transport == OutOfBandInviteTransport.EVENT_JSON &&
-            outOfBandPublishes.isEmpty() &&
-            hasActiveSession(sessionLookupPubkeyHex)
-        ) {
-            preferredInviteOobPayload()?.let {
-                return NdrOutOfBandProcessResult(
-                    outboundPayloads = outOfBandPublishes + it,
-                    sessionLookupPubkeyHex = sessionLookupPubkeyHex
-                )
+        acceptResult?.let {
+            if (it.peerPubkeyHex.lowercase() != expectedPeer) {
+                Log.w(TAG, "Rejecting OOB result with an authenticated-peer mismatch")
+                return NdrOutOfBandProcessResult(emptyList())
             }
+        }
+        if (processingSucceeded &&
+            runCatching { markEstablishedIfNeededLocked(runtime) }.isFailure
+        ) {
+            Log.e(TAG, "Failed to persist NDR established-session marker")
+            return NdrOutOfBandProcessResult(emptyList())
+        }
+        val collectOutOfBandPublishes = onOutOfBandPayload == null
+        val outOfBandPublishes = drainAndApplyPubSubEventsLocked(
+            collectOutOfBandPublishes = collectOutOfBandPublishes
+        )
+        val sessionLookupPubkeyHex = if (processingSucceeded) {
+            acceptResult?.peerPubkeyHex?.lowercase() ?: expectedPeer
+        } else {
+            null
         }
 
         return NdrOutOfBandProcessResult(
@@ -349,89 +467,94 @@ class NdrNostrService(
     }
 
     @Synchronized
-    fun processInboundRelayEvent(event: NostrEvent) {
-        if (!NdrFeatureGate.isEnabled()) return
-        val runtime = sessionManager ?: return
-        if (event.kind != NDR_MESSAGE_KIND && event.kind != NDR_APP_KEYS_KIND) return
-        if (!NdrInputPolicy.hasBoundedTags(event)) return
-        val eventJson = event.toJsonString()
-        if (!NdrInputPolicy.isWithinEncodedEventLimit(eventJson)) return
+    fun processInboundRelayEvent(event: NostrEvent): Boolean {
+        if (!NdrFeatureGate.isEnabled()) return false
+        val runtime = pairwiseRuntime ?: return false
+        val runtimeEpoch = activeRuntimeEpoch ?: return false
+        return processInboundRelayEventLocked(event, runtime, runtimeEpoch)
+    }
 
-        try {
-            runtime.processEvent(eventJson)
-        } catch (_: Throwable) {
-            Log.d(TAG, "Ignoring invalid NDR relay event")
-            drainAndApplyPubSubEventsLocked()
-            return
-        }
-
-        retryPendingInviteForRelayEventLocked(runtime, event)
+    @Synchronized
+    fun replayPendingOutOfBandPayloads() {
+        if (!NdrFeatureGate.isEnabled() || onOutOfBandPayload == null) return
         drainAndApplyPubSubEventsLocked()
     }
 
-    private fun retryPendingInviteForRelayEventLocked(
-        runtime: NdrSessionManager,
-        event: NostrEvent
-    ) {
-        if (event.kind != NDR_APP_KEYS_KIND ||
-            event.tags.none { tag ->
-                tag.size >= 2 && tag[0] == "type" && tag[1] == NDR_APP_KEYS_TYPE
-            }
-        ) return
-        val ownerPubkeyHex = event.pubkey.lowercase()
-        val pending = pendingInvitesByOwner[ownerPubkeyHex] ?: return
+    @Synchronized
+    fun onOutOfBandTransportAvailable() {
+        if (!NdrFeatureGate.isEnabled() || pairwiseRuntime == null) return
+        outOfBandRetryTasks.values.forEach(NdrRetryCancellation::cancel)
+        outOfBandRetryTasks.clear()
+        outOfBandRetryAttempts.clear()
+        drainAndApplyPubSubEventsLocked()
+    }
+
+    private fun processInboundRelayEventLocked(
+        event: NostrEvent,
+        runtime: NdrPairwiseRuntime,
+        runtimeEpoch: Long
+    ): Boolean {
+        if (!isCurrentRuntimeLocked(runtime, runtimeEpoch)) return false
+        if (event.kind != NDR_MESSAGE_KIND) return false
+        if (!NdrInputPolicy.hasBoundedTags(event)) return false
+        if (event.tags.any { it.firstOrNull() == "p" }) {
+            Log.w(TAG, "Rejecting recipient-tagged inbound NDR relay event")
+            return false
+        }
+        val eventJson = event.toJsonString()
+        if (!NdrInputPolicy.isWithinEncodedEventLimit(eventJson)) return false
 
         try {
-            when (pending.transport) {
-                OutOfBandInviteTransport.EVENT_JSON ->
-                    runtime.acceptInviteFromEventJson(pending.payload, ownerPubkeyHex)
-                OutOfBandInviteTransport.URL ->
-                    runtime.acceptInviteFromUrl(pending.payload, ownerPubkeyHex)
-            }
-            pendingInvitesByOwner.remove(ownerPubkeyHex)
-            if (hasActiveSession(ownerPubkeyHex)) {
-                ensureDurableAppKeysSubscriptionLocked(ownerPubkeyHex, runtime)
-            }
-        } catch (_: NdrSessionNotReadyException) {
-            return
+            runtime.processEvent(eventJson)
+            markEstablishedIfNeededLocked(runtime)
         } catch (_: Throwable) {
-            pendingInvitesByOwner.remove(ownerPubkeyHex)
-            Log.w(TAG, "Dropping retained invite after roster validation failed")
-            return
+            Log.d(TAG, "Ignoring invalid NDR relay event")
+            drainAndApplyPubSubEventsLocked()
+            return false
         }
 
-        val outboundPayloads =
-            drainAndApplyPubSubEventsLocked(collectOutOfBandPublishes = true)
-        if (outboundPayloads.isNotEmpty()) {
-            if (NdrFeatureGate.isEnabled()) {
-                onOutOfBandPayloadsReady?.invoke(ownerPubkeyHex, outboundPayloads)
-            }
-        }
+        drainAndApplyPubSubEventsLocked()
+        return true
     }
 
     @Synchronized
     private fun drainAndApplyPubSubEventsLocked(
         collectOutOfBandPublishes: Boolean = false
-    ): List<String> {
-        val runtime = sessionManager ?: return emptyList()
-        val outOfBandPublishes = mutableListOf<String>()
+    ): List<NdrOutOfBandPayload> {
+        val runtime = pairwiseRuntime ?: return emptyList()
+        val runtimeEpoch = activeRuntimeEpoch ?: return emptyList()
+        val outOfBandPublishes = mutableListOf<NdrOutOfBandPayload>()
+        val acknowledgedActionIds = mutableListOf<String>()
 
         val events = try {
-            runtime.drainEvents()
+            runtime.pendingActions(nowSecondsProvider())
         } catch (_: Throwable) {
             Log.e(TAG, "Failed to drain NDR events")
             return emptyList()
         }
+        val sessionsAwaitingOutOfBandAdmission = events
+            .asSequence()
+            .filter { it.kind == "out_of_band" }
+            .mapNotNull(NdrPubSubEvent::sessionId)
+            .toSet()
 
         events.forEach { event ->
-            applyPubSubEventLocked(
+            if (applyPubSubEventLocked(
+                runtime = runtime,
+                runtimeEpoch = runtimeEpoch,
                 event = event,
+                sessionsAwaitingOutOfBandAdmission = sessionsAwaitingOutOfBandAdmission,
                 collectOutOfBandPublish = if (collectOutOfBandPublishes) {
                     { value -> outOfBandPublishes.add(value) }
                 } else {
                     null
                 }
-            )
+            )) {
+                acknowledgedActionIds += event.actionId
+            }
+        }
+        if (acknowledgedActionIds.isNotEmpty()) {
+            acknowledgeEventsLocked(runtime, runtimeEpoch, acknowledgedActionIds)
         }
 
         return outOfBandPublishes
@@ -439,123 +562,423 @@ class NdrNostrService(
 
     @Synchronized
     private fun applyPubSubEventLocked(
+        runtime: NdrPairwiseRuntime,
+        runtimeEpoch: Long,
         event: NdrPubSubEvent,
-        collectOutOfBandPublish: ((String) -> Unit)?
-    ) {
-        when (event.kind) {
+        sessionsAwaitingOutOfBandAdmission: Set<String>,
+        collectOutOfBandPublish: ((NdrOutOfBandPayload) -> Unit)?
+    ): Boolean {
+        if (event.actionId.isBlank()) {
+            Log.w(TAG, "Ignoring NDR action without a stable id")
+            return false
+        }
+        return when (event.kind) {
             "subscribe" -> {
-                val subid = event.subid ?: return
-                val filterJson = event.filterJson ?: return
+                val subid = event.subid ?: return true
+                val filterJson = event.filterJson ?: return true
+                if (hasRecipientFilter(filterJson)) {
+                    Log.w(TAG, "Rejecting recipient-bearing NDR relay filter")
+                    return true
+                }
                 val filter = try {
                     parseFilterJson(filterJson)
                 } catch (_: Throwable) {
                     Log.w(TAG, "Ignoring malformed NDR relay filter")
-                    return
+                    return true
                 }
-                if (shouldIgnoreNdrSubscription(filter)) return
+                if (!isPairwiseMessageSubscription(filter)) return true
                 if (!activeSubIds.add(subid)) {
-                    return
-                }
-                val appKeysOwner = appKeysSubscriptionOwner(filter)
-                if (appKeysOwner != null) {
-                    if (appKeysSubscriptionIdByOwner.containsKey(appKeysOwner)) {
-                        activeSubIds.remove(subid)
-                        return
-                    }
-                    appKeysSubscriptionIdByOwner[appKeysOwner] = subid
-                    appKeysOwnerBySubscriptionId[subid] = appKeysOwner
+                    return true
                 }
                 try {
                     relayManager.subscribe(filter, subid) { inbound ->
-                        processInboundRelayEvent(inbound)
+                        synchronized(this) {
+                            processInboundRelayEventLocked(
+                                inbound,
+                                runtime,
+                                runtimeEpoch
+                            )
+                        }
                     }
+                    true
                 } catch (_: Throwable) {
                     activeSubIds.remove(subid)
-                    if (appKeysOwner != null) {
-                        appKeysSubscriptionIdByOwner.remove(appKeysOwner)
-                        appKeysOwnerBySubscriptionId.remove(subid)
-                        durableAppKeysOwners.remove(appKeysOwner)
-                    }
                     Log.w(TAG, "Failed to install NDR relay filter")
+                    false
                 }
             }
 
             "unsubscribe" -> {
-                val subid = event.subid ?: return
-                appKeysOwnerBySubscriptionId.remove(subid)?.let { owner ->
-                    if (appKeysSubscriptionIdByOwner[owner] == subid) {
-                        appKeysSubscriptionIdByOwner.remove(owner)
-                        durableAppKeysOwners.remove(owner)
-                    }
-                }
+                val subid = event.subid ?: return true
                 if (activeSubIds.remove(subid)) {
-                    relayManager.unsubscribe(subid)
+                    try {
+                        relayManager.unsubscribe(subid)
+                        true
+                    } catch (_: Throwable) {
+                        activeSubIds.add(subid)
+                        Log.w(TAG, "Failed to remove NDR relay filter")
+                        false
+                    }
+                } else {
+                    true
                 }
             }
 
-            "publish_signed" -> {
-                val eventJson = event.eventJson ?: return
-                val nostrEvent = NostrEvent.fromJsonString(eventJson) ?: return
-                when {
-                    isDoubleRatchetInviteEvent(nostrEvent) -> {
-                        cachedInviteEventJson = eventJson
-                        collectOutOfBandPublish?.invoke(eventJson)
+            "publish" -> {
+                val sessionId = event.sessionId?.takeIf(String::isNotBlank)
+                    ?: run {
+                        Log.w(TAG, "Rejecting NDR publish without a session id")
+                        return true
                     }
-
-                    nostrEvent.kind == NostrKind.GIFT_WRAP -> {
-                        collectOutOfBandPublish?.invoke(eventJson)
-                    }
-
-                    else -> relayManager.sendEvent(nostrEvent)
+                if (sessionId in sessionsAwaitingOutOfBandAdmission) {
+                    return false
                 }
+                val eventJson = event.eventJson ?: return true
+                val nostrEvent = NostrEvent.fromJsonString(eventJson) ?: return true
+                if (nostrEvent.kind != NDR_MESSAGE_KIND) {
+                    Log.w(TAG, "Rejecting non-message NDR relay publish")
+                    return true
+                }
+                if (nostrEvent.tags.any { it.firstOrNull() == "p" }) {
+                    Log.w(TAG, "Rejecting recipient-tagged NDR relay publish")
+                    return true
+                }
+                if (event.actionId in publishRetryTasks ||
+                    event.actionId in inFlightRelayEventsByActionId
+                ) return false
+                inFlightRelayEventsByActionId[event.actionId] = nostrEvent.id
+                try {
+                    relayManager.sendEventConfirmed(nostrEvent) { accepted ->
+                        synchronized(this) {
+                            if (!isCurrentRuntimeLocked(runtime, runtimeEpoch)) {
+                                return@synchronized
+                            }
+                            inFlightRelayEventsByActionId.remove(event.actionId)
+                            if (accepted) {
+                                val acknowledged = acknowledgeEventsLocked(
+                                    runtime,
+                                    runtimeEpoch,
+                                    listOf(event.actionId)
+                                )
+                                if (acknowledged) {
+                                    clearPublishRetryLocked(event.actionId)
+                                } else {
+                                    schedulePublishRetryLocked(
+                                        runtime,
+                                        runtimeEpoch,
+                                        event.actionId
+                                    )
+                                }
+                            } else {
+                                schedulePublishRetryLocked(
+                                    runtime,
+                                    runtimeEpoch,
+                                    event.actionId
+                                )
+                            }
+                        }
+                    }
+                } catch (_: Throwable) {
+                    inFlightRelayEventsByActionId.remove(event.actionId)
+                    schedulePublishRetryLocked(runtime, runtimeEpoch, event.actionId)
+                    Log.w(TAG, "Failed to queue NDR relay publish")
+                }
+                false
             }
 
-            "decrypted_message" -> {
-                if (!NdrFeatureGate.isEnabled()) return
-                val content = event.content ?: return
-                val senderPubkeyHex = event.senderPubkeyHex ?: return
+            "out_of_band" -> {
+                if (event.sessionId.isNullOrBlank()) {
+                    Log.w(TAG, "Rejecting NDR out-of-band action without a session id")
+                    return true
+                }
+                val eventJson = event.eventJson ?: return true
+                val nostrEvent = NostrEvent.fromJsonString(eventJson) ?: return true
+                if (nostrEvent.kind != NostrKind.GIFT_WRAP) {
+                    Log.w(TAG, "Rejecting invalid NDR out-of-band action")
+                    return true
+                }
+                val peerPubkeyHex = event.peerPubkeyHex
+                    ?.lowercase()
+                    ?.takeIf(NdrInputPolicy::isPubkeyHex)
+                    ?: run {
+                        Log.w(TAG, "Rejecting NDR out-of-band action without an exact peer")
+                        return true
+                    }
+                val payload = NdrOutOfBandPayload(
+                    actionId = event.actionId,
+                    eventJson = eventJson,
+                    peerPubkeyHex = peerPubkeyHex,
+                    runtimeEpoch = runtimeEpoch,
+                    runtime = runtime
+                )
+                if (collectOutOfBandPublish != null) {
+                    collectOutOfBandPublish(payload)
+                } else {
+                    onOutOfBandPayload?.let { callback ->
+                        dispatchOutOfBandPayloadLocked(
+                            runtime,
+                            runtimeEpoch,
+                            payload,
+                            callback
+                        )
+                    }
+                }
+                false
+            }
+
+            "delivery" -> {
+                if (!NdrFeatureGate.isEnabled()) return true
+                val content = event.content ?: return true
+                val senderPubkeyHex = event.senderPubkeyHex ?: return true
+                val innerEventId = event.eventId ?: return true
                 if (!NdrInputPolicy.isWithinEncodedEventLimit(content) ||
                     !NdrInputPolicy.isPubkeyHex(senderPubkeyHex) ||
-                    event.senderDevicePubkeyHex?.let(NdrInputPolicy::isPubkeyHex) == false ||
-                    event.conversationOwnerPubkeyHex?.let(NdrInputPolicy::isPubkeyHex) == false ||
-                    event.eventId?.let(NdrInputPolicy::isEventIdHex) == false
-                ) return
+                    !NdrInputPolicy.isEventIdHex(innerEventId)
+                ) return true
                 val message = NdrDecryptedMessage(
+                    actionId = event.actionId,
                     content = content,
                     senderPubkeyHex = senderPubkeyHex.lowercase(),
-                    senderDevicePubkeyHex = event.senderDevicePubkeyHex?.lowercase(),
-                    conversationOwnerPubkeyHex = event.conversationOwnerPubkeyHex?.lowercase(),
-                    eventId = event.eventId?.lowercase()
+                    eventId = innerEventId.lowercase(),
+                    expiresAtSeconds = event.expiresAtSeconds
                 )
                 val callback = onDecryptedMessage
                 if (callback != null) {
-                    callback(message)
-                } else {
-                    if (bufferedDecryptedMessages.size >= MAX_BUFFERED_DECRYPTED_MESSAGES) {
-                        bufferedDecryptedMessages.removeFirst()
-                    }
-                    bufferedDecryptedMessages.addLast(message)
+                    dispatchDecryptedMessageLocked(
+                        runtime,
+                        runtimeEpoch,
+                        message,
+                        callback
+                    )
                 }
+                false
             }
+
+            else -> true
         }
     }
 
     @Synchronized
+    private fun dispatchDecryptedMessageLocked(
+        runtime: NdrPairwiseRuntime,
+        runtimeEpoch: Long,
+        message: NdrDecryptedMessage,
+        callback: (
+            message: NdrDecryptedMessage,
+            completion: (NdrDeliveryResult) -> Unit
+        ) -> Unit
+    ) {
+        if (!dispatchedDeliveryActionIds.add(message.actionId)) return
+        try {
+            callback(message) { result ->
+                synchronized(this) {
+                    if (!isCurrentRuntimeLocked(runtime, runtimeEpoch)) {
+                        return@synchronized
+                    }
+                    dispatchedDeliveryActionIds.remove(message.actionId)
+                    if (result.shouldAcknowledge) {
+                        acknowledgeEventsLocked(
+                            runtime,
+                            runtimeEpoch,
+                            listOf(message.actionId)
+                        )
+                    }
+                }
+            }
+        } catch (_: Throwable) {
+            dispatchedDeliveryActionIds.remove(message.actionId)
+            Log.w(TAG, "NDR delivery callback failed")
+        }
+    }
+
+    @Synchronized
+    fun acknowledgeOutOfBandPayload(payload: NdrOutOfBandPayload): Boolean {
+        val runtime = payload.runtime ?: return false
+        val runtimeEpoch = payload.runtimeEpoch ?: return false
+        if (!NdrFeatureGate.isEnabled()) return false
+        val acknowledged =
+            acknowledgeEventsLocked(runtime, runtimeEpoch, listOf(payload.actionId))
+        if (acknowledged) {
+            clearOutOfBandRetryLocked(payload.actionId)
+            drainAndApplyPubSubEventsLocked()
+        }
+        return acknowledged
+    }
+
+    @Synchronized
+    private fun dispatchOutOfBandPayloadLocked(
+        runtime: NdrPairwiseRuntime,
+        runtimeEpoch: Long,
+        payload: NdrOutOfBandPayload,
+        callback: (
+            payload: NdrOutOfBandPayload,
+            completion: (admitted: Boolean) -> Unit
+        ) -> Unit
+    ) {
+        if (!dispatchedOutOfBandActionIds.add(payload.actionId)) return
+        try {
+            callback(payload) { admitted ->
+                synchronized(this) {
+                    if (!isCurrentRuntimeLocked(runtime, runtimeEpoch)) {
+                        return@synchronized
+                    }
+                    dispatchedOutOfBandActionIds.remove(payload.actionId)
+                    if (admitted) {
+                        val acknowledged = acknowledgeEventsLocked(
+                            runtime,
+                            runtimeEpoch,
+                            listOf(payload.actionId)
+                        )
+                        if (acknowledged) {
+                            clearOutOfBandRetryLocked(payload.actionId)
+                            // A publish from this exact handshake session may
+                            // now cross the relay boundary.
+                            drainAndApplyPubSubEventsLocked()
+                        } else {
+                            scheduleOutOfBandRetryLocked(
+                                runtime,
+                                runtimeEpoch,
+                                payload.actionId
+                            )
+                        }
+                    } else {
+                        scheduleOutOfBandRetryLocked(
+                            runtime,
+                            runtimeEpoch,
+                            payload.actionId
+                        )
+                    }
+                }
+            }
+        } catch (_: Throwable) {
+            dispatchedOutOfBandActionIds.remove(payload.actionId)
+            scheduleOutOfBandRetryLocked(runtime, runtimeEpoch, payload.actionId)
+            Log.w(TAG, "NDR out-of-band delivery callback failed")
+        }
+    }
+
+    private fun acknowledgeEventsLocked(
+        runtime: NdrPairwiseRuntime,
+        runtimeEpoch: Long,
+        actionIds: List<String>
+    ): Boolean {
+        if (!isCurrentRuntimeLocked(runtime, runtimeEpoch)) return false
+        return try {
+            runtime.ackActions(actionIds.distinct())
+            true
+        } catch (_: Throwable) {
+            Log.w(TAG, "Failed to acknowledge NDR actions")
+            false
+        }
+    }
+
+    private fun isCurrentRuntimeLocked(
+        runtime: NdrPairwiseRuntime,
+        runtimeEpoch: Long
+    ): Boolean {
+        return pairwiseRuntime === runtime && activeRuntimeEpoch == runtimeEpoch
+    }
+
+    private fun markEstablishedIfNeededLocked(runtime: NdrPairwiseRuntime) {
+        val accountPubkeyHex = configuredForPubkeyHex ?: return
+        val hasPairwiseSessionRecord = runtime.knownPeerPubkeys().any { peerPubkeyHex ->
+            runtime.sessionInfo(peerPubkeyHex) != null
+        }
+        if (hasPairwiseSessionRecord) {
+            establishedSessionMarkers.mark(accountPubkeyHex)
+        }
+    }
+
+    private fun schedulePublishRetryLocked(
+        runtime: NdrPairwiseRuntime,
+        runtimeEpoch: Long,
+        actionId: String
+    ) {
+        if (!isCurrentRuntimeLocked(runtime, runtimeEpoch) ||
+            actionId in publishRetryTasks
+        ) return
+        val attempt = publishRetryAttempts[actionId] ?: 0
+        val multiplier = 1L shl min(attempt, 5)
+        val delayMs = (PUBLISH_RETRY_INITIAL_DELAY_MS * multiplier)
+            .coerceAtMost(PUBLISH_RETRY_MAX_DELAY_MS)
+        publishRetryAttempts[actionId] = attempt + 1
+        publishRetryTasks[actionId] = retryScheduler.schedule(delayMs) {
+            synchronized(this) {
+                if (!isCurrentRuntimeLocked(runtime, runtimeEpoch)) {
+                    return@synchronized
+                }
+                publishRetryTasks.remove(actionId)
+                drainAndApplyPubSubEventsLocked()
+            }
+        }
+    }
+
+    private fun clearPublishRetryLocked(actionId: String) {
+        publishRetryTasks.remove(actionId)?.cancel()
+        publishRetryAttempts.remove(actionId)
+    }
+
+    private fun scheduleOutOfBandRetryLocked(
+        runtime: NdrPairwiseRuntime,
+        runtimeEpoch: Long,
+        actionId: String
+    ) {
+        if (!isCurrentRuntimeLocked(runtime, runtimeEpoch) ||
+            actionId in outOfBandRetryTasks
+        ) return
+        val attempt = outOfBandRetryAttempts[actionId] ?: 0
+        if (attempt >= OOB_RETRY_MAX_ATTEMPTS) return
+        val multiplier = 1L shl min(attempt, 4)
+        val delayMs = (OOB_RETRY_INITIAL_DELAY_MS * multiplier)
+            .coerceAtMost(OOB_RETRY_MAX_DELAY_MS)
+        outOfBandRetryAttempts[actionId] = attempt + 1
+        outOfBandRetryTasks[actionId] = retryScheduler.schedule(delayMs) {
+            synchronized(this) {
+                if (!isCurrentRuntimeLocked(runtime, runtimeEpoch)) {
+                    return@synchronized
+                }
+                outOfBandRetryTasks.remove(actionId)
+                drainAndApplyPubSubEventsLocked()
+            }
+        }
+    }
+
+    private fun clearOutOfBandRetryLocked(actionId: String) {
+        outOfBandRetryTasks.remove(actionId)?.cancel()
+        outOfBandRetryAttempts.remove(actionId)
+    }
+
+    @Synchronized
+    private fun onRelayConnectionAvailable() {
+        if (pairwiseRuntime == null || activeRuntimeEpoch == null) return
+        publishRetryTasks.values.forEach(NdrRetryCancellation::cancel)
+        publishRetryTasks.clear()
+        drainAndApplyPubSubEventsLocked()
+    }
+
+    @Synchronized
     private fun teardownLocked() {
+        val runtime = pairwiseRuntime
+        pairwiseRuntime = null
+        activeRuntimeEpoch = null
+        publishRetryTasks.values.forEach(NdrRetryCancellation::cancel)
+        publishRetryTasks.clear()
+        publishRetryAttempts.clear()
+        outOfBandRetryTasks.values.forEach(NdrRetryCancellation::cancel)
+        outOfBandRetryTasks.clear()
+        outOfBandRetryAttempts.clear()
+        val confirmedEventIds = inFlightRelayEventsByActionId.values.toSet()
+        inFlightRelayEventsByActionId.clear()
+        confirmedEventIds.forEach(relayManager::cancelConfirmedEvent)
         activeSubIds.forEach { subId ->
             runCatching { relayManager.unsubscribe(subId) }
                 .onFailure { Log.w(TAG, "Failed to unsubscribe NDR relay filter") }
         }
         activeSubIds.clear()
-        appKeysSubscriptionIdByOwner.clear()
-        appKeysOwnerBySubscriptionId.clear()
-        durableAppKeysOwners.clear()
-        pendingInvitesByOwner.clear()
-        bufferedDecryptedMessages.clear()
-        cachedInviteEventJson = null
+        dispatchedDeliveryActionIds.clear()
+        dispatchedOutOfBandActionIds.clear()
+        knownActivePeerPubkeys.clear()
         configuredForPubkeyHex = null
-        val runtime = sessionManager
-        sessionManager = null
         runCatching { runtime?.destroy() }
             .onFailure { Log.w(TAG, "Failed to destroy NDR runtime") }
     }
@@ -563,15 +986,18 @@ class NdrNostrService(
     @Synchronized
     fun resetForPanic(): Boolean {
         onDecryptedMessage = null
-        onOutOfBandPayloadsReady = null
         teardownLocked()
         val storageCleared = runCatching(storageResetter)
             .onFailure { Log.w(TAG, "Failed to delete NDR storage") }
             .isSuccess
-        val deviceIdCleared = runCatching(deviceIdResetter)
-            .onFailure { Log.w(TAG, "Failed to reset NDR device id") }
-            .isSuccess
-        panicResetBlocked = !(storageCleared && deviceIdCleared)
+        val markersCleared = storageCleared &&
+            runCatching(establishedSessionMarkers::clearAll)
+                .onFailure { Log.w(TAG, "Failed to delete NDR downgrade markers") }
+                .isSuccess
+        panicResetBlocked = !markersCleared
+        if (markersCleared) {
+            configurationFailurePubkeyHex = null
+        }
         return !panicResetBlocked
     }
 
@@ -591,12 +1017,7 @@ class NdrNostrService(
     }
 
     private data class ParsedOutOfBandInvite(
-        val ownerPubkeyHex: String,
-        val transport: OutOfBandInviteTransport
-    )
-
-    private data class PendingOutOfBandInvite(
-        val payload: String,
+        val peerPubkeyHex: String,
         val transport: OutOfBandInviteTransport
     )
 
@@ -606,70 +1027,30 @@ class NdrNostrService(
         if (payload.startsWith("{")) {
             val event = NostrEvent.fromJsonString(payload) ?: return null
             if (!isDoubleRatchetInviteEvent(event)) return null
-            val ownerPubkeyHex = inviteOwnerResolver(payload)?.lowercase() ?: return null
+            val peerPubkeyHex = invitePeerResolver(payload)?.lowercase() ?: return null
             return ParsedOutOfBandInvite(
-                ownerPubkeyHex = ownerPubkeyHex,
+                peerPubkeyHex = peerPubkeyHex,
                 transport = OutOfBandInviteTransport.EVENT_JSON
             )
         }
 
-        val ownerPubkeyHex = inviteOwnerResolver(payload)?.lowercase() ?: return null
+        val peerPubkeyHex = invitePeerResolver(payload)?.lowercase() ?: return null
         return ParsedOutOfBandInvite(
-            ownerPubkeyHex = ownerPubkeyHex,
+            peerPubkeyHex = peerPubkeyHex,
             transport = OutOfBandInviteTransport.URL
         )
     }
 
-    private fun preferredInviteOobPayload(): String? {
-        val inviteEventJson = cachedInviteEventJson ?: return null
-        return compactInviteUrl(inviteEventJson) ?: inviteEventJson
+    private fun isPairwiseMessageSubscription(filter: NostrFilter): Boolean {
+        return filter.kinds == listOf(NDR_MESSAGE_KIND) &&
+            filter.authors.orEmpty().isNotEmpty() &&
+            filter.authors.orEmpty().all(NdrInputPolicy::isPubkeyHex)
     }
 
-    private fun compactInviteUrl(eventJson: String): String? {
-        return try {
-            val invite = uniffi.ndr_ffi.InviteHandle.fromEventJson(eventJson)
-            invite.use { it.`toUrl`(COMPACT_INVITE_URL_ROOT) }
-        } catch (_: Throwable) {
-            null
-        }
-    }
-
-    private fun shouldIgnoreNdrSubscription(filter: NostrFilter): Boolean {
-        val kinds = filter.kinds.orEmpty()
-        // BitChat exchanges every invite/response bootstrap payload over an
-        // authenticated local transport, never through public relay discovery.
-        return NostrKind.GIFT_WRAP in kinds || 30078 in kinds
-    }
-
-    private fun restoreDurableAppKeysSubscriptionsLocked(runtime: NdrSessionManager) {
-        runtime.knownPeerOwnerPubkeys().forEach { owner ->
-            ensureDurableAppKeysSubscriptionLocked(owner, runtime)
-        }
-    }
-
-    private fun ensureDurableAppKeysSubscriptionLocked(
-        ownerPubkeyHex: String,
-        runtime: NdrSessionManager
-    ) {
-        val owner = ownerPubkeyHex.lowercase()
-            .takeIf(NdrInputPolicy::isPubkeyHex)
-            ?: return
-        if (owner in durableAppKeysOwners) return
-        try {
-            // setupUser emits both AppKeys and invite-discovery filters. The
-            // former stays live for device revocation; policy drops the latter.
-            runtime.setupUser(owner)
-            durableAppKeysOwners.add(owner)
-        } catch (_: Throwable) {
-            Log.w(TAG, "Failed to retain NDR AppKeys updates")
-        }
-    }
-
-    private fun appKeysSubscriptionOwner(filter: NostrFilter): String? {
-        if (filter.kinds != listOf(NDR_APP_KEYS_KIND)) return null
-        val owner = filter.authors?.singleOrNull()?.lowercase() ?: return null
-        return owner.takeIf(NdrInputPolicy::isPubkeyHex)
-    }
+    private fun hasRecipientFilter(filterJson: String): Boolean =
+        runCatching {
+            JsonParser.parseString(filterJson).asJsonObject.has("#p")
+        }.getOrDefault(true)
 
     private fun parseFilterJson(filterJson: String): NostrFilter {
         val root = JsonParser.parseString(filterJson).asJsonObject
@@ -704,94 +1085,113 @@ class NdrNostrService(
     }
 }
 
-private class UniffiNdrSessionManager(
-    private val handle: uniffi.ndr_ffi.SessionManagerHandle
-) : NdrSessionManager {
-    override fun init() {
-        handle.`init`()
-    }
+private class UniffiNdrPairwiseRuntime(
+    private val manager: uniffi.ndr_ffi.PairwiseManager
+) : NdrPairwiseRuntime {
+    override fun currentInviteEventJson(): String = manager.`currentInviteEventJson`()
 
-    override fun knownPeerOwnerPubkeys(): List<String> =
-        handle.`knownPeerOwnerPubkeys`()
-
-    override fun setupUser(userPubkeyHex: String) {
-        handle.`setupUser`(userPubkeyHex)
-    }
+    override fun currentInviteUrl(root: String): String = manager.`currentInviteUrl`(root)
 
     override fun acceptInviteFromEventJson(
         eventJson: String,
-        ownerPubkeyHintHex: String?
+        expectedPeerPubkeyHex: String
     ): NdrAcceptInviteResult {
         val result = try {
-            handle.`acceptInviteFromEventJson`(eventJson, ownerPubkeyHintHex)
+            manager.`acceptInviteFromEventJson`(eventJson, expectedPeerPubkeyHex)
         } catch (t: uniffi.ndr_ffi.NdrException.SessionNotReady) {
             throw NdrSessionNotReadyException(t.message, t)
         }
+        val peer = result.peerPubkeyHex.lowercase()
+        check(peer == expectedPeerPubkeyHex.lowercase()) {
+            "Pairwise invite identity mismatch"
+        }
         return NdrAcceptInviteResult(
-            ownerPubkeyHex = result.ownerPubkeyHex,
-            inviterDevicePubkeyHex = result.inviterDevicePubkeyHex,
-            deviceId = result.deviceId,
+            peerPubkeyHex = peer,
             createdNewSession = result.createdNewSession
         )
     }
 
     override fun acceptInviteFromUrl(
         inviteUrl: String,
-        ownerPubkeyHintHex: String?
+        expectedPeerPubkeyHex: String
     ): NdrAcceptInviteResult {
         val result = try {
-            handle.`acceptInviteFromUrl`(inviteUrl, ownerPubkeyHintHex)
+            manager.`acceptInviteFromUrl`(inviteUrl, expectedPeerPubkeyHex)
         } catch (t: uniffi.ndr_ffi.NdrException.SessionNotReady) {
             throw NdrSessionNotReadyException(t.message, t)
         }
+        val peer = result.peerPubkeyHex.lowercase()
+        check(peer == expectedPeerPubkeyHex.lowercase()) {
+            "Pairwise invite identity mismatch"
+        }
         return NdrAcceptInviteResult(
-            ownerPubkeyHex = result.ownerPubkeyHex,
-            inviterDevicePubkeyHex = result.inviterDevicePubkeyHex,
-            deviceId = result.deviceId,
+            peerPubkeyHex = peer,
             createdNewSession = result.createdNewSession
         )
     }
 
     override fun processEvent(eventJson: String) {
-        handle.`processEvent`(eventJson)
+        manager.`processEvent`(eventJson)
     }
 
     override fun processOutOfBandResponse(
         eventJson: String,
-        expectedOwnerPubkeyHex: String
+        expectedPeerPubkeyHex: String
     ) {
-        handle.`processOutOfBandResponse`(eventJson, expectedOwnerPubkeyHex)
+        manager.`processOutOfBandResponse`(eventJson, expectedPeerPubkeyHex)
     }
 
-    override fun drainEvents(): List<NdrPubSubEvent> {
-        return handle.`drainEvents`().map {
+    override fun pendingActions(nowSeconds: ULong): List<NdrPubSubEvent> =
+        manager.`pendingActionsAt`(nowSeconds).map {
             NdrPubSubEvent(
+                actionId = it.actionId,
                 kind = it.kind,
-                subid = it.subid,
+                sessionId = it.sessionId,
+                subid = it.subscriptionId,
                 filterJson = it.filterJson,
                 eventJson = it.eventJson,
-                senderPubkeyHex = it.senderPubkeyHex,
-                senderDevicePubkeyHex = it.senderDevicePubkeyHex,
-                conversationOwnerPubkeyHex = it.conversationOwnerPubkeyHex,
-                content = it.content,
-                eventId = it.eventId
+                peerPubkeyHex = it.peerPubkeyHex?.lowercase(),
+                senderPubkeyHex = it.peerPubkeyHex?.lowercase(),
+                content = it.innerEventJson,
+                eventId = it.innerEventId?.lowercase(),
+                expiresAtSeconds = it.expiresAtSeconds
             )
         }
+
+    override fun ackActions(actionIds: List<String>) {
+        manager.`ackActions`(actionIds)
     }
 
-    override fun getActiveSessionState(peerPubkeyHex: String): String? {
-        return handle.`getActiveSessionState`(peerPubkeyHex)
+    override fun sessionInfo(peerPubkeyHex: String): NdrPairwiseSessionInfo? =
+        manager.`sessionInfo`(peerPubkeyHex)?.let {
+            NdrPairwiseSessionInfo(
+                sendReady = it.sendReady,
+                receiveReady = it.receiveReady,
+                trackedSenderPubkeys = it.trackedSenderPubkeys.map(String::lowercase)
+            )
+        }
+
+    override fun knownPeerPubkeys(): List<String> =
+        manager.`knownPeerPubkeys`().map(String::lowercase)
+
+    override fun retirePeer(peerPubkeyHex: String): Boolean =
+        manager.`retirePeer`(peerPubkeyHex)
+
+    override fun sendText(
+        recipientPubkeyHex: String,
+        text: String,
+        expiresAtSeconds: ULong?
+    ): NdrPairwiseSendResult {
+        val result = manager.`sendText`(recipientPubkeyHex, text, expiresAtSeconds)
+        return NdrPairwiseSendResult(
+            innerEventId = result.innerEventId,
+            outerEventId = result.outerEventId
+        )
     }
 
-    override fun sendText(recipientPubkeyHex: String, text: String, expiresAtSeconds: ULong?): List<String> {
-        return handle.`sendText`(recipientPubkeyHex, text, expiresAtSeconds)
-    }
+    override fun getOurPubkeyHex(): String = manager.`getOurPubkeyHex`()
 
-    override fun getOurPubkeyHex(): String = handle.`getOurPubkeyHex`()
+    override fun getTotalSessions(): ULong = manager.`getTotalSessions`()
 
-    override fun getTotalSessions(): ULong = handle.`getTotalSessions`()
-
-    override fun destroy() {
-        handle.destroy()
-    }
+    override fun destroy() = manager.destroy()
 }

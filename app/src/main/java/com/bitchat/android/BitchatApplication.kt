@@ -28,6 +28,20 @@ class BitchatApplication : Application() {
         // Initialize favorites persistence early so MessageRouter/NostrTransport can use it on startup
         try {
             com.bitchat.android.favorites.FavoritesPersistenceService.initialize(this)
+            com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                .setNdrPeerRetirementGuard { oldPeerPubkeyHex ->
+                    if (!com.bitchat.android.model.NdrFeatureGate.isEnabled()) {
+                        true
+                    } else {
+                        val identity =
+                            com.bitchat.android.nostr.NostrIdentityBridge
+                                .getCurrentNostrIdentity(this)
+                                ?: return@setNdrPeerRetirementGuard false
+                        val ndr = com.bitchat.android.nostr.NdrNostrService.getInstance(this)
+                        ndr.configureIfNeeded(identity)
+                        ndr.retirePeer(oldPeerPubkeyHex)
+                    }
+                }
         } catch (_: Exception) { }
 
         // Warm up Nostr identity to ensure npub is available for favorite notifications

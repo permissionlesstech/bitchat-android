@@ -64,5 +64,5 @@ google-services.json
 tools/arti-build/.arti-source/
 tools/arti-build/target/
 
-# Generated from the pinned iris-chat-rs source submodule.
+# Generated from the pinned nostr-double-ratchet source submodule.
 app/src/main/jniLibs/*/libndr_ffi.so

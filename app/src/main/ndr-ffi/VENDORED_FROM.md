@@ -1,17 +1,14 @@
 # Android NDR FFI provenance
 
-The Android bindings are generated from the pinned `vendor/iris-chat-rs`
-submodule rather than from checked-in native libraries.
+The Android bindings are generated from the pinned
+`vendor/nostr-double-ratchet` submodule.
 
-- Source repository: `https://github.com/irislib/iris-chat-rs.git`
-- Source ref: `codex/bitchat-ffi-hardening`
-- Source commit: `095e70489345df4d92dded686902f3dccb54cc45`
-- Upstream base: `33f7732bbd300ed62fdf5bcf9da0a176efa7ff8c`
-- Crate: `protocol-ffi` (`iris-chat-protocol-ffi`, library `ndr_ffi`)
-- Protocol FFI version: `0.1.0`
-- `nostr-double-ratchet`: `0.0.164` (locked by `protocol-ffi/Cargo.lock`)
-- `nostr-double-ratchet-pairwise-codec`: `0.0.164` (locked by
-  `protocol-ffi/Cargo.lock`)
+- Source repository: `https://github.com/irislib/nostr-double-ratchet.git`
+- Source commit: `0fe8caf2d4e24e2030ffae195597a2764613a659`
+- Upstream base: `master` at `c93f76a2b947f4288d2c7bcbecabe70ce197da5f`
+- Crate: `ndr-pairwise-ffi` (library `ndr_ffi`)
+- Runtime: durable single-identity pairwise sessions only; no AppKeys,
+  linked-device, sibling-sync, or group runtime
 - Rust toolchain: `1.95.0`
 - `cargo-ndk`: `4.1.2`
 - Android NDK: `28.2.13676358`
@@ -26,15 +23,8 @@ jobs build them from the pinned source before Gradle runs.
 
 ## Rollout sequencing
 
-This source refresh does not implement or claim completion of the separate
-private-envelope kind-1402 migration. Double-ratchet rollout remains on hold
-until that protocol change has its own linked, reviewed Android implementation.
-
-`BuildConfig.NDR_ROLLOUT_ENABLED` is therefore hard-coded to `false`.
-Production builds do not advertise capability bit 11, configure or bootstrap
-the FFI runtime, accept inbound NDR traffic, or send NDR relay/OOB traffic.
-Account messages continue to use the existing Nostr gift-wrap path. Unit tests
-use a debug-only override to exercise the dark implementation. Enabling the
-gate requires the kind-1402 work to be linked and reviewed first; once enabled,
-OOB payload type `0x22` is additionally restricted to an authenticated Noise
-session with a mutual favorite that proves capability bit 11.
+Rollout remains disabled until iOS and Android enable the pairwise protocol
+together. Capability bit 11 and Noise payload `0x22` are accepted only for an
+authenticated Noise peer with an exact current Nostr identity binding and a
+mutual favorite advertising the same capability. The independent kind-1402
+fallback-envelope migration can land before or after this work.

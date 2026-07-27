@@ -3,7 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
-SOURCE_DIR="${IRIS_CHAT_RS_DIR:-${REPO_ROOT}/vendor/iris-chat-rs}"
+SOURCE_DIR="${NOSTR_DOUBLE_RATCHET_DIR:-${REPO_ROOT}/vendor/nostr-double-ratchet}"
+CRATE_DIR="${SOURCE_DIR}/rust/crates/ndr-pairwise-ffi"
+CRATE_MANIFEST="${CRATE_DIR}/Cargo.toml"
 SOURCE_REVISION="$(tr -d '[:space:]' < "${SCRIPT_DIR}/SOURCE_REVISION")"
 JNI_DIR="${REPO_ROOT}/app/src/main/jniLibs"
 KOTLIN_DIR="${REPO_ROOT}/app/src/main/java/uniffi/ndr_ffi"
@@ -14,29 +16,29 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ ! -f "${SOURCE_DIR}/protocol-ffi/Cargo.toml" ]]; then
-    echo "iris-chat-rs protocol-ffi source not found at ${SOURCE_DIR}" >&2
-    echo "Run: git submodule update --init --checkout vendor/iris-chat-rs" >&2
+if [[ ! -f "${CRATE_MANIFEST}" ]]; then
+    echo "nostr-double-ratchet pairwise FFI source not found at ${CRATE_DIR}" >&2
+    echo "Run: git submodule update --init --checkout vendor/nostr-double-ratchet" >&2
     exit 1
 fi
 
 if ! git -C "${SOURCE_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo "iris-chat-rs source must be the pinned Git submodule at ${SOURCE_DIR}" >&2
+    echo "nostr-double-ratchet source must be the pinned Git submodule at ${SOURCE_DIR}" >&2
     exit 1
 fi
 SOURCE_WORKTREE="$(cd "${SOURCE_DIR}" && pwd -P)"
 SOURCE_GIT_ROOT="$(git -C "${SOURCE_DIR}" rev-parse --show-toplevel)"
 if [[ "${SOURCE_GIT_ROOT}" != "${SOURCE_WORKTREE}" ]]; then
-    echo "iris-chat-rs Git root is ${SOURCE_GIT_ROOT}; expected ${SOURCE_WORKTREE}" >&2
+    echo "nostr-double-ratchet Git root is ${SOURCE_GIT_ROOT}; expected ${SOURCE_WORKTREE}" >&2
     exit 1
 fi
 ACTUAL_REVISION="$(git -C "${SOURCE_DIR}" rev-parse HEAD)"
 if [[ "${ACTUAL_REVISION}" != "${SOURCE_REVISION}" ]]; then
-    echo "iris-chat-rs is at ${ACTUAL_REVISION}; expected ${SOURCE_REVISION}" >&2
+    echo "nostr-double-ratchet is at ${ACTUAL_REVISION}; expected ${SOURCE_REVISION}" >&2
     exit 1
 fi
 if [[ -n "$(git -C "${SOURCE_DIR}" status --porcelain --untracked-files=all)" ]]; then
-    echo "iris-chat-rs source has local changes; refusing an unreproducible build" >&2
+    echo "nostr-double-ratchet source has local changes; refusing an unreproducible build" >&2
     exit 1
 fi
 
@@ -68,8 +70,8 @@ export RUSTC_WRAPPER=""
 mkdir -p "${BUILD_DIR}/jni" "${BUILD_DIR}/bindings"
 
 (
-    cd "${SOURCE_DIR}/protocol-ffi"
-    cargo ndk \
+    cd "${CRATE_DIR}"
+    RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384" cargo ndk \
         -t arm64-v8a \
         -t armeabi-v7a \
         -t x86_64 \
@@ -82,10 +84,12 @@ mkdir -p "${BUILD_DIR}/jni" "${BUILD_DIR}/bindings"
 )
 
 (
-    cd "${SOURCE_DIR}/protocol-ffi"
+    cd "${CRATE_DIR}"
     cargo run \
         --locked \
-        --manifest-path "${SOURCE_DIR}/core/uniffi-bindgen/Cargo.toml" \
+        --manifest-path "${CRATE_MANIFEST}" \
+        --features bindgen \
+        --bin uniffi-bindgen \
         -- \
         generate \
         --library "${BUILD_DIR}/jni/arm64-v8a/libndr_ffi.so" \
@@ -105,9 +109,36 @@ for ABI in arm64-v8a armeabi-v7a x86_64 x86; do
     cp "${BUILD_DIR}/jni/${ABI}/libndr_ffi.so" "${JNI_DIR}/${ABI}/libndr_ffi.so"
 done
 
+LLVM_READELF_CANDIDATES=(
+    "${NDR_ANDROID_NDK}"/toolchains/llvm/prebuilt/*/bin/llvm-readelf
+)
+if [[ "${#LLVM_READELF_CANDIDATES[@]}" -ne 1 ]] ||
+    [[ ! -x "${LLVM_READELF_CANDIDATES[0]}" ]]; then
+    echo "Unable to locate llvm-readelf in Android NDK ${EXPECTED_NDK_REVISION}" >&2
+    exit 1
+fi
+LLVM_READELF="${LLVM_READELF_CANDIDATES[0]}"
+for ABI in arm64-v8a armeabi-v7a x86_64 x86; do
+    LIBRARY="${JNI_DIR}/${ABI}/libndr_ffi.so"
+    LOAD_ALIGNMENTS="$(
+        "${LLVM_READELF}" -lW "${LIBRARY}" |
+            awk '$1 == "LOAD" { print $NF }'
+    )"
+    if [[ -z "${LOAD_ALIGNMENTS}" ]]; then
+        echo "No ELF LOAD segments found in ${LIBRARY}" >&2
+        exit 1
+    fi
+    while IFS= read -r ALIGNMENT; do
+        if (( ALIGNMENT < 0x4000 )); then
+            echo "${LIBRARY} has non-16KiB LOAD alignment ${ALIGNMENT}" >&2
+            exit 1
+        fi
+    done <<< "${LOAD_ALIGNMENTS}"
+done
+
 mkdir -p "${KOTLIN_DIR}"
 cp "${GENERATED_KOTLIN}" "${KOTLIN_DIR}/ndr_ffi.kt"
 perl -pi -e 's/[ \t]+$//' "${KOTLIN_DIR}/ndr_ffi.kt"
 perl -0777 -pi -e 's/\s+\z/\n/' "${KOTLIN_DIR}/ndr_ffi.kt"
 
-echo "Built Android NDR FFI from iris-chat-rs ${SOURCE_REVISION}"
+echo "Built Android pairwise NDR FFI from nostr-double-ratchet ${SOURCE_REVISION}"
