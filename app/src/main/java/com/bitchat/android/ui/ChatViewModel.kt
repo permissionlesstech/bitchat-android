@@ -920,6 +920,20 @@ class ChatViewModel(
                         mesh.myPeerID,
                         state.getNicknameValue()
                     )
+                } else if (channel != null && channelManager.hasChannelKey(channel)) {
+                    channelManager.sendEncryptedChannelMessage(
+                        messageContent,
+                        mentions,
+                        channel,
+                        state.getNicknameValue(),
+                        mesh.myPeerID,
+                        onEncryptedPayload = {
+                            mesh.sendMessage(messageContent, mentions, channel)
+                        },
+                        onFallback = {
+                            mesh.sendMessage(messageContent, mentions, channel)
+                        }
+                    )
                 } else {
                     mesh.sendMessage(messageContent, mentions, channel)
                 }

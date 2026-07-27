@@ -438,10 +438,17 @@ class CommandProcessor(
             isRelay = false
         )
         val selectedPeer = state.getSelectedPrivateChatPeerValue()
+        val selectedLocationChannel = state.selectedLocationChannel.value
         val channel = state.getCurrentChannelValue()
         when {
             selectedPeer != null -> {
                 messageManager.addPrivateMessageNoUnread(selectedPeer, message.copy(isPrivate = true))
+            }
+            selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location -> {
+                messageManager.addChannelMessage(
+                    "geo:${selectedLocationChannel.channel.geohash}",
+                    message
+                )
             }
             channel != null -> channelManager.addChannelMessage(channel, message, null)
             else -> messageManager.addMessage(message)

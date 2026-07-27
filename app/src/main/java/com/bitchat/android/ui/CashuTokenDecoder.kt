@@ -47,7 +47,7 @@ object CashuTokenDecoder {
         }
         if (token.length !in 12..MAX_TOKEN_LENGTH) return null
         if (!token.startsWith("cashuA") && !token.startsWith("cashuB")) return null
-        if (token.any { !it.isLetterOrDigit() && it !in "-_+/=." }) return null
+        if (token.any { !it.isLetterOrDigit() && it !in "-_+/=" }) return null
         return token
     }
 
@@ -198,7 +198,7 @@ object CashuTokenDecoder {
         }.getOrNull()?.takeIf { it >= 0 }
     }
 
-    private val TOKEN_REGEX = Regex("""(?i:cashu:(?://)?)?cashu[AB][A-Za-z0-9_+/.=%-]{6,}""")
+    private val TOKEN_REGEX = Regex("""(?i:cashu:(?://)?)?cashu[AB][A-Za-z0-9_+/%=-]{6,}""")
 }
 
 private sealed interface CborValue {

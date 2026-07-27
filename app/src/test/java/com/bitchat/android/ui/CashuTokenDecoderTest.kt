@@ -95,6 +95,14 @@ class CashuTokenDecoderTest {
     }
 
     @Test
+    fun `sentence punctuation is not included in extracted token`() {
+        val token = v3Token("""{"token":[{"proofs":[{"amount":1}]}]}""")
+
+        assertEquals(listOf(token), CashuTokenDecoder.extractTokens("Redeem $token."))
+        assertNull(CashuTokenDecoder.bareToken("$token."))
+    }
+
+    @Test
     fun `oversized and deeply nested input fails closed`() {
         assertNull(CashuTokenDecoder.decode("cashuA" + "A".repeat(CashuTokenDecoder.MAX_TOKEN_LENGTH)))
         var nested = byteArrayOf(0)
