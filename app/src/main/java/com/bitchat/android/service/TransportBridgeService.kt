@@ -75,7 +75,15 @@ object TransportBridgeService {
         val targets = transports.filterKeys { it != sourceId }
         if (targets.isEmpty()) return
         val forwardedPacket = prepareForwardedPacket("broadcast", packet.packet) ?: return
-        val forwarded = packet.copy(packet = forwardedPacket)
+        // Prepared private-media fragments must remain the admitted plan when
+        // crossing transports, but relay TTL still has to advance on every
+        // hop. TTL is excluded from the signature and does not affect size.
+        val forwarded = packet.copy(
+            packet = forwardedPacket,
+            preparedPackets = packet.preparedPackets?.map { prepared ->
+                prepared.copy(ttl = forwardedPacket.ttl)
+            }
+        )
 
         // Log.v(TAG, "Bridging packet type ${packet.packet.type} from $sourceId to ${targets.keys}")
         

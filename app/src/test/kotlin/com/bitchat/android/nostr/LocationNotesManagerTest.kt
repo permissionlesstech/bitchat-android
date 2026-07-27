@@ -1,5 +1,6 @@
 package com.bitchat.android.nostr
 
+import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.resetMain
@@ -43,9 +44,11 @@ class LocationNotesManagerTest {
      */
     private val capturedHandlers = mutableMapOf<String, (NostrEvent) -> Unit>()
 
-    /** Convenience accessor for the kind:1 note subscription handler. */
+    /** Convenience accessor for the kind:1 note subscription handler.
+     *  Subscription IDs are now "location-notes-<UUID>"; every geohash cell's
+     *  subscription shares the same handleEvent callback, so any entry works. */
     private val capturedEventHandler: ((NostrEvent) -> Unit)?
-        get() = capturedHandlers["location-notes-$testGeohash"]
+        get() = capturedHandlers.entries.firstOrNull { it.key.startsWith("location-notes-") }?.value
 
     /** Convenience accessor for the kind:5 deletion subscription handler. */
     private val capturedDeletionHandler: ((NostrEvent) -> Unit)?
@@ -72,6 +75,10 @@ class LocationNotesManagerTest {
         // No virtual-clock control is needed: maybeResubscribeDeletions() is synchronous.
         Dispatchers.setMain(Dispatchers.Unconfined)
 
+        // Arm the process-wide live-location consent gate (fail-closed by default);
+        // without it setGeohash/handleEvent/deleteNote are all no-ops.
+        LiveLocationPrivacyGate.update(true)
+
         // Create a brand-new manager instance via reflection, bypassing the singleton.
         // This guarantees a fresh, non-cancelled CoroutineScope for every test,
         // regardless of what any previous test (or its @After) did to the singleton.
@@ -84,7 +91,7 @@ class LocationNotesManagerTest {
                 subId
             },
             unsubscribe = { subId -> capturedHandlers.remove(subId) },
-            sendEvent = { event, relays -> sendEventCallback(event, relays) },
+            sendEvent = { event, relays, _ -> sendEventCallback(event, relays) },
             deriveIdentity = { _ -> authorIdentity },
         )
 
@@ -96,6 +103,9 @@ class LocationNotesManagerTest {
     fun teardown() {
         manager.cleanup()
         capturedHandlers.clear()
+        // Restore the gate to its fail-closed default so other test classes
+        // sharing this JVM see the untouched state.
+        LiveLocationPrivacyGate.update(false)
         Dispatchers.resetMain()
     }
 
@@ -313,7 +323,7 @@ class LocationNotesManagerTest {
             relayManager = { error("not needed") },
             subscribe = { _, subId, _ -> subId },
             unsubscribe = { },
-            sendEvent = { _, _ -> error("sendEvent must not be called") },
+            sendEvent = { _, _, _ -> error("sendEvent must not be called") },
             deriveIdentity = { _ -> authorIdentity },
         )
         // setGeohash intentionally NOT called — deleteNote should silently no-op.

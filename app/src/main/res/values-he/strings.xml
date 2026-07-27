@@ -55,5 +55,8 @@
   <string name="verify_success_system_message">verified %1$s</string>
   <string name="action_delete_note_title">מחק הערה</string>
   <string name="action_delete_note_subtitle">שולח בקשת מחיקה של nostr לממסרים</string>
+    <string name="cd_open_about">פתיחת אודות</string>
+  <string name="nearby_notes_reveal">בדיקה אם הושארו כאן פתקים</string>
+  <string name="nearby_notes_one">פתק אחד הושאר כאן — הקש לקריאה</string>
+  <string name="nearby_notes_many">%d פתקים הושארו כאן — הקש לקריאה</string>
 </resources>
-

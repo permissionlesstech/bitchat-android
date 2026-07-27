@@ -55,5 +55,7 @@
   <string name="verify_success_system_message">已验证 %1$s</string>
   <string name="action_delete_note_title">删除笔记</string>
   <string name="action_delete_note_subtitle">向中继发送 nostr 删除请求</string>
+  <string name="nearby_notes_reveal">查看这里留下的留言</string>
+  <string name="nearby_notes_one">这里留有 1 条留言 — 点按阅读</string>
+  <string name="nearby_notes_many">这里留有 %d 条留言 — 点按阅读</string>
 </resources>
-

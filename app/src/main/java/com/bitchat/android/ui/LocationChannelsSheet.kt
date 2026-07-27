@@ -34,9 +34,12 @@ import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.geohash.GeohashBookmarksStore
+import com.bitchat.android.nostr.NearbyNotesController
+import com.bitchat.android.nostr.geohashesForSampling
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
@@ -61,6 +64,7 @@ fun LocationChannelsSheet(
     // Observe location manager state
     val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
+    val notesRevealed by NearbyNotesController.shared.revealed.collectAsStateWithLifecycle()
     val selectedChannel by locationManager.selectedChannel.collectAsStateWithLifecycle()
     val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
     val appLocationEnabled by locationManager.locationServicesEnabled.collectAsStateWithLifecycle()
@@ -233,10 +237,9 @@ fun LocationChannelsSheet(
                                 }
                                 },
                                 onClick = {
-                                    // Selecting a suggested nearby channel is not a teleport
-                                    locationManager.setTeleported(false)
-                                    locationManager.select(ChannelID.Location(channel))
-                                    onDismiss()
+                                    if (locationManager.selectNearby(channel)) {
+                                        onDismiss()
+                                    }
                                 }
                             )
                         }
@@ -303,14 +306,13 @@ fun LocationChannelsSheet(
                                     }
                                 },
                                 onClick = {
-                                    // For bookmarked selection, mark teleported based on regional membership
                                     val inRegional = availableChannels.any { it.geohash == gh }
-                                    if (!inRegional && availableChannels.isNotEmpty()) {
-                                        locationManager.setTeleported(true)
-                                    } else {
-                                        locationManager.setTeleported(false)
-                                    }
-                                    locationManager.select(ChannelID.Location(channel))
+                                    locationManager.selectManual(
+                                        channel = channel,
+                                        teleported = !appLocationEnabled ||
+                                            availableChannels.isEmpty() ||
+                                            !inRegional
+                                    )
                                     onDismiss()
                                 }
                             )
@@ -417,9 +419,7 @@ fun LocationChannelsSheet(
                                         if (isValid) {
                                             val level = levelForLength(normalized.length)
                                             val channel = GeohashChannel(level = level, geohash = normalized)
-                                            // Mark this selection as a manual teleport
-                                            locationManager.setTeleported(true)
-                                            locationManager.select(ChannelID.Location(channel))
+                                            locationManager.selectManual(channel)
                                             onDismiss()
                                         } else {
                                             customError = context.getString(R.string.invalid_geohash)
@@ -477,19 +477,19 @@ fun LocationChannelsSheet(
                         ) {
                             Button(
                                 onClick = {
-                                    if (locationServicesEnabled) {
+                                    if (appLocationEnabled) {
                                         locationManager.disableLocationServices()
                                     } else {
                                         locationManager.enableLocationServices()
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (locationServicesEnabled) {
+                                    containerColor = if (appLocationEnabled) {
                                         Color.Red.copy(alpha = 0.08f)
                                     } else {
                                         standardGreen.copy(alpha = 0.12f)
                                     },
-                                    contentColor = if (locationServicesEnabled) {
+                                    contentColor = if (appLocationEnabled) {
                                         Color(0xFFBF1A1A)
                                     } else {
                                         standardGreen
@@ -498,7 +498,7 @@ fun LocationChannelsSheet(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = if (locationServicesEnabled) stringResource(R.string.disable_location_services) else stringResource(R.string.enable_location_services),
+                                    text = if (appLocationEnabled) stringResource(R.string.disable_location_services) else stringResource(R.string.enable_location_services),
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
@@ -522,22 +522,40 @@ fun LocationChannelsSheet(
     }
 
     // Lifecycle management: when presented, manage location updates
-    DisposableEffect(isPresented, permissionState, locationServicesEnabled) {
-        if (isPresented && permissionState == LocationChannelManager.PermissionState.AUTHORIZED && locationServicesEnabled) {
-            locationManager.refreshChannels()
-            locationManager.beginLiveRefresh()
+    LifecycleResumeEffect(isPresented, appLocationEnabled, systemLocationEnabled) {
+        if (isPresented) {
+            val currentPermission = locationManager.syncPermissionState()
+            if (appLocationEnabled &&
+                systemLocationEnabled &&
+                currentPermission == LocationChannelManager.PermissionState.AUTHORIZED
+            ) {
+                locationManager.beginLiveRefresh()
+            }
         }
 
-        onDispose {
+        onPauseOrDispose {
             locationManager.endLiveRefresh()
         }
     }
 
     // Sampling management: update sampling when channels/bookmarks change
-    LaunchedEffect(isPresented, availableChannels, bookmarks) {
+    LaunchedEffect(
+        isPresented,
+        availableChannels,
+        bookmarks,
+        appLocationEnabled,
+        notesRevealed
+    ) {
         if (isPresented) {
-            val geohashes = (availableChannels.map { it.geohash } + bookmarks).toSet().toList()
-            viewModel.beginGeohashSampling(geohashes)
+            val liveLocationGeohashes = geohashesForSampling(
+                availableChannels = availableChannels,
+                bookmarks = emptyList(),
+                notesRevealed = notesRevealed,
+            )
+            viewModel.beginGeohashSampling(
+                liveLocationGeohashes = liveLocationGeohashes,
+                userSelectedGeohashes = bookmarks
+            )
         } else {
             viewModel.endGeohashSampling()
         }

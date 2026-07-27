@@ -36,6 +36,7 @@ import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
+import com.bitchat.android.nostr.NearbyNotesController
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.text.SimpleDateFormat
 import java.util.*
@@ -65,12 +66,17 @@ fun LocationNotesSheet(
     // Managers
     val notesManager = remember { LocationNotesManager.getInstance() }
     val locationManager = remember { LocationChannelManager.getInstance(context) }
+    val nearbyNotesController = remember { NearbyNotesController.shared }
+
 
     // State
     val notes by notesManager.notes.collectAsStateWithLifecycle()
     val state by notesManager.state.collectAsStateWithLifecycle(LocationNotesManager.State.IDLE)
     val errorMessage by notesManager.errorMessage.collectAsStateWithLifecycle()
     val initialLoadComplete by notesManager.initialLoadComplete.collectAsStateWithLifecycle(false)
+    val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
+    val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
+
 
     // SIMPLIFIED: Get count directly from notes list (no separate counter needed)
     val count = notes.size
@@ -103,15 +109,24 @@ fun LocationNotesSheet(
         locationManager.refreshChannels()
     }
 
-    // Effect to set geohash when sheet opens
-    LaunchedEffect(geohash) {
-        notesManager.setGeohash(geohash)
-    }
-
-    // Cleanup when sheet closes
-    DisposableEffect(Unit) {
+    // Opening the notes sheet is an explicit reveal. The balanced hold lets
+    // the mesh timeline keep the shared subscription alive after dismissal.
+    DisposableEffect(
+        geohash,
+        locationEnabled,
+        permissionState,
+        nearbyNotesController,
+    ) {
+        nearbyNotesController.updateAvailability(
+            locationEnabled = locationEnabled,
+            locationAuthorized =
+                permissionState == LocationChannelManager.PermissionState.AUTHORIZED,
+            buildingGeohash = geohash,
+        )
+        nearbyNotesController.activate()
+        nearbyNotesController.reveal()
         onDispose {
-            notesManager.cancel()
+            nearbyNotesController.deactivate()
         }
     }
 
