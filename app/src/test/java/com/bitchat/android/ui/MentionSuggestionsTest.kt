@@ -25,7 +25,7 @@ class MentionSuggestionsTest {
             listOf("alice#1234", "anon7674#df5b", "anonracer#04af", "anonymous"),
             suggestions
         )
-        assertTrue(suggestions.none(::isUnannouncedMentionNickname))
+        assertTrue(suggestions.none(::isUnannouncedNickname))
     }
 
     @Test
@@ -40,11 +40,11 @@ class MentionSuggestionsTest {
 
     @Test
     fun `announced names beginning with anon stay mentionable`() {
-        assertTrue(isUnannouncedMentionNickname("anon"))
-        assertTrue(isUnannouncedMentionNickname("anon#04af"))
-        assertFalse(isUnannouncedMentionNickname("anon1234#04af"))
-        assertFalse(isUnannouncedMentionNickname("anonymous#04af"))
-        assertFalse(isUnannouncedMentionNickname("anonracer"))
+        assertTrue(isUnannouncedNickname("anon"))
+        assertTrue(isUnannouncedNickname("anon#04af"))
+        assertFalse(isUnannouncedNickname("anon1234#04af"))
+        assertFalse(isUnannouncedNickname("anonymous#04af"))
+        assertFalse(isUnannouncedNickname("anonracer"))
     }
 
     @Test

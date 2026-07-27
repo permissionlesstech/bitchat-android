@@ -2,23 +2,13 @@ package com.bitchat.android.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.LocationOn
 import android.util.Log
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,7 +18,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
-import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import java.util.*
 
@@ -48,22 +37,74 @@ fun GeohashPeopleList(
     onTapPerson: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val isTeleported by viewModel.isTeleported.collectAsStateWithLifecycle()
+    val teleportedGeo by viewModel.teleportedGeo.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
 
     val palette = LocalBitchatPalette.current
+    val myHex = remember(selectedLocationChannel) {
+        when (val channel = selectedLocationChannel) {
+            is com.bitchat.android.geohash.ChannelID.Location -> {
+                try {
+                    val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
+                        forGeohash = channel.channel.geohash,
+                        context = viewModel.getApplication()
+                    )
+                    identity.publicKeyHex.lowercase(Locale.ROOT)
+                } catch (e: Exception) {
+                    Log.e("GeohashPeopleList", "Failed to derive identity: ${e.message}")
+                    null
+                }
+            }
+            else -> null
+        }
+    }
+    val peopleIncludingSelf = remember(geohashPeople, myHex, nickname) {
+        if (myHex != null && geohashPeople.none { it.id.equals(myHex, ignoreCase = true) }) {
+            listOf(
+                GeoPerson(
+                    id = myHex,
+                    displayName = nickname.ifBlank { "anon" },
+                    lastSeen = Date(0)
+                )
+            ) + geohashPeople
+        } else {
+            geohashPeople
+        }
+    }
+    val sections = remember(peopleIncludingSelf, myHex, isTeleported, teleportedGeo) {
+        sectionGeohashPeople(
+            people = peopleIncludingSelf,
+            myId = myHex,
+            selfIsTeleported = isTeleported,
+            teleportedIds = teleportedGeo
+        )
+    }
+    val displayedPeople = remember(sections) {
+        sections.onLocation + sections.teleportedIn
+    }
+    val teleportedPersonIds = remember(sections.teleportedIn) {
+        sections.teleportedIn.mapTo(mutableSetOf()) { it.id.lowercase(Locale.ROOT) }
+    }
+    val baseNameCounts = remember(displayedPeople) {
+        buildMap {
+            displayedPeople.forEach { person ->
+                val baseName = splitSuffix(person.displayName).first
+                put(baseName, (get(baseName) ?: 0) + 1)
+            }
+        }
+    }
 
     Column(modifier = modifier) {
-        if (geohashPeople.isEmpty()) {
-            SheetIconSectionHeader(
-                iconRes = R.drawable.ic_spec_people,
-                title = stringResource(R.string.section_people)
-            )
+        SheetIconSectionHeader(
+            iconRes = R.drawable.ic_spec_people,
+            title = stringResource(R.string.people_count_title, displayedPeople.size)
+        )
+
+        if (displayedPeople.isEmpty()) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -84,77 +125,23 @@ fun GeohashPeopleList(
                 )
             }
         } else {
-            val myHex = remember(selectedLocationChannel) {
-                when (val channel = selectedLocationChannel) {
-                    is com.bitchat.android.geohash.ChannelID.Location -> {
-                        try {
-                            val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
-                                forGeohash = channel.channel.geohash,
-                                context = viewModel.getApplication()
-                            )
-                            identity.publicKeyHex.lowercase()
-                        } catch (e: Exception) {
-                            Log.e("GeohashPeopleList", "Failed to derive identity: ${e.message}")
-                            null
-                        }
-                    }
-                    else -> null
-                }
-            }
-
-            // Self first, then anyone who chose a nickname, then the anons — all by recency
-            // within their group. A busy geohash is mostly anonymous drive-by participants, and
-            // letting them sort by recency alone buried the handful of people worth recognising.
-            val orderedPeople = remember(geohashPeople, myHex) {
-                geohashPeople.sortedWith(
-                    compareByDescending<GeoPerson> { myHex != null && it.id == myHex }
-                        .thenBy { it.isAnonymous() }
-                        .thenByDescending { it.lastSeen }
-                )
-            }
-
-            val baseNameCounts = remember(geohashPeople) {
-                val counts = mutableMapOf<String, Int>()
-                geohashPeople.forEach { person ->
-                    val (b, _) = splitSuffix(person.displayName)
-                    counts[b] = (counts[b] ?: 0) + 1
-                }
-                counts
-            }
-
-            fun personTeleported(person: GeoPerson): Boolean = if (person.id == myHex) {
-                isTeleported
-            } else {
-                viewModel.isPersonTeleported(person.id)
-            }
-
-            // Two groups: peers who announced a nickname, then the anons.
-            //
-            // A busy geohash is mostly anonymous drive-by participants, and mixing them in pushed
-            // the few recognisable names out of view. Teleport state is not a grouping any more —
-            // it is already on every row as its own glyph, so splitting "on location" from
-            // "teleported in" only fragmented the short list that people actually read.
-            //
-            // Self is never grouped as an anon even when unnamed: you always want to find yourself
-            // among the people, not buried at the bottom.
-            val isSelf: (GeoPerson) -> Boolean = { myHex != null && it.id == myHex }
-            val namedPeople = orderedPeople.filter { isSelf(it) || !it.isAnonymous() }
-            val anonPeople = orderedPeople.filter { !isSelf(it) && it.isAnonymous() }
-
             @Composable
             fun personRow(person: GeoPerson) {
+                val isMe = myHex != null && person.id.equals(myHex, ignoreCase = true)
+                val personIsTeleported = if (isMe) {
+                    isTeleported
+                } else {
+                    person.id.lowercase(Locale.ROOT) in teleportedPersonIds
+                }
                 GeohashPersonItem(
                     person = person,
-                    isMe = myHex != null && person.id == myHex,
+                    isMe = isMe,
                     hasUnreadDM = unreadPrivateMessages.contains("nostr_${person.id.take(16)}"),
-                    isTeleported = person.id != myHex && viewModel.isPersonTeleported(person.id),
-                    isMyTeleported = person.id == myHex && isTeleported,
-                    nickname = nickname,
-                    colorScheme = colorScheme,
+                    isTeleported = personIsTeleported,
                     viewModel = viewModel,
                     showHashSuffix = (baseNameCounts[splitSuffix(person.displayName).first] ?: 0) > 1,
                     onTap = {
-                        if (person.id != myHex) {
+                        if (!isMe) {
                             viewModel.startGeohashDM(person.id)
                             onTapPerson()
                         }
@@ -162,64 +149,70 @@ fun GeohashPeopleList(
                 )
             }
 
-            if (namedPeople.isNotEmpty()) {
-                SheetIconSectionHeader(
-                    iconRes = R.drawable.ic_spec_people,
-                    title = stringResource(R.string.section_people)
+            if (sections.onLocation.isNotEmpty()) {
+                AboutSectionLabel(text = stringResource(R.string.section_on_location))
+                PeopleCard(
+                    people = sections.onLocation,
+                    row = { personRow(it) }
                 )
-                PeopleCard(people = namedPeople, row = { personRow(it) })
             }
 
-            if (anonPeople.isNotEmpty()) {
-                SheetIconSectionHeader(
-                    iconRes = R.drawable.ic_spec_teleport,
-                    title = stringResource(R.string.section_anon),
-                    modifier = Modifier.padding(top = if (namedPeople.isNotEmpty()) 20.dp else 0.dp)
+            if (sections.teleportedIn.isNotEmpty()) {
+                AboutSectionLabel(text = stringResource(R.string.section_teleported_in))
+                PeopleCard(
+                    people = sections.teleportedIn,
+                    row = { personRow(it) }
                 )
-                PeopleCard(people = anonPeople, capped = true, row = { personRow(it) })
             }
         }
     }
 }
 
-/** Anonymous participants beyond this many are hidden behind the "n more" affordance. */
-internal const val MaxVisibleAnons = 5
+internal data class GeohashPeopleSections(
+    val onLocation: List<GeoPerson>,
+    val teleportedIn: List<GeoPerson>
+)
 
 /**
- * Whether this participant never set a nickname.
- *
- * The app labels them `anon` or `anon1234` before the `#abcd` disambiguator, so the base name is
- * what identifies them.
+ * Split announced identities by how they entered this geohash. Bare `anon` heartbeat identities
+ * are omitted, while announced names such as `anon1234` remain ordinary participants. Self is
+ * retained even before a nickname announcement and is always first in the matching section.
  */
-internal fun GeoPerson.isAnonymous(): Boolean {
-    val base = splitSuffix(displayName).first
-    return base == "anon" || (base.startsWith("anon") && base.drop(4).all { it.isDigit() })
+internal fun sectionGeohashPeople(
+    people: List<GeoPerson>,
+    myId: String?,
+    selfIsTeleported: Boolean,
+    teleportedIds: Set<String>
+): GeohashPeopleSections {
+    val normalizedMyId = myId?.lowercase(Locale.ROOT)
+    val normalizedTeleportedIds = teleportedIds
+        .mapTo(mutableSetOf()) { it.lowercase(Locale.ROOT) }
+    fun isSelf(person: GeoPerson): Boolean =
+        normalizedMyId != null && person.id.lowercase(Locale.ROOT) == normalizedMyId
+    fun isTeleported(person: GeoPerson): Boolean =
+        if (isSelf(person)) selfIsTeleported
+        else person.id.lowercase(Locale.ROOT) in normalizedTeleportedIds
+
+    val displayedPeople = people.filter { person ->
+        isSelf(person) || !isUnannouncedNickname(person.displayName)
+    }
+    val ordered = displayedPeople.sortedWith(
+        compareByDescending<GeoPerson>(::isSelf)
+            .thenByDescending { it.lastSeen }
+    )
+    return GeohashPeopleSections(
+        onLocation = ordered.filterNot(::isTeleported),
+        teleportedIn = ordered.filter(::isTeleported)
+    )
 }
 
-/**
- * One grouped card of people.
- *
- * When [capped] the list is trimmed to [MaxVisibleAnons] rows and the remainder is collapsed behind
- * a count. That matters for the anonymous section: a popular geohash can hold dozens of anons, which
- * pushed everyone worth recognising off screen and turned the sheet into a wall of near-identical
- * rows.
- *
- * The capped card is a **fixed height** — [MaxVisibleAnons] rows plus the overflow line, always,
- * regardless of how many anons are currently present beyond the cap. Anons join and leave a busy
- * geohash constantly, and sizing to the live count made the card grow and shrink under the reader
- * every few seconds.
- */
+/** One uncapped card of people. The enclosing sheet owns scrolling. */
 @Composable
 private fun PeopleCard(
     people: List<GeoPerson>,
-    row: @Composable (GeoPerson) -> Unit,
-    capped: Boolean = false
+    row: @Composable (GeoPerson) -> Unit
 ) {
     val palette = LocalBitchatPalette.current
-
-    val visible = if (capped) people.take(MaxVisibleAnons) else people
-    val hiddenCount = people.size - visible.size
-    val isTrimmed = capped && people.size > MaxVisibleAnons
 
     Surface(
         modifier = Modifier
@@ -229,59 +222,10 @@ private fun PeopleCard(
         color = palette.surface,
         shape = AboutCardShape
     ) {
-        Column {
-            Box(
-                // Reserve the full capped height up front so the card cannot resize as anons
-                // churn. Rows are a fixed height, so this is exact rather than an estimate.
-                modifier = if (isTrimmed) {
-                    Modifier.height(SheetRowHeight * MaxVisibleAnons)
-                } else {
-                    Modifier
-                }
-            ) {
-                AnimatedRowColumn(items = visible, key = { it.id }) { index, person ->
-                    Column {
-                        if (index > 0) SheetCardDivider()
-                        if (isTrimmed && index == visible.lastIndex) {
-                            // Fade only the final row, so the gradient reads as "the list
-                            // continues" rather than dimming content still meant to be read.
-                            Box {
-                                row(person)
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                listOf(
-                                                    palette.surface.copy(alpha = 0f),
-                                                    palette.surface.copy(alpha = 0.85f)
-                                                )
-                                            )
-                                        )
-                                )
-                            }
-                        } else {
-                            row(person)
-                        }
-                    }
-                }
-            }
-
-            if (isTrimmed) {
-                // Always laid out when trimmed, so the count changing never moves anything.
-                // Only the number itself animates.
-                AnimatedCountLabel(
-                    count = hiddenCount,
-                    text = stringResource(R.string.people_n_more, hiddenCount),
-                    fontFamily = BitchatFontFamily,
-                    fontSize = 11.sp,
-                    color = palette.textTertiary,
-                    modifier = Modifier.padding(
-                        start = SheetRowHorizontal,
-                        end = SheetRowHorizontal,
-                        bottom = SheetRowVertical
-                    )
-                )
+        AnimatedRowColumn(items = people, key = { it.id }) { index, person ->
+            Column {
+                if (index > 0) SheetCardDivider()
+                row(person)
             }
         }
     }
@@ -293,25 +237,15 @@ private fun GeohashPersonItem(
     isMe: Boolean,
     hasUnreadDM: Boolean,
     isTeleported: Boolean,
-    isMyTeleported: Boolean,
-    nickname: String,
-    colorScheme: ColorScheme,
     viewModel: ChatViewModel,
     showHashSuffix: Boolean,
     onTap: () -> Unit
 ) {
     val palette = LocalBitchatPalette.current
 
-    val (iconName, iconColor) = when {
-        isMe && isMyTeleported -> "face.dashed" to palette.accentOrange
-        isTeleported -> "face.dashed" to palette.textSecondary
-        isMe -> "face.smiling" to palette.accentOrange
-        else -> "face.smiling" to palette.textSecondary
-    }
-    val statusIconRes = when (iconName) {
-        "face.dashed" -> R.drawable.ic_spec_teleport
-        else -> R.drawable.ic_spec_person
-    }
+    val statusIconRes =
+        if (isTeleported) R.drawable.ic_spec_teleport
+        else R.drawable.ic_spec_on_location_person
 
     val (baseNameRaw, suffixRaw) = splitSuffix(person.displayName)
     val baseName = truncateNickname(baseNameRaw)
@@ -343,9 +277,13 @@ private fun GeohashPersonItem(
             } else {
                 Icon(
                     painter = painterResource(statusIconRes),
-                    contentDescription = if (isTeleported || isMyTeleported) "Teleported user" else "User",
+                    contentDescription = if (isTeleported) {
+                        stringResource(R.string.cd_teleported)
+                    } else {
+                        stringResource(R.string.section_on_location)
+                    },
                     modifier = Modifier.size(22.dp),
-                    tint = iconColor.copy(alpha = if (iconName == "face.dashed") 0.6f else 1.0f)
+                    tint = baseColor
                 )
             }
         }

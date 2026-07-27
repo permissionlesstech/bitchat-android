@@ -546,14 +546,9 @@ internal fun filterMentionCandidates(
     return candidates.asSequence()
         .map(String::trim)
         .filter(String::isNotEmpty)
-        .filterNot(::isUnannouncedMentionNickname)
+        .filterNot(::isUnannouncedNickname)
         .filter { nickname -> nickname.startsWith(query, ignoreCase = true) }
         .distinctBy { nickname -> nickname.lowercase(Locale.ROOT) }
         .sortedWith(String.CASE_INSENSITIVE_ORDER)
         .toList()
-}
-
-internal fun isUnannouncedMentionNickname(displayName: String): Boolean {
-    val base = splitSuffix(displayName.trim()).first
-    return base.equals("anon", ignoreCase = true)
 }

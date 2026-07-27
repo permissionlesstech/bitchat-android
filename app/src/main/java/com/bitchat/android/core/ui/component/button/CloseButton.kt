@@ -8,6 +8,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.R
@@ -24,8 +25,8 @@ fun CloseButton(
         // 44.dp to match every other tap target in the app's chrome.
         modifier = modifier.size(44.dp),
         colors = IconButtonDefaults.iconButtonColors(
-            contentColor = palette.textSecondary,
-            containerColor = palette.surfaceVariant
+            contentColor = palette.accentGreen,
+            containerColor = Color.Transparent
         )
     ) {
         Icon(
