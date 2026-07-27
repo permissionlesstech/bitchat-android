@@ -1,9 +1,13 @@
 package com.bitchat.android.ui
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
@@ -29,14 +33,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -49,12 +58,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -84,10 +93,14 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-
+import kotlin.coroutines.resume
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VerificationSheet(
@@ -320,8 +333,38 @@ private fun ScanTabContent(
     accent: Color,
     onScan: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val permissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
-    
+    var galleryMessage by remember { mutableStateOf<String?>(null) }
+    var isScanningGallery by remember { mutableStateOf(false) }
+    val noQrMessage = stringResource(R.string.verify_gallery_no_qr)
+    val failedMessage = stringResource(R.string.verify_gallery_failed)
+    val onScanState = rememberUpdatedState(onScan)
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        galleryMessage = null
+        isScanningGallery = true
+        scope.launch {
+            val result = scanQrFromUri(context, uri)
+            isScanningGallery = false
+            when (result) {
+                is GalleryQrResult.Success -> onScanState.value(result.text)
+                GalleryQrResult.NoQrFound -> galleryMessage = noQrMessage
+                GalleryQrResult.Failed -> galleryMessage = failedMessage
+            }
+        }
+    }
+
+    fun openGallery() {
+        // Clear any prior error before opening the picker (including cancel)
+        galleryMessage = null
+        galleryLauncher.launch("image/*")
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -339,19 +382,14 @@ private fun ScanTabContent(
                 contentAlignment = Alignment.Center
             ) {
                 ScannerView(onScan = onScan)
-                
+
                 // Overlay border
                 Box(
                     modifier = Modifier
                         .size(280.dp)
                         .border(2.dp, accent.copy(alpha = 0.8f), RoundedCornerShape(16.dp))
                 )
-                
-                // Corner accents for the overlay
-                Box(modifier = Modifier.size(260.dp)) {
-                    // This could be drawn with Canvas for cooler effect, but simple border is cleaner for now
-                }
-                
+
                 Text(
                     text = stringResource(R.string.verify_scan_prompt_friend),
                     color = Color.White,
@@ -363,44 +401,179 @@ private fun ScanTabContent(
                         .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 )
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .background(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        RoundedCornerShape(24.dp)
-                    )
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.QrCodeScanner,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = accent
+
+                GalleryScanButton(
+                    accent = accent,
+                    enabled = !isScanningGallery,
+                    onClick = { openGallery() },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp)
                 )
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = stringResource(R.string.verify_camera_permission),
-                    fontFamily = FontFamily.Monospace,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(32.dp))
-                Button(
-                    onClick = { permissionState.launchPermissionRequest() },
-                    colors = ButtonDefaults.buttonColors(containerColor = accent)
-                ) {
-                    Text(
-                        text = stringResource(R.string.verify_request_camera),
-                        fontFamily = FontFamily.Monospace
+
+                if (isScanningGallery) {
+                    CircularProgressIndicator(
+                        color = accent,
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            RoundedCornerShape(24.dp)
+                        )
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.QrCodeScanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = accent
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = stringResource(R.string.verify_camera_permission),
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Button(
+                        onClick = { permissionState.launchPermissionRequest() },
+                        colors = ButtonDefaults.buttonColors(containerColor = accent)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.verify_request_camera),
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { openGallery() },
+                        enabled = !isScanningGallery,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = accent
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Photo,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text(
+                            text = stringResource(R.string.verify_scan_gallery),
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                if (isScanningGallery) {
+                    CircularProgressIndicator(
+                        color = accent,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+            }
+        }
+
+        galleryMessage?.let { message ->
+            Text(
+                text = message,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun GalleryScanButton(
+    accent: Color,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = Color.Black.copy(alpha = 0.65f),
+            contentColor = Color.White,
+            disabledContainerColor = Color.Black.copy(alpha = 0.35f),
+            disabledContentColor = Color.White.copy(alpha = 0.5f)
+        ),
+        modifier = modifier
+            .size(48.dp)
+            .border(1.dp, accent.copy(alpha = 0.8f), CircleShape)
+            .clip(CircleShape)
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Photo,
+            contentDescription = stringResource(R.string.verify_scan_gallery),
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+private sealed class GalleryQrResult {
+    data class Success(val text: String) : GalleryQrResult()
+    data object NoQrFound : GalleryQrResult()
+    data object Failed : GalleryQrResult()
+}
+
+/**
+ * Load and decode a QR from a gallery URI off the main thread to avoid ANR/jank
+ * on large or cloud-backed images.
+ */
+private suspend fun scanQrFromUri(context: Context, uri: Uri): GalleryQrResult {
+    return withContext(Dispatchers.IO) {
+        val scanner = BarcodeScanning.getClient(
+            BarcodeScannerOptions.Builder()
+                .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+                .build()
+        )
+        try {
+            val image = InputImage.fromFilePath(context, uri)
+            suspendCancellableCoroutine<GalleryQrResult> { cont ->
+                scanner.process(image)
+                    .addOnSuccessListener { barcodes ->
+                        val text = barcodes.firstOrNull()?.rawValue?.takeIf { it.isNotBlank() }
+                        if (cont.isActive) {
+                            cont.resume(
+                                if (text != null) GalleryQrResult.Success(text)
+                                else GalleryQrResult.NoQrFound
+                            )
+                        }
+                    }
+                    .addOnFailureListener { error ->
+                        Log.w("VerificationSheet", "Gallery QR scan failed: ${error.message}")
+                        if (cont.isActive) cont.resume(GalleryQrResult.Failed)
+                    }
+                    .addOnCompleteListener { scanner.close() }
+                cont.invokeOnCancellation {
+                    runCatching { scanner.close() }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("VerificationSheet", "Could not load gallery image: ${e.message}")
+            runCatching { scanner.close() }
+            GalleryQrResult.Failed
         }
     }
 }
