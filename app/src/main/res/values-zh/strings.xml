@@ -427,4 +427,7 @@
   <string name="notices_alert_urgent_single">📌 来自 @%1$s 的紧急公告：%2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d 条新紧急公告 — 点按图钉查看</string>
     <string name="cd_open_about">打开“关于”</string>
+  <string name="nearby_notes_reveal">查看这里留下的留言</string>
+  <string name="nearby_notes_one">这里留有 1 条留言 — 点按阅读</string>
+  <string name="nearby_notes_many">这里留有 %d 条留言 — 点按阅读</string>
 </resources>

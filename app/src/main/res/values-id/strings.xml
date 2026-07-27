@@ -415,4 +415,7 @@
   <string name="notices_alert_urgent_single">📌 pengumuman mendesak dari @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d pengumuman mendesak baru — ketuk pin untuk melihat</string>
     <string name="cd_open_about">Buka Tentang</string>
+  <string name="nearby_notes_reveal">periksa catatan yang ditinggalkan di sini</string>
+  <string name="nearby_notes_one">1 catatan ditinggalkan di sini — ketuk untuk membaca</string>
+  <string name="nearby_notes_many">%d catatan ditinggalkan di sini — ketuk untuk membaca</string>
 </resources>

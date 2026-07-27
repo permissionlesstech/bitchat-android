@@ -415,4 +415,7 @@
   <string name="notices_alert_urgent_single">📌 @%1$s님의 긴급 공지: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 새 긴급 공지 %1$d개 — 핀을 탭하여 확인</string>
     <string name="cd_open_about">정보 열기</string>
+  <string name="nearby_notes_reveal">여기 남겨진 쪽지 확인</string>
+  <string name="nearby_notes_one">여기 남겨진 쪽지 1개 — 탭하여 읽기</string>
+  <string name="nearby_notes_many">여기 남겨진 쪽지 %d개 — 탭하여 읽기</string>
 </resources>

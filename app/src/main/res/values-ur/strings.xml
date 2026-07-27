@@ -415,4 +415,7 @@
   <string name="notices_alert_urgent_single">📌 @%1$s کا فوری اعلان: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d نئے فوری اعلانات — دیکھنے کیلئے پن پر ٹیپ کریں</string>
     <string name="cd_open_about">تعارف کھولیں</string>
+  <string name="nearby_notes_reveal">دیکھیں کہ یہاں نوٹ چھوڑے گئے ہیں یا نہیں</string>
+  <string name="nearby_notes_one">یہاں 1 نوٹ چھوڑا گیا ہے — پڑھنے کے لیے تھپتھپائیں</string>
+  <string name="nearby_notes_many">یہاں %d نوٹ چھوڑے گئے ہیں — پڑھنے کے لیے تھپتھپائیں</string>
 </resources>

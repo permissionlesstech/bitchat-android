@@ -34,6 +34,8 @@ import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.geohash.GeohashBookmarksStore
+import com.bitchat.android.nostr.NearbyNotesController
+import com.bitchat.android.nostr.geohashesForSampling
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,6 +63,7 @@ fun LocationChannelsSheet(
     // Observe location manager state
     val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
+    val notesRevealed by NearbyNotesController.shared.revealed.collectAsStateWithLifecycle()
     val selectedChannel by locationManager.selectedChannel.collectAsStateWithLifecycle()
     val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
     val appLocationEnabled by locationManager.locationServicesEnabled.collectAsStateWithLifecycle()
@@ -534,9 +537,13 @@ fun LocationChannelsSheet(
     }
 
     // Sampling management: update sampling when channels/bookmarks change
-    LaunchedEffect(isPresented, availableChannels, bookmarks) {
+    LaunchedEffect(isPresented, availableChannels, bookmarks, notesRevealed) {
         if (isPresented) {
-            val geohashes = (availableChannels.map { it.geohash } + bookmarks).toSet().toList()
+            val geohashes = geohashesForSampling(
+                availableChannels = availableChannels,
+                bookmarks = bookmarks,
+                notesRevealed = notesRevealed,
+            )
             viewModel.beginGeohashSampling(geohashes)
         } else {
             viewModel.endGeohashSampling()

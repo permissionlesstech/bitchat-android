@@ -415,4 +415,7 @@
   <string name="notices_alert_urgent_single">📌 إعلان عاجل من @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d إعلانات عاجلة جديدة — اضغط على الدبوس للعرض</string>
     <string name="cd_open_about">فتح قسم حول</string>
+  <string name="nearby_notes_reveal">تحقّق من الملاحظات المتروكة هنا</string>
+  <string name="nearby_notes_one">تُركت ملاحظة واحدة هنا — انقر للقراءة</string>
+  <string name="nearby_notes_many">تُركت %d ملاحظات هنا — انقر للقراءة</string>
 </resources>

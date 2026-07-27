@@ -402,4 +402,7 @@
   <string name="notices_alert_urgent_single">📌 thông báo khẩn từ @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d thông báo khẩn mới — chạm vào ghim để xem</string>
     <string name="cd_open_about">Mở phần Giới thiệu</string>
+  <string name="nearby_notes_reveal">kiểm tra ghi chú để lại ở đây</string>
+  <string name="nearby_notes_one">có 1 ghi chú để lại ở đây — chạm để đọc</string>
+  <string name="nearby_notes_many">có %d ghi chú để lại ở đây — chạm để đọc</string>
 </resources>

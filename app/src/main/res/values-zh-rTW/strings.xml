@@ -53,7 +53,6 @@
   <string name="verify_success_title">已验证</string>
   <string name="verify_success_body">你已验证 %1$s</string>
   <string name="verify_success_system_message">已验证 %1$s</string>
-
   <string name="cd_notices">公告</string>
   <string name="notices_title">公告</string>
   <string name="notices_tab_geo_count">區域 · %1$d</string>
@@ -67,4 +66,7 @@
   <string name="notices_enable_location">啟用位置</string>
   <string name="notices_alert_urgent_single">📌 來自 @%1$s 的緊急公告：%2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d 則新緊急公告 — 點按圖釘查看</string>
+  <string name="nearby_notes_reveal">查看這裡留下的留言</string>
+  <string name="nearby_notes_one">這裡留有 1 則留言 — 點按閱讀</string>
+  <string name="nearby_notes_many">這裡留有 %d 則留言 — 點按閱讀</string>
 </resources>

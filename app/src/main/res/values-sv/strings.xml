@@ -402,4 +402,7 @@
   <string name="notices_alert_urgent_single">📌 brådskande anslag från @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d nya brådskande anslag — tryck på nålen för att visa</string>
     <string name="cd_open_about">Öppna Om</string>
+  <string name="nearby_notes_reveal">kolla om anteckningar lämnats här</string>
+  <string name="nearby_notes_one">1 anteckning lämnad här — tryck för att läsa</string>
+  <string name="nearby_notes_many">%d anteckningar lämnade här — tryck för att läsa</string>
 </resources>

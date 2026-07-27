@@ -415,4 +415,7 @@
   <string name="notices_alert_urgent_single">📌 @%1$sからの緊急のお知らせ: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 新しい緊急のお知らせが%1$d件 — ピンをタップして表示</string>
     <string name="cd_open_about">このアプリについてを開く</string>
+  <string name="nearby_notes_reveal">ここに残されたメモを確認</string>
+  <string name="nearby_notes_one">ここに1件のメモがあります — タップして読む</string>
+  <string name="nearby_notes_many">ここに%d件のメモがあります — タップして読む</string>
 </resources>

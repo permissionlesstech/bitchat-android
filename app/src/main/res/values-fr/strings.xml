@@ -428,4 +428,7 @@
   <string name="notices_alert_urgent_single">📌 annonce urgente de @%1$s : %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d nouvelles annonces urgentes — touche l\'épingle pour voir</string>
     <string name="cd_open_about">Ouvrir À propos</string>
+  <string name="nearby_notes_reveal">vérifier s\'il y a des notes laissées ici</string>
+  <string name="nearby_notes_one">1 note laissée ici — appuyez pour lire</string>
+  <string name="nearby_notes_many">%d notes laissées ici — appuyez pour lire</string>
 </resources>

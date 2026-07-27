@@ -402,4 +402,7 @@
   <string name="notices_alert_urgent_single">📌 @%1$s-এর জরুরি নোটিশ: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$dটি নতুন জরুরি নোটিশ — দেখতে পিনে ট্যাপ করুন</string>
     <string name="cd_open_about">পরিচিতি খুলুন</string>
+  <string name="nearby_notes_reveal">এখানে রাখা নোট আছে কি না দেখুন</string>
+  <string name="nearby_notes_one">এখানে 1টি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
+  <string name="nearby_notes_many">এখানে %dটি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
 </resources>

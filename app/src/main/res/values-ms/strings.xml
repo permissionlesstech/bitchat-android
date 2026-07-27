@@ -55,4 +55,7 @@
   <string name="notices_alert_urgent_single">📌 pengumuman segera daripada @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d pengumuman segera baharu — ketik pin untuk melihat</string>
     <string name="cd_open_about">Buka Perihal</string>
+  <string name="nearby_notes_reveal">semak nota yang ditinggalkan di sini</string>
+  <string name="nearby_notes_one">1 nota ditinggalkan di sini — ketik untuk baca</string>
+  <string name="nearby_notes_many">%d nota ditinggalkan di sini — ketik untuk baca</string>
 </resources>

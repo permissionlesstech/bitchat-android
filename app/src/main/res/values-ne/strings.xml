@@ -414,4 +414,7 @@
   <string name="notices_alert_urgent_single">📌 @%1$sको जरुरी सूचना: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d नयाँ जरुरी सूचना — हेर्न पिन ट्याप गर</string>
     <string name="cd_open_about">परिचय खोल्नुहोस्</string>
+  <string name="nearby_notes_reveal">यहाँ छोडिएका नोटहरू छन् कि हेर्नुहोस्</string>
+  <string name="nearby_notes_one">यहाँ 1 नोट छोडिएको छ — पढ्न ट्याप गर्नुहोस्</string>
+  <string name="nearby_notes_many">यहाँ %d नोटहरू छोडिएका छन् — पढ्न ट्याप गर्नुहोस्</string>
 </resources>

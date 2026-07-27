@@ -416,4 +416,7 @@
   <string name="notices_alert_urgent_single">📌 dringender hinweis von @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d neue dringende hinweise — tippe zum ansehen auf den pin</string>
     <string name="cd_open_about">Info öffnen</string>
+  <string name="nearby_notes_reveal">nachsehen, ob hier notizen hinterlassen wurden</string>
+  <string name="nearby_notes_one">1 notiz hier hinterlassen — tippen zum lesen</string>
+  <string name="nearby_notes_many">%d notizen hier hinterlassen — tippen zum lesen</string>
 </resources>

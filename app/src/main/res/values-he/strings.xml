@@ -68,4 +68,7 @@
   <string name="notices_alert_urgent_single">📌 מודעה דחופה מאת @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d מודעות דחופות חדשות — הקש על הנעץ לצפייה</string>
     <string name="cd_open_about">פתיחת אודות</string>
+  <string name="nearby_notes_reveal">בדיקה אם הושארו כאן פתקים</string>
+  <string name="nearby_notes_one">פתק אחד הושאר כאן — הקש לקריאה</string>
+  <string name="nearby_notes_many">%d פתקים הושארו כאן — הקש לקריאה</string>
 </resources>

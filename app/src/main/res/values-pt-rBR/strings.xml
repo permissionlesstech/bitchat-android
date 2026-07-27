@@ -400,7 +400,6 @@
   <string name="verify_success_title">Verificado</string>
   <string name="verify_success_body">Você verificou %1$s</string>
   <string name="verify_success_system_message">verificou %1$s</string>
-
   <string name="cd_notices">avisos</string>
   <string name="notices_title">avisos</string>
   <string name="notices_tab_geo_count">geo · %1$d</string>
@@ -414,4 +413,7 @@
   <string name="notices_enable_location">habilitar localização</string>
   <string name="notices_alert_urgent_single">📌 aviso urgente de @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d avisos urgentes novos — toque no pin para ver</string>
+  <string name="nearby_notes_reveal">ver se há notas deixadas aqui</string>
+  <string name="nearby_notes_one">1 nota deixada aqui — toque para ler</string>
+  <string name="nearby_notes_many">%d notas deixadas aqui — toque para ler</string>
 </resources>

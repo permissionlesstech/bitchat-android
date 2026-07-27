@@ -414,4 +414,7 @@
   <string name="notices_alert_urgent_single">📌 agarang paunawa mula kay @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d bagong agarang paunawa — i-tap ang pin para makita</string>
     <string name="cd_open_about">Buksan ang Tungkol</string>
+  <string name="nearby_notes_reveal">tingnan kung may mga note na naiwan dito</string>
+  <string name="nearby_notes_one">1 note ang naiwan dito — i-tap para basahin</string>
+  <string name="nearby_notes_many">%d note ang naiwan dito — i-tap para basahin</string>
 </resources>

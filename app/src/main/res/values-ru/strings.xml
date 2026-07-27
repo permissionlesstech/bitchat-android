@@ -404,4 +404,7 @@
   <string name="notices_alert_urgent_single">📌 срочное объявление от @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d новых срочных объявлений — нажми на булавку, чтобы посмотреть</string>
     <string name="cd_open_about">Открыть раздел «О приложении»</string>
+  <string name="nearby_notes_reveal">проверить, есть ли здесь заметки</string>
+  <string name="nearby_notes_one">здесь оставлена 1 заметка — нажмите, чтобы прочитать</string>
+  <string name="nearby_notes_many">здесь оставлено заметок: %d — нажмите, чтобы прочитать</string>
 </resources>

@@ -402,4 +402,7 @@
   <string name="notices_alert_urgent_single">📌 @%1$s kişisinden acil duyuru: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d yeni acil duyuru — görmek için raptiyeye dokun</string>
     <string name="cd_open_about">Hakkında’yı aç</string>
+  <string name="nearby_notes_reveal">buraya bırakılan notlara bak</string>
+  <string name="nearby_notes_one">buraya 1 not bırakıldı — okumak için dokun</string>
+  <string name="nearby_notes_many">buraya %d not bırakıldı — okumak için dokun</string>
 </resources>

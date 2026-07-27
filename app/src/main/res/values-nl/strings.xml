@@ -446,4 +446,7 @@
   <string name="notices_alert_urgent_single">📌 dringende mededeling van @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d nieuwe dringende mededelingen — tik op de pin om te bekijken</string>
     <string name="cd_open_about">Info openen</string>
+  <string name="nearby_notes_reveal">kijk of hier notities zijn achtergelaten</string>
+  <string name="nearby_notes_one">1 notitie hier achtergelaten — tik om te lezen</string>
+  <string name="nearby_notes_many">%d notities hier achtergelaten — tik om te lezen</string>
 </resources>

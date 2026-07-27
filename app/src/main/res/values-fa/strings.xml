@@ -402,4 +402,7 @@
   <string name="notices_alert_urgent_single">📌 اطلاعیهٔ فوری از @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 %1$d اطلاعیهٔ فوری جدید — برای مشاهده روی سنجاق بزنید</string>
     <string name="cd_open_about">باز کردن درباره</string>
+  <string name="nearby_notes_reveal">یادداشت‌های باقی‌مانده در اینجا را بررسی کنید</string>
+  <string name="nearby_notes_one">۱ یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>
+  <string name="nearby_notes_many">%d یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>
 </resources>

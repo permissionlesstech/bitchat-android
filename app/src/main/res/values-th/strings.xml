@@ -402,4 +402,7 @@
   <string name="notices_alert_urgent_single">📌 ประกาศด่วนจาก @%1$s: %2$s</string>
   <string name="notices_alert_urgent_collapsed">📌 ประกาศด่วนใหม่ %1$d รายการ — แตะหมุดเพื่อดู</string>
     <string name="cd_open_about">เปิดเกี่ยวกับ</string>
+  <string name="nearby_notes_reveal">ดูว่ามีโน้ตทิ้งไว้ที่นี่หรือไม่</string>
+  <string name="nearby_notes_one">มี 1 โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
+  <string name="nearby_notes_many">มี %d โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
 </resources>
