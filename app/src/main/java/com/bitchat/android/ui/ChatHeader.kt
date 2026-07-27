@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.RowScope
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.BitChatBrandButton
+import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.ui.theme.BitchatMotion
@@ -620,17 +621,7 @@ private fun ChannelHeader(
         title = "#$channel",
         onTitleClick = onSidebarClick
     ) {
-        ConversationHeaderAction(
-            onClick = onBackClick,
-            contentDescription = stringResource(R.string.close_plain)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_spec_close),
-                contentDescription = stringResource(R.string.close_plain),
-                modifier = Modifier.size(HeaderIconSize),
-                tint = colorScheme.onSurfaceVariant
-            )
-        }
+        CloseButton(onClick = onBackClick)
     }
 }
 
