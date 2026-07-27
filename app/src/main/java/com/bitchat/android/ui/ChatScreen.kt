@@ -30,9 +30,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
@@ -300,21 +297,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 }
             )
 
-            if (
-                displayMessages.isEmpty() &&
-                isMeshTimeline &&
-                !nearbyNotesRevealed &&
-                locationEnabled &&
-                locationPermissionState ==
-                    LocationChannelManager.PermissionState.AUTHORIZED &&
-                buildingGeohash != null
-            ) {
-                NearbyNotesRevealHint(
-                    onClick = nearbyNotesController::reveal,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-            }
-
             if (showNotesStrip) {
                 NearbyNotesStrip(
                     noteCount = nearbyNotes.size,
@@ -523,30 +505,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     Text(stringResource(android.R.string.cancel))
                 }
             }
-        )
-    }
-}
-
-@Composable
-private fun NearbyNotesRevealHint(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val actionLabel = stringResource(R.string.nearby_notes_reveal)
-    TextButton(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 24.dp)
-            .semantics { contentDescription = actionLabel },
-    ) {
-        Text(
-            text = "📍 $actionLabel",
-            modifier = Modifier.clearAndSetSemantics { },
-            color = MaterialTheme.colorScheme.primary,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
         )
     }
 }
