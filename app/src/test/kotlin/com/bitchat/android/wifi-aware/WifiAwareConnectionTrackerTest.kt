@@ -17,21 +17,21 @@ import java.net.Socket
 
 class WifiAwareConnectionTrackerTest {
     @Test
-    fun `compare and rebind rejects stale authenticated socket after replacement`() {
+    fun `compare and rebind rejects stale observed socket after replacement`() {
         val tracker = WifiAwareConnectionTracker(
             CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
             mock<ConnectivityManager>()
         )
-        val authenticatedSocket = syncedSocket()
+        val observedSocket = syncedSocket()
         val replacementSocket = syncedSocket()
-        tracker.onClientConnected("provisional", authenticatedSocket)
+        tracker.onClientConnected("provisional", observedSocket)
         tracker.onClientConnected("provisional", replacementSocket)
 
         assertFalse(
             tracker.rebindPeerIdIfCurrent(
                 previousPeerId = "provisional",
                 resolvedPeerId = "canonical",
-                expectedSocket = authenticatedSocket
+                expectedSocket = observedSocket
             )
         )
         assertSame(replacementSocket, tracker.getSocketForPeer("provisional"))
@@ -49,7 +49,7 @@ class WifiAwareConnectionTrackerTest {
     }
 
     @Test
-    fun `authenticated provisional socket cannot displace existing canonical socket`() {
+    fun `observed provisional socket cannot displace existing canonical socket`() {
         val tracker = WifiAwareConnectionTracker(
             CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
             mock<ConnectivityManager>()

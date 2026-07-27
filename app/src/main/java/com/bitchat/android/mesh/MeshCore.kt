@@ -44,7 +44,6 @@ class MeshCore(
     data class Hooks(
         val onMessageReceived: ((BitchatMessage) -> Unit)? = null,
         val onAnnounceProcessed: ((RoutedPacket, Boolean) -> Unit)? = null,
-        val onDirectNoiseAuthenticated: ((String, String, String, ByteArray) -> Unit)? = null,
         val readReceiptInterceptor: ((String, String) -> Boolean)? = null,
         val onReadReceiptSent: ((String) -> Unit)? = null,
         val announcementNicknameProvider: (() -> String?)? = null,
@@ -156,12 +155,14 @@ class MeshCore(
         isActive = false
         announceJob?.cancel()
         announceJob = null
+        directPeers.clear()
         if (ownsGossipManager) {
             gossipSyncManager.stop()
         }
     }
 
     fun shutdown() {
+        directPeers.clear()
         peerManager.shutdown()
         fragmentManager.shutdown()
         securityManager.shutdown()
@@ -215,6 +216,7 @@ class MeshCore(
             }
 
             override fun onPeerRemoved(peerID: String) {
+                directPeers.remove(peerID)
                 authenticatedPeerState.clear(peerID)
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
                 try { encryptionService.removePeer(peerID) } catch (_: Exception) { }
@@ -235,14 +237,6 @@ class MeshCore(
                     authenticatedRemoteStaticKey,
                     authenticatedSessionToken
                 )
-                if (directRelayAddress != null && ingressLinkID != null) {
-                    hooks.onDirectNoiseAuthenticated?.invoke(
-                        peerID,
-                        directRelayAddress,
-                        ingressLinkID,
-                        authenticatedRemoteStaticKey
-                    )
-                }
                 scope.launch {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
@@ -845,6 +839,7 @@ class MeshCore(
     }
 
     fun removePeer(peerID: String) {
+        directPeers.remove(peerID)
         peerManager.removePeer(peerID)
     }
 
@@ -895,44 +890,6 @@ class MeshCore(
             } catch (e: Exception) {
                 Log.e("MeshCore", "Failed to initiate Noise handshake with $peerID: ${e.message}")
             }
-        }
-    }
-
-    /**
-     * Starts a fresh replacement handshake on one exact direct transport generation.
-     * This authenticates provisional transport claims without broadcasting the challenge or
-     * accidentally sending it through a socket that later reused the same alias.
-     */
-    fun initiateNoiseHandshakeOnLink(
-        peerID: String,
-        relayAddress: String,
-        ingressLinkID: String
-    ): Boolean {
-        return try {
-            val handshakeData = encryptionService.initiateHandshake(
-                peerID,
-                replaceEstablished = true
-            ) ?: return false
-            val packet = BitchatPacket(
-                version = 1u,
-                type = MessageType.NOISE_HANDSHAKE.value,
-                senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
-                recipientID = MeshPacketUtils.hexStringToByteArray(peerID),
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = handshakeData,
-                ttl = maxTtl
-            )
-            transport.sendPacketToLink(
-                relayAddress,
-                ingressLinkID,
-                signPacketBeforeBroadcast(packet)
-            )
-        } catch (e: Exception) {
-            Log.e(
-                "MeshCore",
-                "Failed to initiate link-bound Noise handshake with $peerID: ${e.message}"
-            )
-            false
         }
     }
 
@@ -989,6 +946,7 @@ class MeshCore(
     }
 
     fun clearAllInternalData() {
+        directPeers.clear()
         fragmentManager.clearAllFragments()
         storeForwardManager.clearAllCache()
         securityManager.clearAllData()
