@@ -2,25 +2,22 @@ package com.bitchat.android.ui.media
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
+import com.bitchat.android.core.ui.component.text.AnnotatedClickableText
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import androidx.compose.material3.ColorScheme
@@ -58,23 +55,21 @@ fun AudioMessageItem(
             timeFormatter = timeFormatter
         )
         val haptic = LocalHapticFeedback.current
-        var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-        Text(
+        AnnotatedClickableText(
             text = headerText,
+            annotationTags = listOf("nickname_click"),
+            onAnnotationClick = { tag, item ->
+                if (tag == "nickname_click" && onNicknameClick != null) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onNicknameClick.invoke(item)
+                    true
+                } else {
+                    false
+                }
+            },
+            onLongPress = { onMessageLongPress?.invoke(message) },
             fontFamily = FontFamily.Monospace,
             color = colorScheme.onSurface,
-            modifier = Modifier.pointerInput(message.id) {
-                detectTapGestures(onTap = { pos ->
-                    val layout = headerLayout ?: return@detectTapGestures
-                    val offset = layout.getOffsetForPosition(pos)
-                    val ann = headerText.getStringAnnotations("nickname_click", offset, offset)
-                    if (ann.isNotEmpty() && onNicknameClick != null) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onNicknameClick.invoke(ann.first().item)
-                    }
-                }, onLongPress = { onMessageLongPress?.invoke(message) })
-            },
-            onTextLayout = { headerLayout = it }
         )
 
         Row(verticalAlignment = Alignment.CenterVertically) {

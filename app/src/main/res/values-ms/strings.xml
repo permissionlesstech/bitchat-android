@@ -40,5 +40,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Buka Perihal</string>
+  <string name="nearby_notes_reveal">semak nota yang ditinggalkan di sini</string>
+  <string name="nearby_notes_one">1 nota ditinggalkan di sini — ketik untuk baca</string>
+  <string name="nearby_notes_many">%d nota ditinggalkan di sini — ketik untuk baca</string>
 </resources>
-

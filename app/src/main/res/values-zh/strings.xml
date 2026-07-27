@@ -280,7 +280,6 @@
     <string name="grant_permissions">授予权限</string>
     <string name="location_tracking_warning">bitchat 不会跟踪你的位置</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">成员</string>
     <string name="nobody_around">附近无人…</string>
@@ -413,4 +412,8 @@
   <string name="verify_success_title">已验证</string>
   <string name="verify_success_body">你已验证 %1$s</string>
   <string name="verify_success_system_message">已验证 %1$s</string>
+    <string name="cd_open_about">打开“关于”</string>
+  <string name="nearby_notes_reveal">查看这里留下的留言</string>
+  <string name="nearby_notes_one">这里留有 1 条留言 — 点按阅读</string>
+  <string name="nearby_notes_many">这里留有 %d 条留言 — 点按阅读</string>
 </resources>

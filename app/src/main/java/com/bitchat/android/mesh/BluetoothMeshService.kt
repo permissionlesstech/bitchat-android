@@ -170,8 +170,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         peerManager.isPeerDirectlyConnected = { peerID ->
             connectionManager.addressPeerMap.containsValue(peerID)
         }
-        
-        Log.d(TAG, "Delegates set up; GossipSyncManager initialized")
     }
 
     override fun send(packet: RoutedPacket) {
@@ -205,19 +203,17 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      */
     private fun startPeriodicDebugLogging() {
         serviceScope.launch {
-            Log.d(TAG, "Starting periodic debug logging loop")
             while (isActive) {
                 try {
                     delay(10000) // 10 seconds
                     if (isActive) { // Double-check before logging
                         val debugInfo = getDebugStatus()
-                        Log.d(TAG, "=== PERIODIC DEBUG STATUS ===\n$debugInfo\n=== END DEBUG STATUS ===")
+                        Log.d(TAG, "Periodic debug status:\n$debugInfo")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in periodic debug logging: ${e.message}")
                 }
             }
-            Log.d(TAG, "Periodic debug logging loop ended (isActive=$isActive)")
         }
     }
 
@@ -227,7 +223,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private fun sendPeriodicBroadcastAnnounce() {
         announceJob?.cancel()
         announceJob = serviceScope.launch {
-            Log.d(TAG, "Starting periodic announce loop")
             while (isActive) {
                 try {
                     delay(30000) // 30 seconds
@@ -236,7 +231,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     Log.e(TAG, "Error in periodic broadcast announce: ${e.message}")
                 }
             }
-            Log.d(TAG, "Periodic announce loop ended (isActive=$isActive)")
         }
     }
     
@@ -244,7 +238,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      * Setup delegate connections between components
      */
     private fun setupDelegates() {
-        Log.d(TAG, "Setting up component delegates")
         // Provide nickname resolver to BLE broadcaster and debug manager
         try {
             val resolver: (String) -> String? = { pid -> peerManager.getPeerNickname(pid) }
@@ -269,7 +262,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 // Also drop any Noise session state for this peer when they go offline
                 try {
                     encryptionService.removePeer(peerID)
-                    Log.d(TAG, "Removed Noise session for offline peer $peerID")
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to remove Noise session for $peerID: ${e.message}")
                 }
@@ -308,7 +300,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 }
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
-                    Log.d(TAG, "Key exchange completed with $peerID; sending follow-ups")
                     delay(100)
                     sendAnnouncementToPeer(peerID)
                     
@@ -331,7 +322,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 // Sign the handshake response
                 val signedPacket = signPacketBeforeBroadcast(responsePacket)
                 broadcastRoutedPacket(RoutedPacket(signedPacket))
-                Log.d(TAG, "Sent Noise handshake response to $peerID (${response.size} bytes)")
             }
             
             override fun getPeerInfo(peerID: String): PeerInfo? {
@@ -461,7 +451,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                         // Sign the handshake packet before broadcasting
                         val signedPacket = signPacketBeforeBroadcast(packet)
                         broadcastRoutedPacket(RoutedPacket(signedPacket))
-                        Log.d(TAG, "Initiated Noise handshake with $peerID (${handshakeData.size} bytes)")
                     } else {
                         Log.w(TAG, "Failed to generate Noise handshake data for $peerID")
                     }
@@ -705,7 +694,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun onDeviceConnected(device: android.bluetooth.BluetoothDevice) {
                 // Send initial announcements after services are ready
                 serviceScope.launch {
-                    Log.d(TAG, "Device connected: ${device.address}; scheduling announce")
+                    Log.i(TAG, "Device connected: ${device.address}")
                     delay(200)
                     sendBroadcastAnnounce()
                 }
@@ -723,7 +712,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 device: android.bluetooth.BluetoothDevice,
                 linkID: String?
             ) {
-                Log.d(TAG, "Device disconnected: ${device.address}")
+                Log.i(TAG, "Device disconnected: ${device.address}")
                 val addr = device.address
                 clearProvisionalBleClaimsForLink(addr, linkID)
 
@@ -751,9 +740,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         provisionalBleClaims[peerID] = claim
         serviceScope.launch {
             delay(BLE_AUTHENTICATION_TIMEOUT_MS)
-            if (provisionalBleClaims.remove(peerID, claim)) {
-                Log.d(TAG, "Expired provisional BLE authentication claim for $peerID")
-            }
+            provisionalBleClaims.remove(peerID, claim)
         }
     }
 
@@ -796,10 +783,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             
             // Start periodic announcements for peer discovery and connectivity
             sendPeriodicBroadcastAnnounce()
-            Log.d(TAG, "Started periodic broadcast announcements (every 30 seconds)")
             // Start periodic syncs
             com.bitchat.android.service.MeshServiceHolder.startSharedGossip("BLE")
-            Log.d(TAG, "GossipSyncManager started")
         } else {
             Log.e(TAG, "Failed to start Bluetooth services")
         }
@@ -850,14 +835,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         sendLeaveAnnouncement()
         
         serviceScope.launch {
-            Log.d(TAG, "Stopping subcomponents and cancelling scope...")
             delay(200) // Give leave message time to send
-            
+
             // Stop all components
             com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
-            Log.d(TAG, "GossipSyncManager stopped")
             connectionManager.stopServices()
-            Log.d(TAG, "BluetoothConnectionManager stop requested")
             peerManager.shutdown()
             fragmentManager.shutdown()
             securityManager.shutdown()
@@ -878,9 +860,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      */
     fun isReusable(): Boolean {
         val reusable = !terminated && serviceScope.isActive && connectionManager.isReusable()
-        if (!reusable) {
-            Log.d(TAG, "isReusable=false (terminated=$terminated, scopeActive=${serviceScope.isActive}, connReusable=${connectionManager.isReusable()})")
-        }
         return reusable
     }
     
@@ -992,13 +971,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
     fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
         try {
-            Log.d(TAG, "📤 sendFileBroadcast: name=${file.fileName}, size=${file.fileSize}")
             val payload = file.encode()
             if (payload == null) {
-                Log.e(TAG, "❌ Failed to encode file packet in sendFileBroadcast")
+                Log.e(TAG, "Failed to encode file packet in sendFileBroadcast")
                 return
             }
-            Log.d(TAG, "📦 Encoded payload: ${payload.size} bytes")
         serviceScope.launch {
             val packet = BitchatPacket(
                 version = 2u,  // FILE_TRANSFER uses v2 for 4-byte payload length to support large files
@@ -1017,8 +994,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
         }
             } catch (e: Exception) {
-            Log.e(TAG, "❌ sendFileBroadcast failed: ${e.message}", e)
-            Log.e(TAG, "❌ File: name=${file.fileName}, size=${file.fileSize}")
+            Log.e(TAG, "sendFileBroadcast failed (size=${file.fileSize}): ${e.message}", e)
         }
     }
 
@@ -1035,7 +1011,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             is PrivateMediaPreparation.RequiresLegacyConsent ->
                 Log.w(TAG, "Private media requires explicit one-shot legacy consent")
             PrivateMediaPreparation.NeedsHandshake -> {
-                Log.i(TAG, "Private media needs a Noise handshake; initiating without sending")
+                Log.d(TAG, "Private media needs a Noise handshake; initiating without sending")
                 initiateNoiseHandshake(recipientPeerID)
             }
             PrivateMediaPreparation.AwaitingPeerState -> Unit
@@ -1105,9 +1081,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         serviceScope.launch {
             val finalMessageID = messageID ?: java.util.UUID.randomUUID().toString()
-            
-            Log.d(TAG, "📨 Sending PM to $recipientPeerID: ${content.take(30)}...")
-            
+
             // Check if we have an established Noise session
             if (encryptionService.hasEstablishedSession(recipientPeerID)) {
                 try {
@@ -1147,16 +1121,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     // Sign the packet before broadcasting
                     val signedPacket = signPacketBeforeBroadcast(packet)
                     broadcastRoutedPacket(RoutedPacket(signedPacket))
-                    Log.d(TAG, "📤 Sent encrypted private message to $recipientPeerID (${encrypted.size} bytes)")
-                    
+
                     // The UI handles sent messages through its own sending path.
-                    
+
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to encrypt private message for $recipientPeerID: ${e.message}")
                 }
             } else {
                 // Fire and forget - initiate handshake but don't queue exactly like iOS
-                Log.d(TAG, "🤝 No session with $recipientPeerID, initiating handshake")
                 messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
                 
                 // The UI handles sent messages through its own sending path.
@@ -1170,8 +1142,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      */
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
         serviceScope.launch {
-            Log.d(TAG, "📖 Sending read receipt for message $messageID to $recipientPeerID")
-
             // Route geohash read receipts via MessageRouter instead of here
             val geo = runCatching { com.bitchat.android.services.MessageRouter.tryGetInstance() }.getOrNull()
             val isGeoAlias = try {
@@ -1187,7 +1157,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 // Avoid duplicate read receipts: check persistent store first
                 val seenStore = try { com.bitchat.android.services.SeenMessageStore.getInstance(context.applicationContext) } catch (_: Exception) { null }
                 if (seenStore?.hasRead(messageID) == true) {
-                    Log.d(TAG, "Skipping read receipt for $messageID - already marked read")
                     return@launch
                 }
 
@@ -1215,7 +1184,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 // Sign the packet before broadcasting
                 val signedPacket = signPacketBeforeBroadcast(packet)
                 broadcastRoutedPacket(RoutedPacket(signedPacket))
-                Log.d(TAG, "📤 Sent read receipt to $recipientPeerID for message $messageID")
 
                 // Persist as read after successful send
                 try { seenStore?.markRead(messageID) } catch (_: Exception) { }
@@ -1263,7 +1231,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
                 val signedPacket = signPacketBeforeBroadcast(packet)
                 broadcastRoutedPacket(RoutedPacket(signedPacket))
-                Log.d(TAG, "📤 Sent $label to $recipientPeerID (${payload.data.size} bytes)")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send $label to $recipientPeerID: ${e.message}")
             }
@@ -1274,7 +1241,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      * Send broadcast announce with TLV-encoded identity announcement - exactly like iOS
      */
     fun sendBroadcastAnnounce() {
-        Log.d(TAG, "Sending broadcast announce")
         serviceScope.launch {
             val nickname = try { com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID) } catch (_: Exception) { myPeerID }
             
@@ -1331,7 +1297,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             } ?: announcePacket
             
             broadcastRoutedPacket(RoutedPacket(signedPacket))
-            Log.d(TAG, "Sent iOS-compatible signed TLV announce (${tlvPayload.size} bytes)")
             // Track announce for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
         }
@@ -1399,7 +1364,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         broadcastRoutedPacket(RoutedPacket(signedPacket))
         peerManager.markPeerAsAnnouncedTo(peerID)
-        Log.d(TAG, "Sent iOS-compatible signed TLV peer announce to $peerID (${tlvPayload.size} bytes)")
 
         // Track announce for sync
         try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
@@ -1654,7 +1618,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             // Sign the packet data using our signing key
             val signature = encryptionService.signData(packetDataForSigning)
             if (signature != null) {
-                Log.d(TAG, "✅ Signed packet type ${packet.type} (signature ${signature.size} bytes)")
                 withRoute.copy(signature = signature)
             } else {
                 Log.w(TAG, "Failed to sign packet type ${packet.type}, sending unsigned")
@@ -1672,20 +1635,19 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      * Clear all internal mesh service data (for panic mode)
      */
     fun clearAllInternalData() {
-        Log.w(TAG, "🚨 Clearing all mesh service internal data")
+        Log.w(TAG, "Clearing all mesh service internal data")
         try {
             // Stop services to cease broadcasting old ID immediately
             stopServices()
-            
+
             // Clear all managers
             fragmentManager.clearAllFragments()
             storeForwardManager.clearAllCache()
             securityManager.clearAllData()
             peerManager.clearAllPeers()
             peerManager.clearAllFingerprints()
-            Log.d(TAG, "✅ Cleared all mesh service internal data")
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error clearing mesh service internal data: ${e.message}")
+            Log.e(TAG, "Error clearing mesh service internal data: ${e.message}")
         }
     }
     
@@ -1693,13 +1655,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      * Clear all encryption and cryptographic data (for panic mode)
      */
     fun clearAllEncryptionData() {
-        Log.w(TAG, "🚨 Clearing all encryption data")
+        Log.w(TAG, "Clearing all encryption data")
         try {
             // Clear encryption service persistent identity (includes Ed25519 signing keys)
             encryptionService.clearPersistentIdentity()
-            Log.d(TAG, "✅ Cleared all encryption data")
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error clearing encryption data: ${e.message}")
+            Log.e(TAG, "Error clearing encryption data: ${e.message}")
         }
     }
 }
