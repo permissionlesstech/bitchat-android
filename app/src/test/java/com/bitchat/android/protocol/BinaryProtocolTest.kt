@@ -1155,6 +1155,231 @@ class BinaryProtocolTest {
         assertNull("v2 compressed with payloadLength < 4 must return null", result)
     }
 
+    /**
+     * v2 compression bomb with EMPTY compressed payload is rejected
+     *
+     * Regression test for the decompression bomb bypass where the ratio
+     * guard was only applied when compressedSize > 0. A packet with a
+     * 0-byte compressed payload and originalSize = Int.MAX_VALUE previously
+     * skipped the ratio check entirely and forced a ~2 GB ByteArray
+     * allocation in CompressionUtil.decompress, causing a remote,
+     * pre-authentication OOM crash.
+     *
+     * The decoder must reject this before any allocation.
+     */
+    @Test
+    fun `v2 compression bomb with empty compressed payload is rejected`() {
+        val compressedData = ByteArray(0)
+        val declaredOriginalSize = Int.MAX_VALUE // ~2 GB claim
+
+        val buffer = ByteBuffer.allocate(256).apply { order(ByteOrder.BIG_ENDIAN) }
+
+        // v2 header
+        buffer.put(2.toByte())                              // version = 2
+        buffer.put(MessageType.MESSAGE.value.toByte())      // type
+        buffer.put(5.toByte())                              // ttl
+        buffer.putLong(fixedTimestamp.toLong())             // timestamp (8 bytes)
+
+        // Flags: IS_COMPRESSED set
+        buffer.put(BinaryProtocol.Flags.IS_COMPRESSED.toByte())
+
+        // Payload length (4 bytes for v2): original-size field (4 bytes) + 0 compressed bytes
+        buffer.putInt(4 + compressedData.size)
+
+        // SenderID (8 bytes)
+        buffer.put(hexToBytes(senderHex))
+
+        // Compressed payload section: original size (4 bytes for v2) + empty compressed data
+        buffer.putInt(declaredOriginalSize)
+        buffer.put(compressedData)
+
+        val raw = ByteArray(buffer.position())
+        buffer.rewind()
+        buffer.get(raw)
+
+        val padded = MessagePadding.pad(raw, MessagePadding.optimalBlockSize(raw.size))
+        val result = BinaryProtocol.decode(padded)
+
+        assertNull("v2 bomb with empty compressed payload must be rejected", result)
+    }
+
+    /**
+     * v2 declared original size above MAX_PAYLOAD_LENGTH is rejected
+     *
+     * The declared originalSize is fully attacker-controlled. Even below
+     * Int.MAX_VALUE, a multi-hundred-MB claim would force a huge allocation
+     * per packet, enabling memory-exhaustion DoS. The decoder must reject
+     * any originalSize exceeding MAX_PAYLOAD_LENGTH before decompressing,
+     * regardless of the compression ratio.
+     */
+    @Test
+    fun `v2 declared original size above MAX_PAYLOAD_LENGTH is rejected`() {
+        val maxPayload = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
+        val declaredOriginalSize = maxPayload + 1
+        // Large compressed payload so the ratio check alone would NOT reject it:
+        // ratio = (MAX+1) / (MAX/50) = 50:1 < 100:1
+        val compressedData = ByteArray(maxPayload / 50) { 0x55 }
+
+        val buffer = ByteBuffer.allocate(16 + 8 + 4 + compressedData.size)
+            .apply { order(ByteOrder.BIG_ENDIAN) }
+
+        // v2 header
+        buffer.put(2.toByte())                              // version = 2
+        buffer.put(MessageType.MESSAGE.value.toByte())      // type
+        buffer.put(5.toByte())                              // ttl
+        buffer.putLong(fixedTimestamp.toLong())             // timestamp (8 bytes)
+
+        // Flags: IS_COMPRESSED set
+        buffer.put(BinaryProtocol.Flags.IS_COMPRESSED.toByte())
+
+        // Payload length (4 bytes for v2)
+        buffer.putInt(4 + compressedData.size)
+
+        // SenderID (8 bytes)
+        buffer.put(hexToBytes(senderHex))
+
+        // Compressed payload section
+        buffer.putInt(declaredOriginalSize)
+        buffer.put(compressedData)
+
+        val raw = ByteArray(buffer.position())
+        buffer.rewind()
+        buffer.get(raw)
+
+        val result = BinaryProtocol.decode(raw)
+
+        assertNull("originalSize > MAX_PAYLOAD_LENGTH must be rejected even at sane ratio", result)
+    }
+
+    /**
+     * v2 negative declared original size is rejected
+     *
+     * The v2 original-size field is a signed 4-byte int read with getInt().
+     * 0xFFFFFFFF decodes to -1. A negative size must never reach a
+     * ByteArray allocation (NegativeArraySizeException) or any downstream
+     * logic. The decoder must reject it.
+     */
+    @Test
+    fun `v2 negative declared original size is rejected`() {
+        val compressedData = byteArrayOf(0x03) // valid raw deflate empty block
+        val declaredOriginalSize = -1
+
+        val buffer = ByteBuffer.allocate(256).apply { order(ByteOrder.BIG_ENDIAN) }
+
+        // v2 header
+        buffer.put(2.toByte())                              // version = 2
+        buffer.put(MessageType.MESSAGE.value.toByte())      // type
+        buffer.put(5.toByte())                              // ttl
+        buffer.putLong(fixedTimestamp.toLong())             // timestamp (8 bytes)
+
+        // Flags: IS_COMPRESSED set
+        buffer.put(BinaryProtocol.Flags.IS_COMPRESSED.toByte())
+
+        buffer.putInt(4 + compressedData.size)
+
+        // SenderID (8 bytes)
+        buffer.put(hexToBytes(senderHex))
+
+        buffer.putInt(declaredOriginalSize)
+        buffer.put(compressedData)
+
+        val raw = ByteArray(buffer.position())
+        buffer.rewind()
+        buffer.get(raw)
+
+        val padded = MessagePadding.pad(raw, MessagePadding.optimalBlockSize(raw.size))
+        val result = BinaryProtocol.decode(padded)
+
+        assertNull("negative originalSize must be rejected", result)
+    }
+
+    /**
+     * Compression ratio above 100:1 is rejected
+     *
+     * The ratio guard was tightened from 50,000:1 to 100:1. A packet with
+     * ratio 200:1 previously passed the guard and could still claim up to
+     * ~2 GB from a ~43 KB payload (at the old limit). It must now be
+     * rejected. Typical legitimate text compresses ~3:1 to ~30:1.
+     */
+    @Test
+    fun `compression ratio above 100 to 1 is rejected`() {
+        val compressedData = byteArrayOf(0x03, 0x00, 0x00, 0x00, 0x00) // 5 bytes
+        val declaredOriginalSize = 1000 // ratio = 200:1
+
+        val buffer = ByteBuffer.allocate(256).apply { order(ByteOrder.BIG_ENDIAN) }
+
+        // v2 header
+        buffer.put(2.toByte())                              // version = 2
+        buffer.put(MessageType.MESSAGE.value.toByte())      // type
+        buffer.put(5.toByte())                              // ttl
+        buffer.putLong(fixedTimestamp.toLong())             // timestamp (8 bytes)
+
+        // Flags: IS_COMPRESSED set
+        buffer.put(BinaryProtocol.Flags.IS_COMPRESSED.toByte())
+
+        buffer.putInt(4 + compressedData.size)
+
+        // SenderID (8 bytes)
+        buffer.put(hexToBytes(senderHex))
+
+        buffer.putInt(declaredOriginalSize)
+        buffer.put(compressedData)
+
+        val raw = ByteArray(buffer.position())
+        buffer.rewind()
+        buffer.get(raw)
+
+        val padded = MessagePadding.pad(raw, MessagePadding.optimalBlockSize(raw.size))
+        val result = BinaryProtocol.decode(padded)
+
+        assertNull("ratio 200:1 must be rejected by tightened 100:1 guard", result)
+    }
+
+    /**
+     * Decompression bomb decode completes without large allocation
+     *
+     * End-to-end proof of the fix: feeds a packet claiming a ~2 GB
+     * original size through decode() and verifies it returns null quickly
+     * without materially growing the heap. Before the fix, this input
+     * forced a ~2 GB ByteArray allocation (OutOfMemoryError swallowed by
+     * catch (Throwable)).
+     */
+    @Test
+    fun `declared 2GB bomb decodes without heap growth`() {
+        val compressedData = ByteArray(0)
+        val declaredOriginalSize = Int.MAX_VALUE
+
+        val buffer = ByteBuffer.allocate(256).apply { order(ByteOrder.BIG_ENDIAN) }
+        buffer.put(2.toByte())
+        buffer.put(MessageType.MESSAGE.value.toByte())
+        buffer.put(5.toByte())
+        buffer.putLong(fixedTimestamp.toLong())
+        buffer.put(BinaryProtocol.Flags.IS_COMPRESSED.toByte())
+        buffer.putInt(4 + compressedData.size)
+        buffer.put(hexToBytes(senderHex))
+        buffer.putInt(declaredOriginalSize)
+        buffer.put(compressedData)
+
+        val raw = ByteArray(buffer.position())
+        buffer.rewind()
+        buffer.get(raw)
+
+        System.gc()
+        val heapBefore = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()
+
+        val result = BinaryProtocol.decode(raw)
+
+        System.gc()
+        val heapAfter = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()
+
+        assertNull("2GB bomb must be rejected", result)
+        val growth = heapAfter - heapBefore
+        assertTrue(
+            "heap must not grow by more than 64 MB decoding a 2GB bomb (grew ${growth / 1_000_000} MB)",
+            growth < 64_000_000
+        )
+    }
+
     private fun hexToBytes(hex: String): ByteArray {
         val result = ByteArray(hex.length / 2)
         for (i in result.indices) {

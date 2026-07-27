@@ -71,49 +71,60 @@ object CompressionUtil {
     /**
      * Decompress deflate compressed data - exact same as iOS
      * iOS COMPRESSION_ZLIB produces raw deflate data (no headers)
+     *
+     * Security: never pre-allocates the attacker-claimed [originalSize];
+     * inflates incrementally and aborts if output exceeds [originalSize].
      */
     fun decompress(compressedData: ByteArray, originalSize: Int): ByteArray? {
+        if (originalSize <= 0) return null
         // iOS COMPRESSION_ZLIB produces raw deflate format (no headers)
+        return try {
+            inflateWithLimit(compressedData, originalSize, rawDeflate = true)
+        } catch (e: Exception) {
+            Log.d("CompressionUtil", "Raw deflate decompression failed: ${e.message}, trying with zlib headers...")
+
+            // Fallback: try with zlib headers in case of mixed usage
+            try {
+                inflateWithLimit(compressedData, originalSize, rawDeflate = false)
+            } catch (fallbackException: Exception) {
+                Log.e("CompressionUtil", "Both raw deflate and zlib decompression failed: ${fallbackException.message}")
+                null
+            }
+        }
+    }
+
+    private fun inflateWithLimit(compressedData: ByteArray, originalSize: Int, rawDeflate: Boolean): ByteArray? {
+        val inflater = Inflater(rawDeflate)
         try {
-            val inflater = Inflater(true) // true = raw deflate, no headers
             inflater.setInput(compressedData)
-            
-            val decompressedBuffer = ByteArray(originalSize)
-            val actualSize = inflater.inflate(decompressedBuffer)
-            inflater.end()
-            
-            // Verify decompressed size matches expected (same validation as iOS)
-            return if (actualSize == originalSize) {
-                decompressedBuffer
-            } else if (actualSize > 0) {
-                // Handle case where actual size is different
-                decompressedBuffer.copyOfRange(0, actualSize)
+
+            val outputStream = ByteArrayOutputStream(minOf(originalSize, 8192))
+            val buffer = ByteArray(8192)
+            var total = 0
+
+            while (!inflater.finished()) {
+                val count = inflater.inflate(buffer)
+                if (count > 0) {
+                    total += count
+                    if (total > originalSize) {
+                        Log.w("CompressionUtil", "🚫 Decompressed output exceeds declared size ($total > $originalSize)")
+                        return null
+                    }
+                    outputStream.write(buffer, 0, count)
+                } else if (inflater.needsInput() || inflater.needsDictionary()) {
+                    break
+                }
+            }
+
+            return if (total == originalSize) {
+                outputStream.toByteArray()
+            } else if (total > 0) {
+                outputStream.toByteArray()
             } else {
                 null
             }
-        } catch (e: Exception) {
-            Log.d("CompressionUtil", "Raw deflate decompression failed: ${e.message}, trying with zlib headers...")
-            
-            // Fallback: try with zlib headers in case of mixed usage
-            try {
-                val inflater = Inflater(false) // false = expect zlib headers
-                inflater.setInput(compressedData)
-                
-                val decompressedBuffer = ByteArray(originalSize)
-                val actualSize = inflater.inflate(decompressedBuffer)
-                inflater.end()
-                
-                return if (actualSize == originalSize) {
-                    decompressedBuffer
-                } else if (actualSize > 0) {
-                    decompressedBuffer.copyOfRange(0, actualSize)
-                } else {
-                    null
-                }
-            } catch (fallbackException: Exception) {
-                Log.e("CompressionUtil", "Both raw deflate and zlib decompression failed: ${fallbackException.message}")
-                return null
-            }
+        } finally {
+            inflater.end()
         }
     }
     

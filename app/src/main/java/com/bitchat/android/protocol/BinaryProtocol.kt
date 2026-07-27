@@ -442,14 +442,21 @@ object BinaryProtocol {
                 buffer.get(compressedPayload)
 
                 // Security check: Compression bomb protection
-                if (compressedSize > 0) {
-                    val ratio = originalSize.toDouble() / compressedSize.toDouble()
-                    if (ratio > 50_000.0) {
-                        Log.w("BinaryProtocol", "🚫 Suspicious compression ratio: ${ratio}:1")
-                        return null
-                    }
+                val maxOriginalSize = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
+                if (originalSize <= 0 || originalSize > maxOriginalSize) {
+                    Log.w("BinaryProtocol", "🚫 Invalid declared original size: $originalSize")
+                    return null
                 }
-                
+                if (compressedSize == 0) {
+                    Log.w("BinaryProtocol", "🚫 Compressed payload is empty but declares originalSize=$originalSize")
+                    return null
+                }
+                val ratio = originalSize.toDouble() / compressedSize.toDouble()
+                if (ratio > 100.0) {
+                    Log.w("BinaryProtocol", "🚫 Suspicious compression ratio: ${ratio}:1")
+                    return null
+                }
+
                 // Decompress
                 CompressionUtil.decompress(compressedPayload, originalSize) ?: return null
             } else {
@@ -477,7 +484,7 @@ object BinaryProtocol {
                 route = route
             )
             
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             Log.e("BinaryProtocol", "Error decoding packet: ${e.message}")
             return null
         }
