@@ -53,6 +53,7 @@ fun ImageMessageItem(
             currentUserNickname = currentUserNickname,
             myPeerID = meshService.myPeerID,
             palette = palette,
+            contentColor = colorScheme.onSurface,
             timeFormatter = timeFormatter,
             includeSender = showSender
         )
@@ -71,7 +72,7 @@ fun ImageMessageItem(
             },
             onLongPress = { onMessageLongPress?.invoke(message) },
             fontFamily = BitchatFontFamily,
-            color = palette.textPrimary,
+            color = colorScheme.onSurface,
         )
 
         val context = LocalContext.current

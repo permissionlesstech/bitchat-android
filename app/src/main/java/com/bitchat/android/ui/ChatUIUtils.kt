@@ -10,6 +10,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatPalette
 import com.bitchat.android.ui.theme.ChatVisualTokens
+import com.bitchat.android.ui.theme.colorForPeerSeed
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -57,7 +58,11 @@ fun formatTextMessageSender(
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
     val isSelf = message.isFromSelf(currentUserNickname, myPeerID)
-    val senderColor = if (isSelf) palette.accentOrange else getPeerColor(message, palette.isDark)
+    val senderColor = if (isSelf) {
+        palette.accentOrange
+    } else {
+        colorForPeerSeed(peerColorSeedForMessage(message), palette)
+    }
     val senderWeight = FontWeight.SemiBold
     val (baseName, suffix) = splitSuffix(message.sender)
 
@@ -161,12 +166,12 @@ private fun appendBodyTimestamp(
 private fun appendMutedTimestamp(
     builder: AnnotatedString.Builder,
     message: BitchatMessage,
-    palette: BitchatPalette,
+    contentColor: Color,
     timeFormatter: SimpleDateFormat,
 ) {
     builder.pushStyle(
         SpanStyle(
-            color = palette.textPrimary.copy(alpha = ChatVisualTokens.MutedTextAlpha),
+            color = contentColor.copy(alpha = ChatVisualTokens.MutedTextAlpha),
             fontSize = ChatVisualTokens.SystemTimeFontSize,
             fontWeight = FontWeight.Normal,
         )
@@ -186,6 +191,8 @@ fun formatTextMessageBody(
     message: BitchatMessage,
     currentUserNickname: String,
     palette: BitchatPalette,
+    contentColor: Color,
+    linkColor: Color,
     timeFormatter: SimpleDateFormat = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()),
     includeTimestamp: Boolean = true
 ): AnnotatedString {
@@ -196,6 +203,8 @@ fun formatTextMessageBody(
         content = message.content,
         currentUserNickname = currentUserNickname,
         palette = palette,
+        contentColor = contentColor,
+        linkColor = linkColor,
     )
 
     if (includeTimestamp) {
@@ -212,13 +221,13 @@ fun formatTextMessageBody(
  */
 fun formatSystemMessage(
     message: BitchatMessage,
-    palette: BitchatPalette,
+    contentColor: Color,
     timeFormatter: SimpleDateFormat = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault())
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
     builder.pushStyle(
         SpanStyle(
-            color = palette.textPrimary.copy(alpha = ChatVisualTokens.MutedTextAlpha),
+            color = contentColor.copy(alpha = ChatVisualTokens.MutedTextAlpha),
             fontSize = ChatVisualTokens.SystemActionFontSize,
             fontWeight = FontWeight.Medium,
         )
@@ -227,7 +236,7 @@ fun formatSystemMessage(
     builder.append(message.content)
     builder.pop()
 
-    appendMutedTimestamp(builder, message, palette, timeFormatter)
+    appendMutedTimestamp(builder, message, contentColor, timeFormatter)
     return builder.toAnnotatedString()
 }
 
@@ -243,6 +252,7 @@ fun formatMessageHeaderAnnotatedString(
     currentUserNickname: String,
     myPeerID: String,
     palette: BitchatPalette,
+    contentColor: Color,
     timeFormatter: SimpleDateFormat = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()),
     includeSender: Boolean = true
 ): AnnotatedString {
@@ -250,11 +260,15 @@ fun formatMessageHeaderAnnotatedString(
     val isSelf = message.isFromSelf(currentUserNickname, myPeerID)
 
     if (message.sender == "system") {
-        return formatSystemMessage(message, palette, timeFormatter)
+        return formatSystemMessage(message, contentColor, timeFormatter)
     }
 
     if (includeSender) {
-        val baseColor = if (isSelf) palette.accentOrange else getPeerColor(message, palette.isDark)
+        val baseColor = if (isSelf) {
+            palette.accentOrange
+        } else {
+            colorForPeerSeed(peerColorSeedForMessage(message), palette)
+        }
         val (baseName, suffix) = splitSuffix(message.sender)
 
         builder.pushStyle(
@@ -291,69 +305,8 @@ fun formatMessageHeaderAnnotatedString(
         }
     }
 
-    appendMutedTimestamp(builder, message, palette, timeFormatter)
+    appendMutedTimestamp(builder, message, contentColor, timeFormatter)
     return builder.toAnnotatedString()
-}
-
-/**
- * iOS-style peer color assignment using djb2 hash algorithm
- * Avoids orange (~30°) reserved for self messages
- */
-fun getPeerColor(message: BitchatMessage, isDark: Boolean): Color {
-    // Create seed from peer identifier (prioritizing stable keys)
-    val seed = when {
-        message.senderPeerID?.startsWith("nostr:") == true || message.senderPeerID?.startsWith("nostr_") == true -> {
-            // For Nostr peers, use the full key if available, otherwise the peer ID
-            "nostr:${message.senderPeerID.lowercase()}"
-        }
-        message.senderPeerID?.length == 16 -> {
-            // For ephemeral peer IDs, try to get stable Noise key, fallback to peer ID  
-            "noise:${message.senderPeerID.lowercase()}"
-        }
-        message.senderPeerID?.length == 64 -> {
-            // This is already a stable Noise key
-            "noise:${message.senderPeerID.lowercase()}"
-        }
-        else -> {
-            // Fallback to sender name
-            message.sender.lowercase()
-        }
-    }
-    
-    return colorForPeerSeed(seed, isDark)
-}
-
-/**
- * Generate consistent peer color using djb2 hash.
- *
- * The hash and hue derivation are byte-identical to the iOS implementation, so a given peer
- * resolves to the same hue on both platforms. Saturation and value are deliberately higher
- * than iOS: the redesigned chat surface renders message bodies in neutral near-white, so
- * nicknames need more chroma to stay distinguishable at a glance.
- */
-fun colorForPeerSeed(seed: String, isDark: Boolean): Color {
-    // djb2 hash algorithm (matches iOS implementation)
-    var hash = 5381UL
-    for (byte in seed.toByteArray()) {
-        hash = ((hash shl 5) + hash) + byte.toUByte().toULong()
-    }
-    
-    var hue = (hash % 360UL).toDouble() / 360.0
-    
-    // Avoid orange (~30°) reserved for self (matches iOS logic)
-    val orange = 30.0 / 360.0
-    if (kotlin.math.abs(hue - orange) < 0.05) {
-        hue = (hue + 0.12) % 1.0
-    }
-    
-    val saturation = if (isDark) 1.0 else 0.85
-    val brightness = if (isDark) 1.0 else 0.45
-    
-    return Color.hsv(
-        hue = (hue * 360).toFloat(),
-        saturation = saturation.toFloat(),
-        value = brightness.toFloat()
-    )
 }
 
 /**
@@ -387,7 +340,7 @@ internal fun isUnannouncedNickname(displayName: String): Boolean {
  * iOS-style content formatting with proper hashtag and mention handling.
  *
  * Redesign notes:
- *  - Plain text renders in [BitchatPalette.textPrimary]; colour is reserved for `@mentions`,
+ *  - Plain text renders in Material `onSurface`; colour is reserved for `@mentions`,
  *    links and geohashes.
  *  - Mentions get a tinted background chip so they read as a distinct token inside a sentence.
  *    The chip is tinted by *the mentioned peer's* colour, not the sender's, so `@alice` looks
@@ -401,10 +354,9 @@ private fun appendIOSFormattedContent(
     content: String,
     currentUserNickname: String,
     palette: BitchatPalette,
+    contentColor: Color,
+    linkColor: Color,
 ) {
-    val contentColor = palette.textPrimary
-    val linkColor = palette.accentBlue
-
     // iOS-style patterns: allow optional '#abcd' suffix in mentions
     val hashtagPattern = "#([a-zA-Z0-9_]+)".toRegex()
     val mentionPattern = "@([\\p{L}0-9_]+(?:#[a-fA-F0-9]{4})?)".toRegex()
@@ -511,7 +463,10 @@ private fun appendIOSFormattedContent(
                     palette.accentOrange
                 } else {
                     // Tint by the *mentioned* peer so a given name looks identical everywhere.
-                    colorForPeerSeed(mentionWithoutAt.lowercase(), palette.isDark)
+                    colorForPeerSeed(
+                        PeerColorSeed(mentionWithoutAt.lowercase(Locale.ROOT)),
+                        palette
+                    )
                 }
                 val chipAlpha = if (isMentionToMe) MENTION_CHIP_ALPHA_SELF else MENTION_CHIP_ALPHA
                 val mentionWeight = if (isMentionToMe) FontWeight.Bold else FontWeight.SemiBold

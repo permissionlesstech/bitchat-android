@@ -47,6 +47,7 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.colorForPeerSeed
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
@@ -132,7 +133,7 @@ fun MeshPeerListSheet(
                                         .fillMaxWidth()
                                         .padding(horizontal = AboutHorizontalPadding)
                                         .padding(top = 10.dp),
-                                    color = LocalBitchatPalette.current.surface,
+                                    color = MaterialTheme.colorScheme.surface,
                                     shape = AboutCardShape
                                 ) {
                                     Column {
@@ -222,7 +223,7 @@ fun MeshPeerListSheet(
                                 Icon(
                                     imageVector = Icons.Outlined.QrCode,
                                     contentDescription = stringResource(R.string.verify_title),
-                                    tint = LocalBitchatPalette.current.textSecondary,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
@@ -265,7 +266,7 @@ private fun ChannelRow(
                 Box(
                     modifier = Modifier
                         .size(SheetRowSelectedDot)
-                        .background(palette.accentGreen, CircleShape)
+                        .background(colorScheme.primary, CircleShape)
                 )
             } else if (unreadCount > 0) {
                 UnreadBadge(count = unreadCount, colorScheme = colorScheme)
@@ -286,7 +287,7 @@ private fun ChannelRow(
             text = channel,
             fontFamily = BitchatFontFamily,
             fontSize = 14.sp,
-            color = if (isSelected) colorScheme.primary else palette.textPrimary,
+            color = if (isSelected) colorScheme.primary else colorScheme.onSurface,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
             modifier = Modifier.weight(1f),
             maxLines = 1,
@@ -331,7 +332,7 @@ fun PeopleSection(
                 .fillMaxWidth()
                 .padding(horizontal = AboutHorizontalPadding)
                 .padding(top = 10.dp),
-            color = palette.surface,
+            color = colorScheme.surface,
             shape = AboutCardShape
         ) {
             Column {
@@ -588,7 +589,10 @@ private fun PeerItem(
 
     // Get consistent peer color (iOS-compatible)
     val palette = LocalBitchatPalette.current
-    val assignedColor = viewModel.colorForMeshPeer(peerID, palette.isDark)
+    val assignedColor = colorForPeerSeed(
+        viewModel.peerColorSeedForMeshPeer(peerID),
+        palette
+    )
     val baseColor = if (isMe) palette.accentOrange else assignedColor
 
     Row(
@@ -606,7 +610,7 @@ private fun PeerItem(
                 Box(
                     modifier = Modifier
                         .size(SheetRowSelectedDot)
-                        .background(palette.accentGreen, CircleShape)
+                        .background(colorScheme.primary, CircleShape)
                 )
             } else if (hasUnreadDM) {
                 Icon(
@@ -642,7 +646,7 @@ private fun PeerItem(
                         else -> "Routed"
                     },
                     modifier = Modifier.size(PeerRowIconSize),
-                    tint = palette.textSecondary
+                    tint = colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -679,7 +683,7 @@ private fun PeerItem(
                     imageVector = Icons.Filled.Verified,
                     contentDescription = stringResource(R.string.verify_title),
                     modifier = Modifier.size(16.dp),
-                    tint = palette.accentGreen
+                    tint = colorScheme.primary
                 )
             }
         }
@@ -866,7 +870,6 @@ fun PrivateChatSheet(
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
-    val palette = LocalBitchatPalette.current
 
     if (isPresented) {
         BitchatBottomSheet(
@@ -879,7 +882,7 @@ fun PrivateChatSheet(
                 ) {
                     Spacer(modifier = Modifier.height(64.dp))
 
-                    HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
+                    HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
 
                     // Messages list
                     var forceScrollToBottom by remember { mutableStateOf(false) }

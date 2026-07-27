@@ -30,10 +30,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.ui.theme.BitchatTheme
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.res.stringResource
@@ -87,15 +87,13 @@ class GeohashPickerActivity : OrientationAwareActivity() {
         val initialPrecision = geohashToFocus?.length ?: 5
 
         setContent {
-            MaterialTheme {
+            BitchatTheme {
                 var currentGeohash by remember { mutableStateOf(geohashToFocus ?: "") }
                 var precision by remember { mutableStateOf(initialPrecision.coerceIn(1, 12)) }
                 var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
-                // iOS system-like colors used across app
                 val colorScheme = MaterialTheme.colorScheme
-                val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-                val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                val standardGreen = colorScheme.primary
 
                 Scaffold { padding ->
                     Box(Modifier.fillMaxSize()) {

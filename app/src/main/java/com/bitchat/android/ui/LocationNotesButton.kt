@@ -21,7 +21,6 @@ import com.bitchat.android.R
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
-import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
  * Location Notes button for MainHeader.
@@ -35,7 +34,6 @@ fun LocationNotesButton(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
     val context = LocalContext.current
 
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
@@ -54,7 +52,7 @@ fun LocationNotesButton(
     if (selectedLocationChannel is ChannelID.Mesh && locationEnabled) {
         val hasNotes = notesCount > 0
         val contentDescription = stringResource(R.string.cd_location_notes)
-        val normalTint = if (hasNotes) colorScheme.primary else palette.textSecondary
+        val normalTint = if (hasNotes) colorScheme.primary else colorScheme.onSurfaceVariant
         val torVisual = rememberTorConnectionVisual(normal = normalTint)
 
         Box(

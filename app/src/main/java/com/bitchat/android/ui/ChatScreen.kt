@@ -46,7 +46,6 @@ import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
 import com.bitchat.android.ui.media.FullScreenImageViewer
 import com.bitchat.android.ui.theme.BitchatMotion
-import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -61,7 +60,6 @@ import com.bitchat.android.ui.theme.LocalBitchatPalette
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
     val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
@@ -415,17 +413,17 @@ fun ChatScreen(viewModel: ChatViewModel) {
         ) {
             Surface(
                 shape = CircleShape,
-                color = palette.surface,
+                color = colorScheme.surface,
                 tonalElevation = 3.dp,
                 shadowElevation = 6.dp,
-                border = BorderStroke(1.dp, palette.accentGreen)
+                border = BorderStroke(1.dp, colorScheme.primary)
             ) {
                 IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
                     Icon(
                         imageVector = Icons.Filled.ArrowDownward,
                         contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom),
                         modifier = Modifier.size(22.dp),
-                        tint = palette.accentGreen
+                        tint = colorScheme.primary
                     )
                 }
             }
@@ -569,8 +567,6 @@ fun ChatInputSection(
     showMediaButtons: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val palette = LocalBitchatPalette.current
-
     Column(
         // Flat, slightly translucent screen background — the same treatment as the top bar, so the
         // two bars are visibly the same kind of surface. No gradient: a soft ramp here just looked
@@ -581,7 +577,7 @@ fun ChatInputSection(
             .background(colorScheme.background.copy(alpha = BarBackgroundAlpha))
     ) {
         // Hairline marking where chrome begins. Faint on purpose — it is a hint, not a border.
-        HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
+        HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
 
         // Command suggestions box
         if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
@@ -590,7 +586,7 @@ fun ChatInputSection(
                 onSuggestionClick = onCommandSuggestionClick,
                 modifier = Modifier.fillMaxWidth()
             )
-            HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
+            HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
         }
         // Retain the final populated list while the picker exits. The state layer clears
         // suggestions together with visibility; without this snapshot the panel would empty and
@@ -631,7 +627,7 @@ fun ChatInputSection(
                     onSuggestionClick = onMentionSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
-                HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
+                HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
             }
         }
         MessageInput(
@@ -682,7 +678,6 @@ private fun ChatFloatingHeader(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
-    val palette = LocalBitchatPalette.current
 
     Box(
         modifier = Modifier

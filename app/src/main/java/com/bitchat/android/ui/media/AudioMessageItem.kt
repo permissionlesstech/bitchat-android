@@ -55,6 +55,7 @@ fun AudioMessageItem(
             currentUserNickname = currentUserNickname,
             myPeerID = meshService.myPeerID,
             palette = palette,
+            contentColor = colorScheme.onSurface,
             timeFormatter = timeFormatter,
             includeSender = showSender
         )
@@ -73,7 +74,7 @@ fun AudioMessageItem(
             },
             onLongPress = { onMessageLongPress?.invoke(message) },
             fontFamily = BitchatFontFamily,
-            color = palette.textPrimary,
+            color = colorScheme.onSurface,
         )
 
         Row(verticalAlignment = Alignment.CenterVertically) {

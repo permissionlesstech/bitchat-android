@@ -498,6 +498,7 @@ fun MessageItem(
                 currentUserNickname = currentUserNickname,
                 myPeerID = meshService.myPeerID,
                 palette = palette,
+                contentColor = colorScheme.onSurface,
                 timeFormatter = timeFormatter,
                 includeSender = showSender
             )
@@ -516,7 +517,7 @@ fun MessageItem(
                 },
                 onLongPress = { onMessageLongPress?.invoke(message) },
                 fontFamily = BitchatFontFamily,
-                color = palette.textPrimary,
+                color = colorScheme.onSurface,
             )
 
             // Try to load the file packet from the path
@@ -564,14 +565,14 @@ fun MessageItem(
                                     .align(Alignment.TopEnd)
                                     .padding(4.dp)
                                     .size(22.dp)
-                                    .background(palette.surfaceVariant.copy(alpha = 0.85f), CircleShape)
+                                    .background(colorScheme.surfaceVariant.copy(alpha = 0.85f), CircleShape)
                                     .clickable { onCancelTransfer?.invoke(message) },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Close,
                                     contentDescription = stringResource(R.string.cd_cancel),
-                                    tint = palette.textPrimary,
+                                    tint = colorScheme.onSurface,
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -591,10 +592,10 @@ fun MessageItem(
 
     if (message.sender == "system") {
         // Background narration: `// Tor started. Routing all chats…`
-        val annotatedText = remember(message, palette) {
+        val annotatedText = remember(message, colorScheme.onSurface) {
             formatSystemMessage(
                 message = message,
-                palette = palette,
+                contentColor = colorScheme.onSurface,
                 timeFormatter = timeFormatter
             )
         }
@@ -614,7 +615,7 @@ fun MessageItem(
             softWrap = true,
             overflow = TextOverflow.Visible,
             style = ChatVisualTokens.SystemActionStyle.copy(
-                color = palette.textPrimary.copy(alpha = ChatVisualTokens.MutedTextAlpha),
+                color = colorScheme.onSurface.copy(alpha = ChatVisualTokens.MutedTextAlpha),
             )
         )
     } else {
@@ -660,11 +661,20 @@ internal fun TextMessageLayout(
     }
     // The timestamp trails the body rather than occupying its own column, so a short message
     // no longer reserves a full-width row for eight grey characters.
-    val bodyText = remember(displayMessage, currentUserNickname, palette, timeFormatter) {
+    val bodyText = remember(
+        displayMessage,
+        currentUserNickname,
+        palette,
+        colorScheme.onSurface,
+        colorScheme.secondary,
+        timeFormatter
+    ) {
         formatTextMessageBody(
             message = displayMessage,
             currentUserNickname = currentUserNickname,
             palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
             timeFormatter = timeFormatter,
         )
     }
@@ -728,7 +738,7 @@ internal fun TextMessageLayout(
             fontFamily = BitchatFontFamily,
             softWrap = true,
             overflow = TextOverflow.Visible,
-            style = MessageBodyTextStyle.copy(color = palette.textPrimary),
+            style = MessageBodyTextStyle.copy(color = colorScheme.onSurface),
         )
     }
 }
@@ -736,7 +746,6 @@ internal fun TextMessageLayout(
 @Composable
 fun DeliveryStatusIcon(status: DeliveryStatus) {
     val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
 
     // Status advances on its own as acks come back, so a hard glyph swap reads as a flicker.
     // Keyed on the status *type* rather than the instance, because Delivered/Read carry a
@@ -758,9 +767,9 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             DeliveryStatus.Delivered::class ->
                 Triple(R.string.status_sent, colorScheme.primary.copy(alpha = 0.8f), FontWeight.Normal)
             DeliveryStatus.Read::class ->
-                Triple(R.string.status_delivered, palette.accentBlue, FontWeight.Bold)
+                Triple(R.string.status_delivered, colorScheme.secondary, FontWeight.Bold)
             DeliveryStatus.Failed::class ->
-                Triple(R.string.status_failed, palette.accentRed, FontWeight.Normal)
+                Triple(R.string.status_failed, colorScheme.error, FontWeight.Normal)
             // A single subdued check, without the numeric label.
             else ->
                 Triple(R.string.status_sent, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)

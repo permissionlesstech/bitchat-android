@@ -120,7 +120,6 @@ internal fun SheetIconSectionHeader(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
 
     Column(
         modifier = modifier
@@ -152,7 +151,7 @@ internal fun SheetIconSectionHeader(
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 fontFamily = BitchatFontFamily,
-                color = palette.textSecondary
+                color = colorScheme.onSurfaceVariant
             )
         }
     }
@@ -161,11 +160,11 @@ internal fun SheetIconSectionHeader(
 /** Inset divider used inside grouped sheet cards (aligns with text column after the leading slot). */
 @Composable
 internal fun SheetCardDivider() {
-    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
     HorizontalDivider(
         modifier = Modifier.padding(start = SheetRowDividerInset),
         thickness = 1.dp,
-        color = palette.outlineVariant
+        color = colorScheme.outlineVariant
     )
 }
 
@@ -212,7 +211,7 @@ internal fun AboutHero(
             text = stringResource(R.string.about_tagline),
             fontFamily = BitchatFontFamily,
             fontSize = 16.sp,
-            color = palette.textSecondary
+            color = colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(6.dp))
@@ -238,7 +237,6 @@ internal fun AboutTabBar(
     onSelect: (AboutTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
     val density = LocalDensity.current
 
@@ -274,7 +272,7 @@ internal fun AboutTabBar(
         }
 
         Box(modifier = Modifier.fillMaxWidth()) {
-            HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
+            HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
             Box(
                 modifier = Modifier
                     // Lambda overload: the offset is animated every frame, and the non-lambda
@@ -295,11 +293,10 @@ private fun AboutTabLabel(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
 
     val color by animateColorAsState(
-        targetValue = if (isSelected) colorScheme.primary else palette.textSecondary,
+        targetValue = if (isSelected) colorScheme.primary else colorScheme.onSurfaceVariant,
         animationSpec = tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing),
         label = "aboutTabLabelColor"
     )
@@ -328,7 +325,6 @@ private fun AboutInstructionRow(
     text: String
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
 
     Row(
         modifier = Modifier
@@ -350,7 +346,7 @@ private fun AboutInstructionRow(
             fontFamily = BitchatFontFamily,
             fontSize = 14.sp,
             lineHeight = 20.sp,
-            color = palette.textPrimary
+            color = colorScheme.onSurface
         )
     }
 }
@@ -453,7 +449,6 @@ private fun AboutFeatureRow(
     subtitle: String
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
 
     Row(
         modifier = Modifier
@@ -477,14 +472,14 @@ private fun AboutFeatureRow(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 20.sp,
-                color = palette.textPrimary
+                color = colorScheme.onSurface
             )
             Text(
                 text = subtitle,
                 fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
-                color = palette.textSecondary
+                color = colorScheme.onSurfaceVariant
             )
         }
     }
@@ -498,10 +493,10 @@ internal fun BitchatBadge(
     text: String,
     modifier: Modifier = Modifier
 ) {
-    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = modifier
-            .background(palette.accentGreen.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+            .background(colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
             .padding(horizontal = 5.dp, vertical = 2.dp)
     ) {
         Text(
@@ -510,7 +505,7 @@ internal fun BitchatBadge(
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.5.sp,
-            color = palette.accentGreen
+            color = colorScheme.primary
         )
     }
 }
@@ -556,11 +551,10 @@ internal fun SheetHeaderBadge(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
     Box(
         modifier = modifier
             .size(44.dp)
-            .background(palette.surface, androidx.compose.foundation.shape.CircleShape),
+            .background(colorScheme.surface, androidx.compose.foundation.shape.CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -585,8 +579,8 @@ internal fun SheetDestructiveButton(
     modifier: Modifier = Modifier,
     isDestructive: Boolean = true
 ) {
-    val palette = LocalBitchatPalette.current
-    val accent = if (isDestructive) palette.accentRed else palette.accentGreen
+    val colorScheme = MaterialTheme.colorScheme
+    val accent = if (isDestructive) colorScheme.error else colorScheme.primary
 
     Surface(
         onClick = onClick,

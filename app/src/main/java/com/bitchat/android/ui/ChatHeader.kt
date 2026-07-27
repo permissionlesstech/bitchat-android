@@ -119,11 +119,12 @@ internal data class TorConnectionVisual(
 @Composable
 internal fun rememberTorConnectionVisual(normal: Color): TorConnectionVisual {
     val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
     val torStatus by remember { ArtiTorManager.getInstance() }.statusFlow.collectAsState()
 
     // ~28% of the loud accent mixed into the base tint keeps the hue without intensity.
     val mutedConnecting = lerp(normal, palette.accentOrange, 0.28f)
-    val mutedFailed = lerp(normal, palette.accentRed, 0.30f)
+    val mutedFailed = lerp(normal, colorScheme.error, 0.30f)
 
     val target = when {
         torStatus.mode == TorMode.OFF -> TorConnectionVisual(normal, isProgress = false)
@@ -268,18 +269,19 @@ fun NoiseSessionIcon(
     modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
     // The pre-redesign colours for the first two states were `0x87878700`, i.e. alpha 0x87 with
     // an all-but-transparent RGB - the icons were effectively invisible. They now use the
     // palette's secondary text colour.
     val (icon, color, contentDescription) = when (sessionState) {
         "uninitialized" -> Triple(
             Icons.Outlined.NoEncryption,
-            palette.textSecondary,
+            colorScheme.onSurfaceVariant,
             stringResource(R.string.cd_ready_for_handshake)
         )
         "handshaking" -> Triple(
             Icons.Outlined.Sync,
-            palette.textSecondary,
+            colorScheme.onSurfaceVariant,
             stringResource(R.string.cd_handshake_in_progress)
         )
         "established" -> Triple(
@@ -290,7 +292,7 @@ fun NoiseSessionIcon(
         else -> { // "failed" or any other state
             Triple(
                 Icons.Outlined.Warning,
-                palette.accentRed,
+                colorScheme.error,
                 stringResource(R.string.cd_handshake_failed)
             )
         }
@@ -365,19 +367,20 @@ fun PeerCounter(
     modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
 
     // Compute channel-aware people count and color (matches iOS logic exactly)
     val (peopleCount, countColor) = when (selectedLocationChannel) {
         is com.bitchat.android.geohash.ChannelID.Location -> {
             // Geohash channel: show geohash participants
             val count = geohashPeople.size
-            Pair(count, if (count > 0) palette.accentGreen else palette.textTertiary)
+            Pair(count, if (count > 0) colorScheme.primary else palette.textTertiary)
         }
         is com.bitchat.android.geohash.ChannelID.Mesh,
         null -> {
             // Mesh channel: show Bluetooth-connected peers (excluding self)
             val count = connectedPeers.size
-            Pair(count, if (isConnected && count > 0) palette.accentBlue else palette.textTertiary)
+            Pair(count, if (isConnected && count > 0) colorScheme.secondary else palette.textTertiary)
         }
     }
 
@@ -424,7 +427,7 @@ fun PeerCounter(
                 prefix = stringResource(R.string.channel_count_prefix),
                 style = MaterialTheme.typography.bodyMedium,
                 fontSize = HeaderTextSize,
-                color = if (isConnected) palette.accentGreen else palette.accentRed,
+                color = if (isConnected) colorScheme.primary else colorScheme.error,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -482,7 +485,6 @@ private fun ChannelHeader(
     onSidebarClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
 
     Box(modifier = Modifier.fillMaxWidth()) {
         // Back: a chevron alone is unambiguous here and buys back ~40.dp of title space that
@@ -520,7 +522,7 @@ private fun ChannelHeader(
             text = stringResource(R.string.chat_leave),
             style = MaterialTheme.typography.labelMedium,
             fontSize = 15.sp,
-            color = palette.accentRed,
+            color = colorScheme.error,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .clip(HeaderClusterShape)
@@ -667,7 +669,7 @@ private fun LocationChannelsButton(
     viewModel: ChatViewModel,
     onClick: () -> Unit
 ) {
-    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
 
     // Get current channel selection from location manager
     val selectedChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
@@ -680,7 +682,7 @@ private fun LocationChannelsButton(
         // so it is plain "mesh".
         else -> stringResource(R.string.mesh_label)
     }
-    val channelColor = if (isLocation) palette.accentGreen else palette.accentBlue
+    val channelColor = if (isLocation) colorScheme.primary else colorScheme.secondary
     // Tor status only tints the globe (location channels). The local mesh stays blue.
     val torVisual = if (isLocation) {
         rememberTorConnectionVisual(normal = channelColor)

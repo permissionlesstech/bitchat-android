@@ -82,17 +82,17 @@ private fun ThemeChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
 
     // Cross-fade the chip so switching theme does not read as two separate flashes (the chip
     // recolouring plus the whole app recolouring underneath it).
     val containerColor by animateColorAsState(
-        targetValue = if (selected) palette.accentGreen else palette.surfaceVariant,
+        targetValue = if (selected) colorScheme.primary else colorScheme.surfaceVariant,
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "themeChipContainer"
     )
     val labelColor by animateColorAsState(
-        targetValue = if (selected) Color.White else palette.textSecondary,
+        targetValue = if (selected) Color.White else colorScheme.onSurfaceVariant,
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "themeChipLabel"
     )
@@ -146,12 +146,12 @@ private fun SettingsToggleRow(
         label = "settingsRowIcon"
     )
     val titleColor by animateColorAsState(
-        targetValue = if (enabled) palette.textPrimary else palette.textTertiary,
+        targetValue = if (enabled) colorScheme.onSurface else palette.textTertiary,
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "settingsRowTitle"
     )
     val subtitleColor by animateColorAsState(
-        targetValue = if (enabled) palette.textSecondary else palette.textTertiary,
+        targetValue = if (enabled) colorScheme.onSurfaceVariant else palette.textTertiary,
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "settingsRowSubtitle"
     )
@@ -213,9 +213,9 @@ private fun SettingsToggleRow(
             interactionSource = interactionSource,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = palette.accentGreen,
+                checkedTrackColor = colorScheme.primary,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = palette.surfaceVariant
+                uncheckedTrackColor = colorScheme.surfaceVariant
             )
         )
     }
@@ -310,7 +310,7 @@ fun AboutSheet(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = AboutHorizontalPadding),
-                                color = palette.surface,
+                                color = colorScheme.surface,
                                 shape = AboutCardShape
                             ) {
                                 Row(
@@ -359,7 +359,7 @@ fun AboutSheet(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = AboutHorizontalPadding),
-                                color = palette.surface,
+                                color = colorScheme.surface,
                                 shape = AboutCardShape
                             ) {
                                 Column {
@@ -383,7 +383,7 @@ fun AboutSheet(
                                     HorizontalDivider(
                                         modifier = Modifier.padding(start = 54.dp),
                                         thickness = 1.dp,
-                                        color = palette.outlineVariant
+                                        color = colorScheme.outlineVariant
                                     )
 
                                     // Proof of Work Toggle
@@ -398,7 +398,7 @@ fun AboutSheet(
                                     HorizontalDivider(
                                         modifier = Modifier.padding(start = 54.dp),
                                         thickness = 1.dp,
-                                        color = palette.outlineVariant
+                                        color = colorScheme.outlineVariant
                                     )
 
                                     // Tor Toggle
@@ -417,9 +417,9 @@ fun AboutSheet(
                                         statusIndicator = if (torMode.value == TorMode.ON) {
                                             {
                                                 val statusColor = when {
-                                                    torStatus.running && torStatus.bootstrapPercent >= 100 -> palette.accentGreen
+                                                    torStatus.running && torStatus.bootstrapPercent >= 100 -> colorScheme.primary
                                                     torStatus.running -> palette.accentOrange
-                                                    else -> palette.accentRed
+                                                    else -> colorScheme.error
                                                 }
                                                 Surface(
                                                     color = statusColor,
@@ -811,7 +811,7 @@ fun AboutSheet(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = AboutHorizontalPadding),
-                                    color = palette.surface,
+                                    color = colorScheme.surface,
                                     shape = AboutCardShape
                                 ) {
                                     Column(
@@ -828,7 +828,7 @@ fun AboutSheet(
                                                 fontFamily = BitchatFontFamily,
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.Medium,
-                                                color = palette.textPrimary
+                                                color = colorScheme.onSurface
                                             )
                                             AnimatedCountLabel(
                                                 count = powDifficulty,
@@ -839,7 +839,7 @@ fun AboutSheet(
                                                 ),
                                                 fontFamily = BitchatFontFamily,
                                                 fontSize = 12.sp,
-                                                color = palette.textSecondary
+                                                color = colorScheme.onSurfaceVariant
                                             )
                                         }
 
@@ -849,9 +849,9 @@ fun AboutSheet(
                                             valueRange = 0f..32f,
                                             steps = 31,
                                             colors = SliderDefaults.colors(
-                                                thumbColor = palette.accentGreen,
-                                                activeTrackColor = palette.accentGreen,
-                                                inactiveTrackColor = palette.surfaceVariant
+                                                thumbColor = colorScheme.primary,
+                                                activeTrackColor = colorScheme.primary,
+                                                inactiveTrackColor = colorScheme.surfaceVariant
                                             )
                                         )
 
@@ -888,7 +888,7 @@ fun AboutSheet(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = AboutHorizontalPadding),
-                                    color = palette.surface,
+                                    color = colorScheme.surface,
                                     shape = AboutCardShape
                                 ) {
                                     Column(
@@ -900,9 +900,9 @@ fun AboutSheet(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             val statusColor = when {
-                                                torStatus.running && torStatus.bootstrapPercent >= 100 -> palette.accentGreen
+                                                torStatus.running && torStatus.bootstrapPercent >= 100 -> colorScheme.primary
                                                 torStatus.running -> palette.accentOrange
-                                                else -> palette.accentRed
+                                                else -> colorScheme.error
                                             }
                                             Surface(color = statusColor, shape = CircleShape, modifier = Modifier.size(10.dp)) {}
                                             Text(
@@ -914,7 +914,7 @@ fun AboutSheet(
                                                 fontFamily = BitchatFontFamily,
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.Medium,
-                                                color = palette.textPrimary
+                                                color = colorScheme.onSurface
                                             )
                                         }
                                         if (torStatus.lastLogLine.isNotEmpty()) {
@@ -974,7 +974,7 @@ fun AboutSheet(
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
                         .height(64.dp)
-                        .background(palette.background.copy(alpha = topBarAlpha))
+                        .background(colorScheme.background.copy(alpha = topBarAlpha))
                 ) {
                     val dismiss = LocalSheetDismiss.current
                     CloseButton(

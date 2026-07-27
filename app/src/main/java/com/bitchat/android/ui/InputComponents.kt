@@ -257,7 +257,8 @@ internal fun ComposerActionSurface(
     content: @Composable (tint: Color) -> Unit
 ) {
     val palette = LocalBitchatPalette.current
-    val accent = if (activeColor == Color.Unspecified) palette.accentGreen else activeColor
+    val colorScheme = MaterialTheme.colorScheme
+    val accent = if (activeColor == Color.Unspecified) colorScheme.primary else activeColor
 
     val container by animateColorAsState(
         // A tint rather than a fill. A solid accent disc next to the text you are typing was the
@@ -267,7 +268,7 @@ internal fun ComposerActionSurface(
         label = "composerButtonContainer"
     )
     val tint by animateColorAsState(
-        targetValue = if (isActive) accent else palette.textSecondary,
+        targetValue = if (isActive) accent else colorScheme.onSurfaceVariant,
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "composerButtonTint"
     )
@@ -314,6 +315,7 @@ fun MessageInput(
     modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
     val isFocused = remember { mutableStateOf(false) }
     val hasText = value.text.isNotBlank()
     val focusRequester = remember { FocusRequester() }
@@ -324,7 +326,7 @@ fun MessageInput(
     // Recording is the one state worth shouting about, so it overrides focus.
     val borderColor by animateColorAsState(
         targetValue = when {
-            isRecording -> palette.accentRed.copy(alpha = 0.7f)
+            isRecording -> colorScheme.error.copy(alpha = 0.7f)
             isFocused.value -> palette.inputOutlineFocused
             else -> palette.inputOutline
         },
@@ -371,11 +373,11 @@ fun MessageInput(
                     // user is composing rather than reading, and green-on-black is tiring to
                     // type into.
                     textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = palette.textPrimary,
+                        color = colorScheme.onSurface,
                         fontFamily = BitchatFontFamily
                     ),
                     cursorBrush = SolidColor(
-                        if (isRecording) Color.Transparent else palette.textPrimary
+                        if (isRecording) Color.Transparent else colorScheme.onSurface
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
@@ -387,8 +389,8 @@ fun MessageInput(
                         CombinedVisualTransformation(
                             listOf(
                                 SlashCommandVisualTransformation(
-                                    commandColor = palette.accentGreen,
-                                    commandBackground = palette.accentGreen.copy(alpha = 0.14f),
+                                    commandColor = colorScheme.primary,
+                                    commandBackground = colorScheme.primary.copy(alpha = 0.14f),
                                 ),
                                 MentionVisualTransformation(
                                     mentionColor = palette.accentOrange,
@@ -452,7 +454,7 @@ fun MessageInput(
                                 secs / 60, secs % 60, maxSecs / 60, maxSecs % 60
                             ),
                             fontFamily = BitchatFontFamily,
-                            color = palette.accentRed,
+                            color = colorScheme.error,
                             fontSize = (BASE_FONT_SIZE - 4).sp
                         )
                     }
@@ -595,6 +597,7 @@ private fun SendButton(
     enabled: Boolean = true
 ) {
     val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
@@ -602,7 +605,7 @@ private fun SendButton(
         isActive = enabled,
         isPressed = isPressed,
         // Private chats and channels keep their orange identity, disc and glyph together.
-        activeColor = if (isAccented) palette.accentOrange else palette.accentGreen,
+        activeColor = if (isAccented) palette.accentOrange else colorScheme.primary,
         modifier = modifier.clickable(
             interactionSource = interactionSource,
             indication = null,
@@ -624,13 +627,13 @@ fun CommandSuggestionsBox(
     onSuggestionClick: (CommandSuggestion) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
 
     Column(
         modifier = modifier
             .verticalScroll(rememberScrollState())
-            .background(palette.surface)
-            .border(1.dp, palette.outlineVariant, RoundedCornerShape(8.dp))
+            .background(colorScheme.surface)
+            .border(1.dp, colorScheme.outlineVariant, RoundedCornerShape(8.dp))
             .padding(vertical = 6.dp)
     ) {
         suggestions.forEach { suggestion: CommandSuggestion ->
@@ -683,7 +686,7 @@ fun CommandSuggestionItem(
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontFamily = BitchatFontFamily
                 ),
-                color = palette.textSecondary,
+                color = colorScheme.onSurfaceVariant,
                 fontSize = (BASE_FONT_SIZE - 4).sp
             )
         }
@@ -709,7 +712,7 @@ fun MentionSuggestionsBox(
     onSuggestionClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
 
     LazyColumn(
         modifier = modifier
@@ -721,8 +724,8 @@ fun MentionSuggestionsBox(
                 )
             )
             .clip(MentionSuggestionsShape)
-            .background(palette.surface)
-            .border(1.dp, palette.outlineVariant, MentionSuggestionsShape),
+            .background(colorScheme.surface)
+            .border(1.dp, colorScheme.outlineVariant, MentionSuggestionsShape),
         contentPadding = PaddingValues(vertical = MentionSuggestionsVerticalPadding)
     ) {
         items(

@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
+import com.bitchat.android.ui.theme.colorForPeerSeed
 import com.bitchat.android.R
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import java.util.*
@@ -45,6 +46,7 @@ fun GeohashPeopleList(
     val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
 
     val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
     val myHex = remember(selectedLocationChannel) {
         when (val channel = selectedLocationChannel) {
             is com.bitchat.android.geohash.ChannelID.Location -> {
@@ -110,7 +112,7 @@ fun GeohashPeopleList(
                     .fillMaxWidth()
                     .padding(horizontal = AboutHorizontalPadding)
                     .padding(top = 10.dp),
-                color = palette.surface,
+                color = colorScheme.surface,
                 shape = AboutCardShape
             ) {
                 Text(
@@ -212,14 +214,14 @@ private fun PeopleCard(
     people: List<GeoPerson>,
     row: @Composable (GeoPerson) -> Unit
 ) {
-    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = AboutHorizontalPadding)
             .padding(top = 10.dp),
-        color = palette.surface,
+        color = colorScheme.surface,
         shape = AboutCardShape
     ) {
         AnimatedRowColumn(items = people, key = { it.id }) { index, person ->
@@ -250,7 +252,10 @@ private fun GeohashPersonItem(
     val (baseNameRaw, suffixRaw) = splitSuffix(person.displayName)
     val baseName = truncateNickname(baseNameRaw)
     val suffix = if (showHashSuffix) suffixRaw else ""
-    val assignedColor = viewModel.colorForNostrPubkey(person.id, palette.isDark)
+    val assignedColor = colorForPeerSeed(
+        viewModel.peerColorSeedForNostrPubkey(person.id),
+        palette
+    )
     val baseColor = if (isMe) palette.accentOrange else assignedColor
 
     Row(

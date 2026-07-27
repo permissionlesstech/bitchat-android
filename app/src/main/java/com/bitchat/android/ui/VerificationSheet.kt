@@ -19,7 +19,6 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -99,8 +98,7 @@ fun VerificationSheet(
 ) {
     if (!isPresented) return
 
-    val isDark = isSystemInDarkTheme()
-    val accent = if (isDark) Color.Green else Color(0xFF008000)
+    val accent = MaterialTheme.colorScheme.primary
     
     var selectedTab by remember { mutableStateOf(0) } // 0 = My Code, 1 = Scan
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()

@@ -5,7 +5,6 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -51,10 +50,8 @@ fun LocationNotesSheet(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
-    
-    // iOS color scheme
-    val accentGreen = if (isDark) Color.Green else Color(0xFF008000) // dark: green, light: dark green (0, 0.5, 0)
+    val colorScheme = MaterialTheme.colorScheme
+    val accentGreen = colorScheme.primary
     
     // Managers
     val notesManager = remember { LocationNotesManager.getInstance() }
@@ -468,7 +465,6 @@ private fun LocationNotesInputSection(
     nickname: String?,
     onSend: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
     val colorScheme = MaterialTheme.colorScheme
 
     Column(
@@ -556,10 +552,8 @@ private fun LocationNotesInputSection(
                     modifier = Modifier.size(20.dp),
                     tint = if (!sendButtonEnabled) {
                         colorScheme.onSurface.copy(alpha = 0.5f)
-                    } else if (isDark) {
-                        Color.Black // Black arrow on green in dark theme
                     } else {
-                        Color.White // White arrow on green in light theme
+                        colorScheme.onPrimary
                     }
                 )
             }

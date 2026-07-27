@@ -1195,17 +1195,12 @@ class ChatViewModel(
     /**
      * Get consistent color for a mesh peer by ID (iOS-compatible)
      */
-    fun colorForMeshPeer(peerID: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
-        // Try to get stable Noise key, fallback to peer ID
-        val seed = "noise:${peerID.lowercase()}"
-        return colorForPeerSeed(seed, isDark).copy()
-    }
+    fun peerColorSeedForMeshPeer(peerID: String): PeerColorSeed = meshPeerColorSeed(peerID)
 
     /**
      * Get consistent color for a Nostr pubkey (iOS-compatible)
      */
-    fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
-        return geohashViewModel.colorForNostrPubkey(pubkeyHex, isDark)
-}
+    fun peerColorSeedForNostrPubkey(pubkeyHex: String): PeerColorSeed =
+        geohashViewModel.peerColorSeedForNostrPubkey(pubkeyHex)
 
 }

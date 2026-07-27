@@ -10,7 +10,6 @@ import androidx.compose.material.icons.outlined.Warning as OutlinedWarning
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -70,9 +69,9 @@ fun SecurityVerificationSheet(
     val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
     val peerSessionStates by viewModel.peerSessionStates.collectAsStateWithLifecycle()
 
-    val isDark = isSystemInDarkTheme()
-    val accent = if (isDark) Color.Green else Color(0xFF008000)
-    val boxColor = if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.06f)
+    val colorScheme = MaterialTheme.colorScheme
+    val accent = colorScheme.primary
+    val boxColor = colorScheme.surfaceVariant
     val peerHexRegex = remember { Regex("^[0-9a-fA-F]{16}$") }
 
     BitchatBottomSheet(

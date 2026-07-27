@@ -7,16 +7,18 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.ChatVisualTokens
+import com.bitchat.android.ui.theme.DarkBitchatColorScheme
 import com.bitchat.android.ui.theme.DarkBitchatPalette
+import com.bitchat.android.ui.theme.LightBitchatColorScheme
 import com.bitchat.android.ui.theme.LightBitchatPalette
 import com.bitchat.android.ui.theme.MessageBodyTextStyle
 import com.bitchat.android.ui.theme.MessageSenderTextStyle
+import com.bitchat.android.ui.theme.colorForPeerSeed
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,6 +35,7 @@ class ChatUIUtilsTest {
     }
 
     private val palette = DarkBitchatPalette
+    private val colorScheme = DarkBitchatColorScheme
 
     private fun message(
         content: String,
@@ -71,6 +74,8 @@ class ChatUIUtilsTest {
             message = message("hello there"),
             currentUserNickname = "bob",
             palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
             timeFormatter = timeFormatter,
         )
 
@@ -89,6 +94,8 @@ class ChatUIUtilsTest {
             message = message("mined", powDifficulty = 8),
             currentUserNickname = "bob",
             palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
             timeFormatter = timeFormatter,
         )
 
@@ -106,6 +113,8 @@ class ChatUIUtilsTest {
             message = message("hello there"),
             currentUserNickname = "bob",
             palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
             timeFormatter = timeFormatter,
             includeTimestamp = false,
         )
@@ -119,12 +128,14 @@ class ChatUIUtilsTest {
             message = message("plain words"),
             currentUserNickname = "bob",
             palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
             timeFormatter = timeFormatter,
             includeTimestamp = false,
         )
 
         val textStyle = body.spanStyles.first { it.start == 0 }
-        assertEquals(palette.textPrimary, textStyle.item.color)
+        assertEquals(colorScheme.onSurface, textStyle.item.color)
     }
 
     @Test
@@ -146,6 +157,8 @@ class ChatUIUtilsTest {
             message = message("my own words", sender = "bob"),
             currentUserNickname = "bob",
             palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
             timeFormatter = timeFormatter,
             includeTimestamp = false,
         )
@@ -170,6 +183,8 @@ class ChatUIUtilsTest {
             message = message("hey @carol#04af what's up"),
             currentUserNickname = "bob",
             palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
             timeFormatter = timeFormatter,
             includeTimestamp = false,
         )
@@ -188,6 +203,8 @@ class ChatUIUtilsTest {
             message = message("ping @bob now"),
             currentUserNickname = "bob",
             palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
             timeFormatter = timeFormatter,
             includeTimestamp = false,
         )
@@ -208,11 +225,13 @@ class ChatUIUtilsTest {
             message = message("cc @carol#04af"),
             currentUserNickname = "bob",
             palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
             timeFormatter = timeFormatter,
             includeTimestamp = false,
         )
 
-        val expected = colorForPeerSeed("carol#04af", palette.isDark)
+        val expected = colorForPeerSeed(PeerColorSeed("carol#04af"), palette)
         val chip = mentionChipSpans(body).single()
         assertEquals(expected.copy(alpha = MENTION_CHIP_ALPHA), chip.item.background)
     }
@@ -223,6 +242,8 @@ class ChatUIUtilsTest {
             message = message("no mentions in here"),
             currentUserNickname = "bob",
             palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
             timeFormatter = timeFormatter,
             includeTimestamp = false,
         )
@@ -236,7 +257,7 @@ class ChatUIUtilsTest {
     fun `system message uses a double-slash prefix and no brackets`() {
         val text = formatSystemMessage(
             message = message("Tor started. Routing all chats via Tor", sender = "system"),
-            palette = palette,
+            contentColor = colorScheme.onSurface,
             timeFormatter = timeFormatter,
         ).text
 
@@ -249,7 +270,7 @@ class ChatUIUtilsTest {
         // messages despite being lower-priority narration.
         val annotated = formatSystemMessage(
             message = message("tor restarting", sender = "system"),
-            palette = palette,
+            contentColor = colorScheme.onSurface,
             timeFormatter = timeFormatter,
         )
 
@@ -260,7 +281,7 @@ class ChatUIUtilsTest {
     fun `system action and timestamp use their exported weights sizes and opacity`() {
         val annotated = formatSystemMessage(
             message = message("tor restarting", sender = "system"),
-            palette = palette,
+            contentColor = colorScheme.onSurface,
             timeFormatter = timeFormatter,
         )
 
@@ -273,10 +294,10 @@ class ChatUIUtilsTest {
 
         assertEquals(12.sp, action.fontSize)
         assertEquals(FontWeight.Medium, action.fontWeight)
-        assertEquals(palette.textPrimary.copy(alpha = 0.5f), action.color)
+        assertEquals(colorScheme.onSurface.copy(alpha = 0.5f), action.color)
         assertEquals(10.sp, time.fontSize)
         assertEquals(FontWeight.Normal, time.fontWeight)
-        assertEquals(palette.textPrimary.copy(alpha = 0.5f), time.color)
+        assertEquals(colorScheme.onSurface.copy(alpha = 0.5f), time.color)
     }
 
     // MARK: - Sender label
@@ -328,11 +349,24 @@ class ChatUIUtilsTest {
     // MARK: - Peer colors
 
     @Test
+    fun `peer seed factories normalize identities without resolving UI colors`() {
+        assertEquals(
+            PeerColorSeed("noise:abcdef"),
+            meshPeerColorSeed("ABCDEF")
+        )
+        assertEquals(
+            PeerColorSeed("nostr:abcdef"),
+            nostrPeerColorSeed("ABCDEF")
+        )
+    }
+
+    @Test
     fun `peer color hue is stable across light and dark, only chroma differs`() {
         // Hue derivation must stay byte-identical to iOS; only saturation/value are tuned for
         // the redesigned neutral message body.
-        val dark = colorForPeerSeed("noise:abc", isDark = true)
-        val light = colorForPeerSeed("noise:abc", isDark = false)
+        val seed = PeerColorSeed("noise:abc")
+        val dark = colorForPeerSeed(seed, DarkBitchatPalette)
+        val light = colorForPeerSeed(seed, LightBitchatPalette)
 
         val darkHsv = FloatArray(3)
         val lightHsv = FloatArray(3)
@@ -342,13 +376,18 @@ class ChatUIUtilsTest {
         assertEquals(darkHsv[0].toDouble(), lightHsv[0].toDouble(), 1.0)
         assertEquals(1.0, darkHsv[1].toDouble(), 0.01)
         assertEquals(1.0, darkHsv[2].toDouble(), 0.01)
+        assertEquals(0.85, lightHsv[1].toDouble(), 0.01)
+        assertEquals(0.45, lightHsv[2].toDouble(), 0.01)
     }
 
     @Test
     fun `peer color avoids the orange hue reserved for self`() {
         // Sweep a range of seeds; none may land within the reserved orange band.
         repeat(500) { i ->
-            val color = colorForPeerSeed("noise:seed$i", isDark = true)
+            val color = colorForPeerSeed(
+                PeerColorSeed("noise:seed$i"),
+                DarkBitchatPalette
+            )
             val hsv = FloatArray(3)
             rgbToHsv(color.red, color.green, color.blue, hsv)
             val distanceFromOrange = kotlin.math.abs(hsv[0] - 30f)
@@ -360,11 +399,12 @@ class ChatUIUtilsTest {
     }
 
     @Test
-    fun `light palette is not the dark palette`() {
-        assertNull(null)
-        assertEquals(Color(0xFFF5F5F5), DarkBitchatPalette.textPrimary)
-        assertTrue(LightBitchatPalette.textPrimary != DarkBitchatPalette.textPrimary)
-        assertTrue(LightBitchatPalette.isDark != DarkBitchatPalette.isDark)
+    fun `material owns standard text while Bitchat palette owns peer chroma`() {
+        assertEquals(Color(0xFFF5F5F5), DarkBitchatColorScheme.onSurface)
+        assertTrue(LightBitchatColorScheme.onSurface != DarkBitchatColorScheme.onSurface)
+        assertTrue(
+            LightBitchatPalette.peerColorValue != DarkBitchatPalette.peerColorValue
+        )
     }
 
     private fun rgbToHsv(r: Float, g: Float, b: Float, out: FloatArray) {

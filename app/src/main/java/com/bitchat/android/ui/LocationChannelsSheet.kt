@@ -28,6 +28,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -40,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -71,7 +74,9 @@ import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Leading column width matching settings rows: 22.dp glyph + 16.dp gutter before title text.
@@ -152,8 +157,8 @@ fun LocationChannelsSheet(
 
     val colorScheme = MaterialTheme.colorScheme
     val palette = LocalBitchatPalette.current
-    val standardGreen = palette.accentGreen
-    val standardBlue = palette.accentBlue
+    val standardGreen = colorScheme.primary
+    val standardBlue = colorScheme.secondary
 
     val nearbyChannels = remember(availableChannels) {
         availableChannels.filter { it.level != GeohashChannelLevel.BUILDING }
@@ -185,7 +190,12 @@ fun LocationChannelsSheet(
             Box(modifier = Modifier.fillMaxWidth()) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
+                    // Edge-to-edge + adjustResize reports the keyboard as WindowInsets.ime —
+                    // without consuming it here the list stays full-height and the teleport
+                    // field can't scroll above the keyboard.
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .imePadding(),
                     contentPadding = PaddingValues(top = 72.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
@@ -203,7 +213,7 @@ fun LocationChannelsSheet(
                                     .fillMaxWidth()
                                     .padding(horizontal = AboutHorizontalPadding)
                                     .padding(top = 10.dp),
-                                color = palette.surface,
+                                color = colorScheme.surface,
                                 shape = AboutCardShape
                             ) {
                                 ChannelOptionRow(
@@ -253,7 +263,7 @@ fun LocationChannelsSheet(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = AboutHorizontalPadding),
-                                    color = palette.surface,
+                                    color = colorScheme.surface,
                                     shape = AboutCardShape
                                 ) {
                                     ChannelOptionRow(
@@ -292,7 +302,7 @@ fun LocationChannelsSheet(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = AboutHorizontalPadding),
-                                    color = palette.surface,
+                                    color = colorScheme.surface,
                                     shape = AboutCardShape
                                 ) {
                                     Column {
@@ -353,7 +363,7 @@ fun LocationChannelsSheet(
                                     text = stringResource(R.string.location_permission_denied),
                                     fontSize = 12.sp,
                                     fontFamily = BitchatFontFamily,
-                                    color = palette.accentRed
+                                    color = colorScheme.error
                                 )
                                 TextButton(
                                     onClick = {
@@ -389,7 +399,7 @@ fun LocationChannelsSheet(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = AboutHorizontalPadding),
-                                color = palette.surface,
+                                color = colorScheme.surface,
                                 shape = AboutCardShape
                             ) {
                                 Column {
@@ -443,12 +453,7 @@ fun LocationChannelsSheet(
                                             customError = null
                                         },
                                         onFocusGained = {
-                                            coroutineScope.launch {
-                                                sheetState.expand()
-                                                listState.animateScrollToItem(
-                                                    index = listState.layoutInfo.totalItemsCount - 1
-                                                )
-                                            }
+                                            coroutineScope.launch { sheetState.expand() }
                                         },
                                         onOpenMap = {
                                             val normalized = customGeohash.trim().lowercase().replace("#", "")
@@ -497,7 +502,7 @@ fun LocationChannelsSheet(
                                     text = shownError,
                                     fontSize = 12.sp,
                                     fontFamily = BitchatFontFamily,
-                                    color = palette.accentRed,
+                                    color = colorScheme.error,
                                     modifier = Modifier.padding(
                                         start = AboutHorizontalPadding + ChannelRowHorizontal,
                                         top = 8.dp
@@ -518,7 +523,7 @@ fun LocationChannelsSheet(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = AboutHorizontalPadding),
-                                color = palette.surface,
+                                color = colorScheme.surface,
                                 shape = AboutCardShape
                             ) {
                                 ChannelSettingsToggleRow(
@@ -638,7 +643,6 @@ private fun ChannelOptionRow(
     onClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
     val (baseTitle, countSuffix) = splitTitleAndCount(title)
 
     Row(
@@ -657,7 +661,7 @@ private fun ChannelOptionRow(
                     Box(
                         modifier = Modifier
                             .size(ChannelSelectedDot)
-                            .background(palette.accentGreen, CircleShape)
+                            .background(colorScheme.primary, CircleShape)
                     )
                 }
                 leadingIcon != null -> {
@@ -686,7 +690,7 @@ private fun ChannelOptionRow(
                     fontSize = 14.sp,
                     fontFamily = BitchatFontFamily,
                     fontWeight = if (titleBold) FontWeight.SemiBold else FontWeight.Medium,
-                    color = titleColor ?: palette.textPrimary
+                    color = titleColor ?: colorScheme.onSurface
                 )
                 countSuffix?.let { count ->
                     AnimatedCountLabel(
@@ -694,7 +698,7 @@ private fun ChannelOptionRow(
                         text = count,
                         fontSize = 11.sp,
                         fontFamily = BitchatFontFamily,
-                        color = palette.textSecondary
+                        color = colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -703,7 +707,7 @@ private fun ChannelOptionRow(
                 fontSize = 12.sp,
                 fontFamily = BitchatFontFamily,
                 lineHeight = 17.sp,
-                color = palette.textSecondary
+                color = colorScheme.onSurfaceVariant
             )
         }
 
@@ -719,7 +723,7 @@ private fun ChannelBookmarkButton(
     bookmarked: Boolean,
     onClick: () -> Unit
 ) {
-    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
             .size(36.dp)
@@ -737,7 +741,7 @@ private fun ChannelBookmarkButton(
             contentDescription = stringResource(
                 if (bookmarked) R.string.cd_remove_bookmark else R.string.cd_add_bookmark
             ),
-            tint = if (bookmarked) palette.accentGreen else palette.textSecondary,
+            tint = if (bookmarked) colorScheme.primary else colorScheme.onSurfaceVariant,
             modifier = Modifier.size(22.dp)
         )
     }
@@ -745,7 +749,7 @@ private fun ChannelBookmarkButton(
 
 @Composable
 private fun ChannelLoadingRow() {
-    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -760,14 +764,14 @@ private fun ChannelLoadingRow() {
             CircularProgressIndicator(
                 modifier = Modifier.size(16.dp),
                 strokeWidth = 2.dp,
-                color = palette.textSecondary
+                color = colorScheme.onSurfaceVariant
             )
         }
         Text(
             text = stringResource(R.string.finding_nearby_channels),
             fontSize = 12.sp,
             fontFamily = BitchatFontFamily,
-            color = palette.textSecondary
+            color = colorScheme.onSurfaceVariant
         )
     }
 }
@@ -785,6 +789,10 @@ private fun CustomGeohashRow(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val palette = LocalBitchatPalette.current
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+    val coroutineScope = rememberCoroutineScope()
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val normalized = customGeohash.trim().lowercase().replace("#", "")
     val isValid = validateGeohash(normalized)
     // Typing the last character of a valid geohash arms the button; cross-fading both the label
@@ -798,7 +806,7 @@ private fun CustomGeohashRow(
         targetValue = if (isValid) {
             colorScheme.primary.copy(alpha = 0.16f)
         } else {
-            palette.surfaceVariant
+            colorScheme.surfaceVariant
         },
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "teleportContainer"
@@ -809,6 +817,7 @@ private fun CustomGeohashRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester)
             .padding(horizontal = ChannelRowHorizontal, vertical = ChannelRowVertical),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -847,7 +856,22 @@ private fun CustomGeohashRow(
             singleLine = true,
             modifier = Modifier
                 .weight(1f)
-                .onFocusChanged { if (it.isFocused) onFocusGained() },
+                .onFocusChanged { focusState ->
+                    if (!focusState.isFocused) return@onFocusChanged
+                    onFocusGained()
+                    // Wait until IME insets have landed so the LazyColumn has shrunk; bringIntoView
+                    // against the full-height viewport leaves the field tucked under the keyboard.
+                    // Re-request once the IME animation settles — early insets are still growing.
+                    coroutineScope.launch {
+                        withTimeoutOrNull(750) {
+                            snapshotFlow { imeInsets.getBottom(density) }
+                                .first { it > 0 }
+                        }
+                        bringIntoViewRequester.bringIntoView()
+                        delay(BitchatMotion.STANDARD_MS.toLong())
+                        bringIntoViewRequester.bringIntoView()
+                    }
+                },
             decorationBox = { inner ->
                 if (customGeohash.isEmpty()) {
                     Text(
@@ -871,7 +895,7 @@ private fun CustomGeohashRow(
             Icon(
                 imageVector = Icons.Filled.Map,
                 contentDescription = stringResource(R.string.cd_open_map),
-                tint = palette.textSecondary,
+                tint = colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -937,7 +961,7 @@ private fun ChannelSettingsToggleRow(
                     fontFamily = BitchatFontFamily,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (enabled) palette.textPrimary else palette.textTertiary
+                    color = if (enabled) colorScheme.onSurface else palette.textTertiary
                 )
                 statusIndicator?.invoke()
             }
@@ -946,7 +970,7 @@ private fun ChannelSettingsToggleRow(
                 fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
-                color = if (enabled) palette.textSecondary else palette.textTertiary
+                color = if (enabled) colorScheme.onSurfaceVariant else palette.textTertiary
             )
         }
         Spacer(modifier = Modifier.width(16.dp))
@@ -956,9 +980,9 @@ private fun ChannelSettingsToggleRow(
             enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = palette.accentGreen,
+                checkedTrackColor = colorScheme.primary,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = palette.surfaceVariant
+                uncheckedTrackColor = colorScheme.surfaceVariant
             )
         )
     }
