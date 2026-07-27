@@ -8,6 +8,7 @@ import okhttp3.Request
 import okhttp3.WebSocket
 import okio.ByteString
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,6 +52,47 @@ class NostrRelaySubscriptionRaceTest {
         assertTrue(deduplicator.contains(event.id))
     }
 
+    @Test
+    fun ndrAdapterNeverUsesConnectedLiveLocationOnlyRelay() {
+        val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+        val manager = NostrRelayManager(
+            scope,
+            NostrEventDeduplicator(maxCapacity = 8)
+        )
+        val accountRelayUrl = NostrRelayManager.defaultRelays().first()
+        val liveOnlyRelayUrl = "wss://live-location-only.example"
+        val accountSocket = RecordingWebSocket()
+        val liveOnlySocket = RecordingWebSocket()
+        installConnection(manager, accountRelayUrl, accountSocket)
+        installConnection(manager, liveOnlyRelayUrl, liveOnlySocket)
+        val adapter = BitchatNdrRelayAdapter(manager)
+
+        adapter.subscribe(
+            filter = NostrFilter(kinds = listOf(1060)),
+            id = "ndr-account-only"
+        ) { true }
+
+        val event = NostrEvent(
+            id = "7c".repeat(32),
+            pubkey = "7d".repeat(32),
+            createdAt = 1,
+            kind = 1060,
+            tags = emptyList(),
+            content = "ciphertext",
+            sig = "signature"
+        )
+        var accepted: Boolean? = null
+        adapter.sendEventConfirmed(event) { accepted = it }
+
+        assertTrue(accountSocket.messages.any { "\"REQ\"" in it })
+        assertTrue(accountSocket.messages.any { "\"EVENT\"" in it })
+        assertTrue(liveOnlySocket.messages.isEmpty())
+        assertEquals(null, accepted)
+
+        adapter.cancelConfirmedEvent(event.id)
+        assertFalse(accepted ?: true)
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun installConnection(
         manager: NostrRelayManager,
@@ -92,6 +134,26 @@ class NostrRelaySubscriptionRaceTest {
 
         override fun send(text: String): Boolean {
             onRequest()
+            return true
+        }
+
+        override fun send(bytes: ByteString): Boolean = false
+
+        override fun close(code: Int, reason: String?): Boolean = true
+
+        override fun cancel() = Unit
+    }
+
+    private class RecordingWebSocket : WebSocket {
+        val messages = mutableListOf<String>()
+
+        override fun request(): Request =
+            Request.Builder().url("https://relay.example").build()
+
+        override fun queueSize(): Long = 0L
+
+        override fun send(text: String): Boolean {
+            messages += text
             return true
         }
 

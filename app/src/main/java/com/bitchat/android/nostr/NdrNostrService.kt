@@ -10,6 +10,47 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 
+internal class BitchatNdrRelayAdapter(
+    private val relayManager: NostrRelayManager,
+    private val accountRelayUrls: List<String> = NostrRelayManager.defaultRelays()
+) : NdrRelayManager {
+    override fun subscribe(
+        filter: NostrFilter,
+        id: String,
+        handler: (NostrEvent) -> Boolean
+    ) {
+        relayManager.subscribeAfterSuccessfulProcessing(
+            filter = filter,
+            id = id,
+            targetRelayUrls = accountRelayUrls,
+            handler = handler
+        )
+    }
+
+    override fun unsubscribe(id: String) {
+        relayManager.unsubscribe(id)
+    }
+
+    override fun sendEventConfirmed(
+        event: NostrEvent,
+        completion: (accepted: Boolean) -> Unit
+    ) {
+        relayManager.sendEventConfirmed(
+            event = event,
+            relayUrls = accountRelayUrls,
+            completion = completion
+        )
+    }
+
+    override fun cancelConfirmedEvent(eventId: String) {
+        relayManager.cancelConfirmedEvent(eventId)
+    }
+
+    override fun setOnConnectionAvailable(handler: () -> Unit) {
+        relayManager.setNdrConnectionAvailableHandler(handler)
+    }
+}
+
 class NdrNostrService(
     private val relayManager: NdrRelayManager,
     private val runtimeFactory: NdrPairwiseRuntimeFactory,
@@ -65,37 +106,8 @@ class NdrNostrService(
             val storageDirectory = context.filesDir.resolve("ndr")
             val establishedMarkerDirectory =
                 context.filesDir.resolve("ndr-established-sessions")
-            val relayManager = object : NdrRelayManager {
-                override fun subscribe(
-                    filter: NostrFilter,
-                    id: String,
-                    handler: (NostrEvent) -> Boolean
-                ) {
-                    NostrRelayManager.getInstance(context)
-                        .subscribeAfterSuccessfulProcessing(filter, id, handler)
-                }
-
-                override fun unsubscribe(id: String) {
-                    NostrRelayManager.getInstance(context).unsubscribe(id)
-                }
-
-                override fun sendEventConfirmed(
-                    event: NostrEvent,
-                    completion: (accepted: Boolean) -> Unit
-                ) {
-                    NostrRelayManager.getInstance(context)
-                        .sendEventConfirmed(event, completion = completion)
-                }
-
-                override fun cancelConfirmedEvent(eventId: String) {
-                    NostrRelayManager.getInstance(context).cancelConfirmedEvent(eventId)
-                }
-
-                override fun setOnConnectionAvailable(handler: () -> Unit) {
-                    NostrRelayManager.getInstance(context)
-                        .setNdrConnectionAvailableHandler(handler)
-                }
-            }
+            val relayManager =
+                BitchatNdrRelayAdapter(NostrRelayManager.getInstance(context))
 
             val runtimeFactory = object : NdrPairwiseRuntimeFactory {
                 override fun newWithStoragePath(

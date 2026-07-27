@@ -442,42 +442,9 @@ class ChatViewModel(
     
     /**
      * Ensure Nostr DM subscription for a geohash conversation key if known
-     * Minimal-change approach: reflectively access GeohashViewModel internals to reuse pipeline
      */
     private fun ensureGeohashDMSubscriptionIfNeeded(convKey: String) {
-        try {
-            val repoField = GeohashViewModel::class.java.getDeclaredField("repo")
-            repoField.isAccessible = true
-            val repo = repoField.get(geohashViewModel) as com.bitchat.android.nostr.GeohashRepository
-            val gh = repo.getConversationGeohash(convKey)
-            if (!gh.isNullOrEmpty()) {
-                val subMgrField = GeohashViewModel::class.java.getDeclaredField("subscriptionManager")
-                subMgrField.isAccessible = true
-                val subMgr = subMgrField.get(geohashViewModel) as com.bitchat.android.nostr.NostrSubscriptionManager
-                val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(gh, getApplication())
-                val subId = "geo-dm-$gh"
-                val currentDmSubField = GeohashViewModel::class.java.getDeclaredField("currentDmSubId")
-                currentDmSubField.isAccessible = true
-                val currentId = currentDmSubField.get(geohashViewModel) as String?
-                if (currentId != subId) {
-                    (currentId)?.let { subMgr.unsubscribe(it) }
-                    currentDmSubField.set(geohashViewModel, subId)
-                    subMgr.subscribeGiftWraps(
-                        pubkey = identity.publicKeyHex,
-                        sinceMs = System.currentTimeMillis() - 172800000L,
-                        id = subId,
-                        handler = { event ->
-                            val dmHandlerField = GeohashViewModel::class.java.getDeclaredField("dmHandler")
-                            dmHandlerField.isAccessible = true
-                            val dmHandler = dmHandlerField.get(geohashViewModel) as com.bitchat.android.nostr.NostrDirectMessageHandler
-                            dmHandler.onGiftWrap(event, gh, identity)
-                        }
-                    )
-                }
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "ensureGeohashDMSubscriptionIfNeeded failed: ${e.message}")
-        }
+        geohashViewModel.ensureGeohashDMSubscriptionForConversation(convKey)
     }
 
     // MARK: - Channel Management (delegated)
@@ -1259,6 +1226,11 @@ class ChatViewModel(
     
     fun panicClearAllData() {
         Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
+        try {
+            com.bitchat.android.geohash.LocationChannelManager
+                .getInstance(getApplication())
+                .disableLocationServices()
+        } catch (_: Exception) { }
 
         // A pending one-shot downgrade confirmation must not survive panic or
         // become actionable against the fresh post-wipe identity.
@@ -1414,8 +1386,14 @@ class ChatViewModel(
     /**
      * Begin sampling multiple geohashes for participant activity
      */
-    fun beginGeohashSampling(geohashes: List<String>) {
-        geohashViewModel.beginGeohashSampling(geohashes)
+    fun beginGeohashSampling(
+        liveLocationGeohashes: Collection<String>,
+        userSelectedGeohashes: Collection<String>,
+    ) {
+        geohashViewModel.beginGeohashSampling(
+            liveLocationGeohashes = liveLocationGeohashes,
+            userSelectedGeohashes = userSelectedGeohashes
+        )
     }
 
     /**
@@ -1506,22 +1484,17 @@ class ChatViewModel(
         }
     }
 
-    // MARK: - iOS-Compatible Color System
+    // MARK: - Canonical peer identities
 
     /**
-     * Get consistent color for a mesh peer by ID (iOS-compatible)
+     * Return the stable identity used by every UI surface to color a mesh peer.
      */
-    fun colorForMeshPeer(peerID: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
-        // Try to get stable Noise key, fallback to peer ID
-        val seed = "noise:${peerID.lowercase()}"
-        return colorForPeerSeed(seed, isDark).copy()
-    }
+    fun peerIdentityForMeshPeer(peerID: String): PeerIdentity = PeerIdentity.mesh(peerID)
 
     /**
-     * Get consistent color for a Nostr pubkey (iOS-compatible)
+     * Return the stable identity used by every UI surface to color a Nostr peer.
      */
-    fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
-        return geohashViewModel.colorForNostrPubkey(pubkeyHex, isDark)
-}
+    fun peerIdentityForNostrPubkey(pubkeyHex: String): PeerIdentity =
+        geohashViewModel.peerIdentityForNostrPubkey(pubkeyHex)
 
 }

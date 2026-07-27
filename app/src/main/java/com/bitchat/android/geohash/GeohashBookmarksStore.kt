@@ -112,7 +112,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
                 _bookmarks.value = ordered
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load bookmarks: ${e.message}")
+            Log.e(TAG, "Failed to load bookmarks")
         }
         try {
             val namesJson = prefs.getString(NAMES_STORE_KEY, null)
@@ -122,7 +122,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
                 _bookmarkNames.value = dict
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load bookmark names: ${e.message}")
+            Log.e(TAG, "Failed to load bookmark names")
         }
     }
 
@@ -155,7 +155,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
             resolving.clear()
             Log.i(TAG, "Cleared all geohash bookmarks and names")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to clear geohash bookmarks: ${e.message}")
+            Log.e(TAG, "Failed to clear geohash bookmarks")
         }
     }
 
@@ -213,7 +213,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
                     persistNames(current)
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Name resolution failed for #$gh: ${e.message}")
+                Log.w(TAG, "Bookmark name resolution failed")
             } finally {
                 resolving.remove(gh)
             }

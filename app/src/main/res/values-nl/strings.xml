@@ -71,12 +71,8 @@
     <string name="cd_add_bookmark">Bladwijzer toevoegen</string>
 
     <!-- Chatkop &amp; toegankelijkheid -->
-    <string name="chat_back">terug</string>
-    <string name="chat_channel_prefix">kanaal: %1$s</string>
-    <string name="chat_leave">verlaten</string>
     <string name="cd_nostr_reachable">Bereikbaar via Nostr</string>
     <string name="cd_unread_private_messages">Ongelezen privéberichten</string>
-    <string name="cd_toggle_bookmark">Bladwijzer omschakelen</string>
     <string name="cd_teleported">Geteleporteerd</string>
     <string name="cd_tor_status">Tor-status</string>
     <string name="cd_connected_peers">Verbonden peers</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">Afbeelding kiezen</string>
 
     <!-- Info-sheet -->
-    <string name="about_tagline">gedecentraliseerde meshcommunicatie met end-to-end-versleuteling</string>
     <string name="about_offline_mesh_title">Offline meshchat</string>
     <string name="about_offline_mesh_desc">Communiceer rechtstreeks via Bluetooth LE zonder internet of servers. Berichten worden doorgestuurd via apparaten in de buurt om het bereik te vergroten.</string>
     <string name="about_online_geohash_title">Online geohash-kanalen</string>
     <string name="about_online_geohash_desc">Maak contact met mensen in uw omgeving met geohash-gebaseerde kanalen. Breid het mesh uit met openbare internetrelays.</string>
     <string name="about_e2e_title">End-to-end-versleuteling</string>
     <string name="about_e2e_desc">Privéberichten zijn versleuteld. Kanaalberichten zijn openbaar.</string>
-    <string name="about_appearance">uiterlijk</string>
     <string name="about_system">systeem</string>
     <string name="about_light">licht</string>
     <string name="about_dark">donker</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Tor-status: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Laatste: %1$s</string>
     <string name="about_emergency_title">Noodgegevensverwijdering</string>
-    <string name="about_emergency_tip">Tip: Driedubbel klik op de app-titel om alle opgeslagen gegevens inclusief berichten, sleutels en instellingen noodmatig te verwijderen.</string>
     <string name="about_debug_settings">Debug-instellingen</string>
     <string name="about_footer">Open Source • Privacy First • Gedecentraliseerd</string>
     <string name="close_plain">Sluiten</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">Kaart openen</string>
     <string name="cd_remove_bookmark">Bladwijzer verwijderen</string>
     <string name="cd_teleport">Teleporteren</string>
-    <string name="cd_selected">Geselecteerd</string>
     <string name="cd_leave_channel">Kanaal verlaten</string>
     <string name="cd_reachable_via_nostr">Bereikbaar via Nostr</string>
     <string name="cd_offline_favorite">Offline favoriet</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">toestemmingen</string>
     <string name="grant_permissions">Toestemmingen verlenen</string>
     <string name="location_tracking_warning">bitchat volgt NIET uw locatie</string>
-    <string name="geohash_people_header">PERSONEN</string>
     <string name="nobody_around">niemand in de buurt…</string>
     <string name="you_suffix"> (jij)</string>
     <string name="pan_zoom_instruction">pan en zoom om een geohash te selecteren</string>
     <string name="select">selecteren</string>
     <string name="type_a_message_placeholder">typ een bericht…</string>
     <string name="mention">vermelden</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Afbeelding</string>
@@ -307,11 +297,6 @@
     <!-- Spraakspeler toegankelijkheid -->
     <string name="cd_play_voice">Afspelen</string>
     <string name="cd_pause_voice">Pauzeren</string>
-    <string name="cd_mining_pow">Mining-PoW</string>
-    <string name="cd_pow_enabled">PoW ingeschakeld</string>
-    <string name="cd_proof_of_work">Proof of Work</string>
-    <string name="pow_mining_ellipsis">minen…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Toestemmingsbeschrijvingen -->
     <string name="perm_nearby_devices_desc">Vereist om bitchat-gebruikers via Bluetooth te ontdekken</string>

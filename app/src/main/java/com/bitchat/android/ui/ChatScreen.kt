@@ -1,33 +1,36 @@
 package com.bitchat.android.ui
+
+import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
 
 // [Goose] Installing FileShareDispatcher handler in ChatScreen to forward file sends to ViewModel
 
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
@@ -42,6 +45,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
 import com.bitchat.android.ui.media.FullScreenImageViewer
+import com.bitchat.android.ui.theme.BitchatMotion
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -58,6 +62,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
+    val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
     val currentChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
@@ -179,6 +185,47 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
+    // Identity of the timeline on screen, derived exactly like displayMessages above. Drives the
+    // per-conversation scroll position and animation state in MessagesList.
+    val conversationKey = when {
+        currentChannel != null -> "channel:$currentChannel"
+        else -> {
+            val locationChannel = selectedLocationChannel
+            if (locationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+                "geo:${locationChannel.channel.geohash}"
+            } else {
+                "mesh"
+            }
+        }
+    }
+
+    val mentionPeerIdentities = remember(
+        displayMessages,
+        currentChannel,
+        selectedLocationChannel,
+        connectedPeers,
+        peerNicknames,
+        geohashPeople,
+    ) {
+        val knownPeers = if (
+            currentChannel == null && selectedLocationChannel is ChannelID.Location
+        ) {
+            val duplicateNames = duplicateGeohashBaseNames(geohashPeople)
+            geohashPeople.mapNotNull { person ->
+                if (isUnannouncedNickname(person.displayName)) return@mapNotNull null
+                val displayName = disambiguatedGeohashDisplayName(person, duplicateNames)
+                displayName to PeerIdentity.nostr(person.id)
+            }
+        } else {
+            connectedPeers.mapNotNull { peerID ->
+                peerNicknames[peerID]?.let { displayName ->
+                    displayName to PeerIdentity.mesh(peerID)
+                }
+            }
+        }
+        buildMentionPeerIdentityMap(displayMessages, knownPeers)
+    }
+
     // Determine whether to show media buttons (only hide in geohash location chats)
     val showMediaButtons = when {
         currentChannel != null -> true
@@ -191,8 +238,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
             .fillMaxSize()
             .background(colorScheme.background) // Extend background to fill entire screen including status bar
     ) {
-        val headerHeight = 42.dp
-        
+        val headerHeight = ChatHeaderHeight
+        val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+        // Both bars are translucent and the conversation scrolls underneath them, so their
+        // heights are reserved as list padding instead of as layout space. The composer's height
+        // varies (suggestion rows, wrapped lines), so it is measured rather than assumed.
+        var composerHeight by remember { mutableStateOf(0.dp) }
+        val density = LocalDensity.current
+
         // Main content area that responds to keyboard/window insets
         Column(
             modifier = Modifier
@@ -200,100 +254,92 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 .windowInsetsPadding(WindowInsets.ime) // This handles keyboard insets
                 .windowInsetsPadding(WindowInsets.navigationBars) // Add bottom padding when keyboard is not expanded
         ) {
-            // Header spacer - creates exact space for the floating header (status bar + compact header)
-            Spacer(
-                modifier = Modifier
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .height(headerHeight)
+          Box(modifier = Modifier.weight(1f)) {
+            // Messages area - takes up available space, will compress when keyboard appears
+            // Nearby-notes strip and the reveal hint both live in this Box alongside the
+            // list, rather than in a Column above it, because the conversation has to scroll
+            // underneath the translucent bars. Their heights are reserved as list padding.
+            var notesStripHeight by remember { mutableStateOf(0.dp) }
+            val showNotesStrip =
+                isMeshTimeline && nearbyNotesRevealed && nearbyNotes.isNotEmpty()
+
+            MessagesList(
+                messages = displayMessages,
+                currentUserNickname = nickname,
+                meshService = viewModel.meshServiceFacade,
+                mentionPeerIdentities = mentionPeerIdentities,
+                modifier = Modifier.fillMaxSize(),
+                conversationKey = conversationKey,
+                contentPadding = PaddingValues(
+                    top = statusBarHeight + headerHeight +
+                        (if (showNotesStrip) notesStripHeight else 0.dp),
+                    bottom = composerHeight
+                ),
+                forceScrollToBottom = forceScrollToBottom,
+                onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
+                onNicknameClick = { fullSenderName ->
+                    // Single click - mention user in text input
+                    val currentText = messageText.text
+
+                    // Extract base nickname and hash suffix from full sender name
+                    val (baseName, hashSuffix) = splitSuffix(fullSenderName)
+
+                    // Check if we're in a geohash channel to include hash suffix
+                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
+                    val mentionText = if (
+                        selectedLocationChannel is ChannelID.Location &&
+                        hashSuffix.isNotEmpty()
+                    ) {
+                        // In geohash chat - include the hash suffix from the full display name
+                        "@$baseName$hashSuffix"
+                    } else {
+                        // Regular chat - just the base nickname
+                        "@$baseName"
+                    }
+
+                    val newText = when {
+                        currentText.isEmpty() -> "$mentionText "
+                        currentText.endsWith(" ") -> "$currentText$mentionText "
+                        else -> "$currentText $mentionText "
+                    }
+
+                    messageText = TextFieldValue(
+                        text = newText,
+                        selection = TextRange(newText.length)
+                    )
+                },
+                onMessageLongPress = { message ->
+                    // Message long press - open user action sheet with message context
+                    // Extract base nickname from message sender (contains all necessary info)
+                    val (baseName, _) = splitSuffix(message.sender)
+                    selectedUserForSheet = baseName
+                    selectedMessageForSheet = message
+                    showUserSheet = true
+                },
+                onCancelTransfer = { msg ->
+                    viewModel.cancelMediaSend(msg.id)
+                },
+                onImageClick = { currentPath, allImagePaths, initialIndex ->
+                    viewerImagePaths = allImagePaths
+                    initialViewerIndex = initialIndex
+                    showFullScreenImageViewer = true
+                }
             )
 
-            // Messages area - takes up available space, will compress when keyboard appears
-            Column(modifier = Modifier.weight(1f)) {
-                if (isMeshTimeline && nearbyNotesRevealed && nearbyNotes.isNotEmpty()) {
-                    NearbyNotesStrip(
-                        noteCount = nearbyNotes.size,
-                        onClick = { showLocationNotesSheet = true },
-                    )
-                }
-
-                Box(
+            if (showNotesStrip) {
+                NearbyNotesStrip(
+                    noteCount = nearbyNotes.size,
+                    onClick = { showLocationNotesSheet = true },
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                ) {
-                    MessagesList(
-                        messages = displayMessages,
-                        currentUserNickname = nickname,
-                        meshService = viewModel.meshServiceFacade,
-                        modifier = Modifier.fillMaxSize(),
-                        forceScrollToBottom = forceScrollToBottom,
-                        onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
-                        onNicknameClick = { fullSenderName ->
-                            // Single click - mention user in text input
-                            val currentText = messageText.text
-
-                            // Extract base nickname and hash suffix from full sender name
-                            val (baseName, hashSuffix) = splitSuffix(fullSenderName)
-
-                            // Check if we're in a geohash channel to include hash suffix
-                            val selectedLocationChannel = viewModel.selectedLocationChannel.value
-                            val mentionText = if (
-                                selectedLocationChannel is ChannelID.Location &&
-                                hashSuffix.isNotEmpty()
-                            ) {
-                                // In geohash chat - include the hash suffix from the full display name
-                                "@$baseName$hashSuffix"
-                            } else {
-                                // Regular chat - just the base nickname
-                                "@$baseName"
-                            }
-
-                            val newText = when {
-                                currentText.isEmpty() -> "$mentionText "
-                                currentText.endsWith(" ") -> "$currentText$mentionText "
-                                else -> "$currentText $mentionText "
-                            }
-
-                            messageText = TextFieldValue(
-                                text = newText,
-                                selection = TextRange(newText.length),
-                            )
+                        .align(Alignment.TopCenter)
+                        .padding(top = statusBarHeight + headerHeight)
+                        .onSizeChanged { size ->
+                            notesStripHeight = with(density) { size.height.toDp() }
                         },
-                        onMessageLongPress = { message ->
-                            // Message long press - open user action sheet with message context
-                            // Extract base nickname from message sender (contains all necessary info)
-                            val (baseName, _) = splitSuffix(message.sender)
-                            selectedUserForSheet = baseName
-                            selectedMessageForSheet = message
-                            showUserSheet = true
-                        },
-                        onCancelTransfer = { msg ->
-                            viewModel.cancelMediaSend(msg.id)
-                        },
-                        onImageClick = { currentPath, allImagePaths, initialIndex ->
-                            viewerImagePaths = allImagePaths
-                            initialViewerIndex = initialIndex
-                            showFullScreenImageViewer = true
-                        },
-                    )
-
-                    if (
-                        displayMessages.isEmpty() &&
-                        isMeshTimeline &&
-                        !nearbyNotesRevealed &&
-                        locationEnabled &&
-                        locationPermissionState ==
-                            LocationChannelManager.PermissionState.AUTHORIZED &&
-                        buildingGeohash != null
-                    ) {
-                        NearbyNotesRevealHint(
-                            onClick = nearbyNotesController::reveal,
-                            modifier = Modifier.align(Alignment.Center),
-                        )
-                    }
-                }
+                )
             }
-            // Input area - stays at bottom
+
+            // Input area - overlays the bottom of the conversation
         // Bridge file share from lower-level input to ViewModel
     androidx.compose.runtime.LaunchedEffect(Unit) {
         com.bitchat.android.ui.events.FileShareDispatcher.setHandler { peer, channel, path ->
@@ -302,6 +348,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
 
     ChatInputSection(
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .onSizeChanged { size ->
+                composerHeight = with(density) { size.height.toDp() }
+            },
         messageText = messageText,
         onMessageTextChange = { newText: TextFieldValue ->
             messageText = newText
@@ -329,6 +380,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         commandSuggestions = commandSuggestions,
         showMentionSuggestions = showMentionSuggestions,
         mentionSuggestions = mentionSuggestions,
+        mentionPeerIdentities = mentionPeerIdentities,
         onCommandSuggestionClick = { suggestion: CommandSuggestion ->
                     val commandText = viewModel.selectCommandSuggestion(suggestion)
                     messageText = TextFieldValue(
@@ -349,11 +401,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 colorScheme = colorScheme,
                 showMediaButtons = showMediaButtons
             )
+          }
         }
 
         // Floating header - positioned absolutely at top, ignores keyboard
         ChatFloatingHeader(
-            headerHeight = headerHeight,
             selectedPrivatePeer = null,
             currentChannel = currentChannel,
             nickname = nickname,
@@ -369,40 +421,39 @@ fun ChatScreen(viewModel: ChatViewModel) {
             }
         )
 
-        // Divider under header - positioned after status bar + header height
-        HorizontalDivider(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .offset(y = headerHeight)
-                .zIndex(1f),
-            color = colorScheme.outline.copy(alpha = 0.3f)
-        )
-
         // Scroll-to-bottom floating button
         AnimatedVisibility(
             visible = isScrolledUp,
-            enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
+            // Short and eased: the button appears mid-scroll, so a slow entrance draws the eye
+            // away from the messages the user is actually reading.
+            enter = slideInVertically(
+                animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+                initialOffsetY = { it / 2 }
+            ) + fadeIn(tween(BitchatMotion.STANDARD_MS)),
+            exit = slideOutVertically(
+                animationSpec = tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing),
+                targetOffsetY = { it / 2 }
+            ) + fadeOut(tween(BitchatMotion.QUICK_MS)),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 64.dp)
+                .padding(end = 16.dp, bottom = composerHeight + 8.dp)
                 .zIndex(1.5f)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .windowInsetsPadding(WindowInsets.ime)
         ) {
             Surface(
                 shape = CircleShape,
-                color = colorScheme.background,
+                color = colorScheme.surface,
                 tonalElevation = 3.dp,
                 shadowElevation = 6.dp,
-                border = BorderStroke(2.dp, Color(0xFF00C851))
+                border = BorderStroke(1.dp, colorScheme.primary)
             ) {
                 IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
                     Icon(
                         imageVector = Icons.Filled.ArrowDownward,
                         contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom),
-                        tint = Color(0xFF00C851)
+                        modifier = Modifier.size(22.dp),
+                        tint = colorScheme.primary
                     )
                 }
             }
@@ -488,30 +539,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
 }
 
 @Composable
-private fun NearbyNotesRevealHint(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val actionLabel = stringResource(R.string.nearby_notes_reveal)
-    TextButton(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 24.dp)
-            .semantics { contentDescription = actionLabel },
-    ) {
-        Text(
-            text = "📍 $actionLabel",
-            modifier = Modifier.clearAndSetSemantics { },
-            color = MaterialTheme.colorScheme.primary,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
-        )
-    }
-}
-
-@Composable
 private fun NearbyNotesStrip(
     noteCount: Int,
     onClick: () -> Unit,
@@ -537,7 +564,7 @@ private fun NearbyNotesStrip(
                 },
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.primary,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
             )
             Text(
@@ -561,58 +588,115 @@ fun ChatInputSection(
     commandSuggestions: List<CommandSuggestion>,
     showMentionSuggestions: Boolean,
     mentionSuggestions: List<String>,
+    mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     onCommandSuggestionClick: (CommandSuggestion) -> Unit,
     onMentionSuggestionClick: (String) -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
     colorScheme: ColorScheme,
-    showMediaButtons: Boolean
+    showMediaButtons: Boolean,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = colorScheme.background
+    Column(
+        // Flat, slightly translucent screen background — the same treatment as the top bar, so the
+        // two bars are visibly the same kind of surface. No gradient: a soft ramp here just looked
+        // like a smudge above a crisp hairline. The rule is inside the background so the whole bar
+        // is one surface with a top border, rather than a line floating over the conversation.
+        modifier = modifier
+            .fillMaxWidth()
+            .background(colorScheme.background.copy(alpha = BarBackgroundAlpha))
     ) {
-        Column {
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            // Command suggestions box
-            if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
-                CommandSuggestionsBox(
-                    suggestions = commandSuggestions,
-                    onSuggestionClick = onCommandSuggestionClick,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
+        // Hairline marking where chrome begins. Faint on purpose — it is a hint, not a border.
+        HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
+
+        // Command suggestions box
+        if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
+            CommandSuggestionsBox(
+                suggestions = commandSuggestions,
+                onSuggestionClick = onCommandSuggestionClick,
+                modifier = Modifier.fillMaxWidth()
+            )
+            HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
+        }
+        // Retain the final populated list while the picker exits. The state layer clears
+        // suggestions together with visibility; without this snapshot the panel would empty and
+        // snap shut before its shrink/fade animation had a frame to run.
+        var retainedMentionSuggestions by remember { mutableStateOf(emptyList<String>()) }
+        LaunchedEffect(mentionSuggestions) {
+            if (mentionSuggestions.isNotEmpty()) {
+                retainedMentionSuggestions = mentionSuggestions
             }
-            // Mention suggestions box
-            if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
+        }
+        val mentionPickerVisible = showMentionSuggestions && mentionSuggestions.isNotEmpty()
+        val displayedMentionSuggestions = mentionSuggestions.ifEmpty {
+            retainedMentionSuggestions
+        }
+
+        AnimatedVisibility(
+            visible = mentionPickerVisible,
+            enter = fadeIn(tween(BitchatMotion.STANDARD_MS)) +
+                expandVertically(
+                    animationSpec = tween(
+                        BitchatMotion.STANDARD_MS,
+                        easing = FastOutSlowInEasing
+                    ),
+                    expandFrom = Alignment.Bottom
+                ),
+            exit = fadeOut(tween(BitchatMotion.QUICK_MS)) +
+                shrinkVertically(
+                    animationSpec = tween(
+                        BitchatMotion.QUICK_MS,
+                        easing = FastOutSlowInEasing
+                    ),
+                    shrinkTowards = Alignment.Bottom
+                )
+        ) {
+            Column {
                 MentionSuggestionsBox(
-                    suggestions = mentionSuggestions,
+                    suggestions = displayedMentionSuggestions,
+                    mentionPeerIdentities = mentionPeerIdentities,
                     onSuggestionClick = onMentionSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
-                HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
+                HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
             }
-            MessageInput(
-                value = messageText,
-                onValueChange = onMessageTextChange,
-                onSend = onSend,
-                onSendVoiceNote = onSendVoiceNote,
-                onSendImageNote = onSendImageNote,
-                onSendFileNote = onSendFileNote,
-                selectedPrivatePeer = selectedPrivatePeer,
-                currentChannel = currentChannel,
-                nickname = nickname,
-                showMediaButtons = showMediaButtons,
-                modifier = Modifier.fillMaxWidth()
-            )
         }
+        MessageInput(
+            value = messageText,
+            onValueChange = onMessageTextChange,
+            onSend = onSend,
+            onSendVoiceNote = onSendVoiceNote,
+            onSendImageNote = onSendImageNote,
+            onSendFileNote = onSendFileNote,
+            selectedPrivatePeer = selectedPrivatePeer,
+            currentChannel = currentChannel,
+            nickname = nickname,
+            showMediaButtons = showMediaButtons,
+            mentionPeerIdentities = mentionPeerIdentities,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
+
+/**
+ * Opacity shared by both bars.
+ *
+ * Slight, so the conversation scrolling underneath stays faintly perceptible and the chrome reads
+ * as sitting over the content rather than boxing it in — without ever costing legibility.
+ */
+private const val BarBackgroundAlpha = 0.88f
+
+/**
+ * Fraction of the header that stays fully opaque, measured from the top.
+ *
+ * The header is the one place a gradient earns its keep: the status bar is transparent, so the
+ * header has to be the true background colour where the two meet or the system bar stops looking
+ * like part of the app. Everything below that stop matches the composer's flat translucency.
+ */
+private const val HeaderOpaqueStop = 0.72f
 @Composable
 private fun ChatFloatingHeader(
-    headerHeight: Dp,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
@@ -626,42 +710,48 @@ private fun ChatFloatingHeader(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
-    
-    Surface(
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .zIndex(1f)
-            .windowInsetsPadding(WindowInsets.statusBars), // Extend into status bar area
-        color = colorScheme.background // Solid background color extending into status bar
-    ) {
-        TopAppBar(
-            title = {
-                ChatHeaderContent(
-                    selectedPrivatePeer = selectedPrivatePeer,
-                    currentChannel = currentChannel,
-                    nickname = nickname,
-                    viewModel = viewModel,
-                    onBackClick = {
-                        when {
-                            selectedPrivatePeer != null -> viewModel.endPrivateChat()
-                            currentChannel != null -> viewModel.switchToChannel(null)
-                        }
-                    },
-                    onSidebarClick = onSidebarToggle,
-                    onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo,
-                    onLocationChannelsClick = onLocationChannelsClick,
-                    onLocationNotesClick = {
-                        // Ensure location is loaded before showing sheet
-                        locationManager.refreshChannels()
-                        onLocationNotesClick()
-                    }
+            // Fully opaque where it meets the system status bar, fading to translucent at its
+            // lower edge. The status bar itself is transparent, so anything less than opaque at
+            // the top would let the wallpaper or a light system-bar scrim bleed through and the
+            // header would stop reading as part of the app.
+            .background(
+                Brush.verticalGradient(
+                    0f to colorScheme.background,
+                    HeaderOpaqueStop to colorScheme.background,
+                    1f to colorScheme.background.copy(alpha = BarBackgroundAlpha)
                 )
+            )
+            .windowInsetsPadding(WindowInsets.statusBars) // Extend into status bar area
+    ) {
+        // No TopAppBar: it silently injects a 4.dp horizontal pad plus a 12.dp title inset and
+        // applies its own minimum heights, which made the header's spacing impossible to specify
+        // exactly. Height and edge insets belong to each header variant, so that a conversation
+        // header rendered here and one rendered in a sheet are laid out identically.
+        ChatHeaderContent(
+            selectedPrivatePeer = selectedPrivatePeer,
+            currentChannel = currentChannel,
+            nickname = nickname,
+            viewModel = viewModel,
+            onBackClick = {
+                when {
+                    selectedPrivatePeer != null -> viewModel.endPrivateChat()
+                    currentChannel != null -> viewModel.switchToChannel(null)
+                }
             },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent
-            ),
-            modifier = Modifier.height(headerHeight) // Ensure compact header height
+            onSidebarClick = onSidebarToggle,
+            onTripleClick = onPanicClear,
+            onShowAppInfo = onShowAppInfo,
+            onLocationChannelsClick = onLocationChannelsClick,
+            onLocationNotesClick = {
+                // Ensure location is loaded before showing sheet
+                locationManager.refreshChannels()
+                onLocationNotesClick()
+            }
         )
     }
 }

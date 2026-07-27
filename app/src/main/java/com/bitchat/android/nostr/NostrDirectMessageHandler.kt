@@ -332,8 +332,12 @@ class NostrDirectMessageHandler(
                     isPrivate = true,
                     recipientNickname = state.getNicknameValue(),
                     senderPeerID = conversationID,
+                    senderNostrPubkey = senderPubkey,
                     deliveryStatus =
-                        DeliveryStatus.Delivered(to = state.getNicknameValue(), at = Date())
+                        DeliveryStatus.Delivered(
+                            to = state.getNicknameValue(),
+                            at = Date()
+                        )
                 )
 
                 val isViewing = state.getSelectedPrivateChatPeerValue() == conversationID
@@ -435,7 +439,8 @@ class NostrDirectMessageHandler(
                                 isRelay = false,
                                 isPrivate = true,
                                 recipientNickname = state.getNicknameValue(),
-                                senderPeerID = conversationID
+                                senderPeerID = conversationID,
+                                senderNostrPubkey = senderPubkey
                             )
                         }
                     ) return NdrDeliveryResult.REJECTED
