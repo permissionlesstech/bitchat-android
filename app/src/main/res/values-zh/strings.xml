@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">添加书签</string>
 
     <!-- 聊天头部 / 可访问性 -->
-    <string name="chat_back">返回</string>
-    <string name="chat_leave">离开</string>
     <string name="cd_nostr_reachable">可通过 Nostr 联系</string>
     <string name="cd_unread_private_messages">未读私信</string>
     <string name="cd_teleported">已传送</string>

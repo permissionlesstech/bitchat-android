@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -13,11 +14,12 @@ import com.bitchat.android.ui.theme.LightBitchatColorScheme
 import com.bitchat.android.ui.theme.LightBitchatPalette
 import com.bitchat.android.ui.theme.MessageBodyTextStyle
 import com.bitchat.android.ui.theme.MessageSenderTextStyle
-import com.bitchat.android.ui.theme.colorForPeerSeed
+import com.bitchat.android.ui.theme.colorForPeer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -221,19 +223,90 @@ class ChatUIUtilsTest {
 
     @Test
     fun `mention of another user is tinted by that user's own peer color`() {
+        val pubkey = "0123456789abcdef".repeat(4)
+        val identity = PeerIdentity.nostr(pubkey)
+        val mentionPeerIdentities = buildMentionPeerIdentityMap(
+            messages = listOf(
+                BitchatMessage(
+                    sender = "carol#04af",
+                    content = "hello",
+                    timestamp = Date(0),
+                    senderPeerID = "nostr:${pubkey.take(8)}",
+                    senderNostrPubkey = pubkey,
+                )
+            )
+        )
         val body = formatTextMessageBody(
             message = message("cc @carol#04af"),
             currentUserNickname = "bob",
             palette = palette,
             contentColor = colorScheme.onSurface,
             linkColor = colorScheme.secondary,
+            mentionPeerIdentities = mentionPeerIdentities,
             timeFormatter = timeFormatter,
             includeTimestamp = false,
         )
 
-        val expected = colorForPeerSeed(PeerColorSeed("carol#04af"), palette)
+        val expected = colorForPeer(identity, palette)
         val chip = mentionChipSpans(body).single()
         assertEquals(expected.copy(alpha = MENTION_CHIP_ALPHA), chip.item.background)
+        assertTrue(body.spanStyles.any { it.item.color == expected })
+    }
+
+    @Test
+    fun `composer colors nickname and hash suffix from the mentioned peer identity`() {
+        val pubkey = "0123456789abcdef".repeat(4)
+        val identity = PeerIdentity.nostr(pubkey)
+        val token = "@carol#04af"
+        val input = "ping $token now"
+        val transformed = MentionVisualTransformation(
+            mentionPeerIdentities = mapOf("carol#04af" to identity),
+            palette = palette,
+        ).filter(AnnotatedString(input)).text
+
+        val expectedColor = colorForPeer(identity, palette)
+        val tokenStart = input.indexOf(token)
+        val suffixStart = input.indexOf("#04af")
+        val tokenEnd = tokenStart + token.length
+
+        assertEquals(input, transformed.text)
+        assertTrue(transformed.spanStyles.any {
+            it.start == tokenStart &&
+                it.end == tokenEnd &&
+                it.item.background == expectedColor.copy(alpha = MENTION_CHIP_ALPHA)
+        })
+        assertTrue(transformed.spanStyles.any {
+            it.start == tokenStart &&
+                it.end == suffixStart &&
+                it.item.color == expectedColor
+        })
+        assertTrue(transformed.spanStyles.any {
+            it.start == suffixStart &&
+                it.end == tokenEnd &&
+                it.item.color == expectedColor.copy(alpha = SUFFIX_ALPHA)
+        })
+    }
+
+    @Test
+    fun `ambiguous base nickname is not assigned to the wrong peer`() {
+        val firstIdentity = PeerIdentity.nostr("11111111".repeat(8))
+        val secondIdentity = PeerIdentity.nostr("22222222".repeat(8))
+        val identities = buildMentionPeerIdentityMap(
+            messages = emptyList(),
+            knownPeers = listOf(
+                "alice#1111" to firstIdentity,
+                "alice#2222" to secondIdentity,
+            )
+        )
+
+        assertEquals(firstIdentity, identities["alice#1111"])
+        assertEquals(secondIdentity, identities["alice#2222"])
+        assertFalse(identities.containsKey("alice"))
+        assertEquals(
+            firstIdentity,
+            resolveMentionPeerIdentity("@alice#1111", identities)
+        )
+        assertEquals(null, resolveMentionPeerIdentity("@alice", identities))
     }
 
     @Test
@@ -349,24 +422,33 @@ class ChatUIUtilsTest {
     // MARK: - Peer colors
 
     @Test
-    fun `peer seed factories normalize identities without resolving UI colors`() {
+    fun `peer identity factories normalize stable IDs without resolving UI colors`() {
         assertEquals(
-            PeerColorSeed("noise:abcdef"),
-            meshPeerColorSeed("ABCDEF")
+            PeerIdentity.mesh("abcdef"),
+            PeerIdentity.mesh("ABCDEF")
         )
         assertEquals(
-            PeerColorSeed("nostr:abcdef"),
-            nostrPeerColorSeed("ABCDEF")
+            PeerIdentity.nostr("abcdef"),
+            PeerIdentity.nostr("ABCDEF")
         )
+        assertEquals(
+            PeerIdentity.nostr("abcdef"),
+            PeerIdentity.nostr("nostr:nostr_ABCDEF")
+        )
+        assertEquals(
+            "nostr:nostr:abcdef01",
+            PeerIdentity.nostr("ABCDEF0123456789").stableKey
+        )
+        assertEquals("alice#1234", PeerIdentity.nickname("ALICE#1234").stableKey)
     }
 
     @Test
     fun `peer color hue is stable across light and dark, only chroma differs`() {
         // Hue derivation must stay byte-identical to iOS; only saturation/value are tuned for
         // the redesigned neutral message body.
-        val seed = PeerColorSeed("noise:abc")
-        val dark = colorForPeerSeed(seed, DarkBitchatPalette)
-        val light = colorForPeerSeed(seed, LightBitchatPalette)
+        val identity = PeerIdentity.mesh("abc")
+        val dark = colorForPeer(identity, DarkBitchatPalette)
+        val light = colorForPeer(identity, LightBitchatPalette)
 
         val darkHsv = FloatArray(3)
         val lightHsv = FloatArray(3)
@@ -384,8 +466,8 @@ class ChatUIUtilsTest {
     fun `peer color avoids the orange hue reserved for self`() {
         // Sweep a range of seeds; none may land within the reserved orange band.
         repeat(500) { i ->
-            val color = colorForPeerSeed(
-                PeerColorSeed("noise:seed$i"),
+            val color = colorForPeer(
+                PeerIdentity.mesh("seed$i"),
                 DarkBitchatPalette
             )
             val hsv = FloatArray(3)
@@ -405,6 +487,59 @@ class ChatUIUtilsTest {
         assertTrue(
             LightBitchatPalette.peerColorValue != DarkBitchatPalette.peerColorValue
         )
+    }
+
+    @Test
+    fun `geohash chat and people sheet resolve the same full Nostr identity`() {
+        val pubkey = "ABCDEF0123456789".repeat(4)
+        val peopleIdentity = PeerIdentity.nostr(pubkey)
+        val chatIdentity = peerIdentityForMessage(
+            BitchatMessage(
+                sender = "alice#1234",
+                content = "hello",
+                timestamp = Date(0),
+                senderPeerID = "nostr:${pubkey.take(8)}",
+                senderNostrPubkey = pubkey,
+            )
+        )
+
+        assertEquals(peopleIdentity, chatIdentity)
+        assertEquals(
+            colorForPeer(peopleIdentity, palette),
+            colorForPeer(chatIdentity, palette)
+        )
+    }
+
+    @Test
+    fun `mesh chat and people sheet resolve the same peer identity`() {
+        val peerID = "ABCDEF0123456789"
+        val peopleIdentity = PeerIdentity.mesh(peerID)
+        val chatIdentity = peerIdentityForMessage(
+            BitchatMessage(
+                sender = "alice#1234",
+                content = "hello",
+                timestamp = Date(0),
+                senderPeerID = peerID,
+            )
+        )
+
+        assertEquals(peopleIdentity, chatIdentity)
+    }
+
+    @Test
+    fun `full Nostr identity wins over a truncated routing alias`() {
+        val pubkey = "0123456789ABCDEF".repeat(4)
+        val identity = peerIdentityForMessage(
+            BitchatMessage(
+                sender = "alice",
+                content = "hello",
+                timestamp = Date(0),
+                senderPeerID = "nostr_${pubkey.take(16)}",
+                senderNostrPubkey = pubkey,
+            )
+        )
+
+        assertEquals(PeerIdentity.nostr(pubkey), identity)
     }
 
     private fun rgbToHsv(r: Float, g: Float, b: Float, out: FloatArray) {

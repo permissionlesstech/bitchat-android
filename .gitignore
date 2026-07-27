@@ -7,6 +7,7 @@ build/
 !*/build/intermediates/
 local.properties
 .gradle/
+.kotlin/
 captures/
 .externalNativeBuild/
 debug_keystore/
@@ -39,6 +40,11 @@ dependency-reduced-pom.xml
 
 # Linters
 .lint/
+
+# Python test tooling
+**/__pycache__/
+*.py[cod]
+release-gate-results/
 
 # Other
 *.log

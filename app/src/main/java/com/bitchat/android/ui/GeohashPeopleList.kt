@@ -17,7 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
-import com.bitchat.android.ui.theme.colorForPeerSeed
+import com.bitchat.android.ui.theme.colorForPeer
 import com.bitchat.android.R
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import java.util.*
@@ -91,13 +91,8 @@ fun GeohashPeopleList(
     val teleportedPersonIds = remember(sections.teleportedIn) {
         sections.teleportedIn.mapTo(mutableSetOf()) { it.id.lowercase(Locale.ROOT) }
     }
-    val baseNameCounts = remember(displayedPeople) {
-        buildMap {
-            displayedPeople.forEach { person ->
-                val baseName = splitSuffix(person.displayName).first
-                put(baseName, (get(baseName) ?: 0) + 1)
-            }
-        }
+    val duplicateBaseNames = remember(displayedPeople) {
+        duplicateGeohashBaseNames(displayedPeople)
     }
 
     Column(modifier = modifier) {
@@ -141,7 +136,9 @@ fun GeohashPeopleList(
                     hasUnreadDM = unreadPrivateMessages.contains("nostr_${person.id.take(16)}"),
                     isTeleported = personIsTeleported,
                     viewModel = viewModel,
-                    showHashSuffix = (baseNameCounts[splitSuffix(person.displayName).first] ?: 0) > 1,
+                    showHashSuffix = splitSuffix(person.displayName)
+                        .first
+                        .lowercase(Locale.ROOT) in duplicateBaseNames,
                     onTap = {
                         if (!isMe) {
                             viewModel.startGeohashDM(person.id)
@@ -174,6 +171,39 @@ internal data class GeohashPeopleSections(
     val onLocation: List<GeoPerson>,
     val teleportedIn: List<GeoPerson>
 )
+
+/**
+ * Names that require a short identity suffix, calculated across both people sections.
+ *
+ * Matching is case-insensitive to mirror geohash chat's nickname collision handling.
+ */
+internal fun duplicateGeohashBaseNames(people: List<GeoPerson>): Set<String> =
+    people
+        .groupingBy { splitSuffix(it.displayName).first.lowercase(Locale.ROOT) }
+        .eachCount()
+        .filterValues { it > 1 }
+        .keys
+
+/**
+ * The same `#abcd` disambiguator used by geohash chat.
+ *
+ * Presence rows normally carry only a base nickname, so derive the suffix from the full Nostr
+ * public key when a collision exists. Preserve an already-announced suffix for compatibility.
+ */
+internal fun geohashIdentitySuffix(person: GeoPerson, showHashSuffix: Boolean): String {
+    if (!showHashSuffix) return ""
+    val announcedSuffix = splitSuffix(person.displayName).second
+    return announcedSuffix.ifEmpty { "#${person.id.takeLast(4)}" }
+}
+
+internal fun disambiguatedGeohashDisplayName(
+    person: GeoPerson,
+    duplicateBaseNames: Set<String>,
+): String {
+    val baseName = splitSuffix(person.displayName).first
+    val showSuffix = baseName.lowercase(Locale.ROOT) in duplicateBaseNames
+    return baseName + geohashIdentitySuffix(person, showSuffix)
+}
 
 /**
  * Split announced identities by how they entered this geohash. Bare `anon` heartbeat identities
@@ -249,11 +279,11 @@ private fun GeohashPersonItem(
         if (isTeleported) R.drawable.ic_spec_teleport
         else R.drawable.ic_spec_on_location_person
 
-    val (baseNameRaw, suffixRaw) = splitSuffix(person.displayName)
+    val (baseNameRaw, _) = splitSuffix(person.displayName)
     val baseName = truncateNickname(baseNameRaw)
-    val suffix = if (showHashSuffix) suffixRaw else ""
-    val assignedColor = colorForPeerSeed(
-        viewModel.peerColorSeedForNostrPubkey(person.id),
+    val suffix = geohashIdentitySuffix(person, showHashSuffix)
+    val assignedColor = colorForPeer(
+        viewModel.peerIdentityForNostrPubkey(person.id),
         palette
     )
     val baseColor = if (isMe) palette.accentOrange else assignedColor
@@ -314,7 +344,7 @@ private fun GeohashPersonItem(
                     text = suffix,
                     fontFamily = BitchatFontFamily,
                     fontSize = 14.sp,
-                    fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                     color = baseColor.copy(alpha = SUFFIX_ALPHA)
                 )
             }

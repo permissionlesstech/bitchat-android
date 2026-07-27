@@ -80,4 +80,51 @@ class GeohashPresenceGroupingTest {
         assertTrue(sections.onLocation.isEmpty())
         assertEquals(listOf("ABCDEF"), sections.teleportedIn.map { it.id })
     }
+
+    @Test
+    fun `duplicate nicknames are detected across case and sections`() {
+        val duplicates = duplicateGeohashBaseNames(
+            listOf(
+                person("first", "Alice"),
+                person("second", "alice"),
+                person("third", "bob")
+            )
+        )
+
+        assertEquals(setOf("alice"), duplicates)
+    }
+
+    @Test
+    fun `duplicate nickname gets the same last-four ID suffix as chat`() {
+        assertEquals(
+            "#cdef",
+            geohashIdentitySuffix(person("0123456789abcdef", "alice"), showHashSuffix = true)
+        )
+        assertEquals(
+            "",
+            geohashIdentitySuffix(person("0123456789abcdef", "alice"), showHashSuffix = false)
+        )
+    }
+
+    @Test
+    fun `existing chat-style suffix is preserved`() {
+        assertEquals(
+            "#04af",
+            geohashIdentitySuffix(person("0123456789abcdef", "alice#04af"), showHashSuffix = true)
+        )
+    }
+
+    @Test
+    fun `disambiguated display name matches the mention token used by chat`() {
+        val alice = person("0123456789abcdef", "alice")
+
+        assertEquals(
+            "alice#cdef",
+            disambiguatedGeohashDisplayName(alice, duplicateBaseNames = setOf("alice"))
+        )
+        assertEquals(
+            "alice",
+            disambiguatedGeohashDisplayName(alice, duplicateBaseNames = emptySet())
+        )
+    }
 }

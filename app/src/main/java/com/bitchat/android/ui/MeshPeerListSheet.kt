@@ -38,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetCenterTopBar
+import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.favorites.FavoriteRelationship
@@ -47,7 +48,7 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
-import com.bitchat.android.ui.theme.colorForPeerSeed
+import com.bitchat.android.ui.theme.colorForPeer
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
@@ -589,8 +590,8 @@ private fun PeerItem(
 
     // Get consistent peer color (iOS-compatible)
     val palette = LocalBitchatPalette.current
-    val assignedColor = colorForPeerSeed(
-        viewModel.peerColorSeedForMeshPeer(peerID),
+    val assignedColor = colorForPeer(
+        viewModel.peerIdentityForMeshPeer(peerID),
         palette
     )
     val baseColor = if (isMe) palette.accentOrange else assignedColor
@@ -614,7 +615,7 @@ private fun PeerItem(
                 )
             } else if (hasUnreadDM) {
                 Icon(
-                    imageVector = Icons.Filled.Email,
+                    painter = painterResource(R.drawable.ic_spec_envelope),
                     contentDescription = stringResource(R.string.cd_unread_message),
                     modifier = Modifier.size(PeerRowIconSize),
                     tint = palette.accentOrange
@@ -635,11 +636,13 @@ private fun PeerItem(
                 )
             } else {
                 Icon(
-                    imageVector = when {
-                        isWifiAware -> Icons.Filled.Wifi
-                        isDirect -> Icons.Outlined.Bluetooth
-                        else -> Icons.Filled.Route
-                    },
+                    painter = painterResource(
+                        conversationTransportIcon(
+                            isReachedOverInternet = false,
+                            isWifiAware = isWifiAware,
+                            isDirect = isDirect
+                        )
+                    ),
                     contentDescription = when {
                         isWifiAware -> "Direct Wi-Fi Aware"
                         isDirect -> "Direct Bluetooth"
@@ -680,7 +683,7 @@ private fun PeerItem(
 
             if (isVerified) {
                 Icon(
-                    imageVector = Icons.Filled.Verified,
+                    painter = painterResource(R.drawable.ic_spec_check),
                     contentDescription = stringResource(R.string.verify_title),
                     modifier = Modifier.size(16.dp),
                     tint = colorScheme.primary
@@ -861,12 +864,7 @@ fun PrivateChatSheet(
         viewModel.isPeerVerified(peerID, verifiedFingerprints)
     }
 
-    val securityModifier = if (!isNostrPeer && !isNostrReachableFavorite) {
-        Modifier.clickable { viewModel.showSecurityVerificationSheet() }
-    } else {
-        Modifier
-    }
-
+    val palette = LocalBitchatPalette.current
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
@@ -880,7 +878,7 @@ fun PrivateChatSheet(
                 Column(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    Spacer(modifier = Modifier.height(64.dp))
+                    Spacer(modifier = Modifier.height(ChatHeaderHeight))
 
                     HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
 
@@ -948,118 +946,97 @@ fun PrivateChatSheet(
                     )
                 }
 
-                // TopBar (fixed at top, iOS-style)
-                BitchatSheetCenterTopBar(
-                    onClose = onDismiss,
+                // Header. Built from the same tokens as the main chat header rather than a
+                // TopAppBar, so moving between the timeline and a conversation does not shift the
+                // bar's height, insets or type.
+                Surface(
                     modifier = Modifier.align(Alignment.TopCenter),
-                    navigationIcon = {
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .padding(start = 16.dp)
-                                .size(32.dp)
+                    color = colorScheme.background
+                ) {
+                    ConversationHeader(
+                        leadingIconRes = conversationTransportIcon(
+                            isReachedOverInternet = isNostrPeer || isNostrReachableFavorite,
+                            isWifiAware = isWifiAware,
+                            isDirect = isDirect
+                        ),
+                        leadingIconTint = colorScheme.primary,
+                        leadingContentDescription = when {
+                            isNostrPeer || isNostrReachableFavorite ->
+                                stringResource(R.string.cd_nostr_reachable)
+                            else -> null
+                        },
+                        title = titleText
+                    ) {
+                        ConversationHeaderAction(
+                            onClick = { viewModel.toggleFavorite(peerID) },
+                            contentDescription = if (isFavorite) {
+                                stringResource(R.string.cd_remove_favorite)
+                            } else {
+                                stringResource(R.string.cd_add_favorite)
+                            }
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.chat_back),
-                                tint = colorScheme.onSurface
+                                painter = painterResource(
+                                    if (isFavorite) {
+                                        R.drawable.ic_spec_star_filled
+                                    } else {
+                                        R.drawable.ic_spec_star
+                                    }
+                                ),
+                                contentDescription = null,
+                                modifier = Modifier.size(HeaderIconSize),
+                                tint = if (isFavorite) {
+                                    palette.accentOrange
+                                } else {
+                                    colorScheme.onSurfaceVariant
+                                }
                             )
                         }
-                    },
-                    title = {
-                        // Center content: connection status + name + encryption
-                        Row(
-                            modifier = Modifier.align(Alignment.Center),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            when {
-                                isNostrPeer || isNostrReachableFavorite -> {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_spec_globe),
-                                        contentDescription = stringResource(R.string.cd_nostr_reachable),
-                                        modifier = Modifier.size(14.dp),
-                                        tint = Color(0xFF9C27B0)
-                                    )
-                                }
-                                isWifiAware -> {
-                                    Icon(
-                                        imageVector = Icons.Filled.Wifi,
-                                        contentDescription = "Direct Wi-Fi Aware",
-                                        modifier = Modifier.size(14.dp),
-                                        tint = colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
-                                }
-                                isDirect -> {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Bluetooth,
-                                        contentDescription = "Direct Bluetooth",
-                                        modifier = Modifier.size(14.dp),
-                                        tint = colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
-                                }
-                                isConnected -> {
-                                    Icon(
-                                        imageVector = Icons.Filled.Route,
-                                        contentDescription = "Routed",
-                                        modifier = Modifier.size(14.dp),
-                                        tint = colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
-                                }
-                            }
 
-                        Text(
-                            text = titleText,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = BitchatFontFamily
-                            ),
-                            color = if (isNostrPeer || isNostrReachableFavorite) Color(0xFFFF9500) else colorScheme.onSurface
-                        )
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.then(securityModifier)
+                        // Encryption state, and the verification badge that qualifies it. Both are
+                        // read-only for Nostr peers, which have no Noise session at all.
+                        if (!isNostrPeer && !isNostrReachableFavorite) {
+                            ConversationHeaderAction(
+                                onClick = { viewModel.showSecurityVerificationSheet() },
+                                contentDescription = stringResource(R.string.verify_title)
                             ) {
-                                if (!isNostrPeer && !isNostrReachableFavorite) {
+                                Box(contentAlignment = Alignment.Center) {
                                     NoiseSessionIcon(
                                         sessionState = sessionState,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-
-                                if (isVerified) {
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(
-                                        imageVector = Icons.Filled.Verified,
-                                        contentDescription = stringResource(R.string.verify_title),
-                                        modifier = Modifier.size(14.dp),
-                                        tint = Color(0xFF32D74B) // iOS Green
+                                        modifier = Modifier.size(HeaderIconSize)
                                     )
                                 }
                             }
+                        }
 
-                            IconButton(
-                                onClick = { viewModel.toggleFavorite(peerID) },
-                                modifier = Modifier.size(28.dp)
+                        if (isVerified) {
+                            Box(
+                                modifier = Modifier.size(HeaderIconSize),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    painter = painterResource(
-                                        if (isFavorite) {
-                                            R.drawable.ic_spec_star_filled
-                                        } else {
-                                            R.drawable.ic_spec_star
-                                        }
-                                    ),
-                                    contentDescription = if (isFavorite) stringResource(R.string.cd_remove_favorite) else stringResource(R.string.cd_add_favorite),
-                                    modifier = Modifier.size(16.dp),
-                                    tint = if (isFavorite) Color(0xFFFFD700) else colorScheme.onSurface.copy(alpha = 0.6f)
+                                    painter = painterResource(R.drawable.ic_spec_check),
+                                    contentDescription = stringResource(R.string.verify_title),
+                                    modifier = Modifier.size(HeaderIconSize),
+                                    tint = colorScheme.primary
                                 )
                             }
                         }
+
+                        val dismiss = LocalSheetDismiss.current
+                        ConversationHeaderAction(
+                            onClick = { dismiss?.invoke() ?: onDismiss() },
+                            contentDescription = stringResource(R.string.close_plain)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_spec_close),
+                                contentDescription = null,
+                                modifier = Modifier.size(HeaderIconSize),
+                                tint = colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
-                )
+                }
             }
         }
     }

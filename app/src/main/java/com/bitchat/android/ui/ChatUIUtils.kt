@@ -10,7 +10,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatPalette
 import com.bitchat.android.ui.theme.ChatVisualTokens
-import com.bitchat.android.ui.theme.colorForPeerSeed
+import com.bitchat.android.ui.theme.colorForPeer
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -30,6 +30,15 @@ internal const val MENTION_CHIP_ALPHA = ChatVisualTokens.HighlightAlpha
 
 /** Background opacity for a mention chip referring to you. Slightly stronger to catch the eye. */
 internal const val MENTION_CHIP_ALPHA_SELF = ChatVisualTokens.HighlightAlpha
+
+/**
+ * Mention token grammar shared by rendered messages and the composer.
+ *
+ * The optional `#abcd` suffix is part of the mention because it disambiguates peers that use the
+ * same nickname. Keeping one regex prevents the composer from styling only `@name` while the
+ * rendered transcript styles the complete token.
+ */
+internal val MENTION_TOKEN_REGEX = Regex("@([\\p{L}0-9_]+(?:#[a-fA-F0-9]{4})?)")
 
 /**
  * Get RSSI-based color for signal strength visualization
@@ -61,7 +70,7 @@ fun formatTextMessageSender(
     val senderColor = if (isSelf) {
         palette.accentOrange
     } else {
-        colorForPeerSeed(peerColorSeedForMessage(message), palette)
+        colorForPeer(peerIdentityForMessage(message), palette)
     }
     val senderWeight = FontWeight.SemiBold
     val (baseName, suffix) = splitSuffix(message.sender)
@@ -193,6 +202,7 @@ fun formatTextMessageBody(
     palette: BitchatPalette,
     contentColor: Color,
     linkColor: Color,
+    mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     timeFormatter: SimpleDateFormat = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()),
     includeTimestamp: Boolean = true
 ): AnnotatedString {
@@ -205,6 +215,7 @@ fun formatTextMessageBody(
         palette = palette,
         contentColor = contentColor,
         linkColor = linkColor,
+        mentionPeerIdentities = mentionPeerIdentities,
     )
 
     if (includeTimestamp) {
@@ -267,7 +278,7 @@ fun formatMessageHeaderAnnotatedString(
         val baseColor = if (isSelf) {
             palette.accentOrange
         } else {
-            colorForPeerSeed(peerColorSeedForMessage(message), palette)
+            colorForPeer(peerIdentityForMessage(message), palette)
         }
         val (baseName, suffix) = splitSuffix(message.sender)
 
@@ -327,6 +338,71 @@ fun splitSuffix(name: String): Pair<String, String> {
 }
 
 /**
+ * Build a case-insensitive mention-token lookup from canonical peer identities.
+ *
+ * Suffixed names such as `alice#04af` resolve exactly. Their unsuffixed base is only retained when
+ * it identifies one peer; ambiguous bases are deliberately omitted rather than coloring a mention
+ * as the wrong person.
+ */
+internal fun buildMentionPeerIdentityMap(
+    messages: List<BitchatMessage>,
+    knownPeers: List<Pair<String, PeerIdentity>> = emptyList(),
+): Map<String, PeerIdentity> {
+    val candidates = linkedMapOf<String, MutableSet<PeerIdentity>>()
+
+    fun add(displayName: String, identity: PeerIdentity) {
+        val normalizedName = displayName.trim().removePrefix("@")
+        if (normalizedName.isEmpty()) return
+
+        val (baseName, suffix) = splitSuffix(normalizedName)
+        val exactKey = normalizedName.lowercase(Locale.ROOT)
+        candidates.getOrPut(exactKey) { linkedSetOf() }.add(identity)
+
+        if (suffix.isNotEmpty()) {
+            val baseKey = baseName.lowercase(Locale.ROOT)
+            candidates.getOrPut(baseKey) { linkedSetOf() }.add(identity)
+        }
+    }
+
+    messages
+        .asSequence()
+        .filterNot { it.sender == "system" }
+        .forEach { add(it.sender, peerIdentityForMessage(it)) }
+    knownPeers.forEach { (displayName, identity) -> add(displayName, identity) }
+
+    return candidates.mapNotNull { (token, identities) ->
+        identities.singleOrNull()?.let { token to it }
+    }.toMap()
+}
+
+internal fun resolveMentionPeerIdentity(
+    mention: String,
+    mentionPeerIdentities: Map<String, PeerIdentity>,
+): PeerIdentity? {
+    val mentionWithoutAt = mention.trim().removePrefix("@")
+    val baseName = splitSuffix(mentionWithoutAt).first
+    return mentionPeerIdentities[mentionWithoutAt.lowercase(Locale.ROOT)]
+        ?: mentionPeerIdentities[baseName.lowercase(Locale.ROOT)]
+}
+
+/**
+ * Resolve the deterministic color for a mention on every surface that displays one.
+ *
+ * Exact suffixed tokens win; an unsuffixed nickname is only present in the identity map when it is
+ * unambiguous. The nickname fallback preserves the legacy behavior for peers with no stable ID.
+ */
+internal fun colorForMention(
+    mention: String,
+    mentionPeerIdentities: Map<String, PeerIdentity>,
+    palette: BitchatPalette,
+): Color {
+    val mentionWithoutAt = mention.trim().removePrefix("@")
+    val identity = resolveMentionPeerIdentity(mentionWithoutAt, mentionPeerIdentities)
+        ?: PeerIdentity.nickname(mentionWithoutAt)
+    return colorForPeer(identity, palette)
+}
+
+/**
  * A bare `anon` label means the geohash heartbeat has not announced a username yet. The transport
  * may append a `#abcd` disambiguator, which does not turn it into an announced name. Names such as
  * `anon1234`, `anonymous`, and `anonracer` are real announced usernames.
@@ -356,13 +432,12 @@ private fun appendIOSFormattedContent(
     palette: BitchatPalette,
     contentColor: Color,
     linkColor: Color,
+    mentionPeerIdentities: Map<String, PeerIdentity>,
 ) {
-    // iOS-style patterns: allow optional '#abcd' suffix in mentions
     val hashtagPattern = "#([a-zA-Z0-9_]+)".toRegex()
-    val mentionPattern = "@([\\p{L}0-9_]+(?:#[a-fA-F0-9]{4})?)".toRegex()
     
     val hashtagMatches = hashtagPattern.findAll(content).toList()
-    val mentionMatches = mentionPattern.findAll(content).toList()
+    val mentionMatches = MENTION_TOKEN_REGEX.findAll(content).toList()
     
     // Combine and sort matches, but exclude hashtags that overlap with mentions
     val mentionRanges = mentionMatches.map { it.range }
@@ -462,10 +537,10 @@ private fun appendIOSFormattedContent(
                 val mentionColor = if (isMentionToMe) {
                     palette.accentOrange
                 } else {
-                    // Tint by the *mentioned* peer so a given name looks identical everywhere.
-                    colorForPeerSeed(
-                        PeerColorSeed(mentionWithoutAt.lowercase(Locale.ROOT)),
-                        palette
+                    colorForMention(
+                        mention = mentionWithoutAt,
+                        mentionPeerIdentities = mentionPeerIdentities,
+                        palette = palette,
                     )
                 }
                 val chipAlpha = if (isMentionToMe) MENTION_CHIP_ALPHA_SELF else MENTION_CHIP_ALPHA

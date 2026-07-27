@@ -118,6 +118,8 @@ fun LocationChannelsSheet(
     val notesRevealed by NearbyNotesController.shared.revealed.collectAsStateWithLifecycle()
     val selectedChannel by locationManager.selectedChannel.collectAsStateWithLifecycle()
     val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
+    val appLocationEnabled by locationManager.locationServicesEnabled.collectAsStateWithLifecycle()
+    val systemLocationEnabled by locationManager.systemLocationEnabled.collectAsStateWithLifecycle()
     val locationServicesEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle()
 
     val bookmarks by bookmarksStore.bookmarks.collectAsStateWithLifecycle()
@@ -331,10 +333,12 @@ fun LocationChannelsSheet(
                                                 onClick = {
                                                     val inRegional =
                                                         availableChannels.any { it.geohash == gh }
-                                                    locationManager.setTeleported(
-                                                        !inRegional && availableChannels.isNotEmpty()
+                                                    locationManager.selectManual(
+                                                        channel = channel,
+                                                        teleported = !appLocationEnabled ||
+                                                            availableChannels.isEmpty() ||
+                                                            !inRegional
                                                     )
-                                                    locationManager.select(ChannelID.Location(channel))
                                                     onDismiss()
                                                 }
                                             )
@@ -428,9 +432,9 @@ fun LocationChannelsSheet(
                                                         )
                                                     },
                                                     onClick = {
-                                                        locationManager.setTeleported(false)
-                                                        locationManager.select(ChannelID.Location(channel))
-                                                        onDismiss()
+                                                        if (locationManager.selectNearby(channel)) {
+                                                            onDismiss()
+                                                        }
                                                     }
                                                 )
                                             }
@@ -473,8 +477,7 @@ fun LocationChannelsSheet(
                                             if (validateGeohash(normalized)) {
                                                 val level = levelForLength(normalized.length)
                                                 val channel = GeohashChannel(level = level, geohash = normalized)
-                                                locationManager.setTeleported(true)
-                                                locationManager.select(ChannelID.Location(channel))
+                                                locationManager.selectManual(channel)
                                                 onDismiss()
                                             } else {
                                                 customError = context.getString(R.string.invalid_geohash)
@@ -560,14 +563,14 @@ fun LocationChannelsSheet(
 
                     item(key = "location_toggle") {
                         SheetDestructiveButton(
-                            text = if (locationServicesEnabled) {
+                            text = if (appLocationEnabled) {
                                 stringResource(R.string.disable_location_services)
                             } else {
                                 stringResource(R.string.enable_location_services)
                             },
-                            isDestructive = locationServicesEnabled,
+                            isDestructive = appLocationEnabled,
                             onClick = {
-                                if (locationServicesEnabled) {
+                                if (appLocationEnabled) {
                                     locationManager.disableLocationServices()
                                 } else {
                                     locationManager.enableLocationServices()
@@ -595,27 +598,43 @@ fun LocationChannelsSheet(
         }
     }
 
-    LifecycleResumeEffect(isPresented, locationServicesEnabled) {
-        if (isPresented && locationServicesEnabled) {
-            locationManager.enableLocationChannels()
-            if (locationManager.permissionState.value ==
-                LocationChannelManager.PermissionState.AUTHORIZED
+    LifecycleResumeEffect(isPresented, appLocationEnabled, systemLocationEnabled) {
+        if (isPresented) {
+            val currentPermission = locationManager.syncPermissionState()
+            if (appLocationEnabled &&
+                systemLocationEnabled &&
+                currentPermission == LocationChannelManager.PermissionState.AUTHORIZED
             ) {
+                // Retain the redesign branch's immediate refresh when the sheet resumes while
+                // honoring main's independent app/system privacy gates.
+                locationManager.enableLocationChannels()
                 locationManager.beginLiveRefresh()
             }
         }
-        onPauseOrDispose { locationManager.endLiveRefresh() }
+
+        onPauseOrDispose {
+            locationManager.endLiveRefresh()
+        }
     }
 
     // Sampling management: update sampling when channels/bookmarks change
-    LaunchedEffect(isPresented, availableChannels, bookmarks, notesRevealed) {
+    LaunchedEffect(
+        isPresented,
+        availableChannels,
+        bookmarks,
+        appLocationEnabled,
+        notesRevealed
+    ) {
         if (isPresented) {
-            val geohashes = geohashesForSampling(
+            val liveLocationGeohashes = geohashesForSampling(
                 availableChannels = availableChannels,
-                bookmarks = bookmarks,
+                bookmarks = emptyList(),
                 notesRevealed = notesRevealed,
             )
-            viewModel.beginGeohashSampling(geohashes)
+            viewModel.beginGeohashSampling(
+                liveLocationGeohashes = liveLocationGeohashes,
+                userSelectedGeohashes = bookmarks
+            )
         } else {
             viewModel.endGeohashSampling()
         }

@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">बुकमार्क थप्नुहोस्</string>
 
     <!-- च्याट शीर्षक / पहुँचयोग्यता -->
-    <string name="chat_back">पछाडि</string>
-    <string name="chat_leave">छोड्नुहोस्</string>
     <string name="cd_nostr_reachable">Nostr मार्फत पुग्न सकिने</string>
     <string name="cd_unread_private_messages">नपढिएका निजी सन्देश</string>
     <string name="cd_teleported">टेलिपोर्ट भयो</string>

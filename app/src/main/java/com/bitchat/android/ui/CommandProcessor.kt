@@ -457,11 +457,20 @@ class CommandProcessor(
                     // Location channel: use geohash participants with collision-resistant suffixes
                     val geohashPeople = viewModel.geohashPeople.value
                     val currentNickname = state.getNicknameValue()
+                    val duplicateNames = duplicateGeohashBaseNames(geohashPeople)
                     
                     geohashPeople.mapNotNull { person ->
-                        val displayName = person.displayName
-                        // Exclude self from suggestions
-                        if (displayName.startsWith("${currentNickname}#")) {
+                        val baseName = splitSuffix(person.displayName).first
+                        val hasNicknameCollision =
+                            baseName.lowercase(Locale.ROOT) in duplicateNames
+                        val displayName = disambiguatedGeohashDisplayName(person, duplicateNames)
+                        // A unique local nickname can be excluded directly. If it collides, the
+                        // nickname alone cannot identify which row is self, so keep the suffixed
+                        // rows rather than accidentally hiding the other user.
+                        if (
+                            !hasNicknameCollision &&
+                            baseName.equals(currentNickname, ignoreCase = true)
+                        ) {
                             null
                         } else {
                             displayName

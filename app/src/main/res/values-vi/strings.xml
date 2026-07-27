@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">Thêm bookmark</string>
 
     <!-- Header trò chuyện &amp; khả năng truy cập -->
-    <string name="chat_back">quay lại</string>
-    <string name="chat_leave">rời khỏi</string>
     <string name="cd_nostr_reachable">Có thể tiếp cận qua Nostr</string>
     <string name="cd_unread_private_messages">Tin nhắn riêng chưa đọc</string>
     <string name="cd_teleported">Đã dịch chuyển</string>

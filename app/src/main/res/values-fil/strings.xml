@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">Mag‑bookmark</string>
 
     <!-- Header at accessibility -->
-    <string name="chat_back">bumalik</string>
-    <string name="chat_leave">umalis</string>
     <string name="cd_nostr_reachable">Maabot sa Nostr</string>
     <string name="cd_unread_private_messages">Hindi nabasang pribadong mensahe</string>
     <string name="cd_teleported">Naiteleport</string>

@@ -3,8 +3,11 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.util.Log
 import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.geohash.GeohashNostrPrivacyPolicy
+import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.mesh.PowerManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -44,6 +47,7 @@ object NostrBackgroundRuntime {
     @Volatile private var handlers: Handlers? = null
     @Volatile private var initialized = false
     @Volatile private var activeGeohash: String? = null
+    @Volatile private var activeGeohashLiveToken: Long? = null
     @Volatile private var conversationGeohash: String? = null
     private lateinit var application: Application
     private lateinit var subscriptions: NostrSubscriptionManager
@@ -83,7 +87,9 @@ object NostrBackgroundRuntime {
             // Let CLOSE frames be queued before replacing the deterministic IDs.
             delay(100)
             subscribeAccountDm()
-            activeGeohash?.let(::subscribeSelectedGeohash)
+            activeGeohash?.let { geohash ->
+                subscribeSelectedGeohash(geohash, activeGeohashLiveToken)
+            }
         }
     }
 
@@ -91,7 +97,11 @@ object NostrBackgroundRuntime {
         if (!initialized || geohash == activeGeohash || geohash == conversationGeohash) return
         conversationGeohash?.let { subscriptions.unsubscribe("geo-dm-conversation-$it") }
         conversationGeohash = geohash
-        subscribeGeohashDm(geohash, "geo-dm-conversation-$geohash")
+        subscribeGeohashDm(
+            geohash = geohash,
+            subscriptionId = "geo-dm-conversation-$geohash",
+            liveLocationToken = null
+        )
     }
 
     private fun subscribeAccountDm() {
@@ -110,42 +120,67 @@ object NostrBackgroundRuntime {
         scope.launch {
             locationChannels.selectedChannel.collectLatest { channel ->
                 val next = (channel as? ChannelID.Location)?.channel?.geohash
+                val nextToken = (channel as? ChannelID.Location)?.let {
+                    locationChannels.liveLocationTokenForSelectedChannel(it.channel)
+                }
                 val previous = activeGeohash
-                if (previous == next) return@collectLatest
+                if (previous == next && activeGeohashLiveToken == nextToken) {
+                    return@collectLatest
+                }
 
                 previous?.let {
                     subscriptions.unsubscribe("geohash-$it")
                     subscriptions.unsubscribe("geo-dm-$it")
                 }
                 activeGeohash = next
+                activeGeohashLiveToken = nextToken
                 if (conversationGeohash == next) {
                     subscriptions.unsubscribe("geo-dm-conversation-$next")
                     conversationGeohash = null
                 }
-                next?.let(::subscribeSelectedGeohash)
+                next?.let { geohash ->
+                    val isLiveDerived = (channel as? ChannelID.Location)?.let {
+                        locationChannels.isSelectedChannelLiveDerived(it.channel)
+                    } == true
+                    if (!isLiveDerived || nextToken != null) {
+                        subscribeSelectedGeohash(geohash, nextToken)
+                    }
+                }
             }
         }
     }
 
-    private fun subscribeSelectedGeohash(geohash: String) {
+    private fun subscribeSelectedGeohash(
+        geohash: String,
+        liveLocationToken: Long?
+    ) {
         subscriptions.subscribeGeohashMessages(
             geohash = geohash,
             sinceMs = System.currentTimeMillis() - 3_600_000L,
             limit = 200,
             id = "geohash-$geohash",
-            handler = { event -> dispatch { it.geohashMessage(event, geohash) } }
+            handler = { event -> dispatch { it.geohashMessage(event, geohash) } },
+            liveLocationToken = liveLocationToken
         )
-        subscribeGeohashDm(geohash, "geo-dm-$geohash")
+        subscribeGeohashDm(geohash, "geo-dm-$geohash", liveLocationToken)
     }
 
-    private fun subscribeGeohashDm(geohash: String, subscriptionId: String) {
+    private fun subscribeGeohashDm(
+        geohash: String,
+        subscriptionId: String,
+        liveLocationToken: Long?
+    ) {
         scope.launch {
+            if (liveLocationToken != null &&
+                !LiveLocationPrivacyGate.accepts(liveLocationToken)
+            ) return@launch
             val identity = NostrIdentityBridge.deriveIdentity(geohash, application)
             subscriptions.subscribeGiftWraps(
                 pubkey = identity.publicKeyHex,
                 sinceMs = System.currentTimeMillis() - 172_800_000L,
                 id = subscriptionId,
-                handler = { event -> dispatch { it.geohashDm(event, geohash, identity) } }
+                handler = { event -> dispatch { it.geohashDm(event, geohash, identity) } },
+                liveLocationToken = liveLocationToken
             )
             GeohashAliasRegistry.put(
                 "nostr_${identity.publicKeyHex.take(16)}",
@@ -160,11 +195,15 @@ object NostrBackgroundRuntime {
             val nostrSchedule = powerManager.profile
                 .map { it.nostr }
                 .distinctUntilChanged()
-            combine(locationChannels.availableChannels, nostrSchedule) { channels, schedule ->
-                val targets = channels
-                    .filter { it.level.precision <= 5 }
-                    .map { it.geohash }
-                    .distinct()
+            combine(
+                locationChannels.availableChannels,
+                LiveLocationPrivacyGate.enabled,
+                nostrSchedule
+            ) { channels, liveLocationEnabled, schedule ->
+                val targets = GeohashNostrPrivacyPolicy.livePresenceTargets(
+                    availableChannels = channels,
+                    liveLocationEnabled = liveLocationEnabled
+                )
                 targets to schedule
             }.collectLatest { (targets, schedule) ->
                 if (targets.isEmpty()) return@collectLatest
@@ -182,14 +221,35 @@ object NostrBackgroundRuntime {
                     // Send every target in one wake window; do not spread the batch over seconds.
                     targets.forEach { geohash ->
                         try {
-                            val identity = NostrIdentityBridge.deriveIdentity(geohash, application)
-                            val event = NostrProtocol.createGeohashPresenceEvent(geohash, identity)
-                            NostrRelayManager.getInstance(application).sendEventToGeohash(
-                                event,
+                            val token = LiveLocationPrivacyGate.captureToken()
+                                ?: return@forEach
+                            if (geohash !in GeohashNostrPrivacyPolicy.livePresenceTargets(
+                                    availableChannels = locationChannels.availableChannels.value,
+                                    liveLocationEnabled = true
+                                )
+                            ) return@forEach
+
+                            var identity: NostrIdentity? = null
+                            LiveLocationPrivacyGate.runIfAllowed(token) {
+                                identity = NostrIdentityBridge.deriveIdentity(geohash, application)
+                            }
+                            val preparedIdentity = identity ?: return@forEach
+                            if (!LiveLocationPrivacyGate.accepts(token)) return@forEach
+                            val event = NostrProtocol.createGeohashPresenceEvent(
                                 geohash,
-                                includeDefaults = false,
-                                nRelays = 5
+                                preparedIdentity
                             )
+                            LiveLocationPrivacyGate.runIfAllowed(token) {
+                                NostrRelayManager.getInstance(application).sendEventToGeohash(
+                                    event = event,
+                                    geohash = geohash,
+                                    includeDefaults = false,
+                                    nRelays = 5,
+                                    liveLocationToken = token
+                                )
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             Log.w(TAG, "Presence heartbeat failed for $geohash: ${e.message}")
                         }

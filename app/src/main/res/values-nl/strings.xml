@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">Bladwijzer toevoegen</string>
 
     <!-- Chatkop &amp; toegankelijkheid -->
-    <string name="chat_back">terug</string>
-    <string name="chat_leave">verlaten</string>
     <string name="cd_nostr_reachable">Bereikbaar via Nostr</string>
     <string name="cd_unread_private_messages">Ongelezen privéberichten</string>
     <string name="cd_teleported">Geteleporteerd</string>
