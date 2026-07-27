@@ -31,10 +31,20 @@ object MessageSpecialParser {
         val results = mutableListOf<CashuTokenMatch>()
         val seen = mutableSetOf<String>()
         for (m in cashuTokenRegex.findAll(text)) {
-            val token = m.groupValues[1]
+            var token = m.groupValues[1]
+            var endExclusive = m.range.last + 1
+            // '.' is a legacy multipart separator *inside* tokens, but a
+            // trailing run of punctuation is prose glued to the token
+            // ("redeem cashuAxyz.") — strip it so the chip redeems the
+            // real bearer string.
+            while (token.isNotEmpty() && token.last() in ".,;:!?") {
+                token = token.dropLast(1)
+                endExclusive--
+            }
+            if (token.length <= 6) continue // "cashuA"/"cashuB" with no payload
             if (token.length > com.bitchat.android.cashu.CashuTokenDecoder.MAX_TOKEN_LENGTH) continue
             if (!seen.add(token)) continue
-            results.add(CashuTokenMatch(m.range.first + (m.value.length - token.length), m.range.last + 1, token))
+            results.add(CashuTokenMatch(m.range.first, endExclusive, token))
             if (results.size >= max) break
         }
         return results

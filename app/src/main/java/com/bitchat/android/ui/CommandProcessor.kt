@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.cashu.CashuTokenDecoder
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.model.BitchatMessage
 import java.util.Date
 
@@ -357,13 +358,29 @@ class CommandProcessor(
         onSendMessage: (String, List<String>, String?) -> Unit,
         viewModel: ChatViewModel?
     ) {
+        // /pay feedback (usage errors, public-confirm prompts, bearer warnings)
+        // must land on the timeline the user is looking at — the safety
+        // prompts are useless on a screen they are not watching.
         fun systemMessage(content: String) {
-            messageManager.addMessage(BitchatMessage(
+            val msg = BitchatMessage(
                 sender = "system",
                 content = content,
                 timestamp = Date(),
                 isRelay = false
-            ))
+            )
+            val selectedPeer = state.getSelectedPrivateChatPeerValue()
+            val channel = state.getCurrentChannelValue()
+            val location = state.selectedLocationChannel.value
+            when {
+                selectedPeer != null ->
+                    messageManager.addPrivateMessageNoUnread(
+                        ContactDirectory.canonicalConversationId(selectedPeer), msg)
+                channel != null ->
+                    channelManager.addChannelMessage(channel, msg, null)
+                location is com.bitchat.android.geohash.ChannelID.Location ->
+                    channelManager.addChannelMessage("geo:${location.channel.geohash}", msg, null)
+                else -> messageManager.addMessage(msg)
+            }
         }
 
         val args = parts.drop(1).filter { it.isNotBlank() }.toMutableList()

@@ -53,6 +53,22 @@ class CashuTokenDetectionTest {
     }
 
     @Test
+    fun `trims trailing prose punctuation from token`() {
+        for (punct in listOf(".", "!", "?", ",", ";", ":")) {
+            val matches = MessageSpecialParser.findCashuTokens("redeem $tokenA$punct")
+            assertEquals(1, matches.size)
+            assertEquals(tokenA, matches[0].token)
+        }
+    }
+
+    @Test
+    fun `keeps internal multipart dots`() {
+        val multipart = "cashuA" + "abcdef.ghijkl"
+        val matches = MessageSpecialParser.findCashuTokens(multipart)
+        assertEquals(listOf(multipart), matches.map { it.token })
+    }
+
+    @Test
     fun `does not match words containing cashu prefix`() {
         assertTrue(MessageSpecialParser.findCashuTokens("xcashuAabcdefgh").isEmpty())
         assertTrue(MessageSpecialParser.findCashuTokens("cashuCabcdefgh").isEmpty())
