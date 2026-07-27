@@ -286,7 +286,6 @@
     <string name="select">নির্বাচন করুন</string>
     <string name="type_a_message_placeholder">বার্তা টাইপ করুন …</string>
     <string name="mention">উল্লেখ</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">ছবি</string>
@@ -300,11 +299,6 @@
     <!-- ভয়েস প্লেয়ার অ্যাক্সেসিবিলিটি -->
     <string name="cd_play_voice">প্লে করুন</string>
     <string name="cd_pause_voice">বিরাম</string>
-    <string name="cd_mining_pow">মাইনিং PoW</string>
-    <string name="cd_pow_enabled">PoW সক্রিয়</string>
-    <string name="cd_proof_of_work">প্রুফ অফ ওয়ার্ক</string>
-    <string name="pow_mining_ellipsis">মাইনিং …</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- অনুমতি বিবরণ -->
     <string name="perm_nearby_devices_desc">ব্লুটুথের মাধ্যমে bitchat ব্যবহারকারী আবিষ্কার করতে প্রয়োজন</string>
@@ -381,4 +375,7 @@
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">পরিচিতি খুলুন</string>
+  <string name="nearby_notes_reveal">এখানে রাখা নোট আছে কি না দেখুন</string>
+  <string name="nearby_notes_one">এখানে 1টি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
+  <string name="nearby_notes_many">এখানে %dটি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
 </resources>

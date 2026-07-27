@@ -286,7 +286,6 @@
     <string name="select">เลือก</string>
     <string name="type_a_message_placeholder">พิมพ์ข้อความ…</string>
     <string name="mention">กล่าวถึง</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">รูปภาพ</string>
@@ -300,11 +299,6 @@
     <!-- การช่วยสำหรับการเข้าถึงของเครื่องเล่นเสียง -->
     <string name="cd_play_voice">เล่น</string>
     <string name="cd_pause_voice">หยุดชั่วคราว</string>
-    <string name="cd_mining_pow">กำลังขุด PoW</string>
-    <string name="cd_pow_enabled">เปิดใช้ PoW</string>
-    <string name="cd_proof_of_work">Proof of Work</string>
-    <string name="pow_mining_ellipsis">กำลังขุด…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- คำอธิบายสิทธิ์ -->
     <string name="perm_nearby_devices_desc">จำเป็นสำหรับการค้นหาผู้ใช้ bitchat ผ่านบลูทูธ</string>
@@ -381,4 +375,7 @@
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">เปิดเกี่ยวกับ</string>
+  <string name="nearby_notes_reveal">ดูว่ามีโน้ตทิ้งไว้ที่นี่หรือไม่</string>
+  <string name="nearby_notes_one">มี 1 โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
+  <string name="nearby_notes_many">มี %d โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
 </resources>

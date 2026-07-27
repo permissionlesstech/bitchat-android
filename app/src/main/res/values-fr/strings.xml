@@ -284,7 +284,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">mention</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -407,4 +406,7 @@
   <string name="verify_success_body">Vous avez vérifié %1$s</string>
   <string name="verify_success_system_message">vérifié %1$s</string>
     <string name="cd_open_about">Ouvrir À propos</string>
+  <string name="nearby_notes_reveal">vérifier s\'il y a des notes laissées ici</string>
+  <string name="nearby_notes_one">1 note laissée ici — appuyez pour lire</string>
+  <string name="nearby_notes_many">%d notes laissées ici — appuyez pour lire</string>
 </resources>

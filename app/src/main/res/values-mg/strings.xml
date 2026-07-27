@@ -292,7 +292,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">hanonona</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -326,11 +325,6 @@
     <!-- Fahafaha-miditra mpilalao feo -->
     <string name="cd_play_voice">Hilalao</string>
     <string name="cd_pause_voice">Hijanona</string>
-    <string name="cd_mining_pow">Mihaingam-poana PoW</string>
-    <string name="cd_pow_enabled">Alefa ny PoW</string>
-    <string name="cd_proof_of_work">Porofo Asa</string>
-    <string name="pow_mining_ellipsis">mihaingana...</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Famaritana alalana -->
     <string name="perm_nearby_devices_desc">Ilaina mba hahitana mpampiasa bitchat amin\'ny alalan\'ny Bluetooth</string>
@@ -407,4 +401,7 @@
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">Sokafy ny momba</string>
+  <string name="nearby_notes_reveal">hizaha raha misy naoty navela teto</string>
+  <string name="nearby_notes_one">naoty 1 no navela teto — tsindrio raha hamaky</string>
+  <string name="nearby_notes_many">naoty %d no navela teto — tsindrio raha hamaky</string>
 </resources>

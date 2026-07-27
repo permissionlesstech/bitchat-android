@@ -286,7 +286,6 @@
     <string name="select">اختيار</string>
     <string name="type_a_message_placeholder">اكتب رسالة…</string>
     <string name="mention">إشارة</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">صورة</string>
@@ -300,11 +299,6 @@
     <!-- سهولة استخدام مشغّل الصوت -->
     <string name="cd_play_voice">تشغيل</string>
     <string name="cd_pause_voice">إيقاف مؤقت</string>
-    <string name="cd_mining_pow">تعدين PoW</string>
-    <string name="cd_pow_enabled">PoW مفعّل</string>
-    <string name="cd_proof_of_work">برهان العمل</string>
-    <string name="pow_mining_ellipsis">يتم التعدين…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- أوصاف الأذونات -->
     <string name="perm_nearby_devices_desc">مطلوب لاكتشاف مستخدمي bitchat عبر البلوتوث</string>
@@ -394,4 +388,7 @@
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">فتح قسم حول</string>
+  <string name="nearby_notes_reveal">تحقّق من الملاحظات المتروكة هنا</string>
+  <string name="nearby_notes_one">تُركت ملاحظة واحدة هنا — انقر للقراءة</string>
+  <string name="nearby_notes_many">تُركت %d ملاحظات هنا — انقر للقراءة</string>
 </resources>

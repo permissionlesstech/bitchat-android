@@ -12,6 +12,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -75,8 +76,8 @@ fun AnimatedCount(
  * Cross-fades a label whose text embeds a count, e.g. `People (7)` or `3 people`.
  *
  * Used where the number is not isolated in its own composable and cannot be rolled on its own.
- * The transition is keyed on [count] rather than on [text] so that a label changing for some
- * other reason (a locale switch, say) does not animate.
+ * The transition is keyed on [count] rather than on [text], so a label changing for some other
+ * reason — a locale switch, say — does not animate.
  */
 @Composable
 fun AnimatedCountLabel(
@@ -98,9 +99,13 @@ fun AnimatedCountLabel(
         },
         modifier = modifier,
         label = "animatedCountLabel"
-    ) { _ ->
+    ) { state ->
+        // Captured per state, so the outgoing copy keeps rendering the label it entered with.
+        // Reading `text` directly would show the *new* label on both sides of the cross-fade,
+        // turning the transition into a flicker between two identical strings.
+        val stateText = remember(state) { text }
         Text(
-            text = text,
+            text = stateText,
             style = style,
             color = color,
             fontSize = fontSize,

@@ -286,7 +286,6 @@
     <string name="select">selecteren</string>
     <string name="type_a_message_placeholder">typ een bericht…</string>
     <string name="mention">vermelden</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Afbeelding</string>
@@ -300,11 +299,6 @@
     <!-- Spraakspeler toegankelijkheid -->
     <string name="cd_play_voice">Afspelen</string>
     <string name="cd_pause_voice">Pauzeren</string>
-    <string name="cd_mining_pow">Mining-PoW</string>
-    <string name="cd_pow_enabled">PoW ingeschakeld</string>
-    <string name="cd_proof_of_work">Proof of Work</string>
-    <string name="pow_mining_ellipsis">minen…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Toestemmingsbeschrijvingen -->
     <string name="perm_nearby_devices_desc">Vereist om bitchat-gebruikers via Bluetooth te ontdekken</string>
@@ -425,4 +419,7 @@
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">Info openen</string>
+  <string name="nearby_notes_reveal">kijk of hier notities zijn achtergelaten</string>
+  <string name="nearby_notes_one">1 notitie hier achtergelaten — tik om te lezen</string>
+  <string name="nearby_notes_many">%d notities hier achtergelaten — tik om te lezen</string>
 </resources>

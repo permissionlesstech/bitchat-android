@@ -286,7 +286,6 @@
     <string name="select">selecionar</string>
     <string name="type_a_message_placeholder">Digite uma mensagem…</string>
     <string name="mention">mencionar</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Imagem</string>
@@ -300,11 +299,6 @@
     <!-- Acessibilidade do player de voz -->
     <string name="cd_play_voice">Reproduzir</string>
     <string name="cd_pause_voice">Pausar</string>
-    <string name="cd_mining_pow">Minerando PoW</string>
-    <string name="cd_pow_enabled">PoW ativado</string>
-    <string name="cd_proof_of_work">Prova de Trabalho</string>
-    <string name="pow_mining_ellipsis">Minerando…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Descrições de permissões -->
     <string name="perm_nearby_devices_desc">Necessário para descobrir usuários do bitchat via Bluetooth</string>
@@ -393,4 +387,7 @@
   <string name="verify_success_title">Verificado</string>
   <string name="verify_success_body">Você verificou %1$s</string>
   <string name="verify_success_system_message">verificou %1$s</string>
+  <string name="nearby_notes_reveal">ver se há notas deixadas aqui</string>
+  <string name="nearby_notes_one">1 nota deixada aqui — toque para ler</string>
+  <string name="nearby_notes_many">%d notas deixadas aqui — toque para ler</string>
 </resources>

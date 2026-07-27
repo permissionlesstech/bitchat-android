@@ -286,7 +286,6 @@
     <string name="select">選択</string>
     <string name="type_a_message_placeholder">メッセージを入力…</string>
     <string name="mention">メンション</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">画像</string>
@@ -300,11 +299,6 @@
     <!-- ボイスプレイヤー アクセシビリティ -->
     <string name="cd_play_voice">再生</string>
     <string name="cd_pause_voice">一時停止</string>
-    <string name="cd_mining_pow">PoW をマイニング中</string>
-    <string name="cd_pow_enabled">PoW 有効</string>
-    <string name="cd_proof_of_work">Proof of Work</string>
-    <string name="pow_mining_ellipsis">マイニング中…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- 権限の説明 -->
     <string name="perm_nearby_devices_desc">Bluetooth で bitchat ユーザーを検出するために必要です</string>
@@ -394,4 +388,7 @@
   <string name="verify_success_body">%1$s を検証しました</string>
   <string name="verify_success_system_message">%1$s を検証しました</string>
     <string name="cd_open_about">このアプリについてを開く</string>
+  <string name="nearby_notes_reveal">ここに残されたメモを確認</string>
+  <string name="nearby_notes_one">ここに1件のメモがあります — タップして読む</string>
+  <string name="nearby_notes_many">ここに%d件のメモがあります — タップして読む</string>
 </resources>

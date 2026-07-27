@@ -283,7 +283,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">提及</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -406,4 +405,7 @@
   <string name="verify_success_body">你已验证 %1$s</string>
   <string name="verify_success_system_message">已验证 %1$s</string>
     <string name="cd_open_about">打开“关于”</string>
+  <string name="nearby_notes_reveal">查看这里留下的留言</string>
+  <string name="nearby_notes_one">这里留有 1 条留言 — 点按阅读</string>
+  <string name="nearby_notes_many">这里留有 %d 条留言 — 点按阅读</string>
 </resources>

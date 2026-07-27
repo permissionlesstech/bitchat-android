@@ -17,19 +17,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.R
+import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.geohash.GeohashChannelLevel
+import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.nostr.LocationNotesManager
+import com.bitchat.android.nostr.NearbyNotesController
 import com.bitchat.android.ui.media.FullScreenImageViewer
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
@@ -94,6 +110,67 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     // Get location channel info for timeline switching
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val locationManager = remember { LocationChannelManager.getInstance(context) }
+    val nearbyNotesController = remember { NearbyNotesController.shared }
+    val nearbyNotesRevealed by nearbyNotesController.revealed.collectAsStateWithLifecycle()
+    val locationPermissionState by locationManager.permissionState.collectAsStateWithLifecycle()
+    val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
+    val availableLocationChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
+    val nearbyNotes by remember { LocationNotesManager.getInstance() }
+        .notes
+        .collectAsStateWithLifecycle()
+    val buildingGeohash = availableLocationChannels
+        .firstOrNull { it.level == GeohashChannelLevel.BUILDING }
+        ?.geohash
+    val isMeshTimeline =
+        currentChannel == null &&
+            selectedLocationChannel is ChannelID.Mesh &&
+            selectedPrivatePeer == null &&
+            privateChatSheetPeer == null
+
+    val processLifecycleOwner = remember { ProcessLifecycleOwner.get() }
+    DisposableEffect(processLifecycleOwner, nearbyNotesController) {
+        val lifecycle = processLifecycleOwner.lifecycle
+        val observer = object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                nearbyNotesController.updateAppForeground(true)
+            }
+
+            override fun onStop(owner: LifecycleOwner) {
+                nearbyNotesController.updateAppForeground(false)
+            }
+        }
+
+        lifecycle.addObserver(observer)
+        nearbyNotesController.updateAppForeground(
+            lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED),
+        )
+
+        onDispose {
+            lifecycle.removeObserver(observer)
+            nearbyNotesController.updateAppForeground(false)
+        }
+    }
+
+    DisposableEffect(
+        isMeshTimeline,
+        locationEnabled,
+        locationPermissionState,
+        buildingGeohash,
+        nearbyNotesController,
+    ) {
+        nearbyNotesController.updateAvailability(
+            locationEnabled = locationEnabled,
+            locationAuthorized =
+                locationPermissionState == LocationChannelManager.PermissionState.AUTHORIZED,
+            buildingGeohash = buildingGeohash,
+        )
+        if (isMeshTimeline) nearbyNotesController.activate()
+        onDispose {
+            if (isMeshTimeline) nearbyNotesController.deactivate()
+        }
+    }
 
     // Determine what messages to show based on current context (unified timelines)
     // Legacy private chat timeline removed - private chats now exclusively use PrivateChatSheet
@@ -140,13 +217,21 @@ fun ChatScreen(viewModel: ChatViewModel) {
         ) {
           Box(modifier = Modifier.weight(1f)) {
             // Messages area - takes up available space, will compress when keyboard appears
+            // Nearby-notes strip and the reveal hint both live in this Box alongside the
+            // list, rather than in a Column above it, because the conversation has to scroll
+            // underneath the translucent bars. Their heights are reserved as list padding.
+            var notesStripHeight by remember { mutableStateOf(0.dp) }
+            val showNotesStrip =
+                isMeshTimeline && nearbyNotesRevealed && nearbyNotes.isNotEmpty()
+
             MessagesList(
                 messages = displayMessages,
                 currentUserNickname = nickname,
                 meshService = viewModel.meshServiceFacade,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    top = statusBarHeight + headerHeight,
+                    top = statusBarHeight + headerHeight +
+                        (if (showNotesStrip) notesStripHeight else 0.dp),
                     bottom = composerHeight
                 ),
                 forceScrollToBottom = forceScrollToBottom,
@@ -154,26 +239,29 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 onNicknameClick = { fullSenderName ->
                     // Single click - mention user in text input
                     val currentText = messageText.text
-                    
+
                     // Extract base nickname and hash suffix from full sender name
                     val (baseName, hashSuffix) = splitSuffix(fullSenderName)
-                    
+
                     // Check if we're in a geohash channel to include hash suffix
                     val selectedLocationChannel = viewModel.selectedLocationChannel.value
-                    val mentionText = if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location && hashSuffix.isNotEmpty()) {
+                    val mentionText = if (
+                        selectedLocationChannel is ChannelID.Location &&
+                        hashSuffix.isNotEmpty()
+                    ) {
                         // In geohash chat - include the hash suffix from the full display name
                         "@$baseName$hashSuffix"
                     } else {
                         // Regular chat - just the base nickname
                         "@$baseName"
                     }
-                    
+
                     val newText = when {
                         currentText.isEmpty() -> "$mentionText "
                         currentText.endsWith(" ") -> "$currentText$mentionText "
                         else -> "$currentText $mentionText "
                     }
-                    
+
                     messageText = TextFieldValue(
                         text = newText,
                         selection = TextRange(newText.length)
@@ -196,6 +284,35 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     showFullScreenImageViewer = true
                 }
             )
+
+            if (
+                displayMessages.isEmpty() &&
+                isMeshTimeline &&
+                !nearbyNotesRevealed &&
+                locationEnabled &&
+                locationPermissionState ==
+                    LocationChannelManager.PermissionState.AUTHORIZED &&
+                buildingGeohash != null
+            ) {
+                NearbyNotesRevealHint(
+                    onClick = nearbyNotesController::reveal,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+
+            if (showNotesStrip) {
+                NearbyNotesStrip(
+                    noteCount = nearbyNotes.size,
+                    onClick = { showLocationNotesSheet = true },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = statusBarHeight + headerHeight)
+                        .onSizeChanged { size ->
+                            notesStripHeight = with(density) { size.height.toDp() }
+                        },
+                )
+            }
+
             // Input area - overlays the bottom of the conversation
         // Bridge file share from lower-level input to ViewModel
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -272,7 +389,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() },
             onLocationChannelsClick = { showLocationChannelsSheet = true },
-            onLocationNotesClick = { showLocationNotesSheet = true }
+            onLocationNotesClick = {
+                nearbyNotesController.reveal()
+                showLocationNotesSheet = true
+            }
         )
 
         // Scroll-to-bottom floating button
@@ -389,6 +509,68 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun NearbyNotesRevealHint(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val actionLabel = stringResource(R.string.nearby_notes_reveal)
+    TextButton(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 24.dp)
+            .semantics { contentDescription = actionLabel },
+    ) {
+        Text(
+            text = "📍 $actionLabel",
+            modifier = Modifier.clearAndSetSemantics { },
+            color = MaterialTheme.colorScheme.primary,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+        )
+    }
+}
+
+@Composable
+private fun NearbyNotesStrip(
+    noteCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "📍 " + if (noteCount == 1) {
+                    stringResource(R.string.nearby_notes_one)
+                } else {
+                    stringResource(R.string.nearby_notes_many, noteCount)
+                },
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.primary,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+            )
+            Text(
+                text = "›",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 18.sp,
+            )
+        }
     }
 }
 

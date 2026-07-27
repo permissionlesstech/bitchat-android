@@ -286,7 +286,6 @@
     <string name="select">منتخب کریں</string>
     <string name="type_a_message_placeholder">پیغام لکھیں…</string>
     <string name="mention">ذکر</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">تصویر</string>
@@ -300,11 +299,6 @@
     <!-- وائس پلیئر رسائی -->
     <string name="cd_play_voice">چلائیں</string>
     <string name="cd_pause_voice">روکیں</string>
-    <string name="cd_mining_pow">PoW مائننگ</string>
-    <string name="cd_pow_enabled">PoW فعال</string>
-    <string name="cd_proof_of_work">پروف آف ورک</string>
-    <string name="pow_mining_ellipsis">مائننگ…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- اجازات کی تفصیل -->
     <string name="perm_nearby_devices_desc">بلوٹوتھ کے ذریعے bitchat صارفین کی دریافت کے لیے ضروری</string>
@@ -394,4 +388,7 @@
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">تعارف کھولیں</string>
+  <string name="nearby_notes_reveal">دیکھیں کہ یہاں نوٹ چھوڑے گئے ہیں یا نہیں</string>
+  <string name="nearby_notes_one">یہاں 1 نوٹ چھوڑا گیا ہے — پڑھنے کے لیے تھپتھپائیں</string>
+  <string name="nearby_notes_many">یہاں %d نوٹ چھوڑے گئے ہیں — پڑھنے کے لیے تھپتھپائیں</string>
 </resources>

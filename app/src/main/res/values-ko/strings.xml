@@ -286,7 +286,6 @@
     <string name="select">선택</string>
     <string name="type_a_message_placeholder">메시지 입력 …</string>
     <string name="mention">멘션</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">이미지</string>
@@ -300,11 +299,6 @@
     <!-- 음성 플레이어 접근성 -->
     <string name="cd_play_voice">재생</string>
     <string name="cd_pause_voice">일시정지</string>
-    <string name="cd_mining_pow">PoW 채굴</string>
-    <string name="cd_pow_enabled">PoW 사용</string>
-    <string name="cd_proof_of_work">작업증명</string>
-    <string name="pow_mining_ellipsis">채굴 중 …</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- 권한 설명 -->
     <string name="perm_nearby_devices_desc">블루투스를 통해 bitchat 사용자를 발견하는 데 필요</string>
@@ -394,4 +388,7 @@
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">정보 열기</string>
+  <string name="nearby_notes_reveal">여기 남겨진 쪽지 확인</string>
+  <string name="nearby_notes_one">여기 남겨진 쪽지 1개 — 탭하여 읽기</string>
+  <string name="nearby_notes_many">여기 남겨진 쪽지 %d개 — 탭하여 읽기</string>
 </resources>

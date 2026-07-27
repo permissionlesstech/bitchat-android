@@ -48,6 +48,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.bitchat.android.nostr.NearbyNotesController
+import com.bitchat.android.nostr.geohashesForSampling
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
@@ -104,6 +107,7 @@ fun LocationChannelsSheet(
 
     val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
+    val notesRevealed by NearbyNotesController.shared.revealed.collectAsStateWithLifecycle()
     val selectedChannel by locationManager.selectedChannel.collectAsStateWithLifecycle()
     val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
     val locationServicesEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle()
@@ -527,9 +531,14 @@ fun LocationChannelsSheet(
         onDispose { locationManager.endLiveRefresh() }
     }
 
-    LaunchedEffect(isPresented, availableChannels, bookmarks) {
+    // Sampling management: update sampling when channels/bookmarks change
+    LaunchedEffect(isPresented, availableChannels, bookmarks, notesRevealed) {
         if (isPresented) {
-            val geohashes = (availableChannels.map { it.geohash } + bookmarks).toSet().toList()
+            val geohashes = geohashesForSampling(
+                availableChannels = availableChannels,
+                bookmarks = bookmarks,
+                notesRevealed = notesRevealed,
+            )
             viewModel.beginGeohashSampling(geohashes)
         } else {
             viewModel.endGeohashSampling()

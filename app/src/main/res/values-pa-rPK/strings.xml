@@ -286,7 +286,6 @@
     <string name="select">چُنو</string>
     <string name="type_a_message_placeholder">پیغام لکھو …</string>
     <string name="mention">ذکر</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">تصویر</string>
@@ -300,11 +299,6 @@
     <!-- وائس پلیئر رسائی پذیری -->
     <string name="cd_play_voice">چلاؤ</string>
     <string name="cd_pause_voice">روکੋ</string>
-    <string name="cd_mining_pow">PoW مائننگ</string>
-    <string name="cd_pow_enabled">PoW چالو</string>
-    <string name="cd_proof_of_work">Proof of Work</string>
-    <string name="pow_mining_ellipsis">مائننگ …</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- اجازت دیاں وضاحتاں -->
     <string name="perm_nearby_devices_desc">بلوٹوتھ راہین bitchat یوزر لبھن لئی ضروری</string>
@@ -381,4 +375,7 @@
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">ایپ بارے کھولو</string>
+  <string name="nearby_notes_reveal">ایتھے چھڈے نوٹس ویکھو</string>
+  <string name="nearby_notes_one">ایتھے 1 نوٹ چھڈیا گیا — پڑھݨ لئی ٹیپ کرو</string>
+  <string name="nearby_notes_many">ایتھے %d نوٹس چھڈے گئے — پڑھݨ لئی ٹیپ کرو</string>
 </resources>
