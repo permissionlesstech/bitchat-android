@@ -363,7 +363,7 @@ class NostrDirectMessageHandler(
                 )
 
                 val isViewing = state.getSelectedPrivateChatPeerValue() == conversationID
-                val suppressUnread = seenStore.hasRead(pm.messageID)
+                val suppressUnread = seenStore.hasBeenReadLocally(pm.messageID)
 
                 var messageAccepted = false
                 withContext(Dispatchers.Main) {
@@ -406,7 +406,8 @@ class NostrDirectMessageHandler(
                                     recipientIdentity
                                 )
                             }
-                            seenStore.markRead(pm.messageID)
+                            seenStore.markReadLocally(pm.messageID)
+                            seenStore.markReadReceiptSent(pm.messageID)
                         }
                     }
                 }

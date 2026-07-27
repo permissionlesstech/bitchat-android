@@ -15,6 +15,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
@@ -104,6 +105,54 @@ class PrivateChatManagerTest {
         )
 
         verify(meshService).sendReadReceipt(message.id, meshPeerID, "bob")
+    }
+
+    @Test
+    fun `opening chat skips messages whose receipt send already completed`() {
+        val noiseKey = ByteArray(32) { 8 }
+        val meshPeerID = ContactIdentityResolver.peerIdForNoiseKey(noiseKey)
+        val conversationID = ContactIdentityResolver.contactConversationIdForNoiseKey(noiseKey)
+        val oldMessage = BitchatMessage(
+            id = "already-read",
+            sender = "alice",
+            content = "old",
+            timestamp = Date(1),
+            isPrivate = true,
+            senderPeerID = meshPeerID
+        )
+        val unreadMessage = oldMessage.copy(
+            id = "still-unread",
+            content = "new",
+            timestamp = Date(2)
+        )
+        val meshService = mock<MeshService>()
+        manager = PrivateChatManager(
+            state = state,
+            messageManager = MessageManager(state),
+            dataManager = DataManager(RuntimeEnvironment.getApplication()),
+            noiseSessionDelegate = mock(),
+            hasReadReceiptBeenSent = { it == oldMessage.id }
+        )
+        state.setNickname("bob")
+        state.setPrivateChats(mapOf(conversationID to listOf(oldMessage, unreadMessage)))
+        whenever(meshService.getPeerInfo(meshPeerID)).thenReturn(
+            PeerInfo(
+                id = meshPeerID,
+                nickname = "alice",
+                isConnected = true,
+                isDirectConnection = true,
+                noisePublicKey = noiseKey,
+                signingPublicKey = null,
+                isVerifiedNickname = false,
+                lastSeen = System.currentTimeMillis()
+            )
+        )
+        whenever(meshService.hasEstablishedSession(meshPeerID)).thenReturn(true)
+
+        manager.sendReadReceiptsForPeer(conversationID, meshPeerID, meshService)
+
+        verify(meshService, never()).sendReadReceipt(oldMessage.id, meshPeerID, "bob")
+        verify(meshService).sendReadReceipt(unreadMessage.id, meshPeerID, "bob")
     }
 
     @Test

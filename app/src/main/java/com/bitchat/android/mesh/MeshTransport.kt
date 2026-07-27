@@ -9,7 +9,10 @@ import com.bitchat.android.protocol.BitchatPacket
 interface MeshTransport {
     val id: String
 
-    fun broadcastPacket(routed: RoutedPacket)
+    /**
+     * Broadcasts a packet and reports whether at least one concrete transport write was accepted.
+     */
+    fun broadcastPacket(routed: RoutedPacket): Boolean
 
     fun sendPacketToPeer(peerID: String, packet: BitchatPacket): Boolean
 

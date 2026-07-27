@@ -48,6 +48,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         private const val NDR_TRANSPORT_ID = "BLE"
         private const val BLE_AUTHENTICATION_TIMEOUT_MS = 20_000L
         private val MAX_TTL: UByte = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
+        private const val PEER_DISCONNECT_GRACE_MS = com.bitchat.android.util.AppConstants.Mesh.PEER_DISCONNECT_GRACE_MS
     }
     
     // Core components - each handling specific responsibilities
@@ -58,6 +59,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private val peerManager = PeerManager()
     private val fragmentManager = FragmentManager()
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val readReceiptRetrySender = RetryingControlPacketSender(serviceScope)
     private val authenticatedPeerStateStore = SecureAuthenticatedPeerStateStore(context)
     private val authenticatedPeerState by lazy {
         AuthenticatedPeerStateCoordinator(
@@ -178,6 +180,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         connectionManager.broadcastPacket(packet)
     }
 
+    override suspend fun sendAndReport(packet: RoutedPacket): Boolean {
+        if (!isBleTransportEnabled()) return false
+        return connectionManager.broadcastControlPacketAndAwaitAcceptance(packet)
+    }
+
     override fun sendToPeer(peerID: String, packet: BitchatPacket) {
         if (!isBleTransportEnabled()) return
         connectionManager.sendPacketToPeer(peerID, packet)
@@ -189,6 +196,15 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (!queued) return false
         TransportBridgeService.broadcast("BLE", routed)
         return true
+    }
+
+    private suspend fun broadcastRoutedPacketAndReport(routed: RoutedPacket): Boolean {
+        if (!isBleTransportEnabled()) return false
+        val acceptedByBle =
+            connectionManager.broadcastControlPacketAndAwaitAcceptance(routed)
+        val acceptedByBridgedTransport =
+            TransportBridgeService.broadcastAndReport("BLE", routed)
+        return acceptedByBle || acceptedByBridgedTransport
     }
 
     private fun isBleTransportEnabled(): Boolean {
@@ -415,6 +431,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)
             }
+
+            override fun removeNoiseSession(peerID: String) {
+                try {
+                    encryptionService.removePeer(peerID)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to remove Noise session for $peerID: ${e.message}")
+                }
+            }
             
             override fun initiateNoiseHandshake(peerID: String) {
                 try {
@@ -505,10 +529,24 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
+                // Status events can arrive while MainActivity has detached the UI delegate.
+                // Persist first so the next UI collector observes the advancement.
+                try {
+                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                        messageID,
+                        com.bitchat.android.model.DeliveryStatus.Delivered(peerID, Date())
+                    )
+                } catch (_: Exception) { }
                 delegate?.didReceiveDeliveryAck(messageID, peerID)
             }
             
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
+                try {
+                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                        messageID,
+                        com.bitchat.android.model.DeliveryStatus.Read(peerID, Date())
+                    )
+                } catch (_: Exception) { }
                 delegate?.didReceiveReadReceipt(messageID, peerID)
             }
 
@@ -576,8 +614,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
             
-            override fun handleNoiseEncrypted(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleNoiseEncrypted(routed) }
+            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
             }
             
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
@@ -702,16 +740,41 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             override fun onDeviceDisconnected(
                 device: android.bluetooth.BluetoothDevice,
-                linkID: String?
+                linkID: String?,
+                peerID: String?
             ) {
-                Log.i(TAG, "Device disconnected: ${device.address}")
+                Log.i(TAG, "Device disconnected: ${device.address} (peerID: $peerID)")
 
-                // refresh peer list on disconnect. 
+                // refresh peer list on disconnect.
                 try { peerManager.refreshPeerList() } catch (_: Exception) { }
 
                 // ConnectionTracker already removes an observed mapping only when this exact
                 // link is still current. Do not remove by reusable address here: this may be a late
                 // disconnect callback from a replaced GATT connection.
+
+                // If the peer that used this link does not come back within a short grace
+                // period (no other link, no traffic), tear down their Noise session instead of
+                // waiting for the 3-minute stale-peer sweep.
+                if (peerID != null) {
+                    val deviceAddress = device.address
+                    val disconnectedAt = System.currentTimeMillis()
+                    serviceScope.launch {
+                        delay(PEER_DISCONNECT_GRACE_MS)
+                        try {
+                            val linkBack =
+                                connectionManager.addressPeerMap.containsKey(deviceAddress) ||
+                                    connectionManager.addressPeerMap.containsValue(peerID)
+                            val lastSeen = peerManager.getPeerInfo(peerID)?.lastSeen ?: 0L
+                            val seenAfterDisconnect = lastSeen > disconnectedAt
+                            if (!linkBack && !seenAfterDisconnect) {
+                                Log.i(TAG, "Peer $peerID did not return after disconnect; removing peer and Noise session")
+                                peerManager.removePeer(peerID)
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Disconnect grace check failed for $peerID: ${e.message}")
+                        }
+                    }
+                }
             }
             
             override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
@@ -1076,12 +1139,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
 
             try {
-                // Avoid duplicate read receipts: check persistent store first
-                val seenStore = try { com.bitchat.android.services.SeenMessageStore.getInstance(context.applicationContext) } catch (_: Exception) { null }
-                if (seenStore?.hasRead(messageID) == true) {
-                    return@launch
-                }
-
                 // Create read receipt payload using NoisePayloadType exactly like iOS
                 val readReceiptPayload = com.bitchat.android.model.NoisePayload(
                     type = com.bitchat.android.model.NoisePayloadType.READ_RECEIPT,
@@ -1105,10 +1162,31 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 
                 // Sign the packet before broadcasting
                 val signedPacket = signPacketBeforeBroadcast(packet)
-                broadcastRoutedPacket(RoutedPacket(signedPacket))
-
-                // Persist as read after successful send
-                try { seenStore?.markRead(messageID) } catch (_: Exception) { }
+                val retryKey = "$recipientPeerID:$messageID"
+                readReceiptRetrySender.enqueue(
+                    key = retryKey,
+                    sendAttempt = { attempt ->
+                        // Keep the addressed packet on the normal broadcaster actor so receipt
+                        // attempts are ordered with other BLE traffic and can use mesh routing.
+                        val accepted =
+                            broadcastRoutedPacketAndReport(RoutedPacket(signedPacket))
+                        Log.d(
+                            TAG,
+                            "Read receipt attempt $attempt accepted=$accepted " +
+                                "peer=${recipientPeerID.take(8)} message=${messageID.take(8)}"
+                        )
+                        accepted
+                    },
+                    onComplete = { accepted ->
+                        if (accepted) {
+                            try {
+                                com.bitchat.android.services.SeenMessageStore
+                                    .getInstance(context.applicationContext)
+                                    .markReadReceiptSent(messageID)
+                            } catch (_: Exception) { }
+                        }
+                    }
+                )
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send read receipt to $recipientPeerID: ${e.message}")

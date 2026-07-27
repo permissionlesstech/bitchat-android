@@ -54,6 +54,7 @@ class MeshCore(
 
     private val peerManager = PeerManager()
     val fragmentManager = FragmentManager()
+    private val readReceiptRetrySender = RetryingControlPacketSender(scope)
     private val authenticatedPeerStateStore = SecureAuthenticatedPeerStateStore(context)
     private val authenticatedPeerState by lazy {
         AuthenticatedPeerStateCoordinator(
@@ -193,9 +194,20 @@ class MeshCore(
         transport.broadcastPacket(packet)
     }
 
+    fun sendFromBridgeAndReport(packet: RoutedPacket): Boolean {
+        return transport.broadcastPacket(packet)
+    }
+
     private fun dispatchGlobal(routed: RoutedPacket) {
         transport.broadcastPacket(routed)
         TransportBridgeService.broadcast(transport.id, routed)
+    }
+
+    private suspend fun dispatchGlobalAndReport(routed: RoutedPacket): Boolean {
+        val acceptedByLocalTransport = transport.broadcastPacket(routed)
+        val acceptedByBridgedTransport =
+            TransportBridgeService.broadcastAndReport(transport.id, routed)
+        return acceptedByLocalTransport || acceptedByBridgedTransport
     }
 
     private fun startPeriodicBroadcastAnnounce() {
@@ -366,6 +378,14 @@ class MeshCore(
                 return encryptionService.hasEstablishedSession(peerID)
             }
 
+            override fun removeNoiseSession(peerID: String) {
+                try {
+                    encryptionService.removePeer(peerID)
+                } catch (e: Exception) {
+                    Log.w("MeshCore", "Failed to remove Noise session for $peerID: ${e.message}")
+                }
+            }
+
             override fun initiateNoiseHandshake(peerID: String) {
                 this@MeshCore.initiateNoiseHandshake(peerID)
             }
@@ -400,10 +420,22 @@ class MeshCore(
             }
 
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
+                try {
+                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                        messageID,
+                        com.bitchat.android.model.DeliveryStatus.Delivered(peerID, java.util.Date())
+                    )
+                } catch (_: Exception) { }
                 delegate?.didReceiveDeliveryAck(messageID, peerID)
             }
 
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
+                try {
+                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                        messageID,
+                        com.bitchat.android.model.DeliveryStatus.Read(peerID, java.util.Date())
+                    )
+                } catch (_: Exception) { }
                 delegate?.didReceiveReadReceipt(messageID, peerID)
             }
 
@@ -469,8 +501,8 @@ class MeshCore(
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
 
-            override fun handleNoiseEncrypted(routed: RoutedPacket) {
-                scope.launch { messageHandler.handleNoiseEncrypted(routed) }
+            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
             }
 
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
@@ -721,8 +753,24 @@ class MeshCore(
                     signature = null,
                     ttl = maxTtl
                 )
-                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
-                hooks.onReadReceiptSent?.invoke(messageID)
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                val retryKey = "$recipientPeerID:$messageID"
+                readReceiptRetrySender.enqueue(
+                    key = retryKey,
+                    sendAttempt = {
+                        dispatchGlobalAndReport(RoutedPacket(signedPacket))
+                    },
+                    onComplete = { accepted ->
+                        if (accepted) {
+                            try {
+                                com.bitchat.android.services.SeenMessageStore
+                                    .getInstance(context.applicationContext)
+                                    .markReadReceiptSent(messageID)
+                            } catch (_: Exception) { }
+                            hooks.onReadReceiptSent?.invoke(messageID)
+                        }
+                    }
+                )
             } catch (e: Exception) {
                 Log.e("MeshCore", "Failed to send read receipt: ${e.message}")
             }

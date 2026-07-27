@@ -374,6 +374,77 @@ class MessageHandlerTest {
         Unit
     }
 
+    @Test
+    fun `repeated decrypt failures reset stale session and re-handshake`() = runBlocking {
+        whenever(delegate.decryptFromPeer(any(), eq(peerID))).thenReturn(null)
+        whenever(delegate.hasNoiseSession(peerID)).thenReturn(true)
+        val packet = encryptedPacket()
+
+        repeat(2) {
+            assertFalse(handler.handleNoiseEncrypted(RoutedPacket(packet, peerID, "direct-link")))
+        }
+        verify(delegate, never()).removeNoiseSession(any())
+        verify(delegate, never()).initiateNoiseHandshake(any())
+
+        assertFalse(handler.handleNoiseEncrypted(RoutedPacket(packet, peerID, "direct-link")))
+        verify(delegate).removeNoiseSession(peerID)
+        verify(delegate).initiateNoiseHandshake(peerID)
+    }
+
+    @Test
+    fun `successful decrypt resets the failure counter`() = runBlocking {
+        whenever(delegate.hasNoiseSession(peerID)).thenReturn(true)
+        val plaintext = NoisePayload(NoisePayloadType.DELIVERED, "id-1".toByteArray()).encode()
+        whenever(delegate.decryptFromPeer(any(), eq(peerID)))
+            .thenReturn(null)
+            .thenReturn(null)
+            .thenReturn(NoiseDecryptionResult(plaintext, authenticatedSession))
+            .thenReturn(null)
+            .thenReturn(null)
+        val packet = encryptedPacket()
+
+        repeat(5) {
+            handler.handleNoiseEncrypted(RoutedPacket(packet, peerID, "direct-link"))
+        }
+
+        verify(delegate, never()).removeNoiseSession(any())
+        verify(delegate, never()).initiateNoiseHandshake(any())
+    }
+
+    @Test
+    fun `decrypt failures without an established session never reset`() = runBlocking {
+        whenever(delegate.decryptFromPeer(any(), eq(peerID))).thenReturn(null)
+        whenever(delegate.hasNoiseSession(peerID)).thenReturn(false)
+        val packet = encryptedPacket()
+
+        repeat(4) {
+            assertFalse(handler.handleNoiseEncrypted(RoutedPacket(packet, peerID, "direct-link")))
+        }
+
+        verify(delegate, never()).removeNoiseSession(any())
+        verify(delegate, never()).initiateNoiseHandshake(any())
+    }
+
+    @Test
+    fun `successful decrypt reports the packet as valid`() = runBlocking {
+        val plaintext = NoisePayload(NoisePayloadType.DELIVERED, "id-2".toByteArray()).encode()
+        whenever(delegate.decryptFromPeer(any(), eq(peerID))).thenReturn(
+            NoiseDecryptionResult(plaintext, authenticatedSession)
+        )
+
+        assertTrue(handler.handleNoiseEncrypted(RoutedPacket(encryptedPacket(), peerID, "direct-link")))
+    }
+
+    private fun encryptedPacket(): BitchatPacket = BitchatPacket(
+        version = 1u,
+        type = MessageType.NOISE_ENCRYPTED.value,
+        senderID = peerID.hexToBytes(),
+        recipientID = myPeerID.hexToBytes(),
+        timestamp = System.currentTimeMillis().toULong(),
+        payload = byteArrayOf(0x41, 0x42, 0x43),
+        ttl = 7u
+    )
+
     private fun announcePacket(
         ageMs: Long,
         ttl: UByte = (AppConstants.MESSAGE_TTL_HOPS.toInt() - 1).toUByte(),
