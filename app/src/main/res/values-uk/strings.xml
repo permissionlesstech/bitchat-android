@@ -40,6 +40,20 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">оголошення</string>
+  <string name="notices_title">оголошення</string>
+  <string name="notices_tab_geo_count">гео · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">закріплюй короткі оголошення для людей поруч. вони передаються з телефона на телефон, навіть офлайн, і самі зникають за кілька днів.</string>
+  <string name="notices_permanent">назавжди</string>
+  <string name="notices_fades">зникне %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">мережа</string>
+  <string name="notices_location_unavailable">локація недоступна</string>
+  <string name="notices_enable_location">увімкнути локацію</string>
+  <string name="notices_alert_urgent_single">📌 термінове оголошення від @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d нових термінових оголошень — натисни на шпильку, щоб переглянути</string>
     <string name="cd_open_about">Відкрити розділ «Про застосунок»</string>
   <string name="nearby_notes_reveal">перевірити, чи залишено тут нотатки</string>
   <string name="nearby_notes_one">тут залишено 1 нотатку — торкніться, щоб прочитати</string>

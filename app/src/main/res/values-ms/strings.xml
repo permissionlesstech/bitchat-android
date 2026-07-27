@@ -40,6 +40,20 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">pengumuman</string>
+  <string name="notices_title">pengumuman</string>
+  <string name="notices_tab_geo_count">kawasan · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">semat pengumuman ringkas untuk orang di sekeliling anda. ia berpindah dari telefon ke telefon, walaupun di luar talian, dan hilang sendiri selepas beberapa hari.</string>
+  <string name="notices_permanent">kekal</string>
+  <string name="notices_fades">pudar %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">net</string>
+  <string name="notices_location_unavailable">lokasi tidak tersedia</string>
+  <string name="notices_enable_location">aktifkan lokasi</string>
+  <string name="notices_alert_urgent_single">📌 pengumuman segera daripada @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d pengumuman segera baharu — ketik pin untuk melihat</string>
     <string name="cd_open_about">Buka Perihal</string>
   <string name="nearby_notes_reveal">semak nota yang ditinggalkan di sini</string>
   <string name="nearby_notes_one">1 nota ditinggalkan di sini — ketik untuk baca</string>

@@ -431,6 +431,20 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">mededelingen</string>
+  <string name="notices_title">mededelingen</string>
+  <string name="notices_tab_geo_count">geo · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">prik korte mededelingen voor mensen om je heen. ze springen van telefoon naar telefoon, ook offline, en verdwijnen vanzelf na een paar dagen.</string>
+  <string name="notices_permanent">permanent</string>
+  <string name="notices_fades">vervaagt %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">net</string>
+  <string name="notices_location_unavailable">locatie niet beschikbaar</string>
+  <string name="notices_enable_location">locatie inschakelen</string>
+  <string name="notices_alert_urgent_single">📌 dringende mededeling van @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d nieuwe dringende mededelingen — tik op de pin om te bekijken</string>
     <string name="cd_open_about">Info openen</string>
   <string name="nearby_notes_reveal">kijk of hier notities zijn achtergelaten</string>
   <string name="nearby_notes_one">1 notitie hier achtergelaten — tik om te lezen</string>

@@ -400,6 +400,20 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">सूचनाएँ</string>
+  <string name="notices_title">सूचनाएँ</string>
+  <string name="notices_tab_geo_count">क्षेत्र · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">आस-पास के लोगों के लिए छोटी सूचनाएँ पिन करें। ये ऑफ़लाइन भी फ़ोन से फ़ोन तक पहुँचती हैं और कुछ दिनों बाद अपने आप मिट जाती हैं।</string>
+  <string name="notices_permanent">स्थायी</string>
+  <string name="notices_fades">%1$s मिट जाएगा</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">नेट</string>
+  <string name="notices_location_unavailable">लोकेशन उपलब्ध नहीं</string>
+  <string name="notices_enable_location">लोकेशन सक्षम करें</string>
+  <string name="notices_alert_urgent_single">📌 @%1$s की ज़रूरी सूचना: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d नई ज़रूरी सूचनाएँ — देखने के लिए पिन टैप करें</string>
     <string name="cd_open_about">परिचय खोलें</string>
   <string name="nearby_notes_reveal">देखें कि यहाँ नोट छोड़े गए हैं या नहीं</string>
   <string name="nearby_notes_one">यहाँ 1 नोट छोड़ा गया है — पढ़ने के लिए टैप करें</string>

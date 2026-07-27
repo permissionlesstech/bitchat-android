@@ -387,6 +387,20 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">thông báo</string>
+  <string name="notices_title">thông báo</string>
+  <string name="notices_tab_geo_count">khu vực · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">ghim thông báo ngắn cho những người quanh bạn. chúng truyền từ điện thoại này sang điện thoại khác, kể cả khi ngoại tuyến, và tự biến mất sau vài ngày.</string>
+  <string name="notices_permanent">vĩnh viễn</string>
+  <string name="notices_fades">mờ dần %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">mạng</string>
+  <string name="notices_location_unavailable">không có dữ liệu vị trí</string>
+  <string name="notices_enable_location">bật vị trí</string>
+  <string name="notices_alert_urgent_single">📌 thông báo khẩn từ @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d thông báo khẩn mới — chạm vào ghim để xem</string>
     <string name="cd_open_about">Mở phần Giới thiệu</string>
   <string name="nearby_notes_reveal">kiểm tra ghi chú để lại ở đây</string>
   <string name="nearby_notes_one">có 1 ghi chú để lại ở đây — chạm để đọc</string>

@@ -21,7 +21,8 @@ object GCSFilter {
     data class Params(
         val p: Int,         // Golomb-Rice parameter (>= 1)
         val m: Long,        // Range M = N * 2^P
-        val data: ByteArray // Encoded GR bitstream
+        val data: ByteArray, // Encoded GR bitstream
+        val includedCount: Int
     )
 
     // Derive P from target FPR; FPR ~= 1 / 2^P
@@ -66,7 +67,7 @@ object GCSFilter {
             encoded = encode(mapped, p)
         }
 
-        return Params(p = p, m = finalM, data = encoded)
+        return Params(p = p, m = finalM, data = encoded, includedCount = trimmedN)
     }
 
     fun decodeToSortedSet(p: Int, m: Long, data: ByteArray): LongArray {
@@ -196,4 +197,3 @@ object GCSFilter {
         }
     }
 }
-

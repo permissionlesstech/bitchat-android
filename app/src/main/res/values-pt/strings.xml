@@ -400,6 +400,20 @@
   <string name="verify_success_title">Verificado</string>
   <string name="verify_success_body">Você verificou %1$s</string>
   <string name="verify_success_system_message">verificou %1$s</string>
+
+  <string name="cd_notices">avisos</string>
+  <string name="notices_title">avisos</string>
+  <string name="notices_tab_geo_count">geo · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">afixa avisos curtos para quem está por perto. saltam de telemóvel em telemóvel, mesmo offline, e desaparecem sozinhos após alguns dias.</string>
+  <string name="notices_permanent">permanente</string>
+  <string name="notices_fades">desvanece %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">rede</string>
+  <string name="notices_location_unavailable">localização indisponível</string>
+  <string name="notices_enable_location">ativar localização</string>
+  <string name="notices_alert_urgent_single">📌 aviso urgente de @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d novos avisos urgentes — toca no pin para ver</string>
     <string name="cd_open_about">Abrir Sobre</string>
   <string name="nearby_notes_reveal">ver se há notas deixadas aqui</string>
   <string name="nearby_notes_one">1 nota deixada aqui — toque para ler</string>

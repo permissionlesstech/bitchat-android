@@ -387,6 +387,20 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">ประกาศ</string>
+  <string name="notices_title">ประกาศ</string>
+  <string name="notices_tab_geo_count">พื้นที่ · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">ปักประกาศสั้น ๆ ให้คนรอบตัว ส่งต่อจากมือถือสู่มือถือได้แม้ออฟไลน์ และหายไปเองหลังผ่านไปสองสามวัน</string>
+  <string name="notices_permanent">ถาวร</string>
+  <string name="notices_fades">เลือนหาย %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">เน็ต</string>
+  <string name="notices_location_unavailable">ไม่มีข้อมูลตำแหน่ง</string>
+  <string name="notices_enable_location">เปิดใช้งานตำแหน่ง</string>
+  <string name="notices_alert_urgent_single">📌 ประกาศด่วนจาก @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 ประกาศด่วนใหม่ %1$d รายการ — แตะหมุดเพื่อดู</string>
     <string name="cd_open_about">เปิดเกี่ยวกับ</string>
   <string name="nearby_notes_reveal">ดูว่ามีโน้ตทิ้งไว้ที่นี่หรือไม่</string>
   <string name="nearby_notes_one">มี 1 โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>

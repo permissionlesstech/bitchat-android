@@ -2,6 +2,7 @@ package com.bitchat.android.mesh
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.board.transportSenderID
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.AuthenticatedPeerState
@@ -108,6 +109,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     }
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
+    private val boardStore = com.bitchat.android.board.BoardStore.getInstance(context)
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
@@ -157,6 +159,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 } catch (_: Exception) { 0.01 }
             }
         )
+        gossipSyncManager.boardPacketsProvider = boardStore::syncCandidates
 
         com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager) { packet ->
             signPacketBeforeBroadcast(packet)
@@ -674,6 +677,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 val req = RequestSyncPacket.decode(routed.packet.payload) ?: return
                 gossipSyncManager.handleRequestSync(fromPeer, req)
             }
+
+            override fun handleBoardPost(routed: RoutedPacket): Boolean {
+                val wire = com.bitchat.android.board.BoardWireCodec.decode(routed.packet.payload)
+                    ?: return false
+                return boardStore.ingestRemoteForRelay(wire, routed.packet)
+            }
         }
         
         // BluetoothConnectionManager delegates
@@ -904,6 +913,35 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             broadcastRoutedPacket(RoutedPacket(signedPacket))
             // Track our own broadcast message for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+        }
+    }
+
+    fun getSigningPublicKey(): ByteArray? = encryptionService.getSigningPublicKey()
+
+    fun signData(data: ByteArray): ByteArray? = encryptionService.signData(data)
+
+    fun sendBoardPayload(payload: ByteArray) {
+        val wire = com.bitchat.android.board.BoardWireCodec.decode(payload) ?: return
+        if (!wire.verifySignature()) return
+        serviceScope.launch {
+            // The inner board signature is authoritative. A stable outer
+            // sender/signature would re-link otherwise isolated location scopes.
+            val packet = BitchatPacket(
+                version = 1u,
+                type = MessageType.BOARD_POST.value,
+                senderID = wire.transportSenderID(),
+                recipientID = null,
+                timestamp = System.currentTimeMillis().coerceAtLeast(0).toULong(),
+                payload = payload,
+                signature = null,
+                ttl = MAX_TTL
+            )
+            boardStore.ingest(
+                wire,
+                packet,
+                com.bitchat.android.board.BoardIngestSource.LOCAL
+            )
+            broadcastRoutedPacket(RoutedPacket(packet))
         }
     }
 
@@ -1621,6 +1659,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             securityManager.clearAllData()
             peerManager.clearAllPeers()
             peerManager.clearAllFingerprints()
+            boardStore.wipe()
             Log.d(TAG, "✅ Cleared all mesh service internal data")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error clearing mesh service internal data: ${e.message}")

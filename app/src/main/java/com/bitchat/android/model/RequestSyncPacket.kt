@@ -1,6 +1,7 @@
 package com.bitchat.android.model
 
 import com.bitchat.android.sync.SyncDefaults
+import com.bitchat.android.sync.SyncTypeFlags
 
 /**
  * REQUEST_SYNC payload using GCS (Golomb-Coded Set) parameters.
@@ -8,11 +9,15 @@ import com.bitchat.android.sync.SyncDefaults
  *  - 0x01: P (uint8) — Golomb-Rice parameter
  *  - 0x02: M (uint32, big-endian) — hash range (N * 2^P)
  *  - 0x03: data (opaque) — GR bitstream bytes
+ *  - 0x04: types (1-8 byte little-endian SyncTypeFlags)
+ *  - 0x05: sinceTimestamp (uint64, big-endian)
  */
 data class RequestSyncPacket(
     val p: Int,
     val m: Long,
-    val data: ByteArray
+    val data: ByteArray,
+    val types: SyncTypeFlags? = null,
+    val sinceTimestamp: ULong? = null
 ) {
     fun encode(): ByteArray {
         val out = ArrayList<Byte>()
@@ -38,6 +43,13 @@ data class RequestSyncPacket(
         )
         // data
         putTLV(0x03, data)
+        types?.encode()?.let { putTLV(0x04, it) }
+        sinceTimestamp?.let { timestamp ->
+            putTLV(
+                0x05,
+                ByteArray(8) { index -> (timestamp shr ((7 - index) * 8)).toByte() }
+            )
+        }
         return out.toByteArray()
     }
 
@@ -50,6 +62,8 @@ data class RequestSyncPacket(
             var p: Int? = null
             var m: Long? = null
             var payload: ByteArray? = null
+            var types: SyncTypeFlags? = null
+            var sinceTimestamp: ULong? = null
 
             while (off + 3 <= data.size) {
                 val t = (data[off].toInt() and 0xFF); off += 1
@@ -69,6 +83,14 @@ data class RequestSyncPacket(
                         if (v.size > MAX_ACCEPT_FILTER_BYTES) return null
                         payload = v
                     }
+                    0x04 -> SyncTypeFlags.decode(v)?.let { types = it }
+                    0x05 -> if (v.size == 8) {
+                        var timestamp = 0uL
+                        for (byte in v) {
+                            timestamp = (timestamp shl 8) or (byte.toULong() and 0xFFuL)
+                        }
+                        sinceTimestamp = timestamp
+                    }
                 }
             }
 
@@ -76,7 +98,7 @@ data class RequestSyncPacket(
             val mm = m ?: return null
             val dd = payload ?: return null
             if (pp < 1 || mm <= 0L) return null
-            return RequestSyncPacket(pp, mm, dd)
+            return RequestSyncPacket(pp, mm, dd, types, sinceTimestamp)
         }
     }
 }

@@ -29,11 +29,14 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
     companion object {
         val NONE = PeerCapabilities(0)
 
+        /** Persistent, signed mesh bulletin-board packets (message type 0x23). */
+        val BOARD = PeerCapabilities(1L shl 4)
+
         /** Noise-encrypted private BitchatFilePacket using payload type 0x20. */
         val PRIVATE_MEDIA = PeerCapabilities(1L shl 8)
 
         /** Capabilities implemented by this Android build. */
-        val LOCAL_SUPPORTED = PRIVATE_MEDIA
+        val LOCAL_SUPPORTED = PeerCapabilities(BOARD.rawValue or PRIVATE_MEDIA.rawValue)
 
         /**
          * Decode the low 64 bits and ignore any future extension bytes, which

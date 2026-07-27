@@ -36,7 +36,10 @@ class LocationNotesManager private constructor() {
         val pubkey: String,
         val content: String,
         val createdAt: Int,
-        val nickname: String?
+        val nickname: String?,
+        val geohash: String,
+        val expiresAt: Int? = null,
+        val isUrgent: Boolean = false
     ) {
         /**
          * Display name for the note - matches iOS exactly
@@ -94,6 +97,15 @@ class LocationNotesManager private constructor() {
     
     // Coroutine scope for background operations
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    init {
+        scope.launch {
+            while (isActive) {
+                delay(60_000)
+                pruneExpiredNotes()
+            }
+        }
+    }
     private var subscribeRetryJob: Job? = null
     private var initialLoadJob: Job? = null
     
@@ -126,9 +138,8 @@ class LocationNotesManager private constructor() {
             return
         }
         
-        // Validate geohash (building-level precision: 8 chars) - matches iOS
-        if (!isValidBuildingGeohash(normalized)) {
-            Log.w(TAG, "LocationNotesManager: rejecting invalid geohash '$normalized' (expected 8 valid base32 chars)")
+        if (!isValidGeohash(normalized)) {
+            Log.w(TAG, "LocationNotesManager: rejecting invalid geohash '$normalized' (expected 1-12 valid base32 chars)")
             return
         }
         
@@ -160,8 +171,8 @@ class LocationNotesManager private constructor() {
     /**
      * Validate building-level geohash (precision 8) - matches iOS Geohash.isValidBuildingGeohash
      */
-    private fun isValidBuildingGeohash(geohash: String): Boolean {
-        if (geohash.length != 8) return false
+    private fun isValidGeohash(geohash: String): Boolean {
+        if (geohash.length !in 1..12) return false
         val base32Chars = "0123456789bcdefghjkmnpqrstuvwxyz"
         return geohash.all { it in base32Chars }
     }
@@ -194,7 +205,12 @@ class LocationNotesManager private constructor() {
     /**
      * Send a new location note
      */
-    fun send(content: String, nickname: String?) {
+    fun send(
+        content: String,
+        nickname: String?,
+        expiresAt: Int? = null,
+        urgent: Boolean = false
+    ) {
         val currentGeohash = _geohash.value
         if (currentGeohash == null) {
             Log.w(TAG, "Cannot send note - no geohash set")
@@ -244,7 +260,9 @@ class LocationNotesManager private constructor() {
                         content = trimmed,
                         geohash = currentGeohash,
                         senderIdentity = identity,
-                        nickname = nickname
+                        nickname = nickname,
+                        expiresAt = expiresAt,
+                        urgent = urgent
                     )
                 }
                 
@@ -254,7 +272,10 @@ class LocationNotesManager private constructor() {
                     pubkey = event.pubkey,
                     content = trimmed,
                     createdAt = event.createdAt,
-                    nickname = nickname
+                    nickname = nickname,
+                    geohash = currentGeohash,
+                    expiresAt = expiresAt,
+                    isUrgent = urgent
                 )
                 
                 if (!noteIDs.contains(event.id)) {
@@ -391,6 +412,16 @@ class LocationNotesManager private constructor() {
         // Extract nickname from tags
         val nicknameTag = event.tags.firstOrNull { it.size >= 2 && it[0] == "n" }
         val nickname = nicknameTag?.get(1)
+        val expiresAt = event.tags
+            .firstOrNull { it.size >= 2 && it[0].equals("expiration", ignoreCase = true) }
+            ?.get(1)
+            ?.toIntOrNull()
+        if (expiresAt != null && expiresAt <= currentEpochSeconds()) return
+        val urgent = event.tags.any {
+            it.size >= 2 &&
+                it[0].equals("t", ignoreCase = true) &&
+                it[1].equals("urgent", ignoreCase = true)
+        }
         
         // Create note
         val note = Note(
@@ -398,7 +429,10 @@ class LocationNotesManager private constructor() {
             pubkey = event.pubkey,
             content = event.content,
             createdAt = event.createdAt,
-            nickname = nickname
+            nickname = nickname,
+            geohash = eventGeohash.lowercase(),
+            expiresAt = expiresAt,
+            isUrgent = urgent
         )
         
         // Add to collection
@@ -443,6 +477,87 @@ class LocationNotesManager private constructor() {
     fun clearError() {
         _errorMessage.value = null
     }
+
+    fun isOwnNote(note: Note): Boolean {
+        val current = _geohash.value ?: return false
+        val deriveIdentity = deriveIdentityFunc ?: return false
+        return runCatching { deriveIdentity(current).publicKeyHex == note.pubkey }.getOrDefault(false)
+    }
+
+    fun delete(note: Note): Boolean {
+        if (!isOwnNote(note)) return false
+        return deleteEvent(note.id, note.geohash) {
+            _notes.value = _notes.value.filterNot { it.id == note.id }
+        }
+    }
+
+    /**
+     * Publishes the relay copy of a geohash board post without changing the
+     * active notes subscription. The callback lets BoardManager retract the
+     * copy with NIP-09 while the app remains alive.
+     */
+    fun publishBoardBridge(
+        content: String,
+        geohash: String,
+        nickname: String,
+        expiresAtSeconds: Int,
+        urgent: Boolean,
+        onPublished: (String) -> Unit
+    ) {
+        val deriveIdentity = deriveIdentityFunc ?: return
+        val sendEvent = sendEventFunc ?: return
+        val relays = runCatching {
+            RelayDirectory.closestRelaysForGeohash(geohash, 5)
+        }.getOrDefault(emptyList())
+        if (relays.isEmpty()) return
+        scope.launch {
+            runCatching {
+                val identity = withContext(Dispatchers.IO) { deriveIdentity(geohash) }
+                val event = NostrProtocol.createGeohashTextNote(
+                    content = content,
+                    geohash = geohash,
+                    senderIdentity = identity,
+                    nickname = nickname,
+                    expiresAt = expiresAtSeconds,
+                    urgent = urgent
+                )
+                withContext(Dispatchers.IO) { sendEvent(event, relays) }
+                onPublished(event.id)
+            }.onFailure {
+                Log.e(TAG, "Failed to bridge board post to Nostr: ${it.message}")
+            }
+        }
+    }
+
+    fun deleteEvent(eventID: String, geohash: String, onDeleted: () -> Unit = {}): Boolean {
+        val deriveIdentity = deriveIdentityFunc ?: return false
+        val sendEvent = sendEventFunc ?: return false
+        val relays = runCatching {
+            RelayDirectory.closestRelaysForGeohash(geohash, 5)
+        }.getOrDefault(emptyList())
+        if (relays.isEmpty()) return false
+        scope.launch {
+            runCatching {
+                val identity = withContext(Dispatchers.IO) { deriveIdentity(geohash) }
+                val deletion = NostrProtocol.createDeleteEvent(eventID, identity)
+                withContext(Dispatchers.IO) { sendEvent(deletion, relays) }
+                onDeleted()
+            }.onFailure {
+                Log.e(TAG, "Failed to delete Nostr notice: ${it.message}")
+            }
+        }
+        return true
+    }
+
+    fun pruneExpiredNotes() {
+        val now = currentEpochSeconds()
+        _notes.value = _notes.value.filter { note ->
+            note.expiresAt?.let { it > now } ?: true
+        }
+    }
+
+    private fun currentEpochSeconds(): Int =
+        (System.currentTimeMillis() / 1_000L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     
     /**
      * Cancel subscription and clear state

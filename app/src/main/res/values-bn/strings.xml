@@ -387,6 +387,20 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">নোটিশ</string>
+  <string name="notices_title">নোটিশ</string>
+  <string name="notices_tab_geo_count">এলাকা · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">আশেপাশের মানুষের জন্য ছোট নোটিশ পিন করুন। অফলাইনেও ফোন থেকে ফোনে পৌঁছে যায় আর কয়েক দিন পরে নিজে থেকেই মুছে যায়।</string>
+  <string name="notices_permanent">স্থায়ী</string>
+  <string name="notices_fades">%1$s মুছে যাবে</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">নেট</string>
+  <string name="notices_location_unavailable">অবস্থান অনুপলব্ধ</string>
+  <string name="notices_enable_location">লোকেশন চালু করুন</string>
+  <string name="notices_alert_urgent_single">📌 @%1$s-এর জরুরি নোটিশ: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$dটি নতুন জরুরি নোটিশ — দেখতে পিনে ট্যাপ করুন</string>
     <string name="cd_open_about">পরিচিতি খুলুন</string>
   <string name="nearby_notes_reveal">এখানে রাখা নোট আছে কি না দেখুন</string>
   <string name="nearby_notes_one">এখানে 1টি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>

@@ -400,6 +400,20 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">공지</string>
+  <string name="notices_title">공지</string>
+  <string name="notices_tab_geo_count">지역 · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">주변 사람들을 위해 짧은 공지를 고정하세요. 오프라인에서도 휴대폰에서 휴대폰으로 전달되고 며칠 후 스스로 사라집니다.</string>
+  <string name="notices_permanent">영구</string>
+  <string name="notices_fades">%1$s 사라짐</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">넷</string>
+  <string name="notices_location_unavailable">위치 사용 불가</string>
+  <string name="notices_enable_location">위치 활성화</string>
+  <string name="notices_alert_urgent_single">📌 @%1$s님의 긴급 공지: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 새 긴급 공지 %1$d개 — 핀을 탭하여 확인</string>
     <string name="cd_open_about">정보 열기</string>
   <string name="nearby_notes_reveal">여기 남겨진 쪽지 확인</string>
   <string name="nearby_notes_one">여기 남겨진 쪽지 1개 — 탭하여 읽기</string>

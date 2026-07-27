@@ -387,6 +387,20 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+
+  <string name="cd_notices">اطلاعیه‌ها</string>
+  <string name="notices_title">اطلاعیه‌ها</string>
+  <string name="notices_tab_geo_count">ژئو · %1$d</string>
+  <string name="notices_tab_mesh_count">مش · %1$d</string>
+  <string name="notices_description_mesh">اطلاعیه‌های کوتاه برای اطرافیان‌تان سنجاق کنید. گوشی به گوشی جابه‌جا می‌شوند، حتی آفلاین، و بعد از چند روز خودبه‌خود ناپدید می‌شوند.</string>
+  <string name="notices_permanent">دائمی</string>
+  <string name="notices_fades">%1$s محو می‌شود</string>
+  <string name="notices_source_mesh">مش</string>
+  <string name="notices_source_network">نت</string>
+  <string name="notices_location_unavailable">موقعیت در دسترس نیست</string>
+  <string name="notices_enable_location">فعال‌سازی موقعیت</string>
+  <string name="notices_alert_urgent_single">📌 اطلاعیهٔ فوری از @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d اطلاعیهٔ فوری جدید — برای مشاهده روی سنجاق بزنید</string>
     <string name="cd_open_about">باز کردن درباره</string>
   <string name="nearby_notes_reveal">یادداشت‌های باقی‌مانده در اینجا را بررسی کنید</string>
   <string name="nearby_notes_one">۱ یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>

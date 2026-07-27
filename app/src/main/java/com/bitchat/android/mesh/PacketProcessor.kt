@@ -146,6 +146,7 @@ class PacketProcessor(private val myPeerID: String) {
             MessageType.ANNOUNCE -> validPacket = handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
+            MessageType.BOARD_POST -> validPacket = handleBoardPost(routed)
             MessageType.LEAVE -> handleLeave(routed)
             MessageType.FRAGMENT -> handleFragment(routed)
             MessageType.REQUEST_SYNC -> handleRequestSync(routed)
@@ -249,8 +250,22 @@ class PacketProcessor(private val myPeerID: String) {
      */
     private suspend fun handleRequestSync(routed: RoutedPacket) {
         val peerID = routed.peerID ?: "unknown"
+        if (routed.packet.ttl != com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS) {
+            Log.w(TAG, "Dropping non-link-local REQUEST_SYNC from ${formatPeerForLog(peerID)}")
+            return
+        }
         Log.d(TAG, "Processing REQUEST_SYNC from ${formatPeerForLog(peerID)}")
         delegate?.handleRequestSync(routed)
+    }
+
+    /**
+     * Board packets are self-authenticating. The delegate verifies their
+     * embedded Ed25519 signature and returns false for anything that must not relay.
+     */
+    private fun handleBoardPost(routed: RoutedPacket): Boolean {
+        val peerID = routed.peerID ?: "unknown"
+        Log.d(TAG, "Processing board packet from ${formatPeerForLog(peerID)}")
+        return delegate?.handleBoardPost(routed) ?: false
     }
     
     /**
@@ -326,6 +341,7 @@ interface PacketProcessorDelegate {
     fun handleLeave(routed: RoutedPacket)
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
     fun handleRequestSync(routed: RoutedPacket)
+    fun handleBoardPost(routed: RoutedPacket): Boolean = false
     
     // Communication
     fun sendAnnouncementToPeer(peerID: String)

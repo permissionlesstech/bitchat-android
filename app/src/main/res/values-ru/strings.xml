@@ -389,6 +389,20 @@
   <string name="verify_success_title">Проверено</string>
   <string name="verify_success_body">Вы проверили %1$s</string>
   <string name="verify_success_system_message">проверен %1$s</string>
+
+  <string name="cd_notices">объявления</string>
+  <string name="notices_title">объявления</string>
+  <string name="notices_tab_geo_count">гео · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">закрепляй короткие объявления для людей рядом. они передаются с телефона на телефон, даже офлайн, и сами исчезают через несколько дней.</string>
+  <string name="notices_permanent">навсегда</string>
+  <string name="notices_fades">исчезнет %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">сеть</string>
+  <string name="notices_location_unavailable">локация недоступна</string>
+  <string name="notices_enable_location">включить локацию</string>
+  <string name="notices_alert_urgent_single">📌 срочное объявление от @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d новых срочных объявлений — нажми на булавку, чтобы посмотреть</string>
     <string name="cd_open_about">Открыть раздел «О приложении»</string>
   <string name="nearby_notes_reveal">проверить, есть ли здесь заметки</string>
   <string name="nearby_notes_one">здесь оставлена 1 заметка — нажмите, чтобы прочитать</string>
