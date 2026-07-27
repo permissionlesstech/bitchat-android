@@ -72,7 +72,6 @@
 
     <!-- Header trò chuyện &amp; khả năng truy cập -->
     <string name="chat_back">quay lại</string>
-    <string name="chat_channel_prefix">Kênh: %1$s</string>
     <string name="chat_leave">rời khỏi</string>
     <string name="cd_nostr_reachable">Có thể tiếp cận qua Nostr</string>
     <string name="cd_unread_private_messages">Tin nhắn riêng chưa đọc</string>
@@ -102,7 +101,6 @@
     <string name="about_online_geohash_desc">Kết nối với những người trong khu vực của bạn qua các kênh dựa trên geohash. Mở rộng mesh qua các relay Internet công cộng.</string>
     <string name="about_e2e_title">Mã hóa đầu cuối</string>
     <string name="about_e2e_desc">Tin nhắn riêng được mã hóa. Tin nhắn kênh là công khai.</string>
-    <string name="about_appearance">Giao diện</string>
     <string name="about_system">Hệ thống</string>
     <string name="about_light">Sáng</string>
     <string name="about_dark">Tối</string>
@@ -126,7 +124,6 @@
     <string name="about_tor_status">Trạng thái Tor: %1$s, Bootstrap %2$d%%</string>
     <string name="about_last">Cuối cùng: %1$s</string>
     <string name="about_emergency_title">Xóa dữ liệu khẩn cấp</string>
-    <string name="about_emergency_tip">Mẹo: Nhấn ba lần vào tiêu đề ứng dụng để xóa tất cả dữ liệu đã lưu – bao gồm tin nhắn, khóa và cài đặt.</string>
     <string name="about_debug_settings">Cài đặt debug</string>
     <string name="about_footer">Mã nguồn mở • Quyền riêng tư trước tiên • Phi tập trung</string>
     <string name="close_plain">Đóng</string>
@@ -146,7 +143,6 @@
     <string name="cd_open_map">Mở bản đồ</string>
     <string name="cd_remove_bookmark">Xóa bookmark</string>
     <string name="cd_teleport">Dịch chuyển</string>
-    <string name="cd_selected">Đã chọn</string>
     <string name="cd_leave_channel">Rời khỏi kênh</string>
     <string name="cd_reachable_via_nostr">Có thể tiếp cận qua Nostr</string>
     <string name="cd_offline_favorite">Yêu thích (ngoại tuyến)</string>
@@ -285,7 +281,6 @@
     <string name="permissions_header">Quyền</string>
     <string name="grant_permissions">Cấp quyền</string>
     <string name="location_tracking_warning">bitchat KHÔNG theo dõi vị trí của bạn</string>
-    <string name="geohash_people_header">MỌI NGƯỜI</string>
     <string name="nobody_around">không có ai xung quanh …</string>
     <string name="you_suffix"> (bạn)</string>
     <string name="pan_zoom_instruction">di chuyển và zoom để chọn geohash</string>

@@ -72,7 +72,6 @@
 
     <!-- Cabeçalho do chat e acessibilidade -->
     <string name="chat_back">voltar</string>
-    <string name="chat_channel_prefix">Canal: %1$s</string>
     <string name="chat_leave">sair</string>
     <string name="cd_nostr_reachable">Alcançável via Nostr</string>
     <string name="cd_unread_private_messages">Mensagens privadas não lidas</string>
@@ -102,7 +101,6 @@
     <string name="about_online_geohash_desc">Conecte-se com pessoas perto de si através de canais baseados em geohash. Estenda a mesh através de repetidores de internet pública.</string>
     <string name="about_e2e_title">Encriptação ponto a ponto</string>
     <string name="about_e2e_desc">Mensagens privadas são encriptadas. Mensagens de canal são públicas.</string>
-    <string name="about_appearance">Aparência</string>
     <string name="about_system">Sistema</string>
     <string name="about_light">Claro</string>
     <string name="about_dark">Escuro</string>
@@ -126,7 +124,6 @@
     <string name="about_tor_status">Estado do Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Último: %1$s</string>
     <string name="about_emergency_title">Limpeza de dados de emergência</string>
-    <string name="about_emergency_tip">Dica: Toque três vezes no título da aplicação para apagar todos os dados guardados – incluindo mensagens, chaves e definições.</string>
     <string name="about_debug_settings">Definições de depuração</string>
     <string name="about_footer">Código aberto • Privacidade primeiro • Descentralizado</string>
     <string name="close_plain">Fechar</string>
@@ -146,7 +143,6 @@
     <string name="cd_open_map">Abrir mapa</string>
     <string name="cd_remove_bookmark">Remover marcador</string>
     <string name="cd_teleport">Teletransportar</string>
-    <string name="cd_selected">Selecionado</string>
     <string name="cd_leave_channel">Sair do canal</string>
     <string name="cd_reachable_via_nostr">Alcançável via Nostr</string>
     <string name="cd_offline_favorite">Favorito (offline)</string>
@@ -285,7 +281,6 @@
     <string name="permissions_header">Permissões</string>
     <string name="grant_permissions">Conceder permissões</string>
     <string name="location_tracking_warning">O bitchat NÃO rastreia a sua localização</string>
-    <string name="geohash_people_header">PESSOAS</string>
     <string name="nobody_around">ninguém por perto…</string>
     <string name="you_suffix"> (você)</string>
     <string name="pan_zoom_instruction">arraste e amplie para selecionar um geohash</string>

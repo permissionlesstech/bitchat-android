@@ -72,7 +72,6 @@
 
     <!-- ترويسة الدردشة وسهولة الوصول -->
     <string name="chat_back">رجوع</string>
-    <string name="chat_channel_prefix">القناة: %1$s</string>
     <string name="chat_leave">مغادرة</string>
     <string name="cd_nostr_reachable">يمكن الوصول عبر Nostr</string>
     <string name="cd_unread_private_messages">رسائل خاصة غير مقروءة</string>
@@ -102,7 +101,6 @@
     <string name="about_online_geohash_desc">تواصل مع أشخاص بالقرب منك عبر قنوات تعتمد على geohash. وسّع الشبكة عبر مرحلات الإنترنت العامة.</string>
     <string name="about_e2e_title">تشفير طرف إلى طرف</string>
     <string name="about_e2e_desc">الرسائل الخاصة مشفّرة. رسائل القنوات عامة.</string>
-    <string name="about_appearance">المظهر</string>
     <string name="about_system">النظام</string>
     <string name="about_light">فاتح</string>
     <string name="about_dark">داكن</string>
@@ -126,7 +124,6 @@
     <string name="about_tor_status">حالة Tor: %1$s، التمهيد %2$d%%</string>
     <string name="about_last">آخر: %1$s</string>
     <string name="about_emergency_title">مسح البيانات الطارئ</string>
-    <string name="about_emergency_tip">تلميح: انقر ثلاث مرات على عنوان التطبيق لمسح كل البيانات المحفوظة – بما في ذلك الرسائل والمفاتيح والإعدادات.</string>
     <string name="about_debug_settings">إعدادات التصحيح</string>
     <string name="about_footer">مفتوح المصدر • الخصوصية أولاً • لامركزي</string>
     <string name="close_plain">إغلاق</string>
@@ -146,7 +143,6 @@
     <string name="cd_open_map">فتح الخريطة</string>
     <string name="cd_remove_bookmark">إزالة الإشارة المرجعية</string>
     <string name="cd_teleport">انتقال</string>
-    <string name="cd_selected">محدد</string>
     <string name="cd_leave_channel">مغادرة القناة</string>
     <string name="cd_reachable_via_nostr">يمكن الوصول عبر Nostr</string>
     <string name="cd_offline_favorite">مفضل (غير متصل)</string>
@@ -285,7 +281,6 @@
     <string name="permissions_header">الأذونات</string>
     <string name="grant_permissions">منح الأذونات</string>
     <string name="location_tracking_warning">bitchat لا يتتبع موقعك</string>
-    <string name="geohash_people_header">الأشخاص</string>
     <string name="nobody_around">لا أحد هنا…</string>
     <string name="you_suffix"> (أنت)</string>
     <string name="pan_zoom_instruction">حرّك وقرّب لاختيار geohash</string>

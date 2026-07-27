@@ -73,7 +73,6 @@
 
   <!-- Chat header &amp; accessibility -->
   <string name="chat_back">back</string>
-  <string name="chat_channel_prefix">channel: %1$s</string>
   <string name="chat_leave">leave</string>
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Unread private messages</string>
@@ -131,15 +130,10 @@
   <string name="about_section_settings">Settings</string>
 
   <!-- About sheet: feature list -->
-  <string name="about_offline_comm_title">Offline Communication</string>
-  <string name="about_offline_comm_desc">Chat over a Bluetooth mesh with no internet and no servers. Messages relay through nearby devices to extend range.</string>
-  <string name="about_local_channels_title">Local Channels</string>
-  <string name="about_local_channels_desc">Geohash channels connect you with people nearby, extending the mesh over public relays.</string>
   <string name="about_no_tracking_title">No Tracking</string>
   <string name="about_no_tracking_desc">No servers, accounts, or data collection.</string>
   <string name="about_ephemeral_title">Ephemeral Identity</string>
   <string name="about_ephemeral_desc">A new peer ID is generated regularly.</string>
-  <string name="about_panic_title">Panic Mode</string>
   <string name="about_panic_desc">Triple-tap the logo to instantly clear all data.</string>
 
   <!-- About sheet: security warning -->
@@ -153,13 +147,12 @@
   <string name="about_tor_connected">Connected (%1$d%%)</string>
   <string name="about_tor_disconnected">Disconnected</string>
 
-  <string name="about_offline_mesh_title">Offline Mesh Chat</string>
-  <string name="about_offline_mesh_desc">Communicate directly via Bluetooth LE without internet or servers. Messages relay through nearby devices to extend range.</string>
-  <string name="about_online_geohash_title">Online Geohash Channels</string>
-  <string name="about_online_geohash_desc">Connect with people in your area using geohash-based channels. Extend the mesh using public internet relays.</string>
+  <string name="about_offline_mesh_title">Offline Communication</string>
+  <string name="about_offline_mesh_desc">Chat over a Bluetooth mesh with no internet and no servers. Messages relay through nearby devices to extend range.</string>
+  <string name="about_online_geohash_title">Local Channels</string>
+  <string name="about_online_geohash_desc">Geohash channels connect you with people nearby, extending the mesh over public relays.</string>
   <string name="about_e2e_title">End-to-End Encryption</string>
   <string name="about_e2e_desc">Private messages are encrypted. Channel messages are public.</string>
-  <string name="about_appearance">appearance</string>
   <string name="about_system">system</string>
   <string name="about_light">light</string>
   <string name="about_dark">dark</string>
@@ -182,8 +175,7 @@
   <string name="about_tor_route">route internet over tor for enhanced privacy.</string>
   <string name="about_tor_status">tor Status: %1$s, bootstrap %2$d%%</string>
   <string name="about_last">Last: %1$s</string>
-  <string name="about_emergency_title">Emergency Data Deletion</string>
-  <string name="about_emergency_tip">Tip: Triple-click the app title to emergency delete all stored data including messages, keys, and settings.</string>
+  <string name="about_emergency_title">Panic Mode</string>
   <string name="about_debug_settings">Debug Settings</string>
   <string name="about_footer">Open Source • Privacy First • Decentralized</string>
   <string name="close_plain">Close</string>
@@ -204,7 +196,6 @@
   <string name="cd_open_map">Open map</string>
   <string name="cd_remove_bookmark">Remove bookmark</string>
   <string name="cd_teleport">Teleport</string>
-  <string name="cd_selected">Selected</string>
   <string name="notification_action_quit_bitchat">Quit bitchat</string>
   <string name="about_background_title">run in background</string>
   <string name="about_background_desc">keep mesh active when app is closed (foreground service)</string>
@@ -260,19 +251,15 @@
   <string name="location_channels_desc">chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps. do not screenshot or share this screen to protect your privacy.</string>
 
   <!-- Location channels sheet: sections and Tor routing -->
-  <string name="section_bookmarked">Bookmarked</string>
   <string name="section_nearby">Nearby</string>
   <string name="location_tor_routing_title">Tor Routing</string>
   <string name="location_tor_routing_desc">Hides your IP for location channels.</string>
   <string name="badge_recommended">Recommended</string>
-  <string name="remove_location_access">Remove location access</string>
 
   <!-- People sheet -->
   <string name="people_count_title">People (%1$d)</string>
   <string name="section_on_location">On location</string>
   <string name="section_teleported_in">Teleported in</string>
-  <string name="section_channels">Channels</string>
-  <string name="section_mesh">Mesh</string>
 
   <string name="grant_location_permission">grant location permission</string>
   <string name="location_permission_denied">location permission denied. enable in settings to use location channels.</string>
@@ -284,7 +271,7 @@
   <string name="geohash_placeholder">geohash</string>
   <string name="invalid_geohash">invalid geohash</string>
   <string name="teleport">teleport</string>
-  <string name="disable_location_services">disable location services</string>
+  <string name="disable_location_services">Remove location access</string>
   <string name="enable_location_services">enable location services</string>
   <string name="mesh_label">mesh</string>
   <string name="location_level_block">block</string>
@@ -433,7 +420,6 @@
   <string name="at_symbol">@</string>
   <string name="cd_open_about">Open About</string>
   <string name="channel_count_prefix"> · ⧉ </string>
-  <string name="geohash_people_header">PEOPLE</string>
   <string name="nobody_around">nobody around...</string>
   <string name="you_suffix"> (you)</string>
   <string name="pan_zoom_instruction">pan and zoom to select a geohash</string>

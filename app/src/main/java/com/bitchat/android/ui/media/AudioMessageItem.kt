@@ -53,7 +53,7 @@ fun AudioMessageItem(
         val headerText = com.bitchat.android.ui.formatMessageHeaderAnnotatedString(
             message = message,
             currentUserNickname = currentUserNickname,
-            meshService = meshService,
+            myPeerID = meshService.myPeerID,
             palette = palette,
             timeFormatter = timeFormatter,
             includeSender = showSender

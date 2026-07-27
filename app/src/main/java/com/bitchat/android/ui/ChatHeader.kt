@@ -120,26 +120,30 @@ fun NoiseSessionIcon(
     sessionState: String?,
     modifier: Modifier = Modifier
 ) {
+    val palette = LocalBitchatPalette.current
+    // The pre-redesign colours for the first two states were `0x87878700`, i.e. alpha 0x87 with
+    // an all-but-transparent RGB - the icons were effectively invisible. They now use the
+    // palette's secondary text colour.
     val (icon, color, contentDescription) = when (sessionState) {
         "uninitialized" -> Triple(
             Icons.Outlined.NoEncryption,
-            Color(0x87878700), // Grey - ready to establish
+            palette.textSecondary,
             stringResource(R.string.cd_ready_for_handshake)
         )
         "handshaking" -> Triple(
             Icons.Outlined.Sync,
-            Color(0x87878700), // Grey - in progress
+            palette.textSecondary,
             stringResource(R.string.cd_handshake_in_progress)
         )
         "established" -> Triple(
             Icons.Filled.Lock,
-            Color(0xFFFF9500), // Orange - secure
+            palette.accentOrange,
             stringResource(R.string.cd_encrypted)
         )
         else -> { // "failed" or any other state
             Triple(
                 Icons.Outlined.Warning,
-                Color(0xFFFF4444), // Red - error
+                palette.accentRed,
                 stringResource(R.string.cd_handshake_failed)
             )
         }
@@ -400,28 +404,36 @@ private fun MainHeader(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // MARK: - Identity cluster
-        BitChatBrandButton(
-            onClick = onTitleClick,
-            onTripleClick = onTripleTitleClick,
-            contentDescription = stringResource(R.string.cd_open_about),
-        )
+        // MARK: - Identity cluster.
+        //
+        // Weighted so it yields space to the status cluster rather than pushing it off screen.
+        // Compose measures unweighted children first, so the icons on the right always get the
+        // width they need and a long nickname simply scrolls within what is left.
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BitChatBrandButton(
+                onClick = onTitleClick,
+                onTripleClick = onTripleTitleClick,
+                contentDescription = stringResource(R.string.cd_open_about),
+                modifier = Modifier.size(HeaderTapTarget),
+            )
 
-        Text(
-            text = "/",
-            style = MaterialTheme.typography.bodyMedium,
-            // Dimmed: the slash is a separator, not content. At full brightness it competed
-            // with the nickname beside it.
-            color = colorScheme.primary.copy(alpha = 0.45f),
-            modifier = Modifier.padding(horizontal = 2.dp)
-        )
+            Text(
+                text = "/",
+                style = MaterialTheme.typography.bodyMedium,
+                // Dimmed: the slash is a separator, not content. At full brightness it competed
+                // with the nickname beside it.
+                color = colorScheme.primary.copy(alpha = 0.45f),
+                modifier = Modifier.padding(horizontal = 2.dp)
+            )
 
-        NicknameEditor(
-            value = nickname,
-            onValueChange = onNicknameChange
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
+            NicknameEditor(
+                value = nickname,
+                onValueChange = onNicknameChange
+            )
+        }
 
         // MARK: - Status cluster. Order matches the design: bookmark, channel, people.
         Row(

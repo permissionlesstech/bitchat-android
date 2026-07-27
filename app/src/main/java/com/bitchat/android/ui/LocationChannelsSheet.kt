@@ -298,7 +298,7 @@ fun LocationChannelsSheet(
                     // Bookmarked geohashes
                     if (bookmarks.isNotEmpty()) {
                         item(key = "bookmarked_header") {
-                            SheetSectionLabel(text = stringResource(R.string.section_bookmarked))
+                            SheetSectionLabel(text = stringResource(R.string.bookmarked))
                         }
                         items(bookmarks) { gh ->
                             val level = levelForLength(gh.length)
@@ -571,7 +571,7 @@ fun LocationChannelsSheet(
                     item(key = "location_toggle") {
                         SheetDestructiveButton(
                             text = if (locationServicesEnabled) {
-                                stringResource(R.string.remove_location_access)
+                                stringResource(R.string.disable_location_services)
                             } else {
                                 stringResource(R.string.enable_location_services)
                             },

@@ -130,7 +130,7 @@ fun MeshPeerListSheet(
                     // Channels section
                     if (joinedChannels.isNotEmpty()) {
                         item(key = "channels_header") {
-                            SheetSectionLabel(text = stringResource(R.string.section_channels))
+                            SheetSectionLabel(text = stringResource(R.string.channels))
                         }
 
                         items(
@@ -316,7 +316,7 @@ fun PeopleSection(
     val palette = LocalBitchatPalette.current
 
     Column(modifier = modifier) {
-        SheetSectionLabel(text = stringResource(R.string.section_mesh))
+        SheetSectionLabel(text = stringResource(R.string.people))
 
         if (connectedPeers.isEmpty()) {
             Text(

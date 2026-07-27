@@ -7,7 +7,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatPalette
 import java.text.SimpleDateFormat
@@ -49,11 +48,11 @@ fun getRSSIColor(rssi: Int): Color {
 fun formatTextMessageSender(
     message: BitchatMessage,
     currentUserNickname: String,
-    meshService: MeshService,
+    myPeerID: String,
     palette: BitchatPalette
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
-    val isSelf = message.isFromSelf(currentUserNickname, meshService.myPeerID)
+    val isSelf = message.isFromSelf(currentUserNickname, myPeerID)
     val senderColor = if (isSelf) palette.accentOrange else getPeerColor(message, palette.isDark)
     val senderWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
     val (baseName, suffix) = splitSuffix(message.sender)
@@ -213,13 +212,13 @@ fun formatSystemMessage(
 fun formatMessageHeaderAnnotatedString(
     message: BitchatMessage,
     currentUserNickname: String,
-    meshService: MeshService,
+    myPeerID: String,
     palette: BitchatPalette,
     timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()),
     includeSender: Boolean = true
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
-    val isSelf = message.isFromSelf(currentUserNickname, meshService.myPeerID)
+    val isSelf = message.isFromSelf(currentUserNickname, myPeerID)
 
     if (message.sender == "system") {
         return formatSystemMessage(message, palette, timeFormatter)

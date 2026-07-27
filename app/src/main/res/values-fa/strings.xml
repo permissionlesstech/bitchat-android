@@ -72,7 +72,6 @@
 
     <!-- سربرگ چت و دسترسی‌پذیری -->
     <string name="chat_back">بازگشت</string>
-    <string name="chat_channel_prefix">کانال: %1$s</string>
     <string name="chat_leave">خروج</string>
     <string name="cd_nostr_reachable">قابل دسترس از طریق Nostr</string>
     <string name="cd_unread_private_messages">پیام‌های خصوصی خوانده‌نشده</string>
@@ -102,7 +101,6 @@
     <string name="about_online_geohash_desc">از طریق کانال‌های مبتنی بر geohash با افراد منطقهٔ خود ارتباط برقرار کنید. مِش را از طریق رله‌های عمومی اینترنت گسترش دهید.</string>
     <string name="about_e2e_title">رمزگذاری سرتاسری</string>
     <string name="about_e2e_desc">پیام‌های خصوصی رمزگذاری می‌شوند. پیام‌های کانال عمومی هستند.</string>
-    <string name="about_appearance">نما</string>
     <string name="about_system">سامانه</string>
     <string name="about_light">روشن</string>
     <string name="about_dark">تیره</string>
@@ -126,7 +124,6 @@
     <string name="about_tor_status">وضعیت Tor: %1$s، بوت‌استرپ %2$d%%</string>
     <string name="about_last">آخرین: %1$s</string>
     <string name="about_emergency_title">پاکسازی اضطراری داده</string>
-    <string name="about_emergency_tip">نکته: برای پاک کردن همهٔ داده‌های ذخیره‌شده — شامل پیام‌ها، کلیدها و تنظیمات — سه بار روی عنوان برنامه ضربه بزنید.</string>
     <string name="about_debug_settings">تنظیمات اشکال‌زدایی</string>
     <string name="about_footer">متن‌باز • حریم خصوصی در اولویت • غیرمتمرکز</string>
     <string name="close_plain">بستن</string>
@@ -146,7 +143,6 @@
     <string name="cd_open_map">باز کردن نقشه</string>
     <string name="cd_remove_bookmark">حذف نشانک</string>
     <string name="cd_teleport">انتقال</string>
-    <string name="cd_selected">انتخاب شد</string>
     <string name="cd_leave_channel">خروج از کانال</string>
     <string name="cd_reachable_via_nostr">قابل دسترس از طریق Nostr</string>
     <string name="cd_offline_favorite">دلخواه (آفلاین)</string>
@@ -285,7 +281,6 @@
     <string name="permissions_header">مجوزها</string>
     <string name="grant_permissions">اعطای مجوزها</string>
     <string name="location_tracking_warning">bitchat موقعیت شما را پیگیری نمی‌کند</string>
-    <string name="geohash_people_header">افراد</string>
     <string name="nobody_around">کسی در اطراف نیست …</string>
     <string name="you_suffix"> (شما)</string>
     <string name="pan_zoom_instruction">برای انتخاب geohash، جابه‌جا و زوم کنید</string>

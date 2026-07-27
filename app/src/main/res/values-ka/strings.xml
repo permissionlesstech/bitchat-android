@@ -72,7 +72,6 @@
 
     <!-- ჩათის სათაური &amp; ხელმისაწვდომობა -->
     <string name="chat_back">უკან</string>
-    <string name="chat_channel_prefix">არხი: %1$s</string>
     <string name="chat_leave">გასვლა</string>
     <string name="cd_nostr_reachable">მისაწვდომია Nostr-ით</string>
     <string name="cd_unread_private_messages">წაუკითხავი პირადი შეტყობინებები</string>
@@ -102,7 +101,6 @@
     <string name="about_online_geohash_desc">დაუკავშირდით ახლომდებარე ხალხს geohash-ზე დაფუძნებული არხებით. გააფართოვეთ mesh საჯარო ინტერნეტ რილეებით.</string>
     <string name="about_e2e_title">ბოლო-მდე დაშიფვრა</string>
     <string name="about_e2e_desc">პირადი შეტყობინებები დაშიფრულია. არხის შეტყობინებები საჯაროა.</string>
-    <string name="about_appearance">გარეგნობა</string>
     <string name="about_system">სისტემა</string>
     <string name="about_light">ღია</string>
     <string name="about_dark">მუქი</string>
@@ -126,7 +124,6 @@
     <string name="about_tor_status">Tor სტატუსი: %1$s, ჩატვირთვა %2$d%%</string>
     <string name="about_last">ბოლო: %1$s</string>
     <string name="about_emergency_title">სასწრაფო მონაცემების წაშლა</string>
-    <string name="about_emergency_tip">რჩევა: დააჭირეთ აპის სათაურს სამჯერ ყველა შენახული მონაცემის – შეტყობინებების, გასაღებებისა და პარამეტრების – წასაშლელად.</string>
     <string name="about_debug_settings">დebug პარამეტრები</string>
     <string name="about_footer">ღია კოდი • კონფიდენციალობა პირველია • დეცენტრალიზებული</string>
     <string name="close_plain">დახურვა</string>
@@ -146,7 +143,6 @@
     <string name="cd_open_map">რუკის გახსნა</string>
     <string name="cd_remove_bookmark">სანიშნეს წაშლა</string>
     <string name="cd_teleport">ტელეპორტი</string>
-    <string name="cd_selected">მონიშნული</string>
     <string name="cd_leave_channel">არხიდან გამოსვლა</string>
     <string name="cd_reachable_via_nostr">მისაწვდომია Nostr-ით</string>
     <string name="cd_offline_favorite">რჩეული (ოფლაინ)</string>
@@ -285,7 +281,6 @@
     <string name="permissions_header">ნებართვები</string>
     <string name="grant_permissions">ნებართვების მინიჭება</string>
     <string name="location_tracking_warning">bitchat არ აკონტროლებს თქვენს მდებარეობას</string>
-    <string name="geohash_people_header">ხალხი</string>
     <string name="nobody_around">არავინ არის ახლოს…</string>
     <string name="you_suffix"> (თქვენ)</string>
     <string name="pan_zoom_instruction">პანორამირება/ზუმი geohash-ის ასარჩევად</string>

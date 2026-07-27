@@ -246,7 +246,6 @@ fun AboutSheet(
 
     val colorScheme = MaterialTheme.colorScheme
     val palette = LocalBitchatPalette.current
-    val isDark = palette.isDark
     var selectedTab by remember { mutableStateOf(AboutTab.HowToUse) }
 
     if (isPresented) {

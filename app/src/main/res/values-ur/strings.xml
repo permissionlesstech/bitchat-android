@@ -72,7 +72,6 @@
 
     <!-- چیٹ ہیڈر اور رسائی -->
     <string name="chat_back">واپس</string>
-    <string name="chat_channel_prefix">چینل: %1$s</string>
     <string name="chat_leave">چھوڑیں</string>
     <string name="cd_nostr_reachable">Nostr کے ذریعے رسائی</string>
     <string name="cd_unread_private_messages">غیر پڑھے ہوئے نجی پیغامات</string>
@@ -102,7 +101,6 @@
     <string name="about_online_geohash_desc">geohash پر مبنی چینلز کے ذریعے اپنے قریب کے لوگوں سے جڑیں۔ عوامی انٹرنیٹ ریلے کے ذریعے میش کو پھیلائیں۔</string>
     <string name="about_e2e_title">اینڈ‑ٹو‑اینڈ انکرپشن</string>
     <string name="about_e2e_desc">نجی پیغامات انکرپٹڈ ہیں۔ چینل پیغامات عوامی ہیں۔</string>
-    <string name="about_appearance">ظاہری شکل</string>
     <string name="about_system">سسٹم</string>
     <string name="about_light">ہلکا</string>
     <string name="about_dark">گہرا</string>
@@ -126,7 +124,6 @@
     <string name="about_tor_status">Tor کی کیفیت: %1$s، بوٹ اسٹریپ %2$d%%</string>
     <string name="about_last">آخری: %1$s</string>
     <string name="about_emergency_title">ہنگامی ڈیٹا صافی</string>
-    <string name="about_emergency_tip">تجویز: تمام محفوظ شدہ ڈیٹا – پیغامات، کلیدیں اور سیٹنگز سمیت – صاف کرنے کے لیے ایپ کے ٹائٹل پر تین بار ٹیپ کریں۔</string>
     <string name="about_debug_settings">ڈیبگ سیٹنگز</string>
     <string name="about_footer">اوپن سورس • پرائیویسی پہلے • غیر مرکزی</string>
     <string name="close_plain">بند کریں</string>
@@ -146,7 +143,6 @@
     <string name="cd_open_map">نقشہ کھولیں</string>
     <string name="cd_remove_bookmark">بک مارک ہٹائیں</string>
     <string name="cd_teleport">ٹیلی پورٹ</string>
-    <string name="cd_selected">منتخب</string>
     <string name="cd_leave_channel">چینل چھوڑیں</string>
     <string name="cd_reachable_via_nostr">Nostr کے ذریعے رسائی</string>
     <string name="cd_offline_favorite">پسندیدہ (آف لائن)</string>
@@ -285,7 +281,6 @@
     <string name="permissions_header">اجازات</string>
     <string name="grant_permissions">اجازات دیں</string>
     <string name="location_tracking_warning">bitchat آپ کا مقام ٹریک نہیں کرتا</string>
-    <string name="geohash_people_header">لوگ</string>
     <string name="nobody_around">یہاں کوئی نہیں…</string>
     <string name="you_suffix"> (آپ)</string>
     <string name="pan_zoom_instruction">geohash منتخب کرنے کے لیے پین/زوم کریں</string>

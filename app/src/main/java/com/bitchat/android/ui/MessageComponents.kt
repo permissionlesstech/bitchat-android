@@ -300,7 +300,7 @@ fun MessageItem(
             val headerText = formatMessageHeaderAnnotatedString(
                 message = message,
                 currentUserNickname = currentUserNickname,
-                meshService = meshService,
+                myPeerID = meshService.myPeerID,
                 palette = palette,
                 timeFormatter = timeFormatter,
                 includeSender = showSender
@@ -368,15 +368,24 @@ fun MessageItem(
                                     .align(Alignment.TopEnd)
                                     .padding(4.dp)
                                     .size(22.dp)
-                                    .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
+                                    .background(palette.surfaceVariant.copy(alpha = 0.85f), CircleShape)
                                     .clickable { onCancelTransfer?.invoke(message) },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(R.string.cd_cancel), tint = Color.White, modifier = Modifier.size(14.dp))
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = stringResource(R.string.cd_cancel),
+                                    tint = palette.textPrimary,
+                                    modifier = Modifier.size(14.dp)
+                                )
                             }
                         }
                     } else {
-                        Text(text = stringResource(R.string.file_unavailable), fontFamily = FontFamily.Monospace, color = Color.Gray)
+                        Text(
+                            text = stringResource(R.string.file_unavailable),
+                            fontFamily = FontFamily.Monospace,
+                            color = palette.textTertiary
+                        )
                     }
                 }
             }
@@ -468,7 +477,7 @@ internal fun TextMessageLayout(
         formatTextMessageSender(
             message = message,
             currentUserNickname = currentUserNickname,
-            meshService = meshService,
+            myPeerID = myPeerId,
             palette = palette,
         )
     }
@@ -548,6 +557,7 @@ internal fun TextMessageLayout(
 @Composable
 fun DeliveryStatusIcon(status: DeliveryStatus) {
     val colorScheme = MaterialTheme.colorScheme
+    val palette = LocalBitchatPalette.current
     
     when (status) {
         is DeliveryStatus.Sending -> {
@@ -577,7 +587,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             Text(
                 text = stringResource(R.string.status_delivered),
                 fontSize = 10.sp,
-                color = Color(0xFF007AFF), // Blue
+                color = palette.accentBlue,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -585,7 +595,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             Text(
                 text = stringResource(R.string.status_failed),
                 fontSize = 10.sp,
-                color = Color.Red.copy(alpha = 0.8f)
+                color = palette.accentRed
             )
         }
         is DeliveryStatus.PartiallyDelivered -> {

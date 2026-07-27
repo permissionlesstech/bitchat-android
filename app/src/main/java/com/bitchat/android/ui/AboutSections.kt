@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -206,7 +207,9 @@ internal fun AboutTabBar(
             HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
             Box(
                 modifier = Modifier
-                    .offset(x = indicatorOffset)
+                    // Lambda overload: the offset is animated every frame, and the non-lambda
+                    // version would invalidate composition rather than just layout.
+                    .offset { IntOffset(x = indicatorOffset.roundToPx(), y = 0) }
                     .width(tabWidth)
                     .height(2.dp)
                     .background(colorScheme.primary)
@@ -355,8 +358,8 @@ internal fun AboutFeatureCard(modifier: Modifier = Modifier) {
             val features = listOf(
                 Triple(
                     Icons.Filled.WifiOff,
-                    R.string.about_offline_comm_title,
-                    R.string.about_offline_comm_desc
+                    R.string.about_offline_mesh_title,
+                    R.string.about_offline_mesh_desc
                 ),
                 Triple(
                     Icons.Outlined.Lock,
@@ -365,8 +368,8 @@ internal fun AboutFeatureCard(modifier: Modifier = Modifier) {
                 ),
                 Triple(
                     Icons.Outlined.Public,
-                    R.string.about_local_channels_title,
-                    R.string.about_local_channels_desc
+                    R.string.about_online_geohash_title,
+                    R.string.about_online_geohash_desc
                 ),
                 Triple(
                     Icons.Outlined.VisibilityOff,
@@ -380,7 +383,7 @@ internal fun AboutFeatureCard(modifier: Modifier = Modifier) {
                 ),
                 Triple(
                     Icons.Filled.DeleteForever,
-                    R.string.about_panic_title,
+                    R.string.about_emergency_title,
                     R.string.about_panic_desc
                 ),
             )

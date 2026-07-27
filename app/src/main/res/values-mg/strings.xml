@@ -72,7 +72,6 @@
 
     <!-- Lohan\'ny resaka &amp; fahafaha-miditra -->
     <string name="chat_back">miverina</string>
-    <string name="chat_channel_prefix">fantsona: %1$s</string>
     <string name="chat_leave">hiala</string>
     <string name="cd_nostr_reachable">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
     <string name="cd_unread_private_messages">Hafatra manokana tsy voavaky</string>
@@ -102,7 +101,6 @@
     <string name="about_online_geohash_desc">Mifandray amin\'ny olona eo amin\'ny faritra misy anao amin\'ny fampiasana fantsona mifototra amin\'ny geohash. Manitatra ny mesh amin\'ny fampiasana relay Internet ho an\'ny daholobe.</string>
     <string name="about_e2e_title">Fandokoana Farany amin\'ny Farany</string>
     <string name="about_e2e_desc">Voafono ny hafatra manokana. Hafatra ho an\'ny daholobe ny hafatra fantsona.</string>
-    <string name="about_appearance">endrika</string>
     <string name="about_system">rafitra</string>
     <string name="about_light">mazava</string>
     <string name="about_dark">maizina</string>
@@ -126,7 +124,6 @@
     <string name="about_tor_status">Toe-javatra Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Farany: %1$s</string>
     <string name="about_emergency_title">Famafana Angona Maika</string>
-    <string name="about_emergency_tip">Toro-hevitra: Tsindrio in-telo ny anaran\'ny fampiharana mba hamafana maika ny angona rehetra voatahiry ao anatin\'izany ny hafatra, ny lakile ary ny fametrahana.</string>
     <string name="about_debug_settings">Fametrahana Debug</string>
     <string name="about_footer">Loharanom-baovao misokatra • Fiainana manokana voalohany • Tsy misy foibe</string>
     <string name="close_plain">Hanakatona</string>
@@ -146,7 +143,6 @@
     <string name="cd_open_map">Hanokatra sarintany</string>
     <string name="cd_remove_bookmark">Hanesorana bookmark</string>
     <string name="cd_teleport">Hamindra toerana</string>
-    <string name="cd_selected">Voafidy</string>
     <string name="cd_leave_channel">Hiala amin\'ny fantsona</string>
     <string name="cd_reachable_via_nostr">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
     <string name="cd_offline_favorite">Ankafizina tsy an-tserasera</string>
@@ -289,7 +285,6 @@
     <string name="location_tracking_warning">Ny bitchat dia TSY manaraka ny toerananao</string>
     <string name="at_symbol">@</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">OLONA</string>
     <string name="nobody_around">tsy misy olona manodidina...</string>
     <string name="you_suffix"> (ianao)</string>
     <string name="pan_zoom_instruction">ahetsika sy ataovy lehibe mba hifidianana geohash</string>

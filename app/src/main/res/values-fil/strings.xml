@@ -72,7 +72,6 @@
 
     <!-- Header at accessibility -->
     <string name="chat_back">bumalik</string>
-    <string name="chat_channel_prefix">channel: %1$s</string>
     <string name="chat_leave">umalis</string>
     <string name="cd_nostr_reachable">Maabot sa Nostr</string>
     <string name="cd_unread_private_messages">Hindi nabasang pribadong mensahe</string>
@@ -102,7 +101,6 @@
     <string name="about_online_geohash_desc">Makipag‑ugnayan sa mga tao sa paligid gamit ang geohash‑based na mga channel. Palawakin ang mesh sa pampublikong internet relays.</string>
     <string name="about_e2e_title">End‑to‑End Encryption</string>
     <string name="about_e2e_desc">Ang mga pribadong mensahe ay naka‑encrypt. Ang mga mensahe sa channel ay publiko.</string>
-    <string name="about_appearance">hitsura</string>
     <string name="about_system">system</string>
     <string name="about_light">light</string>
     <string name="about_dark">dark</string>
@@ -126,7 +124,6 @@
     <string name="about_tor_status">katayuan ng Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Huli: %1$s</string>
     <string name="about_emergency_title">Emergency Data Deletion</string>
-    <string name="about_emergency_tip">Tip: i‑tap ang pamagat ng app nang 3 beses para burahin ang lahat ng data (mga mensahe, susi, setting).</string>
     <string name="about_debug_settings">Debug Settings</string>
     <string name="about_footer">Open Source • Privacy First • Desentralisado</string>
     <string name="close_plain">Isara</string>
@@ -146,7 +143,6 @@
     <string name="cd_open_map">Buksan ang mapa</string>
     <string name="cd_remove_bookmark">Alisin ang bookmark</string>
     <string name="cd_teleport">Teleport</string>
-    <string name="cd_selected">Napili</string>
     <string name="cd_leave_channel">Umalis sa channel</string>
     <string name="cd_reachable_via_nostr">Maabot sa Nostr</string>
     <string name="cd_offline_favorite">Paborito (offline)</string>
@@ -280,7 +276,6 @@
     <string name="location_tracking_warning">HINDI sinusubaybayan ng bitchat ang lokasyon mo</string>
     <string name="at_symbol">@</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">TAO</string>
     <string name="nobody_around">walang tao sa paligid…</string>
     <string name="you_suffix"> (ikaw)</string>
     <string name="pan_zoom_instruction">i‑pan at i‑zoom para pumili ng geohash</string>

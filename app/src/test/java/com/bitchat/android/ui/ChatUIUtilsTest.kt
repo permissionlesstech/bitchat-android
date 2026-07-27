@@ -12,7 +12,14 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+/**
+ * Runs under Robolectric because URL detection in message bodies goes through
+ * `android.util.Patterns.WEB_URL`, which is null on a bare JVM.
+ */
+@RunWith(RobolectricTestRunner::class)
 class ChatUIUtilsTest {
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.ROOT).apply {
         timeZone = java.util.TimeZone.getTimeZone("UTC")
@@ -226,7 +233,7 @@ class ChatUIUtilsTest {
         val sender = formatTextMessageSender(
             message = message("hi", sender = "carol#04af"),
             currentUserNickname = "bob",
-            meshService = FakeMeshServiceIds.stub(),
+            myPeerID = "peer-me",
             palette = palette,
         )
 
@@ -246,7 +253,7 @@ class ChatUIUtilsTest {
         val other = formatTextMessageSender(
             message = message("hi", sender = "carol#04af"),
             currentUserNickname = "bob",
-            meshService = FakeMeshServiceIds.stub(),
+            myPeerID = "peer-me",
             palette = palette,
         )
         assertEquals(1, other.getStringAnnotations("nickname_click", 0, other.length).size)
@@ -254,7 +261,7 @@ class ChatUIUtilsTest {
         val mine = formatTextMessageSender(
             message = message("hi", sender = "bob"),
             currentUserNickname = "bob",
-            meshService = FakeMeshServiceIds.stub(),
+            myPeerID = "peer-me",
             palette = palette,
         )
         assertTrue(mine.getStringAnnotations("nickname_click", 0, mine.length).isEmpty())
