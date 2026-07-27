@@ -23,13 +23,25 @@ enum class NoisePayloadType(val value: UByte) {
     DELIVERED(0x03u),           // Message was delivered
     VERIFY_CHALLENGE(0x10u),    // Verification challenge
     VERIFY_RESPONSE(0x11u),     // Verification response
-    NDR_EVENT(0x12u),           // UTF-8 Nostr event JSON for double-ratchet OOB bootstrap
-    FILE_TRANSFER(0x20u);
+    FILE_TRANSFER(0x20u),
+    /** Authenticated capabilities + Ed25519 binding for the current Noise generation. */
+    PEER_STATE(0x21u),
+    /** UTF-8 Nostr event/URL used only for authenticated double-ratchet bootstrap. */
+    NDR_EVENT(0x22u);
 
 
     companion object {
+        // #1434 prerelease iOS builds briefly emitted private files as 0x09. Keep this
+        // decode-only: every NoisePayload constructed by Android still encodes FILE_TRANSFER as
+        // its canonical 0x20 value, so the compatibility alias cannot leak into new traffic.
+        private val PRERELEASE_FILE_TRANSFER_RAW_VALUE = 0x09u.toUByte()
+
         fun fromValue(value: UByte): NoisePayloadType? {
-            return values().find { it.value == value }
+            return if (value == PRERELEASE_FILE_TRANSFER_RAW_VALUE) {
+                FILE_TRANSFER
+            } else {
+                values().find { it.value == value }
+            }
         }
     }
 }

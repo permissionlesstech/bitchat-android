@@ -2,20 +2,20 @@ package com.bitchat.android.favorites
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.services.ContactIdentityResolver
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.*
 
 /**
  * Bridging Noise and Nostr favorites
- * Direct port from iOS FavoritesPersistenceService.swift, with Android-specific
- * peerID (16-hex) -> npub indexing for Nostr DM routing.
  */
 data class FavoriteRelationship(
     val peerNoisePublicKey: ByteArray,    // Noise static public key (32 bytes)
     val peerNostrPublicKey: String?,      // npub bech32 string
-    val peerNdrSessionPubkeyHex: String? = null, // Session lookup key used by nostr-double-ratchet
+    val peerNdrSessionPubkeyHex: String? = null,
     val peerNickname: String,
     val isFavorite: Boolean,              // We favorited them
     val theyFavoritedUs: Boolean,         // They favorited us
@@ -87,7 +87,6 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     private val stateManager = SecureIdentityStateManager(context)
     private val gson = Gson()
     private val favorites = mutableMapOf<String, FavoriteRelationship>() // noiseHex -> relationship
-    // NEW: Index by current mesh peerID (16-hex) for direct lookup when sending Nostr DMs from mesh context
     private val peerIdIndex = mutableMapOf<String, String>() // peerID (lowercase 16-hex) -> npub
     private val listeners = mutableListOf<FavoritesChangeListener>()
 
@@ -98,36 +97,55 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Get favorite status for Noise public key */
     fun getFavoriteStatus(noisePublicKey: ByteArray): FavoriteRelationship? {
-        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+        val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
         return favorites[keyHex]
     }
 
-    /** Get favorite status for 16-hex peerID (by noiseHex prefix match) */
+    /** Get favorite status for a mesh peer ID or full Noise public key hex. */
     fun getFavoriteStatus(peerID: String): FavoriteRelationship? {
-        val pid = peerID.lowercase()
-        for ((_, relationship) in favorites) {
-            val noiseKeyHex = relationship.peerNoisePublicKey.joinToString("") { "%02x".format(it) }
-            if (noiseKeyHex.startsWith(pid)) return relationship
+        val pid = peerID.trim().lowercase()
+
+        if (ContactIdentityResolver.isNoiseKeyHex(pid)) {
+            return favorites[pid]
         }
+
+        ContactIdentityResolver.fingerprintFromContactConversationId(pid)?.let { fingerprint ->
+            return favorites.values.firstOrNull { relationship ->
+                ContactIdentityResolver.fingerprintHex(relationship.peerNoisePublicKey)
+                    .equals(fingerprint, ignoreCase = true)
+            }
+        }
+
+        if (ContactIdentityResolver.isMeshPeerId(pid)) {
+            peerIdIndex[pid]?.let { indexedNpub ->
+                findNoiseKey(indexedNpub)?.let { return getFavoriteStatus(it) }
+            }
+            return favorites.values.firstOrNull { relationship ->
+                ContactIdentityResolver.peerIdForNoiseKey(relationship.peerNoisePublicKey) == pid
+            }
+        }
+
         return null
     }
 
     /** Update Nostr public key for a peer (indexed by Noise key) */
     fun updateNostrPublicKey(noisePublicKey: ByteArray, nostrPubkey: String) {
-        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+        val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
+        val normalizedNpub = ContactIdentityResolver.nostrPubkeyHex(nostrPubkey)
+            ?.let { ContactIdentityResolver.npubFromHex(it) }
+            ?: nostrPubkey
         val existing = favorites[keyHex]
 
         if (existing != null) {
             val updated = existing.copy(
-                peerNostrPublicKey = nostrPubkey,
+                peerNostrPublicKey = normalizedNpub,
                 lastUpdated = Date()
             )
             favorites[keyHex] = updated
         } else {
             val relationship = FavoriteRelationship(
                 peerNoisePublicKey = noisePublicKey,
-                peerNostrPublicKey = nostrPubkey,
-                peerNdrSessionPubkeyHex = null,
+                peerNostrPublicKey = normalizedNpub,
                 peerNickname = "Unknown",
                 isFavorite = false,
                 theyFavoritedUs = false,
@@ -143,11 +161,14 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     }
 
 
-    /** NEW: Update Nostr pubkey for specific mesh peerID (16-hex). */
+    /** Update Nostr pubkey for a specific mesh peerID. */
     fun updateNostrPublicKeyForPeerID(peerID: String, nostrPubkey: String) {
-        val pid = peerID.lowercase()
-        if (pid.length == 16 && pid.matches(Regex("^[0-9a-f]+$"))) {
-            peerIdIndex[pid] = nostrPubkey
+        val pid = peerID.trim().lowercase()
+        val normalizedNpub = ContactIdentityResolver.nostrPubkeyHex(nostrPubkey)
+            ?.let { ContactIdentityResolver.npubFromHex(it) }
+            ?: nostrPubkey
+        if (ContactIdentityResolver.isMeshPeerId(pid)) {
+            peerIdIndex[pid] = normalizedNpub
             savePeerIdIndex()
             Log.d(TAG, "Indexed npub for peerID ${pid.take(8)}…")
         } else {
@@ -156,36 +177,33 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     }
 
 
-    /** NEW: Resolve Nostr pubkey via current peerID mapping (fast path). */
+    /** Resolve Nostr pubkey via current peerID mapping or stored Noise identity. */
     fun findNostrPubkeyForPeerID(peerID: String): String? {
-        return peerIdIndex[peerID.lowercase()]
+        val pid = peerID.trim().lowercase()
+        return peerIdIndex[pid] ?: getFavoriteStatus(pid)?.peerNostrPublicKey
     }
 
-    /** NEW: Resolve peerID (16-hex) for a given Nostr pubkey (npub or hex). */
+    /** Resolve mesh peerID for a given Nostr pubkey (npub or hex). */
     fun findPeerIDForNostrPubkey(nostrPubkey: String): String? {
-        // First, try direct match in peerIdIndex (values are stored as npub strings)
-        peerIdIndex.entries.firstOrNull { it.value.equals(nostrPubkey, ignoreCase = true) }?.let { return it.key }
-        
-        // Attempt legacy mapping via favorites Noise key association
-        val targetHex = normalizeNostrKeyToHex(nostrPubkey)
-        if (targetHex != null) {
-            // Find relationship with matching nostr pubkey (normalized to hex) and then try to map to current peerID via noise key prefix
-            val rel = favorites.values.firstOrNull {
-                it.peerNostrPublicKey?.let { stored -> normalizeNostrKeyToHex(stored) } == targetHex ||
-                    it.peerNdrSessionPubkeyHex == targetHex
-            }
-            if (rel != null) {
-                val noiseHex = rel.peerNoisePublicKey.joinToString("") { "%02x".format(it) }
-                // Return 16-hex prefix as best-effort if no explicit mapping exists
-                return noiseHex.take(16)
-            }
+        val targetHex = ContactIdentityResolver.nostrPubkeyHex(nostrPubkey) ?: return null
+
+        peerIdIndex.entries.firstOrNull { (_, stored) ->
+            ContactIdentityResolver.nostrPubkeyHex(stored) == targetHex
+        }?.let { return it.key }
+
+        favorites.values.firstOrNull { relationship ->
+            relationship.peerNostrPublicKey?.let { ContactIdentityResolver.nostrPubkeyHex(it) } == targetHex ||
+                relationship.peerNdrSessionPubkeyHex == targetHex
+        }?.let { relationship ->
+            return ContactIdentityResolver.peerIdForNoiseKey(relationship.peerNoisePublicKey)
         }
+
         return null
     }
 
     /** Update favorite status */
     fun updateFavoriteStatus(noisePublicKey: ByteArray, nickname: String, isFavorite: Boolean) {
-        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+        val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
 
         val existing = favorites[keyHex]
 
@@ -200,7 +218,6 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             FavoriteRelationship(
                 peerNoisePublicKey = noisePublicKey,
                 peerNostrPublicKey = null,
-                peerNdrSessionPubkeyHex = null,
                 peerNickname = nickname,
                 isFavorite = isFavorite,
                 theyFavoritedUs = false,
@@ -218,7 +235,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Update peer favorited-us flag */
     fun updatePeerFavoritedUs(noisePublicKey: ByteArray, theyFavoritedUs: Boolean) {
-        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+        val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
         val existing = favorites[keyHex]
 
         if (existing != null) {
@@ -236,6 +253,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     fun getMutualFavorites(): List<FavoriteRelationship> = favorites.values.filter { it.isMutual }
     fun getOurFavorites(): List<FavoriteRelationship> = favorites.values.filter { it.isFavorite }
+    fun getAllRelationships(): List<FavoriteRelationship> = favorites.values.toList()
 
     fun clearAllFavorites() {
         favorites.clear()
@@ -248,23 +266,23 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Find Noise key by Nostr pubkey */
     fun findNoiseKey(forNostrPubkey: String): ByteArray? {
-        val targetHex = normalizeNostrKeyToHex(forNostrPubkey) ?: return null
+        val targetHex = ContactIdentityResolver.nostrPubkeyHex(forNostrPubkey) ?: return null
         return favorites.values.firstOrNull { rel ->
-            rel.peerNostrPublicKey?.let { stored -> normalizeNostrKeyToHex(stored) } == targetHex ||
+            rel.peerNostrPublicKey?.let { stored -> ContactIdentityResolver.nostrPubkeyHex(stored) } == targetHex ||
                 rel.peerNdrSessionPubkeyHex == targetHex
         }?.peerNoisePublicKey
     }
 
     /** Find Nostr pubkey by Noise key */
     fun findNostrPubkey(forNoiseKey: ByteArray): String? {
-        val keyHex = forNoiseKey.joinToString("") { "%02x".format(it) }
+        val keyHex = ContactIdentityResolver.noiseKeyHex(forNoiseKey)
         return favorites[keyHex]?.peerNostrPublicKey
     }
 
-    /** Update the session lookup key used by nostr-double-ratchet for a peer. */
+    /** Persist the owner pubkey used to look up this peer's ratchet session. */
     fun updateNdrSessionPubkeyHex(noisePublicKey: ByteArray, peerPubkeyHex: String) {
-        val normalized = normalizeNostrKeyToHex(peerPubkeyHex) ?: return
-        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+        val normalized = ContactIdentityResolver.nostrPubkeyHex(peerPubkeyHex) ?: return
+        val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
         val existing = favorites[keyHex] ?: return
         if (existing.peerNdrSessionPubkeyHex == normalized) return
 
@@ -274,15 +292,14 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         )
         saveFavorites()
         notifyChanged(keyHex)
-        Log.d(TAG, "Updated NDR session pubkey for ${keyHex.take(16)}... -> ${normalized.take(16)}...")
     }
 
-    /** Resolve the best lookup key for NDR session status/sending for a given peer. */
+    /** Resolve the best ratchet-session lookup key for this Noise identity. */
     fun findNdrSessionPubkeyHex(forNoiseKey: ByteArray): String? {
-        val keyHex = forNoiseKey.joinToString("") { "%02x".format(it) }
+        val keyHex = ContactIdentityResolver.noiseKeyHex(forNoiseKey)
         val relationship = favorites[keyHex] ?: return null
         return relationship.peerNdrSessionPubkeyHex
-            ?: relationship.peerNostrPublicKey?.let(::normalizeNostrKeyToHex)
+            ?: relationship.peerNostrPublicKey?.let(ContactIdentityResolver::nostrPubkeyHex)
     }
 
     // MARK: - Persistence
@@ -325,7 +342,12 @@ class FavoritesPersistenceService private constructor(private val context: Conte
                 val type = object : TypeToken<Map<String, String>>() {}.type
                 val data: Map<String, String> = gson.fromJson(json, type)
                 peerIdIndex.clear()
-                peerIdIndex.putAll(data)
+                data.forEach { (peerID, npub) ->
+                    val normalizedPeerID = peerID.lowercase()
+                    if (ContactIdentityResolver.isMeshPeerId(normalizedPeerID)) {
+                        peerIdIndex[normalizedPeerID] = npub
+                    }
+                }
                 Log.d(TAG, "Loaded ${peerIdIndex.size} peerID→npub mappings")
             }
         } catch (e: Exception) {
@@ -351,6 +373,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         synchronized(listeners) { listeners.remove(listener) }
     }
     private fun notifyChanged(noiseKeyHex: String) {
+        runCatching { AppStateStore.canonicalizePrivateChats() }
         val snapshot = synchronized(listeners) { listeners.toList() }
         snapshot.forEach { runCatching { it.onFavoriteChanged(noiseKeyHex) } }
     }
@@ -358,14 +381,6 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         val snapshot = synchronized(listeners) { listeners.toList() }
         snapshot.forEach { runCatching { it.onAllCleared() } }
     }
-
-    /** Normalize a Nostr public key string (npub bech32 or hex) to lowercase hex */
-    private fun normalizeNostrKeyToHex(value: String): String? = try {
-        if (value.startsWith("npub1")) {
-            val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(value)
-            if (hrp != "npub") null else data.joinToString("") { "%02x".format(it) }
-        } else value.lowercase()
-    } catch (_: Exception) { null }
 }
 
 /** Serializable data for JSON storage */
@@ -382,7 +397,7 @@ private data class FavoriteRelationshipData(
     companion object {
         fun fromFavoriteRelationship(relationship: FavoriteRelationship): FavoriteRelationshipData {
             return FavoriteRelationshipData(
-                peerNoisePublicKeyHex = relationship.peerNoisePublicKey.joinToString("") { "%02x".format(it) },
+                peerNoisePublicKeyHex = ContactIdentityResolver.noiseKeyHex(relationship.peerNoisePublicKey),
                 peerNostrPublicKey = relationship.peerNostrPublicKey,
                 peerNdrSessionPubkeyHex = relationship.peerNdrSessionPubkeyHex,
                 peerNickname = relationship.peerNickname,
@@ -395,7 +410,7 @@ private data class FavoriteRelationshipData(
     }
 
     fun toFavoriteRelationship(): FavoriteRelationship {
-        val noiseKeyBytes = peerNoisePublicKeyHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        val noiseKeyBytes = ContactIdentityResolver.bytesFromHex(peerNoisePublicKeyHex) ?: ByteArray(0)
         return FavoriteRelationship(
             peerNoisePublicKey = noiseKeyBytes,
             peerNostrPublicKey = peerNostrPublicKey,

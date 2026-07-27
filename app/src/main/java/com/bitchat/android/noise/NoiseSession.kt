@@ -153,6 +153,9 @@ class NoiseSession(
     // Session state
     private var state: NoiseSessionState = NoiseSessionState.Uninitialized
     private val creationTime = System.currentTimeMillis()
+    private var handshakeStartMs: Long? = null
+    private var lastHandshakeActivityMs: Long? = null
+    private var handshakeMessage1: ByteArray? = null
 
     // Session counters
     private var currentPattern = 0;
@@ -194,8 +197,16 @@ class NoiseSession(
     fun getState(): NoiseSessionState = state
     fun isEstablished(): Boolean = state is NoiseSessionState.Established
     fun isHandshaking(): Boolean = state is NoiseSessionState.Handshaking
-    fun isInitiatorSession(): Boolean = isInitiator
     fun getCreationTime(): Long = creationTime
+    fun isInitiatorRole(): Boolean = isInitiator
+    fun getHandshakeStartMs(): Long? = handshakeStartMs
+    fun getLastHandshakeActivityMs(): Long? = lastHandshakeActivityMs
+
+    internal fun getHandshakeMessage1(): ByteArray? = handshakeMessage1?.clone()
+
+    internal fun setLastHandshakeActivityForTest(timestampMs: Long) {
+        lastHandshakeActivityMs = timestampMs
+    }
     
     init {
         try {
@@ -318,19 +329,25 @@ class NoiseSession(
             // Initialize handshake as initiator 
             initializeNoiseHandshake(HandshakeState.INITIATOR)
             state = NoiseSessionState.Handshaking
+            if (handshakeStartMs == null) {
+                handshakeStartMs = System.currentTimeMillis()
+            }
+            lastHandshakeActivityMs = System.currentTimeMillis()
             
             val messageBuffer = ByteArray(XX_MESSAGE_1_SIZE)
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             val messageLength = handshakeStateLocal.writeMessage(messageBuffer, 0, null, 0, 0)
             currentPattern++
             val firstMessage = messageBuffer.copyOf(messageLength)
+            handshakeMessage1 = firstMessage
             
             // Validate message size matches XX pattern expectations
             if (firstMessage.size != XX_MESSAGE_1_SIZE) {
                 Log.w(TAG, "Warning: XX message 1 size ${firstMessage.size} != expected $XX_MESSAGE_1_SIZE")
             }
             
-            Log.d(TAG, "Sending XX handshake message 1 to $peerID (${firstMessage.size} bytes) currentPattern: $currentPattern")
+            val ePrefix = firstMessage.take(4).toByteArray().toHexString()
+            Log.d(TAG, "Sending XX handshake message 1 to $peerID (${firstMessage.size} bytes) e_prefix=$ePrefix currentPattern: $currentPattern")
             return firstMessage
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
@@ -345,19 +362,24 @@ class NoiseSession(
      */
     @Synchronized
     fun processHandshakeMessage(message: ByteArray): ByteArray? {
-        Log.d(TAG, "Processing handshake message from $peerID (${message.size} bytes)")
+        val inputPrefix = message.take(4).toByteArray().toHexString()
+        Log.d(TAG, "Processing handshake message from $peerID (${message.size} bytes) prefix=$inputPrefix")
         
         try {
             // Initialize as responder if receiving first message
             if (state == NoiseSessionState.Uninitialized && !isInitiator) {
                 initializeNoiseHandshake(HandshakeState.RESPONDER)
                 state = NoiseSessionState.Handshaking
+                if (handshakeStartMs == null) {
+                    handshakeStartMs = System.currentTimeMillis()
+                }
                 Log.d(TAG, "Initialized as RESPONDER for XX handshake with $peerID")
             }
             
             if (state != NoiseSessionState.Handshaking) {
                 throw IllegalStateException("Invalid state for handshake: $state")
             }
+            lastHandshakeActivityMs = System.currentTimeMillis()
             
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             
@@ -367,7 +389,8 @@ class NoiseSession(
             // Read the incoming message - the Noise library will handle validation
             val payloadLength = handshakeStateLocal.readMessage(message, 0, message.size, payloadBuffer, 0)
             currentPattern++
-            Log.d(TAG, "Read handshake message, payload length: $payloadLength currentPattern: $currentPattern")
+            val readPrefix = message.take(4).toByteArray().toHexString()
+            Log.d(TAG, "Read handshake message, payload length: $payloadLength prefix=$readPrefix currentPattern: $currentPattern")
             
             // Check what action the handshake state wants us to take next
             val action = handshakeStateLocal.getAction()
@@ -428,27 +451,36 @@ class NoiseSession(
         Log.d(TAG, "Completing XX handshake with $peerID")
         
         try {
-            // Split handshake state into transport ciphers
-            val cipherPair = handshakeState?.split()
-            
-            sendCipher = cipherPair?.getSender()
-            receiveCipher = cipherPair?.getReceiver()
-            
-            // Extract remote static key if available
-            if (handshakeState?.hasRemotePublicKey() == true) {
-                val remoteDH = handshakeState?.getRemotePublicKey()
-                if (remoteDH != null) {
-                    remoteStaticPublicKey = ByteArray(32)
-                    remoteDH.getPublicKey(remoteStaticPublicKey!!, 0)
-                    Log.d(TAG, "Remote static public key: ${remoteStaticPublicKey!!.joinToString("") { "%02x".format(it) }}")
-                }
+            val activeHandshake = handshakeState ?: throw NoiseSessionError.HandshakeFailed
+
+            // Authenticate the remote static key's claimed mesh identity before split creates
+            // transport ciphers or the session can become observable as Established.
+            if (!activeHandshake.hasRemotePublicKey()) throw NoiseSessionError.HandshakeFailed
+            val remoteDH = activeHandshake.getRemotePublicKey()
+                ?: throw NoiseSessionError.HandshakeFailed
+            val authenticatedRemoteKey = ByteArray(NoisePeerIdentity.STATIC_PUBLIC_KEY_SIZE)
+            remoteDH.getPublicKey(authenticatedRemoteKey, 0)
+            val derivedPeerID = NoisePeerIdentity.derivePeerID(authenticatedRemoteKey)
+            if (!NoisePeerIdentity.matchesClaimedPeerID(peerID, authenticatedRemoteKey)) {
+                authenticatedRemoteKey.fill(0)
+                throw NoiseSessionError.PeerIdentityMismatch(peerID, derivedPeerID)
             }
+            remoteStaticPublicKey = authenticatedRemoteKey
+            Log.d(TAG, "Remote static public key is bound to $peerID")
+
+            // Only a bound remote identity may derive transport ciphers.
+            val cipherPair = activeHandshake.split()
+            sendCipher = cipherPair.getSender()
+            receiveCipher = cipherPair.getReceiver()
             
             // Extract handshake hash for channel binding
-            handshakeHash = handshakeState?.getHandshakeHash()
+            // getHandshakeHash() exposes the handshake state's backing array. Clone it before
+            // destroy() zeroizes that state, or every completed session appears to have the same
+            // all-zero channel-binding token.
+            handshakeHash = activeHandshake.getHandshakeHash().clone()
             
             // Clean up handshake state
-            handshakeState?.destroy()
+            activeHandshake.destroy()
             handshakeState = null
             
             messagesSent = 0
@@ -573,7 +605,12 @@ class NoiseSession(
                 }
                 
                 val (extractedNonce, ciphertext) = nonceAndCiphertext
-                
+
+                if (ciphertext.size < receiveCipher!!.macLength) {
+                    Log.w(TAG, "Ciphertext too short: ${ciphertext.size} < ${receiveCipher!!.macLength}")
+                    throw SessionError.DecryptionFailed
+                }
+
                 // Validate nonce with sliding window replay protection
                 if (!isValidNonce(extractedNonce, highestReceivedNonce, replayWindow)) {
                     Log.w(TAG, "Replay attack detected: nonce $extractedNonce rejected for $peerID")

@@ -3,7 +3,7 @@ package com.bitchat.android.service
 import android.app.Application
 import android.os.Process
 import androidx.core.app.NotificationManagerCompat
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +39,7 @@ object AppShutdownCoordinator {
 
     fun requestFullShutdownAndKill(
         app: Application,
-        mesh: BluetoothMeshService?,
+        mesh: MeshService?,
         notificationManager: NotificationManagerCompat,
         stopForeground: () -> Unit,
         stopService: () -> Unit

@@ -362,6 +362,7 @@
   <string name="location_notes_empty_desc">sé el primero en añadir una para este sitio.</string>
   <string name="dismiss">cerrar</string>
   <string name="location_notes_input_placeholder">agrega una nota para este lugar</string>
+    <string name="bluetooth_recommended">Bluetooth recomendado</string>
     <string name="mesh_service_notification_content">Mesh en ejecución — %1$d pares</string>
 
   <string name="verify_title">verificar</string>
@@ -399,4 +400,8 @@
   <string name="verify_success_title">Verificado</string>
   <string name="verify_success_body">Verificaste a %1$s</string>
   <string name="verify_success_system_message">verificado %1$s</string>
+    <string name="cd_open_about">Abrir Acerca de</string>
+  <string name="nearby_notes_reveal">buscar notas dejadas aquí</string>
+  <string name="nearby_notes_one">1 nota dejada aquí — toca para leer</string>
+  <string name="nearby_notes_many">%d notas dejadas aquí — toca para leer</string>
 </resources>

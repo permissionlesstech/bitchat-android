@@ -349,6 +349,7 @@
         <item quantity="other">%d ადამიანი</item>
     </plurals>
 
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Mesh გაშვებულია — %1$d პირები</string>
 
   <string name="verify_title">verify</string>
@@ -386,4 +387,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">აპის შესახებ გახსნა</string>
+  <string name="nearby_notes_reveal">აქ დატოვებული ჩანაწერების შემოწმება</string>
+  <string name="nearby_notes_one">აქ 1 ჩანაწერია დატოვებული — წასაკითხად შეეხეთ</string>
+  <string name="nearby_notes_many">აქ %d ჩანაწერია დატოვებული — წასაკითხად შეეხეთ</string>
 </resources>

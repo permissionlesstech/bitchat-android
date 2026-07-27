@@ -2,19 +2,27 @@ package com.bitchat.android.nostr
 
 import android.app.Application
 import android.util.Log
+import com.bitchat.android.favorites.FavoriteControlMessage
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.model.NdrFeatureGate
 import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.model.PrivateMessagePacket
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.MeshDelegateHandler
 import com.bitchat.android.ui.PrivateChatManager
+import com.bitchat.android.ui.PrivateMessageOrigin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Date
@@ -32,12 +40,16 @@ class NostrDirectMessageHandler(
 
     private val seenStore by lazy { SeenMessageStore.getInstance(application) }
     private val ndrService by lazy { NdrNostrService.getInstance(application) }
+    private val ndrAccountEpochs = NdrAccountEpochGuard()
+    private val ndrReceiveJobLock = Any()
+    private var ndrReceiveJob: Job = SupervisorJob(scope.coroutineContext[Job])
 
     // Simple event deduplication
     private val processedIds = ArrayDeque<String>()
     private val seen = HashSet<String>()
     private val max = 2000
 
+    @Synchronized
     private fun dedupe(id: String): Boolean {
         if (seen.contains(id)) return true
         seen.add(id)
@@ -50,9 +62,37 @@ class NostrDirectMessageHandler(
     }
 
     fun configureDoubleRatchet(identity: NostrIdentity) {
+        if (!NdrFeatureGate.isEnabled()) {
+            invalidateDoubleRatchetAccount()
+            ndrService.onDecryptedMessage = null
+            return
+        }
+        val epoch = ndrAccountEpochs.begin(identity.publicKeyHex)
+        val receiveJob = synchronized(ndrReceiveJobLock) {
+            ndrReceiveJob.cancel()
+            SupervisorJob(scope.coroutineContext[Job]).also { ndrReceiveJob = it }
+        }
+        // A prior account's callback must not consume and discard pending
+        // deliveries while the replacement runtime is initialized.
+        ndrService.onDecryptedMessage = null
         ndrService.configureIfNeeded(identity)
-        ndrService.onDecryptedMessage = { message ->
-            onDoubleRatchetMessage(message, identity)
+        ndrService.onDecryptedMessage = callback@{ message ->
+            if (!NdrFeatureGate.isEnabled() || !ndrAccountEpochs.isCurrent(epoch)) {
+                return@callback
+            }
+            val currentIdentity =
+                NostrIdentityBridge.getCurrentNostrIdentity(application) ?: return@callback
+            if (!currentIdentity.publicKeyHex.equals(epoch.accountPubkeyHex, ignoreCase = true)) {
+                return@callback
+            }
+            onDoubleRatchetMessage(message, currentIdentity, epoch, receiveJob)
+        }
+    }
+
+    fun invalidateDoubleRatchetAccount() {
+        ndrAccountEpochs.invalidate()
+        synchronized(ndrReceiveJobLock) {
+            ndrReceiveJob.cancel()
         }
     }
 
@@ -70,7 +110,8 @@ class NostrDirectMessageHandler(
                     return@launch
                 }
 
-                val (content, senderPubkey, rumorTimestamp) = decryptResult
+                val (content, rawSenderPubkey, rumorTimestamp) = decryptResult
+                val senderPubkey = rawSenderPubkey.lowercase()
 
                 // If sender is blocked for geohash contexts, drop any events from this pubkey
                 // Applies to both geohash DMs (geohash != "") and account DMs (geohash == "")
@@ -83,37 +124,59 @@ class NostrDirectMessageHandler(
                     recipientIdentity = identity
                 )
 
-            } catch (e: Exception) {
-                Log.e(TAG, "onGiftWrap error: ${e.message}")
+            } catch (_: Exception) {
+                Log.e(TAG, "Failed to process gift wrap")
             }
         }
     }
 
-    private fun onDoubleRatchetMessage(message: NdrDecryptedMessage, identity: NostrIdentity) {
-        scope.launch(Dispatchers.Default) {
+    private fun onDoubleRatchetMessage(
+        message: NdrDecryptedMessage,
+        identity: NostrIdentity,
+        epoch: NdrAccountEpoch,
+        receiveJob: Job
+    ) {
+        scope.launch(Dispatchers.Default + receiveJob) {
             try {
-                val innerEvent = message.innerEventJson?.let(NostrEvent::fromJsonString)
-                val dedupeId = innerEvent?.id
-                    ?: message.eventId
+                if (!NdrFeatureGate.isEnabled() || !ndrAccountEpochs.isCurrent(epoch)) {
+                    return@launch
+                }
+                val dedupeId = message.eventId
                     ?: "${message.senderPubkeyHex}:${message.content.hashCode()}"
-                if (dedupe(dedupeId)) return@launch
-                val senderPubkeyHex = innerEvent?.pubkey ?: message.senderPubkeyHex
-                if (dataManager.isGeohashUserBlocked(senderPubkeyHex)) return@launch
+                var duplicate = false
+                if (!ndrAccountEpochs.runIfCurrent(epoch) {
+                        duplicate = dedupe(dedupeId)
+                    }
+                ) return@launch
+                if (duplicate) return@launch
 
-                Log.d(
-                    TAG,
-                    "Received NDR message event=${message.eventId ?: "unknown"} sender=${senderPubkeyHex.take(8)}..."
-                )
+                // iris-chat-rs returns a v1 unsigned kind-14 pairwise rumor.
+                // Bind that rumor to the ratchet-authenticated owner before
+                // allowing any inner fields into the application.
+                val applicationMessage =
+                    NdrApplicationMessageDecoder.decode(message) ?: return@launch
+                val senderPubkey = message.senderPubkeyHex.lowercase()
+                if (!message.isAttributedToLocalAccount(identity.publicKeyHex)) {
+                    return@launch
+                }
+                val conversationPubkey = message.conversationPubkeyHex.lowercase()
+                if (dataManager.isGeohashUserBlocked(conversationPubkey)) return@launch
+                if (!NdrFeatureGate.isEnabled() || !ndrAccountEpochs.isCurrent(epoch)) {
+                    return@launch
+                }
 
                 processEmbeddedBitChatContent(
-                    content = innerEvent?.content ?: message.content,
-                    senderPubkey = senderPubkeyHex,
-                    timestamp = innerEvent?.let { Date(it.createdAt * 1000L) } ?: Date(),
+                    content = applicationMessage.content,
+                    senderPubkey = senderPubkey,
+                    conversationPubkey = conversationPubkey,
+                    isLocalSiblingCopy = message.isLocalSiblingCopy,
+                    timestamp = Date(applicationMessage.timestampMs),
                     geohash = "",
-                    recipientIdentity = identity
+                    recipientIdentity = identity,
+                    ndrEpoch = epoch
                 )
-            } catch (e: Exception) {
-                Log.e(TAG, "onDoubleRatchetMessage error: ${e.message}")
+            } catch (_: Exception) {
+                Log.e(TAG, "Failed to process double-ratchet message")
             }
         }
     }
@@ -123,67 +186,126 @@ class NostrDirectMessageHandler(
         senderPubkey: String,
         timestamp: Date,
         geohash: String,
-        recipientIdentity: NostrIdentity
+        recipientIdentity: NostrIdentity,
+        conversationPubkey: String = senderPubkey,
+        isLocalSiblingCopy: Boolean = false,
+        ndrEpoch: NdrAccountEpoch? = null
     ) {
-        if (!content.startsWith("bitchat1:")) {
-            Log.d(TAG, "Ignoring non-embedded Nostr DM content")
-            return
-        }
+        if (!content.startsWith("bitchat1:")) return
 
-        val base64Content = content.removePrefix("bitchat1:")
-        val packetData = base64URLDecode(base64Content) ?: run {
-            Log.w(TAG, "Failed to base64url-decode embedded BitChat packet")
-            return
-        }
-        val packet = BitchatPacket.fromBinaryData(packetData) ?: run {
-            Log.w(TAG, "Failed to decode embedded BitChat packet bytes=${packetData.size}")
-            return
-        }
-        if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) {
-            Log.d(TAG, "Ignoring embedded BitChat packet type=${packet.type}")
-            return
-        }
+        val packetData = base64URLDecode(content.removePrefix("bitchat1:")) ?: return
+        val packet = BitchatPacket.fromBinaryData(packetData) ?: return
+        if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) return
 
-        val noisePayload = NoisePayload.decode(packet.payload) ?: run {
-            Log.w(TAG, "Failed to decode embedded Noise payload bytes=${packet.payload.size}")
-            return
-        }
-        val convKey = "nostr_${senderPubkey.take(16)}"
-        repo.putNostrKeyMapping(convKey, senderPubkey)
-        GeohashAliasRegistry.put(convKey, senderPubkey)
+        val noisePayload = NoisePayload.decode(packet.payload) ?: return
+        val convKey = "nostr_${conversationPubkey.take(16)}"
+        if (!runIfNdrEpochCurrent(ndrEpoch) {
+                repo.putNostrKeyMapping(convKey, conversationPubkey)
+                GeohashAliasRegistry.put(convKey, conversationPubkey)
 
-        if (geohash.isNotEmpty()) {
-            repo.setConversationGeohash(convKey, geohash)
-            GeohashConversationRegistry.set(convKey, geohash)
-            val cached = repo.getCachedNickname(senderPubkey)
-            if (cached == null) {
-                val base = repo.displayNameForNostrPubkeyUI(senderPubkey).substringBefore("#")
-                repo.cacheNickname(senderPubkey, base)
+                if (geohash.isNotEmpty()) {
+                    repo.setConversationGeohash(convKey, geohash)
+                    GeohashConversationRegistry.set(convKey, geohash)
+                    if (repo.getCachedNickname(conversationPubkey) == null) {
+                        val base =
+                            repo.displayNameForNostrPubkeyUI(conversationPubkey).substringBefore("#")
+                        repo.cacheNickname(conversationPubkey, base)
+                    }
+                    repo.updateParticipant(geohash, conversationPubkey, timestamp)
+                }
             }
-            repo.updateParticipant(geohash, senderPubkey, timestamp)
-        }
+        ) return
 
-        val senderNickname = repo.displayNameForNostrPubkeyUI(senderPubkey)
-        processNoisePayload(noisePayload, convKey, senderNickname, timestamp, senderPubkey, recipientIdentity)
+        processNoisePayload(
+            payload = noisePayload,
+            conversationID = ContactDirectory.canonicalConversationId(convKey),
+            senderNickname = repo.displayNameForNostrPubkeyUI(conversationPubkey),
+            timestamp = timestamp,
+            senderPubkey = senderPubkey,
+            conversationPubkey = conversationPubkey,
+            recipientIdentity = recipientIdentity,
+            allowAccountNdr = geohash.isEmpty(),
+            isLocalSiblingCopy = isLocalSiblingCopy,
+            ndrEpoch = ndrEpoch
+        )
     }
 
     private suspend fun processNoisePayload(
         payload: NoisePayload,
-        convKey: String,
+        conversationID: String,
         senderNickname: String,
         timestamp: Date,
         senderPubkey: String,
-        recipientIdentity: NostrIdentity
+        conversationPubkey: String,
+        recipientIdentity: NostrIdentity,
+        allowAccountNdr: Boolean,
+        isLocalSiblingCopy: Boolean,
+        ndrEpoch: NdrAccountEpoch? = null
     ) {
+        if (!isNdrEpochCurrent(ndrEpoch)) return
         when (payload.type) {
             NoisePayloadType.PRIVATE_MESSAGE -> {
-                val pm = PrivateMessagePacket.decode(payload.data) ?: run {
-                    Log.w(TAG, "Failed to decode Nostr private message TLV bytes=${payload.data.size}")
+                val pm = PrivateMessagePacket.decode(payload.data) ?: return
+                val existingMessages = state.getPrivateChatsValue()[conversationID] ?: emptyList()
+                if (existingMessages.any { it.id == pm.messageID }) return
+
+                if (isLocalSiblingCopy) {
+                    // A sibling device authored this message on our account.
+                    // Show it as sent in the remote peer's thread, without
+                    // acknowledging it, marking it unread, or notifying.
+                    if (FavoriteControlMessage.parse(pm.content) != null) return
+                    val message = BitchatMessage(
+                        id = pm.messageID,
+                        sender = state.getNicknameValue(),
+                        content = pm.content,
+                        timestamp = timestamp,
+                        isRelay = false,
+                        isPrivate = true,
+                        recipientNickname =
+                            repo.displayNameForNostrPubkeyUI(conversationPubkey),
+                        // Existing Android conversation insertion routes from
+                        // senderPeerID. Use the remote conversation ID here;
+                        // sender nickname and status keep the row outgoing.
+                        senderPeerID = conversationID,
+                        deliveryStatus = DeliveryStatus.Sent
+                    )
+                    withContext(Dispatchers.Main) {
+                        runIfNdrEpochCurrent(ndrEpoch) {
+                            privateChatManager.handleIncomingPrivateMessage(
+                                message = message,
+                                suppressUnread = true,
+                                origin = PrivateMessageOrigin.NOSTR
+                            )
+                        }
+                    }
                     return
                 }
-                val existingMessages = state.getPrivateChatsValue()[convKey] ?: emptyList()
-                if (existingMessages.any { it.id == pm.messageID }) return
-                Log.d(TAG, "Processing embedded Nostr private message")
+
+                val favoriteControl = FavoriteControlMessage.parse(pm.content)
+                if (favoriteControl != null) {
+                    if (!isNdrEpochCurrent(ndrEpoch)) return
+                    handleFavoriteControl(
+                        favoriteControl,
+                        conversationID,
+                        senderNickname,
+                        timestamp,
+                        senderPubkey,
+                        ndrEpoch
+                    )
+                    if (!runIfNdrEpochCurrent(ndrEpoch) {
+                            if (!seenStore.hasDelivered(pm.messageID)) {
+                                sendDeliveryAck(
+                                    pm.messageID,
+                                    senderPubkey,
+                                    recipientIdentity,
+                                    allowAccountNdr
+                                )
+                                seenStore.markDelivered(pm.messageID)
+                            }
+                        }
+                    ) return
+                    return
+                }
 
                 val message = BitchatMessage(
                     id = pm.messageID,
@@ -193,92 +315,233 @@ class NostrDirectMessageHandler(
                     isRelay = false,
                     isPrivate = true,
                     recipientNickname = state.getNicknameValue(),
-                    senderPeerID = convKey,
-                    deliveryStatus = DeliveryStatus.Delivered(to = state.getNicknameValue() ?: "Unknown", at = Date())
+                    senderPeerID = conversationID,
+                    deliveryStatus =
+                        DeliveryStatus.Delivered(to = state.getNicknameValue(), at = Date())
                 )
 
-                val isViewing = state.getSelectedPrivateChatPeerValue() == convKey
+                val isViewing = state.getSelectedPrivateChatPeerValue() == conversationID
                 val suppressUnread = seenStore.hasRead(pm.messageID)
 
+                var messageAccepted = false
                 withContext(Dispatchers.Main) {
-                    privateChatManager.handleIncomingPrivateMessage(message, suppressUnread)
-                }
-
-                if (!seenStore.hasDelivered(pm.messageID)) {
-                    val nostrTransport = NostrTransport.getInstance(application)
-                    val targetPeerID = resolvePeerIDForNostr(senderPubkey)
-                    if (targetPeerID != null) {
-                        nostrTransport.sendDeliveryAck(pm.messageID, targetPeerID)
-                    } else {
-                        nostrTransport.sendDeliveryAckGeohash(pm.messageID, senderPubkey, recipientIdentity)
-                    }
-                    seenStore.markDelivered(pm.messageID)
-                }
-
-                if (isViewing && !suppressUnread) {
-                    val nostrTransport = NostrTransport.getInstance(application)
-                    val targetPeerID = resolvePeerIDForNostr(senderPubkey)
-                    if (targetPeerID != null) {
-                        nostrTransport.sendReadReceipt(
-                            com.bitchat.android.model.ReadReceipt(pm.messageID),
-                            targetPeerID
+                    runIfNdrEpochCurrent(ndrEpoch) {
+                        privateChatManager.handleIncomingPrivateMessage(
+                            message = message,
+                            suppressUnread = suppressUnread,
+                            origin = PrivateMessageOrigin.NOSTR
                         )
-                    } else {
-                        nostrTransport.sendReadReceiptGeohash(pm.messageID, senderPubkey, recipientIdentity)
+                        messageAccepted = true
                     }
-                    seenStore.markRead(pm.messageID)
                 }
+                if (!messageAccepted) return
+
+                if (!runIfNdrEpochCurrent(ndrEpoch) {
+                        if (!seenStore.hasDelivered(pm.messageID)) {
+                            sendDeliveryAck(
+                                pm.messageID,
+                                senderPubkey,
+                                recipientIdentity,
+                                allowAccountNdr
+                            )
+                            seenStore.markDelivered(pm.messageID)
+                        }
+
+                        if (isViewing && !suppressUnread) {
+                            val nostrTransport = NostrTransport.getInstance(application)
+                            val targetPeerID = resolvePeerIDForNostr(senderPubkey)
+                                .takeIf { allowAccountNdr }
+                            if (targetPeerID != null) {
+                                nostrTransport.sendReadReceipt(
+                                    com.bitchat.android.model.ReadReceipt(pm.messageID),
+                                    targetPeerID
+                                )
+                            } else {
+                                nostrTransport.sendReadReceiptGeohash(
+                                    pm.messageID,
+                                    senderPubkey,
+                                    recipientIdentity
+                                )
+                            }
+                            seenStore.markRead(pm.messageID)
+                        }
+                    }
+                ) return
             }
             NoisePayloadType.DELIVERED -> {
+                if (isLocalSiblingCopy) return
                 val messageId = String(payload.data, Charsets.UTF_8)
                 withContext(Dispatchers.Main) {
-                    meshDelegateHandler.didReceiveDeliveryAck(messageId, convKey)
+                    runIfNdrEpochCurrent(ndrEpoch) {
+                        meshDelegateHandler.didReceiveDeliveryAck(messageId, conversationID)
+                    }
                 }
             }
             NoisePayloadType.READ_RECEIPT -> {
+                if (isLocalSiblingCopy) return
                 val messageId = String(payload.data, Charsets.UTF_8)
                 withContext(Dispatchers.Main) {
-                    meshDelegateHandler.didReceiveReadReceipt(messageId, convKey)
+                    runIfNdrEpochCurrent(ndrEpoch) {
+                        meshDelegateHandler.didReceiveReadReceipt(messageId, conversationID)
+                    }
                 }
             }
             NoisePayloadType.FILE_TRANSFER -> {
+                if (isLocalSiblingCopy) return
                 // Properly handle encrypted file transfer
                 val file = BitchatFilePacket.decode(payload.data)
                 if (file != null) {
-                    val uniqueMsgId = java.util.UUID.randomUUID().toString().uppercase()
-                    val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(application, file)
-                    val message = BitchatMessage(
-                        id = uniqueMsgId,
-                        sender = senderNickname,
-                        content = savedPath,
-                        type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
-                        timestamp = timestamp,
-                        isRelay = false,
-                        isPrivate = true,
-                        recipientNickname = state.getNicknameValue(),
-                        senderPeerID = convKey
-                    )
-                    Log.d(TAG, "📄 Saved Nostr encrypted incoming file to $savedPath (msgId=$uniqueMsgId)")
+                    var message: BitchatMessage? = null
+                    if (!runIfNdrEpochCurrent(ndrEpoch) {
+                            val uniqueMsgId = java.util.UUID.randomUUID().toString().uppercase()
+                            val savedPath =
+                                com.bitchat.android.features.file.FileUtils.saveIncomingFile(application, file)
+                            message = BitchatMessage(
+                                id = uniqueMsgId,
+                                sender = senderNickname,
+                                content = savedPath,
+                                type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
+                                timestamp = timestamp,
+                                isRelay = false,
+                                isPrivate = true,
+                                recipientNickname = state.getNicknameValue(),
+                                senderPeerID = conversationID
+                            )
+                        }
+                    ) return
                     withContext(Dispatchers.Main) {
-                        privateChatManager.handleIncomingPrivateMessage(message, suppressUnread = false)
+                        runIfNdrEpochCurrent(ndrEpoch) {
+                            message?.let {
+                                privateChatManager.handleIncomingPrivateMessage(
+                                    message = it,
+                                    suppressUnread = false,
+                                    origin = PrivateMessageOrigin.NOSTR
+                                )
+                            }
+                        }
                     }
                 } else {
-                    Log.w(TAG, "⚠️ Failed to decode Nostr file transfer from $convKey")
+                    Log.w(TAG, "Failed to decode Nostr file transfer from $conversationID")
                 }
             }
             NoisePayloadType.VERIFY_CHALLENGE,
             NoisePayloadType.VERIFY_RESPONSE,
-            NoisePayloadType.NDR_EVENT -> Unit // Ignore transport-control payloads in Nostr direct messages
+            NoisePayloadType.PEER_STATE,
+            NoisePayloadType.NDR_EVENT -> Unit // Transport controls never arrive inside relay DMs.
+        }
+    }
+
+    private fun isNdrEpochCurrent(epoch: NdrAccountEpoch?): Boolean =
+        epoch == null ||
+            (NdrFeatureGate.isEnabled() && ndrAccountEpochs.isCurrent(epoch))
+
+    private fun runIfNdrEpochCurrent(
+        epoch: NdrAccountEpoch?,
+        mutation: () -> Unit
+    ): Boolean {
+        if (epoch == null) {
+            mutation()
+            return true
+        }
+        if (!NdrFeatureGate.isEnabled()) return false
+        return ndrAccountEpochs.runIfCurrent(epoch, mutation)
+    }
+
+    private fun sendDeliveryAck(
+        messageId: String,
+        senderPubkey: String,
+        recipientIdentity: NostrIdentity,
+        allowAccountNdr: Boolean
+    ) {
+        val nostrTransport = NostrTransport.getInstance(application)
+        val targetPeerID = resolvePeerIDForNostr(senderPubkey)
+            .takeIf { allowAccountNdr }
+        if (targetPeerID != null) {
+            nostrTransport.sendDeliveryAck(messageId, targetPeerID)
+        } else {
+            nostrTransport.sendDeliveryAckGeohash(messageId, senderPubkey, recipientIdentity)
         }
     }
 
     private fun resolvePeerIDForNostr(senderPubkey: String): String? {
         return try {
-            val favorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared
-            favorites.findPeerIDForNostrPubkey(senderPubkey)
-                ?: favorites.findNoiseKey(senderPubkey)?.joinToString("") { "%02x".format(it) }
+            FavoritesPersistenceService.shared.findPeerIDForNostrPubkey(senderPubkey)
+                ?: FavoritesPersistenceService.shared.findNoiseKey(senderPubkey)
+                    ?.let(ContactIdentityResolver::noiseKeyHex)
         } catch (_: Exception) {
             null
+        }
+    }
+
+    private suspend fun handleFavoriteControl(
+        control: FavoriteControlMessage,
+        conversationID: String,
+        senderNickname: String,
+        timestamp: Date,
+        senderPubkey: String,
+        ndrEpoch: NdrAccountEpoch? = null
+    ) {
+        try {
+            val senderNpub = control.npub ?: ContactIdentityResolver.npubFromHex(senderPubkey)
+            val noiseKey = senderNpub?.let { FavoritesPersistenceService.shared.findNoiseKey(it) }
+                ?: FavoritesPersistenceService.shared.findNoiseKey(senderPubkey)
+
+            if (noiseKey == null) {
+                Log.w(TAG, "Favorite notification from Nostr sender without known Noise key: ${senderPubkey.take(16)}...")
+                return
+            }
+
+            var systemMessage: BitchatMessage? = null
+            if (!runIfNdrEpochCurrent(ndrEpoch) {
+                    FavoritesPersistenceService.shared.updatePeerFavoritedUs(
+                        noiseKey,
+                        control.isFavorite
+                    )
+                    senderNpub?.let {
+                        FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, it)
+                    }
+                    val targetConversationID =
+                        ContactDirectory.canonicalConversationId(conversationID)
+
+                    val relationship = FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                    val displayName = relationship
+                        ?.peerNickname
+                        ?.takeUnless { it.equals("Unknown", ignoreCase = true) }
+                        ?: senderNickname
+                    val guidance = if (control.isFavorite) {
+                        if (relationship?.isFavorite == true) {
+                            " - mutual! You can continue DMs via Nostr when out of mesh."
+                        } else {
+                            " - favorite back to continue DMs later."
+                        }
+                    } else {
+                        ". DMs over Nostr will pause unless you both favorite again."
+                    }
+                    val action = if (control.isFavorite) "favorited" else "unfavorited"
+                    systemMessage = BitchatMessage(
+                        sender = "system",
+                        content = "$displayName $action you$guidance",
+                        timestamp = timestamp,
+                        isRelay = false,
+                        isPrivate = true,
+                        senderPeerID = targetConversationID
+                    )
+                }
+            ) return
+
+            withContext(Dispatchers.Main) {
+                runIfNdrEpochCurrent(ndrEpoch) {
+                    systemMessage?.let {
+                        privateChatManager.handleIncomingPrivateMessage(
+                            message = it,
+                            suppressUnread = true,
+                            origin = PrivateMessageOrigin.NOSTR
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to handle Nostr favorite notification: ${e.message}")
         }
     }
 

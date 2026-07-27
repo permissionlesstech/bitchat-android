@@ -169,14 +169,9 @@ class GossipSyncManager(
         // Decode GCS into sorted set for membership checks
         val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
         fun mightContain(id: ByteArray): Boolean {
-            val v = (GCSFilter.run {
-                // reuse hashing method from GCSFilter
-                val md = java.security.MessageDigest.getInstance("SHA-256");
-                md.update(id); val d = md.digest();
-                var x = 0L; for (i in 0 until 8) { x = (x shl 8) or (d[i].toLong() and 0xFF) }
-                (x and 0x7fff_ffff_ffff_ffffL) % request.m
-            })
-            return GCSFilter.contains(sorted, v)
+            val v = GCSFilter.h64(id) % request.m
+            val nonZeroV = if (v == 0L) 1L else v
+            return GCSFilter.contains(sorted, nonZeroV)
         }
 
         // 1) Announcements: send latest per peerID if remote doesn't have them

@@ -271,6 +271,7 @@ class OnboardingCoordinator(
             permission.contains("BLUETOOTH") -> "Bluetooth/Nearby Devices"
             permission.contains("BACKGROUND") -> "Background Location"
             permission.contains("LOCATION") -> "Location (for Bluetooth scanning)"
+            permission.contains("NEARBY_WIFI") -> "Nearby Wi‑Fi Devices (for Wi‑Fi Aware)"
             permission.contains("NOTIFICATION") -> "Notifications"
             else -> permission.substringAfterLast(".")
         }

@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -24,6 +26,23 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           gradle-version: wrapper
+
+      - name: Set up Rust 1.95.0
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - name: Set up Android NDK
+        run: sdkmanager "ndk;28.2.13676358"
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --version 4.1.2 --locked
+
+      - name: Build NDR FFI from pinned source
+        run: ./app/src/main/ndr-ffi/build-android.sh
+
+      - name: Verify generated NDR binding is current
+        run: git diff --exit-code -- app/src/main/java/uniffi/ndr_ffi/ndr_ffi.kt
 
       - name: Cache Gradle files
         uses: actions/cache@v3

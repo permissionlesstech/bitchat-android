@@ -2,7 +2,7 @@ package com.bitchat.android.ui
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -34,7 +34,7 @@ class CommandProcessorTest() {
     coroutineScope = testScope
   )
 
-  private val meshService: BluetoothMeshService = mock()
+  private val meshService: MeshService = mock()
 
   @Before
   fun setup() {

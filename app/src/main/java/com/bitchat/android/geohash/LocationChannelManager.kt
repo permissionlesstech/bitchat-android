@@ -539,6 +539,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     fun clearPersistedChannel() {
         dataManager?.clearLastGeohashChannel()
         _selectedChannel.value = ChannelID.Mesh
+        _teleported.value = false
         Log.d(TAG, "Cleared persisted channel selection")
     }
 

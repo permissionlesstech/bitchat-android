@@ -193,7 +193,7 @@ fun VerificationSheet(
             val fingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
             
             if (peerID != null) {
-                val fingerprint = viewModel.meshService.getPeerFingerprint(peerID!!)
+                val fingerprint = viewModel.getMeshPeerFingerprint(peerID!!)
                 if (fingerprint != null && fingerprints.contains(fingerprint)) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(

@@ -1,6 +1,7 @@
 package com.bitchat.android
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.OnBackPressedCallback
@@ -19,6 +20,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.onboarding.BluetoothCheckScreen
 import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.BluetoothStatusManager
@@ -40,6 +42,7 @@ import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
+import com.bitchat.android.wifiaware.WifiAwareController
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.delay
@@ -55,12 +58,14 @@ class MainActivity : OrientationAwareActivity() {
     
     // Core mesh service - provided by the foreground service holder
     private lateinit var meshService: BluetoothMeshService
+    private lateinit var unifiedMeshService: MeshService
     private val mainViewModel: MainViewModel by viewModels()
+    private var pendingMeshForegroundServiceStart = false
     private val chatViewModel: ChatViewModel by viewModels { 
         object : ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return ChatViewModel(application, meshService) as T
+                return ChatViewModel(application, meshService, unifiedMeshService) as T
             }
         }
     }
@@ -76,7 +81,9 @@ class MainActivity : OrientationAwareActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            this.setRecentsScreenshotEnabled(false)
+        }
         // Register receiver for force finish signal from shutdown coordinator
         val filter = android.content.IntentFilter(com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH)
         if (android.os.Build.VERSION.SDK_INT >= 33) {
@@ -111,9 +118,13 @@ class MainActivity : OrientationAwareActivity() {
 
         // Initialize permission management
         permissionManager = PermissionManager(this)
-        // Ensure foreground service is running and get mesh instance from holder
-        try { com.bitchat.android.service.MeshForegroundService.start(applicationContext) } catch (_: Exception) { }
+        // Start the foreground service when allowed, then get mesh instances from the holder.
+        startMeshForegroundServiceBestEffort()
         meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
+        unifiedMeshService = com.bitchat.android.service.MeshServiceHolder.getUnifiedOrCreate(applicationContext)
+        // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays - DEPRECATED
+        // Bridging is now handled by TransportBridgeService automatically
+        
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
             context = this,
@@ -161,6 +172,17 @@ class MainActivity : OrientationAwareActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 mainViewModel.onboardingState.collect { state ->
                     handleOnboardingStateChange(state)
+                }
+            }
+        }
+
+        // Keep the unified mesh delegate attached when Wi-Fi Aware starts after the UI.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                WifiAwareController.running.collect { running ->
+                    if (running && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                        unifiedMeshService.delegate = chatViewModel
+                    }
                 }
             }
         }
@@ -221,6 +243,10 @@ class MainActivity : OrientationAwareActivity() {
                     },
                     onRetry = {
                         checkBluetoothAndProceed()
+                    },
+                    onSkip = {
+                        mainViewModel.skipBluetoothCheck()
+                        checkLocationAndProceed()
                     },
                     isLoading = isBluetoothLoading
                 )
@@ -355,6 +381,13 @@ class MainActivity : OrientationAwareActivity() {
     private fun checkBluetoothAndProceed() {
         // Log.d("MainActivity", "Checking Bluetooth status")
         
+        // Check if user has skipped Bluetooth check for this session
+        if (mainViewModel.isBluetoothCheckSkipped.value) {
+            Log.d("MainActivity", "Bluetooth check skipped by user, proceeding to location check")
+            checkLocationAndProceed()
+            return
+        }
+        
         // For first-time users, skip Bluetooth check and go straight to permissions
         // We'll check Bluetooth after permissions are granted
         if (permissionManager.isFirstTimeLaunch()) {
@@ -367,6 +400,12 @@ class MainActivity : OrientationAwareActivity() {
         bluetoothStatusManager.logBluetoothStatus()
         mainViewModel.updateBluetoothStatus(bluetoothStatusManager.checkBluetoothStatus())
         
+        val bleRequired = try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+        if (!bleRequired) {
+            // Skip BLE checks entirely when BLE is disabled in debug settings
+            checkLocationAndProceed()
+            return
+        }
         when (mainViewModel.bluetoothStatus.value) {
             BluetoothStatus.ENABLED -> {
                 // Bluetooth is enabled, check location services next
@@ -472,6 +511,8 @@ class MainActivity : OrientationAwareActivity() {
         Log.d("MainActivity", "Location services enabled by user")
         mainViewModel.updateLocationLoading(false)
         mainViewModel.updateLocationStatus(LocationStatus.ENABLED)
+        // Ensure Wi-Fi Aware starts now that location is enabled
+        com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
         checkBatteryOptimizationAndProceed()
     }
 
@@ -540,8 +581,9 @@ class MainActivity : OrientationAwareActivity() {
             else -> BatteryOptimizationStatus.ENABLED
         }
         
+        val bleRequired2 = try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
         when {
-            currentBluetoothStatus != BluetoothStatus.ENABLED -> {
+            bleRequired2 && currentBluetoothStatus != BluetoothStatus.ENABLED -> {
                 // Bluetooth still disabled, but now we have permissions to enable it
                 Log.d("MainActivity", "Permissions granted, but Bluetooth still disabled. Showing Bluetooth enable screen.")
                 mainViewModel.updateBluetoothStatus(currentBluetoothStatus)
@@ -575,6 +617,22 @@ class MainActivity : OrientationAwareActivity() {
         Log.e("MainActivity", "Onboarding failed: $message")
         mainViewModel.updateErrorMessage(message)
         mainViewModel.updateOnboardingState(OnboardingState.ERROR)
+    }
+
+    private fun startMeshForegroundServiceBestEffort() {
+        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            pendingMeshForegroundServiceStart = true
+            Log.i("MainActivity", "Deferring foreground mesh service start until activity is started")
+            return
+        }
+
+        try {
+            com.bitchat.android.service.MeshForegroundService.start(applicationContext)
+            pendingMeshForegroundServiceStart = false
+        } catch (e: Exception) {
+            pendingMeshForegroundServiceStart = true
+            Log.w("MainActivity", "Unable to start foreground mesh service; will retry when activity is started", e)
+        }
     }
     
     /**
@@ -674,9 +732,10 @@ class MainActivity : OrientationAwareActivity() {
                     return@launch
                 }
 
-                // Set up mesh service delegate and start services
-                meshService.delegate = chatViewModel
-                meshService.startServices()
+                // Set up unified mesh delegate and start enabled transports
+                unifiedMeshService.delegate = chatViewModel
+                unifiedMeshService.startServices()
+                startMeshForegroundServiceBestEffort()
                 
                 Log.d("MainActivity", "Mesh service started successfully")
                 
@@ -714,17 +773,25 @@ class MainActivity : OrientationAwareActivity() {
             handleVerificationIntent(intent)
         }
     }
+
+    override fun onStart() {
+        super.onStart()
+        if (pendingMeshForegroundServiceStart) {
+            startMeshForegroundServiceBestEffort()
+        }
+    }
     
     override fun onResume() {
         super.onResume()
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
-            try { meshService.delegate = chatViewModel } catch (_: Exception) { }
+            try { unifiedMeshService.delegate = chatViewModel } catch (_: Exception) { }
 
             // Check if Bluetooth was disabled while app was backgrounded
             val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
-            if (currentBluetoothStatus != BluetoothStatus.ENABLED) {
+            val bleRequired = try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+            if (bleRequired && currentBluetoothStatus != BluetoothStatus.ENABLED && !mainViewModel.isBluetoothCheckSkipped.value) {
                 Log.w("MainActivity", "Bluetooth disabled while app was backgrounded")
                 mainViewModel.updateBluetoothStatus(currentBluetoothStatus)
                 mainViewModel.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
@@ -739,6 +806,9 @@ class MainActivity : OrientationAwareActivity() {
                 mainViewModel.updateLocationStatus(currentLocationStatus)
                 mainViewModel.updateOnboardingState(OnboardingState.LOCATION_CHECK)
                 mainViewModel.updateLocationLoading(false)
+            } else {
+                // If location is enabled, ensure Wi-Fi Aware starts if it was blocked by location earlier
+                com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
             }
         }
     }
@@ -748,7 +818,7 @@ class MainActivity : OrientationAwareActivity() {
         // Only set background state if app is fully initialized
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Detach UI delegate so the foreground service can own DM notifications while UI is closed
-            try { meshService.delegate = null } catch (_: Exception) { }
+            try { unifiedMeshService.delegate = null } catch (_: Exception) { }
         }
     }
     

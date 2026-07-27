@@ -2,15 +2,18 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.model.NdrFeatureGate
 import com.bitchat.android.model.NoisePayloadType
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ContactIdentityResolver
 import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
- * Minimal Nostr transport for offline sending
- * Direct port from iOS NostrTransport for 100% compatibility
+ * Nostr transport for offline private messages and receipts.
  */
 class NostrTransport(
     private val context: Context,
@@ -54,11 +57,7 @@ class NostrTransport(
     ) {
         transportScope.launch {
             try {
-                // Resolve favorite by full noise key or by short peerID fallback
-                var recipientNostrPubkey: String? = null
-                
-                // Resolve by peerID first (new peerID→npub index), then fall back to noise key mapping
-                recipientNostrPubkey = resolveNostrPublicKey(to)
+                val recipientNostrPubkey = resolveNostrPublicKey(to)
                 
                 if (recipientNostrPubkey == null) {
                     Log.w(TAG, "No Nostr public key found for peerID: $to")
@@ -73,14 +72,13 @@ class NostrTransport(
                 
                 Log.d(TAG, "NostrTransport: preparing PM to ${recipientNostrPubkey.take(16)}... for peerID ${to.take(8)}... id=${messageID.take(8)}...")
                 
-                val recipientHex = normalizeNostrPubkeyToHex(recipientNostrPubkey)
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
                 if (recipientHex == null) {
-                    Log.e(TAG, "NostrTransport: failed to normalize recipient key")
+                    Log.e(TAG, "NostrTransport: recipient key is not a valid Nostr pubkey")
                     return@launch
                 }
                 val ndrRecipientHex = resolveNdrRecipientHex(to, recipientHex)
                 
-                // Strict: lookup the recipient's current BitChat peer ID using favorites mapping
                 val recipientPeerIDForEmbed = try {
                     com.bitchat.android.favorites.FavoritesPersistenceService.shared
                         .findPeerIDForNostrPubkey(recipientNostrPubkey)
@@ -101,7 +99,7 @@ class NostrTransport(
                     Log.e(TAG, "NostrTransport: failed to embed PM packet")
                     return@launch
                 }
-
+                
                 sendWrappedMessage(
                     content = embedded,
                     fallbackRecipientHex = recipientHex,
@@ -138,10 +136,7 @@ class NostrTransport(
         
         transportScope.launch {
             try {
-                var recipientNostrPubkey: String? = null
-                
-                // Try to resolve from favorites persistence service
-                recipientNostrPubkey = resolveNostrPublicKey(item.peerID)
+                val recipientNostrPubkey = resolveNostrPublicKey(item.peerID)
                 
                 if (recipientNostrPubkey == null) {
                     Log.w(TAG, "No Nostr public key found for read receipt to: ${item.peerID}")
@@ -158,7 +153,7 @@ class NostrTransport(
                 
                 Log.d(TAG, "NostrTransport: preparing READ ack for id=${item.receipt.originalMessageID.take(8)}... to ${recipientNostrPubkey.take(16)}...")
                 
-                val recipientHex = normalizeNostrPubkeyToHex(recipientNostrPubkey)
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
                 if (recipientHex == null) {
                     scheduleNextReadAck()
                     return@launch
@@ -177,7 +172,7 @@ class NostrTransport(
                     scheduleNextReadAck()
                     return@launch
                 }
-
+                
                 sendWrappedMessage(
                     content = ack,
                     fallbackRecipientHex = recipientHex,
@@ -205,10 +200,7 @@ class NostrTransport(
     fun sendFavoriteNotification(to: String, isFavorite: Boolean) {
         transportScope.launch {
             try {
-                var recipientNostrPubkey: String? = null
-                
-                // Try to resolve from favorites persistence service
-                recipientNostrPubkey = resolveNostrPublicKey(to)
+                val recipientNostrPubkey = resolveNostrPublicKey(to)
                 
                 if (recipientNostrPubkey == null) {
                     Log.w(TAG, "No Nostr public key found for favorite notification to: $to")
@@ -221,11 +213,11 @@ class NostrTransport(
                     return@launch
                 }
                 
-                val content = if (isFavorite) "[FAVORITED]:${senderIdentity.npub}" else "[UNFAVORITED]:${senderIdentity.npub}"
+                val content = FavoriteControlMessage.encode(isFavorite, senderIdentity.npub)
                 
                 Log.d(TAG, "NostrTransport: preparing FAVORITE($isFavorite) to ${recipientNostrPubkey.take(16)}...")
                 
-                val recipientHex = normalizeNostrPubkeyToHex(recipientNostrPubkey)
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
                 if (recipientHex == null) {
                     return@launch
                 }
@@ -242,7 +234,7 @@ class NostrTransport(
                     Log.e(TAG, "NostrTransport: failed to embed favorite notification")
                     return@launch
                 }
-
+                
                 sendWrappedMessage(
                     content = embedded,
                     fallbackRecipientHex = recipientHex,
@@ -259,10 +251,7 @@ class NostrTransport(
     fun sendDeliveryAck(messageID: String, to: String) {
         transportScope.launch {
             try {
-                var recipientNostrPubkey: String? = null
-                
-                // Try to resolve from favorites persistence service
-                recipientNostrPubkey = resolveNostrPublicKey(to)
+                val recipientNostrPubkey = resolveNostrPublicKey(to)
                 
                 if (recipientNostrPubkey == null) {
                     Log.w(TAG, "No Nostr public key found for delivery ack to: $to")
@@ -277,7 +266,7 @@ class NostrTransport(
                 
                 Log.d(TAG, "NostrTransport: preparing DELIVERED ack for id=${messageID.take(8)}... to ${recipientNostrPubkey.take(16)}...")
                 
-                val recipientHex = normalizeNostrPubkeyToHex(recipientNostrPubkey)
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
                 if (recipientHex == null) {
                     return@launch
                 }
@@ -294,7 +283,7 @@ class NostrTransport(
                     Log.e(TAG, "NostrTransport: failed to embed DELIVERED ack")
                     return@launch
                 }
-
+                
                 sendWrappedMessage(
                     content = ack,
                     fallbackRecipientHex = recipientHex,
@@ -444,22 +433,59 @@ class NostrTransport(
     }
     
     // MARK: - Helper Methods
+
+    private fun sendWrappedMessage(
+        content: String,
+        fallbackRecipientHex: String,
+        senderIdentity: NostrIdentity,
+        ndrRecipientHex: String = fallbackRecipientHex
+    ): Boolean {
+        if (NdrFeatureGate.isEnabled()) {
+            ndrService.configureIfNeeded(senderIdentity)
+            if (ndrService.sendIfPossible(content, ndrRecipientHex)) {
+                return true
+            }
+        }
+
+        NostrProtocol.createPrivateMessage(
+            content = content,
+            recipientPubkey = fallbackRecipientHex,
+            senderIdentity = senderIdentity
+        ).forEach { event ->
+            NostrRelayManager.registerPendingGiftWrap(event.id)
+            NostrRelayManager.getInstance(context).sendEvent(event)
+        }
+        return false
+    }
+
+    private fun resolveNdrRecipientHex(target: String, fallbackRecipientHex: String): String {
+        if (!NdrFeatureGate.isEnabled()) return fallbackRecipientHex
+        return try {
+            val favorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared
+            val relationship = favorites.getFavoriteStatus(target) ?: return fallbackRecipientHex
+            favorites.findNdrSessionPubkeyHex(relationship.peerNoisePublicKey)
+                ?: fallbackRecipientHex
+        } catch (_: Exception) {
+            fallbackRecipientHex
+        }
+    }
     
     /**
      * Resolve Nostr public key for a peer ID
      */
     private fun resolveNostrPublicKey(peerID: String): String? {
         try {
-            // 1) Fast path: direct peerID→npub mapping (mutual favorites after mesh mapping)
+            ContactDirectory.resolve(peerID).nostrPubkey?.let { return it }
+
             com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkeyForPeerID(peerID)?.let { return it }
 
-            // 2) Legacy path: resolve by noise public key association
-            val noiseKey = hexStringToByteArray(peerID)
-            val favoriteStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
-            if (favoriteStatus?.peerNostrPublicKey != null) return favoriteStatus.peerNostrPublicKey
+            if (ContactIdentityResolver.isNoiseKeyHex(peerID)) {
+                val noiseKey = ContactIdentityResolver.bytesFromHex(peerID) ?: return null
+                val favoriteStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                if (favoriteStatus?.peerNostrPublicKey != null) return favoriteStatus.peerNostrPublicKey
+            }
 
-            // 3) Prefix match on noiseHex from 16-hex peerID
-            if (peerID.length == 16) {
+            if (ContactIdentityResolver.isMeshPeerId(peerID)) {
                 val fallbackStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
                 return fallbackStatus?.peerNostrPublicKey
             }
@@ -469,77 +495,6 @@ class NostrTransport(
             Log.e(TAG, "Failed to resolve Nostr public key for $peerID: ${e.message}")
             return null
         }
-    }
-
-    private fun sendWrappedMessage(
-        content: String,
-        fallbackRecipientHex: String,
-        senderIdentity: NostrIdentity,
-        ndrRecipientHex: String = fallbackRecipientHex
-    ): Boolean {
-        ndrService.configureIfNeeded(senderIdentity)
-        if (ndrService.sendIfPossible(content, ndrRecipientHex)) {
-            Log.d(TAG, "NostrTransport: sent via NDR to ${ndrRecipientHex.take(8)}...")
-            return true
-        }
-
-        val giftWraps = NostrProtocol.createPrivateMessage(
-            content = content,
-            recipientPubkey = fallbackRecipientHex,
-            senderIdentity = senderIdentity
-        )
-
-        giftWraps.forEach { event ->
-            Log.d(TAG, "NostrTransport: sending fallback giftWrap id=${event.id.take(16)}...")
-            NostrRelayManager.getInstance(context).sendEvent(event)
-        }
-        return false
-    }
-
-    private fun resolveNdrRecipientHex(target: String, fallbackRecipientHex: String): String {
-        val favoriteRelationship = resolveFavoriteRelationship(target) ?: return fallbackRecipientHex
-        return com.bitchat.android.favorites.FavoritesPersistenceService.shared
-            .findNdrSessionPubkeyHex(favoriteRelationship.peerNoisePublicKey)
-            ?: fallbackRecipientHex
-    }
-
-    private fun resolveFavoriteRelationship(target: String): com.bitchat.android.favorites.FavoriteRelationship? {
-        val favorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared
-        return try {
-            when {
-                target.length == 16 && target.matches(Regex("^[0-9a-fA-F]+$")) -> {
-                    favorites.getFavoriteStatus(target)
-                }
-                target.length == 64 && target.matches(Regex("^[0-9a-fA-F]+$")) -> {
-                    favorites.getFavoriteStatus(hexStringToByteArray(target))
-                }
-                else -> null
-            }
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun normalizeNostrPubkeyToHex(npubOrHex: String): String? {
-        return try {
-            if (npubOrHex.startsWith("npub1")) {
-                val (hrp, data) = Bech32.decode(npubOrHex)
-                if (hrp != "npub") return null
-                data.joinToString("") { "%02x".format(it) }
-            } else {
-                npubOrHex.lowercase()
-            }
-        } catch (_: Exception) {
-            null
-        }
-    }
-    
-    /**
-     * Convert full hex string to byte array
-     */
-    private fun hexStringToByteArray(hexString: String): ByteArray {
-        val clean = if (hexString.length % 2 == 0) hexString else "0$hexString"
-        return clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
     
     fun cleanup() {

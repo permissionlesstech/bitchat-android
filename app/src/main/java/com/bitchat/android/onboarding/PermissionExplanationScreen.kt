@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -218,6 +219,7 @@ private fun getPermissionIcon(permissionType: PermissionType): ImageVector {
         PermissionType.BACKGROUND_LOCATION -> Icons.Filled.LocationOn
         PermissionType.MICROPHONE -> Icons.Filled.Mic
         PermissionType.NOTIFICATIONS -> Icons.Filled.Notifications
+        PermissionType.WIFI_AWARE -> Icons.Filled.Wifi
         PermissionType.BATTERY_OPTIMIZATION -> Icons.Filled.Power
         PermissionType.OTHER -> Icons.Filled.Settings
     }

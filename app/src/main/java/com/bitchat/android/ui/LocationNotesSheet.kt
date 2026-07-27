@@ -32,6 +32,7 @@ import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
+import com.bitchat.android.nostr.NearbyNotesController
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
@@ -58,12 +59,15 @@ fun LocationNotesSheet(
     // Managers
     val notesManager = remember { LocationNotesManager.getInstance() }
     val locationManager = remember { LocationChannelManager.getInstance(context) }
+    val nearbyNotesController = remember { NearbyNotesController.shared }
     
     // State
     val notes by notesManager.notes.collectAsStateWithLifecycle()
     val state by notesManager.state.collectAsStateWithLifecycle(LocationNotesManager.State.IDLE)
     val errorMessage by notesManager.errorMessage.collectAsStateWithLifecycle()
     val initialLoadComplete by notesManager.initialLoadComplete.collectAsStateWithLifecycle(false)
+    val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
+    val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
     
     // SIMPLIFIED: Get count directly from notes list (no separate counter needed)
     val count = notes.size
@@ -94,15 +98,24 @@ fun LocationNotesSheet(
         locationManager.refreshChannels()
     }
 
-    // Effect to set geohash when sheet opens
-    LaunchedEffect(geohash) {
-        notesManager.setGeohash(geohash)
-    }
-    
-    // Cleanup when sheet closes
-    DisposableEffect(Unit) {
+    // Opening the notes sheet is an explicit reveal. The balanced hold lets
+    // the mesh timeline keep the shared subscription alive after dismissal.
+    DisposableEffect(
+        geohash,
+        locationEnabled,
+        permissionState,
+        nearbyNotesController,
+    ) {
+        nearbyNotesController.updateAvailability(
+            locationEnabled = locationEnabled,
+            locationAuthorized =
+                permissionState == LocationChannelManager.PermissionState.AUTHORIZED,
+            buildingGeohash = geohash,
+        )
+        nearbyNotesController.activate()
+        nearbyNotesController.reveal()
         onDispose {
-            notesManager.cancel()
+            nearbyNotesController.deactivate()
         }
     }
 
@@ -202,6 +215,7 @@ fun LocationNotesSheet(
                         onDraftChange = { draft = it },
                         sendButtonEnabled = sendButtonEnabled,
                         accentGreen = accentGreen,
+                        nickname = nickname,
                         onSend = {
                             val content = draft.trim()
                             if (content.isNotEmpty()) {
@@ -451,19 +465,38 @@ private fun LocationNotesInputSection(
     onDraftChange: (String) -> Unit,
     sendButtonEnabled: Boolean,
     accentGreen: Color,
+    nickname: String?,
     onSend: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
     val colorScheme = MaterialTheme.colorScheme
-    
-    Row(
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(color = colorScheme.background)
-            .padding(horizontal = 12.dp, vertical = 8.dp), // Match main chat padding
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp) // Match main chat spacing
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
+        if (!nickname.isNullOrBlank()) {
+            val baseName = nickname.split("#", limit = 2).firstOrNull() ?: nickname
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "@$baseName",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
         // Text input with placeholder overlay (matches main chat exactly)
         Box(
             modifier = Modifier.weight(1f)
@@ -531,6 +564,7 @@ private fun LocationNotesInputSection(
                 )
             }
         }
+    }
     }
 }
 

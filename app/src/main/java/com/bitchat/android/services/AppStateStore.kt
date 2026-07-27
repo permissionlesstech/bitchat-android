@@ -13,6 +13,10 @@ import kotlinx.coroutines.flow.asStateFlow
 object AppStateStore {
     // Global de-dup set by message id to avoid duplicate keys in Compose lists
     private val seenMessageIds = mutableSetOf<String>()
+    private val seenPublicMessageKeys = mutableSetOf<String>()
+    private val peerIdsByTransport = mutableMapOf<String, Set<String>>()
+    // Direct (single-hop) peer IDs per transport, used to gossip a unified neighbor set.
+    private val directPeerIdsByTransport = mutableMapOf<String, Set<String>>()
     // Connected peer IDs (mesh ephemeral IDs)
     private val _peers = MutableStateFlow<List<String>>(emptyList())
     val peers: StateFlow<List<String>> = _peers.asStateFlow()
@@ -30,13 +34,63 @@ object AppStateStore {
     val channelMessages: StateFlow<Map<String, List<BitchatMessage>>> = _channelMessages.asStateFlow()
 
     fun setPeers(ids: List<String>) {
-        _peers.value = ids
+        synchronized(this) {
+            _peers.value = ids.distinct()
+        }
+    }
+
+    fun setTransportPeers(transportId: String, ids: List<String>) {
+        synchronized(this) {
+            peerIdsByTransport[transportId] = ids.toSet()
+            publishTransportPeersLocked()
+        }
+    }
+
+    fun clearTransportPeers(transportId: String) {
+        synchronized(this) {
+            peerIdsByTransport.remove(transportId)
+            publishTransportPeersLocked()
+        }
+    }
+
+    private fun publishTransportPeersLocked() {
+        _peers.value = peerIdsByTransport.values
+            .asSequence()
+            .flatten()
+            .distinct()
+            .toList()
+    }
+
+    /**
+     * Record the set of direct (single-hop) peers reachable over a given transport. Each transport
+     * (BLE, Wi-Fi Aware, ...) only knows its own direct peers; [getDirectPeers] unions them so every
+     * transport can gossip the same complete neighbor list under our shared node identity.
+     */
+    fun setTransportDirectPeers(transportId: String, ids: Collection<String>) {
+        synchronized(this) {
+            directPeerIdsByTransport[transportId] = ids.toSet()
+        }
+    }
+
+    fun clearTransportDirectPeers(transportId: String) {
+        synchronized(this) {
+            directPeerIdsByTransport.remove(transportId)
+        }
+    }
+
+    /** Union of direct peers across all transports. */
+    fun getDirectPeers(): Set<String> {
+        synchronized(this) {
+            return directPeerIdsByTransport.values.flatten().toSet()
+        }
     }
 
     fun addPublicMessage(msg: BitchatMessage) {
         synchronized(this) {
-            if (seenMessageIds.contains(msg.id)) return
+            val publicKey = publicMessageKey(msg)
+            if (seenMessageIds.contains(msg.id) || seenPublicMessageKeys.contains(publicKey)) return
             seenMessageIds.add(msg.id)
+            seenPublicMessageKeys.add(publicKey)
             _publicMessages.value = _publicMessages.value + msg
         }
     }
@@ -45,10 +99,11 @@ object AppStateStore {
         synchronized(this) {
             if (seenMessageIds.contains(msg.id)) return
             seenMessageIds.add(msg.id)
+            val conversationID = ContactDirectory.canonicalConversationId(peerID)
             val map = _privateMessages.value.toMutableMap()
-            val list = (map[peerID] ?: emptyList()) + msg
-            map[peerID] = list
-            _privateMessages.value = map
+            val list = (map[conversationID] ?: emptyList()) + msg
+            map[conversationID] = list
+            _privateMessages.value = ContactDirectory.canonicalizePrivateChats(map)
         }
     }
 
@@ -85,6 +140,57 @@ object AppStateStore {
         }
     }
 
+    fun unifyPrivateChatsIntoPeer(targetPeerID: String, keysToMerge: List<String>) {
+        if (keysToMerge.isEmpty()) return
+        synchronized(this) {
+            val targetConversationID = ContactDirectory.canonicalConversationId(targetPeerID)
+            val map = _privateMessages.value.toMutableMap()
+            val targetList = (map[targetConversationID] ?: emptyList()).toMutableList()
+            val targetIds = targetList.map { it.id }.toMutableSet()
+            var changed = false
+
+            keysToMerge.distinct().forEach { key ->
+                val canonicalKey = ContactDirectory.canonicalConversationId(key)
+                if (canonicalKey == targetConversationID) {
+                    val messages = map.remove(key)
+                    if (messages != null) {
+                        changed = true
+                        messages.forEach { message ->
+                            if (targetIds.add(message.id)) targetList.add(message)
+                        }
+                    }
+                    return@forEach
+                }
+                if (key == targetConversationID) return@forEach
+                val messages = map.remove(key) ?: return@forEach
+                changed = true
+                messages.forEach { message ->
+                    if (targetIds.add(message.id)) {
+                        targetList.add(message)
+                    }
+                }
+            }
+
+            if (changed) {
+                if (targetList.isEmpty()) {
+                    map.remove(targetConversationID)
+                } else {
+                    map[targetConversationID] = targetList
+                }
+                _privateMessages.value = ContactDirectory.canonicalizePrivateChats(map)
+            }
+        }
+    }
+
+    fun canonicalizePrivateChats() {
+        synchronized(this) {
+            val canonical = ContactDirectory.canonicalizePrivateChats(_privateMessages.value)
+            if (canonical != _privateMessages.value) {
+                _privateMessages.value = canonical
+            }
+        }
+    }
+
     fun addChannelMessage(channel: String, msg: BitchatMessage) {
         synchronized(this) {
             if (seenMessageIds.contains(msg.id)) return
@@ -100,10 +206,24 @@ object AppStateStore {
     fun clear() {
         synchronized(this) {
             seenMessageIds.clear()
+            seenPublicMessageKeys.clear()
+            peerIdsByTransport.clear()
+            directPeerIdsByTransport.clear()
             _peers.value = emptyList()
             _publicMessages.value = emptyList()
             _privateMessages.value = emptyMap()
             _channelMessages.value = emptyMap()
         }
+    }
+
+    private fun publicMessageKey(msg: BitchatMessage): String {
+        val sender = msg.senderPeerID ?: msg.sender
+        return listOf(
+            sender,
+            msg.timestamp.time.toString(),
+            msg.type.name,
+            msg.channel ?: "",
+            msg.content
+        ).joinToString("\u001F")
     }
 }

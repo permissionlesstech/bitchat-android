@@ -2,23 +2,31 @@ package com.bitchat.android.services
 
 import android.content.Context
 import android.util.Log
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.favorites.FavoriteControlMessage
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.nostr.NostrTransport
 
 /**
- * Routes messages between BLE mesh and Nostr transports, matching iOS behavior.
+ * Routes messages between local mesh transports and Nostr, matching iOS behavior.
  */
 class MessageRouter private constructor(
     private val context: Context,
-    private var mesh: BluetoothMeshService,
+    private var mesh: MeshService,
     private val nostr: NostrTransport
 ) {
+    enum class RouteResult {
+        MESH,
+        NOSTR,
+        QUEUED,
+        DROPPED
+    }
+
     companion object {
         private const val TAG = "MessageRouter"
         @Volatile private var INSTANCE: MessageRouter? = null
         fun tryGetInstance(): MessageRouter? = INSTANCE
-        fun getInstance(context: Context, mesh: BluetoothMeshService): MessageRouter {
+        fun getInstance(context: Context, mesh: MeshService): MessageRouter {
             val instance = INSTANCE ?: synchronized(this) {
                 INSTANCE ?: run {
                     val nostr = NostrTransport.getInstance(context)
@@ -46,54 +54,58 @@ class MessageRouter private constructor(
 
         override fun onFavoriteChanged(noiseKeyHex: String) {
             flushOutboxFor(noiseKeyHex)
-            // Also try 16-hex short id commonly used in UI if any client used that
-            val shortId = noiseKeyHex.take(16)
-            flushOutboxFor(shortId)
+            ContactIdentityResolver.peerIdForNoiseKeyHex(noiseKeyHex)?.let { flushOutboxFor(it) }
         }
         override fun onAllCleared() {
-            // Nothing special; leave queued items until routing becomes possible
         }
     }
 
-    fun sendPrivate(content: String, toPeerID: String, recipientNickname: String, messageID: String) {
-        // First: if this is a geohash DM alias (nostr_<pub16>), route via Nostr using global registry
+    fun sendPrivate(content: String, toPeerID: String, recipientNickname: String, messageID: String): RouteResult {
+        val resolution = ContactDirectory.resolve(toPeerID)
+        val conversationID = resolution.conversationID
+        val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
+        val nostrTarget = resolution.noiseKeyHex ?: toPeerID
+
         if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(toPeerID)) {
             Log.d(TAG, "Routing PM via Nostr (geohash) to alias ${toPeerID.take(12)}… id=${messageID.take(8)}…")
             val recipientHex = com.bitchat.android.nostr.GeohashAliasRegistry.get(toPeerID)
             if (recipientHex != null) {
-                // Resolve the conversation's source geohash, so we can send from anywhere
                 val sourceGeohash = com.bitchat.android.nostr.GeohashConversationRegistry.get(toPeerID)
-
-                // If repository knows the source geohash, pass it so NostrTransport derives the correct identity
                 nostr.sendPrivateMessageGeohash(content, recipientHex, messageID, sourceGeohash)
-                return
+                return RouteResult.NOSTR
             }
+            return RouteResult.DROPPED
         }
 
-        val hasMesh = mesh.getPeerInfo(toPeerID)?.isConnected == true
-        val hasEstablished = mesh.hasEstablishedSession(toPeerID)
-        if (hasMesh && hasEstablished) {
-            Log.d(TAG, "Routing PM via mesh to ${toPeerID} msg_id=${messageID.take(8)}…")
-            mesh.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
-        } else if (canSendViaNostr(toPeerID)) {
-            Log.d(TAG, "Routing PM via Nostr to ${toPeerID.take(32)}… msg_id=${messageID.take(8)}…")
-            nostr.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
+        val hasMesh = meshTarget?.let { isConnected(mesh, it) } == true
+        if (meshTarget != null && isReady(mesh, meshTarget)) {
+            Log.d(TAG, "Routing PM via mesh to ${meshTarget} msg_id=${messageID.take(8)}…")
+            mesh.sendPrivateMessage(content, meshTarget, recipientNickname, messageID)
+            return RouteResult.MESH
+        } else if (canSendViaNostr(nostrTarget)) {
+            Log.d(TAG, "Routing PM via Nostr to ${conversationID.take(32)}… msg_id=${messageID.take(8)}…")
+            nostr.sendPrivateMessage(content, nostrTarget, recipientNickname, messageID)
+            return RouteResult.NOSTR
         } else {
-            Log.d(TAG, "Queued PM for ${toPeerID} (no mesh, no Nostr mapping) msg_id=${messageID.take(8)}…")
-            val q = outbox.getOrPut(toPeerID) { mutableListOf() }
+            Log.d(TAG, "Queued PM for ${conversationID} (no mesh, no Nostr mapping) msg_id=${messageID.take(8)}…")
+            val q = outbox.getOrPut(conversationID) { mutableListOf() }
             q.add(Triple(content, recipientNickname, messageID))
-            Log.d(TAG, "Initiating noise handshake after queueing PM for ${toPeerID.take(8)}…")
-            mesh.initiateNoiseHandshake(toPeerID)
+            Log.d(TAG, "Initiating noise handshake after queueing PM for ${conversationID.take(16)}…")
+            if (hasMesh) meshTarget?.let { mesh.initiateNoiseHandshake(it) }
+            return RouteResult.QUEUED
         }
     }
 
     fun sendReadReceipt(receipt: ReadReceipt, toPeerID: String) {
-        if ((mesh.getPeerInfo(toPeerID)?.isConnected == true) && mesh.hasEstablishedSession(toPeerID)) {
-            Log.d(TAG, "Routing READ via mesh to ${toPeerID.take(8)}… id=${receipt.originalMessageID.take(8)}…")
-            mesh.sendReadReceipt(receipt.originalMessageID, toPeerID, mesh.getPeerNicknames()[toPeerID] ?: mesh.myPeerID)
+        val resolution = ContactDirectory.resolve(toPeerID)
+        val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
+        val nostrTarget = resolution.noiseKeyHex ?: toPeerID
+        if (meshTarget != null && isReady(mesh, meshTarget)) {
+            Log.d(TAG, "Routing READ via mesh to ${meshTarget.take(8)}… id=${receipt.originalMessageID.take(8)}…")
+            mesh.sendReadReceipt(receipt.originalMessageID, meshTarget, mesh.getPeerNicknames()[meshTarget] ?: mesh.myPeerID)
         } else {
             Log.d(TAG, "Routing READ via Nostr to ${toPeerID.take(8)}… id=${receipt.originalMessageID.take(8)}…")
-            nostr.sendReadReceipt(receipt, toPeerID)
+            nostr.sendReadReceipt(receipt, nostrTarget)
         }
     }
 
@@ -107,50 +119,48 @@ class MessageRouter private constructor(
                 return
             }
         }
-        if (!((mesh.getPeerInfo(toPeerID)?.isConnected == true) && mesh.hasEstablishedSession(toPeerID))) {
-            nostr.sendDeliveryAck(messageID, toPeerID)
+        val resolution = ContactDirectory.resolve(toPeerID)
+        val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
+        if (!(meshTarget != null && (mesh.getPeerInfo(meshTarget)?.isConnected == true) && mesh.hasEstablishedSession(meshTarget))) {
+            nostr.sendDeliveryAck(messageID, resolution.noiseKeyHex ?: toPeerID)
         }
     }
 
     fun sendFavoriteNotification(toPeerID: String, isFavorite: Boolean) {
-        if (mesh.getPeerInfo(toPeerID)?.isConnected == true) {
+        val resolution = ContactDirectory.resolve(toPeerID)
+        val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
+        if (meshTarget != null && mesh.getPeerInfo(meshTarget)?.isConnected == true && mesh.hasEstablishedSession(meshTarget)) {
             val myNpub = try { com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(context)?.npub } catch (_: Exception) { null }
-            val content = if (isFavorite) "[FAVORITED]:${myNpub ?: ""}" else "[UNFAVORITED]:${myNpub ?: ""}"
-            val nickname = mesh.getPeerNicknames()[toPeerID] ?: toPeerID
-            mesh.sendPrivateMessage(content, toPeerID, nickname)
+            val content = FavoriteControlMessage.encode(isFavorite, myNpub)
+            val nickname = mesh.getPeerNicknames()[meshTarget] ?: meshTarget
+            mesh.sendPrivateMessage(content, meshTarget, nickname, null)
         } else {
-            nostr.sendFavoriteNotification(toPeerID, isFavorite)
+            nostr.sendFavoriteNotification(resolution.noiseKeyHex ?: toPeerID, isFavorite)
         }
     }
 
     // Flush any queued messages for a specific peerID
     fun flushOutboxFor(peerID: String) {
-        val queued = outbox[peerID] ?: return
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val queued = outbox[conversationID] ?: outbox[peerID] ?: return
         if (queued.isEmpty()) return
-        Log.d(TAG, "Flushing outbox for ${peerID.take(8)}… count=${queued.size}")
+        Log.d(TAG, "Flushing outbox for ${conversationID.take(16)}… count=${queued.size}")
         val iterator = queued.iterator()
         while (iterator.hasNext()) {
             val (content, nickname, messageID) = iterator.next()
-            var hasMesh = mesh.getPeerInfo(peerID)?.isConnected == true && mesh.hasEstablishedSession(peerID)
-            // If this is a noiseHex key, see if there is a connected mesh peer for this identity
-            if (!hasMesh && peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                val meshPeer = resolveMeshPeerForNoiseHex(peerID)
-                if (meshPeer != null && mesh.getPeerInfo(meshPeer)?.isConnected == true && mesh.hasEstablishedSession(meshPeer)) {
-                    mesh.sendPrivateMessage(content, meshPeer, nickname, messageID)
-                    iterator.remove()
-                    continue
-                }
-            }
-            val canNostr = canSendViaNostr(peerID)
-            if (hasMesh) {
-                mesh.sendPrivateMessage(content, peerID, nickname, messageID)
+            val resolution = ContactDirectory.resolve(conversationID)
+            val meshTarget = resolution.meshPeerID
+            val nostrTarget = resolution.noiseKeyHex ?: conversationID
+            if (meshTarget != null && isReady(mesh, meshTarget)) {
+                mesh.sendPrivateMessage(content, meshTarget, nickname, messageID)
                 iterator.remove()
-            } else if (canNostr) {
-                nostr.sendPrivateMessage(content, peerID, nickname, messageID)
+            } else if (canSendViaNostr(nostrTarget)) {
+                nostr.sendPrivateMessage(content, nostrTarget, nickname, messageID)
                 iterator.remove()
             }
         }
         if (queued.isEmpty()) {
+            outbox.remove(conversationID)
             outbox.remove(peerID)
         }
     }
@@ -162,14 +172,15 @@ class MessageRouter private constructor(
 
     private fun canSendViaNostr(peerID: String): Boolean {
         return try {
-            // Full Noise key hex
-            if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                val noiseKey = hexToBytes(peerID)
+            val resolution = ContactDirectory.resolve(peerID)
+            if (resolution.isMutualFavorite && resolution.nostrPubkey != null) return true
+            val target = resolution.noiseKeyHex ?: peerID
+            if (ContactIdentityResolver.isNoiseKeyHex(target)) {
+                val noiseKey = ContactIdentityResolver.bytesFromHex(target) ?: return false
                 val fav = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
                 fav?.isMutual == true && fav.peerNostrPublicKey != null
-            } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                // Ephemeral 16-hex mesh ID: resolve via prefix match in favorites
-                val fav = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+            } else if (ContactIdentityResolver.isMeshPeerId(target)) {
+                val fav = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(target)
                 fav?.isMutual == true && fav.peerNostrPublicKey != null
             } else {
                 false
@@ -177,19 +188,21 @@ class MessageRouter private constructor(
         } catch (_: Exception) { false }
     }
 
-    private fun hexToBytes(hex: String): ByteArray {
-        val clean = if (hex.length % 2 == 0) hex else "0$hex"
-        return clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+    private fun isConnected(service: MeshService, peerID: String): Boolean {
+        return try {
+            service.getPeerInfo(peerID)?.isConnected == true
+        } catch (_: Exception) {
+            false
+        }
     }
 
-    private fun resolveMeshPeerForNoiseHex(noiseHex: String): String? {
+    private fun isReady(service: MeshService, peerID: String): Boolean {
         return try {
-            mesh.getPeerNicknames().keys.firstOrNull { pid ->
-                val info = mesh.getPeerInfo(pid)
-                val keyHex = info?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
-                keyHex != null && keyHex.equals(noiseHex, ignoreCase = true)
-            }
-        } catch (_: Exception) { null }
+            service.getPeerInfo(peerID)?.isConnected == true &&
+                service.hasEstablishedSession(peerID)
+        } catch (_: Exception) {
+            false
+        }
     }
 
     // Called when mesh peer list changes; attempt to flush any matching outbox entries
@@ -197,7 +210,7 @@ class MessageRouter private constructor(
         peers.forEach { pid ->
             flushOutboxFor(pid)
             val noiseHex = try {
-                mesh.getPeerInfo(pid)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+                mesh.getPeerInfo(pid)?.noisePublicKey?.let { ContactIdentityResolver.noiseKeyHex(it) }
             } catch (_: Exception) { null }
             noiseHex?.let { flushOutboxFor(it) }
         }
@@ -207,7 +220,7 @@ class MessageRouter private constructor(
     fun onSessionEstablished(peerID: String) {
         flushOutboxFor(peerID)
         val noiseHex = try {
-            mesh.getPeerInfo(peerID)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+            mesh.getPeerInfo(peerID)?.noisePublicKey?.let { ContactIdentityResolver.noiseKeyHex(it) }
         } catch (_: Exception) { null }
         noiseHex?.let { flushOutboxFor(it) }
     }

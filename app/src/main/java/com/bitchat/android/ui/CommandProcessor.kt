@@ -1,6 +1,6 @@
 package com.bitchat.android.ui
 
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import java.util.Date
 
@@ -29,21 +29,21 @@ class CommandProcessor(
     
     // MARK: - Command Processing
     
-    fun processCommand(command: String, meshService: BluetoothMeshService, myPeerID: String, onSendMessage: (String, List<String>, String?) -> Unit, viewModel: ChatViewModel? = null): Boolean {
+    fun processCommand(command: String, meshService: MeshService, myPeerID: String, onSendMessage: (String, List<String>, String?) -> Unit, viewModel: ChatViewModel? = null): Boolean {
         if (!command.startsWith("/")) return false
         
         val parts = command.split(" ")
         val cmd = parts.first().lowercase()
         when (cmd) {
             "/j", "/join" -> handleJoinCommand(parts, myPeerID)
-            "/m", "/msg" -> handleMessageCommand(parts, meshService)
+            "/m", "/msg" -> handleMessageCommand(parts, meshService, viewModel)
             "/w" -> handleWhoCommand(meshService, viewModel)
             "/clear" -> handleClearCommand()
             "/pass" -> handlePassCommand(parts, myPeerID)
             "/block" -> handleBlockCommand(parts, meshService)
             "/unblock" -> handleUnblockCommand(parts, meshService)
-            "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage)
-            "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage)
+            "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage, viewModel)
+            "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage, viewModel)
             "/channels" -> handleChannelsCommand()
             else -> handleUnknownCommand(cmd)
         }
@@ -77,7 +77,7 @@ class CommandProcessor(
         }
     }
     
-    private fun handleMessageCommand(parts: List<String>, meshService: BluetoothMeshService) {
+    private fun handleMessageCommand(parts: List<String>, meshService: MeshService, viewModel: ChatViewModel?) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
             val peerID = getPeerIDForNickname(targetName, meshService)
@@ -96,8 +96,7 @@ class CommandProcessor(
                             state.getNicknameValue(),
                             getMyPeerID(meshService)
                         ) { content, peerIdParam, recipientNicknameParam, messageId ->
-                            // This would trigger the actual mesh service send
-                            sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId)
+                            sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId, viewModel)
                         }
                     } else {
                         val systemMessage = BitchatMessage(
@@ -129,7 +128,7 @@ class CommandProcessor(
         }
     }
     
-    private fun handleWhoCommand(meshService: BluetoothMeshService, viewModel: ChatViewModel? = null) {
+    private fun handleWhoCommand(meshService: MeshService, viewModel: ChatViewModel? = null) {
         // Channel-aware who command (matches iOS behavior)
         val (peerList, contextDescription) = if (viewModel != null) {
             when (val selectedChannel = viewModel.selectedLocationChannel.value) {
@@ -248,7 +247,7 @@ class CommandProcessor(
         }
     }
     
-    private fun handleBlockCommand(parts: List<String>, meshService: BluetoothMeshService) {
+    private fun handleBlockCommand(parts: List<String>, meshService: MeshService) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
             privateChatManager.blockPeerByNickname(targetName, meshService)
@@ -265,7 +264,7 @@ class CommandProcessor(
         }
     }
     
-    private fun handleUnblockCommand(parts: List<String>, meshService: BluetoothMeshService) {
+    private fun handleUnblockCommand(parts: List<String>, meshService: MeshService) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
             privateChatManager.unblockPeerByNickname(targetName, meshService)
@@ -284,9 +283,10 @@ class CommandProcessor(
         parts: List<String>, 
         verb: String, 
         object_: String, 
-        meshService: BluetoothMeshService,
+        meshService: MeshService,
         myPeerID: String,
-        onSendMessage: (String, List<String>, String?) -> Unit
+        onSendMessage: (String, List<String>, String?) -> Unit,
+        viewModel: ChatViewModel?
     ) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
@@ -306,7 +306,7 @@ class CommandProcessor(
                     state.getNicknameValue(),
                     myPeerID
                 ) { content, peerIdParam, recipientNicknameParam, messageId ->
-                    sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId)
+                    sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId, viewModel)
                 }
             } else if (isInLocationChannel) {
                 // Let the transport layer add the echo; just send it out
@@ -423,7 +423,7 @@ class CommandProcessor(
     
     // MARK: - Mention Autocomplete
     
-    fun updateMentionSuggestions(input: String, meshService: BluetoothMeshService, viewModel: ChatViewModel? = null) {
+    fun updateMentionSuggestions(input: String, meshService: MeshService, viewModel: ChatViewModel? = null) {
         // Check if input contains @ and we're at the end of a word or at the end of input
         val atIndex = input.lastIndexOf('@')
         if (atIndex == -1) {
@@ -503,19 +503,33 @@ class CommandProcessor(
     
     // MARK: - Utility Functions
     
-    private fun getPeerIDForNickname(nickname: String, meshService: BluetoothMeshService): String? {
+    private fun getPeerIDForNickname(nickname: String, meshService: MeshService): String? {
         return meshService.getPeerNicknames().entries.find { it.value == nickname }?.key
     }
     
-    private fun getPeerNickname(peerID: String, meshService: BluetoothMeshService): String {
-        return meshService.getPeerNicknames()[peerID] ?: peerID
+    private fun getPeerNickname(peerID: String, meshService: MeshService): String {
+        return meshService.getPeerNicknames()[peerID]
+            ?: peerID
     }
     
-    private fun getMyPeerID(meshService: BluetoothMeshService): String {
+    private fun getMyPeerID(meshService: MeshService): String {
         return meshService.myPeerID
     }
     
-    private fun sendPrivateMessageVia(meshService: BluetoothMeshService, content: String, peerID: String, recipientNickname: String, messageId: String) {
-        meshService.sendPrivateMessage(content, peerID, recipientNickname, messageId)
+    private fun sendPrivateMessageVia(
+        meshService: MeshService,
+        content: String,
+        peerID: String,
+        recipientNickname: String,
+        messageId: String,
+        viewModel: ChatViewModel?
+    ) {
+        if (viewModel != null) {
+            com.bitchat.android.services.MessageRouter
+                .getInstance(viewModel.getApplication(), meshService)
+                .sendPrivate(content, peerID, recipientNickname, messageId)
+        } else {
+            meshService.sendPrivateMessage(content, peerID, recipientNickname, messageId)
+        }
     }
 }

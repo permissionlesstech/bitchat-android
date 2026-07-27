@@ -23,6 +23,42 @@ class PermissionManager(private val context: Context) {
 
     private val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    private fun shouldRequireWifiAwarePermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+        val enabled = try {
+            com.bitchat.android.ui.debug.DebugPreferenceManager.getWifiAwareEnabled(false)
+        } catch (_: Exception) {
+            false
+        }
+        if (!enabled) return false
+
+        return try {
+            com.bitchat.android.wifiaware.WifiAwareSupport.isSupported(context)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Runtime permissions for the Wi‑Fi Aware transport, version-gated because neither exists
+     * at minSdk 26 — requesting an unknown permission comes back permanently denied.
+     *
+     * ACCESS_LOCAL_NETWORK is defensive: Android 17 gates local network access, and the
+     * transport reaches peers over link-local IPv6 sockets. It is granted separately from
+     * NEARBY_WIFI_DEVICES but shares its permission group, so the two prompt only once.
+     */
+    fun wifiAwarePermissions(): List<String> {
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
+        // API 37 == Android 17; no named VERSION_CODES constant is available yet.
+        if (Build.VERSION.SDK_INT >= 37) {
+            permissions.add(Manifest.permission.ACCESS_LOCAL_NETWORK)
+        }
+        return permissions
+    }
+
     /**
      * Check if this is the first time the user is launching the app
      */
@@ -68,6 +104,11 @@ class PermissionManager(private val context: Context) {
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION
         ))
+
+        // Wi‑Fi Aware: Android 13+ requires NEARBY_WIFI_DEVICES runtime permission
+        if (shouldRequireWifiAwarePermission()) {
+            permissions.addAll(wifiAwarePermissions())
+        }
 
         // Notification permission intentionally excluded to keep it optional
 
@@ -209,6 +250,20 @@ class PermissionManager(private val context: Context) {
             )
         )
 
+        // Wi‑Fi Aware category (Android 13+)
+        if (shouldRequireWifiAwarePermission()) {
+            val wifiAwarePermissions = wifiAwarePermissions()
+            categories.add(
+                PermissionCategory(
+                    type = PermissionType.WIFI_AWARE,
+                    description = "Enable Wi‑Fi Aware to discover and connect to nearby bitchat users over Wi‑Fi.",
+                    permissions = wifiAwarePermissions,
+                    isGranted = wifiAwarePermissions.all { isPermissionGranted(it) },
+                    systemDescription = "Allow bitchat to discover nearby Wi‑Fi devices"
+                )
+            )
+        }
+
         if (needsBackgroundLocationPermission()) {
             val backgroundPermission = listOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
             categories.add(
@@ -308,6 +363,7 @@ enum class PermissionType(val nameValue: String) {
     BACKGROUND_LOCATION("Background Location"),
     MICROPHONE("Microphone"),
     NOTIFICATIONS("Notifications"),
+    WIFI_AWARE("Wi‑Fi Aware"),
     BATTERY_OPTIMIZATION("Battery Optimization"),
     OTHER("Other")
 }

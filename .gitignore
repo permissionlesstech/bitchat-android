@@ -63,3 +63,6 @@ google-services.json
 # Arti build artifacts (cloned repo and Rust build cache)
 tools/arti-build/.arti-source/
 tools/arti-build/target/
+
+# Generated from the pinned iris-chat-rs source submodule.
+app/src/main/jniLibs/*/libndr_ffi.so

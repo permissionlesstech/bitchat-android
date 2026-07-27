@@ -2,6 +2,7 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -131,8 +132,7 @@ object NostrIdentityBridge {
      * Uses HMAC-SHA256(deviceSeed, geohash) as private key material with fallback rehashing
      * if the candidate is not a valid secp256k1 private key.
      * 
-     * Direct port from iOS implementation for 100% compatibility
-     * OPTIMIZED: Cached for UI responsiveness
+     * Cached for UI responsiveness.
      */
     fun deriveIdentity(forGeohash: String, context: Context): NostrIdentity {
         // Check cache first for immediate response
@@ -188,12 +188,8 @@ object NostrIdentityBridge {
      * Associate a Nostr identity with a Noise public key (for favorites)
      */
     fun associateNostrIdentity(nostrPubkey: String, noisePublicKey: ByteArray, context: Context) {
-        val stateManager = SecureIdentityStateManager(context)
-        
-        // We'll use the existing signing key storage mechanism for associations
-        // For now, we'll store this as a preference since it's just for favorites mapping
-        // In a full implementation, you'd want a proper association storage system
-        
+        FavoritesPersistenceService.initialize(context)
+        FavoritesPersistenceService.shared.updateNostrPublicKey(noisePublicKey, nostrPubkey)
         Log.d(TAG, "Associated Nostr pubkey ${nostrPubkey.take(16)}... with Noise key")
     }
     
@@ -201,9 +197,8 @@ object NostrIdentityBridge {
      * Get Nostr public key associated with a Noise public key
      */
     fun getNostrPublicKey(noisePublicKey: ByteArray, context: Context): String? {
-        // This would need proper implementation based on your favorites storage system
-        // For now, return null as we don't have the full association system
-        return null
+        FavoritesPersistenceService.initialize(context)
+        return FavoritesPersistenceService.shared.findNostrPubkey(noisePublicKey)
     }
     
     /**

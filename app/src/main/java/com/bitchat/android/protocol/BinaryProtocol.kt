@@ -36,7 +36,7 @@ object SpecialRecipients {
 /**
  * Binary packet format - 100% backward compatible with iOS version
  *
- * Header (13 bytes for v1, 15 bytes for v2):
+ * Header (14 bytes for v1, 16 bytes for v2):
  * - Version: 1 byte
  * - Type: 1 byte
  * - TTL: 1 byte
@@ -79,8 +79,8 @@ data class BitchatPacket(
         ttl = ttl
     )
 
-    fun toBinaryData(): ByteArray? {
-        return BinaryProtocol.encode(this)
+    fun toBinaryData(padding: Boolean = true): ByteArray? {
+        return BinaryProtocol.encode(this, padding = padding)
     }
 
     /**
@@ -178,8 +178,8 @@ data class BitchatPacket(
  * Binary Protocol implementation - supports v1 and v2, backward compatible
  */
 object BinaryProtocol {
-    private const val HEADER_SIZE_V1 = 13
-    private const val HEADER_SIZE_V2 = 15
+    private const val HEADER_SIZE_V1 = 14
+    private const val HEADER_SIZE_V2 = 16
     private const val SENDER_ID_SIZE = 8
     private const val RECIPIENT_ID_SIZE = 8
     private const val SIGNATURE_SIZE = 64
@@ -198,7 +198,7 @@ object BinaryProtocol {
         }
     }
     
-    fun encode(packet: BitchatPacket): ByteArray? {
+    fun encode(packet: BitchatPacket, padding: Boolean = true): ByteArray? {
         try {
             // Try to compress payload if beneficial
             var payload = packet.payload
@@ -255,6 +255,10 @@ object BinaryProtocol {
             if (packet.version >= 2u.toUByte()) {
                 buffer.putInt(payloadDataSize)  // 4 bytes for v2+
             } else {
+                if (payloadDataSize > 0xFFFF || (originalPayloadSize ?: 0) > 0xFFFF) {
+                    Log.w("BinaryProtocol", "Cannot encode oversized v1 packet payload: $payloadDataSize bytes")
+                    return null
+                }
                 buffer.putShort(payloadDataSize.toShort())  // 2 bytes for v1
             }
             
@@ -306,11 +310,13 @@ object BinaryProtocol {
             buffer.rewind()
             buffer.get(result)
             
-            // Apply padding to standard block sizes for traffic analysis resistance
-            val optimalSize = MessagePadding.optimalBlockSize(result.size)
-            val paddedData = MessagePadding.pad(result, optimalSize)
+            // Apply padding if requested (iOS-compatible: selective padding for privacy)
+            if (padding) {
+                val optimalSize = MessagePadding.optimalBlockSize(result.size)
+                return MessagePadding.pad(result, optimalSize)
+            }
             
-            return paddedData
+            return result
             
         } catch (e: Exception) {
             Log.e("BinaryProtocol", "Error encoding packet type ${packet.type}: ${e.message}")

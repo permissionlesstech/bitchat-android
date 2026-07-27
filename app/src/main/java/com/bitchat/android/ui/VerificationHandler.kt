@@ -4,7 +4,7 @@ import android.content.Context
 import com.bitchat.android.R
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.nostr.GeohashAliasRegistry
@@ -26,14 +26,14 @@ import java.util.concurrent.ConcurrentHashMap
 class VerificationHandler(
     private val context: Context,
     private val scope: CoroutineScope,
-    private val getMeshService: () -> BluetoothMeshService,
+    private val getMeshService: () -> MeshService,
     private val identityManager: SecureIdentityStateManager,
     private val state: ChatState,
     private val notificationManager: NotificationManager,
     private val messageManager: MessageManager
 ) {
     // Helper to get current mesh service (may change after panic clear)
-    private val meshService: BluetoothMeshService
+    private val meshService: MeshService
         get() = getMeshService()
 
     private val _verifiedFingerprints = MutableStateFlow<Set<String>>(emptySet())

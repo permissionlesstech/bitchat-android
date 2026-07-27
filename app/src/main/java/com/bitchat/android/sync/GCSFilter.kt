@@ -43,21 +43,29 @@ object GCSFilter {
         targetFpr: Double
     ): Params {
         val p = deriveP(targetFpr)
-        var nCap = estimateMaxElementsForSize(maxBytes, p)
-        val n = ids.size.coerceAtMost(nCap)
-        val selected = ids.take(n)
-        // Map to [0, M)
-        val m = (n.toLong() shl p)
-        val mapped = selected.map { id -> (h64(id) % m) }.sorted()
+        val nCap = estimateMaxElementsForSize(maxBytes, p)
+        var trimmedN = ids.size.coerceAtMost(nCap)
+
+        var finalM = (trimmedN.toLong() shl p).coerceAtLeast(1L)
+        var selected = ids.take(trimmedN)
+        var mapped = selected.map { id ->
+            val v = h64(id) % finalM
+            if (v == 0L) 1L else v
+        }.distinct().sorted()
         var encoded = encode(mapped, p)
+
         // If estimate was too optimistic, trim until it fits
-        var trimmedN = n
         while (encoded.size > maxBytes && trimmedN > 0) {
             trimmedN = (trimmedN * 9) / 10 // drop 10%
-            val mapped2 = mapped.take(trimmedN)
-            encoded = encode(mapped2, p)
+            finalM = (trimmedN.toLong() shl p).coerceAtLeast(1L)
+            selected = ids.take(trimmedN)
+            mapped = selected.map { id ->
+                val v = h64(id) % finalM
+                if (v == 0L) 1L else v
+            }.distinct().sorted()
+            encoded = encode(mapped, p)
         }
-        val finalM = (trimmedN.toLong() shl p)
+
         return Params(p = p, m = finalM, data = encoded)
     }
 
@@ -96,7 +104,7 @@ object GCSFilter {
         return false
     }
 
-    private fun h64(id16: ByteArray): Long {
+    internal fun h64(id16: ByteArray): Long {
         val md = MessageDigest.getInstance("SHA-256")
         md.update(id16)
         val d = md.digest()

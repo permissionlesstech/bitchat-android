@@ -362,6 +362,7 @@
   <string name="location_notes_empty_desc">इस स्थान के लिए पहला नोट जोड़ें।</string>
   <string name="dismiss">बंद करें</string>
   <string name="location_notes_input_placeholder">इस स्थान के लिए एक नोट जोड़ें</string>
+    <string name="bluetooth_recommended">ब्लूटूथ अनुशंसित</string>
     <string name="mesh_service_notification_content">मेश चल रहा है — %1$d पीयर्स</string>
 
   <string name="verify_title">verify</string>
@@ -399,4 +400,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">परिचय खोलें</string>
+  <string name="nearby_notes_reveal">देखें कि यहाँ नोट छोड़े गए हैं या नहीं</string>
+  <string name="nearby_notes_one">यहाँ 1 नोट छोड़ा गया है — पढ़ने के लिए टैप करें</string>
+  <string name="nearby_notes_many">यहाँ %d नोट छोड़े गए हैं — पढ़ने के लिए टैप करें</string>
 </resources>

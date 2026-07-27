@@ -17,6 +17,13 @@
 -keep class com.bitchat.android.nostr.** { *; }
 -keep class com.bitchat.android.identity.** { *; }
 
+# UniFFI's JNA backend resolves exported functions and Structure fields by
+# their generated JVM names at runtime. Preserve both sides of that reflective
+# boundary in minified release builds.
+-keep class uniffi.ndr_ffi.** { *; }
+-keep class com.sun.jna.** { *; }
+-dontwarn com.sun.jna.**
+
 # Keep Tor implementation (always included)
 -keep class com.bitchat.android.net.RealTorProvider { *; }
 

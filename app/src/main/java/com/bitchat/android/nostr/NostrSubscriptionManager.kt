@@ -27,9 +27,18 @@ class NostrSubscriptionManager(
         }
     }
 
-    fun subscribeGeohash(geohash: String, sinceMs: Long, limit: Int, id: String, handler: (NostrEvent) -> Unit) {
+    /** Subscribe to geohash chat messages only (kind 20000) — low-volume, kept alive in background. */
+    fun subscribeGeohashMessages(geohash: String, sinceMs: Long, limit: Int, id: String, handler: (NostrEvent) -> Unit) {
         scope.launch {
-            val filter = NostrFilter.geohashEphemeral(geohash, sinceMs, limit)
+            val filter = NostrFilter.geohashMessages(geohash, sinceMs, limit)
+            relayManager.subscribeForGeohash(geohash, filter, id, handler, includeDefaults = false, nRelays = 5)
+        }
+    }
+
+    /** Subscribe to geohash presence heartbeats only (kind 20001) — high-volume, paused in background. */
+    fun subscribeGeohashPresence(geohash: String, sinceMs: Long, limit: Int, id: String, handler: (NostrEvent) -> Unit) {
+        scope.launch {
+            val filter = NostrFilter.geohashPresence(geohash, sinceMs, limit)
             relayManager.subscribeForGeohash(geohash, filter, id, handler, includeDefaults = false, nRelays = 5)
         }
     }

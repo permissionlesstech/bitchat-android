@@ -264,7 +264,6 @@
     <string name="grant_permissions">İzin ver</string>
     <string name="location_tracking_warning">bitchat konumunu takip etmez</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">KİŞİLER</string>
     <string name="nobody_around">yakında kimse yok…</string>
@@ -350,6 +349,7 @@
   <string name="location_notes_empty_desc">bu yer için ilk notu ekleyen siz olun.</string>
   <string name="dismiss">kapat</string>
   <string name="location_notes_input_placeholder">bu yer için bir not ekleyin</string>
+    <string name="bluetooth_recommended">Bluetooth Önerilir</string>
     <string name="mesh_service_notification_content">Mesh çalışıyor — %1$d eş</string>
 
   <string name="verify_title">verify</string>
@@ -387,4 +387,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Hakkında’yı aç</string>
+  <string name="nearby_notes_reveal">buraya bırakılan notlara bak</string>
+  <string name="nearby_notes_one">buraya 1 not bırakıldı — okumak için dokun</string>
+  <string name="nearby_notes_many">buraya %d not bırakıldı — okumak için dokun</string>
 </resources>
