@@ -56,19 +56,39 @@ class BoardStoreTest {
     }
 
     @Test
-    fun `only author tombstone deletes known post`() {
+    fun `foreign tombstone does not delete known post`() {
         val store = BoardStore(nowMs = { now })
         val post = signedPost()
         assertEquals(BoardIngestResult.ACCEPTED, store.ingestPost(post))
 
         val forged = signedTombstone(post, attacker)
-        assertEquals(BoardIngestResult.REJECTED, store.ingestTombstone(forged))
+        assertEquals(BoardIngestResult.ACCEPTED, store.ingestTombstone(forged))
         assertEquals(1, store.posts("").size)
 
         val valid = signedTombstone(post, author, deletedAt = now + 1uL)
         assertEquals(BoardIngestResult.ACCEPTED, store.ingestTombstone(valid))
         assertTrue(store.posts("").isEmpty())
-        assertEquals(1, store.syncCandidates().size)
+        assertEquals(2, store.syncCandidates().size)
+    }
+
+    @Test
+    fun `post id collision cannot suppress another author's post or deletion`() {
+        val store = BoardStore(nowMs = { now })
+        val genuine = signedPost()
+        val collision = signedPost(key = attacker)
+
+        assertEquals(BoardIngestResult.ACCEPTED, store.ingestPost(collision))
+        assertEquals(BoardIngestResult.ACCEPTED, store.ingestPost(genuine))
+        assertEquals(2, store.posts("").size)
+
+        assertEquals(
+            BoardIngestResult.ACCEPTED,
+            store.ingestTombstone(signedTombstone(genuine, author))
+        )
+
+        val remaining = store.posts("")
+        assertEquals(1, remaining.size)
+        assertTrue(remaining.single().authorSigningKey.contentEquals(attacker.publicKey))
     }
 
     @Test
@@ -164,7 +184,8 @@ class BoardStoreTest {
         idByte: Byte = 1,
         geohash: String = "",
         createdAt: ULong = now,
-        expiresAt: ULong = now + 86_400_000uL
+        expiresAt: ULong = now + 86_400_000uL,
+        key: Key = author
     ): BoardPostPacket {
         val postID = ByteArray(16).also { it[0] = idByte }
         val content = "notice-$idByte"
@@ -172,7 +193,7 @@ class BoardStoreTest {
             postID,
             geohash,
             content,
-            author.publicKey,
+            key.publicKey,
             "alice",
             createdAt,
             expiresAt,
@@ -182,12 +203,12 @@ class BoardStoreTest {
             postID,
             geohash,
             content,
-            author.publicKey,
+            key.publicKey,
             "alice",
             createdAt,
             expiresAt,
             0u,
-            author.sign(signingBytes)
+            key.sign(signingBytes)
         )
     }
 

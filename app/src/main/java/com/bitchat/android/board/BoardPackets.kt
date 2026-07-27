@@ -6,11 +6,13 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.CodingErrorAction
+import java.security.MessageDigest
 
 object BoardWireConstants {
     const val POST_ID_LENGTH = 16
     const val SIGNING_KEY_LENGTH = 32
     const val SIGNATURE_LENGTH = 64
+    const val TRANSPORT_SENDER_ID_LENGTH = 8
     const val CONTENT_MAX_BYTES = 512
     const val NICKNAME_MAX_BYTES = 64
     const val GEOHASH_MAX_LENGTH = 12
@@ -143,6 +145,21 @@ sealed interface BoardWire {
         is Post -> packet.verifySignature()
         is Tombstone -> packet.verifySignature()
     }
+}
+
+/**
+ * Board payloads authenticate their embedded author key, so their outer mesh
+ * sender must not expose the device's stable peer ID. The pseudonym remains
+ * stable only for one board signing identity.
+ */
+fun BoardWire.transportSenderID(): ByteArray {
+    val authorKey = when (this) {
+        is BoardWire.Post -> packet.authorSigningKey
+        is BoardWire.Tombstone -> packet.authorSigningKey
+    }
+    return MessageDigest.getInstance("SHA-256")
+        .digest(authorKey)
+        .copyOf(BoardWireConstants.TRANSPORT_SENDER_ID_LENGTH)
 }
 
 object BoardWireCodec {

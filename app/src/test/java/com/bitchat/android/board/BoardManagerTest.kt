@@ -17,6 +17,7 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -25,6 +26,7 @@ import java.security.SecureRandom
 class BoardManagerTest {
     private val privateKey = Ed25519PrivateKeyParameters(ByteArray(32) { it.toByte() }, 0)
     private val publicKey = privateKey.generatePublicKey().encoded
+    private val geoIdentity = BoardSigningIdentity.fromEd25519Seed(ByteArray(32) { (it + 64).toByte() })
 
     @Test
     fun `create and delete emit iOS-compatible signed wire payloads`() = runTest {
@@ -38,6 +40,7 @@ class BoardManagerTest {
             store = BoardStore(nowMs = { NOW }),
             scope = backgroundScope,
             meshProvider = { mesh },
+            geoIdentityProvider = { geoIdentity },
             notesManager = notes,
             nowMs = { NOW },
             random = SecureRandom(byteArrayOf(7))
@@ -58,14 +61,50 @@ class BoardManagerTest {
         assertEquals("water at gate two", post.content)
         assertEquals("u33dc", post.geohash)
         assertEquals(NOW + 3uL * DAY_MS, post.expiresAt)
+        assertTrue(geoIdentity.publicKey.contentEquals(post.authorSigningKey))
         assertTrue(post.verifySignature())
+        verify(mesh, never()).signData(any())
 
-        assertTrue(manager.deletePost(post))
+        val reloadedManager = BoardManager(
+            store = BoardStore(nowMs = { NOW }),
+            scope = backgroundScope,
+            meshProvider = { mesh },
+            geoIdentityProvider = { geoIdentity },
+            notesManager = notes,
+            nowMs = { NOW }
+        )
+        assertTrue(reloadedManager.deletePost(post))
         verify(mesh, times(2)).sendBoardPayload(payloads.capture())
         val tombstone =
             (BoardWireCodec.decode(payloads.allValues.last()) as BoardWire.Tombstone).packet
         assertTrue(tombstone.postID.contentEquals(post.postID))
         assertTrue(tombstone.verifySignature())
+    }
+
+    @Test
+    fun `mesh board keeps the established mesh signing identity`() = runTest {
+        val mesh = mock<MeshService>()
+        whenever(mesh.getSigningPublicKey()).thenReturn(publicKey)
+        whenever(mesh.signData(any())).thenAnswer { invocation ->
+            sign(invocation.getArgument(0))
+        }
+        val manager = BoardManager(
+            store = BoardStore(nowMs = { NOW }),
+            scope = backgroundScope,
+            meshProvider = { mesh },
+            geoIdentityProvider = { geoIdentity },
+            notesManager = mock(),
+            nowMs = { NOW }
+        )
+
+        assertTrue(manager.createPost("mesh notice", "", "alice", false, 1))
+
+        val payload = argumentCaptor<ByteArray>()
+        verify(mesh).sendBoardPayload(payload.capture())
+        val post = (BoardWireCodec.decode(payload.firstValue) as BoardWire.Post).packet
+        assertTrue(publicKey.contentEquals(post.authorSigningKey))
+        assertTrue(post.verifySignature())
+        verify(mesh).signData(any())
     }
 
     @Test

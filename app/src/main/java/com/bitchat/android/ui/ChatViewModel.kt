@@ -32,6 +32,7 @@ import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
 import com.bitchat.android.board.BoardManager
+import com.bitchat.android.board.BoardSigningIdentity
 import com.bitchat.android.board.BoardStore
 
 /**
@@ -117,6 +118,16 @@ class ChatViewModel(
         store = BoardStore.getInstance(application.applicationContext),
         scope = viewModelScope,
         meshProvider = { mesh },
+        geoIdentityProvider = { geohash ->
+            runCatching {
+                NostrIdentityBridge.deriveIdentity(
+                    forGeohash = geohash,
+                    context = application.applicationContext
+                )
+            }.getOrNull()?.let { identity ->
+                BoardSigningIdentity.fromNostrPrivateKeyHex(identity.privateKeyHex)
+            }
+        },
         onUrgentPosts = { geohash, posts ->
             val text = if (posts.size == 1) {
                 val post = posts.single()

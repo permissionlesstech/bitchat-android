@@ -37,7 +37,7 @@ object UnifiedNotices {
         val scopedPosts = boardPosts.filter { it.geohash == normalized }
         val boardNotices = scopedPosts.map { post ->
             UnifiedNotice(
-                id = "mesh:${post.postID.toHex()}",
+                id = "mesh:${post.authorSigningKey.toHex()}:${post.postID.toHex()}",
                 content = post.content,
                 nickname = post.authorNickname,
                 createdAtMs = post.createdAt.coerceAtMost(Long.MAX_VALUE.toULong()).toLong(),

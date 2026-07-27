@@ -19,6 +19,7 @@ class BoardManager(
     private val store: BoardStore,
     private val scope: CoroutineScope,
     private val meshProvider: () -> MeshService,
+    private val geoIdentityProvider: (String) -> BoardSigningIdentity? = { null },
     private val notesManager: LocationNotesManager = LocationNotesManager.getInstance(),
     private val nowMs: () -> ULong = { System.currentTimeMillis().coerceAtLeast(0).toULong() },
     private val random: SecureRandom = SecureRandom(),
@@ -44,7 +45,9 @@ class BoardManager(
     fun posts(geohash: String): List<BoardPostPacket> = store.posts(geohash.lowercase())
 
     fun isOwnPost(post: BoardPostPacket): Boolean =
-        meshProvider().getSigningPublicKey()?.contentEquals(post.authorSigningKey) == true
+        signingIdentityFor(post.geohash)
+            ?.publicKey
+            ?.contentEquals(post.authorSigningKey) == true
 
     fun createPost(
         content: String,
@@ -64,9 +67,8 @@ class BoardManager(
         }
 
         val mesh = meshProvider()
-        val signingKey = mesh.getSigningPublicKey()
-            ?.takeIf { it.size == BoardWireConstants.SIGNING_KEY_LENGTH }
-            ?: return false
+        val identity = signingIdentityFor(normalizedGeohash) ?: return false
+        val signingKey = identity.publicKey.copyOf()
         val postID = ByteArray(BoardWireConstants.POST_ID_LENGTH).also(random::nextBytes)
         val createdAt = nowMs()
         val expiresAt = createdAt + expiryDays.toULong() * DAY_MS
@@ -82,7 +84,7 @@ class BoardManager(
             expiresAt = expiresAt,
             flags = flags
         )
-        val signature = mesh.signData(signingBytes)
+        val signature = identity.sign(signingBytes)
             ?.takeIf { it.size == BoardWireConstants.SIGNATURE_LENGTH }
             ?: return false
         val post = BoardPostPacket(
@@ -107,7 +109,7 @@ class BoardManager(
                 urgent = urgent
             ) { eventID ->
                 synchronized(bridgedEventIDs) {
-                    bridgedEventIDs[postID.toHex()] = eventID
+                    bridgedEventIDs[post.identityKey()] = eventID
                 }
             }
         }
@@ -115,9 +117,11 @@ class BoardManager(
     }
 
     fun deletePost(post: BoardPostPacket): Boolean {
-        if (!isOwnPost(post)) return false
+        val identity = signingIdentityFor(post.geohash)
+            ?.takeIf { it.publicKey.contentEquals(post.authorSigningKey) }
+            ?: return false
         val deletedAt = nowMs()
-        val signature = meshProvider().signData(
+        val signature = identity.sign(
             BoardTombstonePacket.signingBytes(post.postID, deletedAt)
         )?.takeIf { it.size == BoardWireConstants.SIGNATURE_LENGTH } ?: return false
         val tombstone = BoardTombstonePacket(
@@ -130,7 +134,7 @@ class BoardManager(
 
         if (post.geohash.isNotEmpty()) {
             val eventID = synchronized(bridgedEventIDs) {
-                bridgedEventIDs.remove(post.postID.toHex())
+                bridgedEventIDs.remove(post.identityKey())
             }
             if (eventID != null) notesManager.deleteEvent(eventID, post.geohash)
         }
@@ -152,8 +156,7 @@ class BoardManager(
     }
 
     private fun handleArrival(post: BoardPostPacket) {
-        val postID = post.postID.toHex()
-        if (!handledPostIDs.add(postID) || isOwnPost(post)) return
+        if (!handledPostIDs.add(post.identityKey()) || isOwnPost(post)) return
         _unseenScopes.value = _unseenScopes.value + post.geohash
         val age = nowMs().toLong() -
             post.createdAt.coerceAtMost(Long.MAX_VALUE.toULong()).toLong()
@@ -185,6 +188,21 @@ class BoardManager(
     }
 
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
+
+    private fun BoardPostPacket.identityKey(): String =
+        "${authorSigningKey.toHex()}:${postID.toHex()}"
+
+    private fun signingIdentityFor(geohash: String): BoardSigningIdentity? {
+        if (geohash.isNotEmpty()) {
+            // Never fall back to the stable mesh identity for a location scope.
+            return runCatching { geoIdentityProvider(geohash) }.getOrNull()
+        }
+        val mesh = meshProvider()
+        val publicKey = mesh.getSigningPublicKey()
+            ?.takeIf { it.size == BoardWireConstants.SIGNING_KEY_LENGTH }
+            ?: return null
+        return BoardSigningIdentity(publicKey, mesh::signData)
+    }
 
     private companion object {
         const val DAY_MS: ULong = 86_400_000uL

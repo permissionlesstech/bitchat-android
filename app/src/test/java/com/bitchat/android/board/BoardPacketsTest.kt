@@ -119,6 +119,41 @@ class BoardPacketsTest {
         assertTrue(post.verifySignature())
     }
 
+    @Test
+    fun `transport sender is scoped to embedded author identity`() {
+        val wire = BoardWire.Post(signedPost())
+        val sameAuthor = BoardWire.Post(signedPost(content = "another notice"))
+        val otherIdentity = BoardSigningIdentity.fromEd25519Seed(ByteArray(32) { (it + 7).toByte() })
+        val otherPost = BoardPostPacket(
+            postID = ByteArray(16) { 9 },
+            geohash = "u33dc1",
+            content = "other author",
+            authorSigningKey = otherIdentity.publicKey,
+            authorNickname = "bob",
+            createdAt = 1_700_000_000_000uL,
+            expiresAt = 1_700_086_400_000uL,
+            flags = 0u,
+            signature = ByteArray(64)
+        )
+
+        assertEquals(BoardWireConstants.TRANSPORT_SENDER_ID_LENGTH, wire.transportSenderID().size)
+        assertArrayEquals(wire.transportSenderID(), sameAuthor.transportSenderID())
+        assertFalse(wire.transportSenderID().contentEquals(BoardWire.Post(otherPost).transportSenderID()))
+    }
+
+    @Test
+    fun `geo board identity is deterministic and domain separated from Nostr key`() {
+        val nostrSecret = ByteArray(32) { (it + 11).toByte() }
+        val secretHex = nostrSecret.joinToString("") { "%02x".format(it) }
+        val first = BoardSigningIdentity.fromNostrPrivateKeyHex(secretHex)!!
+        val second = BoardSigningIdentity.fromNostrPrivateKeyHex(secretHex)!!
+
+        assertArrayEquals(first.publicKey, second.publicKey)
+        assertFalse(first.publicKey.contentEquals(nostrSecret))
+        val message = "ios-compatible-board-payload".toByteArray()
+        assertTrue(BoardWireCodec.verify(first.sign(message)!!, message, first.publicKey))
+    }
+
     private fun signedPost(
         postID: ByteArray = ByteArray(16) { (it + 1).toByte() },
         geohash: String = "u33dc1",

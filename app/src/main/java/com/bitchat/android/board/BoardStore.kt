@@ -189,7 +189,11 @@ class BoardStore(
         ) {
             return BoardIngestResult.REJECTED
         }
-        if (posts.any { it.post.postID.contentEquals(post.postID) }) {
+        if (posts.any {
+                it.post.postID.contentEquals(post.postID) &&
+                    it.post.authorSigningKey.contentEquals(post.authorSigningKey)
+            }
+        ) {
             return BoardIngestResult.DUPLICATE
         }
 
@@ -219,14 +223,14 @@ class BoardStore(
             now.saturatedAdd(Limits.ORPHAN_TOMBSTONE_LIFETIME_MS)
                 .saturatedAdd(Limits.CLOCK_SKEW_MS)
         )
-        val matchingPostIndex = posts.indexOfFirst { it.post.postID.contentEquals(tombstone.postID) }
+        val matchingPostIndex = posts.indexOfFirst {
+            it.post.postID.contentEquals(tombstone.postID) &&
+                it.post.authorSigningKey.contentEquals(tombstone.authorSigningKey)
+        }
         val retainUntil: ULong
         val isOrphan: Boolean
         if (matchingPostIndex >= 0) {
             val target = posts[matchingPostIndex].post
-            if (!target.authorSigningKey.contentEquals(tombstone.authorSigningKey)) {
-                return BoardIngestResult.REJECTED
-            }
             retainUntil = target.expiresAt
             isOrphan = false
             posts.removeAt(matchingPostIndex)
@@ -258,12 +262,10 @@ class BoardStore(
     }
 
     private fun evictOldestPostsLocked(candidates: List<StoredPost>, keep: Int) {
-        val victimIDs = candidates.sortedBy { it.post.createdAt }
+        val victims = candidates.sortedBy { it.post.createdAt }
             .take((candidates.size - keep).coerceAtLeast(0))
-            .map { it.post.postID.toHex() }
-            .toSet()
-        if (victimIDs.isNotEmpty()) {
-            posts.removeAll { it.post.postID.toHex() in victimIDs }
+        if (victims.isNotEmpty()) {
+            posts.removeAll { stored -> victims.any { it === stored } }
         }
     }
 
@@ -378,5 +380,3 @@ class BoardStore(
 
 private fun ULong.saturatedAdd(other: ULong): ULong =
     if (ULong.MAX_VALUE - this < other) ULong.MAX_VALUE else this + other
-
-private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }

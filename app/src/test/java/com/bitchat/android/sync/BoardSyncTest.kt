@@ -1,8 +1,11 @@
 package com.bitchat.android.sync
 
+import com.bitchat.android.model.IdentityAnnouncement
+import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,6 +15,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class BoardSyncTest {
     @Test
@@ -94,6 +99,39 @@ class BoardSyncTest {
 
         assertEquals(listOf(MessageType.BOARD_POST.value), sent.map { it.type })
         assertEquals(0u.toUByte(), sent.single().ttl)
+        scope.cancel()
+    }
+
+    @Test
+    fun `initial sync omits board for a legacy peer`() {
+        val requestedTypes = initialSyncTypes(
+            announcementCapabilities = null,
+            observeBoardRequest = false
+        )
+
+        assertTrue(requestedTypes.contains(MessageType.ANNOUNCE))
+        assertTrue(requestedTypes.contains(MessageType.MESSAGE))
+        assertFalse(requestedTypes.contains(MessageType.BOARD_POST))
+    }
+
+    @Test
+    fun `initial sync includes board for an advertising peer`() {
+        val requestedTypes = initialSyncTypes(
+            announcementCapabilities = PeerCapabilities.BOARD,
+            observeBoardRequest = false
+        )
+
+        assertTrue(requestedTypes.contains(MessageType.BOARD_POST))
+    }
+
+    @Test
+    fun `a board request opts current iOS peers into future board sync`() {
+        val requestedTypes = initialSyncTypes(
+            announcementCapabilities = null,
+            observeBoardRequest = true
+        )
+
+        assertTrue(requestedTypes.contains(MessageType.BOARD_POST))
     }
 
     private fun config() = object : GossipSyncManager.ConfigProvider {
@@ -109,4 +147,60 @@ class BoardSyncTest {
         payload = byteArrayOf(1, 2, 3),
         ttl = 7u
     )
+
+    private fun initialSyncTypes(
+        announcementCapabilities: PeerCapabilities?,
+        observeBoardRequest: Boolean
+    ): SyncTypeFlags {
+        val peerID = "1111111111111111"
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val manager = GossipSyncManager(
+            myPeerID = "0102030405060708",
+            scope = scope,
+            configProvider = config()
+        )
+        manager.boardPacketsProvider = { emptyList() }
+        manager.onPublicPacketSeen(
+            BitchatPacket(
+                type = MessageType.ANNOUNCE.value,
+                senderID = ByteArray(8) { 0x11 },
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = IdentityAnnouncement(
+                    nickname = "peer",
+                    noisePublicKey = ByteArray(32) { 1 },
+                    signingPublicKey = ByteArray(32) { 2 },
+                    capabilities = announcementCapabilities
+                ).encode()!!,
+                ttl = 7u
+            )
+        )
+        if (observeBoardRequest) {
+            manager.handleRequestSync(
+                fromPeerID = peerID,
+                request = RequestSyncPacket(
+                    p = 7,
+                    m = 1,
+                    data = ByteArray(0),
+                    types = SyncTypeFlags.BOARD
+                )
+            )
+        }
+
+        val latch = CountDownLatch(1)
+        var sent: BitchatPacket? = null
+        manager.delegate = object : GossipSyncManager.Delegate {
+            override fun sendPacket(packet: BitchatPacket) = Unit
+            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
+                sent = packet
+                latch.countDown()
+            }
+            override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket = packet
+        }
+        manager.scheduleInitialSyncToPeer(peerID, delayMs = 0)
+
+        assertTrue("initial sync was not sent", latch.await(2, TimeUnit.SECONDS))
+        val types = RequestSyncPacket.decode(requireNotNull(sent).payload)?.types
+        scope.cancel()
+        return requireNotNull(types)
+    }
 }

@@ -72,16 +72,27 @@ class UnifiedNoticesTest {
         assertFalse(result.last().urgent)
     }
 
+    @Test
+    fun `colliding post ids from different authors retain unique row ids`() {
+        val first = post(content = "first")
+        val second = post(content = "second", authorKeyByte = 2)
+
+        val result = UnifiedNotices.merge("u33dc", listOf(first, second), emptyList())
+
+        assertEquals(2, result.map { it.id }.distinct().size)
+    }
+
     private fun post(
         content: String,
         nickname: String = "alice",
         createdAt: ULong = baseMs,
-        urgent: Boolean = false
+        urgent: Boolean = false,
+        authorKeyByte: Byte = 1
     ) = BoardPostPacket(
-        postID = ByteArray(16) { content.hashCode().toByte() },
+        postID = ByteArray(16) { 7 },
         geohash = "u33dc",
         content = content,
-        authorSigningKey = ByteArray(32) { 1 },
+        authorSigningKey = ByteArray(32) { authorKeyByte },
         authorNickname = nickname,
         createdAt = createdAt,
         expiresAt = createdAt + 86_400_000uL,

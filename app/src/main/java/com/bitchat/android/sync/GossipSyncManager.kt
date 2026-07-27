@@ -1,7 +1,8 @@
 package com.bitchat.android.sync
 
 import android.util.Log
-import com.bitchat.android.mesh.BluetoothPacketBroadcaster
+import com.bitchat.android.model.IdentityAnnouncement
+import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
@@ -53,6 +54,8 @@ class GossipSyncManager(
     // - announcements: only keep latest per sender peerID
     private val latestAnnouncementByPeer = ConcurrentHashMap<String, Pair<String, BitchatPacket>>()
     private val responseTimesByPeer = ConcurrentHashMap<String, ArrayDeque<Long>>()
+    private val advertisedBoardPeers = ConcurrentHashMap.newKeySet<String>()
+    private val observedBoardSyncPeers = ConcurrentHashMap.newKeySet<String>()
 
     private var periodicJob: Job? = null
     private var boardPeriodicJob: Job? = null
@@ -74,7 +77,9 @@ class GossipSyncManager(
                 try {
                     delay(BOARD_SYNC_INTERVAL_MS)
                     if (boardPacketsProvider != null) {
-                        sendRequestSync(SyncTypeFlags.BOARD)
+                        boardSyncPeers().forEach { peerID ->
+                            sendRequestSyncToPeer(peerID, SyncTypeFlags.BOARD)
+                        }
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -106,19 +111,19 @@ class GossipSyncManager(
     fun scheduleInitialSync(delayMs: Long = 5_000L) {
         scope.launch(Dispatchers.IO) {
             delay(delayMs)
-            val types = if (boardPacketsProvider != null) {
-                SyncTypeFlags.PUBLIC_MESSAGES.union(SyncTypeFlags.BOARD)
-            } else {
-                SyncTypeFlags.PUBLIC_MESSAGES
+            sendRequestSync(SyncTypeFlags.PUBLIC_MESSAGES)
+            if (boardPacketsProvider != null) {
+                boardSyncPeers().forEach { peerID ->
+                    sendRequestSyncToPeer(peerID, SyncTypeFlags.BOARD)
+                }
             }
-            sendRequestSync(types)
         }
     }
 
     fun scheduleInitialSyncToPeer(peerID: String, delayMs: Long = 5_000L) {
         scope.launch(Dispatchers.IO) {
             delay(delayMs)
-            val types = if (boardPacketsProvider != null) {
+            val types = if (boardPacketsProvider != null && peerSupportsBoard(peerID)) {
                 SyncTypeFlags.PUBLIC_MESSAGES.union(SyncTypeFlags.BOARD)
             } else {
                 SyncTypeFlags.PUBLIC_MESSAGES
@@ -158,11 +163,26 @@ class GossipSyncManager(
             // senderID is fixed-size 8 bytes; map to hex string for key
             val sender = packet.senderID.joinToString("") { b -> "%02x".format(b) }
             latestAnnouncementByPeer[sender] = id to packet
+            val supportsBoard = IdentityAnnouncement.decode(packet.payload)
+                ?.capabilities
+                ?.contains(PeerCapabilities.BOARD) == true
+            if (supportsBoard) {
+                advertisedBoardPeers.add(sender)
+            } else {
+                advertisedBoardPeers.remove(sender)
+            }
             // Enforce capacity (remove oldest when exceeded)
             val cap = configProvider.seenCapacity().coerceAtLeast(1)
             while (latestAnnouncementByPeer.size > cap) {
                 val it = latestAnnouncementByPeer.entries.iterator()
-                if (it.hasNext()) { it.next(); it.remove() } else break
+                if (it.hasNext()) {
+                    val evictedPeer = it.next().key
+                    it.remove()
+                    advertisedBoardPeers.remove(evictedPeer)
+                    observedBoardSyncPeers.remove(evictedPeer)
+                } else {
+                    break
+                }
             }
         }
     }
@@ -200,11 +220,16 @@ class GossipSyncManager(
     }
 
     fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
+        val requestedTypes = request.types ?: SyncTypeFlags.PUBLIC_MESSAGES
+        if (requestedTypes.contains(MessageType.BOARD_POST)) {
+            // This is the compatibility signal used by iOS builds that
+            // understand board sync but do not yet advertise the BOARD bit.
+            observedBoardSyncPeers.add(fromPeerID.lowercase())
+        }
         if (!shouldRespondTo(fromPeerID)) {
             Log.w(TAG, "Rate-limited REQUEST_SYNC from ${fromPeerID.take(8)}")
             return
         }
-        val requestedTypes = request.types ?: SyncTypeFlags.PUBLIC_MESSAGES
         // Decode GCS into sorted set for membership checks
         val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
         fun mightContain(id: ByteArray): Boolean {
@@ -267,6 +292,14 @@ class GossipSyncManager(
             }
         }
     }
+
+    private fun peerSupportsBoard(peerID: String): Boolean {
+        val normalized = peerID.lowercase()
+        return normalized in advertisedBoardPeers || normalized in observedBoardSyncPeers
+    }
+
+    private fun boardSyncPeers(): List<String> =
+        latestAnnouncementByPeer.keys.filter(::peerSupportsBoard)
 
     private fun hexStringToByteArray(hexString: String): ByteArray {
         val result = ByteArray(8)
@@ -388,6 +421,8 @@ class GossipSyncManager(
     // Explicitly remove stored announcement for a given peer (hex ID)
     fun removeAnnouncementForPeer(peerID: String) {
         val key = peerID.lowercase()
+        advertisedBoardPeers.remove(key)
+        observedBoardSyncPeers.remove(key)
         if (latestAnnouncementByPeer.remove(key) != null) {
             Log.d(TAG, "Removed stored announcement for peer $peerID")
         }
