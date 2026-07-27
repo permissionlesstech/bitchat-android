@@ -178,8 +178,6 @@ class ChatViewModel(
         application = application,
         state = state,
         messageManager = messageManager,
-        privateChatManager = privateChatManager,
-        meshDelegateHandler = meshDelegateHandler,
         dataManager = dataManager,
         notificationManager = notificationManager
     )
@@ -445,6 +443,8 @@ class ChatViewModel(
     }
     
     override fun onCleared() {
+        geohashViewModel.shutdownUiSubscriptions()
+        com.bitchat.android.services.AppStateStore.setSelectedPrivateChatPeer(null)
         super.onCleared()
         // Note: Mesh service lifecycle is now managed by MainActivity
     }

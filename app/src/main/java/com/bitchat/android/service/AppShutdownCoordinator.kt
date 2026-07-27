@@ -56,6 +56,8 @@ object AppShutdownCoordinator {
 
             // Stop mesh (best-effort)
             try { mesh?.stopServices() } catch (_: Exception) { }
+            try { com.bitchat.android.nostr.NostrRelayManager.shared.disconnect() } catch (_: Exception) { }
+            try { com.bitchat.android.mesh.PowerManager.getInstance(app).shutdown() } catch (_: Exception) { }
 
             // Stop Tor temporarily (do not change user setting)
             val torProvider = ArtiTorManager.getInstance()
