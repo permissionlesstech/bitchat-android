@@ -5,6 +5,7 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.meshgraph.MeshGraphService
 import java.util.Date
+import java.util.Locale
 
 /**
  * Handles processing of IRC-style commands
@@ -412,6 +413,9 @@ class CommandProcessor(
         }
         val graph = MeshGraphService.getInstance()
         val route = graph.computeRoute(meshService.myPeerID, peerID)
+            ?: meshService.getPeerInfo(peerID)
+                ?.takeIf { it.isConnected && it.isDirectConnection }
+                ?.let { listOf(meshService.myPeerID, peerID) }
         if (route == null) {
             addCommandOutput("no known path to $targetName")
             return
@@ -423,7 +427,9 @@ class CommandProcessor(
                 else -> meshService.getPeerNicknames()[id] ?: id.take(8)
             }
         }
-        addCommandOutput("estimated path: ${labels.joinToString(" → ")} (${route.size - 1} hops)")
+        val hopCount = route.size - 1
+        val hops = if (hopCount == 1) "1 hop" else "$hopCount hops"
+        addCommandOutput("estimated path: ${labels.joinToString(" → ")} ($hops)")
     }
 
     private sealed interface CommandDestination {
@@ -551,18 +557,28 @@ class CommandProcessor(
                 is com.bitchat.android.geohash.ChannelID.Mesh,
                 null -> {
                     // Mesh channel: use Bluetooth mesh peer nicknames
-                    meshService.getPeerNicknames().values.filter { it != meshService.getPeerNicknames()[meshService.myPeerID] }
+                    val peerNicknames = meshService.getPeerNicknames()
+                    peerNicknames.values.filter { it != peerNicknames[meshService.myPeerID] }
                 }
                 
                 is com.bitchat.android.geohash.ChannelID.Location -> {
                     // Location channel: use geohash participants with collision-resistant suffixes
-                    val geohashPeople = viewModel.geohashPeople.value ?: emptyList()
+                    val geohashPeople = viewModel.geohashPeople.value
                     val currentNickname = state.getNicknameValue()
+                    val duplicateNames = duplicateGeohashBaseNames(geohashPeople)
                     
                     geohashPeople.mapNotNull { person ->
-                        val displayName = person.displayName
-                        // Exclude self from suggestions
-                        if (displayName.startsWith("${currentNickname}#")) {
+                        val baseName = splitSuffix(person.displayName).first
+                        val hasNicknameCollision =
+                            baseName.lowercase(Locale.ROOT) in duplicateNames
+                        val displayName = disambiguatedGeohashDisplayName(person, duplicateNames)
+                        // A unique local nickname can be excluded directly. If it collides, the
+                        // nickname alone cannot identify which row is self, so keep the suffixed
+                        // rows rather than accidentally hiding the other user.
+                        if (
+                            !hasNicknameCollision &&
+                            baseName.equals(currentNickname, ignoreCase = true)
+                        ) {
                             null
                         } else {
                             displayName
@@ -572,13 +588,11 @@ class CommandProcessor(
             }
         } else {
             // Fallback to mesh peers if no viewModel available
-            meshService.getPeerNicknames().values.filter { it != meshService.getPeerNicknames()[meshService.myPeerID] }
+            val peerNicknames = meshService.getPeerNicknames()
+            peerNicknames.values.filter { it != peerNicknames[meshService.myPeerID] }
         }
         
-        // Filter nicknames based on the text after @
-        val filteredNicknames = peerCandidates.filter { nickname ->
-            nickname.startsWith(textAfterAt, ignoreCase = true)
-        }.sorted()
+        val filteredNicknames = filterMentionCandidates(peerCandidates, textAfterAt)
         
         if (filteredNicknames.isNotEmpty()) {
             state.setMentionSuggestions(filteredNicknames)
@@ -635,4 +649,23 @@ class CommandProcessor(
             meshService.sendPrivateMessage(content, peerID, recipientNickname, messageId)
         }
     }
+}
+
+/**
+ * Keep mention autocomplete useful in crowded channels: a bare `anon` identity has not announced
+ * a username and is not actionable. Names such as `anon1234` are announced usernames and remain
+ * valid mention targets.
+ */
+internal fun filterMentionCandidates(
+    candidates: List<String>,
+    query: String
+): List<String> {
+    return candidates.asSequence()
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+        .filterNot(::isUnannouncedNickname)
+        .filter { nickname -> nickname.startsWith(query, ignoreCase = true) }
+        .distinctBy { nickname -> nickname.lowercase(Locale.ROOT) }
+        .sortedWith(String.CASE_INSENSITIVE_ORDER)
+        .toList()
 }

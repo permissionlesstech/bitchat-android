@@ -1,5 +1,7 @@
 package com.bitchat.android.ui.media
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -11,8 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import kotlinx.coroutines.delay
 
@@ -96,7 +97,7 @@ fun FileSendingAnimation(
                 androidx.compose.material3.Text(
                     text = revealedText,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         color = Color.White
                     ),
                     modifier = Modifier.padding(end = 2.dp)
@@ -107,7 +108,7 @@ fun FileSendingAnimation(
                     androidx.compose.material3.Text(
                         text = stringResource(R.string.underscore),
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             color = Color.White
                         )
                     )
@@ -149,7 +150,7 @@ private fun FileProgressBars(
     androidx.compose.material3.Text(
         text = progressString,
         style = MaterialTheme.typography.bodySmall.copy(
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = Color(0xFF00FF7F) // Matrix green
         ),
         modifier = modifier

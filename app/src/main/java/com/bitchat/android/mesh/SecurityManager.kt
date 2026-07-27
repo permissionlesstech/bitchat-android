@@ -25,12 +25,14 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         private const val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.Security.CLEANUP_INTERVAL_MS // 5 minutes
         private const val MAX_PROCESSED_MESSAGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_MESSAGES
         private const val MAX_PROCESSED_KEY_EXCHANGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_KEY_EXCHANGES
+        private const val KEY_EXCHANGE_DEDUP_TIMEOUT = com.bitchat.android.util.AppConstants.Security.KEY_EXCHANGE_DEDUP_TIMEOUT_MS
     }
     
     // Security tracking
     private val processedMessages = Collections.synchronizedSet(mutableSetOf<String>())
     private val processedKeyExchanges = Collections.synchronizedSet(mutableSetOf<String>())
     private val messageTimestamps = Collections.synchronizedMap(mutableMapOf<String, Long>())
+    private val keyExchangeTimestamps = Collections.synchronizedMap(mutableMapOf<String, Long>())
     
     // Delegate for callbacks
     var delegate: SecurityManagerDelegate? = null
@@ -76,7 +78,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         
         if (processedMessages.contains(messageID)) {
             // Check for ANNOUNCE exception: allow if it looks like a direct neighbor (max TTL)
-            // This ensures we catch the "first announce" on a new connection for binding,
+            // This ensures we observe the same peer on a new direct transport connection,
             // while still dropping looped/relayed duplicates.
             val isFreshAnnounce = messageType == MessageType.ANNOUNCE &&
                     packet.ttl >= com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
@@ -136,6 +138,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             // from ambient session state: a rejected replacement may leave the old session active.
             val result = encryptionService.processHandshakeMessageWithResult(packet.payload, peerID)
             processedKeyExchanges.add(exchangeKey)
+            keyExchangeTimestamps[exchangeKey] = System.currentTimeMillis()
             
             if (result.response != null) {
                 // Send handshake response through delegate
@@ -395,8 +398,8 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     /**
      * Clean up old processed messages and timestamps
      */
-    private fun cleanupOldData() {
-        val cutoffTime = System.currentTimeMillis() - MESSAGE_TIMEOUT
+    internal fun cleanupOldData(nowMs: Long = System.currentTimeMillis()) {
+        val cutoffTime = nowMs - MESSAGE_TIMEOUT
 
         // Clean up old message timestamps and corresponding processed messages
         val messagesToRemove = messageTimestamps.entries.filter { (_, timestamp) ->
@@ -415,12 +418,25 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             processedMessages.removeAll(toRemove.toSet())
             removeFromMessageTimestamps(toRemove)
         }
-        
+
+        // Expire handshake dedup entries by time so a delayed same-ephemeral delivery
+        // (e.g. a re-handshake retry after a failed attempt) is not blocked forever.
+        val keyExchangeCutoff = nowMs - KEY_EXCHANGE_DEDUP_TIMEOUT
+        val keyExchangesToRemove = keyExchangeTimestamps.entries.filter { (_, timestamp) ->
+            timestamp < keyExchangeCutoff
+        }.map { it.key }
+
+        keyExchangesToRemove.forEach { exchangeKey ->
+            keyExchangeTimestamps.remove(exchangeKey)
+            processedKeyExchanges.remove(exchangeKey)
+        }
+
         // Limit the size of processed key exchanges set
         if (processedKeyExchanges.size > MAX_PROCESSED_KEY_EXCHANGES) {
             val excess = processedKeyExchanges.size - MAX_PROCESSED_KEY_EXCHANGES
             val toRemove = processedKeyExchanges.take(excess)
             processedKeyExchanges.removeAll(toRemove.toSet())
+            toRemove.forEach { keyExchangeTimestamps.remove(it) }
         }
     }
     
@@ -440,6 +456,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         processedMessages.clear()
         processedKeyExchanges.clear()
         messageTimestamps.clear()
+        keyExchangeTimestamps.clear()
     }
     
     /**

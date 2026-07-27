@@ -67,8 +67,8 @@ class BluetoothConnectionManager(
             delegate?.onDeviceConnected(device)
         }
 
-        override fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?) {
-            delegate?.onDeviceDisconnected(device, linkID)
+        override fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?, peerID: String?) {
+            delegate?.onDeviceDisconnected(device, linkID, peerID)
         }
         
         override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
@@ -92,8 +92,8 @@ class BluetoothConnectionManager(
     // Public property for address-peer mapping
     val addressPeerMap get() = connectionTracker.addressPeerMap
 
-    fun bindPeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
-        connectionTracker.bindPeerIfCurrent(deviceAddress, linkID, peerID)
+    fun observePeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
+        connectionTracker.observePeerIfCurrent(deviceAddress, linkID, peerID)
 
     fun getCurrentLinkID(deviceAddress: String): String? =
         connectionTracker.getCurrentLinkID(deviceAddress)
@@ -329,6 +329,16 @@ class BluetoothConnectionManager(
         )
     }
 
+    suspend fun broadcastControlPacketAndAwaitAcceptance(routed: RoutedPacket): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+
+        return packetBroadcaster.broadcastControlPacketAndAwaitAcceptance(
+            routed,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
     fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
         if (!isActive || !isBleTransportEnabled()) return false
         return packetBroadcaster.sendToPeer(
@@ -512,6 +522,6 @@ interface BluetoothConnectionManagerDelegate {
         ingressLinkID: String
     )
     fun onDeviceConnected(device: BluetoothDevice)
-    fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?)
+    fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?, peerID: String?)
     fun onRSSIUpdated(deviceAddress: String, rssi: Int)
 }

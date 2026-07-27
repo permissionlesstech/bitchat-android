@@ -19,6 +19,15 @@ internal class MeshPingManager(
     private val scope: CoroutineScope,
     private val send: (BitchatPacket) -> Unit,
 ) {
+    companion object {
+        /**
+         * BLE and Wi-Fi Aware have separate manager instances, but a reply can return over either
+         * transport. Pending probes therefore live at process scope and are namespaced by the
+         * local identity.
+         */
+        private val pending = ConcurrentHashMap<String, Pending>()
+    }
+
     private data class Pending(
         val peerID: String,
         val startedNanos: Long,
@@ -26,12 +35,11 @@ internal class MeshPingManager(
         val timeout: Job,
     )
 
-    private val pending = ConcurrentHashMap<String, Pending>()
     private val inboundByLink = ConcurrentHashMap<String, ArrayDeque<Long>>()
 
     fun ping(peerID: String, callback: (MeshPingResult?) -> Unit) {
         val payload = MeshPingPayload.create(MeshDiagnosticsConstants.TTL)
-        val key = payload.nonce.toHexString()
+        val key = pendingKey(payload)
         val timeout = scope.launch {
             delay(MeshDiagnosticsConstants.TIMEOUT_MILLIS)
             pending.remove(key)?.callback?.invoke(null)
@@ -51,7 +59,7 @@ internal class MeshPingManager(
 
     fun handlePong(routed: RoutedPacket) {
         val payload = MeshPingPayload.decode(routed.packet.payload) ?: return
-        val key = payload.nonce.toHexString()
+        val key = pendingKey(payload)
         val candidate = pending[key] ?: return
         if (routed.packet.senderID.toHexString() != candidate.peerID) return
         if (!pending.remove(key, candidate)) return
@@ -59,6 +67,9 @@ internal class MeshPingManager(
         val elapsed = (System.nanoTime() - candidate.startedNanos) / 1_000_000
         candidate.callback(MeshPingResult(elapsed, payload.hopCount(routed.packet.ttl)))
     }
+
+    private fun pendingKey(payload: MeshPingPayload): String =
+        "$myPeerID:${payload.nonce.toHexString()}"
 
     private fun consumeInboundBudget(link: String): Boolean {
         val now = System.currentTimeMillis()

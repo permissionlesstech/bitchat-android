@@ -13,6 +13,7 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.bitchat.android.crypto.EncryptionService
+import com.bitchat.android.mesh.DirectLinkAnnouncementPolicy
 import com.bitchat.android.mesh.FragmentingPacketSender
 import com.bitchat.android.mesh.MeshCore
 import com.bitchat.android.mesh.MeshService
@@ -76,7 +77,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         private const val CLIENT_SOCKET_RETRY_DELAY_MS = 750L
         private const val CLIENT_SOCKET_ATTEMPTS = 3
         private const val CLIENT_ROLE_REVERSAL_FAILURES = 3
-        private const val WIFI_AUTHENTICATION_TIMEOUT_MS = 30_000L
         // Discovery freshness window for reconnection maintenance
         private const val DISCOVERY_STALE_MS = 5L * 60 * 1000
         private const val DISCOVERY_IDLE_REFRESH_MS = 2L * 60 * 1000
@@ -126,12 +126,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     private val connectionTracker = WifiAwareConnectionTracker(serviceScope, cm)
     private val ingressLinks = ConcurrentHashMap<
         String,
-        AuthenticatedIngressLinkPolicy.Link<SyncedSocket>
+        IngressLinkPolicy.Link<SyncedSocket>
     >()
-    private val provisionalWifiClaims =
-        ConcurrentHashMap<String, AuthenticatedIngressLinkPolicy.Claim>()
-    private val authenticatedWifiLinks =
-        ConcurrentHashMap<String, AuthenticatedIngressLinkPolicy.Claim>()
     private val handleToPeerId = ConcurrentHashMap<PeerHandle, String>() // discovery mapping
     private val discoveredTimestamps = ConcurrentHashMap<String, Long>() // peerID -> last seen time
     // Subscribe-session-scoped handles only. PeerHandles are session-scoped, so a handle obtained
@@ -177,37 +173,12 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 onMessageReceived = { message -> handleMessageReceived(message) },
                 onAnnounceProcessed = { routed, _ ->
                     routed.peerID?.let { pid ->
-                        try { meshCore.gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
-
-                        // Discovery IDs from older clients can be provisional. A verified direct
-                        // announce is enough to start a handshake for the canonical ID, but not to
-                        // rebind the socket. A fresh challenge is sent through the exact transport
-                        // generation, and only its same-link completion may promote that alias.
-                        val relay = routed.relayAddress
-                        val linkID = routed.ingressLinkID
-                        if (
-                            routed.packet.ttl == MAX_TTL &&
-                            relay != null &&
-                            linkID != null
-                        ) {
-                            val claim = AuthenticatedIngressLinkPolicy.Claim(relay, linkID)
-                            if (!AuthenticatedIngressLinkPolicy.matches(
-                                    authenticatedWifiLinks[pid],
-                                    relay,
-                                    linkID
-                                )
-                            ) {
-                                registerProvisionalWifiClaim(pid, claim)
-                                if (!meshCore.initiateNoiseHandshakeOnLink(pid, relay, linkID)) {
-                                    provisionalWifiClaims.remove(pid, claim)
-                                    Log.w(TAG, "Could not send Noise challenge on Wi-Fi link for ${pid.take(8)}")
-                                }
-                            }
-                        }
+                        DirectLinkAnnouncementPolicy.observationFor(routed, MAX_TTL)
+                            ?.let(::observeDirectIngressLink)
+                        try {
+                            meshCore.gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000)
+                        } catch (_: Exception) { }
                     }
-                },
-                onDirectNoiseAuthenticated = { peerID, relayAddress, ingressLinkID, _ ->
-                    promoteAuthenticatedIngressLink(peerID, relayAddress, ingressLinkID)
                 },
                 announcementNicknameProvider = {
                     try { com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID) } catch (_: Exception) { null }
@@ -252,14 +223,17 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     /**
      * Broadcasts raw bytes to currently connected peer.
      */
-    private fun broadcastRaw(bytes: ByteArray) {
+    private fun broadcastRaw(bytes: ByteArray): Boolean {
+        var accepted = false
         connectionTracker.peerSockets.forEach { (pid, sock) ->
             try {
                 sock.write(bytes)
+                accepted = true
             } catch (e: IOException) {
                 Log.e(TAG, "TX: write failed to ${pid.take(8)}: ${e.message}")
             }
         }
+        return accepted
     }
 
     // TransportLayer implementation
@@ -269,6 +243,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendFromBridge(packet)
     }
 
+    override suspend fun sendAndReport(packet: RoutedPacket): Boolean {
+        return meshCore.sendFromBridgeAndReport(packet)
+    }
+
     override fun sendToPeer(peerID: String, packet: BitchatPacket) {
         sendPacketToPeer(peerID, packet)
     }
@@ -276,23 +254,23 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     /**
      * Broadcasts routed packet to currently connected peers.
      */
-    private fun broadcastPacket(routed: RoutedPacket) {
+    private fun broadcastPacket(routed: RoutedPacket): Boolean {
         val packet = routed.packet
         if (packet.senderID.toHexString() == myPeerID && !packet.route.isNullOrEmpty()) {
             val firstHop = packet.route!![0].toHexString()
             if (sendRoutedPacketToPeer(firstHop, routed)) {
-                return
+                return true
             }
         }
 
         val recipientId = packet.recipientID?.toHexString()
         if (recipientId != null && !packet.recipientID.contentEquals(SpecialRecipients.BROADCAST)) {
             if (sendRoutedPacketToPeer(recipientId, routed)) {
-                return
+                return true
             }
         }
 
-        fragmentingSender.send(routed, "Wi-Fi Aware broadcast") { single ->
+        return fragmentingSender.send(routed, "Wi-Fi Aware broadcast") { single ->
             broadcastSinglePacket(single)
         }
     }
@@ -320,8 +298,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
     private fun broadcastSinglePacket(routed: RoutedPacket): Boolean {
         val data = routed.packet.toBinaryData() ?: return false
-        broadcastRaw(data)
-        return true
+        return broadcastRaw(data)
     }
 
     private fun sendSinglePacketToPeer(peerID: String, packet: BitchatPacket): Boolean {
@@ -588,8 +565,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             publishHandles.clear()
             discoveredTimestamps.clear()
             ingressLinks.clear()
-            provisionalWifiClaims.clear()
-            authenticatedWifiLinks.clear()
 
             meshCore.shutdown()
 
@@ -635,8 +610,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     publishHandles.clear()
                     discoveredTimestamps.clear()
                     ingressLinks.clear()
-                    provisionalWifiClaims.clear()
-                    authenticatedWifiLinks.clear()
                 }
             } finally {
                 recoveryInProgress = false
@@ -902,7 +875,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         // presence makes hasOpenServerSocket() true for the life of the process)
                         // and so we free the fd/port promptly.
                         connectionTracker.closeServerSocket(peerId)
-                        try { meshCore.setDirectConnection(peerId, true) } catch (_: Exception) {}
                         try { meshCore.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                         listenerExec.execute { listenToPeer(synced, peerId) }
                         handleSubscriberKeepAlive(synced, peerId, pubSession, peerHandle)
@@ -1157,7 +1129,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         activeSocket = synced
                         connectionTracker.onClientConnected(peerId, synced)
                         clientSocketFailures.remove(peerId)
-                        try { meshCore.setDirectConnection(peerId, true) } catch (_: Exception) {}
                         try { meshCore.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                         listenerExec.execute { listenToPeer(synced, peerId) }
                         handleServerKeepAlive(synced, peerId, peerHandle)
@@ -1236,70 +1207,74 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     }
 
     /**
-     * Promote a provisional discovery alias only when the exact, still-active socket delivered the
-     * Noise frame that completed authentication for the canonical peer ID.
+     * Records a validated, non-relayed ANNOUNCE as a direct route. The exact-link check keeps stale
+     * socket readers from rebinding a replacement connection, but Noise remains peer-scoped and is
+     * not restarted or coupled to this routing observation.
      */
-    private fun promoteAuthenticatedIngressLink(
-        canonicalPeerId: String,
-        relayAddress: String,
-        ingressLinkID: String
+    private fun observeDirectIngressLink(
+        observation: DirectLinkAnnouncementPolicy.Observation
     ) {
-        val expectedClaim = provisionalWifiClaims[canonicalPeerId]
-        if (!AuthenticatedIngressLinkPolicy.matches(
-                expectedClaim,
-                relayAddress,
-                ingressLinkID
-            )
-        ) {
-            Log.w(TAG, "Ignoring unsolicited or cross-link Noise promotion for ${canonicalPeerId.take(8)}")
-            return
-        }
-        provisionalWifiClaims.remove(canonicalPeerId, expectedClaim)
-
-        val link = AuthenticatedIngressLinkPolicy.resolve(
-            authenticatedLinkID = ingressLinkID,
-            authenticatedRelayAddress = relayAddress,
+        val link = IngressLinkPolicy.resolve(
+            ingressLinkID = observation.ingressLinkID,
+            relayAddress = observation.relayAddress,
             links = ingressLinks,
             currentTransportForRelay = connectionTracker::getSocketForPeer
         ) ?: run {
-            Log.w(TAG, "Ignoring Noise link promotion for ${canonicalPeerId.take(8)}: ingress link is stale or mismatched")
+            Log.d(
+                TAG,
+                "Ignoring direct ANNOUNCE for ${observation.peerID.take(8)}: ingress link is stale"
+            )
             return
         }
 
         val provisionalPeerId = link.relayAddress
         val existingCanonical = connectionTracker.canonicalPeerId(provisionalPeerId)
-        if (existingCanonical == canonicalPeerId) {
-            authenticatedWifiLinks[canonicalPeerId] =
-                AuthenticatedIngressLinkPolicy.Claim(relayAddress, ingressLinkID)
-            try { meshCore.setDirectConnection(canonicalPeerId, true) } catch (_: Exception) { }
+        if (existingCanonical == observation.peerID) {
+            try { meshCore.setDirectConnection(observation.peerID, true) } catch (_: Exception) { }
             return
         }
         if (existingCanonical != provisionalPeerId) {
-            Log.w(TAG, "Refusing authenticated Wi-Fi rebind ${existingCanonical.take(8)} -> ${canonicalPeerId.take(8)} on existing alias")
+            Log.w(
+                TAG,
+                "Refusing Wi-Fi route change ${existingCanonical.take(8)} -> ${observation.peerID.take(8)} on existing alias"
+            )
             return
         }
 
-        if (!connectionTracker.rebindPeerIdIfCurrent(provisionalPeerId, canonicalPeerId, link.transport)) {
-            Log.w(TAG, "Ignoring Noise link promotion for ${canonicalPeerId.take(8)}: provisional socket changed")
+        if (!connectionTracker.rebindPeerIdIfCurrent(
+                provisionalPeerId,
+                observation.peerID,
+                link.transport
+            )
+        ) {
+            Log.d(
+                TAG,
+                "Ignoring direct ANNOUNCE for ${observation.peerID.take(8)}: provisional socket changed"
+            )
             return
         }
-        authenticatedWifiLinks[canonicalPeerId] =
-            AuthenticatedIngressLinkPolicy.Claim(relayAddress, ingressLinkID)
         handleToPeerId.forEach { (handle, peerId) ->
-            if (peerId == provisionalPeerId) handleToPeerId[handle] = canonicalPeerId
+            if (peerId == provisionalPeerId) handleToPeerId[handle] = observation.peerID
         }
-        subscribeHandles.remove(provisionalPeerId)?.let { subscribeHandles[canonicalPeerId] = it }
-        publishHandles.remove(provisionalPeerId)?.let { publishHandles[canonicalPeerId] = it }
+        subscribeHandles.remove(provisionalPeerId)?.let { subscribeHandles[observation.peerID] = it }
+        publishHandles.remove(provisionalPeerId)?.let { publishHandles[observation.peerID] = it }
         val discoveredAt = discoveredTimestamps.remove(provisionalPeerId) ?: System.currentTimeMillis()
-        discoveredTimestamps[canonicalPeerId] = discoveredAt
+        discoveredTimestamps[observation.peerID] = discoveredAt
 
         try { meshCore.setDirectConnection(provisionalPeerId, false) } catch (_: Exception) { }
         try { meshCore.removePeer(provisionalPeerId) } catch (_: Exception) { }
-        try { meshCore.addOrUpdatePeer(canonicalPeerId, meshCore.getPeerNickname(canonicalPeerId) ?: canonicalPeerId) } catch (_: Exception) { }
-        try { meshCore.setDirectConnection(canonicalPeerId, true) } catch (_: Exception) { }
-        try { meshCore.gossipSyncManager.scheduleInitialSyncToPeer(canonicalPeerId, 1_000) } catch (_: Exception) { }
+        try {
+            meshCore.addOrUpdatePeer(
+                observation.peerID,
+                meshCore.getPeerNickname(observation.peerID) ?: observation.peerID
+            )
+        } catch (_: Exception) { }
+        try { meshCore.setDirectConnection(observation.peerID, true) } catch (_: Exception) { }
 
-        Log.i(TAG, "Noise-authenticated Wi-Fi peer ${provisionalPeerId.take(8)} -> ${canonicalPeerId.take(8)}")
+        Log.i(
+            TAG,
+            "Observed direct Wi-Fi route ${provisionalPeerId.take(8)} -> ${observation.peerID.take(8)}"
+        )
     }
 
     /**
@@ -1312,7 +1287,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     private fun listenToPeer(socket: SyncedSocket, initialLogicalPeerId: String) {
         val logicalPeerId = initialLogicalPeerId
         val ingressLinkID = UUID.randomUUID().toString()
-        val ingressLink = AuthenticatedIngressLinkPolicy.Link(logicalPeerId, socket)
+        val ingressLink = IngressLinkPolicy.Link(logicalPeerId, socket)
         ingressLinks[ingressLinkID] = ingressLink
         while (isActive) {
             val raw = socket.read() ?: break
@@ -1327,10 +1302,11 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             val senderPeerHex = pkt.senderID?.toHexString()?.take(16) ?: continue
 
             if (pkt.type == MessageType.ANNOUNCE.value && pkt.ttl >= MAX_TTL && senderPeerHex != logicalPeerId) {
-                // The socket's discovery identity remains provisional until Noise proves possession
-                // of the claimed static key on this link. A canonical self-signed announcement is
-                // only TOFU and cannot safely rebind/remove transport state on its own.
-                Log.d(TAG, "RX: deferred Wi-Fi peer rebind ${logicalPeerId.take(8)} -> ${senderPeerHex.take(8)} pending Noise proof")
+                // Rebinding happens only after MeshCore validates and accepts this ANNOUNCE.
+                Log.d(
+                    TAG,
+                    "RX: Wi-Fi peer observation ${logicalPeerId.take(8)} -> ${senderPeerHex.take(8)} pending ANNOUNCE validation"
+                )
             }
 
             // Route the packet:
@@ -1340,33 +1316,11 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         }
 
         ingressLinks.remove(ingressLinkID, ingressLink)
-        clearProvisionalWifiClaimsForLink(logicalPeerId, ingressLinkID)
         
         // Breaking out of the loop means the socket is dead or service is stopping.
         Log.i(TAG, "Disconnected from ${logicalPeerId.take(8)} (socket closed)")
         handlePeerDisconnection(logicalPeerId, socket)
         socket.close()
-    }
-
-    private fun registerProvisionalWifiClaim(
-        peerID: String,
-        claim: AuthenticatedIngressLinkPolicy.Claim
-    ) {
-        provisionalWifiClaims[peerID] = claim
-        serviceScope.launch {
-            delay(WIFI_AUTHENTICATION_TIMEOUT_MS)
-            if (provisionalWifiClaims.remove(peerID, claim)) {
-                Log.d(TAG, "Expired provisional Wi-Fi authentication claim for ${peerID.take(8)}")
-            }        }
-    }
-
-    private fun clearProvisionalWifiClaimsForLink(relayAddress: String, linkID: String) {
-        provisionalWifiClaims.entries.removeIf { (_, claim) ->
-            claim.relayAddress == relayAddress && claim.linkID == linkID
-        }
-        authenticatedWifiLinks.entries.removeIf { (_, claim) ->
-            claim.relayAddress == relayAddress && claim.linkID == linkID
-        }
     }
 
     private fun handleNetworkFailure(peerId: String) {
@@ -1649,9 +1603,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     private inner class WifiAwareTransport : MeshTransport {
         override val id: String = "WIFI"
 
-        override fun broadcastPacket(routed: RoutedPacket) {
+        override fun broadcastPacket(routed: RoutedPacket): Boolean =
             this@WifiAwareMeshService.broadcastPacket(routed)
-        }
         override fun sendPacketToPeer(peerID: String, packet: BitchatPacket): Boolean {
             return this@WifiAwareMeshService.sendPacketToPeer(peerID, packet)
         }
@@ -1660,9 +1613,9 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             ingressLinkID: String,
             packet: BitchatPacket
         ): Boolean {
-            val link = AuthenticatedIngressLinkPolicy.resolve(
-                authenticatedLinkID = ingressLinkID,
-                authenticatedRelayAddress = relayAddress,
+            val link = IngressLinkPolicy.resolve(
+                ingressLinkID = ingressLinkID,
+                relayAddress = relayAddress,
                 links = ingressLinks,
                 currentTransportForRelay = connectionTracker::getSocketForPeer
             ) ?: return false

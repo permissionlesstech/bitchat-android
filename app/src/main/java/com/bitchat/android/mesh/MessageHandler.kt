@@ -27,52 +27,62 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     companion object {
         private const val TAG = "MessageHandler"
         private const val ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS = 10 * 60 * 1000L
+        private const val MAX_CONSECUTIVE_DECRYPT_FAILURES = 3
     }
-    
+
     // Delegate for callbacks
     var delegate: MessageHandlerDelegate? = null
-    
+
     // Reference to PacketProcessor for recursive packet handling
     var packetProcessor: PacketProcessor? = null
-    
+
     // Coroutines
     private val handlerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
+
+    // Consecutive decrypt failures per peer; only signature-verified packets reach this path,
+    // so repeated failures mean the established session is stale (peer re-handshaked elsewhere).
+    private val consecutiveDecryptFailures = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
     /**
      * Handle Noise encrypted transport message - SIMPLIFIED iOS-compatible version
      * Uses NoisePayloadType system exactly like iOS SimplifiedBluetoothService
+     *
+     * Returns false when the payload could not be decrypted, so callers can treat the
+     * packet as not liveness-proving (no lastSeen refresh, no relay).
      */
-    suspend fun handleNoiseEncrypted(routed: RoutedPacket) {
+    suspend fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
-        
+
         // Skip our own messages
-        if (peerID == myPeerID) return
-        
+        if (peerID == myPeerID) return true
+
         // Check if this message is for us
         val recipientID = packet.recipientID?.toHexString()
         if (recipientID != myPeerID) {
-            return
+            return true
         }
-        
+
         try {
             // Decrypt the message using the Noise service
             val decryption = delegate?.decryptFromPeer(packet.payload, peerID)
             if (decryption == null) {
                 Log.w(TAG, "Failed to decrypt Noise message from $peerID - may need handshake")
-                return
+                registerDecryptFailure(peerID)
+                return false
             }
+            consecutiveDecryptFailures.remove(peerID)
             val decryptedData = decryption.plaintext
-            
+
             if (decryptedData.isEmpty()) {
                 Log.w(TAG, "Decrypted data is empty from $peerID")
-                return
+                return true
             }
-            
+
             val noisePayload = com.bitchat.android.model.NoisePayload.decode(decryptedData)
             if (noisePayload == null) {
                 Log.w(TAG, "Failed to parse NoisePayload from $peerID")
-                return
+                return true
             }
             
             when (noisePayload.type) {
@@ -86,7 +96,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                             handleFavoriteNotificationFromMesh(pmContent, peerID)
                             // Acknowledge delivery for UX parity
                             sendDeliveryAck(privateMessage.messageID, peerID)
-                            return
+                            return true
                         }
                         
                         // Create BitchatMessage - preserve source packet timestamp
@@ -179,6 +189,31 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing Noise encrypted message from $peerID: ${e.message}")
+        }
+        return true
+    }
+
+    /**
+     * Count consecutive decrypt failures from a signature-verified peer that we still hold an
+     * established session for. After repeated failures the session is stale (the peer completed
+     * a new handshake elsewhere), so destroy it and start a fresh handshake; the peer's side
+     * will finish via the responder-candidate path and evict its own stale session.
+     */
+    private fun registerDecryptFailure(peerID: String) {
+        if (peerID == "unknown" || peerID == myPeerID) return
+        if (delegate?.hasNoiseSession(peerID) != true) return
+        val failures = (consecutiveDecryptFailures[peerID] ?: 0) + 1
+        if (failures >= MAX_CONSECUTIVE_DECRYPT_FAILURES) {
+            consecutiveDecryptFailures.remove(peerID)
+            Log.w(TAG, "Noise session with $peerID stale after $failures decrypt failures; resetting and re-handshaking")
+            try { delegate?.removeNoiseSession(peerID) } catch (e: Exception) {
+                Log.w(TAG, "Failed to reset Noise session for $peerID: ${e.message}")
+            }
+            try { delegate?.initiateNoiseHandshake(peerID) } catch (e: Exception) {
+                Log.w(TAG, "Failed to re-initiate handshake with $peerID: ${e.message}")
+            }
+        } else {
+            consecutiveDecryptFailures[peerID] = failures
         }
     }
     
@@ -575,13 +610,31 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 }
 
                 val action = if (control.isFavorite) "favorited" else "unfavorited"
+                val notice = "${peerInfo.nickname} $action you$guidance"
                 val sys = com.bitchat.android.model.BitchatMessage(
                     sender = "system",
-                    content = "${peerInfo.nickname} $action you$guidance",
+                    content = notice,
                     timestamp = java.util.Date(),
                     isRelay = false
                 )
                 delegate?.onMessageReceived(sys)
+
+                // Mirror the notice into the private conversation so it's visible while chatting
+                try {
+                    val conversationID = com.bitchat.android.services.ContactDirectory
+                        .canonicalConversationId(fromPeerID)
+                    val sysPrivate = com.bitchat.android.model.BitchatMessage(
+                        sender = "system",
+                        content = notice,
+                        timestamp = java.util.Date(),
+                        isRelay = false,
+                        isPrivate = true,
+                        senderPeerID = conversationID
+                    )
+                    delegate?.onMessageReceived(sysPrivate)
+                } catch (_: Exception) {
+                    // Best-effort; public notice already delivered
+                }
             }
         } catch (_: Exception) {
             // Best-effort; ignore errors
@@ -628,6 +681,7 @@ interface MessageHandlerDelegate {
     // Noise protocol operations
     fun hasNoiseSession(peerID: String): Boolean
     fun initiateNoiseHandshake(peerID: String)
+    fun removeNoiseSession(peerID: String) {}
     fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray?
     fun onAuthenticatedPeerStateReceived(
         peerID: String,

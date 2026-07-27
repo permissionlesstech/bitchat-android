@@ -96,6 +96,7 @@ class GeohashMessageHandler(
                     isRelay = false,
                     originalSender = repo.displayNameForNostrPubkey(pubkey),
                     senderPeerID = "nostr:${pubkey.take(8)}",
+                    senderNostrPubkey = pubkey,
                     mentions = null,
                     channel = "#$subscribedGeohash",
                     powDifficulty = try {

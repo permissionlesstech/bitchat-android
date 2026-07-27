@@ -100,9 +100,9 @@ class WifiAwareConnectionTracker(
     }
 
     /**
-     * Atomically require that [expectedSocket] is still the active provisional transport and, only
-     * then, promote it. This closes the gap where a replacement socket could land after validation
-     * but before mutation and the stale authenticated socket would become canonical.
+     * Atomically require that [expectedSocket] is still the active provisional transport before
+     * rebinding it. This closes the gap where a replacement socket could land after ANNOUNCE
+     * validation but before mutation and the stale socket would become canonical.
      */
     fun rebindPeerIdIfCurrent(
         previousPeerId: String,

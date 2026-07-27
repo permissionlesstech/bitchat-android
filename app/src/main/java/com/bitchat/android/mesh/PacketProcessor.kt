@@ -144,7 +144,7 @@ class PacketProcessor(private val myPeerID: String) {
                 if (packetRelayManager.isPacketAddressedToMe(packet)) {
                     when (messageType) {
                         MessageType.NOISE_HANDSHAKE -> validPacket = handleNoiseHandshake(routed)
-                        MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
+                        MessageType.NOISE_ENCRYPTED -> validPacket = handleNoiseEncrypted(routed)
                         MessageType.PING -> delegate?.handlePing(routed)
                         MessageType.PONG -> delegate?.handlePong(routed)
                         MessageType.FILE_TRANSFER -> handleMessage(routed)
@@ -177,9 +177,10 @@ class PacketProcessor(private val myPeerID: String) {
     
     /**
      * Handle Noise encrypted transport message
+     * Returns false when decryption fails so undecryptable packets do not prove liveness.
      */
-    private suspend fun handleNoiseEncrypted(routed: RoutedPacket) {
-        delegate?.handleNoiseEncrypted(routed)
+    private suspend fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+        return delegate?.handleNoiseEncrypted(routed) ?: false
     }
     
     /**
@@ -294,7 +295,7 @@ interface PacketProcessorDelegate {
     
     // Message type handlers
     fun handleNoiseHandshake(routed: RoutedPacket): Boolean
-    fun handleNoiseEncrypted(routed: RoutedPacket)
+    fun handleNoiseEncrypted(routed: RoutedPacket): Boolean
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean
     fun handleMessage(routed: RoutedPacket)
     fun handleLeave(routed: RoutedPacket)

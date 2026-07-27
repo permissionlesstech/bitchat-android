@@ -5,8 +5,13 @@ import android.util.Log
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.NoiseSession
+import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.wifiaware.WifiAwareController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Feature-facing mesh service that hides local transport selection from the rest of the app.
@@ -22,6 +27,11 @@ class UnifiedMeshService(
 
     companion object {
         private const val TAG = "UnifiedMeshService"
+    }
+
+    private val diagnosticsScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val meshPingManager = MeshPingManager(bluetooth.myPeerID, diagnosticsScope) { packet ->
+        TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
     }
 
     override val myPeerID: String
@@ -186,11 +196,7 @@ class UnifiedMeshService(
     }
 
     override fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit) {
-        when {
-            isBleConnected(peerID) || (isBleEnabled() && !isWifiConnected(peerID)) ->
-                bluetooth.sendMeshPing(peerID, callback)
-            else -> wifiService()?.sendMeshPing(peerID, callback) ?: callback(null)
-        }
+        meshPingManager.ping(peerID, callback)
     }
 
     override fun getPeerNicknames(): Map<String, String> {
@@ -304,6 +310,13 @@ class UnifiedMeshService(
         try { merged.putAll(bluetooth.getDeviceAddressToPeerMapping()) } catch (_: Exception) { }
         return merged
     }
+
+    override fun getDirectBlePeerIDs(): Set<String> =
+        try {
+            bluetooth.getDeviceAddressToPeerMapping().values.toSet()
+        } catch (_: Exception) {
+            emptySet()
+        }
 
     override fun printDeviceAddressesForPeers(): String {
         return buildString {

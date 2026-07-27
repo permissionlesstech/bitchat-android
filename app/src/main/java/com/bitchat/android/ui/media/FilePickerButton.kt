@@ -1,11 +1,11 @@
 package com.bitchat.android.ui.media
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Attachment
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Attachment
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable

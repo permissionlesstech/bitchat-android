@@ -30,12 +30,12 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.util.UniversalApkManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -112,7 +112,7 @@ fun HotspotScreen(
                 title = {
                     Text(
                         text = "Share BitChat",
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = BitchatFontFamily
                     )
                 },
                 navigationIcon = {
@@ -398,7 +398,7 @@ fun ActiveHotspotScreen(state: HotspotViewModel.HotspotState.Active) {
                     text = {
                         Text(
                             text = title,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
                         )
                     }
@@ -615,7 +615,7 @@ fun CredentialCard(
                 Text(
                     text = value,
                     style = MaterialTheme.typography.bodyLarge,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
