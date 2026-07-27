@@ -63,8 +63,6 @@
     <string name="cd_remove_favorite">Sık kullanılandan kaldır</string>
     <string name="cd_add_bookmark">Yer imi ekle</string>
 
-    <string name="chat_back">geri</string>
-    <string name="chat_leave">ayrıl</string>
     <string name="cd_nostr_reachable">Nostr üzerinden ulaşılabilir</string>
     <string name="cd_unread_private_messages">Okunmamış özel mesaj</string>
     <string name="cd_teleported">Teleport edildi</string>

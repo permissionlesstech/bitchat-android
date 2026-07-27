@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">بُک مارک پاؤ</string>
 
     <!-- چیٹ ہیڈر &amp; رسائی پذیری -->
-    <string name="chat_back">واپس</string>
-    <string name="chat_leave">باہر آؤ</string>
     <string name="cd_nostr_reachable">Nostr راہین پہنچ ممکن اے</string>
     <string name="cd_unread_private_messages">انہ پڑھیا ذاتی پیغام</string>
     <string name="cd_teleported">ٹیلپورٹ کیتا گیا</string>

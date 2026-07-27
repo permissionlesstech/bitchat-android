@@ -63,8 +63,6 @@
     <string name="cd_remove_favorite">Ta bort favorit</string>
     <string name="cd_add_bookmark">Lägg till bokmärke</string>
 
-    <string name="chat_back">tillbaka</string>
-    <string name="chat_leave">lämna</string>
     <string name="cd_nostr_reachable">Nås via Nostr</string>
     <string name="cd_unread_private_messages">Olästa privata meddelanden</string>
     <string name="cd_teleported">Teleporterad</string>

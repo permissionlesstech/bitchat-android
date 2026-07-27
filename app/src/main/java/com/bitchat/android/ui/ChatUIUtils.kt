@@ -32,6 +32,15 @@ internal const val MENTION_CHIP_ALPHA = ChatVisualTokens.HighlightAlpha
 internal const val MENTION_CHIP_ALPHA_SELF = ChatVisualTokens.HighlightAlpha
 
 /**
+ * Mention token grammar shared by rendered messages and the composer.
+ *
+ * The optional `#abcd` suffix is part of the mention because it disambiguates peers that use the
+ * same nickname. Keeping one regex prevents the composer from styling only `@name` while the
+ * rendered transcript styles the complete token.
+ */
+internal val MENTION_TOKEN_REGEX = Regex("@([\\p{L}0-9_]+(?:#[a-fA-F0-9]{4})?)")
+
+/**
  * Get RSSI-based color for signal strength visualization
  */
 fun getRSSIColor(rssi: Int): Color {
@@ -377,6 +386,23 @@ internal fun resolveMentionPeerIdentity(
 }
 
 /**
+ * Resolve the deterministic color for a mention on every surface that displays one.
+ *
+ * Exact suffixed tokens win; an unsuffixed nickname is only present in the identity map when it is
+ * unambiguous. The nickname fallback preserves the legacy behavior for peers with no stable ID.
+ */
+internal fun colorForMention(
+    mention: String,
+    mentionPeerIdentities: Map<String, PeerIdentity>,
+    palette: BitchatPalette,
+): Color {
+    val mentionWithoutAt = mention.trim().removePrefix("@")
+    val identity = resolveMentionPeerIdentity(mentionWithoutAt, mentionPeerIdentities)
+        ?: PeerIdentity.nickname(mentionWithoutAt)
+    return colorForPeer(identity, palette)
+}
+
+/**
  * A bare `anon` label means the geohash heartbeat has not announced a username yet. The transport
  * may append a `#abcd` disambiguator, which does not turn it into an announced name. Names such as
  * `anon1234`, `anonymous`, and `anonracer` are real announced usernames.
@@ -408,12 +434,10 @@ private fun appendIOSFormattedContent(
     linkColor: Color,
     mentionPeerIdentities: Map<String, PeerIdentity>,
 ) {
-    // iOS-style patterns: allow optional '#abcd' suffix in mentions
     val hashtagPattern = "#([a-zA-Z0-9_]+)".toRegex()
-    val mentionPattern = "@([\\p{L}0-9_]+(?:#[a-fA-F0-9]{4})?)".toRegex()
     
     val hashtagMatches = hashtagPattern.findAll(content).toList()
-    val mentionMatches = mentionPattern.findAll(content).toList()
+    val mentionMatches = MENTION_TOKEN_REGEX.findAll(content).toList()
     
     // Combine and sort matches, but exclude hashtags that overlap with mentions
     val mentionRanges = mentionMatches.map { it.range }
@@ -513,14 +537,10 @@ private fun appendIOSFormattedContent(
                 val mentionColor = if (isMentionToMe) {
                     palette.accentOrange
                 } else {
-                    val identity = resolveMentionPeerIdentity(
-                        mentionWithoutAt,
-                        mentionPeerIdentities,
-                    )
-                        ?: PeerIdentity.nickname(mentionWithoutAt)
-                    colorForPeer(
-                        identity,
-                        palette
+                    colorForMention(
+                        mention = mentionWithoutAt,
+                        mentionPeerIdentities = mentionPeerIdentities,
+                        palette = palette,
                     )
                 }
                 val chipAlpha = if (isMentionToMe) MENTION_CHIP_ALPHA_SELF else MENTION_CHIP_ALPHA

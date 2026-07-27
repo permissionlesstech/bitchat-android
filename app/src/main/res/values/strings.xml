@@ -72,8 +72,6 @@
   <string name="cd_add_bookmark">Add bookmark</string>
 
   <!-- Chat header &amp; accessibility -->
-  <string name="chat_back">Back</string>
-  <string name="chat_leave">Leave</string>
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Unread private messages</string>
   <string name="cd_location_notes">Location notes</string>

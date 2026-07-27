@@ -63,8 +63,6 @@
     <string name="cd_remove_favorite">Убрать из избранного</string>
     <string name="cd_add_bookmark">Добавить закладку</string>
 
-    <string name="chat_back">назад</string>
-    <string name="chat_leave">выйти</string>
     <string name="cd_nostr_reachable">Доступен через Nostr</string>
     <string name="cd_unread_private_messages">Непрочитанные личные</string>
     <string name="cd_teleported">Телепортировано</string>

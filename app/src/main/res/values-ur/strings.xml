@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">بک مارک شامل کریں</string>
 
     <!-- چیٹ ہیڈر اور رسائی -->
-    <string name="chat_back">واپس</string>
-    <string name="chat_leave">چھوڑیں</string>
     <string name="cd_nostr_reachable">Nostr کے ذریعے رسائی</string>
     <string name="cd_unread_private_messages">غیر پڑھے ہوئے نجی پیغامات</string>
     <string name="cd_teleported">ٹیلی پورٹ</string>

@@ -406,7 +406,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
         // Floating header - positioned absolutely at top, ignores keyboard
         ChatFloatingHeader(
-            headerHeight = headerHeight,
             selectedPrivatePeer = null,
             currentChannel = currentChannel,
             nickname = nickname,
@@ -674,6 +673,7 @@ fun ChatInputSection(
             currentChannel = currentChannel,
             nickname = nickname,
             showMediaButtons = showMediaButtons,
+            mentionPeerIdentities = mentionPeerIdentities,
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -697,7 +697,6 @@ private const val BarBackgroundAlpha = 0.88f
 private const val HeaderOpaqueStop = 0.72f
 @Composable
 private fun ChatFloatingHeader(
-    headerHeight: Dp,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
@@ -729,38 +728,31 @@ private fun ChatFloatingHeader(
             )
             .windowInsetsPadding(WindowInsets.statusBars) // Extend into status bar area
     ) {
-        // A plain Row rather than M3's TopAppBar. TopAppBar silently injects a 4.dp horizontal
-        // pad plus a 12.dp title inset and applies its own minimum heights, which made the
-        // header's spacing impossible to specify exactly.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(headerHeight)
-                .padding(start = 12.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ChatHeaderContent(
-                selectedPrivatePeer = selectedPrivatePeer,
-                currentChannel = currentChannel,
-                nickname = nickname,
-                viewModel = viewModel,
-                onBackClick = {
-                    when {
-                        selectedPrivatePeer != null -> viewModel.endPrivateChat()
-                        currentChannel != null -> viewModel.switchToChannel(null)
-                    }
-                },
-                onSidebarClick = onSidebarToggle,
-                onTripleClick = onPanicClear,
-                onShowAppInfo = onShowAppInfo,
-                onLocationChannelsClick = onLocationChannelsClick,
-                onLocationNotesClick = {
-                    // Ensure location is loaded before showing sheet
-                    locationManager.refreshChannels()
-                    onLocationNotesClick()
+        // No TopAppBar: it silently injects a 4.dp horizontal pad plus a 12.dp title inset and
+        // applies its own minimum heights, which made the header's spacing impossible to specify
+        // exactly. Height and edge insets belong to each header variant, so that a conversation
+        // header rendered here and one rendered in a sheet are laid out identically.
+        ChatHeaderContent(
+            selectedPrivatePeer = selectedPrivatePeer,
+            currentChannel = currentChannel,
+            nickname = nickname,
+            viewModel = viewModel,
+            onBackClick = {
+                when {
+                    selectedPrivatePeer != null -> viewModel.endPrivateChat()
+                    currentChannel != null -> viewModel.switchToChannel(null)
                 }
-            )
-        }
+            },
+            onSidebarClick = onSidebarToggle,
+            onTripleClick = onPanicClear,
+            onShowAppInfo = onShowAppInfo,
+            onLocationChannelsClick = onLocationChannelsClick,
+            onLocationNotesClick = {
+                // Ensure location is loaded before showing sheet
+                locationManager.refreshChannels()
+                onLocationNotesClick()
+            }
+        )
     }
 }
 

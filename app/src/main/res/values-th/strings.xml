@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">เพิ่มที่คั่นหน้า</string>
 
     <!-- ส่วนหัวแชท &amp; การช่วยสำหรับการเข้าถึง -->
-    <string name="chat_back">กลับ</string>
-    <string name="chat_leave">ออก</string>
     <string name="cd_nostr_reachable">ติดต่อได้ผ่าน Nostr</string>
     <string name="cd_unread_private_messages">ข้อความส่วนตัวยังไม่ได้อ่าน</string>
     <string name="cd_teleported">เทเลพอร์ตแล้ว</string>

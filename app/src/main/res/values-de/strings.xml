@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">Lesezeichen hinzufügen</string>
 
     <!-- Chat‑Kopf &amp; Barrierefreiheit -->
-    <string name="chat_back">zurück</string>
-    <string name="chat_leave">verlassen</string>
     <string name="cd_nostr_reachable">Über Nostr erreichbar</string>
     <string name="cd_unread_private_messages">Ungelesene private Nachrichten</string>
     <string name="cd_teleported">Teleportiert</string>

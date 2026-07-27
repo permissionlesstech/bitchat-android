@@ -50,7 +50,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -65,11 +64,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.withStyle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.ui.theme.BitchatPalette
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
-import com.bitchat.android.ui.theme.colorForPeer
 import com.bitchat.android.features.voice.normalizeAmplitudeSample
 import com.bitchat.android.features.voice.AudioWaveformExtractor
 import com.bitchat.android.ui.media.RealtimeScrollingWaveform
@@ -91,38 +89,22 @@ class SlashCommandVisualTransformation(
 ) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val slashCommandRegex = Regex("(/\\w+)(?=\\s|$)")
-        val annotatedString = buildAnnotatedString {
-            var lastIndex = 0
-
-            slashCommandRegex.findAll(text.text).forEach { match ->
-                // Add text before the match
-                if (match.range.first > lastIndex) {
-                    append(text.text.substring(lastIndex, match.range.first))
-                }
-
-                // Add the styled slash command
-                withStyle(
-                    style = SpanStyle(
-                        color = commandColor,
-                        fontFamily = BitchatFontFamily,
-                        fontWeight = FontWeight.Medium,
-                        background = commandBackground
-                    )
-                ) {
-                    append(match.value)
-                }
-
-                lastIndex = match.range.last + 1
-            }
-
-            // Add remaining text
-            if (lastIndex < text.text.length) {
-                append(text.text.substring(lastIndex))
-            }
+        val builder = AnnotatedString.Builder(text)
+        slashCommandRegex.findAll(text.text).forEach { match ->
+            builder.addStyle(
+                style = SpanStyle(
+                    color = commandColor,
+                    fontFamily = BitchatFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    background = commandBackground
+                ),
+                start = match.range.first,
+                end = match.range.last + 1,
+            )
         }
 
         return TransformedText(
-            text = annotatedString,
+            text = builder.toAnnotatedString(),
             offsetMapping = OffsetMapping.Identity
         )
     }
@@ -133,45 +115,55 @@ class SlashCommandVisualTransformation(
  * while preserving cursor positioning and click handling
  */
 class MentionVisualTransformation(
-    private val mentionColor: Color,
-    private val mentionBackground: Color,
+    private val mentionPeerIdentities: Map<String, PeerIdentity>,
+    private val palette: BitchatPalette,
 ) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
-        val mentionRegex = Regex("@([a-zA-Z0-9_]+)")
-        val annotatedString = buildAnnotatedString {
-            var lastIndex = 0
-            
-            mentionRegex.findAll(text.text).forEach { match ->
-                // Add text before the match
-                if (match.range.first > lastIndex) {
-                    append(text.text.substring(lastIndex, match.range.first))
-                }
-                
-                // Add the styled mention
-                withStyle(
+        val builder = AnnotatedString.Builder(text)
+
+        MENTION_TOKEN_REGEX.findAll(text.text).forEach { match ->
+            val start = match.range.first
+            val end = match.range.last + 1
+            val suffixOffset = match.value.lastIndexOf('#').takeIf { it > 0 }
+            val suffixStart = suffixOffset?.let(start::plus) ?: end
+            val mentionColor = colorForMention(
+                mention = match.value,
+                mentionPeerIdentities = mentionPeerIdentities,
+                palette = palette,
+            )
+
+            // Keep the whole token on one continuous color-derived chip.
+            builder.addStyle(
+                style = SpanStyle(
+                    background = mentionColor.copy(alpha = MENTION_CHIP_ALPHA),
+                ),
+                start = start,
+                end = end,
+            )
+            builder.addStyle(
+                style = SpanStyle(
+                    color = mentionColor,
+                    fontFamily = BitchatFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                start = start,
+                end = suffixStart,
+            )
+            if (suffixStart < end) {
+                builder.addStyle(
                     style = SpanStyle(
-                        color = mentionColor,
+                        color = mentionColor.copy(alpha = SUFFIX_ALPHA),
                         fontFamily = BitchatFontFamily,
                         fontWeight = FontWeight.SemiBold,
-                        // Mirrors the mention chip used in rendered messages, so what you type
-                        // looks like what everyone will see.
-                        background = mentionBackground
-                    )
-                ) {
-                    append(match.value)
-                }
-                
-                lastIndex = match.range.last + 1
-            }
-            
-            // Add remaining text
-            if (lastIndex < text.text.length) {
-                append(text.text.substring(lastIndex))
+                    ),
+                    start = suffixStart,
+                    end = end,
+                )
             }
         }
         
         return TransformedText(
-            text = annotatedString,
+            text = builder.toAnnotatedString(),
             offsetMapping = OffsetMapping.Identity
         )
     }
@@ -313,6 +305,7 @@ fun MessageInput(
     currentChannel: String?,
     nickname: String,
     showMediaButtons: Boolean,
+    mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
@@ -386,7 +379,11 @@ fun MessageInput(
                     }),
                     // Cap the growth so a pasted wall of text cannot swallow the message list.
                     maxLines = 6,
-                    visualTransformation = remember(palette) {
+                    visualTransformation = remember(
+                        palette,
+                        colorScheme.primary,
+                        mentionPeerIdentities,
+                    ) {
                         CombinedVisualTransformation(
                             listOf(
                                 SlashCommandVisualTransformation(
@@ -394,8 +391,8 @@ fun MessageInput(
                                     commandBackground = colorScheme.primary.copy(alpha = 0.14f),
                                 ),
                                 MentionVisualTransformation(
-                                    mentionColor = palette.accentOrange,
-                                    mentionBackground = palette.accentOrange.copy(alpha = MENTION_CHIP_ALPHA),
+                                    mentionPeerIdentities = mentionPeerIdentities,
+                                    palette = palette,
                                 ),
                             )
                         )
@@ -715,6 +712,7 @@ fun MentionSuggestionsBox(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val palette = LocalBitchatPalette.current
 
     LazyColumn(
         modifier = modifier
@@ -734,11 +732,13 @@ fun MentionSuggestionsBox(
             items = suggestions,
             key = { suggestion -> suggestion.lowercase() }
         ) { suggestion ->
-            val identity = resolveMentionPeerIdentity(suggestion, mentionPeerIdentities)
-                ?: PeerIdentity.nickname(suggestion)
             MentionSuggestionItem(
                 suggestion = suggestion,
-                identity = identity,
+                userColor = colorForMention(
+                    mention = suggestion,
+                    mentionPeerIdentities = mentionPeerIdentities,
+                    palette = palette,
+                ),
                 onClick = { onSuggestionClick(suggestion) },
                 modifier = Modifier.animateItem(
                     fadeInSpec = tween(
@@ -759,12 +759,11 @@ fun MentionSuggestionsBox(
 @Composable
 fun MentionSuggestionItem(
     suggestion: String,
-    identity: PeerIdentity,
+    userColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
-    val userColor = colorForPeer(identity, palette)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val pressedBackground by animateColorAsState(

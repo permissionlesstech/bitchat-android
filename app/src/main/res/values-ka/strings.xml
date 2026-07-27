@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">სანიშნეს დამატება</string>
 
     <!-- ჩათის სათაური &amp; ხელმისაწვდომობა -->
-    <string name="chat_back">უკან</string>
-    <string name="chat_leave">გასვლა</string>
     <string name="cd_nostr_reachable">მისაწვდომია Nostr-ით</string>
     <string name="cd_unread_private_messages">წაუკითხავი პირადი შეტყობინებები</string>
     <string name="cd_teleported">ტელეპორტირებული</string>

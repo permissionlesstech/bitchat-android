@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -250,6 +251,40 @@ class ChatUIUtilsTest {
         val chip = mentionChipSpans(body).single()
         assertEquals(expected.copy(alpha = MENTION_CHIP_ALPHA), chip.item.background)
         assertTrue(body.spanStyles.any { it.item.color == expected })
+    }
+
+    @Test
+    fun `composer colors nickname and hash suffix from the mentioned peer identity`() {
+        val pubkey = "0123456789abcdef".repeat(4)
+        val identity = PeerIdentity.nostr(pubkey)
+        val token = "@carol#04af"
+        val input = "ping $token now"
+        val transformed = MentionVisualTransformation(
+            mentionPeerIdentities = mapOf("carol#04af" to identity),
+            palette = palette,
+        ).filter(AnnotatedString(input)).text
+
+        val expectedColor = colorForPeer(identity, palette)
+        val tokenStart = input.indexOf(token)
+        val suffixStart = input.indexOf("#04af")
+        val tokenEnd = tokenStart + token.length
+
+        assertEquals(input, transformed.text)
+        assertTrue(transformed.spanStyles.any {
+            it.start == tokenStart &&
+                it.end == tokenEnd &&
+                it.item.background == expectedColor.copy(alpha = MENTION_CHIP_ALPHA)
+        })
+        assertTrue(transformed.spanStyles.any {
+            it.start == tokenStart &&
+                it.end == suffixStart &&
+                it.item.color == expectedColor
+        })
+        assertTrue(transformed.spanStyles.any {
+            it.start == suffixStart &&
+                it.end == tokenEnd &&
+                it.item.color == expectedColor.copy(alpha = SUFFIX_ALPHA)
+        })
     }
 
     @Test

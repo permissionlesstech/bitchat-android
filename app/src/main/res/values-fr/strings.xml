@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">Ajouter un signet</string>
 
     <!-- En‑tête de chat &amp; accessibilité -->
-    <string name="chat_back">retour</string>
-    <string name="chat_leave">quitter</string>
     <string name="cd_nostr_reachable">Joignable via Nostr</string>
     <string name="cd_unread_private_messages">Messages privés non lus</string>
     <string name="cd_teleported">Téléporté</string>

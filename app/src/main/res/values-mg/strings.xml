@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">Hanampy bookmark</string>
 
     <!-- Lohan\'ny resaka &amp; fahafaha-miditra -->
-    <string name="chat_back">miverina</string>
-    <string name="chat_leave">hiala</string>
     <string name="cd_nostr_reachable">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
     <string name="cd_unread_private_messages">Hafatra manokana tsy voavaky</string>
     <string name="cd_teleported">Nafindra toerana</string>

@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">Agregar marcador</string>
 
     <!-- Encabezado de chat y accesibilidad -->
-    <string name="chat_back">atrás</string>
-    <string name="chat_leave">salir</string>
     <string name="cd_nostr_reachable">Accesible vía Nostr</string>
     <string name="cd_unread_private_messages">Mensajes privados sin leer</string>
     <string name="cd_teleported">Teletransportado</string>

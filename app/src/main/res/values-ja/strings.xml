@@ -71,8 +71,6 @@
     <string name="cd_add_bookmark">ブックマークに追加</string>
 
     <!-- チャットヘッダー &amp; アクセシビリティ -->
-    <string name="chat_back">戻る</string>
-    <string name="chat_leave">退出</string>
     <string name="cd_nostr_reachable">Nostr 経由で到達可能</string>
     <string name="cd_unread_private_messages">未読のプライベートメッセージ</string>
     <string name="cd_teleported">テレポート済み</string>

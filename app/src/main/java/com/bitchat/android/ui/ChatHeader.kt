@@ -42,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
+import androidx.annotation.DrawableRes
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.RowScope
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.BitChatBrandButton
 import com.bitchat.android.net.ArtiTorManager
@@ -79,6 +82,15 @@ private val HeaderTapTarget = 44.dp
 
 /** Corner radius for the header's tappable label+icon clusters. */
 private val HeaderClusterShape = RoundedCornerShape(8.dp)
+
+/**
+ * Edge insets for the bar.
+ *
+ * Asymmetric because the leading glyph sits in a 44.dp tap target whose padding already supplies
+ * some optical inset, while the trailing action's does the same on the other side.
+ */
+internal val HeaderInsetStart = 12.dp
+internal val HeaderInsetEnd = 8.dp
 
 /**
  * A minimum-48x40 tap target wrapping a small icon.
@@ -273,38 +285,150 @@ fun NoiseSessionIcon(
     // The pre-redesign colours for the first two states were `0x87878700`, i.e. alpha 0x87 with
     // an all-but-transparent RGB - the icons were effectively invisible. They now use the
     // palette's secondary text colour.
-    val (icon, color, contentDescription) = when (sessionState) {
+    val (iconRes, color, contentDescription) = when (sessionState) {
         "uninitialized" -> Triple(
-            Icons.Outlined.NoEncryption,
+            R.drawable.ic_spec_lock_open,
             colorScheme.onSurfaceVariant,
             stringResource(R.string.cd_ready_for_handshake)
         )
         "handshaking" -> Triple(
-            Icons.Outlined.Sync,
+            R.drawable.ic_spec_sync,
             colorScheme.onSurfaceVariant,
             stringResource(R.string.cd_handshake_in_progress)
         )
         "established" -> Triple(
-            Icons.Filled.Lock,
-            palette.accentOrange,
+            R.drawable.ic_spec_lock,
+            colorScheme.primary,
             stringResource(R.string.cd_encrypted)
         )
         else -> { // "failed" or any other state
             Triple(
-                Icons.Outlined.Warning,
+                R.drawable.ic_spec_warning,
                 colorScheme.error,
                 stringResource(R.string.cd_handshake_failed)
             )
         }
     }
-    
+
     Icon(
-        imageVector = icon,
+        painter = painterResource(iconRes),
         contentDescription = contentDescription,
         modifier = modifier,
         tint = color
     )
 }
+
+/**
+ * Reachability glyph for a conversation, drawn from the same spec set the main header uses.
+ *
+ * Mirrors the main header's channel button: a globe for anything reached over the internet, the
+ * range mark for the local mesh, and the more specific transport glyph when we know it.
+ */
+@DrawableRes
+internal fun conversationTransportIcon(
+    isReachedOverInternet: Boolean,
+    isWifiAware: Boolean,
+    isDirect: Boolean
+): Int = when {
+    isReachedOverInternet -> R.drawable.ic_spec_globe
+    isWifiAware -> R.drawable.ic_spec_wifi
+    isDirect -> R.drawable.ic_spec_bluetooth
+    else -> R.drawable.ic_spec_routed
+}
+
+/**
+ * The shared chrome for a conversation header — private chats and channels alike.
+ *
+ * Deliberately built from the same tokens as [MainHeader] rather than from `TopAppBar`: identical
+ * height, identical 12/8.dp edge insets, the leading glyph in a [HeaderTapTarget]-sized slot so it
+ * lands exactly where the brand mark does, the same -6.dp optical nudge pulling the title toward
+ * that glyph, and the same [HeaderTextSize]. Anything less and the header visibly shifts as you
+ * move between the main timeline and a conversation.
+ *
+ * Actions are right-aligned and unweighted, so a long title yields space to them rather than
+ * pushing them off screen.
+ */
+@Composable
+fun ConversationHeader(
+    @DrawableRes leadingIconRes: Int,
+    leadingIconTint: Color,
+    title: String,
+    modifier: Modifier = Modifier,
+    onTitleClick: (() -> Unit)? = null,
+    leadingContentDescription: String? = null,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
+    val colorScheme = MaterialTheme.colorScheme
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(ChatHeaderHeight)
+            .padding(start = HeaderInsetStart, end = HeaderInsetEnd),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier.size(HeaderTapTarget),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(leadingIconRes),
+                    contentDescription = leadingContentDescription,
+                    modifier = Modifier.size(HeaderIconSize),
+                    tint = leadingIconTint
+                )
+            }
+
+            // Same optical correction as the main header: the 44.dp tap target leaves more gap
+            // than the design wants between glyph and label.
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontSize = HeaderTextSize,
+                fontWeight = FontWeight.Medium,
+                color = colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .offset(x = (-6).dp)
+                    .then(
+                        if (onTitleClick != null) {
+                            Modifier
+                                .clip(HeaderClusterShape)
+                                .pressScaleClickable(onClick = onTitleClick)
+                                .padding(horizontal = 6.dp, vertical = 4.dp)
+                        } else {
+                            Modifier
+                        }
+                    )
+            )
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            content = actions
+        )
+    }
+}
+
+/** An action slot in a [ConversationHeader], matching the main header's icon buttons. */
+@Composable
+fun ConversationHeaderAction(
+    onClick: () -> Unit,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) = HeaderIconButton(
+    onClick = onClick,
+    contentDescription = contentDescription,
+    modifier = modifier,
+    content = content
+)
 
 @Composable
 fun NicknameEditor(
@@ -486,51 +610,27 @@ private fun ChannelHeader(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    Box(modifier = Modifier.fillMaxWidth()) {
-        // Back: a chevron alone is unambiguous here and buys back ~40.dp of title space that
-        // the old "< back" label consumed.
-        HeaderIconButton(
+    // No back affordance: the close action on the right is the way out, exactly as in a private
+    // chat. Leaving the channel outright lives on its row in the network sheet, so it does not
+    // need a second, easily-mistaken home next to the exit.
+    ConversationHeader(
+        leadingIconRes = R.drawable.ic_spec_chat_bubbles,
+        leadingIconTint = colorScheme.primary,
+        leadingContentDescription = null,
+        title = "#$channel",
+        onTitleClick = onSidebarClick
+    ) {
+        ConversationHeaderAction(
             onClick = onBackClick,
-            contentDescription = stringResource(R.string.back),
-            modifier = Modifier.align(Alignment.CenterStart)
+            contentDescription = stringResource(R.string.close_plain)
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.back),
+                painter = painterResource(R.drawable.ic_spec_close),
+                contentDescription = stringResource(R.string.close_plain),
                 modifier = Modifier.size(HeaderIconSize),
-                tint = colorScheme.primary
+                tint = colorScheme.onSurfaceVariant
             )
         }
-
-        // Title - perfectly centered regardless of other elements
-        Text(
-            text = "#$channel",
-            style = MaterialTheme.typography.titleMedium,
-            fontSize = HeaderTextSize,
-            color = colorScheme.primary,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .clip(HeaderClusterShape)
-                .pressScaleClickable(onClick = onSidebarClick)
-                .heightIn(min = HeaderTapTarget)
-                .wrapContentHeight(Alignment.CenterVertically)
-                .padding(horizontal = 10.dp)
-        )
-
-        // Leave button - positioned on the right
-        Text(
-            text = stringResource(R.string.chat_leave),
-            style = MaterialTheme.typography.labelMedium,
-            fontSize = 15.sp,
-            color = colorScheme.error,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .clip(HeaderClusterShape)
-                .pressScaleClickable(onClick = onLeaveChannel)
-                .heightIn(min = HeaderTapTarget)
-                .wrapContentHeight(Alignment.CenterVertically)
-                .padding(horizontal = 10.dp)
-        )
     }
 }
 
@@ -556,7 +656,10 @@ private fun MainHeader(
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(ChatHeaderHeight)
+            .padding(start = HeaderInsetStart, end = HeaderInsetEnd),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // MARK: - Identity cluster.
@@ -615,7 +718,7 @@ private fun MainHeader(
                     contentDescription = stringResource(R.string.cd_unread_private_messages)
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Email,
+                        painter = painterResource(R.drawable.ic_spec_envelope),
                         contentDescription = stringResource(R.string.cd_unread_private_messages),
                         modifier = Modifier.size(HeaderIconSize),
                         tint = palette.accentOrange
