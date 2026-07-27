@@ -257,53 +257,129 @@ fun LocationChannelsSheet(
                         }
                     }
 
-                    // Location channels: globe + title, geohash subtitle, nearby levels + teleport
+                    item(key = "location_channels_header") {
+                        SheetIconSectionHeader(
+                            icon = Icons.Outlined.Public,
+                            title = stringResource(R.string.location_channels_heading),
+                            subtitle = stringResource(R.string.location_channels_desc),
+                            modifier = Modifier.padding(top = 20.dp)
+                        )
+                    }
+
+                    selectedChannelOutsideNearby?.let { channel ->
+                        item(key = "teleported_card") {
+                            val coverage = coverageString(channel.geohash.length)
+                            val name = bookmarkNames[channel.geohash]
+                            val subtitle = "#${channel.geohash} • $coverage" +
+                                (name?.let { " • ${formattedNamePrefix(channel.level)}$it" } ?: "")
+                            val participantCount = geohashParticipantCounts[channel.geohash] ?: 0
+                            val isBookmarked = bookmarksStore.isBookmarked(channel.geohash)
+
+                            Column {
+                                AboutSectionLabel(text = stringResource(R.string.cd_teleported))
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = AboutHorizontalPadding),
+                                    color = palette.surface,
+                                    shape = AboutCardShape
+                                ) {
+                                    ChannelOptionRow(
+                                        title = geohashHashTitleWithCount(
+                                            channel.geohash,
+                                            participantCount
+                                        ),
+                                        subtitle = subtitle,
+                                        isSelected = true,
+                                        participantCount = participantCount,
+                                        titleColor = standardGreen,
+                                        titleBold = participantCount > 0,
+                                        trailingContent = {
+                                            ChannelBookmarkButton(
+                                                bookmarked = isBookmarked,
+                                                onClick = {
+                                                    bookmarksStore.toggle(channel.geohash)
+                                                }
+                                            )
+                                        },
+                                        onClick = {
+                                            locationManager.select(ChannelID.Location(channel))
+                                            onDismiss()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (bookmarks.isNotEmpty()) {
+                        item(key = "bookmarks_card") {
+                            Column {
+                                AboutSectionLabel(text = stringResource(R.string.bookmarked))
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = AboutHorizontalPadding),
+                                    color = palette.surface,
+                                    shape = AboutCardShape
+                                ) {
+                                    Column {
+                                        bookmarks.forEachIndexed { index, gh ->
+                                            if (index > 0) SheetCardDivider()
+                                            val level = levelForLength(gh.length)
+                                            val channel = GeohashChannel(level = level, geohash = gh)
+                                            val coverage = coverageString(gh.length)
+                                            val name = bookmarkNames[gh]
+                                            val subtitle = "#$gh • $coverage" +
+                                                (name?.let { " • ${formattedNamePrefix(level)}$it" } ?: "")
+                                            val participantCount = geohashParticipantCounts[gh] ?: 0
+
+                                            ChannelOptionRow(
+                                                title = geohashHashTitleWithCount(gh, participantCount),
+                                                subtitle = subtitle,
+                                                isSelected = isChannelSelected(channel, selectedChannel),
+                                                participantCount = participantCount,
+                                                titleBold = participantCount > 0,
+                                                trailingContent = {
+                                                    ChannelBookmarkButton(
+                                                        bookmarked = true,
+                                                        onClick = { bookmarksStore.toggle(gh) }
+                                                    )
+                                                },
+                                                onClick = {
+                                                    val inRegional =
+                                                        availableChannels.any { it.geohash == gh }
+                                                    locationManager.setTeleported(
+                                                        !inRegional && availableChannels.isNotEmpty()
+                                                    )
+                                                    locationManager.select(ChannelID.Location(channel))
+                                                    onDismiss()
+                                                }
+                                            )
+                                            LaunchedEffect(gh) {
+                                                bookmarksStore.resolveNameIfNeeded(gh)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Nearby location channels and the control for teleporting somewhere new.
                     item(key = "channels_card") {
                         Column {
-                            SheetIconSectionHeader(
-                                icon = Icons.Outlined.Public,
-                                title = stringResource(R.string.location_channels_heading),
-                                subtitle = stringResource(R.string.location_channels_desc),
-                                modifier = Modifier.padding(top = 20.dp)
+                            AboutSectionLabel(
+                                text = stringResource(R.string.location_channels_nearby)
                             )
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = AboutHorizontalPadding)
-                                    .padding(top = 10.dp),
+                                    .padding(horizontal = AboutHorizontalPadding),
                                 color = palette.surface,
                                 shape = AboutCardShape
                             ) {
                                 Column {
-                                    selectedChannelOutsideNearby?.let { channel ->
-                                        val coverage = coverageString(channel.geohash.length)
-                                        val name = bookmarkNames[channel.geohash]
-                                        val subtitle = "#${channel.geohash} • $coverage" +
-                                            (name?.let { " • ${formattedNamePrefix(channel.level)}$it" } ?: "")
-                                        val participantCount = geohashParticipantCounts[channel.geohash] ?: 0
-                                        val isBookmarked = bookmarksStore.isBookmarked(channel.geohash)
-
-                                        ChannelOptionRow(
-                                            title = geohashTitleWithCount(channel, participantCount),
-                                            subtitle = subtitle,
-                                            isSelected = true,
-                                            participantCount = participantCount,
-                                            titleColor = standardGreen,
-                                            titleBold = participantCount > 0,
-                                            trailingContent = {
-                                                ChannelBookmarkButton(
-                                                    bookmarked = isBookmarked,
-                                                    onClick = { bookmarksStore.toggle(channel.geohash) }
-                                                )
-                                            },
-                                            onClick = {
-                                                locationManager.select(ChannelID.Location(channel))
-                                                onDismiss()
-                                            }
-                                        )
-                                        SheetCardDivider()
-                                    }
-
                                     if (locationServicesEnabled) {
                                         if (nearbyChannels.isNotEmpty()) {
                                             nearbyChannels.forEachIndexed { index, channel ->
@@ -414,57 +490,6 @@ fun LocationChannelsSheet(
                                         top = 8.dp
                                     )
                                 )
-                            }
-                        }
-                    }
-
-                    if (bookmarks.isNotEmpty()) {
-                        item(key = "bookmarks_card") {
-                            Column {
-                                AboutSectionLabel(text = stringResource(R.string.bookmarked))
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = AboutHorizontalPadding),
-                                    color = palette.surface,
-                                    shape = AboutCardShape
-                                ) {
-                                    Column {
-                                        bookmarks.forEachIndexed { index, gh ->
-                                            if (index > 0) SheetCardDivider()
-                                            val level = levelForLength(gh.length)
-                                            val channel = GeohashChannel(level = level, geohash = gh)
-                                            val coverage = coverageString(gh.length)
-                                            val name = bookmarkNames[gh]
-                                            val subtitle = "#$gh • $coverage" +
-                                                (name?.let { " • ${formattedNamePrefix(level)}$it" } ?: "")
-                                            val participantCount = geohashParticipantCounts[gh] ?: 0
-
-                                            ChannelOptionRow(
-                                                title = geohashHashTitleWithCount(gh, participantCount),
-                                                subtitle = subtitle,
-                                                isSelected = isChannelSelected(channel, selectedChannel),
-                                                participantCount = participantCount,
-                                                titleBold = participantCount > 0,
-                                                trailingContent = {
-                                                    ChannelBookmarkButton(
-                                                        bookmarked = true,
-                                                        onClick = { bookmarksStore.toggle(gh) }
-                                                    )
-                                                },
-                                                onClick = {
-                                                    val inRegional = availableChannels.any { it.geohash == gh }
-                                                    locationManager.setTeleported(
-                                                        !inRegional && availableChannels.isNotEmpty()
-                                                    )
-                                                    locationManager.select(ChannelID.Location(channel))
-                                                    onDismiss()
-                                                }
-                                            )
-                                            LaunchedEffect(gh) { bookmarksStore.resolveNameIfNeeded(gh) }
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
