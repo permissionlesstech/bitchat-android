@@ -51,6 +51,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.bitchat.android.nostr.NearbyNotesController
 import com.bitchat.android.nostr.geohashesForSampling
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
@@ -588,15 +589,16 @@ fun LocationChannelsSheet(
         }
     }
 
-    DisposableEffect(isPresented, permissionState, locationServicesEnabled) {
-        if (isPresented &&
-            permissionState == LocationChannelManager.PermissionState.AUTHORIZED &&
-            locationServicesEnabled
-        ) {
-            locationManager.refreshChannels()
-            locationManager.beginLiveRefresh()
+    LifecycleResumeEffect(isPresented, locationServicesEnabled) {
+        if (isPresented && locationServicesEnabled) {
+            locationManager.enableLocationChannels()
+            if (locationManager.permissionState.value ==
+                LocationChannelManager.PermissionState.AUTHORIZED
+            ) {
+                locationManager.beginLiveRefresh()
+            }
         }
-        onDispose { locationManager.endLiveRefresh() }
+        onPauseOrDispose { locationManager.endLiveRefresh() }
     }
 
     // Sampling management: update sampling when channels/bookmarks change
