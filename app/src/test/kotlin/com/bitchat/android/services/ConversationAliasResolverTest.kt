@@ -29,27 +29,34 @@ class ConversationAliasResolverTest {
     }
 
     @Test
-    fun `explicit alias merge keeps arrival order when peer clocks differ`() {
+    fun `explicit alias merge restores global order for interleaved arrivals`() {
         val firstArrival = BitchatMessage(
-            id = "first-arrival",
+            id = "alias-a-first",
             sender = "alice",
-            content = "sent from a clock that is ahead",
-            timestamp = Date(3)
+            content = "first arrival through alias A",
+            timestamp = Date(300)
         )
         val secondArrival = BitchatMessage(
-            id = "second-arrival",
+            id = "alias-b-first",
             sender = "alice",
-            content = "sent from a clock that is behind",
-            timestamp = Date(1)
+            content = "second arrival through alias B",
+            timestamp = Date(100)
         )
-        state.setPrivateChats(
-            linkedMapOf(
-                "target-peer" to listOf(firstArrival),
-                "source-alias" to listOf(secondArrival)
-            )
+        val thirdArrival = BitchatMessage(
+            id = "alias-a-second",
+            sender = "alice",
+            content = "third arrival through alias A",
+            timestamp = Date(200)
         )
         AppStateStore.addPrivateMessage("target-peer", firstArrival)
         AppStateStore.addPrivateMessage("source-alias", secondArrival)
+        AppStateStore.addPrivateMessage("target-peer", thirdArrival)
+        state.setPrivateChats(
+            linkedMapOf(
+                "target-peer" to listOf(firstArrival, thirdArrival),
+                "source-alias" to listOf(secondArrival)
+            )
+        )
 
         ConversationAliasResolver.unifyChatsIntoPeer(
             state = state,
@@ -58,11 +65,11 @@ class ConversationAliasResolverTest {
         )
 
         assertEquals(
-            listOf(firstArrival, secondArrival),
+            listOf(firstArrival, secondArrival, thirdArrival),
             state.getPrivateChatsValue()["target-peer"]
         )
         assertEquals(
-            listOf(firstArrival, secondArrival),
+            listOf(firstArrival, secondArrival, thirdArrival),
             AppStateStore.privateMessages.value["target-peer"]
         )
     }

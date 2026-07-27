@@ -103,9 +103,9 @@ object ContactDirectory {
 
         return merged.mapValues { (_, messages) ->
             // A private message's timestamp comes from the sender and is not a reliable ordering
-            // signal when peers' clocks differ. The lists are populated in receive order, so keep
-            // their first occurrence in that same order while canonicalizing aliases.
-            messages.distinctBy { it.id }
+            // signal when peers' clocks differ. Use the local receipt sequence so interleaved
+            // alias lists can be merged back into their global arrival order.
+            PrivateMessageArrivalOrder.order(messages.distinctBy { it.id })
         }
     }
 
