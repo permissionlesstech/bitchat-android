@@ -1024,17 +1024,7 @@ fun PrivateChatSheet(
                         }
 
                         val dismiss = LocalSheetDismiss.current
-                        ConversationHeaderAction(
-                            onClick = { dismiss?.invoke() ?: onDismiss() },
-                            contentDescription = stringResource(R.string.close_plain)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_spec_close),
-                                contentDescription = null,
-                                modifier = Modifier.size(HeaderIconSize),
-                                tint = colorScheme.onSurfaceVariant
-                            )
-                        }
+                        CloseButton(onClick = { dismiss?.invoke() ?: onDismiss() })
                     }
                 }
             }
