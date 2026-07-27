@@ -9,6 +9,7 @@ import java.nio.charset.CodingErrorAction
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Arrays
+import java.util.UUID
 import org.bouncycastle.crypto.InvalidCipherTextException
 import org.bouncycastle.crypto.modes.ChaCha20Poly1305
 import org.bouncycastle.crypto.params.AEADParameters
@@ -522,6 +523,9 @@ object GroupCrypto {
         key: ByteArray,
         sign: (ByteArray) -> ByteArray?
     ): ByteArray {
+        if (!isCanonicalMessageID(messageID)) {
+            throw GroupCryptoException.MalformedPayload()
+        }
         val signature = sign(
             messageSigningContent(groupID, epoch, messageID, timestampMs, content)
         )
@@ -588,7 +592,7 @@ object GroupCrypto {
                 FIELD_SIGNATURE -> if (field.value.size == 64) signature = field.value
             }
         }
-        val decodedMessageID = messageID?.takeIf { it.isNotEmpty() }
+        val decodedMessageID = messageID?.takeIf(::isCanonicalMessageID)
             ?: throw GroupCryptoException.MalformedPayload()
         val decodedSigningKey = senderSigningKey ?: throw GroupCryptoException.MalformedPayload()
         val decodedNickname = senderNickname ?: throw GroupCryptoException.MalformedPayload()
@@ -615,6 +619,17 @@ object GroupCrypto {
         )
     }
 
+    private fun isCanonicalMessageID(messageID: String): Boolean {
+        val encoded = messageID.toByteArray(Charsets.UTF_8)
+        if (encoded.size != UUID_TEXT_LENGTH || !UUID_PATTERN.matches(messageID)) return false
+        return try {
+            UUID.fromString(messageID)
+            true
+        } catch (_: IllegalArgumentException) {
+            false
+        }
+    }
+
     @Throws(InvalidCipherTextException::class)
     private fun crypt(
         encrypt: Boolean,
@@ -630,6 +645,12 @@ object GroupCrypto {
         length += cipher.doFinal(output, length)
         return output.copyOf(length)
     }
+
+    private const val UUID_TEXT_LENGTH = 36
+    private val UUID_PATTERN = Regex(
+        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-" +
+            "[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    )
 }
 
 internal fun sha256(data: ByteArray): ByteArray =

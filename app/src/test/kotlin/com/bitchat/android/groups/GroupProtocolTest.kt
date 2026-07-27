@@ -81,7 +81,7 @@ class GroupProtocolTest {
     fun `group message seals opens and verifies sender`() {
         val encoded = GroupCrypto.sealMessage(
             content = "meet at the ridge",
-            messageID = "message-1",
+            messageID = MESSAGE_ID_1,
             senderNickname = member.nickname,
             senderSigningKey = member.signingKey,
             timestampMs = 1_725_000_000_123,
@@ -93,7 +93,7 @@ class GroupProtocolTest {
         val envelope = GroupMessageEnvelope.decode(encoded)!!
         val opened = GroupCrypto.openMessage(envelope, groupKey)
 
-        assertEquals("message-1", opened.messageID)
+        assertEquals(MESSAGE_ID_1, opened.messageID)
         assertEquals("meet at the ridge", opened.content)
         assertEquals(member.nickname, opened.senderNickname)
         assertArrayEquals(member.signingKey, opened.senderSigningKey)
@@ -135,7 +135,7 @@ class GroupProtocolTest {
     fun `bad sender signature is rejected after valid AEAD`() {
         val encoded = GroupCrypto.sealMessage(
             content = "forged",
-            messageID = "message-2",
+            messageID = MESSAGE_ID_2,
             senderNickname = member.nickname,
             senderSigningKey = member.signingKey,
             timestampMs = 42,
@@ -192,18 +192,40 @@ class GroupProtocolTest {
 
         val plaintext = GroupCrypto.openMessage(
             GroupMessageEnvelope.decode(IOS_MESSAGE_VECTOR.hexBytes())!!,
-            ByteArray(32) { (it + 1).toByte() }
+            groupKey
         )
-        assertEquals("ios-vector", plaintext.messageID)
+        assertEquals(MESSAGE_ID_1, plaintext.messageID)
         assertEquals("alice", plaintext.senderNickname)
         assertEquals("meet at ridge", plaintext.content)
         assertEquals(1_725_000_000_123, plaintext.timestampMs)
         assertArrayEquals(IOS_MEMBER_PUBLIC_KEY.hexBytes(), plaintext.senderSigningKey)
     }
 
+    @Test
+    fun `rejects message IDs that are not canonical UUID text`() {
+        assertThrows(GroupCryptoException.MalformedPayload::class.java) {
+            GroupCrypto.sealMessage(
+                content = "legacy",
+                messageID = "ios-vector",
+                senderNickname = member.nickname,
+                senderSigningKey = member.signingKey,
+                timestampMs = 1_725_000_000_123,
+                groupID = group.groupID,
+                epoch = group.epoch,
+                key = groupKey
+            ) { sign(memberPrivate, it) }
+        }
+        assertThrows(GroupCryptoException.MalformedPayload::class.java) {
+            GroupCrypto.openMessage(
+                GroupMessageEnvelope.decode(IOS_LEGACY_MESSAGE_VECTOR.hexBytes())!!,
+                groupKey
+            )
+        }
+    }
+
     private fun sealedMessage(): ByteArray = GroupCrypto.sealMessage(
         content = "hello",
-        messageID = "message",
+        messageID = MESSAGE_ID_3,
         senderNickname = member.nickname,
         senderSigningKey = member.signingKey,
         timestampMs = 1234,
@@ -253,11 +275,17 @@ class GroupProtocolTest {
         chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 
     companion object {
+        // Swift UUID().uuidString uses uppercase hexadecimal.
+        private const val MESSAGE_ID_1 = "123E4567-E89B-12D3-A456-426614174000"
+        private const val MESSAGE_ID_2 = "123e4567-e89b-12d3-a456-426614174001"
+        private const val MESSAGE_ID_3 = "123e4567-e89b-12d3-a456-426614174002"
         private const val IOS_MEMBER_PUBLIC_KEY =
             "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0"
         private const val IOS_STATE_VECTOR =
             "010010000102030405060708090a0b0c0d0e0f02000468696b650300200102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f200400040000000705008f023131313131313131313131313131313131313131313131313131313131313131d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c97787370763726561746f724141414141414141414141414141414141414141414141414141414141414141a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f005616c69636506002031313131313131313131313131313131313131313131313131313131313131310700407e7dcb5210e48a2edc346f1364c0e3f3a7939a3006f318bd591e94f11b7c6d5a928042f04278bf2e5d612da02258acd686d11a8f8f310b2cc0f8b886bb13ac05"
         private const val IOS_MESSAGE_VECTOR =
+            "010010000102030405060708090a0b0c0d0e0f0200040000000703000c000102030405060708090a0b0400c0e1ab91e9c2905162eb8364fa1c676e395547df4c1e8d153b65b3423fdd6eb2af5015b28900b064d89d132e6f38df9a2f52c21e4ae1763d15f2e9195b70238bde5d30c0b876ffb07072bea3c627b364f8728c0cfaab7c89274110f42c275139065b22d09730c49d982f67b4f868aaa93aef81e8f02e8424b2e2d9e1b80fbe5bfe10f689609e764cbbaf05afdac99f2ed379b742536241f16a655da05efc3995411fdc649202073bc4d6bc1c0e54edebd4926cdcd83df8aa3c9d452eb7a1d7c324"
+        private const val IOS_LEGACY_MESSAGE_VECTOR =
             "010010000102030405060708090a0b0c0d0e0f0200040000000703000c000102030405060708090a0b0400a6e1abbfb19fd03920bbd627b82b5d575bd8ec48fc57c70d8f7f7c3af33375ae8ac1ed189e8e17acbe8f4c77cda97e44b8084234d2d8e7825ddcfdb492ed01a4eba676a9c28fcae940b33a80a756f27af8758e6dfca33c4184cd5fa2b82fe527de32c79c9a52d8ddcd596c7e3dcc29003184adf571489a8a9a9d0b7301cdf85b45b4521e55aebf6238031af50c81d6dd639b6210e82c0ab70e19ba4d1b04c323c70f6e09b54585"
     }
 }

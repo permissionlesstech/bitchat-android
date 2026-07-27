@@ -88,6 +88,22 @@ class GroupStoreTest {
     }
 
     @Test
+    fun `stale state cannot overwrite or remove a newer epoch`() {
+        val store = GroupStore(MemoryGroupKeys(), testOnly = true)
+        val original = store.createGroup("ops", creator())!!
+        val newest = original.copy(epoch = 3)
+        val newestKey = ByteArray(32) { 0x61 }
+        assertTrue(store.upsert(newest, newestKey))
+
+        val stale = original.copy(epoch = 2)
+        assertFalse(store.upsert(stale, ByteArray(32) { 0x62 }))
+        assertNull(store.removeGroupForState(original.groupID, stateEpoch = 2))
+
+        assertEquals(newest, store.group(original.groupID))
+        assertArrayEquals(newestKey, store.key(original.groupID))
+    }
+
+    @Test
     fun `voluntary departure survives restart until a newer invite is accepted`() {
         val keys = MemoryGroupKeys()
         val file = File(temporaryFolder.root, "groups.json")
@@ -173,6 +189,22 @@ class GroupStoreTest {
         assertFalse(file.exists())
     }
 
+    @Test
+    fun `panic wipe clears keys that have no recoverable metadata`() {
+        val keys = MemoryGroupKeys()
+        val orphanedGroupID = ByteArray(16) { 0x71 }
+        val orphanedKeyName =
+            "groupKey-${orphanedGroupID.joinToString("") { "%02x".format(it) }}"
+        keys.put(orphanedKeyName, ByteArray(32) { 0x72 })
+        val store = GroupStore(keys, testOnly = true)
+        assertNotNull(store.key(orphanedGroupID))
+
+        assertTrue(store.wipe())
+
+        assertNull(store.key(orphanedGroupID))
+        assertTrue(store.groups.value.isEmpty())
+    }
+
     private fun creator() =
         GroupMember("11".repeat(32), ByteArray(32) { 0x44 }, "creator")
 }
@@ -188,6 +220,11 @@ private class MemoryGroupKeys : GroupKeyStorage {
     }
 
     override fun remove(key: String): Boolean = values.remove(key) != null
+
+    override fun clear(): Boolean {
+        values.clear()
+        return true
+    }
 }
 
 private class MemoryGroupMetadata : GroupMetadataStorage {

@@ -61,7 +61,8 @@ class ChatViewModel(
     companion object {
         private const val TAG = "ChatViewModel"
         private const val GROUP_COMMAND_USAGE =
-            "usage: /group create <name> · invite @name · remove @name · leave · list"
+            "usage: /group create <name> · invite @name[#identity] · " +
+                "remove @name[#identity] · leave · list"
     }
 
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
@@ -144,10 +145,10 @@ class ChatViewModel(
         override fun mySigningPublicKey(): ByteArray? = mesh.getSigningPublicKey()
         override fun sign(data: ByteArray): ByteArray? = mesh.signData(data)
 
-        override fun peerIDForNickname(nickname: String): String? =
-            mesh.getPeerNicknames().entries.firstOrNull {
+        override fun peerIDsForNickname(nickname: String): List<String> =
+            mesh.getPeerNicknames().entries.filter {
                 it.value.equals(nickname, ignoreCase = true)
-            }?.key
+            }.map { it.key }
 
         override fun isPeerConnected(peerID: String): Boolean =
             mesh.getPeerInfo(peerID)?.isConnected == true && mesh.hasEstablishedSession(peerID)
@@ -1143,64 +1144,70 @@ class ChatViewModel(
     
     fun panicClearAllData() {
         Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
+        groupCoordinator.suspendForPanic()
+        try {
+            // A pending one-shot downgrade confirmation must not survive panic or
+            // become actionable against the fresh post-wipe identity.
+            mediaSendingManager.clearPendingPrivateMediaConsent()
 
-        // A pending one-shot downgrade confirmation must not survive panic or
-        // become actionable against the fresh post-wipe identity.
-        mediaSendingManager.clearPendingPrivateMediaConsent()
-        
-        // Clear all UI managers
-        messageManager.clearAllMessages()
-        channelManager.clearAllChannels()
-        privateChatManager.clearAllPrivateChats()
-        try {
-            com.bitchat.android.services.AppStateStore.clear()
-        } catch (_: Exception) {
-        }
-        groupStore.wipe()
-        dataManager.clearAllData()
-        
-        // Clear seen message store
-        try {
-            com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
-        } catch (_: Exception) { }
-        
-        // Clear all mesh service data
-        clearAllMeshServiceData()
-        
-        // Clear all cryptographic data
-        clearAllCryptographicData()
-        
-        // Clear all notifications
-        notificationManager.clearAllNotifications()
-
-        // Clear all media files
-        com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())
-        
-        // Clear Nostr/geohash state, keys, connections, bookmarks, and reinitialize from scratch
-        try {
-            // Clear geohash bookmarks too (panic should remove everything)
+            // Clear all UI managers
+            messageManager.clearAllMessages()
+            channelManager.clearAllChannels()
+            privateChatManager.clearAllPrivateChats()
             try {
-                val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
-                store.clearAll()
+                com.bitchat.android.services.AppStateStore.clear()
+            } catch (_: Exception) {
+            }
+            if (!groupStore.wipe()) {
+                Log.e(TAG, "Private-group panic wipe could not be completed")
+            }
+            dataManager.clearAllData()
+
+            // Clear seen message store
+            try {
+                com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
             } catch (_: Exception) { }
 
+            // Clear all mesh service data
+            clearAllMeshServiceData()
+
+            // Clear all cryptographic data
+            clearAllCryptographicData()
+
+            // Clear all notifications
+            notificationManager.clearAllNotifications()
+
+            // Clear all media files
+            com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())
+
+            // Clear Nostr/geohash state, keys, connections, bookmarks, and reinitialize from scratch
             try {
-                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-                locationManager.clearPersistedChannel()
-            } catch (_: Exception) { }
+                // Clear geohash bookmarks too (panic should remove everything)
+                try {
+                    val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
+                    store.clearAll()
+                } catch (_: Exception) { }
 
-            geohashViewModel.panicReset()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
+                try {
+                    val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
+                    locationManager.clearPersistedChannel()
+                } catch (_: Exception) { }
+
+                geohashViewModel.panicReset()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
+            }
+
+            // Reset nickname
+            val newNickname = "anon${Random.nextInt(1000, 9999)}"
+            state.setNickname(newNickname)
+            dataManager.saveNickname(newNickname)
+
+            // Recreate mesh service with fresh identity
+            recreateMeshServiceAfterPanic()
+        } finally {
+            groupCoordinator.resumeAfterPanic()
         }
-
-        // Reset nickname
-        val newNickname = "anon${Random.nextInt(1000, 9999)}"
-        state.setNickname(newNickname)
-        dataManager.saveNickname(newNickname)
-        
-        // Recreate mesh service with fresh identity
-        recreateMeshServiceAfterPanic()
 
         Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")
     }

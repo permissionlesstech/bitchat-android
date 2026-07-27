@@ -75,6 +75,64 @@ class GroupCoordinatorTest {
     }
 
     @Test
+    fun `duplicate nicknames require an identity suffix`() {
+        val localKey = privateKey(0x23)
+        val firstKey = privateKey(0x24)
+        val secondKey = privateKey(0x25)
+        val firstPeerID = "24".repeat(8)
+        val secondPeerID = "25".repeat(8)
+        val context = FakeGroupContext(localKey, "23".repeat(32))
+        context.peerIDs["alice"] = firstPeerID
+        context.additionalPeerIDs.getOrPut("alice") { mutableListOf() } += secondPeerID
+        context.connected += firstPeerID
+        context.connected += secondPeerID
+        context.peerNames[firstPeerID] = "alice"
+        context.peerNames[secondPeerID] = "alice"
+        context.identities[firstPeerID] = GroupPeerIdentity(
+            "24".repeat(32),
+            firstKey.generatePublicKey().encoded
+        )
+        context.identities[secondPeerID] = GroupPeerIdentity(
+            "25".repeat(32),
+            secondKey.generatePublicKey().encoded
+        )
+        val coordinator = GroupCoordinator(context)
+        assertTrue(coordinator.createGroup("trail crew").success)
+
+        val ambiguous = coordinator.inviteMember("@alice")
+
+        assertFalse(ambiguous.success)
+        assertTrue(ambiguous.message.contains("multiple users"))
+        assertTrue(context.invites.isEmpty())
+        assertEquals(1, context.groupStore.groups.value.single().epoch)
+
+        val resolved = coordinator.inviteMember("@alice#${secondPeerID.takeLast(8)}")
+
+        assertTrue(resolved.success)
+        assertEquals(secondPeerID, context.invites.single().first)
+        assertEquals("25".repeat(32), context.groupStore.groups.value.single().members.last().fingerprint)
+
+        assertTrue(coordinator.inviteMember("@alice#${firstPeerID.takeLast(8)}").success)
+        val epochBeforeAmbiguousRemoval = context.groupStore.groups.value.single().epoch
+
+        val ambiguousRemoval = coordinator.removeMember("@alice")
+
+        assertFalse(ambiguousRemoval.success)
+        assertTrue(ambiguousRemoval.message.contains("multiple members"))
+        assertEquals(epochBeforeAmbiguousRemoval, context.groupStore.groups.value.single().epoch)
+
+        val resolvedRemoval =
+            coordinator.removeMember("@alice#${firstPeerID.takeLast(8)}")
+
+        assertTrue(resolvedRemoval.success)
+        assertFalse(
+            context.groupStore.groups.value.single().members.any {
+                it.fingerprint == "24".repeat(32)
+            }
+        )
+    }
+
+    @Test
     fun `invite requires confirmed group capability`() {
         val localKey = privateKey(0x12)
         val inviteeKey = privateKey(0x13)
@@ -346,6 +404,44 @@ class GroupCoordinatorTest {
     }
 
     @Test
+    fun `panic discards packets queued during store initialization`() {
+        val creatorKey = privateKey(0x26)
+        val localKey = privateKey(0x27)
+        val creatorStatic = ByteArray(32) { 0x28 }
+        val creatorFingerprint = fingerprint(creatorStatic)
+        val localFingerprint = "27".repeat(32)
+        val store = GroupStore(
+            TestGroupKeys(),
+            testOnly = true,
+            autoInitialize = false
+        )
+        val context = FakeGroupContext(localKey, localFingerprint, store)
+        val group = incomingGroup(
+            creatorKey,
+            creatorFingerprint,
+            localKey,
+            localFingerprint
+        )
+        val coordinator = GroupCoordinator(context)
+        coordinator.handleInvite(
+            "creator",
+            creatorStatic,
+            signedState(group, creatorKey, ByteArray(32) { 0x29 })
+        )
+
+        coordinator.suspendForPanic()
+        assertTrue(store.initialize())
+        assertTrue(store.wipe())
+        coordinator.onStoreReady()
+        coordinator.resumeAfterPanic()
+        coordinator.onStoreReady()
+
+        assertTrue(store.groups.value.isEmpty())
+        assertNull(store.key(group.groupID))
+        assertTrue(context.notifications.isEmpty())
+    }
+
+    @Test
     fun `group message requires a roster sender and deduplicates`() {
         val creatorKey = privateKey(0x21)
         val localKey = privateKey(0x22)
@@ -361,7 +457,7 @@ class GroupCoordinatorTest {
         val key = ByteArray(32) { 0x33 }
         assertTrue(context.groupStore.upsert(group, key))
         val coordinator = GroupCoordinator(context)
-        val payload = sealedMessage(group, key, creatorKey, "message-1", "hello")
+        val payload = sealedMessage(group, key, creatorKey, MESSAGE_ID_1, "hello")
 
         coordinator.handleMessage(payload, System.currentTimeMillis())
         coordinator.handleMessage(payload, System.currentTimeMillis())
@@ -375,10 +471,51 @@ class GroupCoordinatorTest {
 
         context.blocked += creatorFingerprint
         coordinator.handleMessage(
-            sealedMessage(group, key, creatorKey, "message-2", "blocked"),
+            sealedMessage(group, key, creatorKey, MESSAGE_ID_2, "blocked"),
             System.currentTimeMillis()
         )
         assertEquals(1, context.messages[group.peerID].orEmpty().size)
+    }
+
+    @Test
+    fun `future epoch message is retried after matching state arrives`() {
+        val creatorKey = privateKey(0x2a)
+        val localKey = privateKey(0x2b)
+        val creatorStatic = ByteArray(32) { 0x2c }
+        val creatorFingerprint = fingerprint(creatorStatic)
+        val localFingerprint = "2b".repeat(32)
+        val context = FakeGroupContext(localKey, localFingerprint)
+        val current = incomingGroup(
+            creatorKey,
+            creatorFingerprint,
+            localKey,
+            localFingerprint
+        )
+        val currentKey = ByteArray(32) { 0x2d }
+        val nextKey = ByteArray(32) { 0x2e }
+        val next = current.copy(epoch = current.epoch + 1)
+        assertTrue(context.groupStore.upsert(current, currentKey))
+        val coordinator = GroupCoordinator(context)
+        val futureMessage = sealedMessage(
+            next,
+            nextKey,
+            creatorKey,
+            MESSAGE_ID_3,
+            "after rotation"
+        )
+
+        coordinator.handleMessage(futureMessage, System.currentTimeMillis())
+        assertTrue(context.messages[current.peerID].orEmpty().isEmpty())
+
+        coordinator.handleKeyUpdate(
+            "creator",
+            creatorStatic,
+            signedState(next, creatorKey, nextKey)
+        )
+
+        val delivered = context.messages[current.peerID].orEmpty().single()
+        assertEquals(MESSAGE_ID_3, delivered.id)
+        assertEquals("after rotation", delivered.content)
     }
 
     private fun incomingGroup(
@@ -448,6 +585,12 @@ class GroupCoordinatorTest {
         MessageDigest.getInstance("SHA-256")
             .digest(noiseKey)
             .joinToString("") { "%02x".format(it) }
+
+    companion object {
+        private const val MESSAGE_ID_1 = "123e4567-e89b-12d3-a456-426614174010"
+        private const val MESSAGE_ID_2 = "123e4567-e89b-12d3-a456-426614174011"
+        private const val MESSAGE_ID_3 = "123e4567-e89b-12d3-a456-426614174012"
+    }
 }
 
 private class FakeGroupContext(
@@ -462,6 +605,7 @@ private class FakeGroupContext(
 
     var selected: String? = null
     val peerIDs = mutableMapOf<String, String>()
+    val additionalPeerIDs = mutableMapOf<String, MutableList<String>>()
     val connected = mutableSetOf<String>()
     val groupCapabilities = mutableMapOf<String, PeerGroupCapability>()
     val peerNames = mutableMapOf<String, String>()
@@ -486,7 +630,8 @@ private class FakeGroupContext(
         return signer.generateSignature()
     }
 
-    override fun peerIDForNickname(nickname: String) = peerIDs[nickname]
+    override fun peerIDsForNickname(nickname: String): List<String> =
+        listOfNotNull(peerIDs[nickname]) + additionalPeerIDs[nickname].orEmpty()
     override fun isPeerConnected(peerID: String) = peerID in connected
     override fun peerGroupCapability(peerID: String) =
         groupCapabilities[peerID] ?: PeerGroupCapability.SUPPORTED
@@ -571,4 +716,9 @@ private class TestGroupKeys : GroupKeyStorage {
     }
 
     override fun remove(key: String): Boolean = values.remove(key) != null
+
+    override fun clear(): Boolean {
+        values.clear()
+        return true
+    }
 }

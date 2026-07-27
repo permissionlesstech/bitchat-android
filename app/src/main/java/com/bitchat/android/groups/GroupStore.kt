@@ -25,6 +25,7 @@ internal interface GroupKeyStorage {
     fun get(key: String): ByteArray?
     fun put(key: String, value: ByteArray): Boolean
     fun remove(key: String): Boolean
+    fun clear(): Boolean
 }
 
 internal interface GroupMetadataStorage {
@@ -70,6 +71,12 @@ private class EncryptedPreferencesGroupKeyStorage(context: Context) : GroupKeySt
     override fun remove(key: String): Boolean = try {
         // Removal is a security boundary, so report the synchronous result.
         preferences.edit().remove(key).commit()
+    } catch (_: Exception) {
+        false
+    }
+
+    override fun clear(): Boolean = try {
+        preferences.edit().clear().commit() && preferences.all.isEmpty()
     } catch (_: Exception) {
         false
     }
@@ -306,18 +313,29 @@ class GroupStore private constructor(
         removeLocked(groupID, departureEpoch = null)
     }
 
+    fun removeGroupForState(groupID: ByteArray, stateEpoch: Long): BitchatGroup? =
+        synchronized(lock) {
+            if (stateEpoch !in 0..BitchatGroup.MAX_EPOCH) return@synchronized null
+            val existing = _groups.value.firstOrNull { it.groupID.contentEquals(groupID) }
+                ?: return@synchronized null
+            if (stateEpoch < existing.epoch) return@synchronized null
+            if (!removeLocked(groupID, departureEpoch = null)) return@synchronized null
+            existing.deepCopy()
+        }
+
     fun departGroup(groupID: ByteArray, epoch: Long): Boolean = synchronized(lock) {
         if (epoch !in 0..BitchatGroup.MAX_EPOCH) return@synchronized false
         removeLocked(groupID, departureEpoch = epoch)
     }
 
-    fun wipe() = synchronized(lock) {
-        if (!initialized && !initialize()) return@synchronized
-        val keys = keyStorage ?: return@synchronized
-        _groups.value.forEach { keys.remove(keyName(it.groupID)) }
+    fun wipe(): Boolean = synchronized(lock) {
+        if (!initialized && !initialize()) return@synchronized false
+        val keys = keyStorage ?: return@synchronized false
+        val keysCleared = keys.clear()
+        val metadataDeleted = metadataStorage?.delete() ?: true
         _groups.value = emptyList()
         departures.clear()
-        metadataStorage?.delete()
+        keysCleared && metadataDeleted
     }
 
     private fun upsertLocked(
@@ -330,13 +348,22 @@ class GroupStore private constructor(
 
         val updatedGroups = _groups.value.toMutableList()
         val index = updatedGroups.indexOfFirst { it.groupID.contentEquals(group.groupID) }
+        if (index >= 0 && group.epoch < updatedGroups[index].epoch) return false
+
         if (index >= 0) {
             updatedGroups[index] = group.deepCopy()
         } else {
             updatedGroups += group.deepCopy()
         }
         val updatedDepartures = departures.toMutableMap()
-        if (clearDeparture) updatedDepartures.remove(group.groupID.hexEncodedString())
+        val groupID = group.groupID.hexEncodedString()
+        val departureEpoch = updatedDepartures[groupID]
+        if (clearDeparture) {
+            if (departureEpoch != null && group.epoch <= departureEpoch) return false
+            updatedDepartures.remove(groupID)
+        } else if (departureEpoch != null) {
+            return false
+        }
 
         val name = keyName(group.groupID)
         val previousKey = keys.get(name)?.copyOf()
