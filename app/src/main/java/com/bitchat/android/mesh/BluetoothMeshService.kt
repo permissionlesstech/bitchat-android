@@ -142,6 +142,17 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         messageHandler.packetProcessor = packetProcessor
         //startPeriodicDebugLogging()
 
+        // Flush queued private messages as soon as a BLE Noise session authenticates,
+        // instead of relying on the foreground-only UI poll.
+        encryptionService.onSessionEstablished = { peerID ->
+            Log.d(TAG, "BLE Noise session established with ${peerID.take(8)}")
+            try {
+                com.bitchat.android.services.MessageRouter
+                    .tryGetInstance()
+                    ?.onSessionEstablished(peerID)
+            } catch (_: Exception) { }
+        }
+
         // Initialize sync manager (needs serviceScope)
         gossipSyncManager = GossipSyncManager(
             myPeerID = myPeerID,
