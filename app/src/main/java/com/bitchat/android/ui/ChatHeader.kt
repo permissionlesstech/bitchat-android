@@ -7,7 +7,12 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -24,6 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.res.stringResource
@@ -96,30 +104,91 @@ private fun HeaderIconButton(
 }
 
 /**
- * Smooth tint for header glyphs that should reflect Tor connection state.
+ * Tor health for location-channel header glyphs.
  *
- * When Tor is off or fully bootstrapped, [normal] is used. While connecting the tint goes
- * orange; if Tor is enabled but not running it goes red. Cross-fades so Bootstrap percent
- * flips do not flash the whole header.
+ * Status colours are heavily muted (blended into [normal]) so they read as a soft signal
+ * rather than an alarm. Connecting / not-yet-running also drives a slow glow pulse.
  */
+internal data class TorConnectionVisual(
+    val tint: Color,
+    /** True while Tor is enabled but not fully bootstrapped — drives a pulse. */
+    val isProgress: Boolean,
+)
+
 @Composable
-internal fun torConnectionTint(normal: Color): Color {
+internal fun rememberTorConnectionVisual(normal: Color): TorConnectionVisual {
     val palette = LocalBitchatPalette.current
     val torStatus by remember { ArtiTorManager.getInstance() }.statusFlow.collectAsState()
 
+    // ~28% of the loud accent mixed into the base tint keeps the hue without intensity.
+    val mutedConnecting = lerp(normal, palette.accentOrange, 0.28f)
+    val mutedFailed = lerp(normal, palette.accentRed, 0.30f)
+
     val target = when {
-        torStatus.mode == TorMode.OFF -> normal
-        torStatus.running && torStatus.bootstrapPercent >= 100 -> normal
-        torStatus.running -> palette.accentOrange
-        else -> palette.accentRed
+        torStatus.mode == TorMode.OFF -> TorConnectionVisual(normal, isProgress = false)
+        torStatus.running && torStatus.bootstrapPercent >= 100 ->
+            TorConnectionVisual(normal, isProgress = false)
+        torStatus.running -> TorConnectionVisual(mutedConnecting, isProgress = true)
+        else -> TorConnectionVisual(mutedFailed, isProgress = true)
     }
 
-    val animated by animateColorAsState(
-        targetValue = target,
+    val animatedTint by animateColorAsState(
+        targetValue = target.tint,
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "torConnectionTint"
     )
-    return animated
+    return TorConnectionVisual(tint = animatedTint, isProgress = target.isProgress)
+}
+
+/**
+ * Soft, slow brightness pulse used while Tor is connecting. Keeps scale fixed so layout
+ * does not shift; only opacity / a faint halo breathe.
+ */
+@Composable
+internal fun TorAwareHeaderIcon(
+    imageVector: ImageVector,
+    tint: Color,
+    isProgress: Boolean,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+) {
+    val pulse = if (isProgress) {
+        val transition = rememberInfiniteTransition(label = "torGlow")
+        transition.animateFloat(
+            initialValue = 0.42f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "torGlowPulse"
+        ).value
+    } else {
+        1f
+    }
+
+    Box(contentAlignment = Alignment.Center, modifier = modifier) {
+        if (isProgress) {
+            // Soft halo behind the glyph — opacity tracks the pulse, never solid.
+            Box(
+                modifier = Modifier
+                    .size(HeaderIconSize + 10.dp)
+                    .graphicsLayer { alpha = pulse * 0.28f }
+                    .background(tint.copy(alpha = 1f), CircleShape)
+            )
+        }
+        Icon(
+            imageVector = imageVector,
+            contentDescription = contentDescription,
+            modifier = Modifier
+                .size(HeaderIconSize)
+                .graphicsLayer {
+                    // Pulse icon opacity gently when in progress; settle to full when idle.
+                    alpha = if (isProgress) 0.55f + pulse * 0.45f else 1f
+                },
+            tint = tint
+        )
+    }
 }
 
 @Composable
@@ -530,8 +599,12 @@ private fun LocationChannelsButton(
         else -> stringResource(R.string.mesh_label)
     }
     val channelColor = if (isLocation) palette.accentGreen else palette.accentBlue
-    // Icon alone carries Tor health so the geohash / "mesh" label stays channel-coloured.
-    val iconColor = torConnectionTint(normal = channelColor)
+    // Tor status only tints the globe (location channels). Mesh Bluetooth stays blue.
+    val torVisual = if (isLocation) {
+        rememberTorConnectionVisual(normal = channelColor)
+    } else {
+        TorConnectionVisual(tint = channelColor, isProgress = false)
+    }
     val badgeIcon = if (isLocation) Icons.Outlined.Public else Icons.Filled.Bluetooth
 
     Row(
@@ -545,11 +618,11 @@ private fun LocationChannelsButton(
             // padding so the gap to PeerCounter matches other cluster separations.
             .padding(start = 0.dp, end = 6.dp)
     ) {
-        Icon(
+        TorAwareHeaderIcon(
             imageVector = badgeIcon,
-            contentDescription = stringResource(R.string.cd_tor_status),
-            modifier = Modifier.size(HeaderIconSize),
-            tint = iconColor
+            tint = torVisual.tint,
+            isProgress = torVisual.isProgress,
+            contentDescription = stringResource(R.string.cd_tor_status)
         )
 
         Text(
