@@ -43,6 +43,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     companion object {
         private const val TAG = "BluetoothMeshService"
         private val MAX_TTL: UByte = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
+        private const val PEER_DISCONNECT_GRACE_MS = com.bitchat.android.util.AppConstants.Mesh.PEER_DISCONNECT_GRACE_MS
     }
     
     // Core components - each handling specific responsibilities
@@ -410,6 +411,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)
             }
+
+            override fun removeNoiseSession(peerID: String) {
+                try {
+                    encryptionService.removePeer(peerID)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to remove Noise session for $peerID: ${e.message}")
+                }
+            }
             
             override fun initiateNoiseHandshake(peerID: String) {
                 try {
@@ -543,8 +552,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
             
-            override fun handleNoiseEncrypted(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleNoiseEncrypted(routed) }
+            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
             }
             
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
@@ -669,16 +678,41 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             override fun onDeviceDisconnected(
                 device: android.bluetooth.BluetoothDevice,
-                linkID: String?
+                linkID: String?,
+                peerID: String?
             ) {
-                Log.i(TAG, "Device disconnected: ${device.address}")
+                Log.i(TAG, "Device disconnected: ${device.address} (peerID: $peerID)")
 
-                // refresh peer list on disconnect. 
+                // refresh peer list on disconnect.
                 try { peerManager.refreshPeerList() } catch (_: Exception) { }
 
                 // ConnectionTracker already removes an observed mapping only when this exact
                 // link is still current. Do not remove by reusable address here: this may be a late
                 // disconnect callback from a replaced GATT connection.
+
+                // If the peer that used this link does not come back within a short grace
+                // period (no other link, no traffic), tear down their Noise session instead of
+                // waiting for the 3-minute stale-peer sweep.
+                if (peerID != null) {
+                    val deviceAddress = device.address
+                    val disconnectedAt = System.currentTimeMillis()
+                    serviceScope.launch {
+                        delay(PEER_DISCONNECT_GRACE_MS)
+                        try {
+                            val linkBack =
+                                connectionManager.addressPeerMap.containsKey(deviceAddress) ||
+                                    connectionManager.addressPeerMap.containsValue(peerID)
+                            val lastSeen = peerManager.getPeerInfo(peerID)?.lastSeen ?: 0L
+                            val seenAfterDisconnect = lastSeen > disconnectedAt
+                            if (!linkBack && !seenAfterDisconnect) {
+                                Log.i(TAG, "Peer $peerID did not return after disconnect; removing peer and Noise session")
+                                peerManager.removePeer(peerID)
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Disconnect grace check failed for $peerID: ${e.message}")
+                        }
+                    }
+                }
             }
             
             override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {

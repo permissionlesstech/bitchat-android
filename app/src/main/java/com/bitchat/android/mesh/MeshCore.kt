@@ -364,6 +364,14 @@ class MeshCore(
                 return encryptionService.hasEstablishedSession(peerID)
             }
 
+            override fun removeNoiseSession(peerID: String) {
+                try {
+                    encryptionService.removePeer(peerID)
+                } catch (e: Exception) {
+                    Log.w("MeshCore", "Failed to remove Noise session for $peerID: ${e.message}")
+                }
+            }
+
             override fun initiateNoiseHandshake(peerID: String) {
                 this@MeshCore.initiateNoiseHandshake(peerID)
             }
@@ -439,8 +447,8 @@ class MeshCore(
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
 
-            override fun handleNoiseEncrypted(routed: RoutedPacket) {
-                scope.launch { messageHandler.handleNoiseEncrypted(routed) }
+            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
             }
 
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {

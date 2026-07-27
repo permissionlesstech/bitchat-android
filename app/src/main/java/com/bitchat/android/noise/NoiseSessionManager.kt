@@ -2,6 +2,8 @@ package com.bitchat.android.noise
 
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 data class NoiseHandshakeProcessingResult(
     val response: ByteArray?,
@@ -50,15 +52,30 @@ class NoiseSessionManager(
     
     companion object {
         private const val TAG = "NoiseSessionManager"
-        private const val HANDSHAKE_TIMEOUT_MS = 20_000L
+        private const val HANDSHAKE_TIMEOUT_MS = 10_000L
+        private const val HANDSHAKE_SWEEP_INTERVAL_MS = 2_000L
         private const val HANDSHAKE_MESSAGE_1_SIZE = 32
         private const val SESSION_TOKEN_SIZE = 32
     }
-    
+
     private val sessions = ConcurrentHashMap<String, NoiseSession>()
     // An inbound replacement handshake must prove its authenticated static-key binding before it
     // can evict a working transport session. Keep responder candidates outside the active map.
     private val responderCandidates = ConcurrentHashMap<String, NoiseSession>()
+
+    private val sweepScheduler = Executors.newSingleThreadScheduledExecutor { runnable ->
+        Thread(runnable, "NoiseHandshakeSweeper").apply { isDaemon = true }
+    }
+
+    init {
+        sweepScheduler.scheduleWithFixedDelay({
+            try {
+                cleanupStaleHandshakes(System.currentTimeMillis())
+            } catch (e: Exception) {
+                Log.w(TAG, "Handshake sweep failed: ${e.message}")
+            }
+        }, HANDSHAKE_SWEEP_INTERVAL_MS, HANDSHAKE_SWEEP_INTERVAL_MS, TimeUnit.MILLISECONDS)
+    }
     
     // Callbacks
     var onSessionEstablished: ((String, ByteArray) -> Unit)? = null
@@ -289,6 +306,31 @@ class NoiseSessionManager(
         if (lastActivity == null) return false
         return (nowMs - lastActivity) > HANDSHAKE_TIMEOUT_MS
     }
+
+    /**
+     * Actively expire handshakes that stopped progressing (lost response, abandoned
+     * responder candidates). Established sessions are never touched here.
+     */
+    @Synchronized
+    fun cleanupStaleHandshakes(nowMs: Long) {
+        sessions.entries.toList().forEach { (peerID, session) ->
+            if (session.isHandshaking() && isHandshakeStale(session, nowMs)) {
+                Log.d(TAG, "Expiring stale handshake with $peerID")
+                if (sessions.remove(peerID, session)) {
+                    session.destroy()
+                    runCatching { onSessionFailed?.invoke(peerID, NoiseSessionError.HandshakeTimeout) }
+                }
+            }
+        }
+        responderCandidates.entries.toList().forEach { (peerID, session) ->
+            if (session.isHandshaking() && isHandshakeStale(session, nowMs)) {
+                Log.d(TAG, "Expiring stale responder candidate for $peerID")
+                if (responderCandidates.remove(peerID, session)) {
+                    session.destroy()
+                }
+            }
+        }
+    }
     
     /**
      * SIMPLIFIED: Encrypt data
@@ -427,6 +469,7 @@ class NoiseSessionManager(
      */
     @Synchronized
     fun shutdown() {
+        sweepScheduler.shutdownNow()
         sessions.values.forEach { it.destroy() }
         responderCandidates.values.forEach { it.destroy() }
         sessions.clear()
@@ -443,6 +486,7 @@ sealed class NoiseSessionError(message: String, cause: Throwable? = null) : Exce
     object SessionNotEstablished : NoiseSessionError("Session not established")
     object InvalidState : NoiseSessionError("Session in invalid state")
     object HandshakeFailed : NoiseSessionError("Handshake failed")
+    object HandshakeTimeout : NoiseSessionError("Handshake timed out")
     object AlreadyEstablished : NoiseSessionError("Session already established")
     object SessionGenerationChanged : NoiseSessionError("Noise session generation changed")
     class PeerIdentityMismatch(claimedPeerID: String, derivedPeerID: String?) : NoiseSessionError(

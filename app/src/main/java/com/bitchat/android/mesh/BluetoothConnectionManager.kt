@@ -67,8 +67,8 @@ class BluetoothConnectionManager(
             delegate?.onDeviceConnected(device)
         }
 
-        override fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?) {
-            delegate?.onDeviceDisconnected(device, linkID)
+        override fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?, peerID: String?) {
+            delegate?.onDeviceDisconnected(device, linkID, peerID)
         }
         
         override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
@@ -512,6 +512,6 @@ interface BluetoothConnectionManagerDelegate {
         ingressLinkID: String
     )
     fun onDeviceConnected(device: BluetoothDevice)
-    fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?)
+    fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?, peerID: String?)
     fun onRSSIUpdated(deviceAddress: String, rssi: Int)
 }
