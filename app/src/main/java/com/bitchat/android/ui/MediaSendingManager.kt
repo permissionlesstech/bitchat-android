@@ -99,13 +99,12 @@ class MediaSendingManager(
             val filePacket = withContext(mediaWorkDispatcher) {
                 val file = java.io.File(filePath)
                 if (!file.exists()) {
-                    Log.e(TAG, "❌ File does not exist: $filePath")
+                    Log.e(TAG, "Voice note file does not exist")
                     return@withContext null
                 }
-                Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
 
                 if (file.length() > MAX_FILE_SIZE) {
-                    Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                    Log.e(TAG, "File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
                     return@withContext null
                 }
 
@@ -143,16 +142,14 @@ class MediaSendingManager(
     ) {
         try {
             val filePacket = withContext(mediaWorkDispatcher) {
-                Log.d(TAG, "🔄 Starting image send: $filePath")
                 val file = java.io.File(filePath)
                 if (!file.exists()) {
-                    Log.e(TAG, "❌ File does not exist: $filePath")
+                    Log.e(TAG, "Image file does not exist")
                     return@withContext null
                 }
-                Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
 
                 if (file.length() > MAX_FILE_SIZE) {
-                    Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                    Log.e(TAG, "File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
                     return@withContext null
                 }
 
@@ -170,10 +167,7 @@ class MediaSendingManager(
                 sendPublicFile(channelOrNull, filePacket, filePath, BitchatMessageType.Image)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ CRITICAL: Image send failed completely", e)
-            Log.e(TAG, "❌ Image path: $filePath")
-            Log.e(TAG, "❌ Error details: ${e.message}")
-            Log.e(TAG, "❌ Error type: ${e.javaClass.simpleName}")
+            Log.e(TAG, "Image send failed: ${e.message}", e)
         }
     }
 
@@ -193,16 +187,14 @@ class MediaSendingManager(
     ) {
         try {
             val filePacket = withContext(mediaWorkDispatcher) {
-                Log.d(TAG, "🔄 Starting file send: $filePath")
                 val file = java.io.File(filePath)
                 if (!file.exists()) {
-                    Log.e(TAG, "❌ File does not exist: $filePath")
+                    Log.e(TAG, "File does not exist")
                     return@withContext null
                 }
-                Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
 
                 if (file.length() > MAX_FILE_SIZE) {
-                    Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+                    Log.e(TAG, "File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
                     return@withContext null
                 }
 
@@ -212,7 +204,6 @@ class MediaSendingManager(
                 } catch (_: Exception) {
                     "application/octet-stream"
                 }
-                Log.d(TAG, "🏷️ MIME type: $mimeType")
 
                 // Try to preserve the original file name if our copier prefixed it earlier
                 val originalName = run {
@@ -228,7 +219,6 @@ class MediaSendingManager(
                         ?: base
                     stripped + ext
                 }
-                Log.d(TAG, "📝 Original filename: $originalName")
 
                 BitchatFilePacket(
                     fileName = originalName,
@@ -237,7 +227,6 @@ class MediaSendingManager(
                     content = file.readBytes()
                 )
             } ?: return
-            Log.d(TAG, "📦 Created file packet successfully")
 
             val messageType = when {
                 filePacket.mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
@@ -251,10 +240,7 @@ class MediaSendingManager(
                 sendPublicFile(channelOrNull, filePacket, filePath, messageType)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ CRITICAL: File send failed completely", e)
-            Log.e(TAG, "❌ File path: $filePath")
-            Log.e(TAG, "❌ Error details: ${e.message}")
-            Log.e(TAG, "❌ Error type: ${e.javaClass.simpleName}")
+            Log.e(TAG, "File send failed: ${e.message}", e)
         }
     }
 
@@ -269,16 +255,13 @@ class MediaSendingManager(
     ) {
         val payload = withContext(mediaWorkDispatcher) { filePacket.encode() }
             ?: run {
-                Log.e(TAG, "❌ Failed to encode file packet for private send")
+                Log.e(TAG, "Failed to encode file packet for private send")
                 return
             }
-        Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
 
-        val (transferId, contentHash) = withContext(mediaWorkDispatcher) {
-            sha256Hex(payload) to sha256Hex(filePacket.content)
+        val transferId = withContext(mediaWorkDispatcher) {
+            sha256Hex(payload)
         }
-
-        Log.d(TAG, "📤 FILE_TRANSFER send (private): name='${filePacket.fileName}', size=${filePacket.fileSize}, mime='${filePacket.mimeType}', sha256=$contentHash, to=${toPeerID.take(8)} transferId=${transferId.take(16)}…")
 
         val pending = PendingAutomaticPrivateMedia(
             requestId = UUID.randomUUID().toString(),
@@ -465,7 +448,7 @@ class MediaSendingManager(
 
             PrivateMediaPreparation.NeedsHandshake -> {
                 ensureAutomaticPendingTimeout(pending)
-                Log.i(TAG, "Private media needs a Noise handshake; retaining first-send intent")
+                Log.d(TAG, "Private media needs a Noise handshake; retaining first-send intent")
                 try {
                     meshService.initiateNoiseHandshake(pending.peerID)
                 } catch (e: Exception) {
@@ -475,7 +458,7 @@ class MediaSendingManager(
 
             PrivateMediaPreparation.AwaitingPeerState -> {
                 ensureAutomaticPendingTimeout(pending)
-                Log.i(TAG, "Private media is waiting for authenticated peer state; first-send intent retained")
+                Log.d(TAG, "Private media is waiting for authenticated peer state; first-send intent retained")
             }
 
             is PrivateMediaPreparation.Rejected -> {
@@ -614,7 +597,6 @@ class MediaSendingManager(
             )
             return
         }
-        Log.d(TAG, "✅ Private media committed using ${preparation.transfer.wireMode}")
     }
 
     /**
@@ -628,16 +610,13 @@ class MediaSendingManager(
     ) {
         val payload = withContext(mediaWorkDispatcher) { filePacket.encode() }
             ?: run {
-                Log.e(TAG, "❌ Failed to encode file packet for broadcast send")
+                Log.e(TAG, "Failed to encode file packet for broadcast send")
                 return
             }
-        Log.d(TAG, "🔓 Encoded broadcast packet: ${payload.size} bytes")
 
-        val (transferId, contentHash) = withContext(mediaWorkDispatcher) {
-            sha256Hex(payload) to sha256Hex(filePacket.content)
+        val transferId = withContext(mediaWorkDispatcher) {
+            sha256Hex(payload)
         }
-        
-        Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${filePacket.fileName}', size=${filePacket.fileSize}, mime='${filePacket.mimeType}', sha256=$contentHash, transferId=${transferId.take(16)}…")
 
         val message = BitchatMessage(
             id = java.util.UUID.randomUUID().toString().uppercase(), // Generate unique ID for each message
@@ -667,11 +646,9 @@ class MediaSendingManager(
             com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
         )
         
-        Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
         withContext(mediaWorkDispatcher) {
             meshService.sendFileBroadcast(filePacket)
         }
-        Log.d(TAG, "✅ File broadcast completed successfully")
     }
 
     /**

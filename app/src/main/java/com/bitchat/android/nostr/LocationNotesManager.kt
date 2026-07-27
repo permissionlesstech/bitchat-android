@@ -399,7 +399,7 @@ class LocationNotesManager private constructor() {
         val currentNotes = _notes.value ?: emptyList()
         _notes.value = (currentNotes + note).sortedByDescending { it.createdAt }
         
-        Log.d(TAG, "📥 Added note: ${note.displayName} - ${note.content.take(50)}")
+        Log.d(TAG, "Added note from ${note.displayName}")
         
         // Trim if exceeds max
         if (noteIDs.size > MAX_NOTES_IN_MEMORY) {
