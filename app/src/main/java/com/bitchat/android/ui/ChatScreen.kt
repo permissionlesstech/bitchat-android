@@ -1,7 +1,6 @@
 package com.bitchat.android.ui
 
 import com.bitchat.android.ui.theme.BitchatFontFamily
-import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
 
 // [Goose] Installing FileShareDispatcher handler in ChatScreen to forward file sends to ViewModel
@@ -593,14 +592,47 @@ fun ChatInputSection(
             )
             HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
         }
-        // Mention suggestions box
-        if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
-            MentionSuggestionsBox(
-                suggestions = mentionSuggestions,
-                onSuggestionClick = onMentionSuggestionClick,
-                modifier = Modifier.fillMaxWidth()
-            )
-            HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
+        // Retain the final populated list while the picker exits. The state layer clears
+        // suggestions together with visibility; without this snapshot the panel would empty and
+        // snap shut before its shrink/fade animation had a frame to run.
+        var retainedMentionSuggestions by remember { mutableStateOf(emptyList<String>()) }
+        LaunchedEffect(mentionSuggestions) {
+            if (mentionSuggestions.isNotEmpty()) {
+                retainedMentionSuggestions = mentionSuggestions
+            }
+        }
+        val mentionPickerVisible = showMentionSuggestions && mentionSuggestions.isNotEmpty()
+        val displayedMentionSuggestions = mentionSuggestions.ifEmpty {
+            retainedMentionSuggestions
+        }
+
+        AnimatedVisibility(
+            visible = mentionPickerVisible,
+            enter = fadeIn(tween(BitchatMotion.STANDARD_MS)) +
+                expandVertically(
+                    animationSpec = tween(
+                        BitchatMotion.STANDARD_MS,
+                        easing = FastOutSlowInEasing
+                    ),
+                    expandFrom = Alignment.Bottom
+                ),
+            exit = fadeOut(tween(BitchatMotion.QUICK_MS)) +
+                shrinkVertically(
+                    animationSpec = tween(
+                        BitchatMotion.QUICK_MS,
+                        easing = FastOutSlowInEasing
+                    ),
+                    shrinkTowards = Alignment.Bottom
+                )
+        ) {
+            Column {
+                MentionSuggestionsBox(
+                    suggestions = displayedMentionSuggestions,
+                    onSuggestionClick = onMentionSuggestionClick,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
+            }
         }
         MessageInput(
             value = messageText,

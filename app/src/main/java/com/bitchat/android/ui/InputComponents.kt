@@ -19,9 +19,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -700,6 +702,7 @@ fun CommandSuggestionItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MentionSuggestionsBox(
     suggestions: List<String>,
@@ -711,6 +714,12 @@ fun MentionSuggestionsBox(
     LazyColumn(
         modifier = modifier
             .heightIn(max = MentionSuggestionsMaxHeight)
+            .animateContentSize(
+                animationSpec = tween(
+                    BitchatMotion.STANDARD_MS,
+                    easing = FastOutSlowInEasing
+                )
+            )
             .clip(MentionSuggestionsShape)
             .background(palette.surface)
             .border(1.dp, palette.outlineVariant, MentionSuggestionsShape),
@@ -722,7 +731,18 @@ fun MentionSuggestionsBox(
         ) { suggestion ->
             MentionSuggestionItem(
                 suggestion = suggestion,
-                onClick = { onSuggestionClick(suggestion) }
+                onClick = { onSuggestionClick(suggestion) },
+                modifier = Modifier.animateItem(
+                    fadeInSpec = tween(
+                        BitchatMotion.STANDARD_MS,
+                        easing = FastOutSlowInEasing
+                    ),
+                    placementSpec = tween(
+                        BitchatMotion.STANDARD_MS,
+                        easing = FastOutSlowInEasing
+                    ),
+                    fadeOutSpec = tween(BitchatMotion.QUICK_MS)
+                )
             )
         }
     }
@@ -731,15 +751,41 @@ fun MentionSuggestionsBox(
 @Composable
 fun MentionSuggestionItem(
     suggestion: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressedBackground by animateColorAsState(
+        targetValue = if (isPressed) {
+            palette.accentOrange.copy(alpha = 0.10f)
+        } else {
+            Color.Transparent
+        },
+        animationSpec = tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing),
+        label = "mentionSuggestionPressedBackground"
+    )
+    val pressedScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.985f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "mentionSuggestionPressedScale"
+    )
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(MentionSuggestionRowHeight)
-            .clickable { onClick() }
+            .scale(pressedScale)
+            .background(pressedBackground)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
