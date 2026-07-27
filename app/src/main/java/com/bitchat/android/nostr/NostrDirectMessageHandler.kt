@@ -31,11 +31,14 @@ class NostrDirectMessageHandler(
     private val meshDelegateHandler: MeshDelegateHandler,
     private val scope: CoroutineScope,
     private val repo: GeohashRepository,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    private val seenStoreProvider: () -> SeenMessageStore = {
+        SeenMessageStore.getInstance(application)
+    }
 ) {
     companion object { private const val TAG = "NostrDirectMessageHandler" }
 
-    private val seenStore by lazy { SeenMessageStore.getInstance(application) }
+    private val seenStore by lazy(seenStoreProvider)
 
     // Simple event deduplication
     private val processedIds = ArrayDeque<String>()
@@ -82,7 +85,7 @@ class NostrDirectMessageHandler(
                 if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) return@launch
 
                 val noisePayload = NoisePayload.decode(packet.payload) ?: return@launch
-                val messageTimestamp = Date(giftWrap.createdAt * 1000L)
+                val messageTimestamp = Date(rumorTimestamp * 1000L)
                 val convKey = "nostr_${senderPubkey.take(16)}"
                 repo.putNostrKeyMapping(convKey, senderPubkey)
                 com.bitchat.android.nostr.GeohashAliasRegistry.put(convKey, senderPubkey)
