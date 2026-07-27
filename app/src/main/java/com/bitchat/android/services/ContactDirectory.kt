@@ -26,6 +26,10 @@ object ContactDirectory {
     @Volatile
     private var meshProvider: (() -> MeshService?)? = null
 
+    @Volatile
+    internal var identityManagerProvider: (Context) -> SecureIdentityStateManager =
+        { SecureIdentityStateManager(it) }
+
     fun initialize(context: Context, meshProvider: () -> MeshService?) {
         appContext = context.applicationContext
         this.meshProvider = meshProvider
@@ -79,7 +83,8 @@ object ContactDirectory {
             noisePublicKey = noiseKey ?: liveMeshPeerID?.let { meshProvider?.invoke()?.getPeerInfo(it)?.noisePublicKey },
             nostrPubkey = favorite?.peerNostrPublicKey,
             displayName = favorite?.peerNickname?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
-                ?: liveMeshPeerID?.let { meshProvider?.invoke()?.getPeerInfo(it)?.nickname },
+                ?: liveMeshPeerID?.let { meshProvider?.invoke()?.getPeerInfo(it)?.nickname }
+                ?: contactFingerprint?.let { cachedFingerprintNickname(it) },
             isMutualFavorite = favorite?.isMutual == true
         )
     }
@@ -132,9 +137,20 @@ object ContactDirectory {
     private fun cachedNoiseKey(peerID: String): ByteArray? {
         val context = appContext ?: return null
         return try {
-            SecureIdentityStateManager(context)
+            identityManagerProvider(context)
                 .getCachedNoiseKey(peerID)
                 ?.let { ContactIdentityResolver.bytesFromHex(it) }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun cachedFingerprintNickname(fingerprint: String): String? {
+        val context = appContext ?: return null
+        return try {
+            identityManagerProvider(context)
+                .getCachedFingerprintNickname(fingerprint)
+                ?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
         } catch (_: Exception) {
             null
         }
