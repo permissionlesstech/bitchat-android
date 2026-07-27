@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.cashu.CashuTokenDecoder
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import java.util.Date
@@ -22,6 +23,7 @@ class CommandProcessor(
         CommandSuggestion("/hug", emptyList(), "<nickname>", "send someone a warm hug"),
         CommandSuggestion("/j", listOf("/join"), "<channel>", "join or create a channel"),
         CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", "send private message"),
+        CommandSuggestion("/pay", emptyList(), "<token>", "send a cashu ecash token"),
         CommandSuggestion("/slap", emptyList(), "<nickname>", "slap someone with a trout"),
         CommandSuggestion("/unblock", emptyList(), "<nickname>", "unblock a peer"),
         CommandSuggestion("/w", emptyList(), null, "see who's online")
@@ -45,6 +47,7 @@ class CommandProcessor(
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage, viewModel)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage, viewModel)
             "/channels" -> handleChannelsCommand()
+            "/pay" -> handlePayCommand(parts, meshService, myPeerID, onSendMessage, viewModel)
             else -> handleUnknownCommand(cmd)
         }
         
@@ -340,6 +343,95 @@ class CommandProcessor(
         }
     }
     
+    /**
+     * `/pay <cashu-token>` — validates the token decodes, then sends it as
+     * the message body in the current chat. Cashu tokens are bearer
+     * instruments (whoever redeems first gets the funds), so posting one to a
+     * public channel requires an explicit `/pay <token> public` confirm.
+     * The app never contacts a mint; it only relays the string.
+     */
+    private fun handlePayCommand(
+        parts: List<String>,
+        meshService: MeshService,
+        myPeerID: String,
+        onSendMessage: (String, List<String>, String?) -> Unit,
+        viewModel: ChatViewModel?
+    ) {
+        fun systemMessage(content: String) {
+            messageManager.addMessage(BitchatMessage(
+                sender = "system",
+                content = content,
+                timestamp = Date(),
+                isRelay = false
+            ))
+        }
+
+        val args = parts.drop(1).filter { it.isNotBlank() }.toMutableList()
+        if (args.isEmpty()) {
+            systemMessage("usage: /pay <token> — paste a cashu token: /pay cashuA…")
+            return
+        }
+        val confirmedPublic = args.last().lowercase() == "public"
+        if (confirmedPublic) args.removeAt(args.size - 1)
+
+        val token = args.singleOrNull()?.let { CashuTokenDecoder.bareToken(it) }
+        if (token == null) {
+            systemMessage("that doesn't look like a cashu token — expected cashuA… or cashuB…")
+            return
+        }
+        val info = CashuTokenDecoder.decode(token, strict = true)
+        if (info == null) {
+            systemMessage("invalid cashu token — it doesn't decode to a known token with an amount, not sending it")
+            return
+        }
+        val summary = info.displayAmount ?: "a cashu token"
+
+        val selectedPeer = state.getSelectedPrivateChatPeerValue()
+        if (selectedPeer != null) {
+            privateChatManager.sendPrivateMessage(
+                token,
+                selectedPeer,
+                getPeerNickname(selectedPeer, meshService),
+                state.getNicknameValue(),
+                myPeerID
+            ) { content, peerIdParam, recipientNicknameParam, messageId ->
+                sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId, viewModel)
+            }
+            systemMessage("sent ${summary} — cashu is a bearer token; whoever redeems it first gets the funds")
+            return
+        }
+
+        if (!confirmedPublic) {
+            systemMessage("this is a public channel — anyone reading it can redeem the token. send anyway: /pay <token> public")
+            return
+        }
+
+        // Public send: mirror handleActionCommand's paths (local echo rules included)
+        val isInLocationChannel = state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
+        if (isInLocationChannel) {
+            // GeohashViewModel.sendGeohashMessage() adds the local echo with proper metadata
+            onSendMessage(token, emptyList(), null)
+        } else {
+            val message = BitchatMessage(
+                sender = state.getNicknameValue() ?: myPeerID,
+                content = token,
+                timestamp = Date(),
+                isRelay = false,
+                senderPeerID = myPeerID,
+                channel = state.getCurrentChannelValue()
+            )
+            val channel = state.getCurrentChannelValue()
+            if (channel != null) {
+                channelManager.addChannelMessage(channel, message, myPeerID)
+                onSendMessage(token, emptyList(), channel)
+            } else {
+                messageManager.addMessage(message)
+                onSendMessage(token, emptyList(), null)
+            }
+        }
+        systemMessage("sent ${summary} to the public channel — anyone here can redeem it")
+    }
+
     private fun handleChannelsCommand() {
         val allChannels = channelManager.getJoinedChannelsList()
         val channelList = if (allChannels.isEmpty()) {
@@ -392,6 +484,13 @@ class CommandProcessor(
     }
     
     private fun getAllAvailableCommands(): List<CommandSuggestion> {
+        // /pay sends a bearer instrument; suggesting it in a public geohash
+        // channel invites accidents, so hide it there (it still executes
+        // behind the explicit "public" confirm).
+        val inGeoPublic = state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location &&
+                state.getSelectedPrivateChatPeerValue() == null
+        val visibleBase = if (inGeoPublic) baseCommands.filter { it.command != "/pay" } else baseCommands
+
         // Add channel-specific commands if in a channel
         val channelCommands = if (state.getCurrentChannelValue() != null) {
             listOf(
@@ -403,7 +502,7 @@ class CommandProcessor(
             emptyList()
         }
         
-        return baseCommands + channelCommands
+        return visibleBase + channelCommands
     }
     
     private fun filterCommands(commands: List<CommandSuggestion>, input: String): List<CommandSuggestion> {

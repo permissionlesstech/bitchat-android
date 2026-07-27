@@ -199,6 +199,19 @@ fun MessageItem(
         }
         
         // Link previews removed; links are now highlighted inline and clickable within the message text
+
+        // Cashu ecash tokens in the message render as payment chips below the text
+        val cashuTokens = remember(message.content) { MessageSpecialParser.findCashuTokens(message.content) }
+        if (cashuTokens.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 4.dp)
+            ) {
+                cashuTokens.forEach { match ->
+                    CashuPaymentChip(token = match.token)
+                }
+            }
+        }
     }
 }
 

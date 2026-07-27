@@ -13,6 +13,32 @@ object MessageSpecialParser {
 
     data class GeohashMatch(val start: Int, val endExclusive: Int, val geohash: String)
     data class UrlMatch(val start: Int, val endExclusive: Int, val url: String)
+    data class CashuTokenMatch(val start: Int, val endExclusive: Int, val token: String)
+
+    // Cashu bearer tokens (cashuA…/cashuB…). The negative lookbehind keeps the
+    // match off words that merely contain "cashuA" (e.g. "xcashuA…"), and the
+    // token embedded in a cashu:/cashu:// URI matches naturally after the ':'
+    // or '//'. Charset mirrors CashuTokenDecoder.bareToken ('.' appears in
+    // some legacy multi-part tokens).
+    private val cashuTokenRegex = Regex("(?<![A-Za-z0-9])(cashu[AB][A-Za-z0-9\\-_+/=.]{6,})")
+
+    /**
+     * Finds up to [max] distinct Cashu tokens in [text], as the bare bearer
+     * strings. Repeated tokens are one bearer instrument — one chip is enough.
+     */
+    fun findCashuTokens(text: String, max: Int = 3): List<CashuTokenMatch> {
+        if (text.isEmpty()) return emptyList()
+        val results = mutableListOf<CashuTokenMatch>()
+        val seen = mutableSetOf<String>()
+        for (m in cashuTokenRegex.findAll(text)) {
+            val token = m.groupValues[1]
+            if (token.length > com.bitchat.android.cashu.CashuTokenDecoder.MAX_TOKEN_LENGTH) continue
+            if (!seen.add(token)) continue
+            results.add(CashuTokenMatch(m.range.first + (m.value.length - token.length), m.range.last + 1, token))
+            if (results.size >= max) break
+        }
+        return results
+    }
 
     /**
      * Finds standalone geohashes within [text]. A match is returned only when
