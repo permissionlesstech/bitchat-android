@@ -314,9 +314,8 @@
 
   <!-- People sheet -->
   <string name="people_count_title">People (%1$d)</string>
-  <string name="section_on_location">On location</string>
-  <string name="section_teleported_in">Teleported in</string>
-  <string name="section_anonymous">Anonymous</string>
+  <string name="section_people">People</string>
+  <string name="section_anon">Anon</string>
   <string name="people_n_more">%1$d more\u2026</string>
 
   <string name="grant_location_permission">Grant location permission</string>

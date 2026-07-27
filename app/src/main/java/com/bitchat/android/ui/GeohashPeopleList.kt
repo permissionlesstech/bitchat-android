@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.LocationOn
 import android.util.Log
@@ -59,8 +60,8 @@ fun GeohashPeopleList(
     Column(modifier = modifier) {
         if (geohashPeople.isEmpty()) {
             SheetIconSectionHeader(
-                icon = Icons.Outlined.LocationOn,
-                title = stringResource(R.string.section_on_location)
+                icon = Icons.Outlined.Person,
+                title = stringResource(R.string.section_people)
             )
             Surface(
                 modifier = Modifier
@@ -126,15 +127,18 @@ fun GeohashPeopleList(
                 viewModel.isPersonTeleported(person.id)
             }
 
-            // Anonymous participants form their own trailing section rather than a tail on each
-            // of the others. A busy geohash is mostly anons, and splitting them across "on
-            // location" and "teleported in" pushed the few recognisable names out of view twice
-            // over. Self is never grouped as an anon even when unnamed — you always want to find
-            // yourself where you actually are.
+            // Two groups: peers who announced a nickname, then the anons.
+            //
+            // A busy geohash is mostly anonymous drive-by participants, and mixing them in pushed
+            // the few recognisable names out of view. Teleport state is not a grouping any more —
+            // it is already on every row as its own glyph, so splitting "on location" from
+            // "teleported in" only fragmented the short list that people actually read.
+            //
+            // Self is never grouped as an anon even when unnamed: you always want to find yourself
+            // among the people, not buried at the bottom.
             val isSelf: (GeoPerson) -> Boolean = { myHex != null && it.id == myHex }
             val namedPeople = orderedPeople.filter { isSelf(it) || !it.isAnonymous() }
             val anonPeople = orderedPeople.filter { !isSelf(it) && it.isAnonymous() }
-            val (teleportedPeople, localPeople) = namedPeople.partition { personTeleported(it) }
 
             @Composable
             fun personRow(person: GeoPerson) {
@@ -157,30 +161,19 @@ fun GeohashPeopleList(
                 )
             }
 
-            if (localPeople.isNotEmpty()) {
+            if (namedPeople.isNotEmpty()) {
                 SheetIconSectionHeader(
-                    icon = Icons.Outlined.LocationOn,
-                    title = stringResource(R.string.section_on_location)
+                    icon = Icons.Outlined.Person,
+                    title = stringResource(R.string.section_people)
                 )
-                PeopleCard(people = localPeople, row = { personRow(it) })
-            }
-
-            if (teleportedPeople.isNotEmpty()) {
-                SheetIconSectionHeader(
-                    icon = Icons.Outlined.Explore,
-                    title = stringResource(R.string.section_teleported_in),
-                    modifier = Modifier.padding(top = if (localPeople.isNotEmpty()) 20.dp else 0.dp)
-                )
-                PeopleCard(people = teleportedPeople, row = { personRow(it) })
+                PeopleCard(people = namedPeople, row = { personRow(it) })
             }
 
             if (anonPeople.isNotEmpty()) {
                 SheetIconSectionHeader(
-                    icon = Icons.Outlined.Person,
-                    title = stringResource(R.string.section_anonymous),
-                    modifier = Modifier.padding(
-                        top = if (localPeople.isNotEmpty() || teleportedPeople.isNotEmpty()) 20.dp else 0.dp
-                    )
+                    icon = Icons.Outlined.HelpOutline,
+                    title = stringResource(R.string.section_anon),
+                    modifier = Modifier.padding(top = if (namedPeople.isNotEmpty()) 20.dp else 0.dp)
                 )
                 PeopleCard(people = anonPeople, capped = true, row = { personRow(it) })
             }

@@ -104,7 +104,10 @@ class GeohashAnonOrderingTest {
 
     // MARK: - Sectioning
 
-    /** Mirrors the grouping in GeohashPeopleList: self is never treated as an anon. */
+    /**
+     * Mirrors the two-group split in GeohashPeopleList: peers who announced a nickname, then the
+     * anons. Self is never treated as an anon.
+     */
     private fun sections(people: List<GeoPerson>, myId: String?): Triple<List<String>, List<String>, List<String>> {
         val isSelf: (GeoPerson) -> Boolean = { myId != null && it.id == myId }
         val named = people.filter { isSelf(it) || !it.isAnonymous() }
@@ -117,7 +120,7 @@ class GeohashAnonOrderingTest {
     }
 
     @Test
-    fun `anons are grouped out of the named sections entirely`() {
+    fun `anons are grouped out of the people section entirely`() {
         val people = listOf(person("alice"), person("anon1"), person("bob"), person("anon2"))
         val (named, anons, _) = sections(people, myId = null)
 
@@ -126,7 +129,7 @@ class GeohashAnonOrderingTest {
     }
 
     @Test
-    fun `self stays in the named sections even when unnamed`() {
+    fun `self stays in the people section even when unnamed`() {
         // You always want to find yourself where you actually are, not buried in the anon section.
         val me = person("anon")
         val people = listOf(me, person("alice"), person("anon2"))
@@ -138,7 +141,7 @@ class GeohashAnonOrderingTest {
     }
 
     @Test
-    fun `a list of only anons yields no named section`() {
+    fun `a list of only anons yields no people section`() {
         val people = (1..4).map { person("anon$it") }
         val (named, anons, _) = sections(people, myId = null)
 
