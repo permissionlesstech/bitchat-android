@@ -117,7 +117,8 @@ class ChatViewModel(
         messageManager,
         dataManager,
         noiseSessionDelegate,
-        hasReadReceiptBeenSent = seenMessageStore::hasReadReceiptBeenSent
+        hasReadReceiptBeenSent = seenMessageStore::hasReadReceiptBeenSent,
+        markMessageReadLocally = seenMessageStore::markReadLocally
     )
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(
@@ -417,16 +418,6 @@ class ChatViewModel(
             setCurrentPrivateChatPeer(conversationID)
             // Clear notifications for this sender since user is now viewing the chat
             clearNotificationsForSender(conversationID)
-
-            // Persistently mark all messages in this conversation as read so Nostr fetches
-            // after app restarts won't re-mark them as unread.
-            try {
-                val chats = state.getPrivateChatsValue()
-                val messages = chats[conversationID] ?: emptyList()
-                messages.forEach { msg ->
-                    try { seenMessageStore.markReadLocally(msg.id) } catch (_: Exception) { }
-                }
-            } catch (_: Exception) { }
         }
     }
     

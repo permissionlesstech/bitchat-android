@@ -254,9 +254,13 @@ class MeshDelegateHandler(
                 "MeshDelegateHandler",
                 "Sending reactive read receipt for focused chat with $senderConversationID (message=${message.id})"
             )
+            // UI focus is the source of truth for local read state. Transport acceptance is a
+            // separate fact and may remain retryable when the peer disconnects.
+            try { markMessageReadLocally(message.id) } catch (_: Exception) { }
+
             val nickname = state.getNicknameValue().ifBlank { "unknown" }
             val mesh = getMeshService()
-            val sent = try {
+            try {
                 val meshPeerID = ContactDirectory.resolve(senderConversationID).meshPeerID
                     ?: senderPeerID.takeIf {
                         com.bitchat.android.services.ContactIdentityResolver.isMeshPeerId(it)
@@ -266,27 +270,17 @@ class MeshDelegateHandler(
                     mesh.hasEstablishedSession(meshPeerID)
                 ) {
                     mesh.sendReadReceipt(message.id, meshPeerID, nickname)
-                    true
-                } else {
-                    false
                 }
-            } catch (_: Exception) {
-                false
-            }
-            if (sent) {
-                // Receipt scheduling and local-read persistence are separate facts. Record
-                // the UI state only after the retryable receipt has been admitted.
-                try { markMessageReadLocally(message.id) } catch (_: Exception) { }
+            } catch (_: Exception) { }
 
-                // Ensure unread badge is cleared for this peer immediately
-                try {
-                    val current = state.getUnreadPrivateMessagesValue().toMutableSet()
-                    val changed = current.remove(senderPeerID) or current.remove(senderConversationID)
-                    if (changed) {
-                        state.setUnreadPrivateMessages(current)
-                    }
-                } catch (_: Exception) { }
-            }
+            // Ensure unread badge is cleared for this peer immediately.
+            try {
+                val current = state.getUnreadPrivateMessagesValue().toMutableSet()
+                val changed = current.remove(senderPeerID) or current.remove(senderConversationID)
+                if (changed) {
+                    state.setUnreadPrivateMessages(current)
+                }
+            } catch (_: Exception) { }
         } else {
             android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
         }

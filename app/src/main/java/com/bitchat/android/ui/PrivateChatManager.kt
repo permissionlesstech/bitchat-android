@@ -34,7 +34,8 @@ class PrivateChatManager(
     private val messageManager: MessageManager,
     private val dataManager: DataManager,
     private val noiseSessionDelegate: NoiseSessionDelegate,
-    private val hasReadReceiptBeenSent: (messageID: String) -> Boolean = { false }
+    private val hasReadReceiptBeenSent: (messageID: String) -> Boolean = { false },
+    private val markMessageReadLocally: (messageID: String) -> Unit = {}
 ) {
 
     companion object {
@@ -399,6 +400,13 @@ class PrivateChatManager(
                 senderPeerID == meshPeerID ||
                     ContactDirectory.canonicalConversationId(senderPeerID) == canonicalConversationID
                 )
+            if (isFromTarget) {
+                try {
+                    markMessageReadLocally(msg.id)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to persist local read for message ${msg.id}: ${e.message}")
+                }
+            }
             if (isFromTarget && meshPeerID != null && !hasReadReceiptBeenSent(msg.id)) {
                 try {
                     if (hasMesh) {

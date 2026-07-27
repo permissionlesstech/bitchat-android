@@ -174,6 +174,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         connectionManager.broadcastPacket(packet)
     }
 
+    override suspend fun sendAndReport(packet: RoutedPacket): Boolean {
+        if (!isBleTransportEnabled()) return false
+        return connectionManager.broadcastControlPacketAndAwaitAcceptance(packet)
+    }
+
     override fun sendToPeer(peerID: String, packet: BitchatPacket) {
         if (!isBleTransportEnabled()) return
         connectionManager.sendPacketToPeer(peerID, packet)
@@ -185,6 +190,15 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (!queued) return false
         TransportBridgeService.broadcast("BLE", routed)
         return true
+    }
+
+    private suspend fun broadcastRoutedPacketAndReport(routed: RoutedPacket): Boolean {
+        if (!isBleTransportEnabled()) return false
+        val acceptedByBle =
+            connectionManager.broadcastControlPacketAndAwaitAcceptance(routed)
+        val acceptedByBridgedTransport =
+            TransportBridgeService.broadcastAndReport("BLE", routed)
+        return acceptedByBle || acceptedByBridgedTransport
     }
 
     private fun isBleTransportEnabled(): Boolean {
@@ -1087,7 +1101,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     sendAttempt = { attempt ->
                         // Keep the addressed packet on the normal broadcaster actor so receipt
                         // attempts are ordered with other BLE traffic and can use mesh routing.
-                        val accepted = broadcastRoutedPacket(RoutedPacket(signedPacket))
+                        val accepted =
+                            broadcastRoutedPacketAndReport(RoutedPacket(signedPacket))
                         Log.d(
                             TAG,
                             "Read receipt attempt $attempt accepted=$accepted " +

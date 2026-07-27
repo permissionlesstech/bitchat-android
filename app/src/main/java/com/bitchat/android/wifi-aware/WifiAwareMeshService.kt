@@ -222,14 +222,17 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     /**
      * Broadcasts raw bytes to currently connected peer.
      */
-    private fun broadcastRaw(bytes: ByteArray) {
+    private fun broadcastRaw(bytes: ByteArray): Boolean {
+        var accepted = false
         connectionTracker.peerSockets.forEach { (pid, sock) ->
             try {
                 sock.write(bytes)
+                accepted = true
             } catch (e: IOException) {
                 Log.e(TAG, "TX: write failed to ${pid.take(8)}: ${e.message}")
             }
         }
+        return accepted
     }
 
     // TransportLayer implementation
@@ -239,6 +242,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendFromBridge(packet)
     }
 
+    override suspend fun sendAndReport(packet: RoutedPacket): Boolean {
+        return meshCore.sendFromBridgeAndReport(packet)
+    }
+
     override fun sendToPeer(peerID: String, packet: BitchatPacket) {
         sendPacketToPeer(peerID, packet)
     }
@@ -246,23 +253,23 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     /**
      * Broadcasts routed packet to currently connected peers.
      */
-    private fun broadcastPacket(routed: RoutedPacket) {
+    private fun broadcastPacket(routed: RoutedPacket): Boolean {
         val packet = routed.packet
         if (packet.senderID.toHexString() == myPeerID && !packet.route.isNullOrEmpty()) {
             val firstHop = packet.route!![0].toHexString()
             if (sendRoutedPacketToPeer(firstHop, routed)) {
-                return
+                return true
             }
         }
 
         val recipientId = packet.recipientID?.toHexString()
         if (recipientId != null && !packet.recipientID.contentEquals(SpecialRecipients.BROADCAST)) {
             if (sendRoutedPacketToPeer(recipientId, routed)) {
-                return
+                return true
             }
         }
 
-        fragmentingSender.send(routed, "Wi-Fi Aware broadcast") { single ->
+        return fragmentingSender.send(routed, "Wi-Fi Aware broadcast") { single ->
             broadcastSinglePacket(single)
         }
     }
@@ -290,8 +297,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
     private fun broadcastSinglePacket(routed: RoutedPacket): Boolean {
         val data = routed.packet.toBinaryData() ?: return false
-        broadcastRaw(data)
-        return true
+        return broadcastRaw(data)
     }
 
     private fun sendSinglePacketToPeer(peerID: String, packet: BitchatPacket): Boolean {
@@ -1592,9 +1598,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     private inner class WifiAwareTransport : MeshTransport {
         override val id: String = "WIFI"
 
-        override fun broadcastPacket(routed: RoutedPacket) {
+        override fun broadcastPacket(routed: RoutedPacket): Boolean =
             this@WifiAwareMeshService.broadcastPacket(routed)
-        }
         override fun sendPacketToPeer(peerID: String, packet: BitchatPacket): Boolean {
             return this@WifiAwareMeshService.sendPacketToPeer(peerID, packet)
         }

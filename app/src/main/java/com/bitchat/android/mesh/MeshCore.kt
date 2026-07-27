@@ -192,9 +192,20 @@ class MeshCore(
         transport.broadcastPacket(packet)
     }
 
+    fun sendFromBridgeAndReport(packet: RoutedPacket): Boolean {
+        return transport.broadcastPacket(packet)
+    }
+
     private fun dispatchGlobal(routed: RoutedPacket) {
         transport.broadcastPacket(routed)
         TransportBridgeService.broadcast(transport.id, routed)
+    }
+
+    private suspend fun dispatchGlobalAndReport(routed: RoutedPacket): Boolean {
+        val acceptedByLocalTransport = transport.broadcastPacket(routed)
+        val acceptedByBridgedTransport =
+            TransportBridgeService.broadcastAndReport(transport.id, routed)
+        return acceptedByLocalTransport || acceptedByBridgedTransport
     }
 
     private fun startPeriodicBroadcastAnnounce() {
@@ -709,8 +720,7 @@ class MeshCore(
                 readReceiptRetrySender.enqueue(
                     key = retryKey,
                     sendAttempt = {
-                        dispatchGlobal(RoutedPacket(signedPacket))
-                        true
+                        dispatchGlobalAndReport(RoutedPacket(signedPacket))
                     },
                     onComplete = { accepted ->
                         if (accepted) {

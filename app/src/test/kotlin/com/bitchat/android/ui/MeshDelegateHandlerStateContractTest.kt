@@ -15,6 +15,7 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -95,7 +96,7 @@ class MeshDelegateHandlerStateContractTest {
     }
 
     @Test
-    fun `focused private message schedules receipt before recording local read`() {
+    fun `focused private message schedules receipt and records local read independently`() {
         val peerID = "1122334455667788"
         val incoming = BitchatMessage(
             id = "focused-private-message",
@@ -124,6 +125,27 @@ class MeshDelegateHandlerStateContractTest {
         handler.didReceiveMessage(incoming)
 
         verify(mesh).sendReadReceipt(incoming.id, peerID, "Résumé")
+        assertEquals(listOf(incoming.id), locallyReadMessageIDs)
+    }
+
+    @Test
+    fun `focused private message remains locally read when transport is disconnected`() {
+        val peerID = "1122334455667788"
+        val incoming = BitchatMessage(
+            id = "focused-private-message-offline",
+            sender = "alice",
+            content = "hello",
+            timestamp = Date(1),
+            isPrivate = true,
+            senderPeerID = peerID
+        )
+        whenever(notifications.getAppBackgroundState()).thenReturn(false)
+        whenever(notifications.getCurrentPrivateChatPeer()).thenReturn(peerID)
+        whenever(mesh.getPeerInfo(peerID)).thenReturn(null)
+
+        handler.didReceiveMessage(incoming)
+
+        verify(mesh, never()).sendReadReceipt(any(), any(), any())
         assertEquals(listOf(incoming.id), locallyReadMessageIDs)
     }
 
