@@ -82,18 +82,42 @@ class MediaSendingManager(
     private var pendingAutomaticTimeoutRequestId: String? = null
 
     /**
-     * Enforce the send-size cap with a user-visible failure.
-     * Returns true if the file is oversized and the send was aborted.
+     * Enforce the send-size cap with a user-visible failure posted to the
+     * conversation the user is sending from. Returns true if the file is
+     * oversized and the send was aborted.
      */
-    private fun rejectIfOversized(file: java.io.File): Boolean {
+    private fun rejectIfOversized(
+        file: java.io.File,
+        toPeerIDOrNull: String?,
+        channelOrNull: String?
+    ): Boolean {
         val size = file.length()
         if (size <= MAX_FILE_SIZE) return false
         Log.e(TAG, "❌ File too large: $size bytes (max: $MAX_FILE_SIZE)")
         val sizeMb = size / (1024 * 1024)
         val maxMb = MAX_FILE_SIZE / (1024 * 1024)
-        messageManager.addSystemMessage(
-            "cannot send ${file.name}: file is too large (${sizeMb} MB, max $maxMb MB)"
-        )
+        val text = "cannot send ${file.name}: file is too large (${sizeMb} MB, max $maxMb MB)"
+        when {
+            toPeerIDOrNull != null -> {
+                val sys = BitchatMessage(
+                    sender = "system",
+                    content = text,
+                    timestamp = Date(),
+                    isRelay = false
+                )
+                messageManager.addPrivateMessageNoUnread(toPeerIDOrNull, sys)
+            }
+            channelOrNull != null -> {
+                val sys = BitchatMessage(
+                    sender = "system",
+                    content = text,
+                    timestamp = Date(),
+                    isRelay = false
+                )
+                messageManager.addChannelMessage(channelOrNull, sys)
+            }
+            else -> messageManager.addSystemMessage(text)
+        }
         return true
     }
 
@@ -119,7 +143,7 @@ class MediaSendingManager(
                     return@withContext null
                 }
 
-                if (rejectIfOversized(file)) {
+                if (rejectIfOversized(file, toPeerIDOrNull, channelOrNull)) {
                     return@withContext null
                 }
 
@@ -163,7 +187,7 @@ class MediaSendingManager(
                     return@withContext null
                 }
 
-                if (rejectIfOversized(file)) {
+                if (rejectIfOversized(file, toPeerIDOrNull, channelOrNull)) {
                     return@withContext null
                 }
 
@@ -207,7 +231,7 @@ class MediaSendingManager(
                     return@withContext null
                 }
 
-                if (rejectIfOversized(file)) {
+                if (rejectIfOversized(file, toPeerIDOrNull, channelOrNull)) {
                     return@withContext null
                 }
 

@@ -288,6 +288,43 @@ class MediaSendingManagerMigrationTest {
     }
 
     @Test
+    fun `oversized file failure is posted to the private conversation and nothing is sent`() {
+        val bigFile = kotlin.io.path.createTempFile("oversized-private", ".jpg").toFile()
+        try {
+            bigFile.writeBytes(ByteArray(11 * 1024 * 1024) { 0x42 })
+
+            manager.sendImageNote(peerID, null, bigFile.absolutePath)
+
+            val messages = state.privateChats.value[peerID].orEmpty()
+            assertEquals(1, messages.size)
+            assertTrue(messages.single().content.contains("too large"))
+            assertTrue(messages.none { it.type == com.bitchat.android.model.BitchatMessageType.Image })
+            assertTrue(state.getMessagesValue().none { it.content.contains("too large") })
+            verify(mesh, never()).prepareFilePrivate(any(), any(), any(), any())
+        } finally {
+            bigFile.delete()
+        }
+    }
+
+    @Test
+    fun `oversized file failure is posted to the channel and nothing is sent`() {
+        val bigFile = kotlin.io.path.createTempFile("oversized-channel", ".jpg").toFile()
+        try {
+            bigFile.writeBytes(ByteArray(11 * 1024 * 1024) { 0x42 })
+
+            manager.sendImageNote(null, "#test", bigFile.absolutePath)
+
+            val channelMessages = state.getChannelMessagesValue()["#test"].orEmpty()
+            assertEquals(1, channelMessages.size)
+            assertTrue(channelMessages.single().content.contains("too large"))
+            assertTrue(state.getMessagesValue().none { it.content.contains("too large") })
+            verify(mesh, never()).prepareFilePrivate(any(), any(), any(), any())
+        } finally {
+            bigFile.delete()
+        }
+    }
+
+    @Test
     fun `cancelled consent cannot later send or echo`() {
         whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
             .thenReturn(PrivateMediaPreparation.RequiresLegacyConsent("relay-visible warning"))
