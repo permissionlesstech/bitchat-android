@@ -5,7 +5,6 @@ import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
-import com.bitchat.android.ui.MeshDelegateHandler
 import com.bitchat.android.ui.MessageManager
 import com.bitchat.android.ui.NoiseSessionDelegate
 import com.bitchat.android.ui.PrivateChatManager
@@ -72,7 +71,7 @@ class NostrDirectMessageHandlerTest {
             application = application,
             state = state,
             privateChatManager = privateChatManager,
-            meshDelegateHandler = mock<MeshDelegateHandler>(),
+            updateDeliveryStatus = { _, _ -> },
             scope = scope,
             repo = GeohashRepository(application, state, dataManager),
             dataManager = dataManager,

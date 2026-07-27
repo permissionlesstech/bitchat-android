@@ -79,6 +79,10 @@ class AppStateStoreTest {
             setOf("ble-1", "wifi-1", "shared"),
             AppStateStore.getDirectPeers()
         )
+        assertEquals(
+            setOf("ble-1", "wifi-1", "shared"),
+            AppStateStore.directPeers.value
+        )
     }
 
     @Test

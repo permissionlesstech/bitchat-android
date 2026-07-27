@@ -18,7 +18,7 @@ class BluetoothConnectionManager(
     private val context: Context, 
     private val myPeerID: String,
     private val fragmentManager: FragmentManager? = null
-) : PowerManagerDelegate {
+) {
     
     companion object {
         private const val TAG = "BluetoothConnectionManager"
@@ -30,7 +30,7 @@ class BluetoothConnectionManager(
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
     
     // Power management
-    private val powerManager = PowerManager(context.applicationContext)
+    private val powerManager = PowerManager.getInstance(context.applicationContext)
     
     // Coroutines
     private val connectionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -117,7 +117,19 @@ class BluetoothConnectionManager(
     }
 
     init {
-        powerManager.delegate = this
+        connectionScope.launch {
+            var previousMode: PowerManager.PowerMode? = null
+            powerManager.profile.collect { profile ->
+                val modeChanged = previousMode != null && previousMode != profile.mode
+                previousMode = profile.mode
+                if (!isActive || !isBleTransportEnabled()) return@collect
+
+                if (modeChanged && isGattServerEnabled()) {
+                    serverManager.restartAdvertising()
+                }
+                clientManager.applyPowerProfile(profile)
+            }
+        }
         // Observe debug settings to enforce role state while active
         try {
             val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
@@ -294,9 +306,6 @@ class BluetoothConnectionManager(
             clientManager.stop()
             serverManager.stop()
             
-            // Stop power manager
-            powerManager.stop()
-            
             // Stop connection tracker
             connectionTracker.stop()
             
@@ -461,54 +470,6 @@ class BluetoothConnectionManager(
         }
     }
     
-    // MARK: - PowerManagerDelegate Implementation
-    
-    override fun onPowerModeChanged(newMode: PowerManager.PowerMode) {
-        Log.i(TAG, "Power mode changed to: $newMode")
-        
-        connectionScope.launch {
-            if (!isActive || !isBleTransportEnabled()) {
-                serverManager.stop()
-                clientManager.stop()
-                return@launch
-            }
-
-            // Avoid rapid scan restarts by checking if we need to change scan behavior
-            val wasUsingDutyCycle = powerManager.shouldUseDutyCycle()
-            
-            // Update advertising with new power settings if server enabled
-            val serverEnabled = isGattServerEnabled()
-            if (serverEnabled) {
-                serverManager.restartAdvertising()
-            } else {
-                serverManager.stop()
-            }
-            
-            // Only restart scanning if the duty cycle behavior changed
-            val nowUsingDutyCycle = powerManager.shouldUseDutyCycle()
-            if (wasUsingDutyCycle != nowUsingDutyCycle) {
-                val clientEnabled = isGattClientEnabled()
-                if (clientEnabled) {
-                    clientManager.restartScanning()
-                } else {
-                    clientManager.stop()
-                }
-            }
-            
-            // Enforce connection limits
-            enforceStrictLimits()
-        }
-    }
-    
-    override fun onScanStateChanged(shouldScan: Boolean) {
-        if (!isActive || !isBleTransportEnabled()) {
-            clientManager.onScanStateChanged(false)
-            return
-        }
-        clientManager.onScanStateChanged(shouldScan)
-    }
-    
-    // MARK: - Private Implementation - All moved to component managers
 }
 
 /**

@@ -15,7 +15,6 @@ import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.ChatState
-import com.bitchat.android.ui.MeshDelegateHandler
 import com.bitchat.android.ui.PrivateChatManager
 import com.bitchat.android.ui.PrivateMessageOrigin
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +27,7 @@ class NostrDirectMessageHandler(
     private val application: Application,
     private val state: ChatState,
     private val privateChatManager: PrivateChatManager,
-    private val meshDelegateHandler: MeshDelegateHandler,
+    private val updateDeliveryStatus: (String, DeliveryStatus) -> Unit,
     private val scope: CoroutineScope,
     private val repo: GeohashRepository,
     private val dataManager: com.bitchat.android.ui.DataManager,
@@ -57,7 +56,7 @@ class NostrDirectMessageHandler(
     }
 
     fun onGiftWrap(giftWrap: NostrEvent, geohash: String, identity: NostrIdentity) {
-        scope.launch(Dispatchers.Default) {
+        scope.launch {
             try {
                 if (dedupe(giftWrap.id)) return@launch
 
@@ -182,13 +181,19 @@ class NostrDirectMessageHandler(
             NoisePayloadType.DELIVERED -> {
                 val messageId = String(payload.data, Charsets.UTF_8)
                 withContext(Dispatchers.Main) {
-                    meshDelegateHandler.didReceiveDeliveryAck(messageId, conversationID)
+                    updateDeliveryStatus(
+                        messageId,
+                        DeliveryStatus.Delivered(conversationID, Date())
+                    )
                 }
             }
             NoisePayloadType.READ_RECEIPT -> {
                 val messageId = String(payload.data, Charsets.UTF_8)
                 withContext(Dispatchers.Main) {
-                    meshDelegateHandler.didReceiveReadReceipt(messageId, conversationID)
+                    updateDeliveryStatus(
+                        messageId,
+                        DeliveryStatus.Read(conversationID, Date())
+                    )
                 }
             }
             NoisePayloadType.FILE_TRANSFER -> {

@@ -20,7 +20,6 @@ import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -116,7 +115,6 @@ class MeshCore(
 
     var delegate: MeshDelegate? = null
 
-    private var announceJob: Job? = null
     private var isActive = false
 
     init {
@@ -145,7 +143,6 @@ class MeshCore(
     fun startCore() {
         if (isActive) return
         isActive = true
-        startPeriodicBroadcastAnnounce()
         if (ownsGossipManager) {
             gossipSyncManager.start()
         }
@@ -154,8 +151,6 @@ class MeshCore(
     fun stopCore() {
         if (!isActive) return
         isActive = false
-        announceJob?.cancel()
-        announceJob = null
         directPeers.clear()
         if (ownsGossipManager) {
             gossipSyncManager.stop()
@@ -206,18 +201,6 @@ class MeshCore(
         val acceptedByBridgedTransport =
             TransportBridgeService.broadcastAndReport(transport.id, routed)
         return acceptedByLocalTransport || acceptedByBridgedTransport
-    }
-
-    private fun startPeriodicBroadcastAnnounce() {
-        announceJob?.cancel()
-        announceJob = scope.launch {
-            while (isActive) {
-                try {
-                    delay(30_000)
-                    sendBroadcastAnnounce()
-                } catch (_: Exception) { }
-            }
-        }
     }
 
     private fun setupDelegates() {

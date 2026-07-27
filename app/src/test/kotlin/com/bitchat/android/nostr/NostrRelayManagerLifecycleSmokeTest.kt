@@ -10,6 +10,34 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class NostrRelayManagerLifecycleSmokeTest {
     @Test
+    fun `owner teardown is synchronous and preserves other subscription owners`() {
+        val manager = NostrRelayManager.shared
+        manager.disconnect()
+        manager.clearAllSubscriptions()
+        val filter = NostrFilter(kinds = listOf(NostrKind.TEXT_NOTE))
+
+        manager.subscribe(
+            filter = filter,
+            id = "background-contract",
+            handler = {},
+            targetRelayUrls = emptyList(),
+            owner = NostrRelayManager.OWNER_BACKGROUND
+        )
+        manager.subscribe(
+            filter = filter,
+            id = "ui-contract",
+            handler = {},
+            targetRelayUrls = emptyList(),
+            owner = "test-ui"
+        )
+
+        manager.unsubscribeOwner("test-ui")
+
+        assertEquals(setOf("background-contract"), manager.getActiveSubscriptions().keys)
+        manager.clearAllSubscriptions()
+    }
+
+    @Test
     fun `disconnected manager maintains subscription and empty publish invariants locally`() {
         val manager = NostrRelayManager.shared
         manager.disconnect()

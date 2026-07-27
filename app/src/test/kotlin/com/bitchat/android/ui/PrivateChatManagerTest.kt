@@ -70,6 +70,34 @@ class PrivateChatManagerTest {
     }
 
     @Test
+    fun `headless Nostr processing stores messages without retaining UI unread work`() {
+        val headlessManager = PrivateChatManager(
+            state = state,
+            messageManager = MessageManager(state),
+            dataManager = DataManager(RuntimeEnvironment.getApplication()),
+            noiseSessionDelegate = mock(),
+            trackUnreadMessages = false
+        )
+        val message = BitchatMessage(
+            id = "background-nostr-message",
+            sender = "alice",
+            content = "background",
+            timestamp = Date(1),
+            isPrivate = true,
+            senderPeerID = "nostr_background"
+        )
+
+        headlessManager.handleIncomingPrivateMessage(
+            message = message,
+            suppressUnread = false,
+            origin = PrivateMessageOrigin.NOSTR
+        )
+
+        assertEquals(listOf(message), AppStateStore.privateMessages.value["nostr_background"])
+        assertTrue(state.getUnreadPrivateMessagesValue().isEmpty())
+    }
+
+    @Test
     fun `canonical conversation sends read receipt through live mesh peer id`() {
         val noiseKey = ByteArray(32) { 9 }
         val meshPeerID = ContactIdentityResolver.peerIdForNoiseKey(noiseKey)
