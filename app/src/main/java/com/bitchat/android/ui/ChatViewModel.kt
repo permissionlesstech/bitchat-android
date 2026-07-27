@@ -106,6 +106,9 @@ class ChatViewModel(
     // Specialized managers
     private val dataManager = DataManager(application.applicationContext)
     private val identityManager by lazy { SecureIdentityStateManager(getApplication()) }
+    private val seenMessageStore by lazy {
+        com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
+    }
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
 
@@ -116,7 +119,18 @@ class ChatViewModel(
         override fun getMyPeerID(): String = mesh.myPeerID
     }
 
-    val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
+    val privateChatManager = PrivateChatManager(
+        state,
+        messageManager,
+        dataManager,
+        noiseSessionDelegate,
+        hasReadReceiptBeenSent = { messageID ->
+            seenMessageStore.hasReadReceiptBeenSent(messageID)
+        },
+        markMessageReadLocally = { messageID ->
+            seenMessageStore.markReadLocally(messageID)
+        }
+    )
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(
       application.applicationContext,
@@ -153,7 +167,10 @@ class ChatViewModel(
         coroutineScope = viewModelScope,
         onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(application.applicationContext) },
         getMyPeerID = { mesh.myPeerID },
-        getMeshService = { mesh }
+        getMeshService = { mesh },
+        markMessageReadLocally = { messageID ->
+            seenMessageStore.markReadLocally(messageID)
+        }
     )
     
     // New Geohash architecture ViewModel (replaces God object service usage in UI path)
@@ -184,14 +201,14 @@ class ChatViewModel(
         state.nickname,
         state.connectedPeers
     ) { unreadConversationIDs, chats, currentNickname, connectedPeerIDs ->
-        val seenStore = com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
+        val seenStore = seenMessageStore
         val connectedPeerIDSet = connectedPeerIDs.mapTo(mutableSetOf()) { it.lowercase() }
         buildUnreadConversationSummaries(
             unreadConversationIDs = unreadConversationIDs,
             privateChats = chats,
             currentUserIdentifiers = setOf(currentNickname, mesh.myPeerID),
             canonicalize = ContactDirectory::canonicalConversationId,
-            isMessageRead = { message -> seenStore.hasRead(message.id) }
+            isMessageRead = { message -> seenStore.hasBeenReadLocally(message.id) }
         ).map { summary ->
             val resolution = ContactDirectory.resolve(summary.conversationID)
             val resolvedNostrPubkey = summary.nostrPubkey
@@ -297,15 +314,13 @@ class ChatViewModel(
                 val (canonicalChats, unreadConversationIDs) = withContext(Dispatchers.IO) {
                     val canonical = ContactDirectory.canonicalizePrivateChats(byPeer)
                     val unread = try {
-                        val seen = com.bitchat.android.services.SeenMessageStore
-                            .getInstance(getApplication())
                         val myNick = state.getNicknameValue().ifBlank { mesh.myPeerID }
                         canonical
                             .filterValues { messages ->
                                 messages.any { message ->
                                     message.sender != myNick &&
                                         message.sender != "system" &&
-                                        !seen.hasRead(message.id)
+                                        !seenMessageStore.hasBeenReadLocally(message.id)
                                 }
                             }
                             .keys
@@ -463,42 +478,24 @@ class ChatViewModel(
             ensureGeohashDMSubscriptionIfNeeded(peerID)
         }
 
-        val (conversationID, unreadAliases) = withContext(Dispatchers.IO) {
+        val (conversationID, success) = withContext(Dispatchers.IO) {
             val canonicalID = ContactDirectory.canonicalConversationId(peerID)
-            canonicalID to matchingUnreadAliases(
+            val unreadAliases = matchingUnreadAliases(
                 unreadConversationIDs = state.getUnreadPrivateMessagesValue(),
                 canonicalConversationID = canonicalID,
                 canonicalize = ContactDirectory::canonicalConversationId
             )
+            canonicalID to privateChatManager.startPrivateChat(
+                peerID = canonicalID,
+                meshService = mesh,
+                unreadAliases = unreadAliases
+            )
         }
-        val success = privateChatManager.startPrivateChat(
-            peerID = conversationID,
-            meshService = mesh,
-            unreadAliases = unreadAliases
-        )
         if (success) {
             // Notify notification manager about current private chat
             setCurrentPrivateChatPeer(conversationID)
             // Clear notifications for this sender since user is now viewing the chat
             clearNotificationsForSender(conversationID)
-
-            // Persistently mark all messages in this conversation as read so Nostr fetches
-            // after app restarts won't re-mark them as unread.
-            withContext(Dispatchers.IO) {
-                try {
-                    val seen =
-                        com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
-                    val chats = state.getPrivateChatsValue()
-                    val messages = chats[conversationID] ?: emptyList()
-                    messages.forEach { msg ->
-                        try {
-                            seen.markRead(msg.id)
-                        } catch (_: Exception) {
-                        }
-                    }
-                } catch (_: Exception) {
-                }
-            }
         }
     }
     
