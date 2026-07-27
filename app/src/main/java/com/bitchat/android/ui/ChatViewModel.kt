@@ -340,6 +340,7 @@ class ChatViewModel(
     }
     
     override fun onCleared() {
+        geohashViewModel.shutdownUiSubscriptions()
         super.onCleared()
         // Note: Mesh service lifecycle is now managed by MainActivity
     }
@@ -358,34 +359,9 @@ class ChatViewModel(
      */
     private fun ensureGeohashDMSubscriptionIfNeeded(convKey: String) {
         try {
-            val repoField = GeohashViewModel::class.java.getDeclaredField("repo")
-            repoField.isAccessible = true
-            val repo = repoField.get(geohashViewModel) as com.bitchat.android.nostr.GeohashRepository
-            val gh = repo.getConversationGeohash(convKey)
+            val gh = geohashViewModel.conversationGeohash(convKey)
             if (!gh.isNullOrEmpty()) {
-                val subMgrField = GeohashViewModel::class.java.getDeclaredField("subscriptionManager")
-                subMgrField.isAccessible = true
-                val subMgr = subMgrField.get(geohashViewModel) as com.bitchat.android.nostr.NostrSubscriptionManager
-                val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(gh, getApplication())
-                val subId = "geo-dm-$gh"
-                val currentDmSubField = GeohashViewModel::class.java.getDeclaredField("currentDmSubId")
-                currentDmSubField.isAccessible = true
-                val currentId = currentDmSubField.get(geohashViewModel) as String?
-                if (currentId != subId) {
-                    (currentId)?.let { subMgr.unsubscribe(it) }
-                    currentDmSubField.set(geohashViewModel, subId)
-                    subMgr.subscribeGiftWraps(
-                        pubkey = identity.publicKeyHex,
-                        sinceMs = System.currentTimeMillis() - 172800000L,
-                        id = subId,
-                        handler = { event ->
-                            val dmHandlerField = GeohashViewModel::class.java.getDeclaredField("dmHandler")
-                            dmHandlerField.isAccessible = true
-                            val dmHandler = dmHandlerField.get(geohashViewModel) as com.bitchat.android.nostr.NostrDirectMessageHandler
-                            dmHandler.onGiftWrap(event, gh, identity)
-                        }
-                    )
-                }
+                com.bitchat.android.nostr.NostrBackgroundRuntime.ensureConversationDm(gh)
             }
         } catch (e: Exception) {
             Log.w(TAG, "ensureGeohashDMSubscriptionIfNeeded failed: ${e.message}")

@@ -116,7 +116,6 @@ class MeshCore(
 
     var delegate: MeshDelegate? = null
 
-    private var announceJob: Job? = null
     private var isActive = false
 
     init {
@@ -145,7 +144,6 @@ class MeshCore(
     fun startCore() {
         if (isActive) return
         isActive = true
-        startPeriodicBroadcastAnnounce()
         if (ownsGossipManager) {
             gossipSyncManager.start()
         }
@@ -154,8 +152,6 @@ class MeshCore(
     fun stopCore() {
         if (!isActive) return
         isActive = false
-        announceJob?.cancel()
-        announceJob = null
         if (ownsGossipManager) {
             gossipSyncManager.stop()
         }
@@ -193,18 +189,6 @@ class MeshCore(
     private fun dispatchGlobal(routed: RoutedPacket) {
         transport.broadcastPacket(routed)
         TransportBridgeService.broadcast(transport.id, routed)
-    }
-
-    private fun startPeriodicBroadcastAnnounce() {
-        announceJob?.cancel()
-        announceJob = scope.launch {
-            while (isActive) {
-                try {
-                    delay(30_000)
-                    sendBroadcastAnnounce()
-                } catch (_: Exception) { }
-            }
-        }
     }
 
     private fun setupDelegates() {

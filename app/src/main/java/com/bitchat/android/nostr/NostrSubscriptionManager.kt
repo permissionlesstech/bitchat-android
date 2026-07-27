@@ -11,7 +11,8 @@ import kotlinx.coroutines.launch
  */
 class NostrSubscriptionManager(
     private val application: Application,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val owner: String = NostrRelayManager.OWNER_LEGACY
 ) {
     companion object { private const val TAG = "NostrSubscriptionManager" }
 
@@ -23,7 +24,7 @@ class NostrSubscriptionManager(
     fun subscribeGiftWraps(pubkey: String, sinceMs: Long, id: String, handler: (NostrEvent) -> Unit) {
         scope.launch {
             val filter = NostrFilter.giftWrapsFor(pubkey, sinceMs)
-            relayManager.subscribe(filter, id, handler)
+            relayManager.subscribe(filter, id, handler, owner = owner)
         }
     }
 
@@ -31,7 +32,15 @@ class NostrSubscriptionManager(
     fun subscribeGeohashMessages(geohash: String, sinceMs: Long, limit: Int, id: String, handler: (NostrEvent) -> Unit) {
         scope.launch {
             val filter = NostrFilter.geohashMessages(geohash, sinceMs, limit)
-            relayManager.subscribeForGeohash(geohash, filter, id, handler, includeDefaults = false, nRelays = 5)
+            relayManager.subscribeForGeohash(
+                geohash,
+                filter,
+                id,
+                handler,
+                includeDefaults = false,
+                nRelays = 5,
+                owner = owner
+            )
         }
     }
 
@@ -39,9 +48,21 @@ class NostrSubscriptionManager(
     fun subscribeGeohashPresence(geohash: String, sinceMs: Long, limit: Int, id: String, handler: (NostrEvent) -> Unit) {
         scope.launch {
             val filter = NostrFilter.geohashPresence(geohash, sinceMs, limit)
-            relayManager.subscribeForGeohash(geohash, filter, id, handler, includeDefaults = false, nRelays = 5)
+            relayManager.subscribeForGeohash(
+                geohash,
+                filter,
+                id,
+                handler,
+                includeDefaults = false,
+                nRelays = 5,
+                owner = owner
+            )
         }
     }
 
     fun unsubscribe(id: String) { scope.launch { runCatching { relayManager.unsubscribe(id) } } }
+
+    fun unsubscribeAllOwned() {
+        scope.launch { runCatching { relayManager.unsubscribeOwner(owner) } }
+    }
 }

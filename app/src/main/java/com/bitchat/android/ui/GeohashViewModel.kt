@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.bitchat.android.nostr.GeohashMessageHandler
 import com.bitchat.android.nostr.GeohashRepository
 import com.bitchat.android.nostr.NostrDirectMessageHandler
+import com.bitchat.android.nostr.NostrBackgroundRuntime
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrProtocol
 import com.bitchat.android.nostr.NostrRelayManager
@@ -23,11 +24,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.Date
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Dispatchers
-import java.security.SecureRandom
-import kotlin.random.asKotlinRandom
 
 class GeohashViewModel(
     application: Application,
@@ -39,19 +37,21 @@ class GeohashViewModel(
     private val notificationManager: NotificationManager
 ) : AndroidViewModel(application), DefaultLifecycleObserver {
 
-    companion object { 
-        private const val TAG = "GeohashViewModel" 
-        private val secureRandom = SecureRandom().asKotlinRandom()
-    }
+    companion object { private const val TAG = "GeohashViewModel" }
 
     private val repo = GeohashRepository(application, state, dataManager)
-    private val subscriptionManager = NostrSubscriptionManager(application, viewModelScope)
+    private val uiSubscriptionOwner = "geohash-ui-${System.identityHashCode(this)}"
+    private val subscriptionManager = NostrSubscriptionManager(
+        application,
+        viewModelScope,
+        owner = uiSubscriptionOwner
+    )
     private val geohashMessageHandler = GeohashMessageHandler(
         application = application,
         state = state,
         messageManager = messageManager,
         repo = repo,
-        scope = viewModelScope,
+        scope = NostrBackgroundRuntime.eventScope,
         dataManager = dataManager
     )
     private val dmHandler = NostrDirectMessageHandler(
@@ -59,18 +59,14 @@ class GeohashViewModel(
         state = state,
         privateChatManager = privateChatManager,
         meshDelegateHandler = meshDelegateHandler,
-        scope = viewModelScope,
+        scope = NostrBackgroundRuntime.eventScope,
         repo = repo,
         dataManager = dataManager
     )
 
-    // Live channel message stream (kind 20000). Low-volume; kept alive in the background.
-    private var currentGeohashMsgSubId: String? = null
     // Presence heartbeat firehose (kind 20001). High-volume; paused while backgrounded.
     private var currentGeohashPresenceSubId: String? = null
-    private var currentDmSubId: String? = null
     private var geoTimer: Job? = null
-    private var globalPresenceJob: Job? = null
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
     private val activeSamplingGeohashes = mutableSetOf<String>()
 
@@ -82,23 +78,21 @@ class GeohashViewModel(
     val selectedLocationChannel: StateFlow<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
 
     fun initialize() {
-        subscriptionManager.connect()
         // Observe process lifecycle to manage background sampling
         kotlin.runCatching {
             ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         }
-        val identity = NostrIdentityBridge.getCurrentNostrIdentity(getApplication())
-        if (identity != null) {
-            // Use global chat-messages only for full account DMs (mesh context). For geohash DMs, subscribe per-geohash below.
-            subscriptionManager.subscribeGiftWraps(
-                pubkey = identity.publicKeyHex,
-                sinceMs = System.currentTimeMillis() - 172800000L,
-                id = "chat-messages",
-                handler = { event -> dmHandler.onGiftWrap(event, "", identity) } // geohash="" means global account DM (not geohash identity)
-            )
-        }
         try {
             locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
+            NostrBackgroundRuntime.attachHandlers(
+                NostrBackgroundRuntime.Handlers(
+                    accountDm = { event, identity -> dmHandler.onGiftWrap(event, "", identity) },
+                    geohashMessage = { event, geohash -> geohashMessageHandler.onEvent(event, geohash) },
+                    geohashDm = { event, geohash, identity ->
+                        dmHandler.onGiftWrap(event, geohash, identity)
+                    }
+                )
+            )
             viewModelScope.launch {
                 locationChannelManager?.selectedChannel?.collect { channel ->
                     state.setSelectedLocationChannel(channel)
@@ -110,10 +104,6 @@ class GeohashViewModel(
                     state.setIsTeleported(teleported)
                 }
             }
-            
-            // Start global presence heartbeat loop
-            startGlobalPresenceHeartbeat()
-            
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize location channel state: ${e.message}")
             state.setSelectedLocationChannel(com.bitchat.android.geohash.ChannelID.Mesh)
@@ -121,77 +111,17 @@ class GeohashViewModel(
         }
     }
 
-    private fun startGlobalPresenceHeartbeat() {
-        globalPresenceJob?.cancel()
-        globalPresenceJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            // Reactively restart heartbeat whenever available channels change
-            locationChannelManager?.availableChannels?.collectLatest { channels ->
-                // Filter for REGION (2), PROVINCE (4), CITY (5) - precision <= 5
-                val targetGeohashes = channels.filter { it.level.precision <= 5 }.map { it.geohash }
-
-                if (targetGeohashes.isNotEmpty()) {
-                    // Enter heartbeat loop for this set of channels
-                    // If channels change (e.g. user moves), collectLatest cancels this loop and starts a new one immediately
-                    while (true) {
-                        // Randomize loop interval (40-80s, average 60s)
-                        val loopInterval = secureRandom.nextLong(40000L, 80000L)
-                        var timeSpent = 0L
-
-                        try {
-                            Log.v(TAG, "💓 Broadcasting global presence to ${targetGeohashes.size} channels")
-                            targetGeohashes.forEach { geohash ->
-                                // Decorrelate individual broadcasts with random delay (1s-5s)
-                                val stepDelay = secureRandom.nextLong(1000L, 10000L)
-                                delay(stepDelay)
-                                timeSpent += stepDelay
-                                
-                                broadcastPresence(geohash)
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Global presence heartbeat error: ${e.message}")
-                        }
-                        
-                        // Wait remaining time to satisfy target average cadence
-                        val remaining = loopInterval - timeSpent
-                        if (remaining > 0) {
-                            delay(remaining)
-                        } else {
-                            delay(10000L) // Minimum guard delay
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     fun panicReset() {
         repo.clearAll()
         GeohashAliasRegistry.clear()
         GeohashConversationRegistry.clear()
-        subscriptionManager.disconnect()
-        currentGeohashMsgSubId = null
+        subscriptionManager.unsubscribeAllOwned()
         currentGeohashPresenceSubId = null
-        currentDmSubId = null
         activeChannelGeohash = null
         geoTimer?.cancel()
         geoTimer = null
-        globalPresenceJob?.cancel()
-        globalPresenceJob = null
         try { NostrIdentityBridge.clearAllAssociations(getApplication()) } catch (_: Exception) {}
-        initialize()
-    }
-
-    private suspend fun broadcastPresence(geohash: String) {
-        try {
-            val identity = NostrIdentityBridge.deriveIdentity(geohash, getApplication())
-            val event = NostrProtocol.createGeohashPresenceEvent(geohash, identity)
-            val relayManager = NostrRelayManager.getInstance(getApplication())
-            // Presence is lightweight, send to geohash relays
-            relayManager.sendEventToGeohash(event, geohash, includeDefaults = false, nRelays = 5)
-            Log.v(TAG, "💓 Sent presence heartbeat for $geohash")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to send presence for $geohash: ${e.message}")
-        }
+        NostrBackgroundRuntime.resetSubscriptions()
     }
 
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
@@ -331,15 +261,14 @@ class GeohashViewModel(
 
     fun displayNameForNostrPubkeyUI(pubkeyHex: String): String = repo.displayNameForNostrPubkeyUI(pubkeyHex)
     fun displayNameForGeohashConversation(pubkeyHex: String, sourceGeohash: String): String = repo.displayNameForGeohashConversation(pubkeyHex, sourceGeohash)
+    fun conversationGeohash(conversationKey: String): String? = repo.getConversationGeohash(conversationKey)
 
     fun peerColorSeedForNostrPubkey(pubkeyHex: String): PeerColorSeed =
         nostrPeerColorSeed(pubkeyHex)
 
     private fun switchLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {
         geoTimer?.cancel(); geoTimer = null
-        currentGeohashMsgSubId?.let { subscriptionManager.unsubscribe(it); currentGeohashMsgSubId = null }
         currentGeohashPresenceSubId?.let { subscriptionManager.unsubscribe(it); currentGeohashPresenceSubId = null }
-        currentDmSubId?.let { subscriptionManager.unsubscribe(it); currentDmSubId = null }
 
         when (channel) {
             is com.bitchat.android.geohash.ChannelID.Mesh -> {
@@ -368,17 +297,11 @@ class GeohashViewModel(
 
                 startGeoParticipantsTimer()
 
-                // Chat message stream (kind 20000) is low-volume; keep it alive even when
-                // backgrounded so geohash messages still arrive.
-                subscribeChannelMessages(channel.channel.geohash)
                 // Presence heartbeat firehose (kind 20001) is the high-volume data hog; only
                 // run it in the foreground. It is restored in onStart() and torn down in onStop().
                 if (isAppInForeground()) {
                     subscribeChannelPresence(channel.channel.geohash)
                 }
-                // Gift-wrap DM subscription is lightweight (filtered to our pubkey) and is
-                // kept alive in the background so geohash DMs still arrive.
-                subscribeChannelDM(channel.channel.geohash)
             }
             null -> {
                 Log.d(TAG, "📡 No channel selected")
@@ -386,21 +309,6 @@ class GeohashViewModel(
                 repo.refreshGeohashPeople()
             }
         }
-    }
-
-    /**
-     * Subscribe to the chat message stream (kind 20000) for a geohash channel.
-     * Low-volume; kept alive in the background so messages keep arriving.
-     */
-    private fun subscribeChannelMessages(geohash: String) {
-        val subId = "geohash-$geohash"; currentGeohashMsgSubId = subId
-        subscriptionManager.subscribeGeohashMessages(
-            geohash = geohash,
-            sinceMs = System.currentTimeMillis() - 3600000L,
-            limit = 200,
-            id = subId,
-            handler = { event -> geohashMessageHandler.onEvent(event, geohash) }
-        )
     }
 
     /**
@@ -419,25 +327,6 @@ class GeohashViewModel(
         )
     }
 
-    /**
-     * Subscribe to gift-wrap DMs for a geohash channel's derived identity.
-     * Lightweight (filtered to our pubkey); kept alive in the background.
-     */
-    private fun subscribeChannelDM(geohash: String) {
-        viewModelScope.launch {
-            val dmIdentity = NostrIdentityBridge.deriveIdentity(geohash, getApplication())
-            val dmSubId = "geo-dm-$geohash"; currentDmSubId = dmSubId
-            subscriptionManager.subscribeGiftWraps(
-                pubkey = dmIdentity.publicKeyHex,
-                sinceMs = System.currentTimeMillis() - 172800000L,
-                id = dmSubId,
-                handler = { event -> dmHandler.onGiftWrap(event, geohash, dmIdentity) }
-            )
-            // Also register alias in global registry for routing convenience
-            GeohashAliasRegistry.put("nostr_${dmIdentity.publicKeyHex.take(16)}", dmIdentity.publicKeyHex)
-        }
-    }
-
     private fun startGeoParticipantsTimer() {
         geoTimer = viewModelScope.launch {
             while (repo.getCurrentGeohash() != null) {
@@ -449,6 +338,11 @@ class GeohashViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        shutdownUiSubscriptions()
+    }
+
+    fun shutdownUiSubscriptions() {
+        subscriptionManager.unsubscribeAllOwned()
         kotlin.runCatching {
             ProcessLifecycleOwner.get().lifecycle.removeObserver(this)
         }
@@ -465,10 +359,6 @@ class GeohashViewModel(
         if (repo.getCurrentGeohash() != null && geoTimer?.isActive != true) {
             startGeoParticipantsTimer()
         }
-        // Resume the global presence heartbeat
-        if (globalPresenceJob?.isActive != true) {
-            startGlobalPresenceHeartbeat()
-        }
     }
 
     override fun onStop(owner: LifecycleOwner) {
@@ -478,12 +368,9 @@ class GeohashViewModel(
         currentGeohashPresenceSubId?.let { subscriptionManager.unsubscribe(it); currentGeohashPresenceSubId = null }
         // Drop geohash sampling subscriptions
         activeSamplingGeohashes.forEach { subscriptionManager.unsubscribe("sampling-$it") }
-        // Stop broadcasting presence heartbeats
-        globalPresenceJob?.cancel(); globalPresenceJob = null
         // Stop participant-refresh polling
         geoTimer?.cancel(); geoTimer = null
-        // NOTE: gift-wrap DM subscriptions (per-geohash + global "chat-messages") are intentionally
-        // left active so direct messages still arrive while backgrounded.
+        // Process-owned message and DM subscriptions remain active.
     }
 
     private fun performSubscribeSampling(geohash: String) {

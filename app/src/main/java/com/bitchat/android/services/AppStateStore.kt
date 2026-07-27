@@ -17,6 +17,8 @@ object AppStateStore {
     private val peerIdsByTransport = mutableMapOf<String, Set<String>>()
     // Direct (single-hop) peer IDs per transport, used to gossip a unified neighbor set.
     private val directPeerIdsByTransport = mutableMapOf<String, Set<String>>()
+    private val _directPeers = MutableStateFlow<Set<String>>(emptySet())
+    val directPeers: StateFlow<Set<String>> = _directPeers.asStateFlow()
     // Connected peer IDs (mesh ephemeral IDs)
     private val _peers = MutableStateFlow<List<String>>(emptyList())
     val peers: StateFlow<List<String>> = _peers.asStateFlow()
@@ -69,20 +71,25 @@ object AppStateStore {
     fun setTransportDirectPeers(transportId: String, ids: Collection<String>) {
         synchronized(this) {
             directPeerIdsByTransport[transportId] = ids.toSet()
+            publishDirectPeersLocked()
         }
     }
 
     fun clearTransportDirectPeers(transportId: String) {
         synchronized(this) {
             directPeerIdsByTransport.remove(transportId)
+            publishDirectPeersLocked()
         }
     }
 
     /** Union of direct peers across all transports. */
-    fun getDirectPeers(): Set<String> {
-        synchronized(this) {
-            return directPeerIdsByTransport.values.flatten().toSet()
-        }
+    fun getDirectPeers(): Set<String> = _directPeers.value
+
+    private fun publishDirectPeersLocked() {
+        _directPeers.value = directPeerIdsByTransport.values
+            .asSequence()
+            .flatten()
+            .toSet()
     }
 
     fun addPublicMessage(msg: BitchatMessage) {
@@ -210,6 +217,7 @@ object AppStateStore {
             peerIdsByTransport.clear()
             directPeerIdsByTransport.clear()
             _peers.value = emptyList()
+            _directPeers.value = emptySet()
             _publicMessages.value = emptyList()
             _privateMessages.value = emptyMap()
             _channelMessages.value = emptyMap()

@@ -93,6 +93,7 @@ class BluetoothGattClientManager(
     @Volatile private var lastScanResultTime = 0L
     private var scanRetryCount = 0
     private var scanWatchdogJob: Job? = null
+    private var scanDutyCycleJob: Job? = null
     
     // RSSI monitoring state
     private var rssiMonitoringJob: Job? = null
@@ -131,18 +132,9 @@ class BluetoothGattClientManager(
         isActive = true
         
         connectionScope.launch {
-            if (powerManager.shouldUseDutyCycle()) {
-                Log.i(TAG, "Using power-aware duty cycling")
-                // Duty cycle drives onScanStateChanged(true/false); scanningDesired follows that.
-            } else {
-                scanningDesired = true
-                startScanning()
-            }
-            
+            applyPowerProfile(powerManager.profile.value)
             // Start RSSI monitoring
             startRSSIMonitoring()
-            // Start the scan watchdog so a silently-dead or wedged scanner self-heals.
-            startScanWatchdog()
         }
         
         return true
@@ -153,6 +145,8 @@ class BluetoothGattClientManager(
      */
     fun stop() {
         scanningDesired = false
+        scanDutyCycleJob?.cancel()
+        scanDutyCycleJob = null
         stopScanWatchdog()
         if (!isActive) {
             // Idempotent stop
@@ -208,10 +202,10 @@ class BluetoothGattClientManager(
                             Log.d(TAG, "Failed to request RSSI from ${deviceConn.device.address}: ${e.message}")
                         }
                     }
-                    delay(AppConstants.Mesh.RSSI_UPDATE_INTERVAL_MS)
+                    delay(powerManager.profile.value.ble.rssiPollIntervalMs)
                 } catch (e: Exception) {
                     Log.w(TAG, "Error in RSSI monitoring: ${e.message}")
-                    delay(AppConstants.Mesh.RSSI_UPDATE_INTERVAL_MS)
+                    delay(powerManager.profile.value.ble.rssiPollIntervalMs)
                 }
             }
         }
@@ -659,13 +653,37 @@ class BluetoothGattClientManager(
         connectionScope.launch {
             stopScanning()
             delay(1000) // Extra delay to avoid rate limiting
-            
-            if (powerManager.shouldUseDutyCycle()) {
-                Log.i(TAG, "Switching to duty cycle scanning mode")
-                // Duty cycle will handle scanning
-            } else {
-                Log.i(TAG, "Switching to continuous scanning mode")
-                startScanning()
+            applyPowerProfile(powerManager.profile.value)
+        }
+    }
+
+    /**
+     * Apply the current process-wide profile without ever disabling background discovery.
+     */
+    fun applyPowerProfile(profile: PowerManager.RuntimePerformanceProfile) {
+        scanDutyCycleJob?.cancel()
+        scanDutyCycleJob = null
+        if (!isActive || !isClientRoleEnabled()) {
+            onScanStateChanged(false)
+            return
+        }
+
+        if (profile.ble.continuousScan) {
+            startScanWatchdog()
+            onScanStateChanged(true)
+            return
+        }
+
+        // Duty-cycled scans are re-armed every window, so the continuous-scan watchdog would only
+        // create background wakeups during intentional OFF periods.
+        stopScanWatchdog()
+        scanDutyCycleJob = connectionScope.launch {
+            while (isActive && isClientRoleEnabled()) {
+                onScanStateChanged(true)
+                delay(profile.ble.scanOnMs)
+                if (!isActive || !isClientRoleEnabled()) break
+                onScanStateChanged(false)
+                delay(profile.ble.scanOffMs)
             }
         }
     }

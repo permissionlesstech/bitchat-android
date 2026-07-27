@@ -6,12 +6,10 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -68,24 +66,20 @@ object WifiAwareController {
             Log.i(TAG, "Wi-Fi Aware unsupported: ${status.reason}")
         }
         setEnabled(enabledByDefault)
-        // Start background poller for debug surfacing
-        scope.launch {
-            while (isActive) {
-                try {
-                    val s = service
-                    if (s != null) {
-                        _connectedPeers.value = s.getDeviceAddressToPeerMapping() // peerID -> ip
-                        _knownPeers.value = s.getPeerNicknames()
-                        _discoveredPeers.value = s.getDiscoveredPeerIds()
-                    } else {
-                        _connectedPeers.value = emptyMap()
-                        _knownPeers.value = emptyMap()
-                        _discoveredPeers.value = emptySet()
-                    }
-                } catch (_: Exception) { }
-                delay(1000)
-            }
-        }
+    }
+
+    internal fun publishDebugSnapshot(
+        connected: Map<String, String>,
+        known: Map<String, String>,
+        discovered: Set<String>
+    ) {
+        _connectedPeers.value = connected
+        _knownPeers.value = known
+        _discoveredPeers.value = discovered
+    }
+
+    private fun clearDebugSnapshot() {
+        publishDebugSnapshot(emptyMap(), emptyMap(), emptySet())
     }
 
     fun setEnabled(value: Boolean) {
@@ -202,9 +196,7 @@ object WifiAwareController {
         }
         try { stopped?.stopServices() } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
-        _connectedPeers.value = emptyMap()
-        _knownPeers.value = emptyMap()
-        _discoveredPeers.value = emptySet()
+        clearDebugSnapshot()
         try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware stopped")) } catch (_: Exception) {}
     }
 
@@ -214,9 +206,7 @@ object WifiAwareController {
             service = null
             _running.value = false
             try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
-            _connectedPeers.value = emptyMap()
-            _knownPeers.value = emptyMap()
-            _discoveredPeers.value = emptySet()
+            clearDebugSnapshot()
         }
     }
 
