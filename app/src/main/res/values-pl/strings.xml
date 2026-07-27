@@ -53,5 +53,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Otwórz informacje</string>
+  <string name="nearby_notes_reveal">sprawdź, czy zostawiono tutaj notatki</string>
+  <string name="nearby_notes_one">1 notatka zostawiona tutaj — stuknij, aby przeczytać</string>
+  <string name="nearby_notes_many">%d notatek zostawionych tutaj — stuknij, aby przeczytać</string>
 </resources>
-

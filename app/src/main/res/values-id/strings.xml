@@ -400,4 +400,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Buka Tentang</string>
+  <string name="nearby_notes_reveal">periksa catatan yang ditinggalkan di sini</string>
+  <string name="nearby_notes_one">1 catatan ditinggalkan di sini — ketuk untuk membaca</string>
+  <string name="nearby_notes_many">%d catatan ditinggalkan di sini — ketuk untuk membaca</string>
 </resources>

@@ -400,4 +400,8 @@
   <string name="verify_success_title">検証済み</string>
   <string name="verify_success_body">%1$s を検証しました</string>
   <string name="verify_success_system_message">%1$s を検証しました</string>
+    <string name="cd_open_about">このアプリについてを開く</string>
+  <string name="nearby_notes_reveal">ここに残されたメモを確認</string>
+  <string name="nearby_notes_one">ここに1件のメモがあります — タップして読む</string>
+  <string name="nearby_notes_many">ここに%d件のメモがあります — タップして読む</string>
 </resources>

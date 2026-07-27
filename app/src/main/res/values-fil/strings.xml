@@ -280,7 +280,6 @@
     <string name="grant_permissions">Payagan</string>
     <string name="location_tracking_warning">HINDI sinusubaybayan ng bitchat ang lokasyon mo</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">TAO</string>
     <string name="nobody_around">walang tao sa paligid…</string>
@@ -400,4 +399,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Buksan ang Tungkol</string>
+  <string name="nearby_notes_reveal">tingnan kung may mga note na naiwan dito</string>
+  <string name="nearby_notes_one">1 note ang naiwan dito — i-tap para basahin</string>
+  <string name="nearby_notes_many">%d note ang naiwan dito — i-tap para basahin</string>
 </resources>

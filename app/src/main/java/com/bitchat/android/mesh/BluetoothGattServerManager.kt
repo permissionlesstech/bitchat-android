@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Manages GATT server operations, advertising, and server-side connections
@@ -43,6 +44,7 @@ class BluetoothGattServerManager(
     
     // GATT server for peripheral mode
     private var gattServer: BluetoothGattServer? = null
+    private val serverLinkIDs = ConcurrentHashMap<String, String>()
     private var characteristic: BluetoothGattCharacteristic? = null
     private var advertiseCallback: AdvertiseCallback? = null
     private var advertiseRetryCount = 0
@@ -90,7 +92,6 @@ class BluetoothGattServerManager(
         }
 
         if (isActive) {
-            Log.d(TAG, "GATT server already active; start is a no-op")
             return true
         }
         if (!permissionManager.hasBluetoothPermissions()) {
@@ -133,7 +134,7 @@ class BluetoothGattServerManager(
             // Ensure server is closed if present
             gattServer?.close()
             gattServer = null
-            Log.i(TAG, "GATT server stopped (already inactive)")
+            serverLinkIDs.clear()
             return
         }
 
@@ -154,6 +155,7 @@ class BluetoothGattServerManager(
             // Close GATT server
             gattServer?.close()
             gattServer = null
+            serverLinkIDs.clear()
             
             Log.i(TAG, "GATT server stopped")
         }
@@ -174,13 +176,13 @@ class BluetoothGattServerManager(
      * non-prepared write path and the reassembled prepared-write path so both
      * behave identically once a complete payload is in hand.
      */
-    private fun handleReceivedPacket(device: BluetoothDevice, value: ByteArray) {
+    private fun handleReceivedPacket(device: BluetoothDevice, value: ByteArray, linkID: String) {
         Log.i(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
         val packet = BitchatPacket.fromBinaryData(value)
         if (packet != null) {
             val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
             Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
-            delegate?.onPacketReceived(packet, peerID, device)
+            delegate?.onPacketReceived(packet, peerID, device, linkID)
         } else {
             Log.w(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
             Log.w(TAG, "Server: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
@@ -198,13 +200,14 @@ class BluetoothGattServerManager(
             override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
                 // Guard against callbacks after service shutdown
                 if (!isActive) {
-                    Log.d(TAG, "Server: Ignoring connection state change after shutdown")
                     return
                 }
-                
+
                 when (newState) {
                     BluetoothProfile.STATE_CONNECTED -> {
-                        Log.i(TAG, "Server: Device connected ${device.address}")
+                        Log.i(TAG, "Connected to ${device.address} (server)")
+                        val linkID = UUID.randomUUID().toString()
+                        serverLinkIDs[device.address] = linkID
                         
                         // Get best available RSSI (scan RSSI for server connections)
                         val rssi = connectionTracker.getBestRSSI(device.address) ?: Int.MIN_VALUE
@@ -212,7 +215,8 @@ class BluetoothGattServerManager(
                         val deviceConn = BluetoothConnectionTracker.DeviceConnection(
                             device = device,
                             rssi = rssi,
-                            isClient = false
+                            isClient = false,
+                            linkID = linkID
                         )
                         connectionTracker.addDeviceConnection(device.address, deviceConn)
 
@@ -224,12 +228,15 @@ class BluetoothGattServerManager(
                         }
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
-                        Log.i(TAG, "Server: Device disconnected ${device.address}")
-                        connectionTracker.cleanupDeviceConnection(device.address)
+                        Log.i(TAG, "Disconnected from ${device.address} (server)")
+                        val linkID = serverLinkIDs.remove(device.address)
+                        if (linkID != null) {
+                            connectionTracker.cleanupDeviceConnectionIfCurrent(device.address, linkID)
+                        }
                         // Drop any in-flight prepared-write buffer for this device to avoid leaks
                         preparedWriteBuffer.cancel(device.address)
                         // Notify delegate about device disconnection so higher layers can update direct flags
-                        delegate?.onDeviceDisconnected(device)
+                        delegate?.onDeviceDisconnected(device, linkID)
                     }
                 }
             }
@@ -237,13 +244,10 @@ class BluetoothGattServerManager(
             override fun onServiceAdded(status: Int, service: BluetoothGattService) {
                 // Guard against callbacks after service shutdown
                 if (!isActive) {
-                    Log.d(TAG, "Server: Ignoring service added callback after shutdown")
                     return
                 }
-                
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    Log.d(TAG, "Server: Service added successfully: ${service.uuid}")
-                } else {
+
+                if (status != BluetoothGatt.GATT_SUCCESS) {
                     Log.e(TAG, "Server: Failed to add service: ${service.uuid}, status: $status")
                 }
             }
@@ -259,10 +263,9 @@ class BluetoothGattServerManager(
             ) {
                 // Guard against callbacks after service shutdown
                 if (!isActive) {
-                    Log.d(TAG, "Server: Ignoring characteristic write after shutdown")
                     return
                 }
-                
+
                 if (characteristic.uuid == AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID) {
                     if (preparedWrite) {
                         // BLE reliable/long write (used by iOS for packets larger than the
@@ -281,7 +284,23 @@ class BluetoothGattServerManager(
                         return
                     }
 
-                    handleReceivedPacket(device, value)
+                    // Reject writes from a connection we no longer track (stale link).
+                    val linkID = serverLinkIDs[device.address]
+                    if (linkID == null) {
+                        Log.d(TAG, "Server: Dropping packet from stale connection ${device.address}")
+                        if (responseNeeded) {
+                            gattServer?.sendResponse(
+                                device,
+                                requestId,
+                                BluetoothGatt.GATT_FAILURE,
+                                0,
+                                null
+                            )
+                        }
+                        return
+                    }
+
+                    handleReceivedPacket(device, value, linkID)
 
                     if (responseNeeded) {
                         gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
@@ -300,8 +319,15 @@ class BluetoothGattServerManager(
                 if (execute) {
                     val assembled = preparedWriteBuffer.execute(device.address)
                     if (assembled != null) {
-                        Log.i(TAG, "Server: Reassembled prepared write from ${device.address}, size: ${assembled.size} bytes")
-                        handleReceivedPacket(device, assembled)
+                        // Same stale-connection guard as the non-prepared write path: only
+                        // dispatch the reassembled payload if we still track this link.
+                        val linkID = serverLinkIDs[device.address]
+                        if (linkID != null) {
+                            Log.i(TAG, "Server: Reassembled prepared write from ${device.address}, size: ${assembled.size} bytes")
+                            handleReceivedPacket(device, assembled, linkID)
+                        } else {
+                            Log.d(TAG, "Server: Dropping reassembled prepared write from stale connection ${device.address}")
+                        }
                     } else {
                         Log.w(TAG, "Server: Execute write from ${device.address} with no or oversized buffered data; dropped")
                     }
@@ -325,14 +351,12 @@ class BluetoothGattServerManager(
             ) {
                 // Guard against callbacks after service shutdown
                 if (!isActive) {
-                    Log.d(TAG, "Server: Ignoring descriptor write after shutdown")
                     return
                 }
-                
+
                 if (BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE.contentEquals(value)) {
                     connectionTracker.addSubscribedDevice(device)
 
-                    Log.d(TAG, "Server: Connection setup complete for ${device.address}")
                     connectionScope.launch {
                         delay(100)
                         if (isActive) { // Check if still active
@@ -349,19 +373,17 @@ class BluetoothGattServerManager(
         
         // Proper cleanup sequencing to prevent race conditions
         gattServer?.let { server ->
-            Log.d(TAG, "Cleaning up existing GATT server")
             try {
                 server.close()
             } catch (e: Exception) {
                 Log.w(TAG, "Error closing existing GATT server: ${e.message}")
             }
         }
-        
+
         // Small delay to ensure cleanup is complete
         Thread.sleep(100)
-        
+
         if (!isActive) {
-            Log.d(TAG, "Service inactive, skipping GATT server creation")
             return
         }
         
@@ -411,11 +433,10 @@ class BluetoothGattServerManager(
             return
         }
         if (!isActive) {
-            Log.d(TAG, "Not starting advertising: manager not active")
             return
         }
         if (!enabled) {
-            Log.i(TAG, "Not starting advertising: GATT Server disabled via debug settings")
+            Log.d(TAG, "Not starting advertising: GATT Server disabled via debug settings")
             return
         }
         if (bleAdvertiser == null) {
@@ -455,30 +476,24 @@ class BluetoothGattServerManager(
                 val mode = try {
                     powerManager.getPowerInfo().split("Current Mode: ")[1].split("\n")[0]
                 } catch (_: Exception) { "unknown" }
-                Log.i(TAG, "Advertising started (power mode: $mode) with stable ID: ${peerIDBytes.joinToString("") { "%02x".format(it) }}")
+                Log.i(TAG, "Advertising started (power mode: $mode)")
             }
-            
+
             override fun onStartFailure(errorCode: Int) {
                 Log.e(TAG, "Advertising failed: $errorCode")
                 // Previously this only logged, so if advertising failed this device became
                 // undiscoverable until a manual BLE toggle. Retry transient failures with backoff.
                 when (errorCode) {
-                    ADVERTISE_FAILED_ALREADY_STARTED ->
-                        Log.w(TAG, "ADVERTISE_FAILED_ALREADY_STARTED - already advertising, no retry")
-                    ADVERTISE_FAILED_DATA_TOO_LARGE ->
-                        Log.e(TAG, "ADVERTISE_FAILED_DATA_TOO_LARGE - config issue, not retrying")
-                    ADVERTISE_FAILED_FEATURE_UNSUPPORTED ->
-                        Log.e(TAG, "ADVERTISE_FAILED_FEATURE_UNSUPPORTED - unsupported, not retrying")
+                    ADVERTISE_FAILED_ALREADY_STARTED -> Unit // already advertising, no retry
+                    ADVERTISE_FAILED_DATA_TOO_LARGE -> Unit // config issue, not retrying
+                    ADVERTISE_FAILED_FEATURE_UNSUPPORTED -> Unit // unsupported, not retrying
                     ADVERTISE_FAILED_TOO_MANY_ADVERTISERS -> {
-                        Log.w(TAG, "ADVERTISE_FAILED_TOO_MANY_ADVERTISERS - will retry after backoff")
                         scheduleAdvertiseRestart("too-many-advertisers")
                     }
                     ADVERTISE_FAILED_INTERNAL_ERROR -> {
-                        Log.w(TAG, "ADVERTISE_FAILED_INTERNAL_ERROR - will retry after backoff")
                         scheduleAdvertiseRestart("internal-error")
                     }
                     else -> {
-                        Log.w(TAG, "Unknown advertise failure $errorCode - will retry after backoff")
                         scheduleAdvertiseRestart("unknown-$errorCode")
                     }
                 }

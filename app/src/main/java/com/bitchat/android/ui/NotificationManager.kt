@@ -12,6 +12,7 @@ import androidx.core.app.Person
 import androidx.core.app.NotificationManagerCompat
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.util.NotificationIntervalManager
 import java.util.concurrent.ConcurrentHashMap
 
@@ -128,8 +129,8 @@ class NotificationManager(
      * Update current private chat peer - affects notification logic
      */
     fun setCurrentPrivateChatPeer(peerID: String?) {
-        currentPrivateChatPeer = peerID
-        Log.d(TAG, "Current private chat peer changed: $peerID")
+        currentPrivateChatPeer = peerID?.let { ContactDirectory.canonicalConversationId(it) }
+        Log.d(TAG, "Current private chat peer changed: $currentPrivateChatPeer")
     }
 
     /**
@@ -137,35 +138,37 @@ class NotificationManager(
      */
     fun setCurrentGeohash(geohash: String?) {
         currentGeohash = geohash
-        Log.d(TAG, "Current geohash changed: $geohash")
+        Log.d(TAG, "Current geohash changed")
     }
 
     /**
      * Show a notification for a private message with proper grouping and state awareness
      */
     fun showPrivateMessageNotification(senderPeerID: String, senderNickname: String, messageContent: String) {
+        val conversationID = ContactDirectory.canonicalConversationId(senderPeerID)
         // Only show notifications if app is in background OR user is not viewing this specific chat
-        val shouldNotify = isAppInBackground || (!isAppInBackground && currentPrivateChatPeer != senderPeerID)
+        val shouldNotify = isAppInBackground ||
+            (!isAppInBackground && currentPrivateChatPeer != conversationID)
         
         if (!shouldNotify) {
             Log.d(TAG, "Skipping notification - app in foreground and viewing chat with $senderNickname")
             return
         }
 
-        Log.d(TAG, "Showing notification for message from $senderNickname (peerID: $senderPeerID)")
+        Log.d(TAG, "Showing notification for message from $senderNickname (conversationID: $conversationID)")
 
         val notification = PendingNotification(
-            senderPeerID = senderPeerID,
+            senderPeerID = conversationID,
             senderNickname = senderNickname,
             messageContent = messageContent,
             timestamp = System.currentTimeMillis()
         )
 
         // Add to pending notifications for this sender
-        pendingNotifications.computeIfAbsent(senderPeerID) { mutableListOf() }.add(notification)
+        pendingNotifications.computeIfAbsent(conversationID) { mutableListOf() }.add(notification)
 
         // Create or update notification for this sender
-        showNotificationForSender(senderPeerID)
+        showNotificationForSender(conversationID)
         
         // Update summary notification if we have multiple senders
         if (pendingNotifications.size > 1) {
@@ -404,11 +407,15 @@ class NotificationManager(
      * Clear notifications for a specific sender (e.g., when user opens their chat)
      */
     fun clearNotificationsForSender(senderPeerID: String) {
-        pendingNotifications.remove(senderPeerID)
-        
-        // Cancel the individual notification
-        val notificationId = senderPeerID.hashCode()
-        notificationManager.cancel(notificationId)
+        val conversationID = ContactDirectory.canonicalConversationId(senderPeerID)
+        val matchingKeys = pendingNotifications.keys.filter { key ->
+            ContactDirectory.canonicalConversationId(key) == conversationID
+        }
+        matchingKeys.forEach { key ->
+            pendingNotifications.remove(key)
+            notificationManager.cancel(key.hashCode())
+        }
+        notificationManager.cancel(conversationID.hashCode())
 
         // Update or remove summary notification
         if (pendingNotifications.isEmpty()) {
@@ -421,7 +428,7 @@ class NotificationManager(
             showSummaryNotification()
         }
         
-        Log.d(TAG, "Cleared notifications for sender: $senderPeerID")
+        Log.d(TAG, "Cleared notifications for conversation: $conversationID")
     }
 
     /**
@@ -439,11 +446,11 @@ class NotificationManager(
         val shouldNotify = isAppInBackground || (!isAppInBackground && currentGeohash != geohash)
 
         if (!shouldNotify) {
-            Log.d(TAG, "Skipping geohash notification - app in foreground and viewing geohash $geohash")
+            Log.d(TAG, "Skipping geohash notification while viewing the channel")
             return
         }
 
-        Log.d(TAG, "Showing geohash notification for $geohash from $senderNickname (mention: $isMention, first: $isFirstMessage)")
+        Log.d(TAG, "Showing geohash notification (mention: $isMention, first: $isFirstMessage)")
 
         val notification = GeohashNotification(
             geohash = geohash,
@@ -645,7 +652,7 @@ class NotificationManager(
             showGeohashSummaryNotification()
         }
 
-        Log.d(TAG, "Cleared notifications for geohash: $geohash")
+        Log.d(TAG, "Cleared notifications for geohash")
     }
 
     /**

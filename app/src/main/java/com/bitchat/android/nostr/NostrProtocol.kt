@@ -274,8 +274,6 @@ object NostrProtocol {
         giftWrap: NostrEvent,
         recipientPrivateKey: String
     ): NostrEvent? {
-        Log.d(TAG, "Unwrapping gift wrap; content prefix='${giftWrap.content.take(3)}' length=${giftWrap.content.length}")
-        
         return try {
             val decrypted = NostrCrypto.decryptNIP44(
                 ciphertext = giftWrap.content,

@@ -401,4 +401,8 @@
   <string name="verify_success_title">Verifiziert</string>
   <string name="verify_success_body">Du hast %1$s verifiziert</string>
   <string name="verify_success_system_message">verifiziert %1$s</string>
+    <string name="cd_open_about">Info öffnen</string>
+  <string name="nearby_notes_reveal">nachsehen, ob hier notizen hinterlassen wurden</string>
+  <string name="nearby_notes_one">1 notiz hier hinterlassen — tippen zum lesen</string>
+  <string name="nearby_notes_many">%d notizen hier hinterlassen — tippen zum lesen</string>
 </resources>

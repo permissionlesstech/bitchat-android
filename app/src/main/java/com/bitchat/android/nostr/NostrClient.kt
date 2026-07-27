@@ -180,7 +180,7 @@ class NostrClient private constructor(private val context: Context) {
                 
                 relayManager.sendEvent(event)
                 
-                Log.i(TAG, "📤 Sent geohash message to #$geohash")
+                Log.i(TAG, "📤 Sent geohash message")
                 onSuccess?.invoke()
                 
             } catch (e: Exception) {
@@ -209,7 +209,7 @@ class NostrClient private constructor(private val context: Context) {
             }
         })
         
-        Log.i(TAG, "🌍 Subscribed to geohash channel: #$geohash")
+        Log.i(TAG, "🌍 Subscribed to geohash channel")
     }
     
     /**
@@ -217,7 +217,7 @@ class NostrClient private constructor(private val context: Context) {
      */
     fun unsubscribeFromGeohash(geohash: String) {
         relayManager.unsubscribe("geohash-$geohash")
-        Log.i(TAG, "Unsubscribed from geohash channel: #$geohash")
+        Log.i(TAG, "Unsubscribed from geohash channel")
     }
     
     /**

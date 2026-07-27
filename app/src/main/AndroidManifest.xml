@@ -22,11 +22,18 @@
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Wi‑Fi / Wi‑Fi Aware permissions -->
+    <!-- Wi‑Fi / Wi‑Fi Aware permissions (also used for hotspot APK sharing) -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <!-- Android 13+ runtime permission for Wi‑Fi operations (including Aware) -->
-    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <!-- Android 13+ runtime permission for Wi‑Fi operations (including Aware and Wi‑Fi P2P) -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
+    <!-- Android 17+ gates local network access; Wi‑Fi Aware peers over link-local IPv6 -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <!-- Keep hotspot alive while sharing the APK -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <!-- Signature permission for internal UI shutdown broadcasts -->
     <uses-permission android:name="com.bitchat.android.permission.FORCE_FINISH" />
     <!-- Foreground service and boot permissions for long-running background mesh -->
@@ -140,5 +147,20 @@
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- Hotspot Activity for offline APK sharing -->
+        <activity
+            android:name=".hotspot.HotspotActivity"
+            android:exported="false"
+            android:label="Share BitChat"
+            android:theme="@style/Theme.BitchatAndroid"
+            android:launchMode="singleTop" />
+
+        <!-- Declare the foreground service type for WorkManager's foreground
+             service so the APK download worker can run as dataSync work -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
     </application>
 </manifest>

@@ -40,6 +40,26 @@ class PermissionManager(private val context: Context) {
     }
 
     /**
+     * Runtime permissions for the Wi‑Fi Aware transport, version-gated because neither exists
+     * at minSdk 26 — requesting an unknown permission comes back permanently denied.
+     *
+     * ACCESS_LOCAL_NETWORK is defensive: Android 17 gates local network access, and the
+     * transport reaches peers over link-local IPv6 sockets. It is granted separately from
+     * NEARBY_WIFI_DEVICES but shares its permission group, so the two prompt only once.
+     */
+    fun wifiAwarePermissions(): List<String> {
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
+        // API 37 == Android 17; no named VERSION_CODES constant is available yet.
+        if (Build.VERSION.SDK_INT >= 37) {
+            permissions.add(Manifest.permission.ACCESS_LOCAL_NETWORK)
+        }
+        return permissions
+    }
+
+    /**
      * Check if this is the first time the user is launching the app
      */
     fun isFirstTimeLaunch(): Boolean {
@@ -87,7 +107,7 @@ class PermissionManager(private val context: Context) {
 
         // Wi‑Fi Aware: Android 13+ requires NEARBY_WIFI_DEVICES runtime permission
         if (shouldRequireWifiAwarePermission()) {
-            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+            permissions.addAll(wifiAwarePermissions())
         }
 
         // Notification permission intentionally excluded to keep it optional
@@ -232,7 +252,7 @@ class PermissionManager(private val context: Context) {
 
         // Wi‑Fi Aware category (Android 13+)
         if (shouldRequireWifiAwarePermission()) {
-            val wifiAwarePermissions = listOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+            val wifiAwarePermissions = wifiAwarePermissions()
             categories.add(
                 PermissionCategory(
                     type = PermissionType.WIFI_AWARE,

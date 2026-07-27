@@ -400,4 +400,8 @@
   <string name="verify_success_title">Verificado</string>
   <string name="verify_success_body">Você verificou %1$s</string>
   <string name="verify_success_system_message">verificou %1$s</string>
+    <string name="cd_open_about">Abrir Sobre</string>
+  <string name="nearby_notes_reveal">ver se há notas deixadas aqui</string>
+  <string name="nearby_notes_one">1 nota deixada aqui — toque para ler</string>
+  <string name="nearby_notes_many">%d notas deixadas aqui — toque para ler</string>
 </resources>

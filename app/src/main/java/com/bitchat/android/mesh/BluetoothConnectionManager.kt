@@ -42,8 +42,12 @@ class BluetoothConnectionManager(
     
     // Delegate for component managers to call back to main manager
     private val componentDelegate = object : BluetoothConnectionManagerDelegate {
-        override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?) {
-            Log.d(TAG, "onPacketReceived: Packet received from ${device?.address} ($peerID)")
+        override fun onPacketReceived(
+            packet: BitchatPacket,
+            peerID: String,
+            device: BluetoothDevice?,
+            ingressLinkID: String
+        ) {
             device?.let { bluetoothDevice ->
                 // Get current RSSI for this device and update if available
                 val currentRSSI = connectionTracker.getBestRSSI(bluetoothDevice.address)
@@ -54,7 +58,7 @@ class BluetoothConnectionManager(
 
             if (peerID == myPeerID) return // Ignore messages from self
 
-            delegate?.onPacketReceived(packet, peerID, device)
+            delegate?.onPacketReceived(packet, peerID, device, ingressLinkID)
         }
         
         override fun onDeviceConnected(device: BluetoothDevice) {
@@ -63,8 +67,8 @@ class BluetoothConnectionManager(
             delegate?.onDeviceConnected(device)
         }
 
-        override fun onDeviceDisconnected(device: BluetoothDevice) {
-            delegate?.onDeviceDisconnected(device)
+        override fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?) {
+            delegate?.onDeviceDisconnected(device, linkID)
         }
         
         override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
@@ -87,6 +91,12 @@ class BluetoothConnectionManager(
     
     // Public property for address-peer mapping
     val addressPeerMap get() = connectionTracker.addressPeerMap
+
+    fun bindPeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
+        connectionTracker.bindPeerIfCurrent(deviceAddress, linkID, peerID)
+
+    fun getCurrentLinkID(deviceAddress: String): String? =
+        connectionTracker.getCurrentLinkID(deviceAddress)
 
     private fun isBleTransportEnabled(): Boolean {
         return try {
@@ -172,10 +182,8 @@ class BluetoothConnectionManager(
                 
                 toEvict.forEach { conn ->
                     if (conn.isClient) {
-                        Log.d(TAG, "Evicting client ${conn.device.address}")
                         try { conn.gatt?.disconnect() } catch (_: Exception) { }
                     } else {
-                        Log.d(TAG, "Evicting server ${conn.device.address}")
                         serverManager.disconnectDevice(conn.device)
                     }
                 }
@@ -189,8 +197,6 @@ class BluetoothConnectionManager(
      * Start all Bluetooth services with power optimization
      */
     fun startServices(): Boolean {
-        Log.i(TAG, "Starting power-optimized Bluetooth services...")
-
         if (!isBleTransportEnabled()) {
             Log.i(TAG, "BLE transport disabled by debug settings; not starting Bluetooth services")
             disableTransport()
@@ -209,7 +215,6 @@ class BluetoothConnectionManager(
         
         try {
             isActive = true
-            Log.d(TAG, "ConnectionManager activated (permissions and adapter OK)")
 
         // set the adapter's name to our 8-character peerID for iOS privacy, TODO: Make this configurable
         // try {
@@ -239,7 +244,6 @@ class BluetoothConnectionManager(
                         this@BluetoothConnectionManager.isActive = false
                         return@launch
                     }
-                    Log.d(TAG, "GATT Server started")
                 } else {
                     Log.i(TAG, "GATT Server disabled by debug settings; not starting")
                 }
@@ -250,7 +254,6 @@ class BluetoothConnectionManager(
                         this@BluetoothConnectionManager.isActive = false
                         return@launch
                     }
-                    Log.d(TAG, "GATT Client started")
                 } else {
                     Log.i(TAG, "GATT Client disabled by debug settings; not starting")
                 }
@@ -284,12 +287,9 @@ class BluetoothConnectionManager(
      * Stop all Bluetooth services with proper cleanup
      */
     fun stopServices() {
-        Log.i(TAG, "Stopping power-optimized Bluetooth services")
-        
         isActive = false
-        
+
         connectionScope.launch {
-            Log.d(TAG, "Stopping client/server and power components...")
             // Stop component managers
             clientManager.stop()
             serverManager.stop()
@@ -312,21 +312,17 @@ class BluetoothConnectionManager(
      * Returns false if its coroutine scope has been cancelled.
      */
     fun isReusable(): Boolean {
-        val active = connectionScope.isActive
-        if (!active) {
-            Log.d(TAG, "BluetoothConnectionManager isReusable=false (scope cancelled)")
-        }
-        return active
+        return connectionScope.isActive
     }
     
     /**
      * Broadcast packet to connected devices with connection limit enforcement
      * Automatically fragments large packets to fit within BLE MTU limits
      */
-    fun broadcastPacket(routed: RoutedPacket) {
-        if (!isActive || !isBleTransportEnabled()) return
-        
-        packetBroadcaster.broadcastPacket(
+    fun broadcastPacket(routed: RoutedPacket): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+
+        return packetBroadcaster.broadcastPacket(
             routed,
             serverManager.getGattServer(),
             serverManager.getCharacteristic()
@@ -355,6 +351,17 @@ class BluetoothConnectionManager(
         return packetBroadcaster.sendPacketToPeer(
             RoutedPacket(packet),
             peerID,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
+    fun sendPacketToLink(deviceAddress: String, linkID: String, packet: BitchatPacket): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+        return packetBroadcaster.sendPacketToLink(
+            RoutedPacket(packet),
+            deviceAddress,
+            linkID,
             serverManager.getGattServer(),
             serverManager.getCharacteristic()
         )
@@ -470,15 +477,12 @@ class BluetoothConnectionManager(
             // Only restart scanning if the duty cycle behavior changed
             val nowUsingDutyCycle = powerManager.shouldUseDutyCycle()
             if (wasUsingDutyCycle != nowUsingDutyCycle) {
-                Log.d(TAG, "Duty cycle behavior changed (${wasUsingDutyCycle} -> ${nowUsingDutyCycle}), restarting scan")
                 val clientEnabled = isGattClientEnabled()
                 if (clientEnabled) {
                     clientManager.restartScanning()
                 } else {
                     clientManager.stop()
                 }
-            } else {
-                Log.d(TAG, "Duty cycle behavior unchanged, keeping existing scan state")
             }
             
             // Enforce connection limits
@@ -501,8 +505,13 @@ class BluetoothConnectionManager(
  * Delegate interface for Bluetooth connection manager callbacks
  */
 interface BluetoothConnectionManagerDelegate {
-    fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?)
+    fun onPacketReceived(
+        packet: BitchatPacket,
+        peerID: String,
+        device: BluetoothDevice?,
+        ingressLinkID: String
+    )
     fun onDeviceConnected(device: BluetoothDevice)
-    fun onDeviceDisconnected(device: BluetoothDevice)
+    fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?)
     fun onRSSIUpdated(deviceAddress: String, rssi: Int)
 }

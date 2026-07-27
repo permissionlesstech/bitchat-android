@@ -2,6 +2,7 @@ package com.bitchat.android.nostr
 
 import android.app.Application
 import android.util.Log
+import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -28,18 +29,54 @@ class NostrSubscriptionManager(
     }
 
     /** Subscribe to geohash chat messages only (kind 20000) — low-volume, kept alive in background. */
-    fun subscribeGeohashMessages(geohash: String, sinceMs: Long, limit: Int, id: String, handler: (NostrEvent) -> Unit) {
+    fun subscribeGeohashMessages(
+        geohash: String,
+        sinceMs: Long,
+        limit: Int,
+        id: String,
+        handler: (NostrEvent) -> Unit,
+        liveLocationToken: Long? = null
+    ) {
         scope.launch {
+            if (liveLocationToken != null &&
+                !LiveLocationPrivacyGate.accepts(liveLocationToken)
+            ) return@launch
             val filter = NostrFilter.geohashMessages(geohash, sinceMs, limit)
-            relayManager.subscribeForGeohash(geohash, filter, id, handler, includeDefaults = false, nRelays = 5)
+            relayManager.subscribeForGeohash(
+                geohash,
+                filter,
+                id,
+                handler,
+                includeDefaults = false,
+                nRelays = 5,
+                liveLocationToken = liveLocationToken
+            )
         }
     }
 
     /** Subscribe to geohash presence heartbeats only (kind 20001) — high-volume, paused in background. */
-    fun subscribeGeohashPresence(geohash: String, sinceMs: Long, limit: Int, id: String, handler: (NostrEvent) -> Unit) {
+    fun subscribeGeohashPresence(
+        geohash: String,
+        sinceMs: Long,
+        limit: Int,
+        id: String,
+        handler: (NostrEvent) -> Unit,
+        liveLocationToken: Long? = null
+    ) {
         scope.launch {
+            if (liveLocationToken != null &&
+                !LiveLocationPrivacyGate.accepts(liveLocationToken)
+            ) return@launch
             val filter = NostrFilter.geohashPresence(geohash, sinceMs, limit)
-            relayManager.subscribeForGeohash(geohash, filter, id, handler, includeDefaults = false, nRelays = 5)
+            relayManager.subscribeForGeohash(
+                geohash,
+                filter,
+                id,
+                handler,
+                includeDefaults = false,
+                nRelays = 5,
+                liveLocationToken = liveLocationToken
+            )
         }
     }
 

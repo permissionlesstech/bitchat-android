@@ -5,6 +5,7 @@ import com.bitchat.android.ui.NotificationTextUtils
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.services.ContactDirectory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -26,7 +27,6 @@ class MeshDelegateHandler(
 
     override fun didReceiveMessage(message: BitchatMessage) {
         coroutineScope.launch {
-            // FIXED: Deduplicate messages from dual connection paths
             val messageKey = messageManager.generateMessageKey(message)
             if (messageManager.isMessageProcessed(messageKey)) {
                 return@launch // Duplicate message, ignore
@@ -111,88 +111,31 @@ class MeshDelegateHandler(
         // Clean up channel members who disconnected
         channelManager.cleanupDisconnectedMembers(mergedPeers, getMyPeerID())
 
-        // Handle chat view migration based on current selection and new peer list
+        runCatching { com.bitchat.android.services.AppStateStore.canonicalizePrivateChats() }
+
         state.getSelectedPrivateChatPeerValue()?.let { currentPeer ->
-            val isNostrAlias = currentPeer.startsWith("nostr_")
-            val isNoiseHex = currentPeer.length == 64 && currentPeer.matches(Regex("^[0-9a-fA-F]+$"))
-            val isMeshEphemeral = currentPeer.length == 16 && currentPeer.matches(Regex("^[0-9a-fA-F]+$"))
-
-            if (isNostrAlias || isNoiseHex) {
-                // Reverse case: Nostr/offline chat is open, and peer may have come online on mesh.
-                // Resolve canonical target (prefer connected mesh peer if available)
-                val canonical = com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
-                    selectedPeerID = currentPeer,
-                    connectedPeers = mergedPeers,
-                    meshNoiseKeyForPeer = { pid -> getPeerInfo(pid)?.noisePublicKey },
-                    meshHasPeer = { pid -> mergedPeers.contains(pid) },
-                    nostrPubHexForAlias = { alias ->
-                        // Use GeohashAliasRegistry for geohash aliases, but for mesh favorites, derive from favorites mapping
-                        if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(alias)) {
-                            com.bitchat.android.nostr.GeohashAliasRegistry.get(alias)
-                        } else {
-                            // Best-effort: derive pub hex from favorites mapping for mesh nostr_ aliases
-                            val prefix = alias.removePrefix("nostr_")
-                            val favs = try { com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites() } catch (_: Exception) { emptyList() }
-                            favs.firstNotNullOfOrNull { rel ->
-                                rel.peerNostrPublicKey?.let { s ->
-                                    runCatching { com.bitchat.android.nostr.Bech32.decode(s) }.getOrNull()?.let { dec ->
-                                        if (dec.first == "npub") dec.second.joinToString("") { b -> "%02x".format(b) } else null
-                                    }
-                                }
-                            }?.takeIf { it.startsWith(prefix, ignoreCase = true) }
-                        }
-                    },
-                    findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+            val canonical = ContactDirectory.canonicalConversationId(currentPeer)
+            if (canonical != currentPeer) {
+                com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(
+                    state = state,
+                    targetPeerID = canonical,
+                    keysToMerge = ContactDirectory.aliasesForConversation(currentPeer).toList()
                 )
-                if (canonical != currentPeer) {
-                    // Merge conversations and switch selection to the live mesh peer (or noiseHex)
-                    com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(state, canonical, listOf(currentPeer))
-                    state.setSelectedPrivateChatPeer(canonical)
-                }
-            } else if (isMeshEphemeral && !mergedPeers.contains(currentPeer)) {
-                // Forward case: Mesh chat lost connection. If mutual favorite exists, migrate to Nostr (noiseHex)
-                val favoriteRel = try {
-                    val info = getPeerInfo(currentPeer)
-                    val noiseKey = info?.noisePublicKey
-                    if (noiseKey != null) {
-                        com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
-                    } else null
-                } catch (_: Exception) { null }
-
-                if (favoriteRel?.isMutual == true) {
-                    val noiseHex = favoriteRel.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
-                    if (noiseHex != currentPeer) {
-                        com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(
-                            state = state,
-                            targetPeerID = noiseHex,
-                            keysToMerge = listOf(currentPeer)
-                        )
-                        state.setSelectedPrivateChatPeer(noiseHex)
-                    }
-                } else {
-                    privateChatManager.cleanupDisconnectedPeer(currentPeer)
-                }
+                state.setSelectedPrivateChatPeer(canonical)
             }
         }
 
-        // Global unification: for each connected peer, merge any offline/stable conversations
-        // (noiseHex or nostr_<pub16>) into the connected peer's chat so there is only one chat per identity.
+        state.getPrivateChatSheetPeerValue()?.let { sheetPeer ->
+            val canonical = ContactDirectory.canonicalConversationId(sheetPeer)
+            if (canonical != sheetPeer) {
+                state.setPrivateChatSheetPeer(canonical)
+            }
+        }
+
         mergedPeers.forEach { pid ->
             try {
-                val info = getPeerInfo(pid)
-                val noiseKey = info?.noisePublicKey ?: return@forEach
-                val noiseHex = noiseKey.joinToString("") { b -> "%02x".format(b) }
-
-                // Derive temp nostr key from favorites npub
-                val npub = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(noiseKey)
-                val tempNostrKey: String? = try {
-                    if (npub != null) {
-                        val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npub)
-                        if (hrp == "npub") "nostr_${data.joinToString("") { b -> "%02x".format(b) }.take(16)}" else null
-                    } else null
-                } catch (_: Exception) { null }
-
-                unifyChatsIntoPeer(pid, listOfNotNull(noiseHex, tempNostrKey))
+                val canonical = ContactDirectory.canonicalConversationId(pid)
+                unifyChatsIntoPeer(canonical, ContactDirectory.aliasesForConversation(pid).toList())
             } catch (_: Exception) { }
         }
     }
@@ -294,16 +237,30 @@ class MeshDelegateHandler(
         
         // Send read receipt if user is currently focused on this specific chat
         val senderPeerID = message.senderPeerID
-        val shouldSendReadReceipt = !isAppInBackground && senderPeerID != null && currentPrivateChatPeer == senderPeerID
+        val senderConversationID = senderPeerID?.let { ContactDirectory.canonicalConversationId(it) }
+        val focusedConversationID = currentPrivateChatPeer?.let { ContactDirectory.canonicalConversationId(it) }
+        val shouldSendReadReceipt = !isAppInBackground &&
+            senderConversationID != null &&
+            focusedConversationID == senderConversationID
         
             if (shouldSendReadReceipt) {
-                android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID (message=${message.id})")
+                android.util.Log.d(
+                    "MeshDelegateHandler",
+                    "Sending reactive read receipt for focused chat with $senderConversationID (message=${message.id})"
+                )
                 val nickname = state.getNicknameValue() ?: "unknown"
                 val mesh = getMeshService()
                 val sent = try {
-                    val hasMesh = mesh.getPeerInfo(senderPeerID!!)?.isConnected == true && mesh.hasEstablishedSession(senderPeerID)
-                    if (hasMesh) {
-                        mesh.sendReadReceipt(message.id, senderPeerID, nickname)
+                    val meshPeerID = senderConversationID
+                        ?.let { ContactDirectory.resolve(it).meshPeerID }
+                        ?: senderPeerID?.takeIf {
+                            com.bitchat.android.services.ContactIdentityResolver.isMeshPeerId(it)
+                        }
+                    if (meshPeerID != null &&
+                        mesh.getPeerInfo(meshPeerID)?.isConnected == true &&
+                        mesh.hasEstablishedSession(meshPeerID)
+                    ) {
+                        mesh.sendReadReceipt(message.id, meshPeerID, nickname)
                         true
                     } else {
                         false
@@ -315,7 +272,8 @@ class MeshDelegateHandler(
                     // Ensure unread badge is cleared for this peer immediately
                     try {
                         val current = state.getUnreadPrivateMessagesValue().toMutableSet()
-                        if (current.remove(senderPeerID)) {
+                        val changed = current.remove(senderPeerID) or current.remove(senderConversationID)
+                        if (changed) {
                             state.setUnreadPrivateMessages(current)
                         }
                     } catch (_: Exception) { }
@@ -324,9 +282,6 @@ class MeshDelegateHandler(
                 android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
             }
         }
-    
-    // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
-
     /**
      * Expose mesh peer info for components that need to resolve identities (e.g., Nostr mapping)
      */
