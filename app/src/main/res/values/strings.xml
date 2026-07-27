@@ -135,10 +135,6 @@
   <string name="about_ephemeral_desc">A new peer ID is generated regularly.</string>
   <string name="about_panic_desc">Triple-tap the logo to instantly clear all data.</string>
 
-  <!-- About sheet: security warning -->
-  <string name="about_warning_title">Warning</string>
-  <string name="about_warning_body">Private message security has not yet been fully audited. Do not use for critical situations until this warning disappears.</string>
-
   <!-- About sheet: settings labels -->
   <string name="about_tor_title">Tor Network</string>
   <string name="about_difficulty">Difficulty</string>

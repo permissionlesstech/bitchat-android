@@ -510,20 +510,26 @@ private fun MainHeader(
                 }
             }
 
-            // Location Notes button (extracted to separate component)
-            LocationNotesButton(
-                viewModel = viewModel,
-                onClick = onLocationNotesClick
-            )
+            // Location notes + channel badge: one tight unit so the document glyph and the
+            // bluetooth/globe glyph sit at the same visual pitch as other header pairings.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                LocationNotesButton(
+                    viewModel = viewModel,
+                    onClick = onLocationNotesClick
+                )
 
-            // Bookmarking lives in the Location Channels sheet, one tap away via the channel
-            // button below. Duplicating it here bought a shortcut for a rare action at the cost
-            // of a slot in the app's most crowded row.
+                // Bookmarking lives in the Location Channels sheet, one tap away via the channel
+                // button. Duplicating it here bought a shortcut for a rare action at the cost
+                // of a slot in the app's most crowded row.
 
-            LocationChannelsButton(
-                viewModel = viewModel,
-                onClick = onLocationChannelsClick
-            )
+                LocationChannelsButton(
+                    viewModel = viewModel,
+                    onClick = onLocationChannelsClick
+                )
+            }
 
             PeerCounter(
                 connectedPeers = connectedPeers.filter { it != viewModel.myPeerID },
@@ -574,7 +580,9 @@ private fun LocationChannelsButton(
             .clip(HeaderClusterShape)
             .clickable(onClickLabel = stringResource(R.string.location_channels_title)) { onClick() }
             .height(HeaderTapTarget)
-            .padding(horizontal = 6.dp)
+            // No start padding: the notes icon is paired directly to the left; keep end
+            // padding so the gap to PeerCounter matches other cluster separations.
+            .padding(start = 0.dp, end = 6.dp)
     ) {
         Icon(
             imageVector = badgeIcon,

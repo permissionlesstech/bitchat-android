@@ -33,6 +33,17 @@ data class BitchatPalette(
     /** Hairline dividers. */
     val outlineVariant: Color,
 
+    // MARK: - Form controls
+    /**
+     * Resting border for text inputs. Deliberately a neutral grey rather than the green-tinted
+     * [outline]: the composer is the one surface the user stares at while typing, and a green
+     * cast there made the whole bottom of the screen read as "terminal chrome" instead of a
+     * place to write.
+     */
+    val inputOutline: Color,
+    /** Border for a focused text input. A step brighter, still neutral. */
+    val inputOutlineFocused: Color,
+
     // MARK: - Text
     /** Message bodies and row titles. Neutral, not green. */
     val textPrimary: Color,
@@ -64,6 +75,8 @@ val DarkBitchatPalette = BitchatPalette(
     surfaceVariant = Color(0xFF182118),
     outline = Color(0xFF2A3A2A),
     outlineVariant = Color(0xFF1C271C),
+    inputOutline = Color(0xFF333635),
+    inputOutlineFocused = Color(0xFF5A605D),
     textPrimary = Color(0xFFE8EDE8),
     textSecondary = Color(0xFF9AA69A),
     textTertiary = Color(0xFF6B776B),
@@ -81,6 +94,8 @@ val LightBitchatPalette = BitchatPalette(
     surfaceVariant = Color(0xFFE7EDE7),
     outline = Color(0xFFCBD6CB),
     outlineVariant = Color(0xFFDEE6DE),
+    inputOutline = Color(0xFFCFD3D1),
+    inputOutlineFocused = Color(0xFF8E9490),
     textPrimary = Color(0xFF131A13),
     textSecondary = Color(0xFF4C574C),
     textTertiary = Color(0xFF757F75),

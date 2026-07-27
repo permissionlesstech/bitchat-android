@@ -3,22 +3,16 @@ package com.bitchat.android.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import android.Manifest
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.unit.dp
 import com.bitchat.android.features.voice.VoiceRecorder
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionStatus
@@ -32,7 +26,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun VoiceRecordButton(
     modifier: Modifier = Modifier,
-    backgroundColor: Color,
+    /**
+     * Recording state as the composer sees it. Drives the active tint so the button and the
+     * pill's border change together instead of one lagging the other.
+     */
+    isRecording: Boolean = false,
     onStart: () -> Unit,
     onAmplitude: (amplitude: Int, elapsedMs: Long) -> Unit,
     onFinish: (filePath: String) -> Unit
@@ -41,7 +39,7 @@ fun VoiceRecordButton(
     val haptic = LocalHapticFeedback.current
     val micPermission = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
 
-    var isRecording by remember { mutableStateOf(false) }
+    var isCapturing by remember { mutableStateOf(false) }
     var recorder by remember { mutableStateOf<VoiceRecorder?>(null) }
     var recordedFilePath by remember { mutableStateOf<String?>(null) }
     var recordingStart by remember { mutableStateOf(0L) }
@@ -54,14 +52,15 @@ fun VoiceRecordButton(
     val latestOnAmplitude = rememberUpdatedState(onAmplitude)
     val latestOnFinish = rememberUpdatedState(onFinish)
 
-    Box(
+    // Same disc, same sizing and the same press feedback as the camera and send buttons.
+    ComposerActionSurface(
+        isActive = isRecording || isCapturing,
+        isPressed = isCapturing,
         modifier = modifier
-            .size(36.dp)
-            .background(backgroundColor, CircleShape)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
-                        if (!isRecording) {
+                        if (!isCapturing) {
                             if (micPermission.status !is PermissionStatus.Granted) {
                                 micPermission.launchPermissionRequest()
                                 return@detectTapGestures
@@ -69,24 +68,24 @@ fun VoiceRecordButton(
                             val rec = VoiceRecorder(context)
                             val f = rec.start()
                             recorder = rec
-                            isRecording = f != null
+                            isCapturing = f != null
                             recordedFilePath = f?.absolutePath
                             recordingStart = System.currentTimeMillis()
-                            if (isRecording) {
+                            if (isCapturing) {
                                 latestOnStart.value()
                                 // Haptic "knock" when recording starts
                                 try { haptic.performHapticFeedback(HapticFeedbackType.LongPress) } catch (_: Exception) {}
                                 // Start amplitude polling loop
                                 ampJob?.cancel()
                                 ampJob = scope.launch {
-                                    while (isActive && isRecording) {
+                                    while (isActive && isCapturing) {
                                         val amp = recorder?.pollAmplitude() ?: 0
                                         val elapsedMs = (System.currentTimeMillis() - recordingStart).coerceAtLeast(0L)
                                         latestOnAmplitude.value(amp, elapsedMs)
                                         // Auto-stop after 10 seconds
-                                        if (elapsedMs >= 10_000 && isRecording) {
+                                        if (elapsedMs >= 10_000 && isCapturing) {
                                             val file = recorder?.stop()
-                                            isRecording = false
+                                            isCapturing = false
                                             recorder = null
                                             val path = file?.absolutePath
                                             if (!path.isNullOrBlank()) {
@@ -104,13 +103,13 @@ fun VoiceRecordButton(
                         try {
                             awaitRelease()
                         } finally {
-                            if (isRecording) {
+                            if (isCapturing) {
                                 // Extend recording for 500ms after release to avoid clipping
                                 delay(500)
                             }
-                            if (isRecording) {
+                            if (isCapturing) {
                                 val file = recorder?.stop()
-                                isRecording = false
+                                isCapturing = false
                                 recorder = null
                                 val path = (file?.absolutePath ?: recordedFilePath)
                                 recordedFilePath = null
@@ -125,14 +124,13 @@ fun VoiceRecordButton(
                         }
                     }
                 )
-            },
-        contentAlignment = Alignment.Center
-    ) {
+            }
+    ) { tint ->
         Icon(
             imageVector = Icons.Filled.Mic,
             contentDescription = stringResource(com.bitchat.android.R.string.cd_record_voice),
-            tint = Color.Black,
-            modifier = Modifier.size(22.dp)
+            tint = tint,
+            modifier = Modifier.size(ComposerIconSize)
         )
     }
 }

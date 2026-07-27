@@ -11,22 +11,20 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.bitchat.android.features.media.ImageUtils
-import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.ComposerActionSurface
+import com.bitchat.android.ui.ComposerIconSize
 import java.io.File
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -89,28 +87,31 @@ fun ImagePickerButton(
         }
     }
 
-    Box(
-        modifier = modifier
-            // Matches the header's tap targets and the composer's send button.
-            .size(44.dp)
-            .clip(CircleShape)
-            .combinedClickable(
-                onClick = { imagePicker.launch("image/*") },
-                onLongClick = {
-                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                        startCameraCapture()
-                    } else {
-                        permissionLauncher.launch(Manifest.permission.CAMERA)
-                    }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // Shares the composer's button treatment so camera, microphone and send read as one set.
+    ComposerActionSurface(
+        isActive = false,
+        isPressed = isPressed,
+        modifier = modifier.combinedClickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = { imagePicker.launch("image/*") },
+            onLongClick = {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    startCameraCapture()
+                } else {
+                    permissionLauncher.launch(Manifest.permission.CAMERA)
                 }
-            ),
-        contentAlignment = Alignment.Center
-    ) {
+            }
+        )
+    ) { tint ->
         Icon(
             imageVector = Icons.Filled.PhotoCamera,
             contentDescription = stringResource(com.bitchat.android.R.string.pick_image),
-            tint = LocalBitchatPalette.current.textSecondary,
-            modifier = Modifier.size(22.dp)
+            tint = tint,
+            modifier = Modifier.size(ComposerIconSize)
         )
     }
 

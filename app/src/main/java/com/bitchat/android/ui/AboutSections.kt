@@ -6,7 +6,6 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Lock
@@ -447,59 +446,6 @@ private fun AboutFeatureRow(
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 color = palette.textSecondary
-            )
-        }
-    }
-}
-
-/**
- * Security-audit warning banner.
- *
- * Deliberately styled as a tinted, outlined card rather than plain red text: it needs to be
- * impossible to skim past, but it is also permanent until the audit lands, so a full-bleed
- * alarm would quickly become wallpaper.
- */
-@Composable
-internal fun AboutWarningCard(modifier: Modifier = Modifier) {
-    val palette = LocalBitchatPalette.current
-
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = AboutHorizontalPadding),
-        color = palette.accentRed.copy(alpha = 0.12f),
-        border = BorderStroke(1.dp, palette.accentRed.copy(alpha = 0.35f)),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Warning,
-                    contentDescription = null,
-                    tint = palette.accentRed,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = stringResource(R.string.about_warning_title).uppercase(),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
-                    color = palette.accentRed
-                )
-            }
-            Text(
-                text = stringResource(R.string.about_warning_body),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-                color = palette.accentRed.copy(alpha = 0.85f)
             )
         }
     }

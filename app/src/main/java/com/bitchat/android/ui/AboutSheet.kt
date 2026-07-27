@@ -2,9 +2,6 @@ package com.bitchat.android.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.animation.animateColorAsState
@@ -24,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,52 +36,6 @@ import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
-
-/**
- * Feature row for displaying app capabilities
- */
-@Composable
-private fun FeatureRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 13.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = colorScheme.primary,
-            modifier = Modifier
-                .padding(top = 1.dp)
-                .size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = title,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = palette.textPrimary
-            )
-            Text(
-                text = subtitle,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                color = palette.textSecondary,
-                lineHeight = 17.sp
-            )
-        }
-    }
-}
 
 /**
  * Theme selection chip with Apple-like styling
@@ -566,10 +516,6 @@ fun AboutSheet(
                         }
                     }
 
-                    // Security audit warning
-                    item(key = "warning") {
-                        AboutWarningCard(modifier = Modifier.padding(top = 24.dp))
-                    }
                     } // end Settings tab
 
                     // Footer
@@ -585,7 +531,7 @@ fun AboutSheet(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            if (onShowDebug != null) {
+                            if (selectedTab == AboutTab.Settings && onShowDebug != null) {
                                 TextButton(onClick = onShowDebug) {
                                     Text(
                                         text = stringResource(R.string.about_debug_settings),

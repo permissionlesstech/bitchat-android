@@ -2,16 +2,19 @@ package com.bitchat.android.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -34,7 +37,7 @@ fun LocationNotesButton(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
-    
+
     // Get channel and permission state
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val locationManager = remember { LocationChannelManager.getInstance(context) }
@@ -44,7 +47,7 @@ fun LocationNotesButton(
     // Check both permission AND location services enabled
     val locationPermissionGranted = permissionState == LocationChannelManager.PermissionState.AUTHORIZED
     val locationEnabled = locationPermissionGranted && locationServicesEnabled
-    
+
     // Get notes count from LocationNotesManager
     val notesManager = remember { LocationNotesManager.getInstance() }
     val notes by notesManager.notes.collectAsStateWithLifecycle()
@@ -53,13 +56,19 @@ fun LocationNotesButton(
     // Only show in mesh mode when location is authorized (iOS pattern)
     if (selectedLocationChannel is ChannelID.Mesh && locationEnabled) {
         val hasNotes = notesCount > 0
-        IconButton(
-            onClick = onClick,
-            modifier = modifier.size(44.dp)
+        val contentDescription = stringResource(R.string.cd_location_notes)
+        // Match other header icon buttons: 44.dp target, no Material IconButton min-size padding
+        // that pushed the notes glyph farther from the mesh badge than sibling gaps.
+        Box(
+            modifier = modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .clickable(onClickLabel = contentDescription) { onClick() },
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Outlined.Description,
-                contentDescription = stringResource(R.string.cd_location_notes),
+                contentDescription = contentDescription,
                 modifier = Modifier.size(HeaderIconSize),
                 tint = if (hasNotes) colorScheme.primary else LocalBitchatPalette.current.textSecondary
             )
