@@ -232,6 +232,15 @@ class ChatViewModel(
         loadAndInitialize()
         ContactDirectory.initialize(getApplication()) { mesh }
         com.bitchat.android.services.AppStateStore.canonicalizePrivateChats()
+        // Mark queued private messages as failed when the router gives up on them
+        try {
+            com.bitchat.android.services.MessageRouter.getInstance(getApplication(), mesh).onMessageExpired = { messageID ->
+                messageManager.updateMessageDeliveryStatus(
+                    messageID,
+                    com.bitchat.android.model.DeliveryStatus.Failed("Message expired before delivery")
+                )
+            }
+        } catch (_: Exception) { }
         // Hydrate UI state from process-wide AppStateStore to survive Activity recreation
         viewModelScope.launch {
             try { com.bitchat.android.services.AppStateStore.peers.collect { peers ->
