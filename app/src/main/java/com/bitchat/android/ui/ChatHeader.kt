@@ -560,7 +560,6 @@ private fun LocationChannelsButton(
 
     // Get current channel selection from location manager
     val selectedChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
-    val teleported by viewModel.isTeleported.collectAsStateWithLifecycle()
 
     val isLocation = selectedChannel is com.bitchat.android.geohash.ChannelID.Location
     val badgeText = when (val channel = selectedChannel) {
@@ -599,15 +598,5 @@ private fun LocationChannelsButton(
             color = badgeColor,
             maxLines = 1
         )
-
-        // Teleportation indicator (like iOS)
-        if (teleported) {
-            Icon(
-                imageVector = Icons.Default.PinDrop,
-                contentDescription = stringResource(R.string.cd_teleported),
-                modifier = Modifier.size(HeaderIconSize),
-                tint = badgeColor
-            )
-        }
     }
 }

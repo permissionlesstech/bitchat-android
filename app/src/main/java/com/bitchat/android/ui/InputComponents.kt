@@ -221,6 +221,15 @@ private val ComposerButtonDisc = 36.dp
 internal val ComposerIconSize = 20.dp
 
 /**
+ * Opacity of the composer pill.
+ *
+ * Not fully opaque: the message list scrolls underneath the composer, and letting a hint of it
+ * through is what makes the bar read as sitting *over* the conversation rather than boxing it in.
+ * Kept high enough that text in the field never loses contrast.
+ */
+private const val ComposerFillAlpha = 0.88f
+
+/**
  * The shared visual treatment for every button in the composer: camera, microphone, send.
  *
  * One style for all three, so the cluster reads as a set. At rest they are neutral grey discs;
@@ -248,7 +257,7 @@ internal fun ComposerActionSurface(
     val container by animateColorAsState(
         // A tint rather than a fill. A solid accent disc next to the text you are typing was the
         // loudest thing on the screen; at 20% it still reads as "armed" without competing.
-        targetValue = if (isActive) accent.copy(alpha = 0.20f) else palette.surfaceVariant,
+        targetValue = if (isActive) accent.copy(alpha = 0.20f) else palette.inputButton,
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "composerButtonContainer"
     )
@@ -318,9 +327,10 @@ fun MessageInput(
         label = "composerBorder"
     )
     // A barely-there lift on focus. Enough to register, not enough to look like a different
-    // component.
+    // component. Slightly translucent so the messages scrolling underneath stay faintly visible.
     val containerColor by animateColorAsState(
-        targetValue = if (isFocused.value) palette.surfaceVariant else palette.surface,
+        targetValue = (if (isFocused.value) palette.inputSurfaceFocused else palette.inputSurface)
+            .copy(alpha = ComposerFillAlpha),
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "composerContainer"
     )
@@ -544,6 +554,14 @@ fun MessageInput(
                                         latestChannel.value,
                                         path
                                     )
+                                },
+                                // Any capture that ends without a file must clear the recording
+                                // state here too, otherwise the pill stays red with a live
+                                // waveform over an empty field.
+                                onCancel = {
+                                    isRecording = false
+                                    amplitude = 0
+                                    elapsedMs = 0L
                                 }
                             )
                         } else {

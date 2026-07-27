@@ -43,6 +43,16 @@ data class BitchatPalette(
     val inputOutline: Color,
     /** Border for a focused text input. A step brighter, still neutral. */
     val inputOutlineFocused: Color,
+    /**
+     * Fill for text inputs. Near-black / near-white and completely untinted, for the same reason
+     * as [inputOutline] — and because the composer sits on top of a green-tinted scrim, so any
+     * tint of its own compounds into something muddy.
+     */
+    val inputSurface: Color,
+    /** Fill for a focused text input. A barely perceptible lift. */
+    val inputSurfaceFocused: Color,
+    /** Resting disc behind the composer's action glyphs. Neutral grey. */
+    val inputButton: Color,
 
     // MARK: - Text
     /** Message bodies and row titles. Neutral, not green. */
@@ -77,6 +87,9 @@ val DarkBitchatPalette = BitchatPalette(
     outlineVariant = Color(0xFF1C271C),
     inputOutline = Color(0xFF333635),
     inputOutlineFocused = Color(0xFF5A605D),
+    inputSurface = Color(0xFF0B0B0B),
+    inputSurfaceFocused = Color(0xFF151515),
+    inputButton = Color(0xFF1E1E1E),
     textPrimary = Color(0xFFE8EDE8),
     textSecondary = Color(0xFF9AA69A),
     textTertiary = Color(0xFF6B776B),
@@ -96,6 +109,9 @@ val LightBitchatPalette = BitchatPalette(
     outlineVariant = Color(0xFFDEE6DE),
     inputOutline = Color(0xFFCFD3D1),
     inputOutlineFocused = Color(0xFF8E9490),
+    inputSurface = Color(0xFFFAFAFA),
+    inputSurfaceFocused = Color(0xFFF2F2F2),
+    inputButton = Color(0xFFE8E8E8),
     textPrimary = Color(0xFF131A13),
     textSecondary = Color(0xFF4C574C),
     textTertiary = Color(0xFF757F75),

@@ -4,7 +4,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -339,71 +338,40 @@ internal fun AboutHowToUseSection(modifier: Modifier = Modifier) {
 }
 
 /**
- * The six-item capability list from the design.
- *
- * Icons are Material approximations of the designer's custom line art; swap in the exported
- * SVGs when they are available.
+ * Capability list, laid out like [AboutHowToUseSection]: flat rows, no card surface or dividers.
  */
 @Composable
 internal fun AboutFeatureCard(modifier: Modifier = Modifier) {
-    val palette = LocalBitchatPalette.current
+    val features = listOf(
+        Triple(
+            Icons.Filled.WifiOff,
+            R.string.about_offline_mesh_title,
+            R.string.about_offline_mesh_desc
+        ),
+        Triple(
+            Icons.Outlined.Lock,
+            R.string.about_e2e_title,
+            R.string.about_e2e_desc
+        ),
+        Triple(
+            Icons.Outlined.Public,
+            R.string.about_online_geohash_title,
+            R.string.about_online_geohash_desc
+        ),
+        Triple(
+            Icons.Outlined.VisibilityOff,
+            R.string.about_no_tracking_title,
+            R.string.about_no_tracking_desc
+        ),
+    )
 
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = AboutHorizontalPadding),
-        color = palette.surface,
-        shape = AboutCardShape
-    ) {
-        Column {
-            val features = listOf(
-                Triple(
-                    Icons.Filled.WifiOff,
-                    R.string.about_offline_mesh_title,
-                    R.string.about_offline_mesh_desc
-                ),
-                Triple(
-                    Icons.Outlined.Lock,
-                    R.string.about_e2e_title,
-                    R.string.about_e2e_desc
-                ),
-                Triple(
-                    Icons.Outlined.Public,
-                    R.string.about_online_geohash_title,
-                    R.string.about_online_geohash_desc
-                ),
-                Triple(
-                    Icons.Outlined.VisibilityOff,
-                    R.string.about_no_tracking_title,
-                    R.string.about_no_tracking_desc
-                ),
-                Triple(
-                    Icons.Filled.Shuffle,
-                    R.string.about_ephemeral_title,
-                    R.string.about_ephemeral_desc
-                ),
-                Triple(
-                    Icons.Filled.DeleteForever,
-                    R.string.about_emergency_title,
-                    R.string.about_panic_desc
-                ),
+    Column(modifier = modifier.fillMaxWidth()) {
+        features.forEach { (icon, titleRes, descRes) ->
+            AboutFeatureRow(
+                icon = icon,
+                title = stringResource(titleRes),
+                subtitle = stringResource(descRes)
             )
-
-            features.forEachIndexed { index, (icon, titleRes, descRes) ->
-                if (index > 0) {
-                    HorizontalDivider(
-                        // Inset to align with the text column, not the icon.
-                        modifier = Modifier.padding(start = 54.dp),
-                        thickness = 1.dp,
-                        color = palette.outlineVariant
-                    )
-                }
-                AboutFeatureRow(
-                    icon = icon,
-                    title = stringResource(titleRes),
-                    subtitle = stringResource(descRes)
-                )
-            }
         }
     }
 }
@@ -420,7 +388,8 @@ private fun AboutFeatureRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = AboutHorizontalPadding, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top
     ) {
         Icon(
@@ -429,15 +398,15 @@ private fun AboutFeatureRow(
             tint = colorScheme.primary,
             modifier = Modifier
                 .padding(top = 1.dp)
-                .size(24.dp)
+                .size(22.dp)
         )
-        Spacer(modifier = Modifier.width(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = title,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
+                lineHeight = 20.sp,
                 color = palette.textPrimary
             )
             Text(

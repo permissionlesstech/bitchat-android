@@ -860,6 +860,7 @@ fun PrivateChatSheet(
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
+    val palette = LocalBitchatPalette.current
 
     if (isPresented) {
         BitchatBottomSheet(
@@ -872,7 +873,7 @@ fun PrivateChatSheet(
                 ) {
                     Spacer(modifier = Modifier.height(64.dp))
 
-                    HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
+                    HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
 
                     // Messages list
                     var forceScrollToBottom by remember { mutableStateOf(false) }
@@ -891,9 +892,8 @@ fun PrivateChatSheet(
                         onImageClick = { _, _, _ -> /* handle image click */ }
                     )
 
-                    HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-
-                    // Input section
+                    // Input section. No divider here: ChatInputSection draws its own fade and
+                    // hairline.
                     var messageText by remember {
                         mutableStateOf(
                             androidx.compose.ui.text.input.TextFieldValue(

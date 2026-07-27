@@ -14,11 +14,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -120,7 +123,14 @@ fun ChatScreen(viewModel: ChatViewModel) {
             .background(colorScheme.background) // Extend background to fill entire screen including status bar
     ) {
         val headerHeight = ChatHeaderHeight
-        
+        val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+        // Both bars are translucent and the conversation scrolls underneath them, so their
+        // heights are reserved as list padding instead of as layout space. The composer's height
+        // varies (suggestion rows, wrapped lines), so it is measured rather than assumed.
+        var composerHeight by remember { mutableStateOf(0.dp) }
+        val density = LocalDensity.current
+
         // Main content area that responds to keyboard/window insets
         Column(
             modifier = Modifier
@@ -128,19 +138,17 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 .windowInsetsPadding(WindowInsets.ime) // This handles keyboard insets
                 .windowInsetsPadding(WindowInsets.navigationBars) // Add bottom padding when keyboard is not expanded
         ) {
-            // Header spacer - creates exact space for the floating header (status bar + compact header)
-            Spacer(
-                modifier = Modifier
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .height(headerHeight)
-            )
-
+          Box(modifier = Modifier.weight(1f)) {
             // Messages area - takes up available space, will compress when keyboard appears
             MessagesList(
                 messages = displayMessages,
                 currentUserNickname = nickname,
                 meshService = viewModel.meshServiceFacade,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    top = statusBarHeight + headerHeight,
+                    bottom = composerHeight
+                ),
                 forceScrollToBottom = forceScrollToBottom,
                 onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
                 onNicknameClick = { fullSenderName ->
@@ -188,7 +196,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     showFullScreenImageViewer = true
                 }
             )
-            // Input area - stays at bottom
+            // Input area - overlays the bottom of the conversation
         // Bridge file share from lower-level input to ViewModel
     androidx.compose.runtime.LaunchedEffect(Unit) {
         com.bitchat.android.ui.events.FileShareDispatcher.setHandler { peer, channel, path ->
@@ -197,6 +205,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
 
     ChatInputSection(
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .onSizeChanged { size ->
+                composerHeight = with(density) { size.height.toDp() }
+            },
         messageText = messageText,
         onMessageTextChange = { newText: TextFieldValue ->
             messageText = newText
@@ -244,6 +257,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 colorScheme = colorScheme,
                 showMediaButtons = showMediaButtons
             )
+          }
         }
 
         // Floating header - positioned absolutely at top, ignores keyboard
@@ -261,17 +275,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onLocationNotesClick = { showLocationNotesSheet = true }
         )
 
-        // Divider under header - positioned after status bar + header height
-        HorizontalDivider(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .offset(y = headerHeight)
-                .zIndex(1f),
-            thickness = 1.dp,
-            color = palette.outlineVariant
-        )
-
         // Scroll-to-bottom floating button
         AnimatedVisibility(
             visible = isScrolledUp,
@@ -287,7 +290,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             ) + fadeOut(tween(BitchatMotion.QUICK_MS)),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 64.dp)
+                .padding(end = 16.dp, bottom = composerHeight + 8.dp)
                 .zIndex(1.5f)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .windowInsetsPadding(WindowInsets.ime)
@@ -407,50 +410,73 @@ fun ChatInputSection(
     currentChannel: String?,
     nickname: String,
     colorScheme: ColorScheme,
-    showMediaButtons: Boolean
+    showMediaButtons: Boolean,
+    modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = colorScheme.background
+
+    Column(
+        // Flat, slightly translucent screen background — the same treatment as the top bar, so the
+        // two bars are visibly the same kind of surface. No gradient: a soft ramp here just looked
+        // like a smudge above a crisp hairline. The rule is inside the background so the whole bar
+        // is one surface with a top border, rather than a line floating over the conversation.
+        modifier = modifier
+            .fillMaxWidth()
+            .background(colorScheme.background.copy(alpha = BarBackgroundAlpha))
     ) {
-        // No divider above the composer: the pill's own border provides the separation, and a
-        // full-width rule on top of it read as a double line.
-        Column {
-            // Command suggestions box
-            if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
-                CommandSuggestionsBox(
-                    suggestions = commandSuggestions,
-                    onSuggestionClick = onCommandSuggestionClick,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
-            }
-            // Mention suggestions box
-            if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
-                MentionSuggestionsBox(
-                    suggestions = mentionSuggestions,
-                    onSuggestionClick = onMentionSuggestionClick,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
-            }
-            MessageInput(
-                value = messageText,
-                onValueChange = onMessageTextChange,
-                onSend = onSend,
-                onSendVoiceNote = onSendVoiceNote,
-                onSendImageNote = onSendImageNote,
-                onSendFileNote = onSendFileNote,
-                selectedPrivatePeer = selectedPrivatePeer,
-                currentChannel = currentChannel,
-                nickname = nickname,
-                showMediaButtons = showMediaButtons,
+        // Hairline marking where chrome begins. Faint on purpose — it is a hint, not a border.
+        HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
+
+        // Command suggestions box
+        if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
+            CommandSuggestionsBox(
+                suggestions = commandSuggestions,
+                onSuggestionClick = onCommandSuggestionClick,
                 modifier = Modifier.fillMaxWidth()
             )
+            HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
         }
+        // Mention suggestions box
+        if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
+            MentionSuggestionsBox(
+                suggestions = mentionSuggestions,
+                onSuggestionClick = onMentionSuggestionClick,
+                modifier = Modifier.fillMaxWidth()
+            )
+            HorizontalDivider(thickness = 1.dp, color = palette.outlineVariant)
+        }
+        MessageInput(
+            value = messageText,
+            onValueChange = onMessageTextChange,
+            onSend = onSend,
+            onSendVoiceNote = onSendVoiceNote,
+            onSendImageNote = onSendImageNote,
+            onSendFileNote = onSendFileNote,
+            selectedPrivatePeer = selectedPrivatePeer,
+            currentChannel = currentChannel,
+            nickname = nickname,
+            showMediaButtons = showMediaButtons,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
+
+/**
+ * Opacity shared by both bars.
+ *
+ * Slight, so the conversation scrolling underneath stays faintly perceptible and the chrome reads
+ * as sitting over the content rather than boxing it in — without ever costing legibility.
+ */
+private const val BarBackgroundAlpha = 0.88f
+
+/**
+ * Fraction of the header that stays fully opaque, measured from the top.
+ *
+ * The header is the one place a gradient earns its keep: the status bar is transparent, so the
+ * header has to be the true background colour where the two meet or the system bar stops looking
+ * like part of the app. Everything below that stop matches the composer's flat translucency.
+ */
+private const val HeaderOpaqueStop = 0.72f
 @Composable
 private fun ChatFloatingHeader(
     headerHeight: Dp,
@@ -467,13 +493,24 @@ private fun ChatFloatingHeader(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
-    
-    Surface(
+    val palette = LocalBitchatPalette.current
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .zIndex(1f)
-            .windowInsetsPadding(WindowInsets.statusBars), // Extend into status bar area
-        color = colorScheme.background // Solid background color extending into status bar
+            // Fully opaque where it meets the system status bar, fading to translucent at its
+            // lower edge. The status bar itself is transparent, so anything less than opaque at
+            // the top would let the wallpaper or a light system-bar scrim bleed through and the
+            // header would stop reading as part of the app.
+            .background(
+                Brush.verticalGradient(
+                    0f to colorScheme.background,
+                    HeaderOpaqueStop to colorScheme.background,
+                    1f to colorScheme.background.copy(alpha = BarBackgroundAlpha)
+                )
+            )
+            .windowInsetsPadding(WindowInsets.statusBars) // Extend into status bar area
     ) {
         // A plain Row rather than M3's TopAppBar. TopAppBar silently injects a 4.dp horizontal
         // pad plus a 12.dp title inset and applies its own minimum heights, which made the

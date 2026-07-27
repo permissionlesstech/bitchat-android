@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -37,6 +39,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -72,6 +75,13 @@ fun MessagesList(
     currentUserNickname: String,
     meshService: MeshService,
     modifier: Modifier = Modifier,
+    /**
+     * Extra inset on top of the list's own gutters.
+     *
+     * The chat screen's bars are translucent and the list scrolls underneath them, so the caller
+     * has to reserve room for their heights here rather than by shrinking the viewport.
+     */
+    contentPadding: PaddingValues = PaddingValues(0.dp),
     forceScrollToBottom: Boolean = false,
     onScrolledUpChanged: ((Boolean) -> Unit)? = null,
     onNicknameClick: ((String) -> Unit)? = null,
@@ -119,11 +129,17 @@ fun MessagesList(
         }
     }
     
+    val layoutDirection = LocalLayoutDirection.current
     LazyColumn(
         state = listState,
         // Wider side gutters than the old 12.dp: the redesign trades a little line length for
         // a much calmer edge, and long monospace lines were running into the screen bezel.
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+        contentPadding = PaddingValues(
+            start = 16.dp + contentPadding.calculateStartPadding(layoutDirection),
+            end = 16.dp + contentPadding.calculateEndPadding(layoutDirection),
+            top = 8.dp + contentPadding.calculateTopPadding(),
+            bottom = 12.dp + contentPadding.calculateBottomPadding()
+        ),
         // Spacing is owned by each item so that a continuation of the same author can sit
         // tighter than the start of a new speaker's run.
         verticalArrangement = Arrangement.spacedBy(0.dp),
