@@ -36,7 +36,8 @@ data class GeoPerson(
 fun GeohashPeopleList(
     viewModel: ChatViewModel,
     onTapPerson: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    excludedIdentityAliases: Set<String> = emptySet()
 ) {
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
@@ -77,9 +78,15 @@ fun GeohashPeopleList(
             geohashPeople
         }
     }
-    val sections = remember(peopleIncludingSelf, myHex, isTeleported, teleportedGeo) {
+    val visiblePeople = remember(peopleIncludingSelf, excludedIdentityAliases) {
+        peopleIncludingSelf.filterNot { person ->
+            val alias = "nostr_${person.id.take(16)}".lowercase()
+            alias in excludedIdentityAliases
+        }
+    }
+    val sections = remember(visiblePeople, myHex, isTeleported, teleportedGeo) {
         sectionGeohashPeople(
-            people = peopleIncludingSelf,
+            people = visiblePeople,
             myId = myHex,
             selfIsTeleported = isTeleported,
             teleportedIds = teleportedGeo

@@ -41,10 +41,11 @@ data class BitchatPalette(
     val accentPurple: Color,
 
     // MARK: - Deterministic peer colors
-    /** Chroma applied after deriving a peer's stable hue. */
-    val peerColorSaturation: Float,
-    /** Brightness applied after deriving a peer's stable hue. */
-    val peerColorValue: Float,
+    /**
+     * Saturation/value applied after deriving a peer's stable hue. Swap this when adding a
+     * new theme — see [PeerColorStyle] for contrast guidelines.
+     */
+    val peerColors: PeerColorStyle,
 )
 
 val DarkBitchatPalette = BitchatPalette(
@@ -56,8 +57,7 @@ val DarkBitchatPalette = BitchatPalette(
     textTertiary = Color(0xFF6B776B),
     accentOrange = Color(0xFFFF9F0A),
     accentPurple = Color(0xFFBF5AF2),
-    peerColorSaturation = 1f,
-    peerColorValue = 1f,
+    peerColors = PeerColorStyle.Dark,
 )
 
 val LightBitchatPalette = BitchatPalette(
@@ -69,8 +69,7 @@ val LightBitchatPalette = BitchatPalette(
     textTertiary = Color(0xFF757F75),
     accentOrange = Color(0xFFFF9500),
     accentPurple = Color(0xFFAF52DE),
-    peerColorSaturation = 0.85f,
-    peerColorValue = 0.45f,
+    peerColors = PeerColorStyle.Light,
 )
 
 val LocalBitchatPalette = staticCompositionLocalOf { DarkBitchatPalette }
