@@ -1,40 +1,91 @@
 package com.bitchat.android.ui
 
+import android.content.Intent
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bitchat.android.nostr.NostrProofOfWork
-import com.bitchat.android.nostr.PoWPreferenceManager
-import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.hotspot.HotspotActivity
+import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
-import com.bitchat.android.net.ArtiTorManager
+import com.bitchat.android.nostr.NostrProofOfWork
+import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.util.UniversalApkManager
 
 /**
  * Feature row for displaying app capabilities
@@ -452,6 +503,358 @@ fun AboutSheet(
                                             }
                                         } else null
                                     )
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp),
+                                        color = colorScheme.outline.copy(alpha = 0.12f)
+                                    )
+
+                                    // === Prepare App for Sharing Section ===
+                                    val apkViewModel: ApkDownloadViewModel = viewModel()
+                                    val apkUiState by apkViewModel.state.collectAsStateWithLifecycle()
+                                    val apkStatus = apkUiState.apkStatus
+                                    val downloadProgress = apkUiState.downloadProgress
+
+                                    // Handle one-shot effects (navigation, toasts, share intents)
+                                    LaunchedEffect(Unit) {
+                                        apkViewModel.onEvent(ApkUiEvent.CheckStatus)
+                                        apkViewModel.effect.collect { effect ->
+                                            when (effect) {
+                                                is ApkUiEffect.NavigateToHotspot -> {
+                                                    val intent = Intent(context, HotspotActivity::class.java)
+                                                    intent.putExtra(HotspotActivity.EXTRA_APK_PATH, effect.apkPath)
+                                                    context.startActivity(intent)
+                                                }
+                                                is ApkUiEffect.ShareApk -> {
+                                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = "application/vnd.android.package-archive"
+                                                        putExtra(Intent.EXTRA_STREAM, effect.apkUri)
+                                                        clipData = android.content.ClipData.newRawUri("", effect.apkUri)
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    val chooser = Intent.createChooser(intent, effect.chooserTitle).apply {
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    context.startActivity(chooser)
+                                                }
+                                                is ApkUiEffect.ShowToast -> {
+                                                    Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Prepare App for Sharing Row
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable(enabled = apkStatus !is ApkPreparationStatus.Downloading) {
+                                                apkViewModel.onEvent(ApkUiEvent.PrepareRowClicked)
+                                            }
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = if (apkStatus is ApkPreparationStatus.Ready) {
+                                                Icons.Default.Share
+                                            } else {
+                                                Icons.Default.CloudDownload
+                                            },
+                                            contentDescription = null,
+                                            tint = colorScheme.primary,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+
+                                        Spacer(modifier = Modifier.width(14.dp))
+
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            Text(
+                                                text = if (apkStatus is ApkPreparationStatus.Ready) {
+                                                    stringResource(R.string.prepare_apk_ready_title)
+                                                } else {
+                                                    stringResource(R.string.prepare_apk_title)
+                                                },
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium,
+                                                color = colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = when (val status = apkStatus) {
+                                                    is ApkPreparationStatus.Loading -> stringResource(R.string.checking)
+                                                    is ApkPreparationStatus.NotDownloaded -> stringResource(R.string.prepare_apk_status_not_downloaded)
+                                                    is ApkPreparationStatus.Ready -> {
+                                                        val source = if (status.source == UniversalApkManager.ApkSource.INSTALLED) {
+                                                            stringResource(R.string.prepare_apk_source_installed)
+                                                        } else {
+                                                            stringResource(R.string.prepare_apk_source_github)
+                                                        }
+                                                        stringResource(R.string.prepare_apk_status_ready) +
+                                                            " • ${status.version} • ${status.sizeMB} MB\n$source"
+                                                    }
+                                                    is ApkPreparationStatus.UpdateAvailable -> stringResource(R.string.prepare_apk_status_update_available) + " (${status.newVersion})"
+                                                    is ApkPreparationStatus.Downloading -> stringResource(R.string.prepare_apk_status_downloading, downloadProgress)
+                                                    is ApkPreparationStatus.Resumable -> "Tap to resume • ${status.progressPercent}% downloaded"
+                                                    is ApkPreparationStatus.Error -> status.message
+                                                },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = when (apkStatus) {
+                                                    is ApkPreparationStatus.Error -> colorScheme.error
+                                                    is ApkPreparationStatus.Resumable -> colorScheme.primary
+                                                    is ApkPreparationStatus.UpdateAvailable -> colorScheme.primary
+                                                    else -> colorScheme.onSurface.copy(alpha = 0.6f)
+                                                },
+                                                lineHeight = 16.sp
+                                            )
+                                        }
+
+                                        // Action buttons
+                                        when (apkStatus) {
+                                            is ApkPreparationStatus.Downloading -> {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(20.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            }
+                                            is ApkPreparationStatus.Ready -> {
+                                                if (apkStatus.source == UniversalApkManager.ApkSource.GITHUB) {
+                                                    androidx.compose.material3.IconButton(
+                                                        onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Delete,
+                                                            contentDescription = "Delete",
+                                                            tint = colorScheme.error,
+                                                            modifier = Modifier.size(20.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            is ApkPreparationStatus.UpdateAvailable -> {
+                                                androidx.compose.material3.IconButton(
+                                                    onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = "Delete",
+                                                        tint = colorScheme.error,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                            else -> {}
+                                        }
+                                    }
+
+                                    // Prepare Dialog
+                                    if (apkUiState.showPrepareDialog) {
+                                        val status = apkStatus
+                                        val sizeMB: Int? = when (status) {
+                                            is ApkPreparationStatus.NotDownloaded -> status.sizeMB
+                                            is ApkPreparationStatus.UpdateAvailable -> status.newSizeMB
+                                            else -> null
+                                        }
+                                        AlertDialog(
+                                            onDismissRequest = { apkViewModel.onEvent(ApkUiEvent.DismissPrepareDialog) },
+                                            title = {
+                                                Text(
+                                                    text = if (status is ApkPreparationStatus.UpdateAvailable) {
+                                                        stringResource(R.string.prepare_apk_update_dialog_title)
+                                                    } else {
+                                                        stringResource(R.string.prepare_apk_dialog_title)
+                                                    },
+                                                    style = MaterialTheme.typography.titleLarge
+                                                )
+                                            },
+                                            text = {
+                                                Text(
+                                                    text = if (status is ApkPreparationStatus.UpdateAvailable) {
+                                                        stringResource(R.string.prepare_apk_update_dialog_message, status.newVersion, status.currentVersion)
+                                                    } else if (sizeMB != null) {
+                                                        stringResource(R.string.prepare_apk_dialog_message, sizeMB)
+                                                    } else {
+                                                        stringResource(R.string.prepare_apk_dialog_message_unknown_size)
+                                                    },
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                            },
+                                            confirmButton = {
+                                                Button(onClick = {
+                                                    apkViewModel.onEvent(ApkUiEvent.ConfirmDownload)
+                                                }) {
+                                                    Text(stringResource(R.string.prepare_apk_dialog_confirm))
+                                                }
+                                            },
+                                            dismissButton = {
+                                                TextButton(onClick = { apkViewModel.onEvent(ApkUiEvent.DismissPrepareDialog) }) {
+                                                    Text(stringResource(R.string.cancel))
+                                                }
+                                            },
+                                            containerColor = colorScheme.surface
+                                        )
+                                    }
+
+                                    // Delete Dialog
+                                    if (apkUiState.showDeleteDialog) {
+                                        val sizeMB = (apkStatus as? ApkPreparationStatus.Ready)?.sizeMB ?: 0
+                                        AlertDialog(
+                                            onDismissRequest = { apkViewModel.onEvent(ApkUiEvent.DismissDeleteDialog) },
+                                            title = {
+                                                Text(
+                                                    text = stringResource(R.string.prepare_apk_delete_confirm),
+                                                    style = MaterialTheme.typography.titleLarge
+                                                )
+                                            },
+                                            text = {
+                                                Text(
+                                                    text = stringResource(R.string.prepare_apk_delete_message, sizeMB),
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                            },
+                                            confirmButton = {
+                                                Button(
+                                                    onClick = {
+                                                        apkViewModel.onEvent(ApkUiEvent.ConfirmDelete)
+                                                    },
+                                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                                        containerColor = colorScheme.error
+                                                    )
+                                                ) {
+                                                    Text("Delete")
+                                                }
+                                            },
+                                            dismissButton = {
+                                                TextButton(onClick = { apkViewModel.onEvent(ApkUiEvent.DismissDeleteDialog) }) {
+                                                    Text(stringResource(R.string.cancel))
+                                                }
+                                            },
+                                            containerColor = colorScheme.surface
+                                        )
+                                    }
+
+                                    // Show sharing rows only when APK is ready
+                                    val canShareAPK = apkStatus is ApkPreparationStatus.Ready ||
+                                            apkStatus is ApkPreparationStatus.UpdateAvailable
+
+                                    AnimatedVisibility(
+                                        visible = canShareAPK,
+                                        enter = fadeIn() + expandVertically(),
+                                        exit = fadeOut() + shrinkVertically()
+                                    ) {
+                                        Column {
+                                            HorizontalDivider(
+                                                modifier = Modifier.padding(start = 56.dp),
+                                                color = colorScheme.outline.copy(alpha = 0.12f)
+                                            )
+
+                                            // === Share via Hotspot Row ===
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        apkViewModel.onEvent(ApkUiEvent.HotspotShareClicked)
+                                                    }
+                                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Wifi,
+                                            contentDescription = null,
+                                            tint = colorScheme.primary,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+
+                                        Spacer(modifier = Modifier.width(14.dp))
+
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.hotspot_share_via),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium,
+                                                color = colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.hotspot_share_via_subtitle),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colorScheme.onSurface.copy(alpha = 0.6f),
+                                                lineHeight = 16.sp
+                                            )
+                                        }
+
+                                        Icon(
+                                            imageVector = Icons.Default.ChevronRight,
+                                            contentDescription = null,
+                                            tint = colorScheme.onSurface.copy(alpha = 0.4f),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                            }
+
+                                            HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp),
+                                        color = colorScheme.outline.copy(alpha = 0.12f)
+                                    )
+
+                                    // === Share via Bluetooth/Email Row (Fallback) ===
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { apkViewModel.onEvent(ApkUiEvent.AppShareClicked) }
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Bluetooth,
+                                            contentDescription = null,
+                                            tint = colorScheme.primary,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+
+                                        Spacer(modifier = Modifier.width(14.dp))
+
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.hotspot_share_other),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium,
+                                                color = colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.hotspot_share_other_subtitle),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colorScheme.onSurface.copy(alpha = 0.6f),
+                                                lineHeight = 16.sp
+                                            )
+                                        }
+
+                                        Icon(
+                                            imageVector = Icons.Default.ChevronRight,
+                                            contentDescription = null,
+                                            tint = colorScheme.onSurface.copy(alpha = 0.4f),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+
+                                            // APK Share Dialog
+                                            ApkShareExplanationDialog(
+                                                show = apkUiState.showShareApkDialog,
+                                                onConfirm = {
+                                                    apkViewModel.onEvent(ApkUiEvent.ConfirmAppShare)
+                                                },
+                                                onDismiss = { apkViewModel.onEvent(ApkUiEvent.DismissShareDialog) }
+                                            )
+                                        }
+                                    }
+
                                 }
                             }
                             
@@ -724,6 +1127,94 @@ fun PasswordPromptDialog(
                         text = stringResource(R.string.join),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.primary
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        text = stringResource(R.string.cancel),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.onSurface
+                    )
+                }
+            },
+            containerColor = colorScheme.surface,
+            tonalElevation = 8.dp
+        )
+    }
+}
+
+
+/**
+ * Dialog explaining APK sharing feature before sharing
+ */
+@Composable
+private fun ApkShareExplanationDialog(
+    show: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    if (show) {
+        val colorScheme = MaterialTheme.colorScheme
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = null,
+                    tint = colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = stringResource(R.string.share_apk_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = colorScheme.onSurface
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = stringResource(R.string.share_apk_explanation),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.onSurface
+                    )
+
+                    // Info box with receiver instructions
+                    Surface(
+                        color = colorScheme.primaryContainer.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = null,
+                                tint = colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.share_apk_receiver_instructions),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurface.copy(alpha = 0.8f),
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = onConfirm) {
+                    Text(
+                        text = stringResource(R.string.share_apk_confirm),
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             },
