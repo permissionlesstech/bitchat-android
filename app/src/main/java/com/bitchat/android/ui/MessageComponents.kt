@@ -72,6 +72,7 @@ import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.ui.theme.MessageBodyTextStyle
 import com.bitchat.android.ui.theme.MessageSenderTextStyle
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -105,6 +106,14 @@ private val MessagePlacementSpec: FiniteAnimationSpec<IntOffset> = spring(
 
 /** Removals are not worth dwelling on. */
 private val MessageFadeOutSpec: FiniteAnimationSpec<Float> = tween(BitchatMotion.QUICK_MS)
+
+/**
+ * How long placement animation stays armed after the list gains or loses a message.
+ *
+ * Comfortably longer than [MessagePlacementSpec] takes to settle, so an arrival's push is never cut
+ * short.
+ */
+private const val PlacementArmWindowMs = 600L
 
 /**
  * Above this many simultaneous arrivals, entry animations are skipped.
@@ -226,6 +235,24 @@ fun MessagesList(
         arrivalTracker.arrivals(messages)
     }
 
+    // Placement animation exists to soften insertions and removals. But *any* relayout moves every
+    // item — the keyboard opening behind a bottom sheet, that sheet closing again, the composer
+    // growing a line — and animating those made the whole conversation lurch. So it is armed only
+    // briefly around a genuine change to the list, and is otherwise off, letting items track the
+    // viewport exactly.
+    var placementArmed by remember { mutableStateOf(false) }
+    var previousMessageCount by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(messages.size) {
+        val previous = previousMessageCount
+        previousMessageCount = messages.size
+        // Skip the first composition: the list settling into its initial padding is not a change
+        // worth animating.
+        if (previous == null || previous == messages.size) return@LaunchedEffect
+        placementArmed = true
+        delay(PlacementArmWindowMs)
+        placementArmed = false
+    }
+
     val layoutDirection = LocalLayoutDirection.current
     LazyColumn(
         state = listState,
@@ -294,7 +321,7 @@ fun MessagesList(
                         // Entry fade is handled by entryModifier, together with the slide, so the
                         // two cannot drift out of step.
                         fadeInSpec = null,
-                        placementSpec = MessagePlacementSpec,
+                        placementSpec = if (placementArmed) MessagePlacementSpec else null,
                         fadeOutSpec = MessageFadeOutSpec
                     )
                     .then(entryModifier)

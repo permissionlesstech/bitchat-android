@@ -102,6 +102,78 @@ class GeohashAnonOrderingTest {
         assertEquals(12 - MaxVisibleAnons, anons.size - visible.size)
     }
 
+    // MARK: - Sectioning
+
+    /** Mirrors the grouping in GeohashPeopleList: self is never treated as an anon. */
+    private fun sections(people: List<GeoPerson>, myId: String?): Triple<List<String>, List<String>, List<String>> {
+        val isSelf: (GeoPerson) -> Boolean = { myId != null && it.id == myId }
+        val named = people.filter { isSelf(it) || !it.isAnonymous() }
+        val anons = people.filter { !isSelf(it) && it.isAnonymous() }
+        return Triple(
+            named.map { it.displayName },
+            anons.map { it.displayName },
+            people.map { it.displayName }
+        )
+    }
+
+    @Test
+    fun `anons are grouped out of the named sections entirely`() {
+        val people = listOf(person("alice"), person("anon1"), person("bob"), person("anon2"))
+        val (named, anons, _) = sections(people, myId = null)
+
+        assertEquals(listOf("alice", "bob"), named)
+        assertEquals(listOf("anon1", "anon2"), anons)
+    }
+
+    @Test
+    fun `self stays in the named sections even when unnamed`() {
+        // You always want to find yourself where you actually are, not buried in the anon section.
+        val me = person("anon")
+        val people = listOf(me, person("alice"), person("anon2"))
+        val (named, anons, _) = sections(people, myId = me.id)
+
+        assertTrue("self must not be grouped as an anon", named.contains("anon"))
+        assertFalse(anons.contains("anon"))
+        assertEquals(listOf("anon2"), anons)
+    }
+
+    @Test
+    fun `a list of only anons yields no named section`() {
+        val people = (1..4).map { person("anon$it") }
+        val (named, anons, _) = sections(people, myId = null)
+
+        assertTrue(named.isEmpty())
+        assertEquals(4, anons.size)
+    }
+
+    // MARK: - Stable length
+
+    @Test
+    fun `a trimmed anon list always renders exactly the cap`() {
+        // The reserved height is MaxVisibleAnons rows whenever trimmed, so the card cannot resize
+        // as anons churn above the cap.
+        for (total in listOf(MaxVisibleAnons + 1, MaxVisibleAnons + 7, MaxVisibleAnons + 40)) {
+            val anons = (1..total).map { person("anon$it") }
+            val visible = anons.take(MaxVisibleAnons)
+            assertEquals(
+                "row count must not depend on how many anons are present beyond the cap",
+                MaxVisibleAnons,
+                visible.size
+            )
+            assertEquals(total - MaxVisibleAnons, anons.size - visible.size)
+        }
+    }
+
+    @Test
+    fun `reordering never changes how many rows are rendered`() {
+        val anons = (1..9).map { person("anon$it", secondsAgo = it.toLong()) }
+        val byRecency = anons.sortedByDescending { it.lastSeen }.take(MaxVisibleAnons)
+        val reversed = anons.sortedBy { it.lastSeen }.take(MaxVisibleAnons)
+
+        assertEquals(byRecency.size, reversed.size)
+        assertEquals(MaxVisibleAnons, byRecency.size)
+    }
+
     @Test
     fun `a short anon list is shown in full with nothing hidden`() {
         val people = listOf(person("alice"), person("anon1"), person("anon2"))

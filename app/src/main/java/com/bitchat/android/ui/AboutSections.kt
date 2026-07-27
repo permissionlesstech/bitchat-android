@@ -73,6 +73,15 @@ internal val SheetRowLeadingSlot = 22.dp
 internal val SheetRowLeadingGutter = 16.dp
 internal val SheetRowHorizontal = 16.dp
 internal val SheetRowVertical = 13.dp
+
+/**
+ * Exact height of a people-list row.
+ *
+ * Fixed rather than derived from content: these lists reorder themselves constantly, and a row
+ * whose height depends on its content makes the whole card change height every time the order
+ * changes. Equals the leading glyph plus [SheetRowVertical] above and below.
+ */
+internal val SheetRowHeight = SheetRowLeadingSlot + SheetRowVertical * 2
 internal val SheetRowDividerInset = SheetRowHorizontal + SheetRowLeadingSlot + SheetRowLeadingGutter
 /** Selection indicator sized for [SheetRowLeadingSlot]. */
 internal val SheetRowSelectedDot = 12.dp

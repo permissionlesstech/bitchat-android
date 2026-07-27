@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.LocationOn
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
@@ -125,7 +126,15 @@ fun GeohashPeopleList(
                 viewModel.isPersonTeleported(person.id)
             }
 
-            val (teleportedPeople, localPeople) = orderedPeople.partition { personTeleported(it) }
+            // Anonymous participants form their own trailing section rather than a tail on each
+            // of the others. A busy geohash is mostly anons, and splitting them across "on
+            // location" and "teleported in" pushed the few recognisable names out of view twice
+            // over. Self is never grouped as an anon even when unnamed — you always want to find
+            // yourself where you actually are.
+            val isSelf: (GeoPerson) -> Boolean = { myHex != null && it.id == myHex }
+            val namedPeople = orderedPeople.filter { isSelf(it) || !it.isAnonymous() }
+            val anonPeople = orderedPeople.filter { !isSelf(it) && it.isAnonymous() }
+            val (teleportedPeople, localPeople) = namedPeople.partition { personTeleported(it) }
 
             @Composable
             fun personRow(person: GeoPerson) {
@@ -164,6 +173,17 @@ fun GeohashPeopleList(
                 )
                 PeopleCard(people = teleportedPeople, row = { personRow(it) })
             }
+
+            if (anonPeople.isNotEmpty()) {
+                SheetIconSectionHeader(
+                    icon = Icons.Outlined.Person,
+                    title = stringResource(R.string.section_anonymous),
+                    modifier = Modifier.padding(
+                        top = if (localPeople.isNotEmpty() || teleportedPeople.isNotEmpty()) 20.dp else 0.dp
+                    )
+                )
+                PeopleCard(people = anonPeople, capped = true, row = { personRow(it) })
+            }
         }
     }
 }
@@ -183,26 +203,29 @@ internal fun GeoPerson.isAnonymous(): Boolean {
 }
 
 /**
- * One grouped card of people, with a cap on how many anonymous participants are shown.
+ * One grouped card of people.
  *
- * A popular geohash can hold dozens of anons, which pushed everyone worth recognising off screen and
- * turned the sheet into a wall of near-identical rows. Named participants are always listed in full;
- * anons are trimmed to [MaxVisibleAnons], and the overflow is collapsed behind a count. The last
- * visible anon fades out under a gradient so the truncation is legible as truncation rather than
- * looking like the list simply ended.
+ * When [capped] the list is trimmed to [MaxVisibleAnons] rows and the remainder is collapsed behind
+ * a count. That matters for the anonymous section: a popular geohash can hold dozens of anons, which
+ * pushed everyone worth recognising off screen and turned the sheet into a wall of near-identical
+ * rows.
+ *
+ * The capped card is a **fixed height** — [MaxVisibleAnons] rows plus the overflow line, always,
+ * regardless of how many anons are currently present beyond the cap. Anons join and leave a busy
+ * geohash constantly, and sizing to the live count made the card grow and shrink under the reader
+ * every few seconds.
  */
 @Composable
 private fun PeopleCard(
     people: List<GeoPerson>,
-    row: @Composable (GeoPerson) -> Unit
+    row: @Composable (GeoPerson) -> Unit,
+    capped: Boolean = false
 ) {
     val palette = LocalBitchatPalette.current
 
-    val named = people.filterNot { it.isAnonymous() }
-    val anons = people.filter { it.isAnonymous() }
-    val visibleAnons = anons.take(MaxVisibleAnons)
-    val hiddenAnonCount = anons.size - visibleAnons.size
-    val visible = named + visibleAnons
+    val visible = if (capped) people.take(MaxVisibleAnons) else people
+    val hiddenCount = people.size - visible.size
+    val isTrimmed = capped && people.size > MaxVisibleAnons
 
     Surface(
         modifier = Modifier
@@ -213,50 +236,57 @@ private fun PeopleCard(
         shape = AboutCardShape
     ) {
         Column {
-            AnimatedRowColumn(items = visible, key = { it.id }) { index, person ->
-                Column {
-                    if (index > 0) SheetCardDivider()
-                    if (hiddenAnonCount > 0 && index == visible.lastIndex) {
-                        // Fade only the final row, so the gradient reads as "the list continues"
-                        // rather than dimming content that is still meant to be read.
-                        Box {
-                            row(person)
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(
-                                                palette.surface.copy(alpha = 0f),
-                                                palette.surface.copy(alpha = 0.85f)
+            Box(
+                // Reserve the full capped height up front so the card cannot resize as anons
+                // churn. Rows are a fixed height, so this is exact rather than an estimate.
+                modifier = if (isTrimmed) {
+                    Modifier.height(SheetRowHeight * MaxVisibleAnons)
+                } else {
+                    Modifier
+                }
+            ) {
+                AnimatedRowColumn(items = visible, key = { it.id }) { index, person ->
+                    Column {
+                        if (index > 0) SheetCardDivider()
+                        if (isTrimmed && index == visible.lastIndex) {
+                            // Fade only the final row, so the gradient reads as "the list
+                            // continues" rather than dimming content still meant to be read.
+                            Box {
+                                row(person)
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(
+                                                    palette.surface.copy(alpha = 0f),
+                                                    palette.surface.copy(alpha = 0.85f)
+                                                )
                                             )
                                         )
-                                    )
-                            )
+                                )
+                            }
+                        } else {
+                            row(person)
                         }
-                    } else {
-                        row(person)
                     }
                 }
             }
 
-            AnimatedVisibility(
-                visible = hiddenAnonCount > 0,
-                enter = fadeIn(tween(BitchatMotion.STANDARD_MS)),
-                exit = fadeOut(tween(BitchatMotion.QUICK_MS))
-            ) {
-                Text(
-                    text = stringResource(R.string.people_n_more, hiddenAnonCount),
+            if (isTrimmed) {
+                // Always laid out when trimmed, so the count changing never moves anything.
+                // Only the number itself animates.
+                AnimatedCountLabel(
+                    count = hiddenCount,
+                    text = stringResource(R.string.people_n_more, hiddenCount),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     color = palette.textTertiary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            start = SheetRowHorizontal,
-                            end = SheetRowHorizontal,
-                            bottom = SheetRowVertical
-                        )
+                    modifier = Modifier.padding(
+                        start = SheetRowHorizontal,
+                        end = SheetRowHorizontal,
+                        bottom = SheetRowVertical
+                    )
                 )
             }
         }
@@ -298,8 +328,11 @@ private fun GeohashPersonItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            // Exact height, not padding: a row that sizes to its content makes the card change
+            // height whenever the list reorders.
+            .height(SheetRowHeight)
             .clickable(onClick = onTap)
-            .padding(horizontal = SheetRowHorizontal, vertical = SheetRowVertical),
+            .padding(horizontal = SheetRowHorizontal),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
