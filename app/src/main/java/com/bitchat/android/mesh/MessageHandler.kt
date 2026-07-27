@@ -586,13 +586,31 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 }
 
                 val action = if (control.isFavorite) "favorited" else "unfavorited"
+                val notice = "${peerInfo.nickname} $action you$guidance"
                 val sys = com.bitchat.android.model.BitchatMessage(
                     sender = "system",
-                    content = "${peerInfo.nickname} $action you$guidance",
+                    content = notice,
                     timestamp = java.util.Date(),
                     isRelay = false
                 )
                 delegate?.onMessageReceived(sys)
+
+                // Mirror the notice into the private conversation so it's visible while chatting
+                try {
+                    val conversationID = com.bitchat.android.services.ContactDirectory
+                        .canonicalConversationId(fromPeerID)
+                    val sysPrivate = com.bitchat.android.model.BitchatMessage(
+                        sender = "system",
+                        content = notice,
+                        timestamp = java.util.Date(),
+                        isRelay = false,
+                        isPrivate = true,
+                        senderPeerID = conversationID
+                    )
+                    delegate?.onMessageReceived(sysPrivate)
+                } catch (_: Exception) {
+                    // Best-effort; public notice already delivered
+                }
             }
         } catch (_: Exception) {
             // Best-effort; ignore errors

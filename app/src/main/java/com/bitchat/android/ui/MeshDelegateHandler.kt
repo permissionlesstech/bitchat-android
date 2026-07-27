@@ -44,24 +44,29 @@ class MeshDelegateHandler(
             onHapticFeedback()
 
             if (message.isPrivate) {
-                // Private message
-                privateChatManager.handleIncomingPrivateMessage(message)
+                if (message.sender == "system") {
+                    // System notices (e.g. "x favorited you"): no unread badge, read receipt or push
+                    privateChatManager.handleIncomingPrivateMessage(message, suppressUnread = true)
+                } else {
+                    // Private message
+                    privateChatManager.handleIncomingPrivateMessage(message)
 
-                // Reactive read receipts: if chat is focused, send immediately for this message
-                message.senderPeerID?.let { senderPeerID ->
-                    sendReadReceiptIfFocused(message)
-                }
-                
-                // Show notification with enhanced information - now includes senderPeerID 
-                message.senderPeerID?.let { senderPeerID ->
-                    // Use nickname if available, fall back to sender or senderPeerID
-                    val senderNickname = message.sender.takeIf { it != senderPeerID } ?: senderPeerID
-                    val preview = NotificationTextUtils.buildPrivateMessagePreview(message)
-                    notificationManager.showPrivateMessageNotification(
-                        senderPeerID = senderPeerID,
-                        senderNickname = senderNickname,
-                        messageContent = preview
-                    )
+                    // Reactive read receipts: if chat is focused, send immediately for this message
+                    message.senderPeerID?.let { senderPeerID ->
+                        sendReadReceiptIfFocused(message)
+                    }
+
+                    // Show notification with enhanced information - now includes senderPeerID
+                    message.senderPeerID?.let { senderPeerID ->
+                        // Use nickname if available, fall back to sender or senderPeerID
+                        val senderNickname = message.sender.takeIf { it != senderPeerID } ?: senderPeerID
+                        val preview = NotificationTextUtils.buildPrivateMessagePreview(message)
+                        notificationManager.showPrivateMessageNotification(
+                            senderPeerID = senderPeerID,
+                            senderNickname = senderNickname,
+                            messageContent = preview
+                        )
+                    }
                 }
             } else if (message.channel != null) {
                 // Channel message: AppStateStore is the source of truth for list; only manage unread

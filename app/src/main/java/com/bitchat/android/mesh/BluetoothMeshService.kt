@@ -487,7 +487,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 delegate?.didReceiveMessage(message)
 
                 // If no UI delegate attached (app closed), show DM notification via service manager
-                if (delegate == null && message.isPrivate) {
+                if (delegate == null && message.isPrivate && message.sender != "system") {
                     try {
                         val senderPeerID = message.senderPeerID
                         if (senderPeerID != null) {
