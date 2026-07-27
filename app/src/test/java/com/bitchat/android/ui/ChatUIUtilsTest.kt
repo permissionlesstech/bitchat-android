@@ -28,7 +28,7 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class ChatUIUtilsTest {
-    private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.ROOT).apply {
+    private val timeFormatter = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.ROOT).apply {
         timeZone = java.util.TimeZone.getTimeZone("UTC")
     }
 
@@ -50,7 +50,7 @@ class ChatUIUtilsTest {
     @Test
     fun `text message metadata separates PoW badge with one space`() {
         assertEquals(
-            "00:00:00 ⛨12b",
+            "00:00 ⛨12b",
             formatTextMessageMetadata(message("hello", powDifficulty = 12), timeFormatter).text,
         )
     }
@@ -58,7 +58,7 @@ class ChatUIUtilsTest {
     @Test
     fun `text message metadata omits non-positive PoW difficulty`() {
         assertEquals(
-            "00:00:00",
+            "00:00",
             formatTextMessageMetadata(message("hello", powDifficulty = 0), timeFormatter).text,
         )
     }
@@ -74,9 +74,9 @@ class ChatUIUtilsTest {
             timeFormatter = timeFormatter,
         )
 
-        assertEquals("hello there  00:00:00", body.text)
+        assertEquals("hello there  00:00", body.text)
         val timestamp = body.spanStyles.first {
-            body.text.substring(it.start, it.end) == "  00:00:00"
+            body.text.substring(it.start, it.end) == "  00:00"
         }.item
         assertEquals(10.sp, timestamp.fontSize)
         assertEquals(FontWeight.Normal, timestamp.fontWeight)
@@ -92,9 +92,9 @@ class ChatUIUtilsTest {
             timeFormatter = timeFormatter,
         )
 
-        assertEquals("mined  00:00:00 ⛨8b", body.text)
+        assertEquals("mined  00:00 ⛨8b", body.text)
         val timestampAndPow = body.spanStyles.first {
-            body.text.substring(it.start, it.end) == "  00:00:00 ⛨8b"
+            body.text.substring(it.start, it.end) == "  00:00 ⛨8b"
         }.item
         assertEquals(10.sp, timestampAndPow.fontSize)
         assertEquals(palette.textTertiary, timestampAndPow.color)
@@ -240,7 +240,7 @@ class ChatUIUtilsTest {
             timeFormatter = timeFormatter,
         ).text
 
-        assertEquals("// Tor started. Routing all chats via Tor  00:00:00", text)
+        assertEquals("// Tor started. Routing all chats via Tor  00:00", text)
     }
 
     @Test
@@ -268,7 +268,7 @@ class ChatUIUtilsTest {
             annotated.text.substring(it.start, it.end) == "// tor restarting"
         }.item
         val time = annotated.spanStyles.first {
-            annotated.text.substring(it.start, it.end) == "  00:00:00"
+            annotated.text.substring(it.start, it.end) == "  00:00"
         }.item
 
         assertEquals(12.sp, action.fontSize)

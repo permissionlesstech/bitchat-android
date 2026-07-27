@@ -21,6 +21,9 @@ import java.util.*
 /** Opacity applied to the `#abcd` disambiguation suffix so the readable name dominates. */
 internal const val SUFFIX_ALPHA = ChatVisualTokens.SenderSuffixAlpha
 
+/** Compact transcript timestamp; seconds add noise without helping conversation scanning. */
+internal const val CHAT_TIMESTAMP_PATTERN = "HH:mm"
+
 /** Background opacity for a mention chip referring to somebody else. */
 internal const val MENTION_CHIP_ALPHA = ChatVisualTokens.HighlightAlpha
 
@@ -102,7 +105,7 @@ fun formatTextMessageSender(
  */
 fun formatTextMessageMetadata(
     message: BitchatMessage,
-    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    timeFormatter: SimpleDateFormat = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault())
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
     builder.pushStyle(
@@ -183,7 +186,7 @@ fun formatTextMessageBody(
     message: BitchatMessage,
     currentUserNickname: String,
     palette: BitchatPalette,
-    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()),
+    timeFormatter: SimpleDateFormat = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()),
     includeTimestamp: Boolean = true
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
@@ -210,7 +213,7 @@ fun formatTextMessageBody(
 fun formatSystemMessage(
     message: BitchatMessage,
     palette: BitchatPalette,
-    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    timeFormatter: SimpleDateFormat = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault())
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
     builder.pushStyle(
@@ -240,7 +243,7 @@ fun formatMessageHeaderAnnotatedString(
     currentUserNickname: String,
     myPeerID: String,
     palette: BitchatPalette,
-    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()),
+    timeFormatter: SimpleDateFormat = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()),
     includeSender: Boolean = true
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
