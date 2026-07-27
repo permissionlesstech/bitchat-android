@@ -85,6 +85,13 @@ class BluetoothConnectionManager(
     
     // Service state
     private var isActive = false
+
+    /**
+     * Duty-cycle state as of the last power mode change, so onPowerModeChanged can tell
+     * whether the behaviour actually changed. PowerManager updates its own currentMode
+     * before invoking the callback, so it cannot be asked what the previous state was.
+     */
+    private var lastKnownDutyCycleState: Boolean = powerManager.shouldUseDutyCycle()
     
     // Delegate for callbacks
     var delegate: BluetoothConnectionManagerDelegate? = null
@@ -463,8 +470,13 @@ class BluetoothConnectionManager(
                 return@launch
             }
 
-            // Avoid rapid scan restarts by checking if we need to change scan behavior
-            val wasUsingDutyCycle = powerManager.shouldUseDutyCycle()
+            // Avoid rapid scan restarts by checking if we need to change scan behavior.
+            //
+            // This must compare against the previous state remembered here. PowerManager
+            // assigns its currentMode before invoking this callback, so querying
+            // shouldUseDutyCycle() twice around the advertising restart returned the same
+            // value every time and the scan was never restarted on a mode change.
+            val wasUsingDutyCycle = lastKnownDutyCycleState
             
             // Update advertising with new power settings if server enabled
             val serverEnabled = isGattServerEnabled()
@@ -476,6 +488,7 @@ class BluetoothConnectionManager(
             
             // Only restart scanning if the duty cycle behavior changed
             val nowUsingDutyCycle = powerManager.shouldUseDutyCycle()
+            lastKnownDutyCycleState = nowUsingDutyCycle
             if (wasUsingDutyCycle != nowUsingDutyCycle) {
                 val clientEnabled = isGattClientEnabled()
                 if (clientEnabled) {
