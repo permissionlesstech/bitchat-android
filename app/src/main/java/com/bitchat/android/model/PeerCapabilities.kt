@@ -1,6 +1,7 @@
 package com.bitchat.android.model
 
 import android.os.Parcelable
+import com.bitchat.android.protocol.MeshDiagnosticsConstants
 import kotlinx.parcelize.Parcelize
 
 /**
@@ -35,7 +36,7 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         val GROUPS = PeerCapabilities(1L shl 3)
         val BOARD = PeerCapabilities(1L shl 4)
         val VOUCH = PeerCapabilities(1L shl 5)
-        val MESH_DIAGNOSTICS = PeerCapabilities(1L shl 6)
+        val MESH_DIAGNOSTICS = PeerCapabilities(1L shl MeshDiagnosticsConstants.CAPABILITY_BIT)
         val BRIDGE = PeerCapabilities(1L shl 7)
 
         /** Noise-encrypted private BitchatFilePacket using payload type 0x20. */
@@ -47,7 +48,7 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         val NON_DESTRUCTIVE_NOISE_REPLACEMENT = PeerCapabilities(1L shl 10)
 
         /** Capabilities implemented by this Android build. */
-        val LOCAL_SUPPORTED = PRIVATE_MEDIA
+        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or MESH_DIAGNOSTICS.rawValue)
 
         /**
          * Decode the low 64 bits and ignore any future extension bytes, which

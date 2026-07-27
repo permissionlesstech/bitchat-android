@@ -853,10 +853,12 @@ private fun ChatDialogs(
 
     // About sheet
     var showDebugSheet by remember { mutableStateOf(false) }
+    var showMeshTopology by remember { mutableStateOf(false) }
     AboutSheet(
         isPresented = showAppInfo,
         onDismiss = onAppInfoDismiss,
-        onShowDebug = { showDebugSheet = true }
+        onShowDebug = { showDebugSheet = true },
+        onShowMeshTopology = { showMeshTopology = true },
     )
     if (showDebugSheet) {
         com.bitchat.android.ui.debug.DebugSettingsSheet(
@@ -865,6 +867,11 @@ private fun ChatDialogs(
             meshService = viewModel.meshService
         )
     }
+    MeshTopologySheet(
+        isPresented = showMeshTopology,
+        onDismiss = { showMeshTopology = false },
+        meshService = viewModel.meshServiceFacade,
+    )
     
     // Location channels sheet
     if (showLocationChannelsSheet) {
