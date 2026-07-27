@@ -187,42 +187,6 @@ fun LocationChannelsSheet(
                     contentPadding = PaddingValues(top = 72.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
-                    if (locationServicesEnabled &&
-                        permissionState == LocationChannelManager.PermissionState.DENIED
-                    ) {
-                        item(key = "permissions") {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = AboutHorizontalPadding)
-                                    .padding(top = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.location_permission_denied),
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = palette.accentRed
-                                )
-                                TextButton(
-                                    onClick = {
-                                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                            data = Uri.fromParts("package", context.packageName, null)
-                                        }
-                                        context.startActivity(intent)
-                                    },
-                                    contentPadding = PaddingValues(0.dp)
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.open_settings),
-                                        fontSize = 12.sp,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                }
-                            }
-                        }
-                    }
-
                     // Mesh section: icon + title header, offline subtitle, then selection card
                     item(key = "mesh_card") {
                         Column {
@@ -367,6 +331,47 @@ fun LocationChannelsSheet(
                                             }
                                         }
                                     }
+                                }
+                            }
+                        }
+                    }
+
+                    if (locationServicesEnabled &&
+                        permissionState == LocationChannelManager.PermissionState.DENIED
+                    ) {
+                        item(key = "permissions") {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AboutHorizontalPadding)
+                                    .padding(top = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.location_permission_denied),
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = palette.accentRed
+                                )
+                                TextButton(
+                                    onClick = {
+                                        val intent =
+                                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                data = Uri.fromParts(
+                                                    "package",
+                                                    context.packageName,
+                                                    null
+                                                )
+                                            }
+                                        context.startActivity(intent)
+                                    },
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.open_settings),
+                                        fontSize = 12.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
                                 }
                             }
                         }
