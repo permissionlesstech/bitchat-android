@@ -438,6 +438,7 @@ fun MessageInput(
                     keyboardActions = KeyboardActions(onSend = {
                         if (hasText) onSend()
                     }),
+                    singleLine = cashuToken != null,
                     // Cap the growth so a pasted wall of text cannot swallow the message list.
                     maxLines = 6,
                     visualTransformation = remember(
