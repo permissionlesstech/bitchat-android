@@ -19,12 +19,16 @@ internal class BitchatNdrRelayAdapter(
         id: String,
         handler: (NostrEvent) -> Boolean
     ) {
-        relayManager.subscribeAfterSuccessfulProcessing(
-            filter = filter,
-            id = id,
-            targetRelayUrls = accountRelayUrls,
-            handler = handler
-        )
+        check(
+            relayManager.subscribeAfterSuccessfulProcessing(
+                filter = filter,
+                id = id,
+                targetRelayUrls = accountRelayUrls,
+                handler = handler
+            )
+        ) {
+            "NDR relay subscription was rejected during account reset"
+        }
     }
 
     override fun unsubscribe(id: String) {
@@ -221,6 +225,7 @@ class NdrNostrService(
     private val knownActivePeerPubkeys = linkedSetOf<String>()
     private var nextRuntimeEpoch = 0L
     private var activeRuntimeEpoch: Long? = null
+    private var processExitShutdown = false
 
     init {
         relayManager.setOnConnectionAvailable {
@@ -243,19 +248,27 @@ class NdrNostrService(
     }
 
     @Synchronized
-    fun configureIfNeeded(identity: NostrIdentity) {
+    fun configureIfNeeded(
+        identity: NostrIdentity,
+        accountGuard: () -> Boolean = { true }
+    ): Boolean {
+        if (!accountGuard()) return false
         if (!NdrFeatureGate.isEnabled()) {
             teardownLocked()
             configurationFailurePubkeyHex = null
-            return
+            return false
         }
-        configureRuntimeIfNeededLocked(identity, drainPendingActions = true)
+        return configureRuntimeIfNeededLocked(identity, drainPendingActions = true)
     }
 
     private fun configureRuntimeIfNeededLocked(
         identity: NostrIdentity,
         drainPendingActions: Boolean
     ): Boolean {
+        if (processExitShutdown) {
+            Log.w(TAG, "Refusing to reopen NDR during committed process exit")
+            return false
+        }
         if (panicResetBlocked) {
             Log.e(TAG, "Refusing to configure NDR after an incomplete panic wipe")
             return false
@@ -365,8 +378,10 @@ class NdrNostrService(
     fun sendIfPossible(
         text: String,
         peerPubkeyHex: String,
-        expiresAtSeconds: ULong? = null
+        expiresAtSeconds: ULong? = null,
+        accountGuard: () -> Boolean = { true }
     ): NdrSendResult {
+        if (!accountGuard()) return NdrSendResult.FAILED
         if (!NdrFeatureGate.isEnabled()) return NdrSendResult.NO_SESSION
         val runtime = pairwiseRuntime ?: return if (configurationFailurePubkeyHex != null) {
             NdrSendResult.FAILED
@@ -386,18 +401,24 @@ class NdrNostrService(
         if (!sessionInfo.sendReady) {
             return NdrSendResult.FAILED
         }
-        return try {
+        try {
             runtime.sendText(peer, text, expiresAtSeconds)
-            if (!persistEstablishedMarkerIfNeededLocked(runtime)) {
-                return NdrSendResult.FAILED
-            }
-            drainAndApplyPubSubEventsLocked()
-            NdrSendResult.SENT
         } catch (_: Throwable) {
             Log.d(TAG, "NDR send failed")
-            drainAndApplyPubSubEventsLocked()
-            NdrSendResult.FAILED
+            runCatching { drainAndApplyPubSubEventsLocked() }
+            return NdrSendResult.FAILED
         }
+
+        // Once sendText returns, the native runtime has durably advanced the
+        // ratchet and owns the pending publish action. Never ask the caller to
+        // retry that plaintext, even if host-side marker/drain work now fails.
+        if (!persistEstablishedMarkerIfNeededLocked(runtime)) {
+            Log.e(TAG, "NDR message admitted before host marker persistence failed")
+            return NdrSendResult.SENT
+        }
+        runCatching { drainAndApplyPubSubEventsLocked() }
+            .onFailure { Log.w(TAG, "NDR message admitted but pending-action drain failed") }
+        return NdrSendResult.SENT
     }
 
     @Synchronized
@@ -1091,8 +1112,19 @@ class NdrNostrService(
             .onFailure { Log.w(TAG, "Failed to destroy NDR runtime") }
     }
 
+    /** Quiesce account-bound runtime work for process exit without wiping durable sessions. */
+    @Synchronized
+    fun shutdownForProcessExit() {
+        processExitShutdown = true
+        NostrInboundAccountLifecycle.invalidate()
+        onDecryptedMessage = null
+        onOutOfBandPayload = null
+        teardownLocked()
+    }
+
     @Synchronized
     fun resetForPanic(): Boolean {
+        NostrInboundAccountLifecycle.invalidate()
         onDecryptedMessage = null
         teardownLocked()
         panicResetBlocked = true

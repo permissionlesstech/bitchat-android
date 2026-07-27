@@ -6,9 +6,9 @@ internal data class NdrAccountEpoch(
 )
 
 /**
- * Serializes NDR receive-side mutations against account invalidation.
+ * Serializes account-bound receive mutations against account invalidation.
  *
- * Panic invalidation waits for a mutation already inside [runIfCurrent], then
+ * Invalidation waits for a mutation already inside [runIfCurrent], then
  * advances the generation before the wipe starts. Old-account jobs can
  * therefore neither overlap nor repopulate the fresh post-wipe epoch.
  */
@@ -47,3 +47,7 @@ internal class NdrAccountEpochGuard {
         generation == epoch.generation &&
             accountPubkeyHex == epoch.accountPubkeyHex
 }
+
+/** Account-wide names used by both legacy gift-wrap and NDR receive paths. */
+internal typealias NostrAccountEpoch = NdrAccountEpoch
+internal typealias NostrAccountEpochGuard = NdrAccountEpochGuard

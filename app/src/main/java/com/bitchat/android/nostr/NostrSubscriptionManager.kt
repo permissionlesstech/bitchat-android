@@ -4,7 +4,6 @@ import android.app.Application
 import android.util.Log
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 /**
  * NostrSubscriptionManager
@@ -12,20 +11,32 @@ import kotlinx.coroutines.launch
  */
 class NostrSubscriptionManager(
     private val application: Application,
+    @Suppress("UNUSED_PARAMETER")
     private val scope: CoroutineScope
 ) {
     companion object { private const val TAG = "NostrSubscriptionManager" }
 
     private val relayManager get() = NostrRelayManager.getInstance(application)
 
-    fun connect() = scope.launch { runCatching { relayManager.connect() }.onFailure { Log.e(TAG, "connect failed: ${it.message}") } }
-    fun disconnect() = scope.launch { runCatching { relayManager.disconnect() }.onFailure { Log.e(TAG, "disconnect failed: ${it.message}") } }
+    fun connect() {
+        runCatching { relayManager.connect() }
+            .onFailure { Log.e(TAG, "connect failed: ${it.message}") }
+    }
+
+    fun disconnect() {
+        runCatching { relayManager.disconnect() }
+            .onFailure { Log.e(TAG, "disconnect failed: ${it.message}") }
+    }
 
     fun subscribeGiftWraps(pubkey: String, sinceMs: Long, id: String, handler: (NostrEvent) -> Unit) {
-        scope.launch {
-            val filter = NostrFilter.giftWrapsFor(pubkey, sinceMs)
-            relayManager.subscribe(filter, id, handler)
-        }
+        val generation = relayManager.captureAccountGeneration()
+        val filter = NostrFilter.giftWrapsFor(pubkey, sinceMs)
+        relayManager.subscribe(
+            filter = filter,
+            id = id,
+            handler = handler,
+            expectedAccountGeneration = generation
+        )
     }
 
     /** Subscribe to geohash chat messages only (kind 20000) — low-volume, kept alive in background. */
@@ -37,21 +48,21 @@ class NostrSubscriptionManager(
         handler: (NostrEvent) -> Unit,
         liveLocationToken: Long? = null
     ) {
-        scope.launch {
-            if (liveLocationToken != null &&
-                !LiveLocationPrivacyGate.accepts(liveLocationToken)
-            ) return@launch
-            val filter = NostrFilter.geohashMessages(geohash, sinceMs, limit)
-            relayManager.subscribeForGeohash(
-                geohash,
-                filter,
-                id,
-                handler,
-                includeDefaults = false,
-                nRelays = 5,
-                liveLocationToken = liveLocationToken
-            )
-        }
+        if (liveLocationToken != null &&
+            !LiveLocationPrivacyGate.accepts(liveLocationToken)
+        ) return
+        val generation = relayManager.captureAccountGeneration()
+        val filter = NostrFilter.geohashMessages(geohash, sinceMs, limit)
+        relayManager.subscribeForGeohash(
+            geohash,
+            filter,
+            id,
+            handler,
+            includeDefaults = false,
+            nRelays = 5,
+            liveLocationToken = liveLocationToken,
+            expectedAccountGeneration = generation
+        )
     }
 
     /** Subscribe to geohash presence heartbeats only (kind 20001) — high-volume, paused in background. */
@@ -63,22 +74,24 @@ class NostrSubscriptionManager(
         handler: (NostrEvent) -> Unit,
         liveLocationToken: Long? = null
     ) {
-        scope.launch {
-            if (liveLocationToken != null &&
-                !LiveLocationPrivacyGate.accepts(liveLocationToken)
-            ) return@launch
-            val filter = NostrFilter.geohashPresence(geohash, sinceMs, limit)
-            relayManager.subscribeForGeohash(
-                geohash,
-                filter,
-                id,
-                handler,
-                includeDefaults = false,
-                nRelays = 5,
-                liveLocationToken = liveLocationToken
-            )
-        }
+        if (liveLocationToken != null &&
+            !LiveLocationPrivacyGate.accepts(liveLocationToken)
+        ) return
+        val generation = relayManager.captureAccountGeneration()
+        val filter = NostrFilter.geohashPresence(geohash, sinceMs, limit)
+        relayManager.subscribeForGeohash(
+            geohash,
+            filter,
+            id,
+            handler,
+            includeDefaults = false,
+            nRelays = 5,
+            liveLocationToken = liveLocationToken,
+            expectedAccountGeneration = generation
+        )
     }
 
-    fun unsubscribe(id: String) { scope.launch { runCatching { relayManager.unsubscribe(id) } } }
+    fun unsubscribe(id: String) {
+        runCatching { relayManager.unsubscribe(id) }
+    }
 }

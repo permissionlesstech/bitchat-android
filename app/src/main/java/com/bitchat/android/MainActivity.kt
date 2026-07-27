@@ -88,6 +88,12 @@ class MainActivity : OrientationAwareActivity() {
             finishAndRemoveTask()
             return
         }
+        if (com.bitchat.android.service.AppShutdownCoordinator
+                .isShutdownCommitted()
+        ) {
+            finishAndRemoveTask()
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             this.setRecentsScreenshotEnabled(false)
         }
@@ -118,8 +124,6 @@ class MainActivity : OrientationAwareActivity() {
             return
         }
 
-        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
-        
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
 
@@ -724,6 +728,13 @@ class MainActivity : OrientationAwareActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+
+        if (com.bitchat.android.service.AppShutdownCoordinator
+                .isShutdownCommitted()
+        ) {
+            finishAndRemoveTask()
+            return
+        }
         
         // Check if this is a quit request from the notification
         if (intent.getBooleanExtra("ACTION_QUIT_APP", false)) {
@@ -732,8 +743,6 @@ class MainActivity : OrientationAwareActivity() {
             return
         }
 
-        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
-        
         // Handle notification intents when app is already running
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)

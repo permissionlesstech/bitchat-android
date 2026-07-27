@@ -1,6 +1,7 @@
 package com.bitchat.android.nostr
 
 import com.bitchat.android.model.NdrFeatureGate
+import kotlinx.coroutines.Job
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -18,12 +19,45 @@ class NdrNostrServiceTest {
 
     @Before
     fun enableNdrForTest() {
+        NostrInboundAccountLifecycle.invalidate()
         NdrFeatureGate.setEnabledForTests(true)
     }
 
     @After
     fun resetNdrGate() {
+        NostrInboundAccountLifecycle.invalidate()
         NdrFeatureGate.setEnabledForTests(false)
+    }
+
+    @Test
+    fun processExitInvalidatesAccountWideReceiveWork() {
+        val parentJob = Job()
+        val accountContext =
+            NostrInboundAccountLifecycle.begin(localPubkey, parentJob)
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(FakeNdrPairwiseRuntime()))
+
+        assertTrue(NostrInboundAccountLifecycle.isCurrent(accountContext.epoch))
+        assertTrue(accountContext.receiveJob.isActive)
+
+        service.shutdownForProcessExit()
+
+        assertFalse(NostrInboundAccountLifecycle.isCurrent(accountContext.epoch))
+        assertTrue(accountContext.receiveJob.isCancelled)
+        parentJob.cancel()
+    }
+
+    @Test
+    fun processExitCannotReopenPairwiseRuntime() {
+        val factory = FakeNdrRuntimeFactory(FakeNdrPairwiseRuntime())
+        val service = service(runtimeFactory = factory)
+        val identity = testIdentity()
+        assertTrue(service.configureIfNeeded(identity))
+
+        service.shutdownForProcessExit()
+
+        assertFalse(service.configureIfNeeded(identity))
+        assertFalse(service.retirePeerForMaintenance(identity, peerPubkey))
+        assertEquals(1, factory.createdCount)
     }
 
     @Test
@@ -903,6 +937,27 @@ class NdrNostrServiceTest {
     }
 
     @Test
+    fun postCommitMarkerFailureStillReportsDurableNdrAdmission() {
+        val activePeers = mutableSetOf<String>()
+        val runtime = FakeNdrPairwiseRuntime(activePeers)
+        val markers = InMemoryMarkerStore()
+        val service = service(
+            runtimeFactory = FakeNdrRuntimeFactory(runtime),
+            markerStore = markers
+        )
+        service.configureIfNeeded(testIdentity())
+        activePeers += peerPubkey
+        markers.markFailure = java.io.IOException("marker storage unavailable")
+
+        val result = service.sendIfPossible("admitted-once", peerPubkey)
+
+        assertEquals(NdrSendResult.SENT, result)
+        assertEquals(listOf(peerPubkey), runtime.sendTextCalls)
+        assertTrue(runtime.sendTextCompleted)
+        assertTrue(runtime.destroyed)
+    }
+
+    @Test
     fun persistedHalfReadyPairwiseSessionNeverFallsBackAfterRestart() {
         val markers = InMemoryMarkerStore()
         val runtime = FakeNdrPairwiseRuntime().apply {
@@ -1095,6 +1150,38 @@ class NdrNostrServiceTest {
         assertFalse(
             isLegacyNostrAllowedWhenNdrDisabled(
                 ndrRequired = false,
+                rebindBlocked = true
+            )
+        )
+    }
+
+    @Test
+    fun ndrAdmissionDispositionRetriesEveryProtectedOrUnreadyState() {
+        assertEquals(
+            NdrSendDisposition.ADMITTED,
+            ndrSendDisposition(NdrSendResult.SENT)
+        )
+        assertEquals(
+            NdrSendDisposition.LEGACY_FALLBACK,
+            ndrSendDisposition(NdrSendResult.NO_SESSION)
+        )
+        assertEquals(
+            NdrSendDisposition.RETRYABLE,
+            ndrSendDisposition(NdrSendResult.NO_SESSION, ndrRequired = true)
+        )
+        assertEquals(
+            NdrSendDisposition.RETRYABLE,
+            ndrSendDisposition(NdrSendResult.NO_SESSION, pairwiseOnly = true)
+        )
+        assertEquals(
+            NdrSendDisposition.RETRYABLE,
+            ndrSendDisposition(NdrSendResult.FAILED)
+        )
+        assertEquals(
+            NdrSendDisposition.RETRYABLE,
+            ndrSendDisposition(
+                NdrSendResult.NO_SESSION,
+                ndrRequired = true,
                 rebindBlocked = true
             )
         )

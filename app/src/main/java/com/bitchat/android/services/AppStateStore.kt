@@ -126,8 +126,18 @@ object AppStateStore {
                 val idx = list.indexOfFirst { it.id == messageID }
                 if (idx >= 0) {
                     val current = list[idx].deliveryStatus
-                    // Do not downgrade (e.g., Read -> Delivered)
-                    if (statusPriority(status) >= statusPriority(current)) {
+                    val acceptsLocalFailure = status is DeliveryStatus.Failed &&
+                        (current == null ||
+                            current is DeliveryStatus.Sending ||
+                            current is DeliveryStatus.Failed)
+                    val rejectsLateFailure = status is DeliveryStatus.Failed &&
+                        !acceptsLocalFailure
+                    // Locally terminal/expired work may move Sending -> Failed,
+                    // but a late failure must not overwrite Sent/Delivered/Read.
+                    if (!rejectsLateFailure &&
+                        (acceptsLocalFailure ||
+                            statusPriority(status) >= statusPriority(current))
+                    ) {
                         list[idx] = list[idx].copy(deliveryStatus = status)
                         map[peer] = list
                         changed = true

@@ -118,9 +118,14 @@ class MeshForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        if (AppShutdownCoordinator.isShutdownCommitted()) {
+            stopSelf()
+            return
+        }
         if (!com.bitchat.android.nostr.NdrPanicStartupRecovery
                 .isNetworkStartupAllowed()
         ) {
+            discardOldAccountNetworkWork()
             stopSelf()
             return
         }
@@ -140,15 +145,17 @@ class MeshForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!com.bitchat.android.nostr.NdrPanicStartupRecovery
-                .isNetworkStartupAllowed()
-        ) {
+        if (AppShutdownCoordinator.isShutdownCommitted()) {
+            isShuttingDown = true
             stopSelf()
             return START_NOT_STICKY
         }
-        if (isShuttingDown && intent?.action == ACTION_START) {
-            AppShutdownCoordinator.cancelPendingShutdown()
-            isShuttingDown = false
+        if (!com.bitchat.android.nostr.NdrPanicStartupRecovery
+                .isNetworkStartupAllowed()
+        ) {
+            discardOldAccountNetworkWork()
+            stopSelf()
+            return START_NOT_STICKY
         }
         if (isShuttingDown && intent?.action != ACTION_QUIT) {
             return START_NOT_STICKY
@@ -393,6 +400,13 @@ class MeshForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        // Service teardown is normally transient: pause retries but preserve
+        // the outbox for a later service rebind. Panic/quit discard explicitly.
+        try {
+            com.bitchat.android.services.MessageRouter
+                .tryGetInstance()
+                ?.stopOutboxScheduler()
+        } catch (_: Exception) { }
         updateJob?.cancel()
         updateJob = null
         // Cancel the service coroutine scope to prevent leaks
@@ -403,6 +417,40 @@ class MeshForegroundService : Service() {
             isInForeground = false
         }
         super.onDestroy()
+    }
+
+    private fun discardOldAccountNetworkWork() {
+        try {
+            com.bitchat.android.nostr.NostrTransport
+                .tryGetInstance()
+                ?.discardForAccountReset()
+        } catch (_: Exception) { }
+        try {
+            com.bitchat.android.services.MessageRouter
+                .tryGetInstance()
+                ?.discardForAccountReset()
+        } catch (_: Exception) { }
+        try {
+            com.bitchat.android.nostr.NostrInboundAccountLifecycle
+                .invalidate()
+        } catch (_: Exception) { }
+        val relayManager = runCatching {
+            com.bitchat.android.nostr.NostrRelayManager
+                .getInstance(applicationContext)
+        }.getOrNull()
+        val relayResetToken = runCatching {
+            relayManager?.beginAccountReset()
+        }.getOrNull()
+        try {
+            com.bitchat.android.nostr.NdrNostrService
+                .getInstance(applicationContext)
+                .shutdownForProcessExit()
+        } catch (_: Exception) { }
+        if (relayResetToken != null) {
+            runCatching {
+                relayManager?.discardForAccountReset(relayResetToken)
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

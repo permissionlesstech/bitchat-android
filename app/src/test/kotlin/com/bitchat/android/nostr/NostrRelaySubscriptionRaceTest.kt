@@ -9,6 +9,7 @@ import okhttp3.WebSocket
 import okio.ByteString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -93,6 +94,26 @@ class NostrRelaySubscriptionRaceTest {
         assertFalse(accepted ?: true)
     }
 
+    @Test
+    fun ndrAdapterRejectsSubscriptionDuringAccountReset() {
+        val manager = NostrRelayManager(
+            CoroutineScope(Dispatchers.Unconfined + SupervisorJob()),
+            NostrEventDeduplicator(maxCapacity = 8)
+        )
+        val adapter = BitchatNdrRelayAdapter(manager)
+        val resetToken = manager.beginAccountReset()
+
+        assertThrows(IllegalStateException::class.java) {
+            adapter.subscribe(
+                filter = NostrFilter(kinds = listOf(1060)),
+                id = "blocked-ndr"
+            ) { true }
+        }
+
+        assertTrue(manager.discardForAccountReset(resetToken))
+        assertTrue(manager.completeAccountReset(resetToken))
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun installConnection(
         manager: NostrRelayManager,
@@ -114,13 +135,15 @@ class NostrRelaySubscriptionRaceTest {
         val method = NostrRelayManager::class.java.getDeclaredMethod(
             "handleMessage",
             String::class.java,
-            String::class.java
+            String::class.java,
+            Long::class.javaPrimitiveType
         )
         method.isAccessible = true
         method.invoke(
             manager,
             """["EVENT","$subscriptionId",${event.toJsonString()}]""",
-            RELAY_URL
+            RELAY_URL,
+            manager.captureAccountGeneration()
         )
     }
 

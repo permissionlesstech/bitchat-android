@@ -172,4 +172,40 @@ class AppStateStoreTest {
             .deliveryStatus
         assertTrue(status is DeliveryStatus.Read)
     }
+
+    @Test
+    fun `local terminal failure replaces Sending but not admitted or delivered states`() {
+        val statuses = listOf(
+            DeliveryStatus.Sending,
+            DeliveryStatus.Sent,
+            DeliveryStatus.Delivered("peer-a", Date(2)),
+            DeliveryStatus.Read("peer-a", Date(3))
+        )
+        statuses.forEachIndexed { index, status ->
+            AppStateStore.addPrivateMessage(
+                "peer-a",
+                BitchatMessage(
+                    id = "status-$index",
+                    sender = "bob",
+                    content = "hello",
+                    timestamp = Date(1),
+                    isPrivate = true,
+                    deliveryStatus = status
+                )
+            )
+            AppStateStore.updatePrivateMessageStatus(
+                "status-$index",
+                DeliveryStatus.Failed("local terminal failure")
+            )
+        }
+
+        val resulting = AppStateStore.privateMessages.value
+            .values
+            .flatten()
+            .associate { it.id to it.deliveryStatus }
+        assertTrue(resulting["status-0"] is DeliveryStatus.Failed)
+        assertTrue(resulting["status-1"] is DeliveryStatus.Sent)
+        assertTrue(resulting["status-2"] is DeliveryStatus.Delivered)
+        assertTrue(resulting["status-3"] is DeliveryStatus.Read)
+    }
 }

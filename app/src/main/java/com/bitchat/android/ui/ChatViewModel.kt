@@ -375,12 +375,28 @@ class ChatViewModel(
         loadAndInitialize()
         ContactDirectory.initialize(getApplication()) { mesh }
         com.bitchat.android.services.AppStateStore.canonicalizePrivateChats()
-        // Mark queued private messages as failed when the router gives up on them
+        // Reflect asynchronous router admission/failure into the local echo.
         try {
-            com.bitchat.android.services.MessageRouter.getInstance(getApplication(), mesh).onMessageExpired = { messageID ->
+            val router = com.bitchat.android.services.MessageRouter.getInstance(
+                getApplication(),
+                mesh
+            )
+            router.onMessageExpired = { messageID ->
                 messageManager.updateMessageDeliveryStatus(
                     messageID,
                     com.bitchat.android.model.DeliveryStatus.Failed("Message expired before delivery")
+                )
+            }
+            router.onMessageAdmitted = { messageID ->
+                messageManager.updateMessageDeliveryStatus(
+                    messageID,
+                    com.bitchat.android.model.DeliveryStatus.Sent
+                )
+            }
+            router.onMessageFailed = { messageID, reason ->
+                messageManager.updateMessageDeliveryStatus(
+                    messageID,
+                    com.bitchat.android.model.DeliveryStatus.Failed(reason)
                 )
             }
         } catch (_: Exception) { }
@@ -718,6 +734,8 @@ class ChatViewModel(
             ) { messageContent, peerID, recipientNicknameParam, messageId ->
                 val router = com.bitchat.android.services.MessageRouter.getInstance(getApplication(), mesh)
                 val route = router.sendPrivate(messageContent, peerID, recipientNicknameParam, messageId)
+                // Geohash DMs retain their legacy fire-and-forget admission semantics.
+                // Standard Nostr/NDR sends are marked Sent only by onMessageAdmitted.
                 if (route == com.bitchat.android.services.MessageRouter.RouteResult.NOSTR) {
                     messageManager.updateMessageDeliveryStatus(messageId, com.bitchat.android.model.DeliveryStatus.Sent)
                 }
@@ -1364,20 +1382,35 @@ class ChatViewModel(
     
     fun panicClearAllData() {
         Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
+        // Freeze transport admission before erasing router plaintext so a
+        // concurrent UI send cannot create fresh work in the reset window.
+        val resetTransport = com.bitchat.android.nostr.NostrTransport
+            .getInstance(getApplication())
+        val transportResetToken = resetTransport.discardForAccountReset()
+        val resetRouter = com.bitchat.android.services.MessageRouter
+            .getInstance(getApplication(), mesh)
+        val routerResetToken = resetRouter.discardForAccountReset()
+        geohashViewModel.invalidateDoubleRatchetAccount()
         try {
             com.bitchat.android.geohash.LocationChannelManager
                 .getInstance(getApplication())
                 .disableLocationServices()
         } catch (_: Exception) { }
+        val resetRelay = com.bitchat.android.nostr.NostrRelayManager
+            .getInstance(getApplication())
+        val relayResetToken = resetRelay.beginAccountReset()
 
         // A pending one-shot downgrade confirmation must not survive panic or
         // become actionable against the fresh post-wipe identity.
         mediaSendingManager.clearPendingPrivateMediaConsent()
-        geohashViewModel.invalidateDoubleRatchetAccount()
         val ndrResetSucceeded = ndrService.resetForPanic()
         if (!ndrResetSucceeded) {
             Log.e(TAG, "NDR storage wipe was incomplete; NDR remains disabled for this process")
         }
+        // NDR reset is synchronized and therefore quiesces any native send that
+        // entered before panic. Advance the relay generation only afterwards,
+        // then clear every event produced by that old runtime.
+        resetRelay.discardForAccountReset(relayResetToken)
         ndrBootstrapAttemptMs.clear()
         ndrNoiseHandshakeAttemptMs.clear()
         ndrInviteRetries.cancelAll()
@@ -1453,13 +1486,9 @@ class ChatViewModel(
                 locationManager.clearPersistedChannel()
             } catch (_: Exception) { }
 
-            geohashViewModel.panicReset()
+            geohashViewModel.panicReset(reinitialize = false)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
-        }
-        if (ndrResetSucceeded && NdrFeatureGate.isEnabled()) {
-            // GeohashViewModel.panicReset() recreates the account identity and
-            // reinstalls the decrypted-message callback through initialize().
         }
 
         // Reset nickname
@@ -1469,6 +1498,24 @@ class ChatViewModel(
         
         // Recreate mesh service with fresh identity
         recreateMeshServiceAfterPanic()
+        try {
+            resetTransport.senderPeerID = mesh.myPeerID
+            val transportReopened =
+                resetTransport.completeAccountReset(transportResetToken)
+            val routerReopened =
+                resetRouter.completeAccountReset(routerResetToken)
+            val relayReopened =
+                resetRelay.completeAccountReset(relayResetToken)
+            if (!transportReopened || !routerReopened || !relayReopened) {
+                Log.w(TAG, "A newer account reset superseded panic reinitialization")
+                return
+            }
+            geohashViewModel.initialize()
+            mesh.startServices()
+            mesh.sendBroadcastAnnounce()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to reopen network transports after panic: ${e.message}")
+        }
 
         Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")
     }
@@ -1491,10 +1538,6 @@ class ChatViewModel(
         meshService = freshMeshService
         unifiedMeshService = freshUnifiedMeshService
         mesh.delegate = this
-
-        // Restart mesh operations with new identity
-        mesh.startServices()
-        mesh.sendBroadcastAnnounce()
 
         Log.d(
             TAG,

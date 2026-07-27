@@ -113,13 +113,16 @@ class GeohashViewModel(
         val identity = NostrIdentityBridge.getCurrentNostrIdentity(getApplication())
         if (identity != null) {
             // Configure the singleton only for the account identity, never a derived geohash key.
-            dmHandler.configureDoubleRatchet(identity)
+            val accountEpoch = dmHandler.configureAccount(identity)
             // Use global chat-messages only for full account DMs (mesh context). For geohash DMs, subscribe per-geohash below.
             subscriptionManager.subscribeGiftWraps(
                 pubkey = identity.publicKeyHex,
                 sinceMs = System.currentTimeMillis() - 172800000L,
                 id = "chat-messages",
-                handler = { event -> dmHandler.onGiftWrap(event, "", identity) } // geohash="" means global account DM (not geohash identity)
+                handler = { event ->
+                    // geohash="" means global account DM (not geohash identity).
+                    dmHandler.onGiftWrap(event, "", identity, accountEpoch)
+                }
             )
         }
         try {
@@ -194,7 +197,8 @@ class GeohashViewModel(
         }
     }
 
-    fun panicReset() {
+    fun panicReset(reinitialize: Boolean = true) {
+        dmHandler.invalidateAccount()
         repo.clearAll()
         GeohashAliasRegistry.clear()
         GeohashConversationRegistry.clear()
@@ -209,11 +213,17 @@ class GeohashViewModel(
         globalPresenceJob?.cancel()
         globalPresenceJob = null
         try { NostrIdentityBridge.clearAllAssociations(getApplication()) } catch (_: Exception) {}
-        initialize()
+        // Install the replacement account key while relay/transport admission is
+        // still blocked. The caller may defer network initialization until the
+        // rest of the account identity has been recreated.
+        try { NostrIdentityBridge.getCurrentNostrIdentity(getApplication()) } catch (_: Exception) {}
+        if (reinitialize) {
+            initialize()
+        }
     }
 
     fun invalidateDoubleRatchetAccount() {
-        dmHandler.invalidateDoubleRatchetAccount()
+        dmHandler.invalidateAccount()
     }
 
     private suspend fun broadcastLiveLocationPresence(geohash: String) {
@@ -249,8 +259,19 @@ class GeohashViewModel(
     }
 
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
-        viewModelScope.launch {
+        val accountEpoch = dmHandler.currentAccountEpoch() ?: return
+        val accountContext =
+            com.bitchat.android.nostr.NostrInboundAccountLifecycle
+                .contextFor(accountEpoch)
+                ?: return
+        val relayManager = NostrRelayManager.getInstance(getApplication())
+        val relayGeneration = relayManager.captureAccountGeneration()
+        viewModelScope.launch(Dispatchers.Default + accountContext.receiveJob) {
             try {
+                if (!com.bitchat.android.nostr.NostrInboundAccountLifecycle
+                        .isCurrent(accountEpoch) ||
+                    !relayManager.isAccountGenerationCurrent(relayGeneration)
+                ) return@launch
                 val canUseChannel = locationChannelManager
                     ?.canUseSelectedLocationChannel(channel) == true
                 if (!canUseChannel) {
@@ -274,11 +295,22 @@ class GeohashViewModel(
                     channel = "#${channel.geohash}",
                     powDifficulty = if (pow.enabled) pow.difficulty else null
                 )
-                messageManager.addChannelMessage("geo:${channel.geohash}", localMsg)
+                val localEchoAdded =
+                    com.bitchat.android.nostr.NostrInboundAccountLifecycle
+                        .runIfCurrent(accountEpoch) {
+                            messageManager.addChannelMessage(
+                                "geo:${channel.geohash}",
+                                localMsg
+                            )
+                        }
+                if (!localEchoAdded) return@launch
                 val identity = NostrIdentityBridge.deriveIdentity(
                     forGeohash = channel.geohash,
                     context = getApplication()
                 )
+                if (!com.bitchat.android.nostr.NostrInboundAccountLifecycle
+                        .isCurrent(accountEpoch)
+                ) return@launch
                 val teleported = locationChannelManager?.teleported?.value
                     ?: state.isTeleported.value
                 val event = NostrProtocol.createEphemeralGeohashEvent(
@@ -288,13 +320,13 @@ class GeohashViewModel(
                     nickname,
                     teleported
                 )
-                val relayManager = NostrRelayManager.getInstance(getApplication())
                 relayManager.sendEventToGeohash(
                     event,
                     channel.geohash,
                     includeDefaults = false,
                     nRelays = 5,
-                    liveLocationToken = liveLocationToken
+                    liveLocationToken = liveLocationToken,
+                    expectedAccountGeneration = relayGeneration
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash message: ${e.message}")
@@ -515,13 +547,16 @@ class GeohashViewModel(
         geohash: String,
         liveLocationToken: Long?
     ) {
+        val accountEpoch = dmHandler.currentAccountEpoch() ?: return
         val subId = "geohash-${UUID.randomUUID()}"; currentGeohashMsgSubId = subId
         subscriptionManager.subscribeGeohashMessages(
             geohash = geohash,
             sinceMs = System.currentTimeMillis() - 3600000L,
             limit = 200,
             id = subId,
-            handler = { event -> geohashMessageHandler.onEvent(event, geohash) },
+            handler = { event ->
+                geohashMessageHandler.onEvent(event, geohash, accountEpoch)
+            },
             liveLocationToken = liveLocationToken
         )
     }
@@ -535,13 +570,16 @@ class GeohashViewModel(
         geohash: String,
         liveLocationToken: Long?
     ) {
+        val accountEpoch = dmHandler.currentAccountEpoch() ?: return
         val subId = "geohash-presence-${UUID.randomUUID()}"; currentGeohashPresenceSubId = subId
         subscriptionManager.subscribeGeohashPresence(
             geohash = geohash,
             sinceMs = System.currentTimeMillis() - 3600000L,
             limit = 200,
             id = subId,
-            handler = { event -> geohashMessageHandler.onEvent(event, geohash) },
+            handler = { event ->
+                geohashMessageHandler.onEvent(event, geohash, accountEpoch)
+            },
             liveLocationToken = liveLocationToken
         )
     }
@@ -552,6 +590,11 @@ class GeohashViewModel(
      */
     private fun subscribeChannelDM(geohash: String) {
         val dmIdentity = NostrIdentityBridge.deriveIdentity(geohash, getApplication())
+        val accountEpoch = dmHandler.currentAccountEpoch()
+        if (accountEpoch == null) {
+            Log.w(TAG, "Skipping geohash DM subscription without an active account epoch")
+            return
+        }
         val dmSubId = "geo-dm-${UUID.randomUUID()}"
         currentDmSubId = dmSubId
         currentDmGeohash = geohash
@@ -559,7 +602,9 @@ class GeohashViewModel(
             pubkey = dmIdentity.publicKeyHex,
             sinceMs = System.currentTimeMillis() - 172800000L,
             id = dmSubId,
-            handler = { event -> dmHandler.onGiftWrap(event, geohash, dmIdentity) }
+            handler = { event ->
+                dmHandler.onGiftWrap(event, geohash, dmIdentity, accountEpoch)
+            }
         )
         // Also register alias in global registry for routing convenience
         GeohashAliasRegistry.put("nostr_${dmIdentity.publicKeyHex.take(16)}", dmIdentity.publicKeyHex)
@@ -630,6 +675,7 @@ class GeohashViewModel(
     }
 
     private fun performSubscribeSampling(geohash: String) {
+        val accountEpoch = dmHandler.currentAccountEpoch() ?: return
         val subscriptionId = samplingSubscriptionIds.getOrPut(geohash) {
             "sampling-${UUID.randomUUID()}"
         }
@@ -642,7 +688,9 @@ class GeohashViewModel(
                 sinceMs = System.currentTimeMillis() - 86400000L,
                 limit = 200,
                 id = subscriptionId,
-                handler = { event -> geohashMessageHandler.onEvent(event, geohash) }
+                handler = { event ->
+                    geohashMessageHandler.onEvent(event, geohash, accountEpoch)
+                }
             )
         }
 
@@ -662,7 +710,13 @@ class GeohashViewModel(
                     sinceMs = System.currentTimeMillis() - 86400000L,
                     limit = 200,
                     id = subscriptionId,
-                    handler = { event -> geohashMessageHandler.onEvent(event, geohash) },
+                    handler = { event ->
+                        geohashMessageHandler.onEvent(
+                            event,
+                            geohash,
+                            accountEpoch
+                        )
+                    },
                     liveLocationToken = token
                 )
             }

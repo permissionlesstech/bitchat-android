@@ -6,6 +6,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.MessageManager
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -41,13 +42,22 @@ class GeohashMessageHandler(
         return false
     }
 
-    fun onEvent(event: NostrEvent, subscribedGeohash: String) {
-        scope.launch {
+    internal fun onEvent(
+        event: NostrEvent,
+        subscribedGeohash: String,
+        accountEpoch: NostrAccountEpoch
+    ) {
+        val accountContext =
+            NostrInboundAccountLifecycle.contextFor(accountEpoch)
+                ?: return
+        scope.launch(Dispatchers.Default + accountContext.receiveJob) {
             try {
+                if (!NostrInboundAccountLifecycle.isCurrent(accountEpoch)) {
+                    return@launch
+                }
                 if (event.kind != NostrKind.EPHEMERAL_EVENT && event.kind != NostrKind.GEOHASH_PRESENCE) return@launch
                 val tagGeo = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }?.getOrNull(1)
                 if (tagGeo == null || !tagGeo.equals(subscribedGeohash, true)) return@launch
-                if (dedupe(event.id)) return@launch
 
                 // PoW validation (if enabled) - apply to chat messages primarily
                 if (event.kind == NostrKind.EPHEMERAL_EVENT) {
@@ -63,47 +73,71 @@ class GeohashMessageHandler(
                 // Blocked users check (use injected DataManager which has loaded state)
                 if (dataManager.isGeohashUserBlocked(pubkey)) return@launch
 
-                // Update participant count (last seen) on BOTH Presence (20001) and Chat (20000) events
-                if (event.kind == NostrKind.GEOHASH_PRESENCE || event.kind == NostrKind.EPHEMERAL_EVENT) {
-                    repo.updateParticipant(subscribedGeohash, pubkey, Date(event.createdAt * 1000L))
-                }
-                
-                event.tags.find { it.size >= 2 && it[0] == "n" }?.let { repo.cacheNickname(pubkey, it[1]) }
-                event.tags.find { it.size >= 2 && it[0] == "t" && it[1] == "teleport" }?.let { repo.markTeleported(pubkey) }
-                // Register a geohash DM alias for this participant so MessageRouter can route DMs via Nostr
-                try {
-                    com.bitchat.android.nostr.GeohashAliasRegistry.put("nostr_${pubkey.take(16)}", pubkey)
-                } catch (_: Exception) { }
-
-                // Stop here for presence events - they don't produce chat messages
-                if (event.kind == NostrKind.GEOHASH_PRESENCE) return@launch
-
-                // Skip our own events for message emission
-                val my = NostrIdentityBridge.deriveIdentity(subscribedGeohash, application)
-                if (my.publicKeyHex.equals(pubkey, true)) return@launch
-
                 val isTeleportPresence = event.tags.any { it.size >= 2 && it[0] == "t" && it[1] == "teleport" } &&
                                          event.content.trim().isEmpty()
-                if (isTeleportPresence) return@launch
+                val emitMessage =
+                    event.kind != NostrKind.GEOHASH_PRESENCE &&
+                        !isTeleportPresence &&
+                        !NostrIdentityBridge.deriveIdentity(
+                            subscribedGeohash,
+                            application
+                        ).publicKeyHex.equals(pubkey, true)
 
-                val senderName = repo.displayNameForNostrPubkeyUI(pubkey)
-                val hasNonce = try { NostrProofOfWork.hasNonce(event) } catch (_: Exception) { false }
-                val msg = BitchatMessage(
-                    id = event.id,
-                    sender = senderName,
-                    content = event.content,
-                    timestamp = Date(event.createdAt * 1000L),
-                    isRelay = false,
-                    originalSender = repo.displayNameForNostrPubkey(pubkey),
-                    senderPeerID = "nostr:${pubkey.take(8)}",
-                    senderNostrPubkey = pubkey,
-                    mentions = null,
-                    channel = "#$subscribedGeohash",
-                    powDifficulty = try {
-                        if (hasNonce) NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } else null
-                    } catch (_: Exception) { null }
-                )
-                messageManager.addChannelMessage("geo:$subscribedGeohash", msg)
+                NostrInboundAccountLifecycle.runIfCurrent(accountEpoch) {
+                    if (dedupe(event.id)) return@runIfCurrent
+                    repo.updateParticipant(
+                        subscribedGeohash,
+                        pubkey,
+                        Date(event.createdAt * 1000L)
+                    )
+                    event.tags.find {
+                        it.size >= 2 && it[0] == "n"
+                    }?.let {
+                        repo.cacheNickname(pubkey, it[1])
+                    }
+                    event.tags.find {
+                        it.size >= 2 && it[0] == "t" && it[1] == "teleport"
+                    }?.let {
+                        repo.markTeleported(pubkey)
+                    }
+                    GeohashAliasRegistry.put(
+                        "nostr_${pubkey.take(16)}",
+                        pubkey
+                    )
+                    if (emitMessage) {
+                        val hasNonce = try {
+                            NostrProofOfWork.hasNonce(event)
+                        } catch (_: Exception) {
+                            false
+                        }
+                        val msg = BitchatMessage(
+                            id = event.id,
+                            sender = repo.displayNameForNostrPubkeyUI(pubkey),
+                            content = event.content,
+                            timestamp = Date(event.createdAt * 1000L),
+                            isRelay = false,
+                            originalSender = repo.displayNameForNostrPubkey(pubkey),
+                            senderPeerID = "nostr:${pubkey.take(8)}",
+                            senderNostrPubkey = pubkey,
+                            mentions = null,
+                            channel = "#$subscribedGeohash",
+                            powDifficulty = try {
+                                if (hasNonce) {
+                                    NostrProofOfWork.calculateDifficulty(event.id)
+                                        .takeIf { it > 0 }
+                                } else {
+                                    null
+                                }
+                            } catch (_: Exception) {
+                                null
+                            }
+                        )
+                        messageManager.addChannelMessage(
+                            "geo:$subscribedGeohash",
+                            msg
+                        )
+                    }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "onEvent error: ${e.message}")
             }

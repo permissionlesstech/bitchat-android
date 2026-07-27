@@ -22,7 +22,6 @@ import com.bitchat.android.ui.PrivateMessageOrigin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Date
@@ -47,9 +46,8 @@ class NostrDirectMessageHandler(
 
     private val seenStore by lazy(seenStoreProvider)
     private val ndrService by lazy { NdrNostrService.getInstance(application) }
-    private val ndrAccountEpochs = NdrAccountEpochGuard()
-    private val ndrReceiveJobLock = Any()
-    private var ndrReceiveJob: Job = SupervisorJob(scope.coroutineContext[Job])
+    @Volatile
+    private var ndrCallbackInstalled = false
 
     // Simple event deduplication
     private val processedIds = ArrayDeque<String>()
@@ -75,23 +73,32 @@ class NostrDirectMessageHandler(
         dedupe(id)
     }
 
-    fun configureDoubleRatchet(identity: NostrIdentity) {
+    /**
+     * Begin a fresh account-wide receive epoch before installing any account or
+     * derived-geohash subscription. The returned epoch must be captured by the
+     * subscription handler so a delayed old subscription cannot join a newer
+     * account merely because its event arrives later.
+     */
+    internal fun configureAccount(identity: NostrIdentity): NostrAccountEpoch {
+        val accountContext = NostrInboundAccountLifecycle.begin(
+            accountPubkeyHex = identity.publicKeyHex,
+            parentJob = scope.coroutineContext[Job]
+        )
         if (!NdrFeatureGate.isEnabled()) {
-            invalidateDoubleRatchetAccount()
-            ndrService.onDecryptedMessage = null
-            return
-        }
-        val epoch = ndrAccountEpochs.begin(identity.publicKeyHex)
-        val receiveJob = synchronized(ndrReceiveJobLock) {
-            ndrReceiveJob.cancel()
-            SupervisorJob(scope.coroutineContext[Job]).also { ndrReceiveJob = it }
+            if (ndrCallbackInstalled) {
+                ndrService.onDecryptedMessage = null
+                ndrCallbackInstalled = false
+            }
+            return accountContext.epoch
         }
         // A prior account's callback must not consume and discard pending
         // deliveries while the replacement runtime is initialized.
         ndrService.onDecryptedMessage = null
         ndrService.configureIfNeeded(identity)
         ndrService.onDecryptedMessage = callback@{ message, completion ->
-            if (!NdrFeatureGate.isEnabled() || !ndrAccountEpochs.isCurrent(epoch)) {
+            if (!NdrFeatureGate.isEnabled() ||
+                !NostrInboundAccountLifecycle.isCurrent(accountContext.epoch)
+            ) {
                 completion(NdrDeliveryResult.REJECTED)
                 return@callback
             }
@@ -101,24 +108,49 @@ class NostrDirectMessageHandler(
                 completion(NdrDeliveryResult.RETRY)
                 return@callback
             }
-            if (!currentIdentity.publicKeyHex.equals(epoch.accountPubkeyHex, ignoreCase = true)) {
+            if (!currentIdentity.publicKeyHex.equals(
+                    accountContext.epoch.accountPubkeyHex,
+                    ignoreCase = true
+                )
+            ) {
                 completion(NdrDeliveryResult.REJECTED)
                 return@callback
             }
-            onDoubleRatchetMessage(message, currentIdentity, epoch, receiveJob, completion)
+            onDoubleRatchetMessage(
+                message,
+                currentIdentity,
+                accountContext.epoch,
+                accountContext.receiveJob,
+                completion
+            )
+        }
+        ndrCallbackInstalled = true
+        return accountContext.epoch
+    }
+
+    internal fun currentAccountEpoch(): NostrAccountEpoch? =
+        NostrInboundAccountLifecycle.currentEpoch()
+
+    fun invalidateAccount() {
+        NostrInboundAccountLifecycle.invalidate()
+        if (ndrCallbackInstalled) {
+            ndrService.onDecryptedMessage = null
+            ndrCallbackInstalled = false
         }
     }
 
-    fun invalidateDoubleRatchetAccount() {
-        ndrAccountEpochs.invalidate()
-        synchronized(ndrReceiveJobLock) {
-            ndrReceiveJob.cancel()
-        }
-    }
-
-    fun onGiftWrap(giftWrap: NostrEvent, geohash: String, identity: NostrIdentity) {
-        scope.launch(Dispatchers.Default) {
+    internal fun onGiftWrap(
+        giftWrap: NostrEvent,
+        geohash: String,
+        identity: NostrIdentity,
+        accountEpoch: NostrAccountEpoch
+    ): Job? {
+        val accountContext =
+            NostrInboundAccountLifecycle.contextFor(accountEpoch)
+                ?: return null
+        return scope.launch(Dispatchers.Default + accountContext.receiveJob) {
             try {
+                if (!isAccountEpochCurrent(accountEpoch)) return@launch
                 if (dedupe(giftWrap.id)) return@launch
 
                 val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
@@ -132,6 +164,7 @@ class NostrDirectMessageHandler(
 
                 val (content, rawSenderPubkey, rumorTimestamp) = decryptResult
                 val senderPubkey = rawSenderPubkey.lowercase()
+                if (!isAccountEpochCurrent(accountEpoch)) return@launch
                 val legacyAllowed = runCatching {
                     legacyNostrInboundAllowed(senderPubkey)
                 }.getOrDefault(false)
@@ -139,6 +172,7 @@ class NostrDirectMessageHandler(
                     Log.w(TAG, "Rejecting legacy DM for an NDR-pinned contact")
                     return@launch
                 }
+                if (!isAccountEpochCurrent(accountEpoch)) return@launch
 
                 // If sender is blocked for geohash contexts, drop any events from this pubkey
                 // Applies to both geohash DMs (geohash != "") and account DMs (geohash == "")
@@ -148,7 +182,8 @@ class NostrDirectMessageHandler(
                     senderPubkey = senderPubkey,
                     timestamp = Date(rumorTimestamp * 1000L),
                     geohash = geohash,
-                    recipientIdentity = identity
+                    recipientIdentity = identity,
+                    accountEpoch = accountEpoch
                 )
 
             } catch (_: Exception) {
@@ -160,14 +195,16 @@ class NostrDirectMessageHandler(
     private fun onDoubleRatchetMessage(
         message: NdrDecryptedMessage,
         identity: NostrIdentity,
-        epoch: NdrAccountEpoch,
+        accountEpoch: NostrAccountEpoch,
         receiveJob: Job,
         completion: (NdrDeliveryResult) -> Unit
     ) {
         scope.launch(Dispatchers.Default + receiveJob) {
             var result = NdrDeliveryResult.RETRY
             try {
-                if (!NdrFeatureGate.isEnabled() || !ndrAccountEpochs.isCurrent(epoch)) {
+                if (!NdrFeatureGate.isEnabled() ||
+                    !isAccountEpochCurrent(accountEpoch)
+                ) {
                     result = NdrDeliveryResult.REJECTED
                     return@launch
                 }
@@ -198,7 +235,9 @@ class NostrDirectMessageHandler(
                     result = NdrDeliveryResult.REJECTED
                     return@launch
                 }
-                if (!NdrFeatureGate.isEnabled() || !ndrAccountEpochs.isCurrent(epoch)) {
+                if (!NdrFeatureGate.isEnabled() ||
+                    !isAccountEpochCurrent(accountEpoch)
+                ) {
                     result = NdrDeliveryResult.REJECTED
                     return@launch
                 }
@@ -213,7 +252,7 @@ class NostrDirectMessageHandler(
                     timestamp = Date(applicationMessage.timestampMs),
                     geohash = "",
                     recipientIdentity = identity,
-                    ndrEpoch = epoch,
+                    accountEpoch = accountEpoch,
                     ndrEventId = dedupeId,
                     expiresAtSeconds = applicationMessage.expiresAtSeconds
                 )
@@ -221,10 +260,20 @@ class NostrDirectMessageHandler(
                 Log.e(TAG, "Failed to process double-ratchet message")
                 result = NdrDeliveryResult.RETRY
             } finally {
-                if (result.shouldAcknowledge) {
-                    if (seenStore.markProcessedNdr(message.eventId)) {
-                        markProcessed(message.eventId)
-                    } else {
+                if (!isAccountEpochCurrent(accountEpoch)) {
+                    result = NdrDeliveryResult.REJECTED
+                } else if (result.shouldAcknowledge) {
+                    var marked = false
+                    val mutationApplied =
+                        runIfAccountMutationCurrent(accountEpoch, null) {
+                            marked = seenStore.markProcessedNdr(message.eventId)
+                            if (marked) {
+                                markProcessed(message.eventId)
+                            }
+                        }
+                    if (!mutationApplied) {
+                        result = NdrDeliveryResult.REJECTED
+                    } else if (!marked) {
                         result = NdrDeliveryResult.RETRY
                     }
                 }
@@ -239,10 +288,11 @@ class NostrDirectMessageHandler(
         timestamp: Date,
         geohash: String,
         recipientIdentity: NostrIdentity,
-        ndrEpoch: NdrAccountEpoch? = null,
+        accountEpoch: NostrAccountEpoch,
         ndrEventId: String? = null,
         expiresAtSeconds: Long? = null
     ): NdrDeliveryResult {
+        if (!isAccountEpochCurrent(accountEpoch)) return NdrDeliveryResult.REJECTED
         if (isExpired(expiresAtSeconds)) return NdrDeliveryResult.REJECTED
         if (!content.startsWith("bitchat1:")) return NdrDeliveryResult.REJECTED
 
@@ -257,7 +307,7 @@ class NostrDirectMessageHandler(
         val noisePayload = NoisePayload.decode(packet.payload)
             ?: return NdrDeliveryResult.REJECTED
         val convKey = "nostr_${senderPubkey.take(16)}"
-        if (!runIfNdrMutationCurrent(ndrEpoch, expiresAtSeconds) {
+        if (!runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
                 repo.putNostrKeyMapping(convKey, senderPubkey)
                 GeohashAliasRegistry.put(convKey, senderPubkey)
 
@@ -282,7 +332,7 @@ class NostrDirectMessageHandler(
             senderPubkey = senderPubkey,
             recipientIdentity = recipientIdentity,
             allowAccountNdr = geohash.isEmpty(),
-            ndrEpoch = ndrEpoch,
+            accountEpoch = accountEpoch,
             ndrEventId = ndrEventId,
             expiresAtSeconds = expiresAtSeconds
         )
@@ -296,11 +346,11 @@ class NostrDirectMessageHandler(
         senderPubkey: String,
         recipientIdentity: NostrIdentity,
         allowAccountNdr: Boolean,
-        ndrEpoch: NdrAccountEpoch? = null,
+        accountEpoch: NostrAccountEpoch,
         ndrEventId: String? = null,
         expiresAtSeconds: Long? = null
     ): NdrDeliveryResult {
-        if (!isNdrEpochCurrent(ndrEpoch) || isExpired(expiresAtSeconds)) {
+        if (!isAccountEpochCurrent(accountEpoch) || isExpired(expiresAtSeconds)) {
             return NdrDeliveryResult.REJECTED
         }
         return when (payload.type) {
@@ -314,7 +364,9 @@ class NostrDirectMessageHandler(
 
                 val favoriteControl = FavoriteControlMessage.parse(pm.content)
                 if (favoriteControl != null) {
-                    if (!isNdrEpochCurrent(ndrEpoch) || isExpired(expiresAtSeconds)) {
+                    if (!isAccountEpochCurrent(accountEpoch) ||
+                        isExpired(expiresAtSeconds)
+                    ) {
                         return NdrDeliveryResult.REJECTED
                     }
                     val favoriteResult = handleFavoriteControl(
@@ -323,14 +375,14 @@ class NostrDirectMessageHandler(
                         senderNickname,
                         timestamp,
                         senderPubkey,
-                        ndrEpoch,
+                        accountEpoch,
                         ndrEventId,
                         expiresAtSeconds
                     )
                     if (favoriteResult != NdrDeliveryResult.CONSUMED &&
                         favoriteResult != NdrDeliveryResult.DUPLICATE
                     ) return favoriteResult
-                    if (!runIfNdrMutationCurrent(ndrEpoch, expiresAtSeconds) {
+                    if (!runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
                             if (!seenStore.hasDelivered(pm.messageID)) {
                                 sendDeliveryAck(
                                     pm.messageID,
@@ -367,7 +419,7 @@ class NostrDirectMessageHandler(
 
                 var messageAccepted = false
                 withContext(Dispatchers.Main) {
-                    runIfNdrMutationCurrent(ndrEpoch, expiresAtSeconds) {
+                    runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
                         privateChatManager.handleIncomingPrivateMessage(
                             message = message,
                             suppressUnread = suppressUnread,
@@ -379,7 +431,7 @@ class NostrDirectMessageHandler(
                 if (!messageAccepted) return NdrDeliveryResult.REJECTED
 
                 runCatching {
-                    runIfNdrMutationCurrent(ndrEpoch, expiresAtSeconds) {
+                    runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
                         if (!seenStore.hasDelivered(pm.messageID)) {
                             sendDeliveryAck(
                                 pm.messageID,
@@ -417,7 +469,7 @@ class NostrDirectMessageHandler(
                 val messageId = String(payload.data, Charsets.UTF_8)
                 var consumed = false
                 withContext(Dispatchers.Main) {
-                    runIfNdrMutationCurrent(ndrEpoch, expiresAtSeconds) {
+                    runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
                         meshDelegateHandler.didReceiveDeliveryAck(messageId, conversationID)
                         consumed = true
                     }
@@ -428,7 +480,7 @@ class NostrDirectMessageHandler(
                 val messageId = String(payload.data, Charsets.UTF_8)
                 var consumed = false
                 withContext(Dispatchers.Main) {
-                    runIfNdrMutationCurrent(ndrEpoch, expiresAtSeconds) {
+                    runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
                         meshDelegateHandler.didReceiveReadReceipt(messageId, conversationID)
                         consumed = true
                     }
@@ -446,7 +498,7 @@ class NostrDirectMessageHandler(
                         return NdrDeliveryResult.DUPLICATE
                     }
                     var message: BitchatMessage? = null
-                    if (!runIfNdrMutationCurrent(ndrEpoch, expiresAtSeconds) {
+                    if (!runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
                             val savedPath =
                                 com.bitchat.android.features.file.FileUtils.saveIncomingFile(
                                     context = application,
@@ -474,7 +526,7 @@ class NostrDirectMessageHandler(
                     }
                     var consumed = false
                     withContext(Dispatchers.Main) {
-                        runIfNdrMutationCurrent(ndrEpoch, expiresAtSeconds) {
+                        runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
                             message?.let {
                                 privateChatManager.handleIncomingPrivateMessage(
                                     message = it,
@@ -506,33 +558,20 @@ class NostrDirectMessageHandler(
         }
     }
 
-    private fun isNdrEpochCurrent(epoch: NdrAccountEpoch?): Boolean =
-        epoch == null ||
-            (NdrFeatureGate.isEnabled() && ndrAccountEpochs.isCurrent(epoch))
-
-    private fun runIfNdrEpochCurrent(
-        epoch: NdrAccountEpoch?,
-        mutation: () -> Unit
-    ): Boolean {
-        if (epoch == null) {
-            mutation()
-            return true
-        }
-        if (!NdrFeatureGate.isEnabled()) return false
-        return ndrAccountEpochs.runIfCurrent(epoch, mutation)
-    }
+    private fun isAccountEpochCurrent(epoch: NostrAccountEpoch): Boolean =
+        NostrInboundAccountLifecycle.isCurrent(epoch)
 
     private fun isExpired(expiresAtSeconds: Long?): Boolean =
         expiresAtSeconds?.let { it <= System.currentTimeMillis() / 1_000L } == true
 
-    private fun runIfNdrMutationCurrent(
-        epoch: NdrAccountEpoch?,
+    private fun runIfAccountMutationCurrent(
+        epoch: NostrAccountEpoch,
         expiresAtSeconds: Long?,
         mutation: () -> Unit
     ): Boolean {
         if (isExpired(expiresAtSeconds)) return false
         var applied = false
-        val epochCurrent = runIfNdrEpochCurrent(epoch) {
+        val epochCurrent = NostrInboundAccountLifecycle.runIfCurrent(epoch) {
             if (!isExpired(expiresAtSeconds)) {
                 mutation()
                 applied = true
@@ -573,7 +612,7 @@ class NostrDirectMessageHandler(
         senderNickname: String,
         timestamp: Date,
         senderPubkey: String,
-        ndrEpoch: NdrAccountEpoch? = null,
+        accountEpoch: NostrAccountEpoch,
         ndrEventId: String? = null,
         expiresAtSeconds: Long? = null
     ): NdrDeliveryResult {
@@ -597,7 +636,7 @@ class NostrDirectMessageHandler(
             }
 
             var systemMessage: BitchatMessage? = null
-            if (!runIfNdrMutationCurrent(ndrEpoch, expiresAtSeconds) {
+            if (!runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
                     FavoritesPersistenceService.shared.updatePeerFavoritedUs(
                         noiseKey,
                         control.isFavorite
@@ -635,7 +674,7 @@ class NostrDirectMessageHandler(
             var consumed = false
             var duplicate = false
             withContext(Dispatchers.Main) {
-                runIfNdrMutationCurrent(ndrEpoch, expiresAtSeconds) {
+                runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
                     systemMessage?.let {
                         if (state.getPrivateChatsValue()[targetConversationID]
                                 .orEmpty()
