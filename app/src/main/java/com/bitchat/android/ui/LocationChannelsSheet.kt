@@ -60,13 +60,13 @@ import kotlinx.coroutines.launch
  * Leading column width matching settings rows: 22.dp glyph + 16.dp gutter before title text.
  * Selection dots and row icons sit in this column so every option lines up with About settings.
  */
-private val ChannelLeadingSlot = 22.dp
-private val ChannelLeadingGutter = 16.dp
-private val ChannelRowHorizontal = 16.dp
-private val ChannelRowVertical = 13.dp
-private val ChannelDividerInset = ChannelRowHorizontal + ChannelLeadingSlot + ChannelLeadingGutter
+private val ChannelLeadingSlot = SheetRowLeadingSlot
+private val ChannelLeadingGutter = SheetRowLeadingGutter
+private val ChannelRowHorizontal = SheetRowHorizontal
+private val ChannelRowVertical = SheetRowVertical
+private val ChannelDividerInset = SheetRowDividerInset
 /** 2× the previous 6.dp selected indicator; sits centered in [ChannelLeadingSlot]. */
-private val ChannelSelectedDot = 12.dp
+private val ChannelSelectedDot = SheetRowSelectedDot
 
 /**
  * Location Channels sheet: grouped card rows matching About → Settings.
@@ -187,7 +187,7 @@ fun LocationChannelsSheet(
                     // Mesh section: icon + title header, offline subtitle, then selection card
                     item(key = "mesh_card") {
                         Column {
-                            ChannelSectionHeader(
+                            SheetIconSectionHeader(
                                 icon = Icons.Filled.Hub,
                                 title = stringResource(R.string.mesh_title),
                                 subtitle = stringResource(R.string.mesh_section_subtitle),
@@ -223,7 +223,7 @@ fun LocationChannelsSheet(
                     // Location channels: globe + title, geohash subtitle, nearby levels + teleport
                     item(key = "channels_card") {
                         Column {
-                            ChannelSectionHeader(
+                            SheetIconSectionHeader(
                                 icon = Icons.Outlined.Public,
                                 title = stringResource(R.string.location_channels_heading),
                                 subtitle = stringResource(R.string.location_channels_desc),
@@ -241,7 +241,7 @@ fun LocationChannelsSheet(
                                     if (locationServicesEnabled) {
                                         if (nearbyChannels.isNotEmpty()) {
                                             nearbyChannels.forEachIndexed { index, channel ->
-                                                if (index > 0) ChannelCardDivider()
+                                                if (index > 0) SheetCardDivider()
                                                 val coverage = coverageString(channel.geohash.length)
                                                 val nameBase = locationNames[channel.level]
                                                 val namePart = nameBase?.let { formattedNamePrefix(channel.level) + it }
@@ -269,10 +269,10 @@ fun LocationChannelsSheet(
                                                     }
                                                 )
                                             }
-                                            ChannelCardDivider()
+                                            SheetCardDivider()
                                         } else if (showNearbyLoading) {
                                             ChannelLoadingRow()
-                                            ChannelCardDivider()
+                                            SheetCardDivider()
                                         }
                                     }
 
@@ -352,7 +352,7 @@ fun LocationChannelsSheet(
                                 ) {
                                     Column {
                                         bookmarks.forEachIndexed { index, gh ->
-                                            if (index > 0) ChannelCardDivider()
+                                            if (index > 0) SheetCardDivider()
                                             val level = levelForLength(gh.length)
                                             val channel = GeohashChannel(level = level, geohash = gh)
                                             val coverage = coverageString(gh.length)
@@ -495,63 +495,6 @@ fun LocationChannelsSheet(
 
     DisposableEffect(Unit) {
         onDispose { viewModel.endGeohashSampling() }
-    }
-}
-
-@Composable
-private fun ChannelCardDivider() {
-    val palette = LocalBitchatPalette.current
-    HorizontalDivider(
-        modifier = Modifier.padding(start = ChannelDividerInset),
-        thickness = 1.dp,
-        color = palette.outlineVariant
-    )
-}
-
-/**
- * Section title row: icon + name on one line, optional short subtitle beneath.
- */
-@Composable
-private fun ChannelSectionHeader(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    modifier: Modifier = Modifier
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val palette = LocalBitchatPalette.current
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = AboutHorizontalPadding),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = colorScheme.primary,
-                modifier = Modifier.size(22.dp)
-            )
-            Text(
-                text = title,
-                fontSize = 17.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.SemiBold,
-                color = colorScheme.primary
-            )
-        }
-        Text(
-            text = subtitle,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
-            fontFamily = FontFamily.Monospace,
-            color = palette.textSecondary
-        )
     }
 }
 

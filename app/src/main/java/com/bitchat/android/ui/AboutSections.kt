@@ -68,6 +68,15 @@ internal val AboutHorizontalPadding = 20.dp
 /** Card corner radius for grouped rows. */
 internal val AboutCardShape = RoundedCornerShape(16.dp)
 
+/** Leading icon column in settings-style sheet rows. */
+internal val SheetRowLeadingSlot = 22.dp
+internal val SheetRowLeadingGutter = 16.dp
+internal val SheetRowHorizontal = 16.dp
+internal val SheetRowVertical = 13.dp
+internal val SheetRowDividerInset = SheetRowHorizontal + SheetRowLeadingSlot + SheetRowLeadingGutter
+/** Selection indicator sized for [SheetRowLeadingSlot]. */
+internal val SheetRowSelectedDot = 12.dp
+
 /**
  * Two top-level views of the sheet: what the app is and how to drive it, versus the knobs.
  */
@@ -96,6 +105,66 @@ internal fun AboutSectionLabel(
         letterSpacing = 0.8.sp,
         color = palette.textTertiary,
         modifier = modifier.padding(start = AboutHorizontalPadding, top = 24.dp, bottom = 8.dp)
+    )
+}
+
+/**
+ * Icon + title on one line, optional short subtitle beneath. Used by location / network sheets.
+ */
+@Composable
+internal fun SheetIconSectionHeader(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val palette = LocalBitchatPalette.current
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = AboutHorizontalPadding),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+            Text(
+                text = title,
+                fontSize = 17.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+                color = colorScheme.primary
+            )
+        }
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                fontFamily = FontFamily.Monospace,
+                color = palette.textSecondary
+            )
+        }
+    }
+}
+
+/** Inset divider used inside grouped sheet cards (aligns with text column after the leading slot). */
+@Composable
+internal fun SheetCardDivider() {
+    val palette = LocalBitchatPalette.current
+    HorizontalDivider(
+        modifier = Modifier.padding(start = SheetRowDividerInset),
+        thickness = 1.dp,
+        color = palette.outlineVariant
     )
 }
 

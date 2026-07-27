@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -109,89 +110,83 @@ fun MeshPeerListSheet(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 64.dp, bottom = 20.dp)
+                    contentPadding = PaddingValues(top = 72.dp, bottom = 32.dp)
                 ) {
-                    // Header: badge + live participant count
-                    item(key = "people_header") {
-                        val peopleCount = when (selectedLocationChannel) {
-                            is ChannelID.Location -> geohashPeopleCount
-                            else -> connectedPeers.count { it != viewModel.myPeerID }
-                        }
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = SheetHorizontalPadding + 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            SheetHeaderBadge(icon = Icons.Filled.Person)
-                            AnimatedCountLabel(
-                                count = peopleCount,
-                                text = stringResource(R.string.people_count_title, peopleCount),
-                                fontSize = 20.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Medium,
-                                color = colorScheme.primary
-                            )
-                        }
+                    val peopleCount = when (selectedLocationChannel) {
+                        is ChannelID.Location -> geohashPeopleCount
+                        else -> connectedPeers.count { it != viewModel.myPeerID }
                     }
 
                     // Channels section
                     if (joinedChannels.isNotEmpty()) {
-                        item(key = "channels_header") {
-                            SheetSectionLabel(text = stringResource(R.string.channels))
-                        }
-
-                        items(
-                            items = joinedChannels.toList(),
-                            key = { "channel_$it" }
-                        ) { channel ->
-                            val isSelected = channel == currentChannel
-                            val unreadCount = unreadChannelMessages[channel] ?: 0
-
-                            ChannelRow(
-                                channel = channel,
-                                isSelected = isSelected,
-                                unreadCount = unreadCount,
-                                colorScheme = colorScheme,
-                                onChannelClick = {
-                                    // Check if this is a DM channel (starts with @)
-                                    if (channel.startsWith("@")) {
-                                        // Extract peer name and find the peer ID
-                                        val peerName = channel.removePrefix("@")
-                                        val peerID =
-                                            peerNicknames.entries.firstOrNull { it.value == peerName }?.key
-                                    if (peerID != null) {
-                                            viewModel.showPrivateChatSheet(peerID)
-                                            onDismiss()
+                        item(key = "channels_section") {
+                            Column {
+                                SheetIconSectionHeader(
+                                    icon = Icons.Filled.Tag,
+                                    title = stringResource(R.string.channels),
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = AboutHorizontalPadding)
+                                        .padding(top = 10.dp),
+                                    color = LocalBitchatPalette.current.surface,
+                                    shape = AboutCardShape
+                                ) {
+                                    Column {
+                                        joinedChannels.toList().forEachIndexed { index, channel ->
+                                            if (index > 0) SheetCardDivider()
+                                            val isSelected = channel == currentChannel
+                                            val unreadCount = unreadChannelMessages[channel] ?: 0
+                                            ChannelRow(
+                                                channel = channel,
+                                                isSelected = isSelected,
+                                                unreadCount = unreadCount,
+                                                colorScheme = colorScheme,
+                                                onChannelClick = {
+                                                    if (channel.startsWith("@")) {
+                                                        val peerName = channel.removePrefix("@")
+                                                        val peerID =
+                                                            peerNicknames.entries.firstOrNull { it.value == peerName }?.key
+                                                        if (peerID != null) {
+                                                            viewModel.showPrivateChatSheet(peerID)
+                                                            onDismiss()
+                                                        }
+                                                    } else {
+                                                        viewModel.switchToChannel(channel)
+                                                        onDismiss()
+                                                    }
+                                                },
+                                                onLeaveChannel = {
+                                                    viewModel.leaveChannel(channel)
+                                                },
+                                            )
                                         }
-                                    } else {
-                                        // Regular channel switch
-                                        viewModel.switchToChannel(channel)
-                                        onDismiss()
                                     }
-                                },
-                                onLeaveChannel = {
-                                    viewModel.leaveChannel(channel)
-                                },
-                            )
+                                }
+                            }
                         }
                     }
 
-                    // People section - switch between mesh and geohash lists (iOS-compatible)
+                    // People / geohash participants
                     item(key = "people_section") {
                         when (selectedLocationChannel) {
                             is ChannelID.Location -> {
-                                // Show geohash people list when in location channel
                                 GeohashPeopleList(
                                     viewModel = viewModel,
-                                    onTapPerson = onDismiss
+                                    onTapPerson = onDismiss,
+                                    modifier = Modifier.padding(
+                                        top = if (joinedChannels.isNotEmpty()) 20.dp else 8.dp
+                                    )
                                 )
                             }
 
                             else -> {
-                                // Show mesh peer list when in mesh channel (default)
                                 PeopleSection(
-                                    modifier = Modifier.padding(top = if (joinedChannels.isNotEmpty()) 16.dp else 0.dp),
+                                    modifier = Modifier.padding(
+                                        top = if (joinedChannels.isNotEmpty()) 20.dp else 8.dp
+                                    ),
                                     connectedPeers = connectedPeers,
                                     peerNicknames = peerNicknames,
                                     peerRSSI = peerRSSI,
@@ -199,6 +194,7 @@ fun MeshPeerListSheet(
                                     colorScheme = colorScheme,
                                     selectedPrivatePeer = selectedPrivatePeer,
                                     wifiAwarePeerIDs = wifiAwarePeerIDs,
+                                    peopleCount = peopleCount,
                                     viewModel = viewModel,
                                     onPrivateChatStart = { peerID ->
                                         viewModel.showPrivateChatSheet(peerID)
@@ -239,8 +235,8 @@ fun MeshPeerListSheet(
     }
 }
 
-/** Icon size for rows inside the sheets: one step down from the top bar. */
-private val PeerRowIconSize = 18.dp
+/** Icon size for trailing actions on peer rows (matches settings glyph scale). */
+private val PeerRowIconSize = 22.dp
 
 @Composable
 private fun ChannelRow(
@@ -253,54 +249,50 @@ private fun ChannelRow(
 ) {
     val palette = LocalBitchatPalette.current
 
-    Surface(
-        onClick = onChannelClick,
-        color = if (isSelected) palette.surfaceVariant else palette.surface,
-        shape = RoundedCornerShape(10.dp),
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = SheetHorizontalPadding, vertical = 3.dp)
+            .clickable(onClick = onChannelClick)
+            .padding(horizontal = SheetRowHorizontal, vertical = SheetRowVertical),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 44.dp)
-                .padding(start = 14.dp, end = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier.size(SheetRowLeadingSlot),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Unread badge
-                if (unreadCount > 0) {
-                    UnreadBadge(
-                        count = unreadCount,
-                        colorScheme = colorScheme
-                    )
-                }
-
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .size(SheetRowSelectedDot)
+                        .background(palette.accentGreen, CircleShape)
+                )
+            } else if (unreadCount > 0) {
+                UnreadBadge(count = unreadCount, colorScheme = colorScheme)
+            } else {
                 Text(
-                    text = channel,
+                    text = "#",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 14.sp,
-                    color = if (isSelected) colorScheme.primary else palette.textPrimary,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                )
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Leave channel button
-                CloseButton(
-                    onClick = onLeaveChannel,
+                    fontWeight = FontWeight.Medium,
+                    color = palette.textTertiary
                 )
             }
         }
+
+        Spacer(modifier = Modifier.width(SheetRowLeadingGutter))
+
+        Text(
+            text = channel,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 14.sp,
+            color = if (isSelected) colorScheme.primary else palette.textPrimary,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        CloseButton(onClick = onLeaveChannel)
     }
 }
 
@@ -316,6 +308,7 @@ fun PeopleSection(
     colorScheme: ColorScheme,
     selectedPrivatePeer: String?,
     wifiAwarePeerIDs: Set<String> = emptySet(),
+    peopleCount: Int = 0,
     viewModel: ChatViewModel,
     onPrivateChatStart: (String) -> Unit
 ) {
@@ -327,19 +320,31 @@ fun PeopleSection(
     val palette = LocalBitchatPalette.current
 
     Column(modifier = modifier) {
-        SheetSectionLabel(text = stringResource(R.string.people))
+        SheetIconSectionHeader(
+            icon = Icons.Filled.Person,
+            title = stringResource(R.string.people_count_title, peopleCount)
+        )
 
-        if (connectedPeers.isEmpty()) {
-            Text(
-                text = stringResource(id = R.string.no_one_connected),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                color = palette.textTertiary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = SheetHorizontalPadding + 14.dp, vertical = 12.dp)
-            )
-        }
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = AboutHorizontalPadding)
+                .padding(top = 10.dp),
+            color = palette.surface,
+            shape = AboutCardShape
+        ) {
+            Column {
+                if (connectedPeers.isEmpty()) {
+                    Text(
+                        text = stringResource(id = R.string.no_one_connected),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        color = palette.textTertiary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = SheetRowHorizontal, vertical = SheetRowVertical)
+                    )
+                }
 
         // Observe reactive state for favorites and fingerprints
         val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
@@ -443,7 +448,11 @@ fun PeopleSection(
                 if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
 
+        var peerIndex = 0
+
         sortedPeers.forEach { peerID ->
+            if (peerIndex > 0) SheetCardDivider()
+            peerIndex++
             val conversationID = ContactDirectory.canonicalConversationId(peerID)
             val isFavorite = peerFavoriteStates[peerID] ?: false
             val isVerified = peerVerifiedStates[peerID] ?: false
@@ -492,6 +501,9 @@ fun PeopleSection(
             val favPeerID = ContactIdentityResolver.noiseKeyHex(fav.peerNoisePublicKey)
             if (isFavoriteMappedToConnected(fav)) return@forEach
 
+            if (peerIndex > 0) SheetCardDivider()
+            peerIndex++
+
             val nostrConvKey: String? = try {
                 FavoritesPersistenceService.shared.findNostrPubkey(fav.peerNoisePublicKey)
                     ?.let { ContactIdentityResolver.nostrAliasForPubkey(it) }
@@ -535,6 +547,8 @@ fun PeopleSection(
                 showHashSuffix = showHash
             )
         }
+            }
+        }
     }
 }
 
@@ -568,130 +582,111 @@ private fun PeerItem(
     val assignedColor = viewModel.colorForMeshPeer(peerID, palette.isDark)
     val baseColor = if (isMe) palette.accentOrange else assignedColor
 
-    Surface(
-        onClick = onItemClick,
-        color = if (isSelected) palette.surfaceVariant else palette.surface,
-        shape = RoundedCornerShape(10.dp),
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = SheetHorizontalPadding, vertical = 3.dp)
+            .clickable(onClick = onItemClick)
+            .padding(horizontal = SheetRowHorizontal, vertical = SheetRowVertical),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 44.dp)
-                .padding(start = 14.dp, end = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier.size(SheetRowLeadingSlot),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Connection/status indicator
-                if (hasUnreadDM) {
-                    Icon(
-                        imageVector = Icons.Filled.Email,
-                        contentDescription = stringResource(R.string.cd_unread_message),
-                        modifier = Modifier.size(PeerRowIconSize),
-                        tint = palette.accentOrange
-                    )
-                } else if (showNostrGlobe) {
-                    Icon(
-                        imageVector = Icons.Filled.Public,
-                        contentDescription = stringResource(R.string.cd_reachable_via_nostr),
-                        modifier = Modifier.size(PeerRowIconSize),
-                        tint = palette.accentPurple
-                    )
-                } else if (!isDirect && isFavorite) {
-                    // Offline favourite: routed glyph, dimmed to read as unavailable.
-                    Icon(
-                        imageVector = Icons.Outlined.Circle,
-                        contentDescription = stringResource(R.string.cd_offline_favorite),
-                        modifier = Modifier.size(PeerRowIconSize),
-                        tint = palette.textTertiary
-                    )
-                } else {
-                    Icon(
-                        imageVector = when {
-                            isWifiAware -> Icons.Filled.Wifi
-                            isDirect -> Icons.Outlined.Bluetooth
-                            else -> Icons.Filled.Route
-                        },
-                        contentDescription = when {
-                            isWifiAware -> "Direct Wi-Fi Aware"
-                            isDirect -> "Direct Bluetooth"
-                            else -> "Routed"
-                        },
-                        modifier = Modifier.size(PeerRowIconSize),
-                        tint = palette.textSecondary
-                    )
-                }
-
-                // Display name with iOS-style color and hashtag suffix support
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Base name with peer-specific color
-                    Text(
-                        text = baseName,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 14.sp,
-                        fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
-                        color = baseColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    // Hashtag suffix in lighter shade (iOS-style)
-                    if (suffix.isNotEmpty()) {
-                        Text(
-                            text = suffix,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp,
-                            fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
-                            color = baseColor.copy(alpha = SUFFIX_ALPHA)
-                        )
-                    }
-
-                    if (isWifiAware && hasUnreadDM) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Filled.Wifi,
-                            contentDescription = "Direct Wi-Fi Aware",
-                            modifier = Modifier.size(PeerRowIconSize),
-                            tint = palette.textSecondary
-                        )
-                    }
-                }
-            }
-
-            if (isVerified) {
-                Spacer(modifier = Modifier.width(4.dp))
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .size(SheetRowSelectedDot)
+                        .background(palette.accentGreen, CircleShape)
+                )
+            } else if (hasUnreadDM) {
                 Icon(
-                    imageVector = Icons.Filled.Verified,
-                    contentDescription = stringResource(R.string.verify_title),
+                    imageVector = Icons.Filled.Email,
+                    contentDescription = stringResource(R.string.cd_unread_message),
                     modifier = Modifier.size(PeerRowIconSize),
-                    tint = palette.accentGreen
+                    tint = palette.accentOrange
+                )
+            } else if (showNostrGlobe) {
+                Icon(
+                    imageVector = Icons.Filled.Public,
+                    contentDescription = stringResource(R.string.cd_reachable_via_nostr),
+                    modifier = Modifier.size(PeerRowIconSize),
+                    tint = palette.accentPurple
+                )
+            } else if (!isDirect && isFavorite) {
+                Icon(
+                    imageVector = Icons.Outlined.Circle,
+                    contentDescription = stringResource(R.string.cd_offline_favorite),
+                    modifier = Modifier.size(PeerRowIconSize),
+                    tint = palette.textTertiary
+                )
+            } else {
+                Icon(
+                    imageVector = when {
+                        isWifiAware -> Icons.Filled.Wifi
+                        isDirect -> Icons.Outlined.Bluetooth
+                        else -> Icons.Filled.Route
+                    },
+                    contentDescription = when {
+                        isWifiAware -> "Direct Wi-Fi Aware"
+                        isDirect -> "Direct Bluetooth"
+                        else -> "Routed"
+                    },
+                    modifier = Modifier.size(PeerRowIconSize),
+                    tint = palette.textSecondary
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(SheetRowLeadingGutter))
+
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = baseName,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 14.sp,
+                fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
+                color = baseColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            if (suffix.isNotEmpty()) {
+                Text(
+                    text = suffix,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
+                    fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
+                    color = baseColor.copy(alpha = SUFFIX_ALPHA)
                 )
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Favorite star with proper filled/outlined states
-                IconButton(
-                    onClick = onToggleFavorite,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
-                        contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                        modifier = Modifier.size(PeerRowIconSize),
-                        tint = if (isFavorite) palette.accentOrange else palette.textTertiary
-                    )
-                }
+            if (isVerified) {
+                Icon(
+                    imageVector = Icons.Filled.Verified,
+                    contentDescription = stringResource(R.string.verify_title),
+                    modifier = Modifier.size(16.dp),
+                    tint = palette.accentGreen
+                )
             }
+        }
+
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clickable(onClick = onToggleFavorite),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                modifier = Modifier.size(PeerRowIconSize),
+                tint = if (isFavorite) palette.accentOrange else palette.textTertiary
+            )
         }
     }
 }
