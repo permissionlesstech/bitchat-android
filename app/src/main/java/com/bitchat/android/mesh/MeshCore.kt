@@ -16,6 +16,7 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
@@ -54,6 +55,7 @@ class MeshCore(
     )
 
     private val peerManager = PeerManager()
+    private val identityState = SecureIdentityStateManager(context.applicationContext)
     val fragmentManager = FragmentManager()
     private val readReceiptRetrySender = RetryingControlPacketSender(scope)
     private val authenticatedPeerStateStore = SecureAuthenticatedPeerStateStore(context)
@@ -112,6 +114,20 @@ class MeshCore(
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     private val packetProcessor = PacketProcessor(myPeerID)
     private val directPeers = ConcurrentHashMap.newKeySet<String>()
+    private val vouchCoordinator by lazy {
+        VouchCoordinator(
+            scope = scope,
+            identity = identityState,
+            connectedPeerIDs = peerManager::getActivePeerIDs,
+            fingerprintForPeer = peerManager::getFingerprintForPeer,
+            peerInfo = peerManager::getPeerInfo,
+            signingKeyForFingerprint = ::signingKeyForFingerprint,
+            hasEstablishedSession = encryptionService::hasEstablishedSession,
+            sign = encryptionService::signData,
+            verify = encryptionService::verifyEd25519Signature,
+            send = ::sendVouchPayload
+        )
+    }
 
     val gossipSyncManager: GossipSyncManager =
         sharedGossipManager ?: GossipSyncManager(myPeerID = myPeerID, scope = scope, configProvider = gossipConfigProvider)
@@ -211,6 +227,7 @@ class MeshCore(
         peerManager.delegate = object : PeerManagerDelegate {
             override fun onPeerListUpdated(peerIDs: List<String>) {
                 try { com.bitchat.android.services.AppStateStore.setTransportPeers(transport.id, peerIDs) } catch (_: Exception) { }
+                vouchCoordinator.peersUpdated(peerIDs)
                 delegate?.didUpdatePeerList(peerIDs)
             }
 
@@ -235,6 +252,10 @@ class MeshCore(
                     peerID,
                     authenticatedRemoteStaticKey,
                     authenticatedSessionToken
+                )
+                vouchCoordinator.peerAuthenticated(
+                    peerID,
+                    identityState.generateFingerprint(authenticatedRemoteStaticKey)
                 )
                 scope.launch {
                     delay(100)
@@ -431,6 +452,10 @@ class MeshCore(
             override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
                 delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
             }
+
+            override fun onVouchPayloadReceived(peerID: String, payload: ByteArray) {
+                vouchCoordinator.handlePayload(peerID, payload)
+            }
         }
 
         packetProcessor.delegate = object : PacketProcessorDelegate {
@@ -563,6 +588,31 @@ class MeshCore(
         val signed = signPacketBeforeBroadcast(packet)
         if (signed.signature?.size != 64) return false
         dispatchGlobal(RoutedPacket(signed))
+        return true
+    }
+
+    private fun signingKeyForFingerprint(fingerprint: String): ByteArray? {
+        identityState.getAuthenticatedSigningKey(fingerprint)?.let { return it }
+        return peerManager.getActivePeerIDs().firstNotNullOfOrNull { peerID ->
+            val peerFingerprint = peerManager.getFingerprintForPeer(peerID)
+            peerManager.getPeerInfo(peerID)?.signingPublicKey
+                ?.takeIf { peerFingerprint.equals(fingerprint, ignoreCase = true) }
+        }
+    }
+
+    private fun sendVouchPayload(peerID: String, payload: ByteArray): Boolean {
+        val plaintext = NoisePayload(NoisePayloadType.VOUCH, payload).encode()
+        val encrypted = securityManager.encryptForPeer(plaintext, peerID) ?: return false
+        val packet = BitchatPacket(
+            version = VouchCoordinator.NOISE_PACKET_VERSION,
+            type = MessageType.NOISE_ENCRYPTED.value,
+            senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+            recipientID = MeshPacketUtils.hexStringToByteArray(peerID),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = encrypted,
+            ttl = maxTtl
+        )
+        dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
         return true
     }
 

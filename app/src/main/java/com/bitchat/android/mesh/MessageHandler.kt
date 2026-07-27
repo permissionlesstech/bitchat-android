@@ -185,6 +185,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 com.bitchat.android.model.NoisePayloadType.VERIFY_RESPONSE -> {
                     delegate?.onVerifyResponseReceived(peerID, noisePayload.data, packet.timestamp.toLong())
                 }
+                com.bitchat.android.model.NoisePayloadType.VOUCH -> {
+                    delegate?.onVouchPayloadReceived(peerID, noisePayload.data)
+                }
             }
             
         } catch (e: Exception) {
@@ -699,4 +702,5 @@ interface MessageHandlerDelegate {
     fun onReadReceiptReceived(messageID: String, peerID: String)
     fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long)
     fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long)
+    fun onVouchPayloadReceived(peerID: String, payload: ByteArray) {}
 }

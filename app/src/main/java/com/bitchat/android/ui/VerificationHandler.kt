@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 import java.util.Date
@@ -33,20 +34,36 @@ class VerificationHandler(
     private val notificationManager: NotificationManager,
     private val messageManager: MessageManager
 ) {
+    companion object {
+        private const val FINGERPRINT_NAME_PREFIX_LENGTH = 8
+    }
+
     // Helper to get current mesh service (may change after panic clear)
     private val meshService: MeshService
         get() = getMeshService()
 
     private val _verifiedFingerprints = MutableStateFlow<Set<String>>(emptySet())
     val verifiedFingerprints: StateFlow<Set<String>> = _verifiedFingerprints.asStateFlow()
+    private val _vouchedFingerprints = MutableStateFlow<Set<String>>(emptySet())
+    val vouchedFingerprints: StateFlow<Set<String>> = _vouchedFingerprints.asStateFlow()
 
     private val pendingQRVerifications = ConcurrentHashMap<String, PendingVerification>()
     private val lastVerifyNonceByPeer = ConcurrentHashMap<String, ByteArray>()
     private val lastInboundVerifyChallengeAt = ConcurrentHashMap<String, Long>()
     private val lastMutualToastAt = ConcurrentHashMap<String, Long>()
 
+    init {
+        scope.launch {
+            SecureIdentityStateManager.changes.collect {
+                _verifiedFingerprints.value = identityManager.getVerifiedFingerprints()
+                _vouchedFingerprints.value = identityManager.getVouchedFingerprints()
+            }
+        }
+    }
+
     fun loadVerifiedFingerprints() {
         _verifiedFingerprints.value = identityManager.getVerifiedFingerprints()
+        _vouchedFingerprints.value = identityManager.getVouchedFingerprints()
     }
 
     fun isPeerVerified(peerID: String): Boolean {
@@ -59,6 +76,18 @@ class VerificationHandler(
         val fingerprint = fingerprintFromNoiseBytes(noisePublicKey)
         return _verifiedFingerprints.value.contains(fingerprint)
     }
+
+    fun isFingerprintVouched(fingerprint: String): Boolean =
+        _vouchedFingerprints.value.contains(fingerprint.lowercase())
+
+    fun vouchersForFingerprint(fingerprint: String): List<SecureIdentityStateManager.VouchRecord> =
+        identityManager.validVouchers(fingerprint)
+
+    fun voucherNamesForFingerprint(fingerprint: String): List<String> =
+        identityManager.validVouchers(fingerprint).map { record ->
+            identityManager.getCachedFingerprintNickname(record.voucherFingerprint)
+                ?: record.voucherFingerprint.take(FINGERPRINT_NAME_PREFIX_LENGTH)
+        }
 
     fun unverifyFingerprint(peerID: String) {
         val fingerprint = meshService.getPeerFingerprint(peerID) ?: return

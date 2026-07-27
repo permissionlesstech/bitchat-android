@@ -23,6 +23,7 @@ enum class NoisePayloadType(val value: UByte) {
     DELIVERED(0x03u),           // Message was delivered
     VERIFY_CHALLENGE(0x10u),    // Verification challenge
     VERIFY_RESPONSE(0x11u),     // Verification response
+    VOUCH(0x12u),               // Transitive verification attestations
     FILE_TRANSFER(0x20u),
     /** Authenticated capabilities + Ed25519 binding for the current Noise generation. */
     PEER_STATE(0x21u);

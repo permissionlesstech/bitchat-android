@@ -164,6 +164,7 @@ class ChatViewModel(
         messageManager = messageManager
     )
     val verifiedFingerprints = verificationHandler.verifiedFingerprints
+    val vouchedFingerprints = verificationHandler.vouchedFingerprints
 
     // Media file sending manager
     private val mediaSendingManager = MediaSendingManager(
@@ -1239,6 +1240,20 @@ class ChatViewModel(
         val fingerprint = verificationHandler.fingerprintFromNoiseBytes(noisePublicKey)
         return verifiedFingerprints.contains(fingerprint)
     }
+
+    fun isFingerprintVouched(fingerprint: String): Boolean =
+        verificationHandler.isFingerprintVouched(fingerprint)
+
+    fun isNoisePublicKeyVouched(noisePublicKey: ByteArray): Boolean =
+        verificationHandler.isFingerprintVouched(
+            verificationHandler.fingerprintFromNoiseBytes(noisePublicKey)
+        )
+
+    fun vouchersForFingerprint(fingerprint: String) =
+        verificationHandler.vouchersForFingerprint(fingerprint)
+
+    fun voucherNamesForFingerprint(fingerprint: String): List<String> =
+        verificationHandler.voucherNamesForFingerprint(fingerprint)
 
     fun unverifyFingerprint(peerID: String) {
         verificationHandler.unverifyFingerprint(peerID)
