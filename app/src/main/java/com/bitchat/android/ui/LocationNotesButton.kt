@@ -26,8 +26,9 @@ import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
  * Location Notes button component for MainHeader
- * Shows in mesh mode when location permission granted AND services enabled
- * Icon turns primary color when notes exist, gray otherwise
+ * Shows in mesh mode when location permission granted AND services enabled.
+ * Base tint is primary when notes exist, secondary otherwise; Tor health may
+ * override that color (orange connecting, red failed) via [torConnectionTint].
  */
 @Composable
 fun LocationNotesButton(
@@ -36,6 +37,7 @@ fun LocationNotesButton(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val palette = LocalBitchatPalette.current
     val context = LocalContext.current
 
     // Get channel and permission state
@@ -57,6 +59,8 @@ fun LocationNotesButton(
     if (selectedLocationChannel is ChannelID.Mesh && locationEnabled) {
         val hasNotes = notesCount > 0
         val contentDescription = stringResource(R.string.cd_location_notes)
+        val normalTint = if (hasNotes) colorScheme.primary else palette.textSecondary
+        val tint = torConnectionTint(normal = normalTint)
         // Match other header icon buttons: 44.dp target, no Material IconButton min-size padding
         // that pushed the notes glyph farther from the mesh badge than sibling gaps.
         Box(
@@ -70,7 +74,7 @@ fun LocationNotesButton(
                 imageVector = Icons.Outlined.Description,
                 contentDescription = contentDescription,
                 modifier = Modifier.size(HeaderIconSize),
-                tint = if (hasNotes) colorScheme.primary else LocalBitchatPalette.current.textSecondary
+                tint = tint
             )
         }
     }

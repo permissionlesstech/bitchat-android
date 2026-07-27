@@ -5,16 +5,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
-import android.util.Log
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -39,10 +32,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.button.BitChatBrandButton
+import com.bitchat.android.net.ArtiTorManager
+import com.bitchat.android.net.TorMode
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 
@@ -103,53 +96,30 @@ private fun HeaderIconButton(
 }
 
 /**
- * Connection status indicator.
+ * Smooth tint for header glyphs that should reflect Tor connection state.
  *
- * Only visible while the connection is still coming up (or has failed). A steady green "all
- * good" light is noise: the absence of the indicator already means everything is fine, and the
- * eye stops registering an always-on dot anyway. It fades and scales in/out so appearing and
- * disappearing reads as a state change rather than a glitch.
+ * When Tor is off or fully bootstrapped, [normal] is used. While connecting the tint goes
+ * orange; if Tor is enabled but not running it goes red. Cross-fades so Bootstrap percent
+ * flips do not flash the whole header.
  */
 @Composable
-fun TorStatusDot(
-    modifier: Modifier = Modifier
-) {
+internal fun torConnectionTint(normal: Color): Color {
     val palette = LocalBitchatPalette.current
-    val torProvider = remember { com.bitchat.android.net.ArtiTorManager.getInstance() }
-    val torStatus by torProvider.statusFlow.collectAsState()
+    val torStatus by remember { ArtiTorManager.getInstance() }.statusFlow.collectAsState()
 
-    val isEnabled = torStatus.mode != com.bitchat.android.net.TorMode.OFF
-    val isEstablished = torStatus.running && torStatus.bootstrapPercent >= 100
-    val isVisible = isEnabled && !isEstablished
-
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = fadeIn(tween(BitchatMotion.STANDARD_MS)) +
-            scaleIn(
-                initialScale = 0.4f,
-                animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing)
-            ),
-        exit = fadeOut(tween(BitchatMotion.QUICK_MS)) +
-            scaleOut(
-                targetScale = 0.4f,
-                animationSpec = tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing)
-            ),
-    ) {
-        // Bootstrapping vs. failed. Cross-faded, because Tor flips between these frequently and
-        // a hard colour cut in the corner of the screen reads as a rendering fault.
-        val dotColor by animateColorAsState(
-            targetValue = if (torStatus.running) palette.accentOrange else palette.accentRed,
-            animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
-            label = "torDotColor"
-        )
-        Canvas(modifier = modifier) {
-            drawCircle(
-                color = dotColor,
-                radius = size.minDimension / 2,
-                center = Offset(size.width / 2, size.height / 2)
-            )
-        }
+    val target = when {
+        torStatus.mode == TorMode.OFF -> normal
+        torStatus.running && torStatus.bootstrapPercent >= 100 -> normal
+        torStatus.running -> palette.accentOrange
+        else -> palette.accentRed
     }
+
+    val animated by animateColorAsState(
+        targetValue = target,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "torConnectionTint"
+    )
+    return animated
 }
 
 @Composable
@@ -477,24 +447,14 @@ private fun MainHeader(
 
         // MARK: - Status cluster.
         //
-        // Order, left to right: connection state, unread DMs, notes, channel, people.
-        // The connection indicator leads because it is the only item that can invalidate
-        // everything to its right, and because it appears and disappears on its own — a fixed
-        // leftmost slot means the rest of the cluster never shifts when it does.
+        // Order, left to right: unread DMs, notes, channel, people.
+        // Tor health is read from the location channel / notes icon colour rather than a
+        // dedicated status dot.
         Row(
             verticalAlignment = Alignment.CenterVertically,
             // Tight, because every child below is its own >=44.dp tap target.
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            // Connection status. The Box holds the slot open at a constant width so the icons to
-            // its right stay put whether or not the dot is currently showing.
-            Box(
-                modifier = Modifier.size(HeaderIconSize),
-                contentAlignment = Alignment.Center
-            ) {
-                TorStatusDot(modifier = Modifier.size(8.dp))
-            }
-
             // Unread private messages badge (click to open most recent DM)
             if (hasUnreadPrivateMessages.isNotEmpty()) {
                 HeaderIconButton(
@@ -569,7 +529,9 @@ private fun LocationChannelsButton(
         // is, so it is plain "mesh".
         else -> stringResource(R.string.mesh_label)
     }
-    val badgeColor = if (isLocation) palette.accentGreen else palette.accentBlue
+    val channelColor = if (isLocation) palette.accentGreen else palette.accentBlue
+    // Icon alone carries Tor health so the geohash / "mesh" label stays channel-coloured.
+    val iconColor = torConnectionTint(normal = channelColor)
     val badgeIcon = if (isLocation) Icons.Outlined.Public else Icons.Filled.Bluetooth
 
     Row(
@@ -585,9 +547,9 @@ private fun LocationChannelsButton(
     ) {
         Icon(
             imageVector = badgeIcon,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_tor_status),
             modifier = Modifier.size(HeaderIconSize),
-            tint = badgeColor
+            tint = iconColor
         )
 
         Text(
@@ -595,7 +557,7 @@ private fun LocationChannelsButton(
             style = MaterialTheme.typography.bodyMedium,
             fontSize = HeaderTextSize,
             fontWeight = FontWeight.Medium,
-            color = badgeColor,
+            color = channelColor,
             maxLines = 1
         )
     }
