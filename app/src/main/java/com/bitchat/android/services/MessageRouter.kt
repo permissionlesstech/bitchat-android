@@ -66,9 +66,11 @@ class MessageRouter private constructor(
                     }
                 }
             }
-            // Always update mesh reference and sync peer ID
+            // Always update mesh reference and sync peer ID, and make sure the retry
+            // scheduler is running (it is stopped together with MeshForegroundService).
             instance.mesh = mesh
             instance.nostr.senderPeerID = mesh.myPeerID
+            instance.startOutboxScheduler()
             return instance
         }
 
@@ -85,6 +87,7 @@ class MessageRouter private constructor(
     private val retryState = ConcurrentHashMap<String, ConversationRetry>()
 
     private val schedulerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var schedulerJob: kotlinx.coroutines.Job? = null
 
     // Injectable clock for tests
     internal var clock: () -> Long = { System.currentTimeMillis() }
@@ -93,7 +96,7 @@ class MessageRouter private constructor(
     var onMessageExpired: ((String) -> Unit)? = null
 
     init {
-        if (!disableSchedulerForTesting) startOutboxScheduler()
+        startOutboxScheduler()
     }
 
     // Listener for favorites changes to flush outbox when npub mapping appears/changes
@@ -185,26 +188,27 @@ class MessageRouter private constructor(
         }
     }
 
-    // Flush any queued messages for a specific peerID
+    // Flush any queued messages for a specific peerID.
+    // All outbox mutations happen under the router monitor so a concurrent enqueue cannot
+    // be lost between the empty check and the map removal.
+    @Synchronized
     fun flushOutboxFor(peerID: String) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
         val queued = outbox[conversationID] ?: outbox[peerID] ?: return
         if (queued.isEmpty()) return
         Log.d(TAG, "Flushing outbox for ${conversationID.take(16)}… count=${queued.size}")
-        synchronized(queued) {
-            val iterator = queued.iterator()
-            while (iterator.hasNext()) {
-                val entry = iterator.next()
-                val resolution = ContactDirectory.resolve(conversationID)
-                val meshTarget = resolution.meshPeerID
-                val nostrTarget = resolution.noiseKeyHex ?: conversationID
-                if (meshTarget != null && isReady(mesh, meshTarget)) {
-                    mesh.sendPrivateMessage(entry.content, meshTarget, entry.nickname, entry.messageID)
-                    iterator.remove()
-                } else if (canSendViaNostr(nostrTarget)) {
-                    nostr.sendPrivateMessage(entry.content, nostrTarget, entry.nickname, entry.messageID)
-                    iterator.remove()
-                }
+        val iterator = queued.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            val resolution = ContactDirectory.resolve(conversationID)
+            val meshTarget = resolution.meshPeerID
+            val nostrTarget = resolution.noiseKeyHex ?: conversationID
+            if (meshTarget != null && isReady(mesh, meshTarget)) {
+                mesh.sendPrivateMessage(entry.content, meshTarget, entry.nickname, entry.messageID)
+                iterator.remove()
+            } else if (canSendViaNostr(nostrTarget)) {
+                nostr.sendPrivateMessage(entry.content, nostrTarget, entry.nickname, entry.messageID)
+                iterator.remove()
             }
         }
         if (queued.isEmpty()) {
@@ -257,8 +261,11 @@ class MessageRouter private constructor(
         Log.d(TAG, "Handshake attempt ${attempts + 1} for ${conversationID.take(16)}…, next retry in ${backoff}ms")
     }
 
+    @Synchronized
     private fun startOutboxScheduler() {
-        schedulerScope.launch {
+        if (disableSchedulerForTesting) return
+        if (schedulerJob?.isActive == true) return
+        schedulerJob = schedulerScope.launch {
             while (isActive) {
                 delay(OUTBOX_TICK_MS)
                 try { tickOutbox() } catch (e: Exception) {
@@ -269,10 +276,23 @@ class MessageRouter private constructor(
     }
 
     /**
+     * Stop retrying while the mesh transports are down. Persistent network work must
+     * follow the MeshForegroundService lifecycle; getInstance restarts the scheduler
+     * and rebinds the mesh reference when the service comes back.
+     */
+    fun stopOutboxScheduler() {
+        schedulerJob?.cancel()
+        schedulerJob = null
+    }
+
+    internal val isSchedulerRunning: Boolean get() = schedulerJob?.isActive == true
+
+    /**
      * One scheduler pass over the outbox: expire old entries, flush what can be sent,
      * and re-initiate handshakes (with backoff) for peers that are connected but have
      * no established session yet.
      */
+    @Synchronized
     internal fun tickOutbox(nowMs: Long = clock()) {
         outbox.keys.toList().forEach { conversationID ->
             expireOldEntries(conversationID, nowMs)
@@ -299,15 +319,13 @@ class MessageRouter private constructor(
 
     private fun expireOldEntries(conversationID: String, nowMs: Long) {
         val queued = outbox[conversationID] ?: return
-        synchronized(queued) {
-            val iterator = queued.iterator()
-            while (iterator.hasNext()) {
-                val entry = iterator.next()
-                if (nowMs - entry.enqueuedAtMs > OUTBOX_MESSAGE_TTL_MS) {
-                    Log.w(TAG, "Expiring queued PM for ${conversationID.take(16)}… msg_id=${entry.messageID.take(8)}…")
-                    iterator.remove()
-                    notifyExpired(entry.messageID)
-                }
+        val iterator = queued.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (nowMs - entry.enqueuedAtMs > OUTBOX_MESSAGE_TTL_MS) {
+                Log.w(TAG, "Expiring queued PM for ${conversationID.take(16)}… msg_id=${entry.messageID.take(8)}…")
+                iterator.remove()
+                notifyExpired(entry.messageID)
             }
         }
         if (queued.isEmpty()) {
@@ -389,6 +407,7 @@ class MessageRouter private constructor(
      * A peer (re)appeared: if we still owe them queued messages and there is no working
      * session yet, restart the handshake immediately instead of waiting for the backoff.
      */
+    @Synchronized
     private fun kickHandshakeIfPending(peerID: String) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
         val queued = outbox[conversationID] ?: outbox[peerID] ?: return

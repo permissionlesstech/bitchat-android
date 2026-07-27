@@ -7,6 +7,8 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerInfo
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -170,6 +172,21 @@ class MessageRouterTest {
         assertEquals(MessageRouter.RouteResult.MESH, result)
         verify(mesh, times(1)).sendPrivateMessage("direct", peerID, "peer", "msg-direct")
         verify(mesh, never()).initiateNoiseHandshake(any())
+    }
+
+    @Test
+    fun `scheduler stops with the mesh service and restarts on rebind`() {
+        MessageRouter.disableSchedulerForTesting = false
+        MessageRouter.resetForTesting()
+        val context = RuntimeEnvironment.getApplication()
+        val running = MessageRouter.getInstance(context, mesh)
+        assertTrue(running.isSchedulerRunning)
+
+        running.stopOutboxScheduler()
+        assertFalse(running.isSchedulerRunning)
+
+        val rebound = MessageRouter.getInstance(context, mesh)
+        assertTrue(rebound.isSchedulerRunning)
     }
 
     private fun peerOffline() {
