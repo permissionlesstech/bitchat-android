@@ -599,6 +599,24 @@ fun MessageItem(
         return
     }
 
+    val cashuTokens = remember(message.content) {
+        CashuTokenDecoder.extractTokens(message.content)
+    }
+    if (cashuTokens.isNotEmpty() && message.sender != "system") {
+        CashuMessageContent(
+            message = message,
+            tokens = cashuTokens,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
+            modifier = modifier
+        )
+        return
+    }
+
     if (message.sender == "system") {
         // Background narration: `// Tor started. Routing all chats…`
         val annotatedText = remember(message, colorScheme.onSurface) {
