@@ -829,7 +829,7 @@ fun PrivateChatSheet(
             val name = if (fullPubkey.isNotEmpty()) {
                 viewModel.geohashViewModel.displayNameForGeohashConversation(fullPubkey, gh)
             } else {
-                peerNicknames[peerID] ?: "unknown"
+                peerNicknames[peerID] ?: "Unknown"
             }
             "#$gh/@$name"
         } else {

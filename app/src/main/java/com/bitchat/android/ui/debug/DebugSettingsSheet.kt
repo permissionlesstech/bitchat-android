@@ -61,13 +61,13 @@ fun MeshTopologySection(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF8E8E93))
-                Text("mesh topology", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text("Mesh topology", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
             val nodes = snapshot.nodes
             val edges = snapshot.edges
             val empty = nodes.isEmpty()
             if (empty) {
-                Text("no gossip yet", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                Text("No gossip yet", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
             } else {
                 ForceDirectedMeshGraph(
                     nodes = nodes,
@@ -88,7 +88,7 @@ fun MeshTopologySection(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     nodes.forEach { node ->
-                        val label = "${node.peerID.take(8)} • ${node.nickname ?: "unknown"}"
+                        val label = "${node.peerID.take(8)} • ${node.nickname ?: "Unknown"}"
                         Text(
                             text = label,
                             fontFamily = FontFamily.Monospace,
@@ -388,7 +388,7 @@ fun DebugSettingsSheet(
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Spacer(Modifier.width(24.dp))
-                            Text("Wi‑Fi Aware verbose", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Text("Wi‑Fi Aware verbose logging", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
                             Switch(checked = wifiAwareVerbose, onCheckedChange = { manager.setWifiAwareVerbose(it) })
                         }
                     }
@@ -719,7 +719,7 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF9C27B0))
-                            Text("sync settings", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text("Sync settings", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         Text(stringResource(R.string.debug_max_packets_per_sync_fmt, seenCapacity), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = seenCapacity.toFloat(), onValueChange = { manager.setSeenPacketCapacity(it.toInt()) }, valueRange = 10f..1000f, steps = 99)
@@ -745,7 +745,7 @@ fun DebugSettingsSheet(
                         val localAddr = remember { meshService.connectionManager.getLocalAdapterAddress() }
                         Text(stringResource(R.string.debug_our_device_id_fmt, localAddr ?: stringResource(R.string.unknown)), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         if (connectedDevices.isEmpty()) {
-                            Text("none", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                            Text("None", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
                         } else {
                             connectedDevices.forEach { dev ->
                                 Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
