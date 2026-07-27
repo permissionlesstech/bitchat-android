@@ -774,6 +774,149 @@ internal fun TextMessageLayout(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CashuMessageContent(
+    message: BitchatMessage,
+    tokens: List<String>,
+    currentUserNickname: String,
+    meshService: MeshService,
+    colorScheme: ColorScheme,
+    timeFormatter: SimpleDateFormat,
+    onNicknameClick: ((String) -> Unit)?,
+    onMessageLongPress: ((BitchatMessage) -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    val remainingText = tokens.fold(message.content) { text, token ->
+        text.replace("cashu://$token", "", ignoreCase = true)
+            .replace("cashu:$token", "", ignoreCase = true)
+            .replace(token, "")
+    }.trim()
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        TextMessageLayout(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
+            bodyContent = remainingText,
+        )
+        tokens.forEach { token -> CashuPaymentChip(token) }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun CashuPaymentChip(
+    token: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    showActions: Boolean = true,
+) {
+    val context = LocalContext.current
+    val info = remember(token) { CashuTokenDecoder.decode(token) }
+    val primaryLabel = listOfNotNull(info?.displayAmount, info?.mintHost)
+        .joinToString(" · ")
+        .ifEmpty { stringResource(R.string.cashu_pay_via) }
+    var showMenu by remember { mutableStateOf(false) }
+
+    Box {
+        Row(
+            modifier = modifier
+                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                .background(
+                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                    RoundedCornerShape(12.dp)
+                )
+                .combinedClickable(
+                    onClick = onClick ?: { redeemCashu(context, token, preferWallet = true) },
+                    onLongClick = if (showActions) {
+                        { showMenu = true }
+                    } else {
+                        null
+                    }
+                )
+                .semantics {
+                    contentDescription = buildString {
+                        append(context.getString(R.string.cashu_payment_description))
+                        append(": ")
+                        append(primaryLabel)
+                        info?.memo?.let { append(", $it") }
+                    }
+                }
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("🥜")
+            Column {
+                Text(
+                    primaryLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                info?.memo?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+        DropdownMenu(
+            expanded = showActions && showMenu,
+            onDismissRequest = { showMenu = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.cashu_copy_token)) },
+                onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Cashu token", token))
+                    showMenu = false
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.cashu_redeem_wallet)) },
+                onClick = {
+                    showMenu = false
+                    redeemCashu(context, token, preferWallet = true)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.cashu_redeem_web)) },
+                onClick = {
+                    showMenu = false
+                    redeemCashu(context, token, preferWallet = false)
+                }
+            )
+        }
+    }
+}
+
+private fun redeemCashu(context: Context, token: String, preferWallet: Boolean) {
+    val wallet = CashuTokenDecoder.walletUri(token)
+    val web = CashuTokenDecoder.webRedeemUri(token) ?: return
+    if (preferWallet && wallet != null) {
+        val walletIntent = Intent(Intent.ACTION_VIEW, Uri.parse(wallet))
+        try {
+            context.startActivity(walletIntent)
+            return
+        } catch (_: ActivityNotFoundException) {
+            // No wallet registered for cashu:, so use the explicit web fallback.
+        }
+    }
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(web))) }
+}
+
 @Composable
 fun DeliveryStatusIcon(status: DeliveryStatus) {
     val colorScheme = MaterialTheme.colorScheme
