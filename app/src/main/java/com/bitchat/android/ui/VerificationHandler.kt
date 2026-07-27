@@ -13,6 +13,8 @@ import com.bitchat.android.services.VerificationService
 import com.bitchat.android.util.dataFromHexString
 import com.bitchat.android.util.hexEncodedString
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +38,7 @@ class VerificationHandler(
 ) {
     companion object {
         private const val FINGERPRINT_NAME_PREFIX_LENGTH = 8
+        private const val MINIMUM_EXPIRY_REFRESH_DELAY_MS = 1L
     }
 
     // Helper to get current mesh service (may change after panic clear)
@@ -51,19 +54,30 @@ class VerificationHandler(
     private val lastVerifyNonceByPeer = ConcurrentHashMap<String, ByteArray>()
     private val lastInboundVerifyChallengeAt = ConcurrentHashMap<String, Long>()
     private val lastMutualToastAt = ConcurrentHashMap<String, Long>()
+    private var vouchExpiryRefreshJob: Job? = null
 
     init {
         scope.launch {
             SecureIdentityStateManager.changes.collect {
-                _verifiedFingerprints.value = identityManager.getVerifiedFingerprints()
-                _vouchedFingerprints.value = identityManager.getVouchedFingerprints()
+                refreshIdentityState()
             }
         }
     }
 
     fun loadVerifiedFingerprints() {
+        refreshIdentityState()
+    }
+
+    private fun refreshIdentityState(nowMs: Long = System.currentTimeMillis()) {
         _verifiedFingerprints.value = identityManager.getVerifiedFingerprints()
-        _vouchedFingerprints.value = identityManager.getVouchedFingerprints()
+        _vouchedFingerprints.value = identityManager.getVouchedFingerprints(nowMs)
+        vouchExpiryRefreshJob?.cancel()
+        val nextExpiryMs = identityManager.nextVouchExpiryMs(nowMs) ?: return
+        val refreshDelayMs = (nextExpiryMs - nowMs).coerceAtLeast(MINIMUM_EXPIRY_REFRESH_DELAY_MS)
+        vouchExpiryRefreshJob = scope.launch {
+            delay(refreshDelayMs)
+            refreshIdentityState()
+        }
     }
 
     fun isPeerVerified(peerID: String): Boolean {

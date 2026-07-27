@@ -10,6 +10,7 @@ import android.util.Base64
 import android.util.Log
 import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.PeerCapabilities
+import com.bitchat.android.model.VouchAttestation
 import com.bitchat.android.util.hexEncodedString
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -43,21 +44,22 @@ class SecureIdentityStateManager {
         private const val KEY_VOUCH_BATCH_SENT_AT = "vouch_batch_sent_at_v1"
         private const val KEY_VERIFIED_AT = "verified_at_v1"
         const val MAX_VOUCHERS_PER_VOUCHEE = 8
-        private const val VOUCH_RECORD_FIELD_COUNT = 3
+        private const val VOUCH_RECORD_FIELD_COUNT = 4
         private const val RECORD_SEPARATOR = ':'
         private const val RECORD_SEPARATOR_LENGTH = 1
         private const val VOUCHEE_FIELD_INDEX = 0
         private const val VOUCHER_FIELD_INDEX = 1
+        private const val VOUCHEE_SIGNING_KEY_FIELD_INDEX = 2
         private const val INDEX_NOT_FOUND = -1
         private const val IDENTITY_EVENT_BUFFER_CAPACITY = 1
+        private const val EXPIRY_TRANSITION_OFFSET_MS = 1L
 
         // BLE, Wi-Fi Aware, and Noise services each hold their own manager
         // instance over the same encrypted preferences. Serialize pin updates
         // process-wide so concurrent promotions cannot lose one another or
         // race a panic wipe.
-        private val privateMediaPinsLock = Any()
-        private val vouchStateLock = Any()
-        private var privateMediaPinsEpoch = 0L
+        private val identityPersistenceLock = Any()
+        private var identityPersistenceEpoch = 0L
         private val identityChanges =
             MutableSharedFlow<Unit>(extraBufferCapacity = IDENTITY_EVENT_BUFFER_CAPACITY)
         val changes = identityChanges.asSharedFlow()
@@ -65,11 +67,11 @@ class SecureIdentityStateManager {
     
     private val prefs: SharedPreferences
     private val lock = Any()
-    private var privateMediaPinsEpochAtCreation: Long
+    private var identityPersistenceEpochAtCreation: Long
 
     constructor(context: Context) {
-        privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
-            privateMediaPinsEpoch
+        identityPersistenceEpochAtCreation = synchronized(identityPersistenceLock) {
+            identityPersistenceEpoch
         }
         // Create master key for encryption
         val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
@@ -89,8 +91,8 @@ class SecureIdentityStateManager {
     /** Test-only storage injection; production always uses encrypted prefs. */
     internal constructor(prefs: SharedPreferences, testOnly: Boolean) {
         require(testOnly) { "Plain SharedPreferences are test-only" }
-        privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
-            privateMediaPinsEpoch
+        identityPersistenceEpochAtCreation = synchronized(identityPersistenceLock) {
+            identityPersistenceEpoch
         }
         this.prefs = prefs
     }
@@ -240,10 +242,12 @@ class SecureIdentityStateManager {
         return getVerifiedFingerprints().contains(fingerprint)
     }
 
+    @SuppressLint("UseKtx")
     fun setVerifiedFingerprint(fingerprint: String, verified: Boolean) {
         if (!isValidFingerprint(fingerprint)) return
         val normalizedFingerprint = fingerprint.lowercase()
-        synchronized(vouchStateLock) {
+        synchronized(identityPersistenceLock) {
+            if (identityPersistenceEpochAtCreation != identityPersistenceEpoch) return
             val current = prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())
                 ?.mapTo(mutableSetOf()) { it.lowercase() } ?: mutableSetOf()
             if (verified) {
@@ -254,49 +258,62 @@ class SecureIdentityStateManager {
             val verifiedAt = readTimestampMap(KEY_VERIFIED_AT).toMutableMap()
             if (verified) verifiedAt[normalizedFingerprint] = System.currentTimeMillis()
             else verifiedAt.remove(normalizedFingerprint)
-            prefs.edit {
-                putStringSet(KEY_VERIFIED_FINGERPRINTS, current)
-                putStringSet(KEY_VERIFIED_AT, encodeTimestampMap(verifiedAt))
-            }
+            val committed = prefs.edit()
+                .putStringSet(KEY_VERIFIED_FINGERPRINTS, current)
+                .putStringSet(KEY_VERIFIED_AT, encodeTimestampMap(verifiedAt))
+                .commit()
+            if (!committed) return
             identityChanges.tryEmit(Unit)
         }
     }
 
-    data class VouchRecord(val voucherFingerprint: String, val timestampMs: Long)
+    data class VouchRecord(
+        val voucherFingerprint: String,
+        val voucheeSigningKeyHex: String,
+        val timestampMs: Long
+    )
 
+    @SuppressLint("UseKtx")
     fun recordVouch(
         voucheeFingerprint: String,
         voucherFingerprint: String,
+        voucheeSigningKey: ByteArray,
         timestampMs: Long,
         nowMs: Long = System.currentTimeMillis()
     ): Boolean {
         val vouchee = voucheeFingerprint.lowercase()
         val voucher = voucherFingerprint.lowercase()
-        if (!isValidFingerprint(vouchee) || !isValidFingerprint(voucher)) return false
-        synchronized(vouchStateLock) {
+        if (!isValidFingerprint(vouchee) || !isValidFingerprint(voucher) ||
+            voucheeSigningKey.size != VouchAttestation.SIGNING_KEY_SIZE
+        ) return false
+        synchronized(identityPersistenceLock) {
+            if (identityPersistenceEpochAtCreation != identityPersistenceEpoch) return false
             val verified = getVerifiedFingerprints().mapTo(mutableSetOf()) { it.lowercase() }
             val age = nowMs - timestampMs
             if (vouchee == voucher || voucher !in verified || vouchee in verified ||
-                age > com.bitchat.android.model.VouchAttestation.MAX_AGE_MS ||
-                age < -com.bitchat.android.model.VouchAttestation.MAX_CLOCK_SKEW_MS
+                age > VouchAttestation.MAX_AGE_MS ||
+                age < -VouchAttestation.MAX_CLOCK_SKEW_MS
             ) return false
 
             val all = readVouchRecords().toMutableMap()
             val records = all[vouchee].orEmpty().toMutableList()
             val existing = records.indexOfFirst { it.voucherFingerprint == voucher }
-            val record = VouchRecord(
-                voucher,
-                if (existing > INDEX_NOT_FOUND) {
-                    maxOf(records[existing].timestampMs, timestampMs)
-                } else {
-                    timestampMs
-                }
+            val proposed = VouchRecord(
+                voucherFingerprint = voucher,
+                voucheeSigningKeyHex = voucheeSigningKey.hexEncodedString(),
+                timestampMs = timestampMs
             )
+            val record = records.getOrNull(existing)
+                ?.takeIf { it.timestampMs >= timestampMs }
+                ?: proposed
             if (existing > INDEX_NOT_FOUND) records[existing] = record else records += record
             val capped = records.sortedByDescending { it.timestampMs }.take(MAX_VOUCHERS_PER_VOUCHEE)
             if (capped.none { it.voucherFingerprint == voucher }) return false
             all[vouchee] = capped
-            prefs.edit { putStringSet(KEY_VOUCH_RECORDS, encodeVouchRecords(all)) }
+            val committed = prefs.edit()
+                .putStringSet(KEY_VOUCH_RECORDS, encodeVouchRecords(all))
+                .commit()
+            if (!committed) return false
             identityChanges.tryEmit(Unit)
             return true
         }
@@ -308,13 +325,17 @@ class SecureIdentityStateManager {
     ): List<VouchRecord> {
         val normalized = fingerprint.lowercase()
         if (!isValidFingerprint(normalized)) return emptyList()
-        synchronized(vouchStateLock) {
+        synchronized(identityPersistenceLock) {
+            if (identityPersistenceEpochAtCreation != identityPersistenceEpoch) return emptyList()
             val verified = getVerifiedFingerprints().mapTo(mutableSetOf()) { it.lowercase() }
+            val authenticatedSigningKeyHex = getAuthenticatedSigningKey(normalized)
+                ?.hexEncodedString() ?: return emptyList()
             return readVouchRecords()[normalized].orEmpty().filter {
                 it.voucherFingerprint != normalized &&
                     it.voucherFingerprint in verified &&
-                    nowMs - it.timestampMs <= com.bitchat.android.model.VouchAttestation.MAX_AGE_MS &&
-                    nowMs - it.timestampMs >= -com.bitchat.android.model.VouchAttestation.MAX_CLOCK_SKEW_MS
+                    it.voucheeSigningKeyHex == authenticatedSigningKeyHex &&
+                    nowMs - it.timestampMs <= VouchAttestation.MAX_AGE_MS &&
+                    nowMs - it.timestampMs >= -VouchAttestation.MAX_CLOCK_SKEW_MS
             }
         }
     }
@@ -328,12 +349,23 @@ class SecureIdentityStateManager {
     }
 
     fun getVouchedFingerprints(nowMs: Long = System.currentTimeMillis()): Set<String> =
-        synchronized(vouchStateLock) {
+        synchronized(identityPersistenceLock) {
             readVouchRecords().keys.filterTo(mutableSetOf()) { isVouched(it, nowMs) }
         }
 
+    fun nextVouchExpiryMs(nowMs: Long = System.currentTimeMillis()): Long? =
+        synchronized(identityPersistenceLock) {
+            readVouchRecords().keys
+                .flatMap { validVouchers(it, nowMs) }
+                .minOfOrNull {
+                    it.timestampMs +
+                        VouchAttestation.MAX_AGE_MS +
+                        EXPIRY_TRANSITION_OFFSET_MS
+                }
+        }
+
     fun mostRecentlyVerifiedFingerprints(limit: Int, excluding: String): List<String> {
-        return synchronized(vouchStateLock) {
+        return synchronized(identityPersistenceLock) {
             val verifiedAt = readTimestampMap(KEY_VERIFIED_AT)
             getVerifiedFingerprints()
                 .map { it.lowercase() }
@@ -344,15 +376,22 @@ class SecureIdentityStateManager {
     }
 
     fun lastVouchBatchSent(fingerprint: String): Long? =
-        synchronized(vouchStateLock) {
+        synchronized(identityPersistenceLock) {
             readTimestampMap(KEY_VOUCH_BATCH_SENT_AT)[fingerprint.lowercase()]
         }
 
+    @SuppressLint("UseKtx")
     fun markVouchBatchSent(fingerprint: String, timestampMs: Long) {
-        synchronized(vouchStateLock) {
+        synchronized(identityPersistenceLock) {
+            if (identityPersistenceEpochAtCreation != identityPersistenceEpoch) return
             val sent = readTimestampMap(KEY_VOUCH_BATCH_SENT_AT).toMutableMap()
             sent[fingerprint.lowercase()] = timestampMs
-            prefs.edit { putStringSet(KEY_VOUCH_BATCH_SENT_AT, encodeTimestampMap(sent)) }
+            if (!prefs.edit()
+                    .putStringSet(KEY_VOUCH_BATCH_SENT_AT, encodeTimestampMap(sent))
+                    .commit()
+            ) {
+                Log.e(TAG, "Vouch batch timestamp could not be committed")
+            }
         }
     }
 
@@ -377,14 +416,20 @@ class SecureIdentityStateManager {
         prefs.getStringSet(KEY_VOUCH_RECORDS, emptySet()).orEmpty().mapNotNull { entry ->
             val fields = entry.split(RECORD_SEPARATOR)
             if (fields.size != VOUCH_RECORD_FIELD_COUNT) null else fields.last().toLongOrNull()?.let {
-                fields[VOUCHEE_FIELD_INDEX] to VouchRecord(fields[VOUCHER_FIELD_INDEX], it)
+                fields[VOUCHEE_FIELD_INDEX] to VouchRecord(
+                    voucherFingerprint = fields[VOUCHER_FIELD_INDEX],
+                    voucheeSigningKeyHex = fields[VOUCHEE_SIGNING_KEY_FIELD_INDEX],
+                    timestampMs = it
+                )
             }
         }.groupBy({ it.first }, { it.second })
 
     private fun encodeVouchRecords(values: Map<String, List<VouchRecord>>): Set<String> =
         values.flatMapTo(mutableSetOf()) { (vouchee, records) ->
             records.map {
-                "$vouchee$RECORD_SEPARATOR${it.voucherFingerprint}$RECORD_SEPARATOR${it.timestampMs}"
+                "$vouchee$RECORD_SEPARATOR${it.voucherFingerprint}" +
+                    "$RECORD_SEPARATOR${it.voucheeSigningKeyHex}" +
+                    "$RECORD_SEPARATOR${it.timestampMs}"
             }
         }
 
@@ -475,8 +520,8 @@ class SecureIdentityStateManager {
 
     fun isPrivateMediaCapable(fingerprint: String): Boolean {
         if (!isValidFingerprint(fingerprint)) return false
-        return synchronized(privateMediaPinsLock) {
-            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) {
+        return synchronized(identityPersistenceLock) {
+            if (identityPersistenceEpochAtCreation != identityPersistenceEpoch) {
                 return@synchronized false
             }
             prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())
@@ -491,11 +536,13 @@ class SecureIdentityStateManager {
         state: AuthenticatedPeerState,
         onCommitted: () -> Unit = {}
     ): Boolean {
-        if (!isValidFingerprint(fingerprint) || state.signingPublicKey.size != 32) return false
+        if (!isValidFingerprint(fingerprint) ||
+            state.signingPublicKey.size != VouchAttestation.SIGNING_KEY_SIZE
+        ) return false
         val normalizedFingerprint = fingerprint.lowercase()
-        return synchronized(privateMediaPinsLock) {
+        return synchronized(identityPersistenceLock) {
             // A controller that survived panic must not republish pre-wipe proof state.
-            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return@synchronized false
+            if (identityPersistenceEpochAtCreation != identityPersistenceEpoch) return@synchronized false
             val records = prefs.getStringSet(KEY_AUTHENTICATED_PEER_STATES, emptySet())
                 ?.toMutableSet() ?: mutableSetOf()
             records.removeAll { it.startsWith("$normalizedFingerprint:") }
@@ -514,15 +561,18 @@ class SecureIdentityStateManager {
             // This result is a security boundary: do not publish the Ed key in memory unless the
             // encrypted identity record and its HSTS pin were durably committed together.
             editor.commit().also { committed ->
-                if (committed) onCommitted()
+                if (committed) {
+                    identityChanges.tryEmit(Unit)
+                    onCommitted()
+                }
             }
         }
     }
 
     fun getAuthenticatedPeerState(fingerprint: String): AuthenticatedPeerState? {
         if (!isValidFingerprint(fingerprint)) return null
-        return synchronized(privateMediaPinsLock) {
-            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return@synchronized null
+        return synchronized(identityPersistenceLock) {
+            if (identityPersistenceEpochAtCreation != identityPersistenceEpoch) return@synchronized null
             val prefix = "${fingerprint.lowercase()}:"
             val record = prefs.getStringSet(KEY_AUTHENTICATED_PEER_STATES, emptySet())
                 ?.firstOrNull { it.startsWith(prefix) } ?: return@synchronized null
@@ -620,9 +670,9 @@ class SecureIdentityStateManager {
     @SuppressLint("UseKtx")
     fun clearIdentityData() {
         try {
-            synchronized(privateMediaPinsLock) {
-                privateMediaPinsEpoch += 1
-                privateMediaPinsEpochAtCreation = privateMediaPinsEpoch
+            synchronized(identityPersistenceLock) {
+                identityPersistenceEpoch += 1
+                identityPersistenceEpochAtCreation = identityPersistenceEpoch
                 if (!prefs.edit().clear().commit()) {
                     Log.e(TAG, "Identity preference wipe could not be committed")
                 }

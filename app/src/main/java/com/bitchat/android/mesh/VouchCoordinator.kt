@@ -101,6 +101,7 @@ class VouchCoordinator(
                 identity.recordVouch(
                     attestation.voucheeFingerprint.hexEncodedString(),
                     senderFingerprint,
+                    attestation.voucheeSigningKey,
                     attestation.timestampMs,
                     nowMs
                 )

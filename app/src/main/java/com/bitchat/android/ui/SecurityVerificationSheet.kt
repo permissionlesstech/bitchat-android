@@ -331,7 +331,7 @@ private fun SecurityVerificationActions(
                     voucherNames.size,
                     voucherNames.size
                 ),
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = BitchatFontFamily),
                 color = accent.copy(alpha = VOUCHED_SECONDARY_CONTENT_ALPHA),
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
@@ -339,7 +339,7 @@ private fun SecurityVerificationActions(
             if (voucherNames.isNotEmpty()) {
                 Text(
                     text = voucherNames.joinToString(),
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = BitchatFontFamily),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
