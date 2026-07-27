@@ -3,7 +3,6 @@ package com.bitchat.android.ui
 import android.content.Context
 import android.content.Intent
 import androidx.core.net.toUri
-import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
@@ -48,6 +47,5 @@ internal fun channelForGeohash(geohash: String): GeohashChannel {
 internal fun navigateToGeohash(context: Context, geohash: String): Boolean =
     runCatching {
         val locationManager = LocationChannelManager.getInstance(context)
-        locationManager.setTeleported(true)
-        locationManager.select(ChannelID.Location(channelForGeohash(geohash)))
+        locationManager.selectManual(channelForGeohash(geohash))
     }.isSuccess
