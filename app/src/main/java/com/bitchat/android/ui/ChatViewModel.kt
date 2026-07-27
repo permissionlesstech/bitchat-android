@@ -270,6 +270,15 @@ class ChatViewModel(
             } } catch (_: Exception) { }
         }
         viewModelScope.launch {
+            com.bitchat.android.services.bridge.CourierMessagePort.messages.collect { message ->
+                // The coordinator already inserted the message into AppStateStore
+                // after authenticating and block-checking its full Noise key.
+                // Reuse normal mesh ingress for unread tracking, haptics, and
+                // notification suppression while the conversation is focused.
+                meshDelegateHandler.didReceiveMessage(message)
+            }
+        }
+        viewModelScope.launch {
             try { com.bitchat.android.services.AppStateStore.channelMessages.collect { byChannel ->
                 // Replace with store snapshot
                 state.setChannelMessages(byChannel)
@@ -992,6 +1001,13 @@ class ChatViewModel(
         // A pending one-shot downgrade confirmation must not survive panic or
         // become actionable against the fresh post-wipe identity.
         mediaSendingManager.clearPendingPrivateMediaConsent()
+        com.bitchat.android.services.MessageRouter.tryGetInstance()?.wipeOutbox()
+
+        // Revoke all bridge publication/courier authority before clearing
+        // UI, transport, or identity state.
+        try {
+            com.bitchat.android.services.bridge.MeshBridgeService.wipe()
+        } catch (_: Exception) { }
         
         // Clear all UI managers
         messageManager.clearAllMessages()
@@ -1007,10 +1023,6 @@ class ChatViewModel(
         // Clear all mesh service data
         clearAllMeshServiceData()
 
-        try {
-            com.bitchat.android.services.bridge.MeshBridgeService.wipe()
-        } catch (_: Exception) { }
-        
         // Clear all cryptographic data
         clearAllCryptographicData()
         
@@ -1030,7 +1042,7 @@ class ChatViewModel(
 
             try {
                 val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-                locationManager.clearPersistedChannel()
+                locationManager.panicReset()
             } catch (_: Exception) { }
 
             geohashViewModel.panicReset()

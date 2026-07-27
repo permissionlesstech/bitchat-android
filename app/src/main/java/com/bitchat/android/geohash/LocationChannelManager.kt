@@ -52,6 +52,10 @@ class LocationChannelManager private constructor(private val context: Context) {
     private val geocoderProvider: GeocoderProvider = GeocoderFactory.get(context)
     private var lastLocation: Location? = null
     private var geocodingJob: Job? = null
+    @Volatile
+    private var acceptLocationUpdates = true
+    @Volatile
+    private var locationRequestGeneration = 0L
     private val gson = Gson()
     private var dataManager: com.bitchat.android.ui.DataManager? = null
 
@@ -75,7 +79,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     private val locationUpdateCallback: (Location) -> Unit = { location ->
-        onLocationUpdated(location)
+        if (acceptLocationUpdates) onLocationUpdated(location)
     }
 
     // Published state for UI bindings (matching iOS @Published properties)
@@ -166,9 +170,12 @@ class LocationChannelManager private constructor(private val context: Context) {
     /**
      * Refresh available channels from current location
      */
-    fun refreshChannels() {
+    fun refreshChannels(
+        forceFresh: Boolean = false,
+        updatePlaceNames: Boolean = true
+    ) {
         if (_permissionState.value == PermissionState.AUTHORIZED && isLocationServicesEnabled()) {
-            requestOneShotLocation()
+            requestOneShotLocation(forceFresh, updatePlaceNames)
         }
     }
 
@@ -189,6 +196,7 @@ class LocationChannelManager private constructor(private val context: Context) {
             return
         }
 
+        acceptLocationUpdates = true
         // Register for continuous updates from available provider
         locationProvider.requestLocationUpdates(
             intervalMs = interval,
@@ -212,7 +220,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Select a channel
      */
     fun select(channel: ChannelID) {
-        Log.d(TAG, "Selected channel: ${channel.displayName}")
+        Log.d(TAG, "Location channel selection updated")
         // Use synchronous set to avoid race with background recomputation
         _selectedChannel.value = channel
         saveChannelSelection(channel)
@@ -231,7 +239,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                     )
                     val isTeleportedNow = currentGeohash != channel.channel.geohash
                     _teleported.value = isTeleportedNow
-                    Log.d(TAG, "Teleported (immediate recompute): $isTeleportedNow (current: $currentGeohash, selected: ${channel.channel.geohash})")
+                    Log.d(TAG, "Teleported status updated: $isTeleportedNow")
                 }
             }
         }
@@ -292,7 +300,10 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     // MARK: - Location Operations
 
-    private fun requestOneShotLocation() {
+    private fun requestOneShotLocation(
+        forceFresh: Boolean = false,
+        updatePlaceNames: Boolean = true
+    ) {
         if (!checkAndSyncPermission()) {
             Log.w(TAG, "No location permission for one-shot request")
             return
@@ -301,33 +312,53 @@ class LocationChannelManager private constructor(private val context: Context) {
         Log.d(TAG, "Requesting one-shot location")
         // Set loading state initially
         _isLoadingLocation.value = true
+        acceptLocationUpdates = true
+        val generation = locationRequestGeneration
+
+        if (forceFresh) {
+            requestFreshLocation(updatePlaceNames, generation)
+            return
+        }
         
         locationProvider.getLastKnownLocation { cached ->
+            if (generation != locationRequestGeneration || !acceptLocationUpdates) {
+                return@getLastKnownLocation
+            }
             // If we have a cached location and it's reasonably recent (e.g. < 5 mins), use it
             // For now, we just use it if it exists, similar to previous logic
             if (cached != null) {
-                Log.d(TAG, "Using last known location: ${cached.latitude}, ${cached.longitude}")
-                onLocationUpdated(cached)
+                Log.d(TAG, "Using recent location fix")
+                onLocationUpdated(cached, updatePlaceNames)
             } else {
                 Log.d(TAG, "No last known location available, requesting fresh...")
-                locationProvider.requestFreshLocation { fresh ->
-                    if (fresh != null) {
-                        Log.d(TAG, "Fresh location received: ${fresh.latitude}, ${fresh.longitude}")
-                        onLocationUpdated(fresh)
-                    } else {
-                        Log.w(TAG, "Failed to get fresh location")
-                        _isLoadingLocation.value = false
-                    }
-                }
+                requestFreshLocation(updatePlaceNames, generation)
             }
         }
     }
 
-    private fun onLocationUpdated(location: Location) {
+    private fun requestFreshLocation(
+        updatePlaceNames: Boolean = true,
+        generation: Long = locationRequestGeneration
+    ) {
+        locationProvider.requestFreshLocation { fresh ->
+            if (generation != locationRequestGeneration || !acceptLocationUpdates) {
+                return@requestFreshLocation
+            }
+            if (fresh != null) {
+                Log.d(TAG, "Fresh location fix received")
+                onLocationUpdated(fresh, updatePlaceNames)
+            } else {
+                Log.w(TAG, "Failed to get fresh location")
+                _isLoadingLocation.value = false
+            }
+        }
+    }
+
+    private fun onLocationUpdated(location: Location, updatePlaceNames: Boolean = true) {
         lastLocation = location
         _isLoadingLocation.value = false
         computeChannels(location)
-        reverseGeocodeIfNeeded(location)
+        if (updatePlaceNames) reverseGeocodeIfNeeded(location)
     }
 
 
@@ -356,7 +387,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     private fun computeChannels(location: Location) {
-        Log.d(TAG, "Computing channels for location: ${location.latitude}, ${location.longitude}")
+        Log.d(TAG, "Computing location channels")
         
         val levels = GeohashChannelLevel.allCases()
         val result = mutableListOf<GeohashChannel>()
@@ -369,7 +400,7 @@ class LocationChannelManager private constructor(private val context: Context) {
             )
             result.add(GeohashChannel(level = level, geohash = geohash))
             
-            Log.v(TAG, "Generated ${level.displayName}: $geohash")
+            Log.v(TAG, "Generated ${level.displayName} location channel")
         }
         
         _availableChannels.value = result
@@ -388,7 +419,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                 )
                 val isTeleported = currentGeohash != selectedChannelValue.channel.geohash
                 _teleported.value = isTeleported
-                Log.d(TAG, "Teleported status: $isTeleported (current: $currentGeohash, selected: ${selectedChannelValue.channel.geohash})")
+                Log.d(TAG, "Teleported status updated: $isTeleported")
             }
         }
     }
@@ -408,7 +439,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                 if (addresses.isNotEmpty()) {
                     val address = addresses[0]
                     val names = namesByLevel(address)
-                    Log.d(TAG, "Reverse geocoding result: $names")
+                    Log.d(TAG, "Reverse geocoding completed")
                     _locationNames.value = names
                 } else {
                     Log.w(TAG, "No reverse geocoding results")
@@ -482,7 +513,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                 )
             }
             dataManager?.saveLastGeohashChannel(channelData)
-            Log.d(TAG, "Saved channel selection: ${channel.displayName}")
+            Log.d(TAG, "Saved location channel selection")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save channel selection: ${e.message}")
         }
@@ -499,7 +530,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                 val channel = persisted?.toChannel()
                 if (channel != null) {
                     _selectedChannel.value = channel
-                    Log.d(TAG, "Restored persisted channel: ${channel.displayName}")
+                    Log.d(TAG, "Restored persisted location channel")
                 } else {
                     Log.d(TAG, "Could not restore persisted channel, defaulting to Mesh")
                     _selectedChannel.value = ChannelID.Mesh
@@ -541,6 +572,20 @@ class LocationChannelManager private constructor(private val context: Context) {
         _selectedChannel.value = ChannelID.Mesh
         _teleported.value = false
         Log.d(TAG, "Cleared persisted channel selection")
+    }
+
+    /** Remove exact/transient location state without destroying the singleton. */
+    fun panicReset() {
+        acceptLocationUpdates = false
+        locationRequestGeneration += 1
+        locationProvider.cancel()
+        geocodingJob?.cancel()
+        geocodingJob = null
+        lastLocation = null
+        _availableChannels.value = emptyList()
+        _locationNames.value = emptyMap()
+        _isLoadingLocation.value = false
+        clearPersistedChannel()
     }
 
     // MARK: - Location Services State Persistence

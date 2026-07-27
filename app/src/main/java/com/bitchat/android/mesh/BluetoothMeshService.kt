@@ -413,7 +413,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun getBroadcastRecipient(): ByteArray {
                 return SpecialRecipients.BROADCAST
             }
-            
+
             // Cryptographic operations
             override fun verifySignature(packet: BitchatPacket, peerID: String): Boolean {
                 return securityManager.verifySignature(packet, peerID)
@@ -570,6 +570,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun getBroadcastRecipient(): ByteArray {
                 return SpecialRecipients.BROADCAST
             }
+
+            override fun isPeerDirectlyConnected(peerID: String): Boolean =
+                peerManager.getPeerInfo(peerID)?.isDirectConnection == true
             
             override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
@@ -925,7 +928,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     }
 
     fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String) {
-        sendRawProtocolPacket(MessageType.COURIER_ENVELOPE, payload, recipientPeerID, sign = false)
+        sendRawProtocolPacket(MessageType.COURIER_ENVELOPE, payload, recipientPeerID, sign = true)
     }
 
     fun sendPrekeyBundle(payload: ByteArray) {
@@ -948,7 +951,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 ttl = MAX_TTL
             ) ?: return@launch
             val outgoing = if (sign) signPacketBeforeBroadcast(packet) else packet
-            if (sign && outgoing.signature?.size != 64) return@launch
+            if (sign &&
+                type != MessageType.COURIER_ENVELOPE &&
+                outgoing.signature?.size != 64
+            ) {
+                return@launch
+            }
             broadcastRoutedPacket(RoutedPacket(outgoing))
         }
     }

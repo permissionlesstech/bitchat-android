@@ -102,17 +102,17 @@ object AppStateStore {
         _publicMessages.value.any { !it.isBridged && it.id == messageId }
     }
 
-    fun addPrivateMessage(peerID: String, msg: BitchatMessage) {
+    fun addPrivateMessage(peerID: String, msg: BitchatMessage): Boolean =
         synchronized(this) {
-            if (seenMessageIds.contains(msg.id)) return
+            if (seenMessageIds.contains(msg.id)) return@synchronized false
             seenMessageIds.add(msg.id)
             val conversationID = ContactDirectory.canonicalConversationId(peerID)
             val map = _privateMessages.value.toMutableMap()
             val list = (map[conversationID] ?: emptyList()) + msg
             map[conversationID] = list
             _privateMessages.value = ContactDirectory.canonicalizePrivateChats(map)
+            true
         }
-    }
 
     private fun statusPriority(status: DeliveryStatus?): Int = when (status) {
         null -> 0

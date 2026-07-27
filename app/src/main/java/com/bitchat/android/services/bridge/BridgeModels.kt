@@ -37,6 +37,7 @@ internal data class VerifiedBridgePeer(
     val nickname: String,
     val noiseKey: ByteArray,
     val signingKey: ByteArray,
+    val isVerifiedNickname: Boolean,
     val capabilities: PeerCapabilities?,
     val bridgeCell: String?,
     val lastSeenMs: Long

@@ -5,12 +5,15 @@ import android.util.Log
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.services.bridge.CourierDepositResult
 import com.bitchat.android.services.bridge.MeshBridgeService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -19,12 +22,21 @@ import kotlinx.coroutines.launch
 class MessageRouter private constructor(
     private var mesh: MeshService,
     private val nostr: NostrTransport,
+    private val relayManager: NostrRelayManager,
     private val currentNostrIdentity: () -> com.bitchat.android.nostr.NostrIdentity?
 ) {
     private data class OutboxMessage(
         val content: String,
         val recipientNickname: String,
-        val messageId: String
+        val messageId: String,
+        val createdAtMs: Long = System.currentTimeMillis(),
+        var lastMeshAttemptMs: Long = 0,
+        var lastNostrAttemptMs: Long = 0
+    )
+
+    private data class OutboxKey(
+        val conversationID: String,
+        val messageID: String
     )
 
     enum class RouteResult {
@@ -36,6 +48,10 @@ class MessageRouter private constructor(
 
     companion object {
         private const val TAG = "MessageRouter"
+        private const val RETRY_INTERVAL_MS = 60_000L
+        private const val TRANSPORT_RETRY_INTERVAL_MS = 5L * 60 * 1000
+        private const val OUTBOX_TTL_MS = 48L * 60 * 60 * 1000
+        private const val MAX_OUTBOX_PER_CONVERSATION = 50
         @Volatile private var INSTANCE: MessageRouter? = null
         fun tryGetInstance(): MessageRouter? = INSTANCE
         fun getInstance(context: Context, mesh: MeshService): MessageRouter {
@@ -46,6 +62,7 @@ class MessageRouter private constructor(
                     MessageRouter(
                         mesh = mesh,
                         nostr = nostr,
+                        relayManager = NostrRelayManager.getInstance(application),
                         currentNostrIdentity = {
                             com.bitchat.android.nostr.NostrIdentityBridge
                                 .getCurrentNostrIdentity(application)
@@ -67,7 +84,31 @@ class MessageRouter private constructor(
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val outboxLock = Any()
     private val outbox = mutableMapOf<String, MutableList<OutboxMessage>>()
+    private val courierAttemptTimes = mutableMapOf<OutboxKey, Long>()
+    private val courierAttemptsInFlight = mutableSetOf<OutboxKey>()
+
+    init {
+        scope.launch {
+            MeshBridgeService.isEnabled.collect { enabled ->
+                if (enabled) retryCourierDeposits(force = true)
+            }
+        }
+        scope.launch {
+            relayManager.isConnected.collect { connected ->
+                if (connected) flushAllOutbox()
+            }
+        }
+        scope.launch {
+            while (isActive) {
+                delay(RETRY_INTERVAL_MS)
+                pruneExpiredOutbox()
+                retryCourierDeposits(force = false)
+                if (relayManager.isConnected.value) flushAllOutbox()
+            }
+        }
+    }
 
     // Listener for favorites changes to flush outbox when npub mapping appears/changes
     private val favoriteListener = object: com.bitchat.android.favorites.FavoritesChangeListener {
@@ -102,33 +143,26 @@ class MessageRouter private constructor(
             Log.d(TAG, "Routing PM via mesh to ${meshTarget} msg_id=${messageID.take(8)}…")
             mesh.sendPrivateMessage(content, meshTarget, recipientNickname, messageID)
             return RouteResult.MESH
-        } else if (canSendViaNostr(nostrTarget)) {
+        } else if (canSendViaNostr(nostrTarget) && relayManager.isConnected.value) {
             Log.d(TAG, "Routing PM via Nostr to ${conversationID.take(32)}… msg_id=${messageID.take(8)}…")
             nostr.sendPrivateMessage(content, nostrTarget, recipientNickname, messageID)
             return RouteResult.NOSTR
         } else {
-            Log.d(TAG, "Queued PM for ${conversationID} (no mesh, no Nostr mapping) msg_id=${messageID.take(8)}…")
-            val q = outbox.getOrPut(conversationID) { mutableListOf() }
-            q.add(OutboxMessage(content, recipientNickname, messageID))
+            Log.d(TAG, "Queued PM for ${conversationID.take(16)}… (no ready transport) msg_id=${messageID.take(8)}…")
+            enqueueOutbox(
+                conversationID,
+                OutboxMessage(content, recipientNickname, messageID)
+            )
             resolution.noisePublicKey?.let { recipientNoiseKey ->
-                scope.launch {
-                    val result = runCatching {
-                        MeshBridgeService.depositCourierDrop(
-                            content = content,
-                            messageId = messageID,
-                            recipientNoiseKey = recipientNoiseKey
-                        )
-                    }.getOrElse { error ->
-                        Log.w(TAG, "Courier deposit failed: ${error.message}")
-                        return@launch
-                    }
-                    if (result is CourierDepositResult.Rejected) {
-                        Log.d(TAG, "Courier deposit rejected: ${result.reason}")
-                    }
-                }
+                attemptCourierDeposit(
+                    conversationID,
+                    OutboxMessage(content, recipientNickname, messageID),
+                    recipientNoiseKey,
+                    force = true
+                )
             }
             Log.d(TAG, "Initiating noise handshake after queueing PM for ${conversationID.take(16)}…")
-            if (hasMesh) meshTarget?.let { mesh.initiateNoiseHandshake(it) }
+            if (hasMesh) mesh.initiateNoiseHandshake(meshTarget)
             return RouteResult.QUEUED
         }
     }
@@ -191,42 +225,85 @@ class MessageRouter private constructor(
     // Flush any queued messages for a specific peerID
     fun flushOutboxFor(peerID: String) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
-        val queued = outbox[conversationID] ?: outbox[peerID] ?: return
-        if (queued.isEmpty()) return
-        Log.d(TAG, "Flushing outbox for ${conversationID.take(16)}… count=${queued.size}")
-        val iterator = queued.iterator()
-        while (iterator.hasNext()) {
-            val queuedMessage = iterator.next()
-            val resolution = ContactDirectory.resolve(conversationID)
-            val meshTarget = resolution.meshPeerID
-            val nostrTarget = resolution.noiseKeyHex ?: conversationID
-            if (meshTarget != null && isReady(mesh, meshTarget)) {
-                mesh.sendPrivateMessage(
-                    queuedMessage.content,
-                    meshTarget,
-                    queuedMessage.recipientNickname,
-                    queuedMessage.messageId
-                )
-                iterator.remove()
-            } else if (canSendViaNostr(nostrTarget)) {
-                nostr.sendPrivateMessage(
-                    queuedMessage.content,
-                    nostrTarget,
-                    queuedMessage.recipientNickname,
-                    queuedMessage.messageId
-                )
-                iterator.remove()
-            }
+        val matchingQueues = synchronized(outboxLock) {
+            outbox.entries
+                .filter { (key, _) ->
+                    key == peerID ||
+                        ContactDirectory.canonicalConversationId(key) == conversationID
+                }
+                .map { it.key to it.value.toList() }
         }
-        if (queued.isEmpty()) {
-            outbox.remove(conversationID)
-            outbox.remove(peerID)
+        if (matchingQueues.isEmpty()) return
+        Log.d(
+            TAG,
+            "Flushing outbox for ${conversationID.take(16)}… count=${matchingQueues.sumOf { it.second.size }}"
+        )
+        matchingQueues.forEach { (queuedConversationID, queued) ->
+            queued.forEach messageLoop@{ queuedMessage ->
+                val resolution = ContactDirectory.resolve(queuedConversationID)
+                val meshTarget = resolution.meshPeerID
+                val nostrTarget = resolution.noiseKeyHex ?: queuedConversationID
+                if (meshTarget != null && isReady(mesh, meshTarget)) {
+                    if (!shouldAttemptTransport(queuedMessage, mesh = true)) return@messageLoop
+                    mesh.sendPrivateMessage(
+                        queuedMessage.content,
+                        meshTarget,
+                        queuedMessage.recipientNickname,
+                        queuedMessage.messageId
+                    )
+                    recordTransportAttempt(
+                        queuedConversationID,
+                        queuedMessage.messageId,
+                        mesh = true
+                    )
+                } else if (canSendViaNostr(nostrTarget) && relayManager.isConnected.value) {
+                    if (!shouldAttemptTransport(queuedMessage, mesh = false)) return@messageLoop
+                    nostr.sendPrivateMessage(
+                        queuedMessage.content,
+                        nostrTarget,
+                        queuedMessage.recipientNickname,
+                        queuedMessage.messageId
+                    )
+                    recordTransportAttempt(
+                        queuedConversationID,
+                        queuedMessage.messageId,
+                        mesh = false
+                    )
+                }
+            }
         }
     }
 
     // Flush everything (rarely used)
     fun flushAllOutbox() {
-        outbox.keys.toList().forEach { flushOutboxFor(it) }
+        synchronized(outboxLock) { outbox.keys.toList() }.forEach { flushOutboxFor(it) }
+    }
+
+    /** Stop retrying a retained message once any transport confirms delivery. */
+    fun acknowledge(messageID: String, fromPeerID: String) {
+        val acknowledgedConversation = ContactDirectory.canonicalConversationId(fromPeerID)
+        synchronized(outboxLock) {
+            outbox.entries.forEach { (conversationID, messages) ->
+                if (ContactDirectory.canonicalConversationId(conversationID) ==
+                    acknowledgedConversation
+                ) {
+                    messages.removeAll { it.messageId == messageID }
+                    val key = OutboxKey(conversationID, messageID)
+                    courierAttemptTimes.remove(key)
+                    courierAttemptsInFlight.remove(key)
+                }
+            }
+            outbox.entries.removeAll { it.value.isEmpty() }
+        }
+    }
+
+    /** Panic-mode hook: retained plaintext and retry metadata must not survive. */
+    fun wipeOutbox() {
+        synchronized(outboxLock) {
+            outbox.clear()
+            courierAttemptTimes.clear()
+            courierAttemptsInFlight.clear()
+        }
     }
 
     private fun canSendViaNostr(peerID: String): Boolean {
@@ -273,6 +350,7 @@ class MessageRouter private constructor(
             } catch (_: Exception) { null }
             noiseHex?.let { flushOutboxFor(it) }
         }
+        retryCourierDeposits(force = true)
     }
 
     // Called when a Noise session becomes established; flush both the mesh peerID and its noiseHex alias
@@ -283,4 +361,126 @@ class MessageRouter private constructor(
         } catch (_: Exception) { null }
         noiseHex?.let { flushOutboxFor(it) }
     }
+
+    private fun enqueueOutbox(conversationID: String, message: OutboxMessage) {
+        synchronized(outboxLock) {
+            val queue = outbox.getOrPut(conversationID) { mutableListOf() }
+            if (queue.any { it.messageId == message.messageId }) return
+            queue += message
+            while (queue.size > MAX_OUTBOX_PER_CONVERSATION) {
+                val removed = queue.removeAt(0)
+                val key = OutboxKey(conversationID, removed.messageId)
+                courierAttemptTimes.remove(key)
+                courierAttemptsInFlight.remove(key)
+                AppStateStore.updatePrivateMessageStatus(
+                    removed.messageId,
+                    com.bitchat.android.model.DeliveryStatus.Failed("delivery queue full")
+                )
+            }
+        }
+    }
+
+    private fun retryCourierDeposits(force: Boolean) {
+        val queued = synchronized(outboxLock) {
+            outbox.flatMap { (conversationID, messages) ->
+                messages.filter { !isExpired(it) }.map { conversationID to it }
+            }
+        }
+        queued.forEach { (conversationID, message) ->
+            val recipientNoiseKey =
+                ContactDirectory.resolve(conversationID).noisePublicKey
+            if (recipientNoiseKey != null) {
+                attemptCourierDeposit(conversationID, message, recipientNoiseKey, force)
+            }
+        }
+    }
+
+    private fun attemptCourierDeposit(
+        conversationID: String,
+        message: OutboxMessage,
+        recipientNoiseKey: ByteArray,
+        force: Boolean
+    ) {
+        val now = System.currentTimeMillis()
+        val key = OutboxKey(conversationID, message.messageId)
+        synchronized(outboxLock) {
+            if (key in courierAttemptsInFlight) return
+            val lastAttempt = courierAttemptTimes[key] ?: 0L
+            if (!force && now - lastAttempt < RETRY_INTERVAL_MS) return
+            courierAttemptTimes[key] = now
+            courierAttemptsInFlight += key
+        }
+        scope.launch {
+            val result = runCatching {
+                MeshBridgeService.depositCourierDrop(
+                    content = message.content,
+                    messageId = message.messageId,
+                    recipientNoiseKey = recipientNoiseKey
+                )
+            }.getOrElse { error ->
+                Log.w(TAG, "Courier deposit failed: ${error.message}")
+                null
+            }
+            synchronized(outboxLock) {
+                courierAttemptsInFlight.remove(key)
+            }
+            if (result is CourierDepositResult.Rejected) {
+                Log.d(TAG, "Courier deposit rejected: ${result.reason}")
+            } else if (
+                result == CourierDepositResult.Published ||
+                result == CourierDepositResult.ForwardedToGateway ||
+                result == CourierDepositResult.AlreadyPublished
+            ) {
+                AppStateStore.updatePrivateMessageStatus(
+                    message.messageId,
+                    com.bitchat.android.model.DeliveryStatus.Sent
+                )
+            }
+        }
+    }
+
+    private fun pruneExpiredOutbox() {
+        synchronized(outboxLock) {
+            outbox.forEach { (conversationID, messages) ->
+                val expiredIds = messages.filter(::isExpired).map { it.messageId }.toSet()
+                messages.removeAll { it.messageId in expiredIds }
+                expiredIds.forEach {
+                    val key = OutboxKey(conversationID, it)
+                    courierAttemptTimes.remove(key)
+                    courierAttemptsInFlight.remove(key)
+                    AppStateStore.updatePrivateMessageStatus(
+                        it,
+                        com.bitchat.android.model.DeliveryStatus.Failed("delivery expired")
+                    )
+                }
+            }
+            outbox.entries.removeAll { it.value.isEmpty() }
+        }
+    }
+
+    private fun shouldAttemptTransport(message: OutboxMessage, mesh: Boolean): Boolean {
+        val lastAttempt = synchronized(outboxLock) {
+            if (mesh) message.lastMeshAttemptMs else message.lastNostrAttemptMs
+        }
+        return System.currentTimeMillis() - lastAttempt >= TRANSPORT_RETRY_INTERVAL_MS
+    }
+
+    private fun recordTransportAttempt(
+        conversationID: String,
+        messageID: String,
+        mesh: Boolean
+    ) {
+        val now = System.currentTimeMillis()
+        synchronized(outboxLock) {
+            outbox[conversationID].orEmpty()
+                .filter { it.messageId == messageID }
+                .forEach { message ->
+                    if (mesh) message.lastMeshAttemptMs = now else message.lastNostrAttemptMs = now
+                }
+        }
+    }
+
+    private fun isExpired(message: OutboxMessage): Boolean =
+        System.currentTimeMillis() - message.createdAtMs >= OUTBOX_TTL_MS
+
 }

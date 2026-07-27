@@ -16,9 +16,11 @@ import com.bitchat.android.nostr.NostrKind
 import com.bitchat.android.nostr.NostrProtocol
 import com.bitchat.android.nostr.NostrPublishResult
 import com.bitchat.android.nostr.NostrRelayManager
+import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
+import com.bitchat.android.services.MessageRouter
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,20 +44,25 @@ internal class CourierCoordinator(
     private val prekeys: PrekeyManager,
     private val meshProvider: () -> MeshService?,
     private val peersProvider: () -> List<VerifiedBridgePeer>,
-    private val onPrekeyConsumed: () -> Unit,
+    private val isTrustedDepositor: (VerifiedBridgePeer) -> Boolean,
+    private val isSenderBlocked: (ByteArray) -> Boolean,
+    private val onPrekeyConsumed: suspend () -> Unit,
     private val clock: () -> Long = System::currentTimeMillis,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
 ) {
     private data class PendingDrop(
         val envelope: CourierEnvelope,
         val dedupKey: String?,
-        val queueKey: String
+        val queueKey: String,
+        val depositorKey: String? = null,
+        val attemptedGatewayPeerIds: MutableSet<String> = mutableSetOf()
     )
 
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val pendingDrops = mutableListOf<PendingDrop>()
     private val signatureAttemptTimes = mutableListOf<Long>()
+    private val depositTimesByPeer = mutableMapOf<String, MutableList<Long>>()
     private var subscribedTags: Set<String> = emptySet()
     private val courierSubscription = RelaySubscriptionSlot("mesh-bridge-courier")
     @Volatile
@@ -82,7 +89,9 @@ internal class CourierCoordinator(
 
     fun peerStateChanged() {
         scope.launch {
-            if (enabled) refreshSubscription()
+            if (!enabled) return@launch
+            refreshSubscription()
+            retryPendingGatewayHandoffs()
         }
     }
 
@@ -94,15 +103,25 @@ internal class CourierCoordinator(
         }
     }
 
-    fun handleEnvelope(payload: ByteArray) {
+    fun handleEnvelope(packet: BitchatPacket, fromPeerId: String, directIngress: Boolean) {
         scope.launch {
-            val envelope = CourierEnvelope.decode(payload) ?: return@launch
+            val envelope = CourierEnvelope.decode(packet.payload) ?: return@launch
             if (!validLifetime(envelope)) return@launch
             if (isMyTag(envelope.recipientTag)) {
                 openEnvelope(envelope)
-            } else if (enabled) {
-                publishOrQueue(envelope, dedupKey = null)
+                return@launch
             }
+            if (!enabled) return@launch
+
+            if (!allowSignatureAttempt()) return@launch
+            val depositor = authenticatedDepositor(packet, fromPeerId, directIngress)
+                ?: return@launch
+            if (!allowDeposit(depositor.peerId)) return@launch
+            publishOrQueue(
+                envelope = envelope,
+                dedupKey = null,
+                depositorKey = depositor.peerId
+            )
         }
     }
 
@@ -177,6 +196,16 @@ internal class CourierCoordinator(
         val gateway = availableGateway()
         if (gateway != null) {
             meshProvider()?.sendCourierEnvelope(encoded, gateway.peerId)
+            // Keep a local copy until a relay accepts it. If the gateway is
+            // lost before publishing, router retries can choose another path.
+            enqueue(
+                PendingDrop(
+                    envelope,
+                    dedupKey,
+                    dedupKey,
+                    attemptedGatewayPeerIds = mutableSetOf(gateway.peerId)
+                )
+            )
             return@withContext CourierDepositResult.ForwardedToGateway
         }
         enqueue(PendingDrop(envelope, dedupKey, dedupKey))
@@ -187,6 +216,7 @@ internal class CourierCoordinator(
         closeSubscription()
         pendingDrops.clear()
         signatureAttemptTimes.clear()
+        depositTimesByPeer.clear()
         publishedDropKeys.clear()
         seenDropEventIds.clear()
         openedMessageIds.clear()
@@ -232,7 +262,7 @@ internal class CourierCoordinator(
         }
     }
 
-    private fun handleDropEvent(event: NostrEvent) {
+    private suspend fun handleDropEvent(event: NostrEvent) {
         if (!enabled ||
             event.kind != NostrKind.COURIER_DROP ||
             seenDropEventIds.contains(event.id, clock()) ||
@@ -268,14 +298,19 @@ internal class CourierCoordinator(
         }
     }
 
-    private fun openEnvelope(envelope: CourierEnvelope): Boolean {
+    private suspend fun openEnvelope(envelope: CourierEnvelope): Boolean {
         val opened = runCatching {
             prekeys.open(envelope.ciphertext, envelope.prekeyId, clock())
         }.getOrNull() ?: return false
+        // Consumption happened during open. Announce the reduced/replenished
+        // bundle before any later payload parser can return early.
+        if (opened.consumedPrekey) onPrekeyConsumed()
         val payload = NoisePayload.decode(opened.payload) ?: return true
         if (payload.type != NoisePayloadType.PRIVATE_MESSAGE) return true
         val privateMessage = PrivateMessagePacket.decode(payload.data) ?: return true
         if (openedMessageIds.contains(privateMessage.messageID, clock())) return true
+        openedMessageIds.add(privateMessage.messageID, DROP_DEDUP_MS, clock())
+        if (isSenderBlocked(opened.senderStaticKey)) return true
         val senderPeerId = ContactIdentityResolver.peerIdForNoiseKey(opened.senderStaticKey)
         val senderResolution = ContactDirectory.resolve(opened.senderStaticKey.toHex())
         val message = BitchatMessage(
@@ -289,18 +324,23 @@ internal class CourierCoordinator(
             recipientNickname = meshProvider()?.myPeerID,
             senderPeerID = senderPeerId
         )
-        AppStateStore.addPrivateMessage(
+        val delivered = AppStateStore.addPrivateMessage(
             ContactIdentityResolver.contactConversationIdForNoiseKey(opened.senderStaticKey),
             message
         )
-        openedMessageIds.add(privateMessage.messageID, DROP_DEDUP_MS, clock())
-        if (opened.consumedPrekey) onPrekeyConsumed()
+        if (!delivered) return true
+        CourierMessagePort.deliver(message)
+        MessageRouter.tryGetInstance()?.sendDeliveryAck(
+            privateMessage.messageID,
+            opened.senderStaticKey.toHex()
+        )
         return true
     }
 
     private suspend fun publishOrQueue(
         envelope: CourierEnvelope,
-        dedupKey: String?
+        dedupKey: String?,
+        depositorKey: String? = null
     ): CourierDepositResult {
         if (!validLifetime(envelope)) {
             return CourierDepositResult.Rejected(CourierDepositResult.Reason.INVALID_MESSAGE)
@@ -310,7 +350,8 @@ internal class CourierCoordinator(
                 PendingDrop(
                     envelope,
                     dedupKey,
-                    dedupKey ?: envelopeQueueKey(envelope)
+                    dedupKey ?: envelopeQueueKey(envelope),
+                    depositorKey
                 )
             )
             return CourierDepositResult.QueuedLocally
@@ -352,7 +393,8 @@ internal class CourierCoordinator(
                     PendingDrop(
                         envelope,
                         dedupKey,
-                        dedupKey ?: envelopeQueueKey(envelope)
+                        dedupKey ?: envelopeQueueKey(envelope),
+                        depositorKey
                     )
                 )
                 CourierDepositResult.QueuedLocally
@@ -361,16 +403,38 @@ internal class CourierCoordinator(
     }
 
     private fun enqueue(drop: PendingDrop) {
-        if (pendingDrops.any { it.queueKey == drop.queueKey }) return
+        pendingDrops.firstOrNull { it.queueKey == drop.queueKey }?.let { existing ->
+            existing.attemptedGatewayPeerIds += drop.attemptedGatewayPeerIds
+            return
+        }
+        if (drop.depositorKey != null &&
+            pendingDrops.count { it.depositorKey == drop.depositorKey } >=
+            MAX_PENDING_DROPS_PER_DEPOSITOR
+        ) {
+            return
+        }
         pendingDrops += drop
         while (pendingDrops.size > MAX_PENDING_DROPS) pendingDrops.removeAt(0)
+    }
+
+    private fun retryPendingGatewayHandoffs() {
+        if (relayManager.isConnected.value) return
+        pendingDrops.forEach { drop ->
+            if (drop.depositorKey != null) return@forEach
+            if (drop.attemptedGatewayPeerIds.size >= MAX_GATEWAYS_PER_DROP) return@forEach
+            val gateway = availableGateway(excluding = drop.attemptedGatewayPeerIds)
+                ?: return@forEach
+            val encoded = drop.envelope.encode() ?: return@forEach
+            meshProvider()?.sendCourierEnvelope(encoded, gateway.peerId)
+            drop.attemptedGatewayPeerIds += gateway.peerId
+        }
     }
 
     private suspend fun flushPendingDrops() {
         if (!enabled || !relayManager.isConnected.value) return
         val queued = pendingDrops.toList()
         pendingDrops.clear()
-        queued.forEach { publishOrQueue(it.envelope, it.dedupKey) }
+        queued.forEach { publishOrQueue(it.envelope, it.dedupKey, it.depositorKey) }
     }
 
     private fun closeSubscription() {
@@ -378,16 +442,41 @@ internal class CourierCoordinator(
         subscribedTags = emptySet()
     }
 
-    private fun availableGateway(): VerifiedBridgePeer? =
+    private fun availableGateway(excluding: Set<String> = emptySet()): VerifiedBridgePeer? =
         peersProvider().firstOrNull { peer ->
+            peer.peerId !in excluding &&
             peer.capabilities?.contains(com.bitchat.android.model.PeerCapabilities.BRIDGE) == true &&
                 peer.bridgeCell != null &&
-                meshProvider()?.getPeerInfo(peer.peerId)?.isConnected == true
+                meshProvider()?.getPeerInfo(peer.peerId)?.let { info ->
+                    info.isConnected && info.isDirectConnection
+                } == true &&
+                isTrustedDepositor(peer)
         }
 
     private fun isMyTag(tag: ByteArray): Boolean {
         val ownKey = SecureIdentityStateManager(appContext).loadStaticKey()?.second ?: return false
         return CourierEnvelope.candidateTags(ownKey, clock()).any { it.contentEquals(tag) }
+    }
+
+    private fun authenticatedDepositor(
+        packet: BitchatPacket,
+        fromPeerId: String,
+        directIngress: Boolean
+    ): VerifiedBridgePeer? = CourierDepositAuthenticator.authenticate(
+        packet = packet,
+        fromPeerId = fromPeerId,
+        directIngress = directIngress,
+        peers = peersProvider(),
+        isTrusted = isTrustedDepositor
+    )
+
+    private fun allowDeposit(peerId: String): Boolean {
+        val now = clock()
+        val attempts = depositTimesByPeer.getOrPut(peerId) { mutableListOf() }
+        attempts.removeAll { now - it >= RATE_WINDOW_MS }
+        if (attempts.size >= DEPOSITS_PER_MINUTE_PER_PEER) return false
+        attempts += now
+        return true
     }
 
     private fun validLifetime(envelope: CourierEnvelope): Boolean {
@@ -423,10 +512,13 @@ internal class CourierCoordinator(
         const val MAX_TRACKED_IDS = 512
         const val MAX_WATCHED_PEERS = 16
         const val MAX_PENDING_DROPS = 20
+        const val MAX_PENDING_DROPS_PER_DEPOSITOR = 5
+        const val MAX_GATEWAYS_PER_DROP = 2
         const val MAX_DROP_BYTES = 20 * 1024
         const val MAX_PRIVATE_MESSAGE_BYTES = 255
         const val DROP_DEDUP_MS = 24L * 60 * 60 * 1000
         const val RATE_WINDOW_MS = 60_000L
         const val SIGNATURE_ATTEMPTS_PER_MINUTE = 720
+        const val DEPOSITS_PER_MINUTE_PER_PEER = 10
     }
 }

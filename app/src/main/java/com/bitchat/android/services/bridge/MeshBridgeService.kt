@@ -1,8 +1,10 @@
 package com.bitchat.android.services.bridge
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
@@ -22,6 +24,8 @@ import com.bitchat.android.nostr.NostrProtocol
 import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactIdentityResolver
+import com.bitchat.android.ui.DataManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -118,6 +122,10 @@ object MeshBridgeService : BridgeMeshDelegate {
     private val signatureAttemptTimes = mutableListOf<Long>()
     private var downlinkJob: Job? = null
     private var presenceJob: Job? = null
+    @Volatile
+    private var suppressPrekeyBroadcasts = false
+    @Volatile
+    private var panicQuiesced = false
 
     fun initialize(
         context: Context,
@@ -138,7 +146,11 @@ object MeshBridgeService : BridgeMeshDelegate {
             relayManager = NostrRelayManager.getInstance(application)
             val prekeyManager = PrekeyManager.getInstance(application)
             prefs = application.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            _isEnabled.value = loadEnabledWithMigration(prefs!!)
+            val storedEnabled = loadEnabledWithMigration(prefs!!)
+            _isEnabled.value = storedEnabled && !panicQuiesced
+            if (panicQuiesced && storedEnabled) {
+                prefs?.edit { putBoolean(KEY_ENABLED, false) }
+            }
             outboundPolicy.set(
                 BridgeOutboundPolicy.capture(
                     enabled = _isEnabled.value,
@@ -159,8 +171,23 @@ object MeshBridgeService : BridgeMeshDelegate {
                 prekeys = prekeyManager,
                 meshProvider = ::currentMesh,
                 peersProvider = verifiedPeerSnapshot::get,
+                isTrustedDepositor = { peer ->
+                    runCatching {
+                        FavoritesPersistenceService.shared
+                            .getFavoriteStatus(peer.noiseKey)
+                            ?.isMutual == true
+                    }.getOrDefault(false) || peer.isVerifiedNickname
+                },
+                isSenderBlocked = { noiseKey ->
+                    DataManager.isFingerprintBlocked(
+                        application,
+                        ContactIdentityResolver.fingerprintHex(noiseKey)
+                    )
+                },
                 onPrekeyConsumed = {
-                    scope.launch { prekeyCoordinator?.broadcast(force = true) }
+                    kotlinx.coroutines.withContext(dispatcher) {
+                        broadcastPrekeys(force = true)
+                    }
                 },
                 clock = clock
             )
@@ -170,6 +197,10 @@ object MeshBridgeService : BridgeMeshDelegate {
         val location = LocationChannelManager.getInstance(context)
         scope.launch {
             location.availableChannels.collect { channels ->
+                if (!_isEnabled.value) {
+                    localLocationCell = null
+                    return@collect
+                }
                 localLocationCell = channels
                     .firstOrNull { it.level == GeohashChannelLevel.NEIGHBORHOOD }
                     ?.geohash
@@ -203,18 +234,25 @@ object MeshBridgeService : BridgeMeshDelegate {
         scope.launch {
             if (_isEnabled.value) {
                 relayManager?.connect()
-                location.refreshChannels()
+                location.refreshChannels(
+                    forceFresh = true,
+                    updatePlaceNames = false
+                )
                 refreshRendezvous(forceSubscriptions = true)
                 courierCoordinator?.peerStateChanged()
             }
-            startPresenceLoop()
+            if (_isEnabled.value) startPresenceLoop()
             delay(2_000)
-            prekeyCoordinator?.broadcast(force = true)
+            broadcastPrekeys(force = true)
         }
     }
 
     fun setEnabled(enabled: Boolean) {
         if (outboundPolicy.get().enabled == enabled) return
+        if (enabled) {
+            panicQuiesced = false
+            suppressPrekeyBroadcasts = false
+        }
         outboundPolicy.set(BridgeOutboundPolicy.capture(enabled, nearbyOnly = false))
         _isEnabled.value = enabled
         prefs?.edit { putBoolean(KEY_ENABLED, enabled) }
@@ -223,18 +261,25 @@ object MeshBridgeService : BridgeMeshDelegate {
         courierCoordinator?.setEnabled(enabled)
         scope.launch {
             if (!enabled) {
+                stopPresenceLoop()
                 closeSubscriptions()
                 queuedUplinks.clear()
                 pendingDownlinks.clear()
                 participants.clear()
                 publishParticipants()
+                localLocationCell = null
                 _activeCell.value = null
             } else {
+                startPresenceLoop()
                 relayManager?.connect()
-                LocationChannelManager.getInstance(requireContext()).refreshChannels()
+                LocationChannelManager.getInstance(requireContext())
+                    .refreshChannels(
+                        forceFresh = true,
+                        updatePlaceNames = false
+                    )
                 refreshRendezvous(forceSubscriptions = true)
                 courierCoordinator?.peerStateChanged()
-                prekeyCoordinator?.broadcast(force = true)
+                broadcastPrekeys(force = true)
             }
             currentMesh()?.sendBroadcastAnnounce()
         }
@@ -290,7 +335,7 @@ object MeshBridgeService : BridgeMeshDelegate {
 
     /** Called only after a public radio packet's Ed25519 signature was accepted. */
     override fun handleAuthenticatedRadioMessage(messageId: String) {
-        if (messageId.isBlank()) return
+        if (panicQuiesced || messageId.isBlank()) return
         scope.launch {
             radioMessageIds.add(messageId)
             pendingDownlinks.removeAll { pending ->
@@ -300,12 +345,15 @@ object MeshBridgeService : BridgeMeshDelegate {
     }
 
     override fun handleVerifiedAnnouncement(peerId: String, announcement: IdentityAnnouncement) {
+        if (panicQuiesced) return
         scope.launch {
             val peer = VerifiedBridgePeer(
                 peerId = peerId,
                 nickname = announcement.nickname,
                 noiseKey = announcement.noisePublicKey.copyOf(),
                 signingKey = announcement.signingPublicKey.copyOf(),
+                isVerifiedNickname =
+                    currentMesh()?.getPeerInfo(peerId)?.isVerifiedNickname == true,
                 capabilities = announcement.capabilities,
                 bridgeCell = announcement.bridgeGeohash?.takeIf(::isValidGeohash),
                 lastSeenMs = clock()
@@ -318,15 +366,17 @@ object MeshBridgeService : BridgeMeshDelegate {
                 refreshRendezvous()
                 courierCoordinator?.peerStateChanged()
             }
-            prekeyCoordinator?.broadcast()
+            broadcastPrekeys()
         }
     }
 
     override fun handlePrekeyPacket(packet: BitchatPacket) {
+        if (panicQuiesced) return
         scope.launch { prekeyCoordinator?.handlePacket(packet) }
     }
 
     override fun handleCarrier(payload: ByteArray, fromPeerId: String, directedToUs: Boolean) {
+        if (panicQuiesced) return
         scope.launch {
             val carrier = NostrCarrierPacket.decode(payload) ?: return@launch
             when (carrier.direction) {
@@ -342,8 +392,13 @@ object MeshBridgeService : BridgeMeshDelegate {
         }
     }
 
-    override fun handleCourierEnvelope(payload: ByteArray) {
-        courierCoordinator?.handleEnvelope(payload)
+    override fun handleCourierEnvelope(
+        packet: BitchatPacket,
+        fromPeerId: String,
+        directIngress: Boolean
+    ) {
+        if (panicQuiesced) return
+        courierCoordinator?.handleEnvelope(packet, fromPeerId, directIngress)
     }
 
     suspend fun depositCourierDrop(
@@ -354,12 +409,27 @@ object MeshBridgeService : BridgeMeshDelegate {
         courierCoordinator?.deposit(content, messageId, recipientNoiseKey)
             ?: CourierDepositResult.Rejected(CourierDepositResult.Reason.BRIDGE_DISABLED)
 
+    @SuppressLint("ApplySharedPref", "UseKtx")
     suspend fun wipe() {
-        courierCoordinator?.wipe()
+        // Revoke policy synchronously so no already-queued bridge work can be
+        // authorized by the pre-panic setting.
+        outboundPolicy.set(BridgeOutboundPolicy.Denied)
+        panicQuiesced = true
+        suppressPrekeyBroadcasts = true
+        _isEnabled.value = false
+        _nearbyOnly.value = false
+        PeerCapabilities.setBridgeEnabled(false)
+        courierCoordinator?.setEnabled(false)
         kotlinx.coroutines.withContext(dispatcher) {
+            prefs?.edit()?.putBoolean(KEY_ENABLED, false)?.commit()
+            stopPresenceLoop()
+            downlinkJob?.cancel()
+            downlinkJob = null
             closeSubscriptions()
             queuedUplinks.clear()
             pendingDownlinks.clear()
+            localLocationCell = null
+            _activeCell.value = null
             verifiedPeers.clear()
             publishVerifiedPeerSnapshot()
             participants.clear()
@@ -369,10 +439,15 @@ object MeshBridgeService : BridgeMeshDelegate {
             rebroadcastEventIds.clear()
             injectedEventIds.clear()
             radioMessageIds.clear()
+            uplinkTimes.clear()
+            inboundTimes.clear()
+            inboundTimesBySigner.clear()
+            downlinkTimes.clear()
+            signatureAttemptTimes.clear()
             prekeyCoordinator?.wipe()
-            _nearbyOnly.value = false
             publishParticipants()
         }
+        courierCoordinator?.wipe()
     }
 
     private fun publishVerifiedPeerSnapshot() {
@@ -622,13 +697,28 @@ object MeshBridgeService : BridgeMeshDelegate {
                 delay(PRESENCE_INTERVAL_MS)
                 pruneParticipants()
                 if (_isEnabled.value) {
+                    LocationChannelManager.getInstance(requireContext())
+                        .refreshChannels(
+                            forceFresh = true,
+                            updatePlaceNames = false
+                        )
                     refreshRendezvous()
                     courierCoordinator?.peerStateChanged()
                     publishPresence()
-                    prekeyCoordinator?.broadcast()
+                    broadcastPrekeys()
                 }
             }
         }
+    }
+
+    private fun stopPresenceLoop() {
+        presenceJob?.cancel()
+        presenceJob = null
+    }
+
+    private fun broadcastPrekeys(force: Boolean = false) {
+        if (suppressPrekeyBroadcasts) return
+        prekeyCoordinator?.broadcast(force)
     }
 
     private fun recordParticipant(pubkey: String, nickname: String?) {

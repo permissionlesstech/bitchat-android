@@ -442,6 +442,9 @@ class MeshCore(
                 return SpecialRecipients.BROADCAST
             }
 
+            override fun isPeerDirectlyConnected(peerID: String): Boolean =
+                peerManager.getPeerInfo(peerID)?.isDirectConnection == true
+
             override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
@@ -554,7 +557,7 @@ class MeshCore(
             type = MessageType.COURIER_ENVELOPE,
             payload = payload,
             recipientPeerID = recipientPeerID,
-            sign = false
+            sign = true
         )
     }
 
@@ -583,7 +586,12 @@ class MeshCore(
                 ttl = maxTtl
             ) ?: return@launch
             val outgoing = if (sign) signPacketBeforeBroadcast(packet) else packet
-            if (sign && outgoing.signature?.size != 64) return@launch
+            if (sign &&
+                type != MessageType.COURIER_ENVELOPE &&
+                outgoing.signature?.size != 64
+            ) {
+                return@launch
+            }
             dispatchGlobal(RoutedPacket(outgoing))
         }
     }

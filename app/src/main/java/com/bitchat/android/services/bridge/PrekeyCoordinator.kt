@@ -4,8 +4,6 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.PrekeyBundle
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.services.ContactIdentityResolver
-import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
-import org.bouncycastle.crypto.signers.Ed25519Signer
 
 /**
  * Coordinates authenticated prekey packets without owning cryptographic
@@ -58,19 +56,9 @@ internal class PrekeyCoordinator(
         bundle: PrekeyBundle,
         peer: VerifiedBridgePeer
     ) {
-        val signature = packet.signature ?: return
-        val signingData = packet.toBinaryDataForSigning() ?: return
-        if (!verifyEd25519(signature, signingData, peer.signingKey)) return
+        if (!BridgePacketSignatureVerifier.verify(packet, peer.signingKey)) return
         manager.verifyAndIngest(bundle, peer.noiseKey, peer.signingKey, clock())
     }
-
-    private fun verifyEd25519(signature: ByteArray, data: ByteArray, key: ByteArray): Boolean =
-        runCatching {
-            Ed25519Signer().apply {
-                init(false, Ed25519PublicKeyParameters(key, 0))
-                update(data, 0, data.size)
-            }.verifySignature(signature)
-        }.getOrDefault(false)
 
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 

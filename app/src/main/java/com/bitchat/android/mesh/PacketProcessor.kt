@@ -171,7 +171,14 @@ class PacketProcessor(private val myPeerID: String) {
                         MessageType.NOISE_HANDSHAKE -> validPacket = handleNoiseHandshake(routed)
                         MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
                         MessageType.COURIER_ENVELOPE -> {
-                            BridgeMeshPort.handleCourierEnvelope(packet.payload)
+                            val directIngress =
+                                packet.ttl == com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS &&
+                                    delegate?.isPeerDirectlyConnected(peerID) == true
+                            BridgeMeshPort.handleCourierEnvelope(
+                                packet = packet,
+                                fromPeerId = peerID,
+                                directIngress = directIngress
+                            )
                         }
                         MessageType.FILE_TRANSFER -> handleMessage(routed)
                         else -> {
@@ -335,6 +342,7 @@ interface PacketProcessorDelegate {
     // Network information
     fun getNetworkSize(): Int
     fun getBroadcastRecipient(): ByteArray
+    fun isPeerDirectlyConnected(peerID: String): Boolean = false
     
     // Message type handlers
     fun handleNoiseHandshake(routed: RoutedPacket): Boolean

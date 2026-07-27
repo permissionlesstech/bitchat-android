@@ -3,6 +3,8 @@ package com.bitchat.android.services
 import com.bitchat.android.model.BitchatMessage
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.Date
@@ -172,6 +174,20 @@ class AppStateStoreTest {
 
         assertEquals(setOf(contactID), AppStateStore.privateMessages.value.keys)
         assertEquals(listOf(message), AppStateStore.privateMessages.value[contactID])
+    }
+
+    @Test
+    fun `private message insertion reports duplicates before ingress side effects`() {
+        val message = BitchatMessage(
+            id = "same-message",
+            sender = "alice",
+            content = "hello",
+            timestamp = Date(1)
+        )
+
+        assertTrue(AppStateStore.addPrivateMessage("peer", message))
+        assertFalse(AppStateStore.addPrivateMessage("peer", message))
+        assertEquals(listOf(message), AppStateStore.privateMessages.value["peer"])
     }
 
     @Test

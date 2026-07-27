@@ -51,7 +51,7 @@ interface BridgeMeshDelegate {
     fun handleVerifiedAnnouncement(peerId: String, announcement: IdentityAnnouncement)
     fun handlePrekeyPacket(packet: BitchatPacket)
     fun handleCarrier(payload: ByteArray, fromPeerId: String, directedToUs: Boolean)
-    fun handleCourierEnvelope(payload: ByteArray)
+    fun handleCourierEnvelope(packet: BitchatPacket, fromPeerId: String, directIngress: Boolean)
 }
 
 object BridgeMeshPort : BridgeMeshDelegate {
@@ -96,7 +96,11 @@ object BridgeMeshPort : BridgeMeshDelegate {
         delegate?.handleCarrier(payload, fromPeerId, directedToUs)
     }
 
-    override fun handleCourierEnvelope(payload: ByteArray) {
-        delegate?.handleCourierEnvelope(payload)
+    override fun handleCourierEnvelope(
+        packet: BitchatPacket,
+        fromPeerId: String,
+        directIngress: Boolean
+    ) {
+        delegate?.handleCourierEnvelope(packet, fromPeerId, directIngress)
     }
 }
