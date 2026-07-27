@@ -67,6 +67,7 @@ import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -115,6 +116,7 @@ fun LocationChannelsSheet(
     val bookmarks by bookmarksStore.bookmarks.collectAsStateWithLifecycle()
     val bookmarkNames by bookmarksStore.bookmarkNames.collectAsStateWithLifecycle()
     val geohashParticipantCounts by viewModel.geohashParticipantCounts.collectAsStateWithLifecycle()
+    val wifiAwareEnabled by WifiAwareController.enabled.collectAsStateWithLifecycle()
 
     var customGeohash by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }
@@ -241,8 +243,12 @@ fun LocationChannelsSheet(
                                 ChannelOptionRow(
                                     title = meshTitleWithCount(viewModel),
                                     subtitle = stringResource(
-                                        R.string.location_bluetooth_subtitle,
-                                        bluetoothRangeString()
+                                        if (wifiAwareEnabled) {
+                                            R.string.location_bluetooth_wifi_subtitle
+                                        } else {
+                                            R.string.location_bluetooth_subtitle
+                                        },
+                                        meshRangeString()
                                     ),
                                     isSelected = selectedChannel is ChannelID.Mesh,
                                     participantCount = meshCount(viewModel),
@@ -1069,6 +1075,6 @@ private fun formatDistance(value: Double): String {
     }
 }
 
-private fun bluetoothRangeString(): String = "~10–50 m"
+private fun meshRangeString(): String = "~10–50m"
 
 private fun formattedNamePrefix(level: GeohashChannelLevel): String = "~"

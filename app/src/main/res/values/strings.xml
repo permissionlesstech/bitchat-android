@@ -275,7 +275,8 @@
   <string name="cd_offline_mesh_chat">Offline Mesh Chat</string>
   <string name="cd_online_geohash_channels">Online Geohash Channels</string>
   <string name="cd_end_to_end_encryption">End-to-End Encryption</string>
-  <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+  <string name="location_bluetooth_subtitle">Bluetooth • %1$s</string>
+  <string name="location_bluetooth_wifi_subtitle">Bluetooth • Wifi • %1$s</string>
 
   <string name="image_page_of">Image %1$d of %2$d</string>
   <string name="image_unavailable">Image unavailable</string>
@@ -305,7 +306,7 @@
   <string name="location_channels_heading">Location Channels</string>
   <string name="location_channels_desc">Chat by coarse location. Never shares exact GPS.</string>
   <string name="location_channels_nearby">Nearby</string>
-  <string name="mesh_section_subtitle">Offline mesh via Bluetooth. No internet required.</string>
+  <string name="mesh_section_subtitle">Offline mesh. No internet required.</string>
 
   <!-- Location channels sheet: sections and Tor routing -->
   <string name="section_nearby">Nearby</string>
