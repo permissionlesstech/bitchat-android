@@ -102,9 +102,10 @@ object ContactDirectory {
         }
 
         return merged.mapValues { (_, messages) ->
-            messages
-                .distinctBy { it.id }
-                .sortedWith(compareBy<BitchatMessage> { it.timestamp.time }.thenBy { it.id })
+            // A private message's timestamp comes from the sender and is not a reliable ordering
+            // signal when peers' clocks differ. The lists are populated in receive order, so keep
+            // their first occurrence in that same order while canonicalizing aliases.
+            messages.distinctBy { it.id }
         }
     }
 
