@@ -8,8 +8,12 @@ import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,6 +31,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -54,6 +59,7 @@ import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
+import kotlinx.coroutines.launch
 
 
 /**
@@ -352,7 +358,7 @@ fun PeopleSection(
         // Observe reactive state for favorites and fingerprints
         val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
         val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
-        val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+    val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
         val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
         val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
 
@@ -799,6 +805,7 @@ fun PrivateChatSheet(
     val peerDirectMap by viewModel.peerDirect.collectAsStateWithLifecycle()
     val peerSessionStates by viewModel.peerSessionStates.collectAsStateWithLifecycle()
     val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+    val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
     val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
 
     val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
@@ -815,7 +822,7 @@ fun PrivateChatSheet(
     }
 
     val isNostrPeer = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
-    val favoriteRelationship = remember(peerID, favoritePeers) {
+    val favoriteRelationship = remember(peerID, favoritePeers, peerFavoritedUs) {
         try {
             FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
         } catch (_: Exception) {
@@ -859,12 +866,55 @@ fun PrivateChatSheet(
     val isFavorite = remember(favoritePeers, fingerprint, peerID, favoriteRelationship) {
         if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
     }
+    val theyFavoritedUs = remember(peerFavoritedUs, fingerprint, favoriteRelationship) {
+        (fingerprint != null && peerFavoritedUs.contains(fingerprint)) ||
+            favoriteRelationship?.theyFavoritedUs == true
+    }
+
+    // Celebrate being favorited: a springy wobble of the header star. Springs rather than
+    // keyframed tweens, matching the app's press feedback, so the settle overshoots slightly.
+    val starWobbleRotation = remember { Animatable(0f) }
+    val starWobbleScale = remember { Animatable(1f) }
+    var previousTheyFavoritedUs by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(theyFavoritedUs) {
+        val wasFavoritedUs = previousTheyFavoritedUs
+        previousTheyFavoritedUs = theyFavoritedUs
+        if (theyFavoritedUs && wasFavoritedUs == false) {
+            starWobbleRotation.snapTo(-16f)
+            starWobbleScale.snapTo(1.35f)
+            launch {
+                starWobbleRotation.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(dampingRatio = 0.3f, stiffness = Spring.StiffnessMedium)
+                )
+            }
+            launch {
+                starWobbleScale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessHigh
+                    )
+                )
+            }
+        }
+    }
 
     val isVerified = remember(peerID, verifiedFingerprints) {
         viewModel.isPeerVerified(peerID, verifiedFingerprints)
     }
 
     val palette = LocalBitchatPalette.current
+    // Three-state star: grey outline (no relation), orange outline (they favorited us),
+    // filled orange (we favorited them, mutual or not).
+    val favoriteStarTint by animateColorAsState(
+        targetValue = when {
+            isFavorite || theyFavoritedUs -> palette.accentOrange
+            else -> colorScheme.onSurfaceVariant
+        },
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "favoriteStarTint"
+    )
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
@@ -984,12 +1034,14 @@ fun PrivateChatSheet(
                                     }
                                 ),
                                 contentDescription = null,
-                                modifier = Modifier.size(HeaderIconSize),
-                                tint = if (isFavorite) {
-                                    palette.accentOrange
-                                } else {
-                                    colorScheme.onSurfaceVariant
-                                }
+                                modifier = Modifier
+                                    .size(HeaderIconSize)
+                                    .graphicsLayer {
+                                        rotationZ = starWobbleRotation.value
+                                        scaleX = starWobbleScale.value
+                                        scaleY = starWobbleScale.value
+                                    },
+                                tint = favoriteStarTint
                             )
                         }
 
