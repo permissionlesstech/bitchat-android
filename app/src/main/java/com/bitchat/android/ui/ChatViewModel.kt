@@ -8,7 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
@@ -171,6 +174,24 @@ class ChatViewModel(
     val privateChats: StateFlow<Map<String, List<BitchatMessage>>> = state.privateChats
     val selectedPrivateChatPeer: StateFlow<String?> = state.selectedPrivateChatPeer
     val unreadPrivateMessages: StateFlow<Set<String>> = state.unreadPrivateMessages
+    internal val unreadConversations: StateFlow<List<UnreadConversationSummary>> = combine(
+        state.unreadPrivateMessages,
+        state.privateChats,
+        state.nickname
+    ) { unreadConversationIDs, chats, currentNickname ->
+        val seenStore = com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
+        buildUnreadConversationSummaries(
+            unreadConversationIDs = unreadConversationIDs,
+            privateChats = chats,
+            currentUserIdentifiers = setOf(currentNickname, mesh.myPeerID),
+            canonicalize = ContactDirectory::canonicalConversationId,
+            isMessageRead = { message -> seenStore.hasRead(message.id) }
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyList()
+    )
     val joinedChannels: StateFlow<Set<String>> = state.joinedChannels
     val currentChannel: StateFlow<String?> = state.currentChannel
     val channelMessages: StateFlow<Map<String, List<BitchatMessage>>> = state.channelMessages
