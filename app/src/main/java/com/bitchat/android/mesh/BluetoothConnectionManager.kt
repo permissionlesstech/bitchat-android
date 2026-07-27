@@ -329,6 +329,16 @@ class BluetoothConnectionManager(
         )
     }
 
+    suspend fun broadcastControlPacketAndAwaitAcceptance(routed: RoutedPacket): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+
+        return packetBroadcaster.broadcastControlPacketAndAwaitAcceptance(
+            routed,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
     fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
         if (!isActive || !isBleTransportEnabled()) return false
         return packetBroadcaster.sendToPeer(

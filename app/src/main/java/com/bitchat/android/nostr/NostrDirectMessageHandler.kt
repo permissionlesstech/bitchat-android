@@ -156,7 +156,7 @@ class NostrDirectMessageHandler(
                 )
 
                 val isViewing = state.getSelectedPrivateChatPeerValue() == conversationID
-                val suppressUnread = seenStore.hasRead(pm.messageID)
+                val suppressUnread = seenStore.hasBeenReadLocally(pm.messageID)
 
                 withContext(Dispatchers.Main) {
                     privateChatManager.handleIncomingPrivateMessage(
@@ -175,7 +175,8 @@ class NostrDirectMessageHandler(
                 if (isViewing && !suppressUnread) {
                     val nostrTransport = NostrTransport.getInstance(application)
                     nostrTransport.sendReadReceiptGeohash(pm.messageID, senderPubkey, recipientIdentity)
-                    seenStore.markRead(pm.messageID)
+                    seenStore.markReadLocally(pm.messageID)
+                    seenStore.markReadReceiptSent(pm.messageID)
                 }
             }
             NoisePayloadType.DELIVERED -> {
