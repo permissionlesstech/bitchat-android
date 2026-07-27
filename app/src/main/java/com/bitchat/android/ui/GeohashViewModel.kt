@@ -332,8 +332,8 @@ class GeohashViewModel(
     fun displayNameForNostrPubkeyUI(pubkeyHex: String): String = repo.displayNameForNostrPubkeyUI(pubkeyHex)
     fun displayNameForGeohashConversation(pubkeyHex: String, sourceGeohash: String): String = repo.displayNameForGeohashConversation(pubkeyHex, sourceGeohash)
 
-    fun peerColorSeedForNostrPubkey(pubkeyHex: String): PeerColorSeed =
-        nostrPeerColorSeed(pubkeyHex)
+    fun peerIdentityForNostrPubkey(pubkeyHex: String): PeerIdentity =
+        PeerIdentity.nostr(pubkeyHex)
 
     private fun switchLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {
         geoTimer?.cancel(); geoTimer = null

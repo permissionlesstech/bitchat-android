@@ -47,7 +47,7 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
-import com.bitchat.android.ui.theme.colorForPeerSeed
+import com.bitchat.android.ui.theme.colorForPeer
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
@@ -589,8 +589,8 @@ private fun PeerItem(
 
     // Get consistent peer color (iOS-compatible)
     val palette = LocalBitchatPalette.current
-    val assignedColor = colorForPeerSeed(
-        viewModel.peerColorSeedForMeshPeer(peerID),
+    val assignedColor = colorForPeer(
+        viewModel.peerIdentityForMeshPeer(peerID),
         palette
     )
     val baseColor = if (isMe) palette.accentOrange else assignedColor

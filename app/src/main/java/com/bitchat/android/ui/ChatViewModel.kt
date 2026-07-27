@@ -1190,17 +1190,17 @@ class ChatViewModel(
         }
     }
 
-    // MARK: - iOS-Compatible Color System
+    // MARK: - Canonical peer identities
 
     /**
-     * Get consistent color for a mesh peer by ID (iOS-compatible)
+     * Return the stable identity used by every UI surface to color a mesh peer.
      */
-    fun peerColorSeedForMeshPeer(peerID: String): PeerColorSeed = meshPeerColorSeed(peerID)
+    fun peerIdentityForMeshPeer(peerID: String): PeerIdentity = PeerIdentity.mesh(peerID)
 
     /**
-     * Get consistent color for a Nostr pubkey (iOS-compatible)
+     * Return the stable identity used by every UI surface to color a Nostr peer.
      */
-    fun peerColorSeedForNostrPubkey(pubkeyHex: String): PeerColorSeed =
-        geohashViewModel.peerColorSeedForNostrPubkey(pubkeyHex)
+    fun peerIdentityForNostrPubkey(pubkeyHex: String): PeerIdentity =
+        geohashViewModel.peerIdentityForNostrPubkey(pubkeyHex)
 
 }

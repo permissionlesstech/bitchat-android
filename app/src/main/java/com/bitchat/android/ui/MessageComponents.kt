@@ -182,6 +182,7 @@ fun MessagesList(
     currentUserNickname: String,
     meshService: MeshService,
     modifier: Modifier = Modifier,
+    mentionPeerIdentities: Map<String, PeerIdentity>? = null,
     /**
      * Extra inset on top of the list's own gutters.
      *
@@ -204,6 +205,10 @@ fun MessagesList(
     onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
     onImageClick: ((String, List<String>, Int) -> Unit)? = null
 ) {
+    val resolvedMentionPeerIdentities = remember(messages, mentionPeerIdentities) {
+        mentionPeerIdentities ?: buildMentionPeerIdentityMap(messages)
+    }
+
     // A fresh scroll position per conversation. Sharing one state meant a switch inherited the
     // previous channel's offset and then had to correct itself, which is what the jump was.
     //
@@ -331,6 +336,7 @@ fun MessagesList(
                 messages = messages,
                 currentUserNickname = currentUserNickname,
                 meshService = meshService,
+                mentionPeerIdentities = resolvedMentionPeerIdentities,
                 showSender = !isGrouped,
                 topSpacing = MessageGrouping.topSpacingFor(
                     isGrouped = isGrouped,
@@ -363,6 +369,7 @@ fun MessageItem(
     currentUserNickname: String,
     meshService: MeshService,
     messages: List<BitchatMessage> = emptyList(),
+    mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     showSender: Boolean = true,
     topSpacing: Dp = 0.dp,
     onNicknameClick: ((String) -> Unit)? = null,
@@ -394,6 +401,7 @@ fun MessageItem(
                     messages = messages,
                     currentUserNickname = currentUserNickname,
                     meshService = meshService,
+                    mentionPeerIdentities = mentionPeerIdentities,
                     colorScheme = colorScheme,
                     timeFormatter = timeFormatter,
                     showSender = showSender,
@@ -432,6 +440,7 @@ fun MessageItem(
         messages: List<BitchatMessage>,
         currentUserNickname: String,
         meshService: MeshService,
+        mentionPeerIdentities: Map<String, PeerIdentity>,
         colorScheme: ColorScheme,
         timeFormatter: SimpleDateFormat,
         showSender: Boolean,
@@ -623,6 +632,7 @@ fun MessageItem(
             message = message,
             currentUserNickname = currentUserNickname,
             meshService = meshService,
+            mentionPeerIdentities = mentionPeerIdentities,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
             showSender = showSender,
@@ -638,6 +648,7 @@ internal fun TextMessageLayout(
     message: BitchatMessage,
     currentUserNickname: String,
     meshService: MeshService,
+    mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     colorScheme: ColorScheme,
     timeFormatter: SimpleDateFormat,
     onNicknameClick: ((String) -> Unit)?,
@@ -667,6 +678,7 @@ internal fun TextMessageLayout(
         palette,
         colorScheme.onSurface,
         colorScheme.secondary,
+        mentionPeerIdentities,
         timeFormatter
     ) {
         formatTextMessageBody(
@@ -675,6 +687,7 @@ internal fun TextMessageLayout(
             palette = palette,
             contentColor = colorScheme.onSurface,
             linkColor = colorScheme.secondary,
+            mentionPeerIdentities = mentionPeerIdentities,
             timeFormatter = timeFormatter,
         )
     }

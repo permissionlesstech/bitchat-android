@@ -69,6 +69,7 @@ import androidx.compose.ui.text.withStyle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.colorForPeer
 import com.bitchat.android.features.voice.normalizeAmplitudeSample
 import com.bitchat.android.features.voice.AudioWaveformExtractor
 import com.bitchat.android.ui.media.RealtimeScrollingWaveform
@@ -709,6 +710,7 @@ fun CommandSuggestionItem(
 @Composable
 fun MentionSuggestionsBox(
     suggestions: List<String>,
+    mentionPeerIdentities: Map<String, PeerIdentity>,
     onSuggestionClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -732,8 +734,11 @@ fun MentionSuggestionsBox(
             items = suggestions,
             key = { suggestion -> suggestion.lowercase() }
         ) { suggestion ->
+            val identity = resolveMentionPeerIdentity(suggestion, mentionPeerIdentities)
+                ?: PeerIdentity.nickname(suggestion)
             MentionSuggestionItem(
                 suggestion = suggestion,
+                identity = identity,
                 onClick = { onSuggestionClick(suggestion) },
                 modifier = Modifier.animateItem(
                     fadeInSpec = tween(
@@ -754,15 +759,17 @@ fun MentionSuggestionsBox(
 @Composable
 fun MentionSuggestionItem(
     suggestion: String,
+    identity: PeerIdentity,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
+    val userColor = colorForPeer(identity, palette)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val pressedBackground by animateColorAsState(
         targetValue = if (isPressed) {
-            palette.accentOrange.copy(alpha = 0.10f)
+            userColor.copy(alpha = 0.10f)
         } else {
             Color.Transparent
         },
@@ -798,7 +805,7 @@ fun MentionSuggestionItem(
                 fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.SemiBold
             ),
-            color = palette.accentOrange,
+            color = userColor,
             fontSize = (BASE_FONT_SIZE - 2).sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

@@ -148,6 +148,7 @@ class NostrDirectMessageHandler(
                     isPrivate = true,
                     recipientNickname = state.getNicknameValue(),
                     senderPeerID = conversationID,
+                    senderNostrPubkey = senderPubkey,
                     deliveryStatus = DeliveryStatus.Delivered(to = state.getNicknameValue() ?: "Unknown", at = Date())
                 )
 
@@ -201,7 +202,8 @@ class NostrDirectMessageHandler(
                         isRelay = false,
                         isPrivate = true,
                         recipientNickname = state.getNicknameValue(),
-                        senderPeerID = conversationID
+                        senderPeerID = conversationID,
+                        senderNostrPubkey = senderPubkey
                     )
                     Log.d(TAG, "📄 Saved Nostr encrypted incoming file to $savedPath (msgId=$uniqueMsgId)")
                     withContext(Dispatchers.Main) {

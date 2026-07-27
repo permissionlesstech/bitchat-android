@@ -62,6 +62,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
+    val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
     val currentChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
@@ -197,6 +199,33 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
+    val mentionPeerIdentities = remember(
+        displayMessages,
+        currentChannel,
+        selectedLocationChannel,
+        connectedPeers,
+        peerNicknames,
+        geohashPeople,
+    ) {
+        val knownPeers = if (
+            currentChannel == null && selectedLocationChannel is ChannelID.Location
+        ) {
+            val duplicateNames = duplicateGeohashBaseNames(geohashPeople)
+            geohashPeople.mapNotNull { person ->
+                if (isUnannouncedNickname(person.displayName)) return@mapNotNull null
+                val displayName = disambiguatedGeohashDisplayName(person, duplicateNames)
+                displayName to PeerIdentity.nostr(person.id)
+            }
+        } else {
+            connectedPeers.mapNotNull { peerID ->
+                peerNicknames[peerID]?.let { displayName ->
+                    displayName to PeerIdentity.mesh(peerID)
+                }
+            }
+        }
+        buildMentionPeerIdentityMap(displayMessages, knownPeers)
+    }
+
     // Determine whether to show media buttons (only hide in geohash location chats)
     val showMediaButtons = when {
         currentChannel != null -> true
@@ -238,6 +267,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 messages = displayMessages,
                 currentUserNickname = nickname,
                 meshService = viewModel.meshServiceFacade,
+                mentionPeerIdentities = mentionPeerIdentities,
                 modifier = Modifier.fillMaxSize(),
                 conversationKey = conversationKey,
                 contentPadding = PaddingValues(
@@ -350,6 +380,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         commandSuggestions = commandSuggestions,
         showMentionSuggestions = showMentionSuggestions,
         mentionSuggestions = mentionSuggestions,
+        mentionPeerIdentities = mentionPeerIdentities,
         onCommandSuggestionClick = { suggestion: CommandSuggestion ->
                     val commandText = viewModel.selectCommandSuggestion(suggestion)
                     messageText = TextFieldValue(
@@ -558,6 +589,7 @@ fun ChatInputSection(
     commandSuggestions: List<CommandSuggestion>,
     showMentionSuggestions: Boolean,
     mentionSuggestions: List<String>,
+    mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     onCommandSuggestionClick: (CommandSuggestion) -> Unit,
     onMentionSuggestionClick: (String) -> Unit,
     selectedPrivatePeer: String?,
@@ -624,6 +656,7 @@ fun ChatInputSection(
             Column {
                 MentionSuggestionsBox(
                     suggestions = displayedMentionSuggestions,
+                    mentionPeerIdentities = mentionPeerIdentities,
                     onSuggestionClick = onMentionSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
