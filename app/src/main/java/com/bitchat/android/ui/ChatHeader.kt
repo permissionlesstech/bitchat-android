@@ -1,6 +1,5 @@
 package com.bitchat.android.ui
 
-
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -35,12 +34,12 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.BitChatBrandButton
 import com.bitchat.android.net.ArtiTorManager
@@ -277,7 +276,7 @@ fun NicknameEditor(
             onValueChange = onValueChange,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 color = colorScheme.primary,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = HeaderTextSize
             ),
             cursorBrush = SolidColor(colorScheme.primary),

@@ -138,13 +138,15 @@ class MessageGroupingTest {
     }
 
     @Test
-    fun `grouped rows sit tighter than the start of a new group`() {
+    fun `all transcript rows use the exported eight dp rhythm`() {
         val grouped = MessageGrouping.topSpacingFor(isGrouped = true, isFirstInList = false)
         val newGroup = MessageGrouping.topSpacingFor(isGrouped = false, isFirstInList = false)
 
-        assertEquals(MessageGrouping.GROUPED_SPACING, grouped)
-        assertEquals(MessageGrouping.NEW_GROUP_SPACING, newGroup)
-        assertTrue("a new speaker needs more air than a continuation", newGroup > grouped)
+        assertEquals(8.dp, grouped)
+        assertEquals(8.dp, newGroup)
+        assertEquals(grouped, newGroup)
+        assertEquals(8.dp, MessageGrouping.SENDER_TOP_PADDING)
+        assertEquals(4.dp, MessageGrouping.SENDER_TO_BODY_SPACING)
     }
 
     private fun BitchatMessage.copyWithOffset(offsetMs: Long) =

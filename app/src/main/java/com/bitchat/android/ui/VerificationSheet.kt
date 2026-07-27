@@ -60,7 +60,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -70,6 +69,7 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
@@ -145,7 +145,7 @@ fun VerificationSheet(
                     text = {
                         Text(
                             text = "My QR",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontSize = 14.sp
                         )
                     }
@@ -156,7 +156,7 @@ fun VerificationSheet(
                     text = {
                         Text(
                             text = "Scan",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontSize = 14.sp
                         )
                     }
@@ -209,7 +209,7 @@ fun VerificationSheet(
                     ) {
                         Text(
                             text = stringResource(R.string.verify_remove),
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontSize = 12.sp
                         )
                     }
@@ -233,7 +233,7 @@ private fun VerificationHeader(
         Text(
             text = stringResource(R.string.verify_title).uppercase(),
             fontSize = 14.sp,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = accent
         )
         val dismiss = LocalSheetDismiss.current
@@ -260,7 +260,7 @@ private fun MyQrTabContent(
         Text(
             text = stringResource(R.string.verify_my_qr_title),
             style = MaterialTheme.typography.titleMedium,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = accent
         )
         
@@ -285,7 +285,7 @@ private fun MyQrTabContent(
             ) {
                 Text(
                     text = stringResource(R.string.verify_qr_unavailable),
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 12.sp,
                     color = Color.Black.copy(alpha = 0.6f)
                 )
@@ -298,7 +298,7 @@ private fun MyQrTabContent(
         Text(
             text = nickname,
             style = MaterialTheme.typography.headlineSmall,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
@@ -309,7 +309,7 @@ private fun MyQrTabContent(
         Text(
             text = stringResource(R.string.app_name).lowercase(),
             style = MaterialTheme.typography.bodyMedium,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             textAlign = TextAlign.Center
         )
@@ -357,7 +357,7 @@ private fun ScanTabContent(
                 Text(
                     text = stringResource(R.string.verify_scan_prompt_friend),
                     color = Color.White,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 12.sp,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -388,7 +388,7 @@ private fun ScanTabContent(
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
                     text = stringResource(R.string.verify_camera_permission),
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -399,7 +399,7 @@ private fun ScanTabContent(
                 ) {
                     Text(
                         text = stringResource(R.string.verify_request_camera),
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = BitchatFontFamily
                     )
                 }
             }

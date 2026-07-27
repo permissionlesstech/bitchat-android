@@ -46,10 +46,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.icon.BitChatIcon
 import com.bitchat.android.ui.theme.BitchatMotion
@@ -108,7 +108,7 @@ internal fun AboutSectionLabel(
     val palette = LocalBitchatPalette.current
     Text(
         text = text.uppercase(),
-        fontFamily = FontFamily.Monospace,
+        fontFamily = BitchatFontFamily,
         fontSize = 11.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.8.sp,
@@ -149,7 +149,7 @@ internal fun SheetIconSectionHeader(
             Text(
                 text = title,
                 fontSize = 17.sp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.SemiBold,
                 color = colorScheme.primary
             )
@@ -159,7 +159,7 @@ internal fun SheetIconSectionHeader(
                 text = subtitle,
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 color = palette.textSecondary
             )
         }
@@ -205,7 +205,7 @@ internal fun AboutHero(
 
         Text(
             text = stringResource(R.string.app_name),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 40.sp,
             // Monospace at display size leaves too much air between glyphs; pull it in slightly
@@ -218,7 +218,7 @@ internal fun AboutHero(
 
         Text(
             text = stringResource(R.string.about_tagline),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 16.sp,
             color = palette.textSecondary
         )
@@ -227,7 +227,7 @@ internal fun AboutHero(
 
         Text(
             text = stringResource(R.string.version_prefix, versionName),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = palette.textTertiary
         )
@@ -320,7 +320,7 @@ private fun AboutTabLabel(
     ) {
         Text(
             text = text.uppercase(),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             letterSpacing = 0.8.sp,
@@ -355,7 +355,7 @@ private fun AboutInstructionRow(
         )
         Text(
             text = text,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 14.sp,
             lineHeight = 20.sp,
             color = palette.textPrimary
@@ -373,7 +373,7 @@ internal fun AboutHowToUseSection(modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.about_how_to_use_heading),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             color = colorScheme.primary,
@@ -481,7 +481,7 @@ private fun AboutFeatureRow(
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = title,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 20.sp,
@@ -489,7 +489,7 @@ private fun AboutFeatureRow(
             )
             Text(
                 text = subtitle,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 color = palette.textSecondary
@@ -514,7 +514,7 @@ internal fun BitchatBadge(
     ) {
         Text(
             text = text.uppercase(),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.5.sp,
@@ -539,7 +539,7 @@ internal fun SheetSectionLabel(
     val palette = LocalBitchatPalette.current
     Text(
         text = text.uppercase(),
-        fontFamily = FontFamily.Monospace,
+        fontFamily = BitchatFontFamily,
         fontSize = 11.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.8.sp,
@@ -608,7 +608,7 @@ internal fun SheetDestructiveButton(
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = text.uppercase(),
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 0.8.sp,

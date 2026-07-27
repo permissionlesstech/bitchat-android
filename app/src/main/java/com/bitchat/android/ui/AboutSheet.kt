@@ -52,12 +52,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
@@ -111,7 +111,7 @@ private fun ThemeChip(
         ) {
             Text(
                 text = label,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 13.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 color = labelColor
@@ -188,7 +188,7 @@ private fun SettingsToggleRow(
             ) {
                 Text(
                     text = title,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = titleColor
@@ -197,7 +197,7 @@ private fun SettingsToggleRow(
             }
             Text(
                 text = subtitle,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 color = subtitleColor,
                 lineHeight = 17.sp
@@ -789,7 +789,7 @@ fun AboutSheet(
                                 Text(
                                     text = stringResource(R.string.tor_not_available_in_this_build),
                                     fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = BitchatFontFamily,
                                     color = palette.textTertiary,
                                     modifier = Modifier.padding(
                                         start = AboutHorizontalPadding + 16.dp,
@@ -825,7 +825,7 @@ fun AboutSheet(
                                         ) {
                                             Text(
                                                 text = stringResource(R.string.about_difficulty),
-                                                fontFamily = FontFamily.Monospace,
+                                                fontFamily = BitchatFontFamily,
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.Medium,
                                                 color = palette.textPrimary
@@ -837,7 +837,7 @@ fun AboutSheet(
                                                     powDifficulty,
                                                     NostrProofOfWork.estimateMiningTime(powDifficulty)
                                                 ),
-                                                fontFamily = FontFamily.Monospace,
+                                                fontFamily = BitchatFontFamily,
                                                 fontSize = 12.sp,
                                                 color = palette.textSecondary
                                             )
@@ -867,7 +867,7 @@ fun AboutSheet(
                                                 else -> stringResource(R.string.about_pow_desc_extreme)
                                             },
                                             fontSize = 12.sp,
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = BitchatFontFamily,
                                             color = palette.textTertiary
                                         )
                                     }
@@ -911,7 +911,7 @@ fun AboutSheet(
                                                 } else {
                                                     stringResource(R.string.about_tor_disconnected)
                                                 },
-                                                fontFamily = FontFamily.Monospace,
+                                                fontFamily = BitchatFontFamily,
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.Medium,
                                                 color = palette.textPrimary
@@ -921,7 +921,7 @@ fun AboutSheet(
                                             Text(
                                                 text = torStatus.lastLogLine.take(120),
                                                 fontSize = 11.sp,
-                                                fontFamily = FontFamily.Monospace,
+                                                fontFamily = BitchatFontFamily,
                                                 color = palette.textTertiary,
                                                 maxLines = 2
                                             )
@@ -952,7 +952,7 @@ fun AboutSheet(
                                     Text(
                                         text = stringResource(R.string.about_debug_settings),
                                         fontSize = 13.sp,
-                                        fontFamily = FontFamily.Monospace,
+                                        fontFamily = BitchatFontFamily,
                                         color = colorScheme.primary
                                     )
                                 }
@@ -960,7 +960,7 @@ fun AboutSheet(
                             Text(
                                 text = stringResource(R.string.about_footer),
                                 fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = BitchatFontFamily,
                                 color = palette.textTertiary
                             )
                             Spacer(modifier = Modifier.height(20.dp))
@@ -1028,7 +1028,7 @@ fun PasswordPromptDialog(
                         onValueChange = onPasswordChange,
                         label = { Text(stringResource(R.string.pwd_label), style = MaterialTheme.typography.bodyMedium) },
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = BitchatFontFamily
                         ),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = colorScheme.primary,

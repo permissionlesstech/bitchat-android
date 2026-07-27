@@ -1,9 +1,16 @@
 package com.bitchat.android.ui
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.ui.theme.BitchatFontFamily
+import com.bitchat.android.ui.theme.ChatVisualTokens
 import com.bitchat.android.ui.theme.DarkBitchatPalette
 import com.bitchat.android.ui.theme.LightBitchatPalette
+import com.bitchat.android.ui.theme.MessageBodyTextStyle
+import com.bitchat.android.ui.theme.MessageSenderTextStyle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -68,6 +75,12 @@ class ChatUIUtilsTest {
         )
 
         assertEquals("hello there  00:00:00", body.text)
+        val timestamp = body.spanStyles.first {
+            body.text.substring(it.start, it.end) == "  00:00:00"
+        }.item
+        assertEquals(10.sp, timestamp.fontSize)
+        assertEquals(FontWeight.Normal, timestamp.fontWeight)
+        assertEquals(palette.textTertiary, timestamp.color)
     }
 
     @Test
@@ -80,6 +93,11 @@ class ChatUIUtilsTest {
         )
 
         assertEquals("mined  00:00:00 ⛨8b", body.text)
+        val timestampAndPow = body.spanStyles.first {
+            body.text.substring(it.start, it.end) == "  00:00:00 ⛨8b"
+        }.item
+        assertEquals(10.sp, timestampAndPow.fontSize)
+        assertEquals(palette.textTertiary, timestampAndPow.color)
     }
 
     @Test
@@ -107,6 +125,17 @@ class ChatUIUtilsTest {
 
         val textStyle = body.spanStyles.first { it.start == 0 }
         assertEquals(palette.textPrimary, textStyle.item.color)
+    }
+
+    @Test
+    fun `chat text styles match the exported type scale`() {
+        assertEquals(14.sp, MessageBodyTextStyle.fontSize)
+        assertEquals(20.sp, MessageBodyTextStyle.lineHeight)
+        assertEquals(FontWeight.Normal, MessageBodyTextStyle.fontWeight)
+        assertEquals(BitchatFontFamily, MessageBodyTextStyle.fontFamily)
+        assertEquals(14.sp, MessageSenderTextStyle.fontSize)
+        assertEquals(16.sp, MessageSenderTextStyle.lineHeight)
+        assertEquals(FontWeight.SemiBold, MessageSenderTextStyle.fontWeight)
     }
 
     @Test
@@ -165,6 +194,7 @@ class ChatUIUtilsTest {
 
         val chip = mentionChipSpans(body).single()
         assertEquals(palette.accentOrange.copy(alpha = MENTION_CHIP_ALPHA_SELF), chip.item.background)
+        assertEquals(0.2f, chip.item.background.alpha)
 
         val nameStyle: SpanStyle = body.spanStyles
             .first { it.start == chip.start && it.item.color == palette.accentOrange }
@@ -226,6 +256,29 @@ class ChatUIUtilsTest {
         assertTrue(annotated.spanStyles.all { it.item.fontStyle == null })
     }
 
+    @Test
+    fun `system action and timestamp use their exported weights sizes and opacity`() {
+        val annotated = formatSystemMessage(
+            message = message("tor restarting", sender = "system"),
+            palette = palette,
+            timeFormatter = timeFormatter,
+        )
+
+        val action = annotated.spanStyles.first {
+            annotated.text.substring(it.start, it.end) == "// tor restarting"
+        }.item
+        val time = annotated.spanStyles.first {
+            annotated.text.substring(it.start, it.end) == "  00:00:00"
+        }.item
+
+        assertEquals(12.sp, action.fontSize)
+        assertEquals(FontWeight.Medium, action.fontWeight)
+        assertEquals(palette.textPrimary.copy(alpha = 0.5f), action.color)
+        assertEquals(10.sp, time.fontSize)
+        assertEquals(FontWeight.Normal, time.fontWeight)
+        assertEquals(palette.textPrimary.copy(alpha = 0.5f), time.color)
+    }
+
     // MARK: - Sender label
 
     @Test
@@ -242,6 +295,11 @@ class ChatUIUtilsTest {
         val suffixSpan = sender.spanStyles.first { sender.text.substring(it.start, it.end) == "#04af" }
         val nameSpan = sender.spanStyles.first { sender.text.substring(it.start, it.end) == "@carol" }
         assertNotNull(suffixSpan.item.color)
+        assertEquals(14.sp, nameSpan.item.fontSize)
+        assertEquals(FontWeight.SemiBold, nameSpan.item.fontWeight)
+        assertEquals(14.sp, suffixSpan.item.fontSize)
+        assertEquals(FontWeight.Normal, suffixSpan.item.fontWeight)
+        assertEquals(ChatVisualTokens.SenderSuffixAlpha, suffixSpan.item.color.alpha)
         assertTrue(
             "suffix must be dimmer than the name",
             suffixSpan.item.color.alpha < nameSpan.item.color.alpha
@@ -282,6 +340,8 @@ class ChatUIUtilsTest {
         rgbToHsv(light.red, light.green, light.blue, lightHsv)
 
         assertEquals(darkHsv[0].toDouble(), lightHsv[0].toDouble(), 1.0)
+        assertEquals(1.0, darkHsv[1].toDouble(), 0.01)
+        assertEquals(1.0, darkHsv[2].toDouble(), 0.01)
     }
 
     @Test
@@ -302,6 +362,7 @@ class ChatUIUtilsTest {
     @Test
     fun `light palette is not the dark palette`() {
         assertNull(null)
+        assertEquals(Color(0xFFF5F5F5), DarkBitchatPalette.textPrimary)
         assertTrue(LightBitchatPalette.textPrimary != DarkBitchatPalette.textPrimary)
         assertTrue(LightBitchatPalette.isDark != DarkBitchatPalette.isDark)
     }

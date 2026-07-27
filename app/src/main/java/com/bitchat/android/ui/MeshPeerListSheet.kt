@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
@@ -28,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -271,7 +271,7 @@ private fun ChannelRow(
             } else {
                 Text(
                     text = "#",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = palette.textTertiary
@@ -283,7 +283,7 @@ private fun ChannelRow(
 
         Text(
             text = channel,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 14.sp,
             color = if (isSelected) colorScheme.primary else palette.textPrimary,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
@@ -337,7 +337,7 @@ fun PeopleSection(
                 if (connectedPeers.isEmpty()) {
                     Text(
                         text = stringResource(id = R.string.no_one_connected),
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         fontSize = 12.sp,
                         color = palette.textTertiary,
                         modifier = Modifier
@@ -655,7 +655,7 @@ private fun PeerItem(
         ) {
             Text(
                 text = baseName,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 14.sp,
                 fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
                 color = baseColor,
@@ -666,7 +666,7 @@ private fun PeerItem(
             if (suffix.isNotEmpty()) {
                 Text(
                     text = suffix,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 14.sp,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
                     color = baseColor.copy(alpha = SUFFIX_ALPHA)
@@ -741,7 +741,7 @@ private fun UnreadBadge(
                 style = MaterialTheme.typography.labelSmall,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 color = Color.Black
             )
         }
@@ -1007,7 +1007,7 @@ fun PrivateChatSheet(
                             text = titleText,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
+                                fontFamily = BitchatFontFamily
                             ),
                             color = if (isNostrPeer || isNostrReachableFavorite) Color(0xFFFF9500) else colorScheme.onSurface
                         )

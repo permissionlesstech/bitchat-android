@@ -1,6 +1,5 @@
 package com.bitchat.android.ui
 
-
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.animation.AnimatedContent
@@ -54,13 +53,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.text.AnnotatedClickableText
 import com.bitchat.android.mesh.MeshService
@@ -70,6 +69,7 @@ import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.ui.media.FileMessageItem
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.ChatVisualTokens
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.ui.theme.MessageBodyTextStyle
 import com.bitchat.android.ui.theme.MessageSenderTextStyle
@@ -290,8 +290,8 @@ fun MessagesList(
             top = 8.dp + contentPadding.calculateTopPadding(),
             bottom = 12.dp + contentPadding.calculateBottomPadding()
         ),
-        // Spacing is owned by each item so that a continuation of the same author can sit
-        // tighter than the start of a new speaker's run.
+        // Spacing is owned by each item. The exported transcript uses a consistent 8.dp rhythm;
+        // a new speaker gets additional separation from the visible sender row's top inset.
         verticalArrangement = Arrangement.spacedBy(0.dp),
         modifier = modifier,
         reverseLayout = true
@@ -515,7 +515,7 @@ fun MessageItem(
                     }
                 },
                 onLongPress = { onMessageLongPress?.invoke(message) },
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 color = palette.textPrimary,
             )
 
@@ -579,7 +579,7 @@ fun MessageItem(
                     } else {
                         Text(
                             text = stringResource(R.string.file_unavailable),
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             color = palette.textTertiary
                         )
                     }
@@ -610,13 +610,11 @@ fun MessageItem(
                     }
                 )
             },
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             softWrap = true,
             overflow = TextOverflow.Visible,
-            style = MessageBodyTextStyle.copy(
-                fontSize = (BASE_FONT_SIZE - 2).sp,
-                lineHeight = (BASE_FONT_SIZE + 3).sp,
-                color = palette.textSecondary
+            style = ChatVisualTokens.SystemActionStyle.copy(
+                color = palette.textPrimary.copy(alpha = ChatVisualTokens.MutedTextAlpha),
             )
         )
     } else {
@@ -696,8 +694,10 @@ internal fun TextMessageLayout(
                     }
                 },
                 onLongPress = handleLongPress,
-                modifier = Modifier.fillMaxWidth(),
-                fontFamily = FontFamily.Monospace,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = MessageGrouping.SENDER_TOP_PADDING),
+                fontFamily = BitchatFontFamily,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
                 style = MessageSenderTextStyle,
@@ -725,7 +725,7 @@ internal fun TextMessageLayout(
                 }
             },
             onLongPress = handleLongPress,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             softWrap = true,
             overflow = TextOverflow.Visible,
             style = MessageBodyTextStyle.copy(color = palette.textPrimary),

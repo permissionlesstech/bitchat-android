@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatPalette
+import com.bitchat.android.ui.theme.ChatVisualTokens
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -18,13 +19,13 @@ import java.util.*
  */
 
 /** Opacity applied to the `#abcd` disambiguation suffix so the readable name dominates. */
-internal const val SUFFIX_ALPHA = 0.55f
+internal const val SUFFIX_ALPHA = ChatVisualTokens.SenderSuffixAlpha
 
 /** Background opacity for a mention chip referring to somebody else. */
-internal const val MENTION_CHIP_ALPHA = 0.18f
+internal const val MENTION_CHIP_ALPHA = ChatVisualTokens.HighlightAlpha
 
 /** Background opacity for a mention chip referring to you. Slightly stronger to catch the eye. */
-internal const val MENTION_CHIP_ALPHA_SELF = 0.22f
+internal const val MENTION_CHIP_ALPHA_SELF = ChatVisualTokens.HighlightAlpha
 
 /**
  * Get RSSI-based color for signal strength visualization
@@ -54,13 +55,13 @@ fun formatTextMessageSender(
     val builder = AnnotatedString.Builder()
     val isSelf = message.isFromSelf(currentUserNickname, myPeerID)
     val senderColor = if (isSelf) palette.accentOrange else getPeerColor(message, palette.isDark)
-    val senderWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
+    val senderWeight = FontWeight.SemiBold
     val (baseName, suffix) = splitSuffix(message.sender)
 
     builder.pushStyle(
         SpanStyle(
             color = senderColor,
-            fontSize = BASE_FONT_SIZE.sp,
+            fontSize = ChatVisualTokens.SenderFontSize,
             fontWeight = senderWeight
         )
     )
@@ -82,8 +83,8 @@ fun formatTextMessageSender(
         builder.pushStyle(
             SpanStyle(
                 color = senderColor.copy(alpha = SUFFIX_ALPHA),
-                fontSize = BASE_FONT_SIZE.sp,
-                fontWeight = senderWeight
+                fontSize = ChatVisualTokens.SenderFontSize,
+                fontWeight = FontWeight.Normal
             )
         )
         builder.append(suffix)
@@ -97,7 +98,7 @@ fun formatTextMessageSender(
  * Build the compact timestamp and optional proof-of-work label.
  *
  * Used standalone by media rows; text messages get the same span appended inline to the end of
- * their body via [appendTrailingTimestamp].
+ * their body via [appendBodyTimestamp].
  */
 fun formatTextMessageMetadata(
     message: BitchatMessage,
@@ -125,24 +126,49 @@ fun formatTextMessageMetadata(
  * Deliberately carries no click annotation: the timestamp is decoration, and making it
  * tappable would create dead zones inside the message body.
  */
-private fun appendTrailingTimestamp(
+private fun appendTimestampText(
     builder: AnnotatedString.Builder,
     message: BitchatMessage,
-    palette: BitchatPalette,
     timeFormatter: SimpleDateFormat
 ) {
-    builder.pushStyle(
-        SpanStyle(
-            color = palette.textTertiary,
-            fontSize = (BASE_FONT_SIZE - 4).sp,
-            fontWeight = FontWeight.Normal
-        )
-    )
     builder.append("  ")
     builder.append(timeFormatter.format(message.timestamp))
     message.powDifficulty?.takeIf { it > 0 }?.let { bits ->
         builder.append(" ⛨${bits}b")
     }
+}
+
+private fun appendBodyTimestamp(
+    builder: AnnotatedString.Builder,
+    message: BitchatMessage,
+    palette: BitchatPalette,
+    timeFormatter: SimpleDateFormat,
+) {
+    builder.pushStyle(
+        SpanStyle(
+            color = palette.textTertiary,
+            fontSize = ChatVisualTokens.SystemTimeFontSize,
+            fontWeight = FontWeight.Normal,
+        )
+    )
+    appendTimestampText(builder, message, timeFormatter)
+    builder.pop()
+}
+
+private fun appendMutedTimestamp(
+    builder: AnnotatedString.Builder,
+    message: BitchatMessage,
+    palette: BitchatPalette,
+    timeFormatter: SimpleDateFormat,
+) {
+    builder.pushStyle(
+        SpanStyle(
+            color = palette.textPrimary.copy(alpha = ChatVisualTokens.MutedTextAlpha),
+            fontSize = ChatVisualTokens.SystemTimeFontSize,
+            fontWeight = FontWeight.Normal,
+        )
+    )
+    appendTimestampText(builder, message, timeFormatter)
     builder.pop()
 }
 
@@ -170,7 +196,7 @@ fun formatTextMessageBody(
     )
 
     if (includeTimestamp) {
-        appendTrailingTimestamp(builder, message, palette, timeFormatter)
+        appendBodyTimestamp(builder, message, palette, timeFormatter)
     }
     return builder.toAnnotatedString()
 }
@@ -189,16 +215,16 @@ fun formatSystemMessage(
     val builder = AnnotatedString.Builder()
     builder.pushStyle(
         SpanStyle(
-            color = palette.textSecondary,
-            fontSize = (BASE_FONT_SIZE - 2).sp,
-            fontWeight = FontWeight.Normal
+            color = palette.textPrimary.copy(alpha = ChatVisualTokens.MutedTextAlpha),
+            fontSize = ChatVisualTokens.SystemActionFontSize,
+            fontWeight = FontWeight.Medium,
         )
     )
     builder.append("// ")
     builder.append(message.content)
     builder.pop()
 
-    appendTrailingTimestamp(builder, message, palette, timeFormatter)
+    appendMutedTimestamp(builder, message, palette, timeFormatter)
     return builder.toAnnotatedString()
 }
 
@@ -226,14 +252,13 @@ fun formatMessageHeaderAnnotatedString(
 
     if (includeSender) {
         val baseColor = if (isSelf) palette.accentOrange else getPeerColor(message, palette.isDark)
-        val weight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
         val (baseName, suffix) = splitSuffix(message.sender)
 
         builder.pushStyle(
             SpanStyle(
                 color = baseColor,
-                fontSize = BASE_FONT_SIZE.sp,
-                fontWeight = weight
+                fontSize = ChatVisualTokens.SenderFontSize,
+                fontWeight = FontWeight.SemiBold,
             )
         )
         builder.append("@")
@@ -254,8 +279,8 @@ fun formatMessageHeaderAnnotatedString(
             builder.pushStyle(
                 SpanStyle(
                     color = baseColor.copy(alpha = SUFFIX_ALPHA),
-                    fontSize = BASE_FONT_SIZE.sp,
-                    fontWeight = weight
+                    fontSize = ChatVisualTokens.SenderFontSize,
+                    fontWeight = FontWeight.Normal,
                 )
             )
             builder.append(suffix)
@@ -263,7 +288,7 @@ fun formatMessageHeaderAnnotatedString(
         }
     }
 
-    appendTrailingTimestamp(builder, message, palette, timeFormatter)
+    appendMutedTimestamp(builder, message, palette, timeFormatter)
     return builder.toAnnotatedString()
 }
 
@@ -318,8 +343,8 @@ fun colorForPeerSeed(seed: String, isDark: Boolean): Color {
         hue = (hue + 0.12) % 1.0
     }
     
-    val saturation = if (isDark) 0.62 else 0.85
-    val brightness = if (isDark) 0.92 else 0.45
+    val saturation = if (isDark) 1.0 else 0.85
+    val brightness = if (isDark) 1.0 else 0.45
     
     return Color.hsv(
         hue = (hue * 360).toFloat(),

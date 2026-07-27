@@ -39,12 +39,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
@@ -93,7 +93,7 @@ fun SecurityVerificationSheet(
             if (peerID == null) {
                 Text(
                     text = stringResource(R.string.fingerprint_no_peer),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BitchatFontFamily),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
             } else {
@@ -156,7 +156,7 @@ private fun SecurityVerificationHeader(
         Text(
             text = stringResource(R.string.security_verification_title),
             style = MaterialTheme.typography.titleSmall.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold
             ),
             color = accent
@@ -221,7 +221,7 @@ private fun SecurityStatusCard(
             Text(
                 text = displayName,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontWeight = FontWeight.Bold
                 ),
                 color = accent
@@ -229,7 +229,7 @@ private fun SecurityStatusCard(
             Text(
                 text = statusInfo.text,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = BitchatFontFamily
                 ),
                 color = accent.copy(alpha = 0.8f)
             )
@@ -259,7 +259,7 @@ private fun SecurityVerificationActions(
         ) {
             Text(
                 text = stringResource(R.string.fingerprint_start_handshake),
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp
             )
         }
@@ -275,7 +275,7 @@ private fun SecurityVerificationActions(
         Text(
             text = stringResource(R.string.fingerprint_verified_message),
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace
+                fontFamily = BitchatFontFamily
             ),
             color = accent.copy(alpha = 0.7f),
             modifier = Modifier.fillMaxWidth(),
@@ -291,7 +291,7 @@ private fun SecurityVerificationActions(
         ) {
             Text(
                 text = stringResource(R.string.verify_remove),
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp
             )
         }
@@ -305,7 +305,7 @@ private fun SecurityVerificationActions(
         Text(
             text = stringResource(R.string.fingerprint_not_verified_message_fmt, displayName),
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace
+                fontFamily = BitchatFontFamily
             ),
             color = accent.copy(alpha = 0.7f),
             modifier = Modifier.fillMaxWidth(),
@@ -322,7 +322,7 @@ private fun SecurityVerificationActions(
             ) {
                 Text(
                     text = stringResource(R.string.fingerprint_mark_verified),
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 12.sp
                 )
             }
@@ -351,7 +351,7 @@ private fun VerificationStatusRow(
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold
             ),
             color = textTint
@@ -377,7 +377,7 @@ private fun FingerprintBlock(
         Text(
             text = title,
             style = MaterialTheme.typography.labelSmall.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold
             ),
             color = accent.copy(alpha = 0.8f)
@@ -387,7 +387,7 @@ private fun FingerprintBlock(
                 Text(
                     text = formatFingerprint(fingerprint),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         fontSize = 14.sp
                     ),
                     color = accent,
@@ -419,7 +419,7 @@ private fun FingerprintBlock(
         } else {
             Text(
                 text = stringResource(R.string.fingerprint_pending),
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BitchatFontFamily),
                 color = Color(0xFFFF9500),
                 modifier = Modifier.padding(16.dp)
             )

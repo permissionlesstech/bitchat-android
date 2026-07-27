@@ -1,4 +1,7 @@
 package com.bitchat.android.ui
+
+import com.bitchat.android.ui.theme.BitchatFontFamily
+import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] TODO: Replace inline file attachment stub with FilePickerButton abstraction that dispatches via FileShareDispatcher
 
 
@@ -45,7 +48,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -98,7 +100,7 @@ class SlashCommandVisualTransformation(
                 withStyle(
                     style = SpanStyle(
                         color = commandColor,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         fontWeight = FontWeight.Medium,
                         background = commandBackground
                     )
@@ -145,7 +147,7 @@ class MentionVisualTransformation(
                 withStyle(
                     style = SpanStyle(
                         color = mentionColor,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         // Mirrors the mention chip used in rendered messages, so what you type
                         // looks like what everyone will see.
@@ -367,7 +369,7 @@ fun MessageInput(
                     // type into.
                     textStyle = MaterialTheme.typography.bodyMedium.copy(
                         color = palette.textPrimary,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = BitchatFontFamily
                     ),
                     cursorBrush = SolidColor(
                         if (isRecording) Color.Transparent else palette.textPrimary
@@ -411,7 +413,7 @@ fun MessageInput(
                     Text(
                         text = stringResource(R.string.type_a_message_placeholder),
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = BitchatFontFamily
                         ),
                         color = palette.textTertiary,
                         maxLines = 1,
@@ -446,7 +448,7 @@ fun MessageInput(
                                 "%02d:%02d / %02d:%02d",
                                 secs / 60, secs % 60, maxSecs / 60, maxSecs % 60
                             ),
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             color = palette.accentRed,
                             fontSize = (BASE_FONT_SIZE - 4).sp
                         )
@@ -664,7 +666,7 @@ fun CommandSuggestionItem(
         Text(
             text = allCommands.joinToString(", "),
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Medium
             ),
             color = colorScheme.primary,
@@ -676,7 +678,7 @@ fun CommandSuggestionItem(
             Text(
                 text = syntax,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = BitchatFontFamily
                 ),
                 color = palette.textSecondary,
                 fontSize = (BASE_FONT_SIZE - 4).sp
@@ -687,7 +689,7 @@ fun CommandSuggestionItem(
         Text(
             text = suggestion.description,
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace
+                fontFamily = BitchatFontFamily
             ),
             color = palette.textTertiary,
             fontSize = (BASE_FONT_SIZE - 4).sp,
@@ -737,7 +739,7 @@ fun MentionSuggestionItem(
         Text(
             text = stringResource(R.string.mention_suggestion_at, suggestion),
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.SemiBold
             ),
             color = palette.accentOrange,
@@ -749,7 +751,7 @@ fun MentionSuggestionItem(
         Text(
             text = stringResource(R.string.mention),
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace
+                fontFamily = BitchatFontFamily
             ),
             color = palette.textTertiary,
             fontSize = (BASE_FONT_SIZE - 4).sp

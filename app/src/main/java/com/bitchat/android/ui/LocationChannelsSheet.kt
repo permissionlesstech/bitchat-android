@@ -42,12 +42,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.nostr.NearbyNotesController
 import com.bitchat.android.nostr.geohashesForSampling
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
@@ -351,7 +351,7 @@ fun LocationChannelsSheet(
                                 Text(
                                     text = stringResource(R.string.location_permission_denied),
                                     fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = BitchatFontFamily,
                                     color = palette.accentRed
                                 )
                                 TextButton(
@@ -371,7 +371,7 @@ fun LocationChannelsSheet(
                                     Text(
                                         text = stringResource(R.string.open_settings),
                                         fontSize = 12.sp,
-                                        fontFamily = FontFamily.Monospace
+                                        fontFamily = BitchatFontFamily
                                     )
                                 }
                             }
@@ -495,7 +495,7 @@ fun LocationChannelsSheet(
                                 Text(
                                     text = shownError,
                                     fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = BitchatFontFamily,
                                     color = palette.accentRed,
                                     modifier = Modifier.padding(
                                         start = AboutHorizontalPadding + ChannelRowHorizontal,
@@ -541,7 +541,7 @@ fun LocationChannelsSheet(
                                 Text(
                                     text = stringResource(R.string.tor_not_available_in_this_build),
                                     fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = BitchatFontFamily,
                                     color = palette.textTertiary,
                                     modifier = Modifier.padding(
                                         start = AboutHorizontalPadding + ChannelRowHorizontal,
@@ -683,7 +683,7 @@ private fun ChannelOptionRow(
                 Text(
                     text = baseTitle,
                     fontSize = 14.sp,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontWeight = if (titleBold) FontWeight.SemiBold else FontWeight.Medium,
                     color = titleColor ?: palette.textPrimary
                 )
@@ -692,7 +692,7 @@ private fun ChannelOptionRow(
                         count = participantCount,
                         text = count,
                         fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         color = palette.textSecondary
                     )
                 }
@@ -700,7 +700,7 @@ private fun ChannelOptionRow(
             Text(
                 text = subtitle,
                 fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 lineHeight = 17.sp,
                 color = palette.textSecondary
             )
@@ -759,7 +759,7 @@ private fun ChannelLoadingRow() {
         Text(
             text = stringResource(R.string.finding_nearby_channels),
             fontSize = 12.sp,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = palette.textSecondary
         )
     }
@@ -822,7 +822,7 @@ private fun CustomGeohashRow(
         Text(
             text = stringResource(R.string.hash_symbol),
             fontSize = 14.sp,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = palette.textTertiary
         )
 
@@ -833,7 +833,7 @@ private fun CustomGeohashRow(
             onValueChange = onGeohashChange,
             textStyle = TextStyle(
                 fontSize = 14.sp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 color = colorScheme.primary
             ),
             cursorBrush = SolidColor(colorScheme.primary),
@@ -846,7 +846,7 @@ private fun CustomGeohashRow(
                     Text(
                         text = stringResource(R.string.geohash_placeholder),
                         fontSize = 14.sp,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         color = palette.textTertiary
                     )
                 }
@@ -882,7 +882,7 @@ private fun CustomGeohashRow(
                 fontSize = 11.sp,
                 letterSpacing = 0.8.sp,
                 fontWeight = FontWeight.Medium,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 color = teleportColor,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
             )
@@ -927,7 +927,7 @@ private fun ChannelSettingsToggleRow(
             ) {
                 Text(
                     text = title,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (enabled) palette.textPrimary else palette.textTertiary
@@ -936,7 +936,7 @@ private fun ChannelSettingsToggleRow(
             }
             Text(
                 text = subtitle,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 color = if (enabled) palette.textSecondary else palette.textTertiary

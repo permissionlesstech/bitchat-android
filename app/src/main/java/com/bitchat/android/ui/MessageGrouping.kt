@@ -3,24 +3,29 @@ package com.bitchat.android.ui
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.ui.theme.ChatVisualTokens
 
 /**
  * Consecutive-message grouping for the chat surface.
  *
  * The redesign suppresses the `@sender` label on runs of messages from the same author so the
- * eye only has to register a name when the speaker actually changes. Grouped messages sit
- * closer together; a new group gets extra breathing room above it.
+ * eye only has to register a name when the speaker actually changes. The transcript uses one
+ * consistent item rhythm; new groups get their additional separation from the visible sender
+ * row's own top padding.
  */
 object MessageGrouping {
 
     /** Space above the first message of a group (i.e. one that renders its sender label). */
-    val NEW_GROUP_SPACING: Dp = 10.dp
+    val NEW_GROUP_SPACING: Dp = ChatVisualTokens.MessageItemSpacing
 
     /** Space above a continuation message inside an existing group. */
-    val GROUPED_SPACING: Dp = 4.dp
+    val GROUPED_SPACING: Dp = ChatVisualTokens.MessageItemSpacing
 
     /** Gap between the sender label and the first line of the body. */
-    val SENDER_TO_BODY_SPACING: Dp = 2.dp
+    val SENDER_TO_BODY_SPACING: Dp = ChatVisualTokens.SenderToBodySpacing
+
+    /** Top inset inside a visible sender row. */
+    val SENDER_TOP_PADDING: Dp = ChatVisualTokens.SenderTopPadding
 
     /**
      * Messages further apart than this always start a new group, even from the same sender:

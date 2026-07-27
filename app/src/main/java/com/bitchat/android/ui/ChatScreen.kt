@@ -1,4 +1,7 @@
 package com.bitchat.android.ui
+
+import com.bitchat.android.ui.theme.BitchatFontFamily
+import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
 
 // [Goose] Installing FileShareDispatcher handler in ChatScreen to forward file sends to ViewModel
@@ -24,7 +27,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -535,7 +537,7 @@ private fun NearbyNotesStrip(
                 },
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.primary,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
             )
             Text(
