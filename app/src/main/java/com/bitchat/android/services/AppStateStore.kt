@@ -99,6 +99,7 @@ object AppStateStore {
         synchronized(this) {
             if (seenMessageIds.contains(msg.id)) return
             seenMessageIds.add(msg.id)
+            PrivateMessageArrivalOrder.record(msg.id)
             val conversationID = ContactDirectory.canonicalConversationId(peerID)
             val map = _privateMessages.value.toMutableMap()
             val list = (map[conversationID] ?: emptyList()) + msg
@@ -207,6 +208,7 @@ object AppStateStore {
         synchronized(this) {
             seenMessageIds.clear()
             seenPublicMessageKeys.clear()
+            PrivateMessageArrivalOrder.clear()
             peerIdsByTransport.clear()
             directPeerIdsByTransport.clear()
             _peers.value = emptyList()
