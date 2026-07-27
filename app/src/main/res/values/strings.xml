@@ -273,6 +273,7 @@
   <string name="disable_location_services">Remove location access</string>
   <string name="enable_location_services">Enable location services</string>
   <string name="mesh_label">mesh</string>
+  <string name="mesh_title">Mesh</string>
   <string name="location_level_block">Block</string>
   <string name="location_level_neighborhood">Neighborhood</string>
   <string name="location_level_city">City</string>

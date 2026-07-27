@@ -751,7 +751,7 @@ private fun meshTitleWithCount(viewModel: ChatViewModel): String {
     val meshCount = meshCount(viewModel)
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val peopleText = ctx.resources.getQuantityString(com.bitchat.android.R.plurals.people_count, meshCount, meshCount)
-    val meshLabel = stringResource(com.bitchat.android.R.string.mesh_label)
+    val meshLabel = stringResource(com.bitchat.android.R.string.mesh_title)
     return "$meshLabel [$peopleText]"
 }
 
