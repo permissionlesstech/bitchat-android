@@ -959,9 +959,7 @@ fun PrivateChatSheet(
                             isWifiAware = isWifiAware,
                             isDirect = isDirect
                         ),
-                        // Reachability is a status, not an alert: it takes the muted chrome tint,
-                        // leaving the primary green for the name itself.
-                        leadingIconTint = colorScheme.onSurfaceVariant,
+                        leadingIconTint = colorScheme.primary,
                         leadingContentDescription = when {
                             isNostrPeer || isNostrReachableFavorite ->
                                 stringResource(R.string.cd_nostr_reachable)
