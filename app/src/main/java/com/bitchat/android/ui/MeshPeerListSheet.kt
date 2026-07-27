@@ -8,8 +8,12 @@ import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,6 +31,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -54,6 +59,7 @@ import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
+import kotlinx.coroutines.launch
 
 
 /**
@@ -82,9 +88,17 @@ fun MeshPeerListSheet(
     val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
+    val unreadConversations by viewModel.unreadConversations.collectAsStateWithLifecycle()
     val geohashPeopleCount = geohashPeople.size
     val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
     val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
+    val unreadIdentityAliases = remember(unreadConversations) {
+        unreadConversations
+            .flatMapTo(mutableSetOf()) { it.identityAliases }
+    }
+    val visibleConnectedPeers = connectedPeers.filterNot { peerID ->
+        peerID.lowercase() in unreadIdentityAliases
+    }
 
     // Bottom sheet state
     val sheetState = rememberModalBottomSheetState(
@@ -117,7 +131,21 @@ fun MeshPeerListSheet(
                 ) {
                     val peopleCount = when (selectedLocationChannel) {
                         is ChannelID.Location -> geohashPeopleCount
-                        else -> connectedPeers.count { it != viewModel.myPeerID }
+                        else -> visibleConnectedPeers.count { it != viewModel.myPeerID }
+                    }
+
+                    if (unreadConversations.isNotEmpty()) {
+                        item(key = "unread_private_messages_section") {
+                            UnreadDirectMessagesSection(
+                                conversations = unreadConversations,
+                                viewModel = viewModel,
+                                onPrivateChatStart = { conversationID ->
+                                    viewModel.showPrivateChatSheet(conversationID)
+                                    onDismiss()
+                                },
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
                     }
 
                     // Channels section
@@ -127,7 +155,9 @@ fun MeshPeerListSheet(
                                 SheetIconSectionHeader(
                                     iconRes = R.drawable.ic_spec_chat_bubbles,
                                     title = stringResource(R.string.channels),
-                                    modifier = Modifier.padding(top = 8.dp)
+                                    modifier = Modifier.padding(
+                                        top = if (unreadConversations.isNotEmpty()) 20.dp else 8.dp
+                                    )
                                 )
                                 Surface(
                                     modifier = Modifier
@@ -179,8 +209,12 @@ fun MeshPeerListSheet(
                                 GeohashPeopleList(
                                     viewModel = viewModel,
                                     onTapPerson = onDismiss,
+                                    excludedIdentityAliases = unreadIdentityAliases,
                                     modifier = Modifier.padding(
-                                        top = if (joinedChannels.isNotEmpty()) 20.dp else 8.dp
+                                        top = if (
+                                            joinedChannels.isNotEmpty() ||
+                                            unreadConversations.isNotEmpty()
+                                        ) 20.dp else 8.dp
                                     )
                                 )
                             }
@@ -188,9 +222,12 @@ fun MeshPeerListSheet(
                             else -> {
                                 PeopleSection(
                                     modifier = Modifier.padding(
-                                        top = if (joinedChannels.isNotEmpty()) 20.dp else 8.dp
+                                        top = if (
+                                            joinedChannels.isNotEmpty() ||
+                                            unreadConversations.isNotEmpty()
+                                        ) 20.dp else 8.dp
                                     ),
-                                    connectedPeers = connectedPeers,
+                                    connectedPeers = visibleConnectedPeers,
                                     peerNicknames = peerNicknames,
                                     peerRSSI = peerRSSI,
                                     nickname = nickname,
@@ -198,6 +235,7 @@ fun MeshPeerListSheet(
                                     selectedPrivatePeer = selectedPrivatePeer,
                                     wifiAwarePeerIDs = wifiAwarePeerIDs,
                                     peopleCount = peopleCount,
+                                    excludedIdentityAliases = unreadIdentityAliases,
                                     viewModel = viewModel,
                                     onPrivateChatStart = { peerID ->
                                         viewModel.showPrivateChatSheet(peerID)
@@ -312,6 +350,7 @@ fun PeopleSection(
     selectedPrivatePeer: String?,
     wifiAwarePeerIDs: Set<String> = emptySet(),
     peopleCount: Int = 0,
+    excludedIdentityAliases: Set<String> = emptySet(),
     viewModel: ChatViewModel,
     onPrivateChatStart: (String) -> Unit
 ) {
@@ -353,6 +392,7 @@ fun PeopleSection(
         val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
         val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
         val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+        val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
         val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
         val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
 
@@ -361,6 +401,22 @@ fun PeopleSection(
             connectedPeers.associateWith { peerID ->
                 val fingerprint = peerFingerprints[peerID]
                 if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
+            }
+        }
+
+        // Same "they favorited us" signal the private-chat header uses for orange outline stars.
+        val peerTheyFavoritedUsStates = remember(peerFavoritedUs, peerFingerprints, connectedPeers) {
+            connectedPeers.associateWith { peerID ->
+                val fingerprint = peerFingerprints[peerID]
+                if (fingerprint != null && peerFavoritedUs.contains(fingerprint)) {
+                    true
+                } else {
+                    try {
+                        FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.theyFavoritedUs == true
+                    } catch (_: Exception) {
+                        false
+                    }
+                }
             }
         }
 
@@ -410,8 +466,6 @@ fun PeopleSection(
         )
         
         // Build a map of base name counts across all people shown in the list (connected + offline + nostr)
-        val hex64Regex = Regex("^[0-9a-fA-F]{64}$")
-
         // Helper to compute display name used for a given key
         fun computeDisplayNameForPeerId(key: String): String {
             return if (key == nickname) "You" else (peerNicknames[key] ?: (privateChats[key]?.lastOrNull()?.sender ?: key.take(12)))
@@ -430,33 +484,28 @@ fun PeopleSection(
         val offlineFavorites = FavoritesPersistenceService.shared.getOurFavorites()
         offlineFavorites.forEach { fav ->
             val favPeerID = ContactIdentityResolver.noiseKeyHex(fav.peerNoisePublicKey)
-            if (!isFavoriteMappedToConnected(fav)) {
+            if (
+                favPeerID.lowercase() !in excludedIdentityAliases &&
+                !isFavoriteMappedToConnected(fav)
+            ) {
                 val dn = peerNicknames[favPeerID] ?: fav.peerNickname
                 val (b, _) = splitSuffix(dn)
                 if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
         }
 
-        // Nostr-only conversations
-        val connectedIds = sortedPeers.toSet()
-        privateChats.keys
-            .filter { key ->
-                (key.startsWith("nostr_") || hex64Regex.matches(key)) &&
-                        !connectedIds.contains(key) &&
-                        !connectedNoiseHexes.contains(key.lowercase())
-            }
-            .forEach { convKey ->
-                val dn = peerNicknames[convKey] ?: (privateChats[convKey]?.lastOrNull()?.sender ?: convKey.take(12))
-                val (b, _) = splitSuffix(dn)
-                if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
-            }
-
         // Every row this card will show, in final order, so the animated list can key on identity
         // and animate reordering. Offline favourites are appended after the connected peers.
         // Collected once for the whole card rather than once per row.
         val directMap by viewModel.peerDirect.collectAsStateWithLifecycle()
 
-        val offlineFavoriteRows = offlineFavorites.filterNot { isFavoriteMappedToConnected(it) }
+        val offlineFavoriteRows = offlineFavorites.filterNot { favorite ->
+            val favoriteNoiseKey = ContactIdentityResolver.noiseKeyHex(
+                favorite.peerNoisePublicKey
+            )
+            favoriteNoiseKey.lowercase() in excludedIdentityAliases ||
+                isFavoriteMappedToConnected(favorite)
+        }
         val rowKeys: List<String> = sortedPeers +
             offlineFavoriteRows.map { ContactIdentityResolver.noiseKeyHex(it.peerNoisePublicKey) }
 
@@ -468,6 +517,7 @@ fun PeopleSection(
             val peerID = connectedPeerForRow
             val conversationID = ContactDirectory.canonicalConversationId(peerID)
             val isFavorite = peerFavoriteStates[peerID] ?: false
+            val theyFavoritedUs = peerTheyFavoritedUsStates[peerID] ?: false
             val isVerified = peerVerifiedStates[peerID] ?: false
             // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
 
@@ -493,6 +543,7 @@ fun PeopleSection(
                 isWifiAware = peerID in wifiAwarePeerIDs,
                 isSelected = conversationID == selectedPrivatePeer || peerID == selectedPrivatePeer,
                 isFavorite = isFavorite,
+                theyFavoritedUs = theyFavoritedUs,
                 isVerified = isVerified,
                 hasUnreadDM = combinedHasUnread,
                 colorScheme = colorScheme,
@@ -542,6 +593,7 @@ fun PeopleSection(
                 isDirect = false,
                 isSelected = conversationID == selectedPrivatePeer || (mappedConnectedPeerID ?: favPeerID) == selectedPrivatePeer,
                 isFavorite = true,
+                theyFavoritedUs = fav.theyFavoritedUs,
                 isVerified = isVerified,
                 hasUnreadDM = hasUnread,
                 colorScheme = colorScheme,
@@ -564,6 +616,126 @@ fun PeopleSection(
 }
 
 @Composable
+private fun UnreadDirectMessagesSection(
+    conversations: List<UnreadConversationSummary>,
+    viewModel: ChatViewModel,
+    onPrivateChatStart: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
+
+    Column(modifier = modifier) {
+        SheetIconSectionHeader(
+            iconRes = R.drawable.ic_spec_envelope,
+            title = stringResource(R.string.cd_unread_private_messages)
+        )
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = AboutHorizontalPadding)
+                .padding(top = 10.dp),
+            color = colorScheme.surface,
+            shape = AboutCardShape
+        ) {
+            AnimatedRowColumn(
+                items = conversations,
+                key = { it.conversationID }
+            ) { index, conversation ->
+                Column {
+                    if (index > 0) SheetCardDivider()
+
+                    val subtitle = when {
+                        conversation.sourceGeohash != null -> "#${conversation.sourceGeohash}"
+                        conversation.transport == DirectMessageTransport.NOSTR ->
+                            stringResource(R.string.cd_reachable_via_nostr)
+                        !conversation.isConnected ->
+                            stringResource(R.string.cd_offline_mesh_chat)
+                        else -> null
+                    }
+                    val peerIdentity = conversation.nostrPubkey
+                        ?.let(viewModel::peerIdentityForNostrPubkey)
+                        ?: viewModel.peerIdentityForMeshPeer(conversation.conversationID)
+                    val assignedColor = colorForPeer(peerIdentity, palette)
+                    val (baseNameRaw, suffix) = splitSuffix(conversation.displayName)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onPrivateChatStart(conversation.conversationID)
+                            }
+                            .padding(
+                                horizontal = SheetRowHorizontal,
+                                vertical = SheetRowVertical
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(SheetRowLeadingSlot),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_spec_envelope),
+                                contentDescription = stringResource(R.string.cd_unread_message),
+                                modifier = Modifier.size(PeerRowIconSize),
+                                tint = palette.accentOrange
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(SheetRowLeadingGutter))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = truncateNickname(baseNameRaw),
+                                    fontFamily = BitchatFontFamily,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = assignedColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                if (suffix.isNotEmpty()) {
+                                    Text(
+                                        text = suffix,
+                                        fontFamily = BitchatFontFamily,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = assignedColor.copy(alpha = SUFFIX_ALPHA)
+                                    )
+                                }
+                            }
+
+                            if (subtitle != null) {
+                                Text(
+                                    text = subtitle,
+                                    fontFamily = BitchatFontFamily,
+                                    fontSize = 11.sp,
+                                    color = palette.textTertiary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        UnreadBadge(
+                            count = conversation.unreadCount,
+                            colorScheme = colorScheme
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun PeerItem(
     peerID: String,
     displayName: String,
@@ -571,6 +743,7 @@ private fun PeerItem(
     isWifiAware: Boolean = false,
     isSelected: Boolean,
     isFavorite: Boolean,
+    theyFavoritedUs: Boolean = false,
     isVerified: Boolean,
     hasUnreadDM: Boolean,
     colorScheme: ColorScheme,
@@ -697,13 +870,15 @@ private fun PeerItem(
                 .clickable(onClick = onToggleFavorite),
             contentAlignment = Alignment.Center
         ) {
+            // Three-state star (matches private-chat header): grey outline (no relation),
+            // orange outline (they favorited us), filled orange (we favorited them).
             Icon(
                 painter = painterResource(
                     if (isFavorite) R.drawable.ic_spec_star_filled else R.drawable.ic_spec_star
                 ),
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                 modifier = Modifier.size(PeerRowIconSize),
-                tint = if (isFavorite) palette.accentOrange else palette.textTertiary
+                tint = if (isFavorite || theyFavoritedUs) palette.accentOrange else palette.textTertiary
             )
         }
     }
@@ -799,6 +974,7 @@ fun PrivateChatSheet(
     val peerDirectMap by viewModel.peerDirect.collectAsStateWithLifecycle()
     val peerSessionStates by viewModel.peerSessionStates.collectAsStateWithLifecycle()
     val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+    val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
     val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
 
     val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
@@ -815,7 +991,7 @@ fun PrivateChatSheet(
     }
 
     val isNostrPeer = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
-    val favoriteRelationship = remember(peerID, favoritePeers) {
+    val favoriteRelationship = remember(peerID, favoritePeers, peerFavoritedUs) {
         try {
             FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
         } catch (_: Exception) {
@@ -859,12 +1035,55 @@ fun PrivateChatSheet(
     val isFavorite = remember(favoritePeers, fingerprint, peerID, favoriteRelationship) {
         if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
     }
+    val theyFavoritedUs = remember(peerFavoritedUs, fingerprint, favoriteRelationship) {
+        (fingerprint != null && peerFavoritedUs.contains(fingerprint)) ||
+            favoriteRelationship?.theyFavoritedUs == true
+    }
+
+    // Celebrate being favorited: a springy wobble of the header star. Springs rather than
+    // keyframed tweens, matching the app's press feedback, so the settle overshoots slightly.
+    val starWobbleRotation = remember { Animatable(0f) }
+    val starWobbleScale = remember { Animatable(1f) }
+    var previousTheyFavoritedUs by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(theyFavoritedUs) {
+        val wasFavoritedUs = previousTheyFavoritedUs
+        previousTheyFavoritedUs = theyFavoritedUs
+        if (theyFavoritedUs && wasFavoritedUs == false) {
+            starWobbleRotation.snapTo(-16f)
+            starWobbleScale.snapTo(1.35f)
+            launch {
+                starWobbleRotation.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(dampingRatio = 0.3f, stiffness = Spring.StiffnessMedium)
+                )
+            }
+            launch {
+                starWobbleScale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessHigh
+                    )
+                )
+            }
+        }
+    }
 
     val isVerified = remember(peerID, verifiedFingerprints) {
         viewModel.isPeerVerified(peerID, verifiedFingerprints)
     }
 
     val palette = LocalBitchatPalette.current
+    // Three-state star: grey outline (no relation), orange outline (they favorited us),
+    // filled orange (we favorited them, mutual or not).
+    val favoriteStarTint by animateColorAsState(
+        targetValue = when {
+            isFavorite || theyFavoritedUs -> palette.accentOrange
+            else -> colorScheme.onSurfaceVariant
+        },
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "favoriteStarTint"
+    )
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
@@ -984,12 +1203,14 @@ fun PrivateChatSheet(
                                     }
                                 ),
                                 contentDescription = null,
-                                modifier = Modifier.size(HeaderIconSize),
-                                tint = if (isFavorite) {
-                                    palette.accentOrange
-                                } else {
-                                    colorScheme.onSurfaceVariant
-                                }
+                                modifier = Modifier
+                                    .size(HeaderIconSize)
+                                    .graphicsLayer {
+                                        rotationZ = starWobbleRotation.value
+                                        scaleX = starWobbleScale.value
+                                        scaleY = starWobbleScale.value
+                                    },
+                                tint = favoriteStarTint
                             )
                         }
 

@@ -116,7 +116,7 @@ class PacketProcessorAnnounceSideEffectTest {
             handshakeHandled.complete(Unit)
             return acceptHandshake
         }
-        override fun handleNoiseEncrypted(routed: RoutedPacket) = Unit
+        override fun handleNoiseEncrypted(routed: RoutedPacket) = true
         override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
             handled.complete(Unit)
             return acceptAnnounce

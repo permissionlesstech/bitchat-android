@@ -203,11 +203,13 @@ class BluetoothGattServerManager(
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         Log.i(TAG, "Disconnected from ${device.address} (server)")
                         val linkID = serverLinkIDs.remove(device.address)
+                        // Capture the observed peer before cleanup drops the address mapping.
+                        val disconnectedPeerID = connectionTracker.addressPeerMap[device.address]
                         if (linkID != null) {
                             connectionTracker.cleanupDeviceConnectionIfCurrent(device.address, linkID)
                         }
                         // Notify delegate about device disconnection so higher layers can update direct flags
-                        delegate?.onDeviceDisconnected(device, linkID)
+                        delegate?.onDeviceDisconnected(device, linkID, disconnectedPeerID)
                     }
                 }
             }

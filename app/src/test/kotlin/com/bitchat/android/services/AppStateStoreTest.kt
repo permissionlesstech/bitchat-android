@@ -1,8 +1,10 @@
 package com.bitchat.android.services
 
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.DeliveryStatus
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.Date
@@ -140,5 +142,38 @@ class AppStateStoreTest {
         AppStateStore.addPrivateMessage(noiseKeyHex, earlier)
 
         assertEquals(listOf(earlier, later), AppStateStore.privateMessages.value[contactID])
+    }
+
+    @Test
+    fun `background receipt status persists and cannot be downgraded`() {
+        val message = BitchatMessage(
+            id = "outgoing-message",
+            sender = "bob",
+            content = "hello",
+            timestamp = Date(1),
+            isPrivate = true,
+            deliveryStatus = DeliveryStatus.Sending
+        )
+        AppStateStore.addPrivateMessage("peer-a", message)
+
+        AppStateStore.updatePrivateMessageStatus(
+            message.id,
+            DeliveryStatus.Delivered("peer-a", Date(2))
+        )
+        AppStateStore.updatePrivateMessageStatus(
+            message.id,
+            DeliveryStatus.Read("peer-a", Date(3))
+        )
+        AppStateStore.updatePrivateMessageStatus(
+            message.id,
+            DeliveryStatus.Delivered("peer-a", Date(4))
+        )
+
+        val status = AppStateStore.privateMessages.value
+            .values
+            .flatten()
+            .single()
+            .deliveryStatus
+        assertTrue(status is DeliveryStatus.Read)
     }
 }

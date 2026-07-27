@@ -14,6 +14,7 @@ import com.bitchat.android.ui.theme.LightBitchatColorScheme
 import com.bitchat.android.ui.theme.LightBitchatPalette
 import com.bitchat.android.ui.theme.MessageBodyTextStyle
 import com.bitchat.android.ui.theme.MessageSenderTextStyle
+import com.bitchat.android.ui.theme.PeerColorStyle
 import com.bitchat.android.ui.theme.colorForPeer
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -444,8 +445,8 @@ class ChatUIUtilsTest {
 
     @Test
     fun `peer color hue is stable across light and dark, only chroma differs`() {
-        // Hue derivation must stay byte-identical to iOS; only saturation/value are tuned for
-        // the redesigned neutral message body.
+        // Hue derivation must stay byte-identical to iOS; only saturation/value are tuned per
+        // theme so dark mode stays muted-but-bright and light mode stays deep-but-readable.
         val identity = PeerIdentity.mesh("abc")
         val dark = colorForPeer(identity, DarkBitchatPalette)
         val light = colorForPeer(identity, LightBitchatPalette)
@@ -456,10 +457,16 @@ class ChatUIUtilsTest {
         rgbToHsv(light.red, light.green, light.blue, lightHsv)
 
         assertEquals(darkHsv[0].toDouble(), lightHsv[0].toDouble(), 1.0)
-        assertEquals(1.0, darkHsv[1].toDouble(), 0.01)
-        assertEquals(1.0, darkHsv[2].toDouble(), 0.01)
-        assertEquals(0.85, lightHsv[1].toDouble(), 0.01)
-        assertEquals(0.45, lightHsv[2].toDouble(), 0.01)
+        assertEquals(PeerColorStyle.Dark.saturation.toDouble(), darkHsv[1].toDouble(), 0.01)
+        assertEquals(PeerColorStyle.Dark.value.toDouble(), darkHsv[2].toDouble(), 0.01)
+        assertEquals(PeerColorStyle.Light.saturation.toDouble(), lightHsv[1].toDouble(), 0.01)
+        assertEquals(PeerColorStyle.Light.value.toDouble(), lightHsv[2].toDouble(), 0.01)
+        // Dark theme: muted chroma, never dark (readable on near-black).
+        assertTrue(darkHsv[1] < 0.75f)
+        assertTrue(darkHsv[2] >= 0.75f)
+        // Light theme: avoid neon / near-white peer labels.
+        assertTrue(lightHsv[1] < 0.85f)
+        assertTrue(lightHsv[2] <= 0.55f)
     }
 
     @Test
@@ -485,7 +492,7 @@ class ChatUIUtilsTest {
         assertEquals(Color(0xFFF5F5F5), DarkBitchatColorScheme.onSurface)
         assertTrue(LightBitchatColorScheme.onSurface != DarkBitchatColorScheme.onSurface)
         assertTrue(
-            LightBitchatPalette.peerColorValue != DarkBitchatPalette.peerColorValue
+            LightBitchatPalette.peerColors != DarkBitchatPalette.peerColors
         )
     }
 

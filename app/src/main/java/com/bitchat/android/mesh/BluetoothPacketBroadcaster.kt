@@ -10,6 +10,8 @@ import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.util.toHexString
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -110,7 +112,8 @@ class BluetoothPacketBroadcaster(
     private data class BroadcastRequest(
         val routed: RoutedPacket,
         val gattServer: BluetoothGattServer?,
-        val characteristic: BluetoothGattCharacteristic?
+        val characteristic: BluetoothGattCharacteristic?,
+        val accepted: CompletableDeferred<Boolean>? = null
     )
     
     // Actor scope for the broadcaster
@@ -123,7 +126,17 @@ class BluetoothPacketBroadcaster(
         capacity = Channel.UNLIMITED
     ) {
         for (request in channel) {
-            broadcastSinglePacketInternal(request.routed, request.gattServer, request.characteristic)
+            val accepted = try {
+                broadcastSinglePacketInternal(
+                    request.routed,
+                    request.gattServer,
+                    request.characteristic
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Broadcast request failed: ${e.message}")
+                false
+            }
+            request.accepted?.complete(accepted)
         }
     }
     
@@ -243,6 +256,29 @@ class BluetoothPacketBroadcaster(
     }
 
     /**
+     * Serializes a small control packet with normal BLE traffic and waits for the platform write
+     * API to accept at least one notification/write.
+     */
+    suspend fun broadcastControlPacketAndAwaitAcceptance(
+        routed: RoutedPacket,
+        gattServer: BluetoothGattServer?,
+        characteristic: BluetoothGattCharacteristic?
+    ): Boolean {
+        val accepted = CompletableDeferred<Boolean>()
+        return try {
+            broadcasterActor.send(
+                BroadcastRequest(routed, gattServer, characteristic, accepted)
+            )
+            accepted.await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to queue control packet: ${e.message}")
+            broadcastSinglePacketInternal(routed, gattServer, characteristic)
+        }
+    }
+
+    /**
      * Targeted send to a specific peer (by peerID) if directly connected.
      * Returns true if sent to at least one matching connection.
      */
@@ -274,11 +310,11 @@ class BluetoothPacketBroadcaster(
         routed: RoutedPacket,
         gattServer: BluetoothGattServer?,
         characteristic: BluetoothGattCharacteristic?
-    ) {
+    ): Boolean {
         val packet = routed.packet
         // iOS-compatible: Use selective padding policy for BLE
         val padForBLE = BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
-        val data = packet.toBinaryData(padding = padForBLE) ?: return
+        val data = packet.toBinaryData(padding = padForBLE) ?: return false
         val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
         val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
         val incomingAddr = routed.relayAddress
@@ -320,7 +356,7 @@ class BluetoothPacketBroadcaster(
                 }
             }
 
-            if (sent) return
+            if (sent) return true
 
             Log.d(TAG, "Source Routing: First hop $firstHop not connected. Falling back to standard broadcast logic.")
         }
@@ -337,7 +373,7 @@ class BluetoothPacketBroadcaster(
                 if (notifyDevice(targetDevice, data, gattServer, characteristic)) {
                     val toPeer = connectionTracker.addressPeerMap[targetDevice.address]
                     logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDevice.address, packet.ttl, packet.version, routeInfo)
-                    return  // Sent, no need to continue
+                    return true
                 }
             }
 
@@ -350,7 +386,7 @@ class BluetoothPacketBroadcaster(
                 if (writeToDeviceConn(targetDeviceConn, data)) {
                     val toPeer = connectionTracker.addressPeerMap[targetDeviceConn.device.address]
                     logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDeviceConn.device.address, packet.ttl, packet.version, routeInfo)
-                    return  // Sent, no need to continue
+                    return true
                 }
             }
         }
@@ -360,6 +396,7 @@ class BluetoothPacketBroadcaster(
         val connectedDevices = connectionTracker.getConnectedDevices()
 
         val senderID = packet.senderID.toHexString()
+        var accepted = false
 
         // Send to server connections (devices connected to our GATT server)
         subscribedDevices.forEach { device ->
@@ -371,6 +408,7 @@ class BluetoothPacketBroadcaster(
             }
             val sent = notifyDevice(device, data, gattServer, characteristic)
             if (sent) {
+                accepted = true
                 val toPeer = connectionTracker.addressPeerMap[device.address]
                 logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, device.address, packet.ttl, packet.version, routeInfo)
             }
@@ -387,11 +425,13 @@ class BluetoothPacketBroadcaster(
                 }
                 val sent = writeToDeviceConn(deviceConn, data)
                 if (sent) {
+                    accepted = true
                     val toPeer = connectionTracker.addressPeerMap[deviceConn.device.address]
                     logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, deviceConn.device.address, packet.ttl, packet.version, routeInfo)
                 }
             }
         }
+        return accepted
     }
     
     /**
