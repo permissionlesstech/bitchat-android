@@ -185,6 +185,7 @@ class ChatViewModel(
     val showMentionSuggestions: StateFlow<Boolean> = state.showMentionSuggestions
     val mentionSuggestions: StateFlow<List<String>> = state.mentionSuggestions
     val favoritePeers: StateFlow<Set<String>> = state.favoritePeers
+    val peerFavoritedUs: StateFlow<Set<String>> = state.peerFavoritedUs
     val peerSessionStates: StateFlow<Map<String, String>> = state.peerSessionStates
     val peerFingerprints: StateFlow<Map<String, String>> = state.peerFingerprints
     val peerNicknames: StateFlow<Map<String, String>> = state.peerNicknames
@@ -243,7 +244,7 @@ class ChatViewModel(
                     val myNick = state.getNicknameValue() ?: mesh.myPeerID
                     val unread = mutableSetOf<String>()
                     canonicalChats.forEach { (peer, list) ->
-                        if (list.any { msg -> msg.sender != myNick && !seen.hasRead(msg.id) }) unread.add(peer)
+                        if (list.any { msg -> msg.sender != myNick && msg.sender != "system" && !seen.hasRead(msg.id) }) unread.add(peer)
                     }
                     state.setUnreadPrivateMessages(unread)
                 } catch (_: Exception) { }
@@ -323,6 +324,17 @@ class ChatViewModel(
 
         // Initialize favorites persistence service
         com.bitchat.android.favorites.FavoritesPersistenceService.initialize(getApplication())
+
+        // Reflect "they favorited us" changes into reactive UI state (drives star celebrations)
+        refreshPeerFavoritedUs()
+        try {
+            com.bitchat.android.favorites.FavoritesPersistenceService.shared.addListener(
+                object : com.bitchat.android.favorites.FavoritesChangeListener {
+                    override fun onFavoriteChanged(noiseKeyHex: String) = refreshPeerFavoritedUs()
+                    override fun onAllCleared() = refreshPeerFavoritedUs()
+                }
+            )
+        } catch (_: Exception) { }
 
         // Load verified fingerprints from secure storage
         verificationHandler.loadVerifiedFingerprints()
@@ -630,8 +642,22 @@ class ChatViewModel(
         logCurrentFavoriteState()
     }
     
-    private fun logCurrentFavoriteState() {
-        Log.i("ChatViewModel", "=== CURRENT FAVORITE STATE ===")
+    private fun refreshPeerFavoritedUs() {
+        try {
+            val fingerprints = com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                .getAllRelationships()
+                .filter { it.theyFavoritedUs }
+                .mapNotNull { relationship ->
+                    runCatching {
+                        ContactIdentityResolver.fingerprintHex(relationship.peerNoisePublicKey)
+                    }.getOrNull()
+                }
+                .toSet()
+            state.setPeerFavoritedUs(fingerprints)
+        } catch (_: Exception) { }
+    }
+
+    private fun logCurrentFavoriteState() {        Log.i("ChatViewModel", "=== CURRENT FAVORITE STATE ===")
         Log.i("ChatViewModel", "StateFlow favorite peers: ${favoritePeers.value}")
         Log.i("ChatViewModel", "DataManager favorite peers: ${dataManager.favoritePeers}")
         Log.i("ChatViewModel", "Peer fingerprints: ${privateChatManager.getAllPeerFingerprints()}")
