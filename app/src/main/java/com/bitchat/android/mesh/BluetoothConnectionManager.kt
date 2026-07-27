@@ -42,7 +42,12 @@ class BluetoothConnectionManager(
     
     // Delegate for component managers to call back to main manager
     private val componentDelegate = object : BluetoothConnectionManagerDelegate {
-        override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?) {
+        override fun onPacketReceived(
+            packet: BitchatPacket,
+            peerID: String,
+            device: BluetoothDevice?,
+            ingressLinkID: String
+        ) {
             Log.d(TAG, "onPacketReceived: Packet received from ${device?.address} ($peerID)")
             device?.let { bluetoothDevice ->
                 // Get current RSSI for this device and update if available
@@ -54,7 +59,7 @@ class BluetoothConnectionManager(
 
             if (peerID == myPeerID) return // Ignore messages from self
 
-            delegate?.onPacketReceived(packet, peerID, device)
+            delegate?.onPacketReceived(packet, peerID, device, ingressLinkID)
         }
         
         override fun onDeviceConnected(device: BluetoothDevice) {
@@ -63,8 +68,8 @@ class BluetoothConnectionManager(
             delegate?.onDeviceConnected(device)
         }
 
-        override fun onDeviceDisconnected(device: BluetoothDevice) {
-            delegate?.onDeviceDisconnected(device)
+        override fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?) {
+            delegate?.onDeviceDisconnected(device, linkID)
         }
         
         override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
@@ -87,6 +92,12 @@ class BluetoothConnectionManager(
     
     // Public property for address-peer mapping
     val addressPeerMap get() = connectionTracker.addressPeerMap
+
+    fun bindPeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
+        connectionTracker.bindPeerIfCurrent(deviceAddress, linkID, peerID)
+
+    fun getCurrentLinkID(deviceAddress: String): String? =
+        connectionTracker.getCurrentLinkID(deviceAddress)
 
     private fun isBleTransportEnabled(): Boolean {
         return try {
@@ -323,10 +334,10 @@ class BluetoothConnectionManager(
      * Broadcast packet to connected devices with connection limit enforcement
      * Automatically fragments large packets to fit within BLE MTU limits
      */
-    fun broadcastPacket(routed: RoutedPacket) {
-        if (!isActive || !isBleTransportEnabled()) return
-        
-        packetBroadcaster.broadcastPacket(
+    fun broadcastPacket(routed: RoutedPacket): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+
+        return packetBroadcaster.broadcastPacket(
             routed,
             serverManager.getGattServer(),
             serverManager.getCharacteristic()
@@ -355,6 +366,17 @@ class BluetoothConnectionManager(
         return packetBroadcaster.sendPacketToPeer(
             RoutedPacket(packet),
             peerID,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
+    fun sendPacketToLink(deviceAddress: String, linkID: String, packet: BitchatPacket): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+        return packetBroadcaster.sendPacketToLink(
+            RoutedPacket(packet),
+            deviceAddress,
+            linkID,
             serverManager.getGattServer(),
             serverManager.getCharacteristic()
         )
@@ -501,8 +523,13 @@ class BluetoothConnectionManager(
  * Delegate interface for Bluetooth connection manager callbacks
  */
 interface BluetoothConnectionManagerDelegate {
-    fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?)
+    fun onPacketReceived(
+        packet: BitchatPacket,
+        peerID: String,
+        device: BluetoothDevice?,
+        ingressLinkID: String
+    )
     fun onDeviceConnected(device: BluetoothDevice)
-    fun onDeviceDisconnected(device: BluetoothDevice)
+    fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?)
     fun onRSSIUpdated(deviceAddress: String, rssi: Int)
 }

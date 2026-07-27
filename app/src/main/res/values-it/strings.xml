@@ -340,7 +340,6 @@
 
     <!-- Simboli e stringhe speciali -->
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="image_counter">%1$d / %2$d</string>
@@ -434,4 +433,8 @@
   <string name="verify_success_title">Verificato</string>
   <string name="verify_success_body">Hai verificato %1$s</string>
   <string name="verify_success_system_message">verificato %1$s</string>
+    <string name="cd_open_about">Apri Informazioni</string>
+  <string name="nearby_notes_reveal">controlla se ci sono note lasciate qui</string>
+  <string name="nearby_notes_one">1 nota lasciata qui — tocca per leggere</string>
+  <string name="nearby_notes_many">%d note lasciate qui — tocca per leggere</string>
 </resources>

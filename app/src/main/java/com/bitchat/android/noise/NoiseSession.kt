@@ -451,27 +451,36 @@ class NoiseSession(
         Log.d(TAG, "Completing XX handshake with $peerID")
         
         try {
-            // Split handshake state into transport ciphers
-            val cipherPair = handshakeState?.split()
-            
-            sendCipher = cipherPair?.getSender()
-            receiveCipher = cipherPair?.getReceiver()
-            
-            // Extract remote static key if available
-            if (handshakeState?.hasRemotePublicKey() == true) {
-                val remoteDH = handshakeState?.getRemotePublicKey()
-                if (remoteDH != null) {
-                    remoteStaticPublicKey = ByteArray(32)
-                    remoteDH.getPublicKey(remoteStaticPublicKey!!, 0)
-                    Log.d(TAG, "Remote static public key: ${remoteStaticPublicKey!!.joinToString("") { "%02x".format(it) }}")
-                }
+            val activeHandshake = handshakeState ?: throw NoiseSessionError.HandshakeFailed
+
+            // Authenticate the remote static key's claimed mesh identity before split creates
+            // transport ciphers or the session can become observable as Established.
+            if (!activeHandshake.hasRemotePublicKey()) throw NoiseSessionError.HandshakeFailed
+            val remoteDH = activeHandshake.getRemotePublicKey()
+                ?: throw NoiseSessionError.HandshakeFailed
+            val authenticatedRemoteKey = ByteArray(NoisePeerIdentity.STATIC_PUBLIC_KEY_SIZE)
+            remoteDH.getPublicKey(authenticatedRemoteKey, 0)
+            val derivedPeerID = NoisePeerIdentity.derivePeerID(authenticatedRemoteKey)
+            if (!NoisePeerIdentity.matchesClaimedPeerID(peerID, authenticatedRemoteKey)) {
+                authenticatedRemoteKey.fill(0)
+                throw NoiseSessionError.PeerIdentityMismatch(peerID, derivedPeerID)
             }
+            remoteStaticPublicKey = authenticatedRemoteKey
+            Log.d(TAG, "Remote static public key is bound to $peerID")
+
+            // Only a bound remote identity may derive transport ciphers.
+            val cipherPair = activeHandshake.split()
+            sendCipher = cipherPair.getSender()
+            receiveCipher = cipherPair.getReceiver()
             
             // Extract handshake hash for channel binding
-            handshakeHash = handshakeState?.getHandshakeHash()
+            // getHandshakeHash() exposes the handshake state's backing array. Clone it before
+            // destroy() zeroizes that state, or every completed session appears to have the same
+            // all-zero channel-binding token.
+            handshakeHash = activeHandshake.getHandshakeHash().clone()
             
             // Clean up handshake state
-            handshakeState?.destroy()
+            activeHandshake.destroy()
             handshakeState = null
             
             messagesSent = 0

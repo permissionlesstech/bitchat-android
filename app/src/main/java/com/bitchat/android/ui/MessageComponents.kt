@@ -1,50 +1,57 @@
 package com.bitchat.android.ui
 
+
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
- 
-
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import android.content.Intent
-import android.net.Uri
-import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.mesh.MeshService
-import java.text.SimpleDateFormat
-import java.util.*
-import com.bitchat.android.ui.media.VoiceNotePlayer
-import androidx.compose.material3.Icon
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.CircleShape
-import com.bitchat.android.ui.media.FileMessageItem
-import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.R
-import androidx.compose.ui.res.stringResource
+import com.bitchat.android.core.ui.component.text.AnnotatedClickableText
+import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.ui.media.FileMessageItem
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 
 // VoiceNotePlayer moved to com.bitchat.android.ui.media.VoiceNotePlayer
@@ -266,23 +273,21 @@ fun MessageItem(
                 timeFormatter = timeFormatter
             )
             val haptic = LocalHapticFeedback.current
-            var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-            Text(
+            AnnotatedClickableText(
                 text = headerText,
+                annotationTags = listOf("nickname_click"),
+                onAnnotationClick = { tag, item ->
+                    if (tag == "nickname_click" && onNicknameClick != null) {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onNicknameClick.invoke(item)
+                        true
+                    } else {
+                        false
+                    }
+                },
+                onLongPress = { onMessageLongPress?.invoke(message) },
                 fontFamily = FontFamily.Monospace,
                 color = colorScheme.onSurface,
-                modifier = Modifier.pointerInput(message.id) {
-                    detectTapGestures(onTap = { pos ->
-                        val layout = headerLayout ?: return@detectTapGestures
-                        val offset = layout.getOffsetForPosition(pos)
-                        val ann = headerText.getStringAnnotations("nickname_click", offset, offset)
-                        if (ann.isNotEmpty() && onNicknameClick != null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onNicknameClick.invoke(ann.first().item)
-                        }
-                    }, onLongPress = { onMessageLongPress?.invoke(message) })
-                },
-                onTextLayout = { headerLayout = it }
             )
 
             // Try to load the file packet from the path
@@ -354,18 +359,16 @@ fun MessageItem(
         // Display message with matrix animation for content
         MessageWithMatrixAnimation(
             message = message,
-            messages = messages,
             currentUserNickname = currentUserNickname,
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
-            onImageClick = onImageClick,
             modifier = modifier
         )
-    } else {
-        // Normal message display
+    } else if (message.sender == "system") {
+        // Keep system messages on the compact legacy line.
         val annotatedText = formatMessageAsAnnotatedString(
             message = message,
             currentUserNickname = currentUserNickname,
@@ -373,80 +376,12 @@ fun MessageItem(
             colorScheme = colorScheme,
             timeFormatter = timeFormatter
         )
-        
-        // Check if this message was sent by self to avoid click interactions on own nickname
-        val isSelf = message.senderPeerID == meshService.myPeerID || 
-                     message.sender == currentUserNickname ||
-                     message.sender.startsWith("$currentUserNickname#")
-        
+
         val haptic = LocalHapticFeedback.current
-        val context = LocalContext.current
-        var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
         Text(
             text = annotatedText,
             modifier = modifier.pointerInput(message) {
                 detectTapGestures(
-                    onTap = { position ->
-                        val layout = textLayoutResult ?: return@detectTapGestures
-                        val offset = layout.getOffsetForPosition(position)
-                        // Nickname click only when not self
-                        if (!isSelf && onNicknameClick != null) {
-                            val nicknameAnnotations = annotatedText.getStringAnnotations(
-                                tag = "nickname_click",
-                                start = offset,
-                                end = offset
-                            )
-                            if (nicknameAnnotations.isNotEmpty()) {
-                                val nickname = nicknameAnnotations.first().item
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onNicknameClick.invoke(nickname)
-                                return@detectTapGestures
-                            }
-                        }
-                        // Geohash teleport (all messages)
-                        val geohashAnnotations = annotatedText.getStringAnnotations(
-                            tag = "geohash_click",
-                            start = offset,
-                            end = offset
-                        )
-                        if (geohashAnnotations.isNotEmpty()) {
-                            val geohash = geohashAnnotations.first().item
-                            try {
-                                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(
-                                    context
-                                )
-                                val level = when (geohash.length) {
-                                    in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
-                                    in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
-                                    5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
-                                    6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
-                                    else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
-                                }
-                                val channel = com.bitchat.android.geohash.GeohashChannel(level, geohash.lowercase())
-                                locationManager.setTeleported(true)
-                                locationManager.select(com.bitchat.android.geohash.ChannelID.Location(channel))
-                            } catch (_: Exception) { }
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            return@detectTapGestures
-                        }
-                        // URL open (all messages)
-                        val urlAnnotations = annotatedText.getStringAnnotations(
-                            tag = "url_click",
-                            start = offset,
-                            end = offset
-                        )
-                        if (urlAnnotations.isNotEmpty()) {
-                            val raw = urlAnnotations.first().item
-                            val resolved = if (raw.startsWith("http://", ignoreCase = true) || raw.startsWith("https://", ignoreCase = true)) raw else "https://$raw"
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(resolved))
-                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                context.startActivity(intent)
-                            } catch (_: Exception) { }
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            return@detectTapGestures
-                        }
-                    },
                     onLongPress = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onMessageLongPress?.invoke(message)
@@ -458,8 +393,129 @@ fun MessageItem(
             overflow = TextOverflow.Visible,
             style = androidx.compose.ui.text.TextStyle(
                 color = colorScheme.onSurface
-            ),
-            onTextLayout = { result -> textLayoutResult = result }
+            )
+        )
+    } else {
+        TextMessageLayout(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+internal fun TextMessageLayout(
+    message: BitchatMessage,
+    currentUserNickname: String,
+    meshService: MeshService,
+    colorScheme: ColorScheme,
+    timeFormatter: SimpleDateFormat,
+    onNicknameClick: ((String) -> Unit)?,
+    onMessageLongPress: ((BitchatMessage) -> Unit)?,
+    modifier: Modifier = Modifier,
+    bodyContent: String = message.content,
+) {
+    val myPeerId = meshService.myPeerID
+    val displayMessage = remember(message, bodyContent) {
+        if (bodyContent == message.content) message else message.copy(content = bodyContent)
+    }
+    val senderText = remember(message, currentUserNickname, myPeerId, colorScheme) {
+        formatTextMessageSender(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+        )
+    }
+    val metadataText = remember(message.timestamp, message.powDifficulty, timeFormatter) {
+        formatTextMessageMetadata(
+            message = message,
+            timeFormatter = timeFormatter,
+        )
+    }
+    val bodyText = remember(displayMessage, currentUserNickname, myPeerId, colorScheme) {
+        formatTextMessageBody(
+            message = displayMessage,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+        )
+    }
+    val isSelf = message.isFromSelf(currentUserNickname, myPeerId)
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val handleLongPress: () -> Unit = {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        onMessageLongPress?.invoke(message)
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AnnotatedClickableText(
+                text = senderText,
+                annotationTags = listOf("nickname_click"),
+                onAnnotationClick = { tag, item ->
+                    if (tag == "nickname_click" && !isSelf && onNicknameClick != null) {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onNicknameClick.invoke(item)
+                        true
+                    } else {
+                        false
+                    }
+                },
+                onLongPress = handleLongPress,
+                modifier = Modifier.weight(1f),
+                fontFamily = FontFamily.Monospace,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+            )
+            AnnotatedClickableText(
+                text = metadataText,
+                annotationTags = emptyList(),
+                onAnnotationClick = { _, _ -> false },
+                onLongPress = handleLongPress,
+                fontFamily = FontFamily.Monospace,
+                softWrap = false,
+            )
+        }
+
+        AnnotatedClickableText(
+            text = bodyText,
+            annotationTags = listOf("geohash_click", "url_click"),
+            onAnnotationClick = { tag, item ->
+                when (tag) {
+                    "geohash_click" -> {
+                        navigateToGeohash(context, item)
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        true
+                    }
+
+                    "url_click" -> {
+                        openMessageUrl(context, item)
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        true
+                    }
+
+                    else -> false
+                }
+            },
+            onLongPress = handleLongPress,
+            fontFamily = FontFamily.Monospace,
+            softWrap = true,
+            overflow = TextOverflow.Visible,
+            style = androidx.compose.ui.text.TextStyle(color = colorScheme.onSurface),
         )
     }
 }

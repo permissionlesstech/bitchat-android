@@ -264,7 +264,6 @@
     <string name="grant_permissions">Ge behörigheter</string>
     <string name="location_tracking_warning">bitchat spårar INTE din plats</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">PERSONER</string>
     <string name="nobody_around">ingen i närheten…</string>
@@ -388,4 +387,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Öppna Om</string>
+  <string name="nearby_notes_reveal">kolla om anteckningar lämnats här</string>
+  <string name="nearby_notes_one">1 anteckning lämnad här — tryck för att läsa</string>
+  <string name="nearby_notes_many">%d anteckningar lämnade här — tryck för att läsa</string>
 </resources>

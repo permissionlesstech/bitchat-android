@@ -3,13 +3,9 @@ package com.bitchat.android.ui
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.ui.graphics.vector.ImageVector
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.mesh.MeshService
 import androidx.compose.material3.ColorScheme
@@ -50,9 +46,7 @@ fun formatMessageAsAnnotatedString(
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
     // Determine if this message was sent by self
-    val isSelf = message.senderPeerID == meshService.myPeerID || 
-                 message.sender == currentUserNickname ||
-                 message.sender.startsWith("$currentUserNickname#")
+    val isSelf = message.isFromSelf(currentUserNickname, meshService.myPeerID)
     
     if (message.sender != "system") {
         // Get base color for this peer (iOS-style color assignment)
@@ -117,7 +111,14 @@ fun formatMessageAsAnnotatedString(
         builder.pop()
         
         // Message content with iOS-style hashtag and mention highlighting
-        appendIOSFormattedContent(builder, message.content, message.mentions, currentUserNickname, baseColor, isSelf, isDark)
+        appendIOSFormattedContent(
+            builder,
+            message.content,
+            message.mentions,
+            currentUserNickname,
+            baseColor,
+            isSelf,
+        )
         
         // iOS-style timestamp at the END (smaller, grey)
         // Timestamp (and optional PoW badge)
@@ -157,6 +158,108 @@ fun formatMessageAsAnnotatedString(
 }
 
 /**
+ * Build the sender label used by the two-row text-message layout.
+ */
+fun formatTextMessageSender(
+    message: BitchatMessage,
+    currentUserNickname: String,
+    meshService: MeshService,
+    colorScheme: ColorScheme
+): AnnotatedString {
+    val builder = AnnotatedString.Builder()
+    val isDark =
+        colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val isSelf = message.isFromSelf(currentUserNickname, meshService.myPeerID)
+    val senderColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
+    val senderWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
+    val (baseName, suffix) = splitSuffix(message.sender)
+
+    builder.pushStyle(
+        SpanStyle(
+            color = senderColor,
+            fontSize = BASE_FONT_SIZE.sp,
+            fontWeight = senderWeight
+        )
+    )
+    builder.append("@")
+    val nicknameStart = builder.length
+    builder.append(truncateNickname(baseName))
+    val nicknameEnd = builder.length
+    if (!isSelf) {
+        builder.addStringAnnotation(
+            tag = "nickname_click",
+            annotation = message.originalSender ?: message.sender,
+            start = nicknameStart,
+            end = nicknameEnd
+        )
+    }
+    builder.pop()
+
+    if (suffix.isNotEmpty()) {
+        builder.pushStyle(
+            SpanStyle(
+                color = senderColor.copy(alpha = 0.6f),
+                fontSize = BASE_FONT_SIZE.sp,
+                fontWeight = senderWeight
+            )
+        )
+        builder.append(suffix)
+        builder.pop()
+    }
+
+    return builder.toAnnotatedString()
+}
+
+/**
+ * Build the compact timestamp and optional proof-of-work label.
+ */
+fun formatTextMessageMetadata(
+    message: BitchatMessage,
+    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+): AnnotatedString {
+    val builder = AnnotatedString.Builder()
+    builder.pushStyle(
+        SpanStyle(
+            color = Color.Gray.copy(alpha = 0.7f),
+            fontSize = (BASE_FONT_SIZE - 4).sp
+        )
+    )
+    builder.append(timeFormatter.format(message.timestamp))
+    message.powDifficulty?.takeIf { it > 0 }?.let { bits ->
+        builder.append(" ⛨${bits}b")
+    }
+    builder.pop()
+    return builder.toAnnotatedString()
+}
+
+/**
+ * Build only the message body while retaining mention, URL and geohash styling.
+ */
+fun formatTextMessageBody(
+    message: BitchatMessage,
+    currentUserNickname: String,
+    meshService: MeshService,
+    colorScheme: ColorScheme
+): AnnotatedString {
+    val builder = AnnotatedString.Builder()
+    val isDark =
+        colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val isSelf = message.isFromSelf(currentUserNickname, meshService.myPeerID)
+    val accentColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
+
+    appendIOSFormattedContent(
+        builder = builder,
+        content = message.content,
+        mentions = message.mentions,
+        currentUserNickname = currentUserNickname,
+        baseColor = accentColor,
+        isSelf = isSelf,
+        contentColor = colorScheme.onSurface
+    )
+    return builder.toAnnotatedString()
+}
+
+/**
  * Build only the nickname + timestamp header line for a message, matching styles of normal messages.
  */
 fun formatMessageHeaderAnnotatedString(
@@ -169,9 +272,7 @@ fun formatMessageHeaderAnnotatedString(
     val builder = AnnotatedString.Builder()
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
 
-    val isSelf = message.senderPeerID == meshService.myPeerID ||
-            message.sender == currentUserNickname ||
-            message.sender.startsWith("$currentUserNickname#")
+    val isSelf = message.isFromSelf(currentUserNickname, meshService.myPeerID)
 
     if (message.sender != "system") {
         val baseColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
@@ -338,7 +439,7 @@ private fun appendIOSFormattedContent(
     currentUserNickname: String,
     baseColor: Color,
     isSelf: Boolean,
-    isDark: Boolean
+    contentColor: Color = baseColor,
 ) {
     // iOS-style patterns: allow optional '#abcd' suffix in mentions
     val hashtagPattern = "#([a-zA-Z0-9_]+)".toRegex()
@@ -416,7 +517,7 @@ private fun appendIOSFormattedContent(
             val beforeText = content.substring(lastEnd, range.first)
             if (beforeText.isNotEmpty()) {
                 builder.pushStyle(SpanStyle(
-                    color = baseColor,
+                    color = contentColor,
                     fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
                 ))
@@ -476,7 +577,7 @@ private fun appendIOSFormattedContent(
             "hashtag" -> {
                 // Render general hashtags like normal content
                 builder.pushStyle(SpanStyle(
-                    color = baseColor,
+                    color = contentColor,
                     fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
                 ))
@@ -530,7 +631,7 @@ private fun appendIOSFormattedContent(
                 } else {
                     // Fallback: treat as normal text
                     builder.pushStyle(SpanStyle(
-                        color = baseColor,
+                        color = contentColor,
                         fontSize = BASE_FONT_SIZE.sp,
                         fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
                     ))
@@ -547,7 +648,7 @@ private fun appendIOSFormattedContent(
     if (lastEnd < content.length) {
         val remainingText = content.substring(lastEnd)
         builder.pushStyle(SpanStyle(
-            color = baseColor,
+            color = contentColor,
             fontSize = BASE_FONT_SIZE.sp,
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
         ))

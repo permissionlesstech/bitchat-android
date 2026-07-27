@@ -289,7 +289,6 @@
     <string name="grant_permissions">Omeo Alalana</string>
     <string name="location_tracking_warning">Ny bitchat dia TSY manaraka ny toerananao</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">OLONA</string>
     <string name="nobody_around">tsy misy olona manodidina...</string>
@@ -414,4 +413,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Sokafy ny momba</string>
+  <string name="nearby_notes_reveal">hizaha raha misy naoty navela teto</string>
+  <string name="nearby_notes_one">naoty 1 no navela teto — tsindrio raha hamaky</string>
+  <string name="nearby_notes_many">naoty %d no navela teto — tsindrio raha hamaky</string>
 </resources>

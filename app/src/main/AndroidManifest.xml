@@ -29,6 +29,8 @@
     <uses-permission
         android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:usesPermissionFlags="neverForLocation" />
+    <!-- Android 17+ gates local network access; Wi‑Fi Aware peers over link-local IPv6 -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- Keep hotspot alive while sharing the APK -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 

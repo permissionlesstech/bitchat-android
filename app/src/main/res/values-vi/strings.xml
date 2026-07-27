@@ -387,4 +387,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Mở phần Giới thiệu</string>
+  <string name="nearby_notes_reveal">kiểm tra ghi chú để lại ở đây</string>
+  <string name="nearby_notes_one">có 1 ghi chú để lại ở đây — chạm để đọc</string>
+  <string name="nearby_notes_many">có %d ghi chú để lại ở đây — chạm để đọc</string>
 </resources>

@@ -40,5 +40,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Відкрити розділ «Про застосунок»</string>
+  <string name="nearby_notes_reveal">перевірити, чи залишено тут нотатки</string>
+  <string name="nearby_notes_one">тут залишено 1 нотатку — торкніться, щоб прочитати</string>
+  <string name="nearby_notes_many">тут залишено %d нотаток — торкніться, щоб прочитати</string>
 </resources>
-

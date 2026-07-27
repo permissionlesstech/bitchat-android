@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">bitchat</string>
     <string name="permission_bluetooth_rationale">Bluetooth permission is required for peer-to-peer messaging without internet.</string>
     <string name="permission_location_rationale">Location permission is required to discover nearby devices via Bluetooth.</string>
@@ -87,6 +87,11 @@
   <string name="cd_handshake_in_progress">Handshake in progress</string>
   <string name="cd_encrypted">End-to-end encrypted</string>
   <string name="cd_handshake_failed">Handshake failed</string>
+
+  <!-- One-shot private-media downgrade consent -->
+  <string name="private_media_legacy_title" tools:ignore="MissingTranslation">Send without end-to-end encryption?</string>
+  <string name="private_media_legacy_body" tools:ignore="MissingTranslation">%1$s cannot be sent encrypted to %2$s because their client is older. %3$s</string>
+  <string name="private_media_legacy_send_once" tools:ignore="MissingTranslation">Send this file once</string>
 
   <!-- File viewer dialog -->
   <string name="file_viewer_title">📎 File Received</string>
@@ -294,6 +299,10 @@
   <string name="location_level_region">region</string>
 
   <!-- Location notes sheet -->
+  <string name="nearby_notes_reveal">check for notes left here</string>
+  <string name="nearby_notes_one">1 note left here — tap to read</string>
+  <!-- Explicit one/many copy mirrors iOS across locales without CLDR quantity gaps. -->
+  <string name="nearby_notes_many" tools:ignore="PluralsCandidate">%d notes left here — tap to read</string>
   <plurals name="location_notes_title">
     <item quantity="one">#%1$s ± 1 • %2$d note</item>
     <item quantity="other">#%1$s ± 1 • %2$d notes</item>
@@ -431,7 +440,7 @@
   <string name="grant_permissions">Grant Permissions</string>
   <string name="location_tracking_warning">bitchat does NOT track your location</string>
   <string name="at_symbol">@</string>
-  <string name="app_brand">bitchat/</string>
+  <string name="cd_open_about">Open About</string>
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="geohash_people_header">PEOPLE</string>
   <string name="nobody_around">nobody around...</string>

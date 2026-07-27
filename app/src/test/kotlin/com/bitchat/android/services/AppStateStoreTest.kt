@@ -96,4 +96,45 @@ class AppStateStoreTest {
 
         assertEquals(setOf("wifi-3"), AppStateStore.getDirectPeers())
     }
+
+    @Test
+    fun `private chat aliases merge into canonical peer`() {
+        val live = BitchatMessage(id = "live-message", sender = "alice", content = "live", timestamp = Date(1))
+        val noise = BitchatMessage(id = "noise-message", sender = "alice", content = "noise", timestamp = Date(2))
+        val nostr = BitchatMessage(id = "nostr-message", sender = "alice", content = "nostr", timestamp = Date(3))
+
+        AppStateStore.addPrivateMessage("live-peer", live)
+        AppStateStore.addPrivateMessage("noise-hex", noise)
+        AppStateStore.addPrivateMessage("nostr_alias", nostr)
+
+        AppStateStore.unifyPrivateChatsIntoPeer("live-peer", listOf("noise-hex", "nostr_alias"))
+
+        assertEquals(setOf("live-peer"), AppStateStore.privateMessages.value.keys)
+        assertEquals(listOf(live, noise, nostr), AppStateStore.privateMessages.value["live-peer"])
+    }
+
+    @Test
+    fun `noise hex private messages are stored under stable contact conversation`() {
+        val noiseKeyHex = "00".repeat(32)
+        val contactID = ContactIdentityResolver.contactConversationIdForNoiseKey(ByteArray(32))
+        val message = BitchatMessage(id = "noise-message", sender = "alice", content = "hello", timestamp = Date(1))
+
+        AppStateStore.addPrivateMessage(noiseKeyHex, message)
+
+        assertEquals(setOf(contactID), AppStateStore.privateMessages.value.keys)
+        assertEquals(listOf(message), AppStateStore.privateMessages.value[contactID])
+    }
+
+    @Test
+    fun `canonicalized private chat history is chronological after alias merge`() {
+        val noiseKeyHex = "01".repeat(32)
+        val contactID = ContactIdentityResolver.contactConversationIdForNoiseKey(ByteArray(32) { 1 })
+        val later = BitchatMessage(id = "later", sender = "alice", content = "later", timestamp = Date(3))
+        val earlier = BitchatMessage(id = "earlier", sender = "alice", content = "earlier", timestamp = Date(1))
+
+        AppStateStore.addPrivateMessage(contactID, later)
+        AppStateStore.addPrivateMessage(noiseKeyHex, earlier)
+
+        assertEquals(listOf(earlier, later), AppStateStore.privateMessages.value[contactID])
+    }
 }

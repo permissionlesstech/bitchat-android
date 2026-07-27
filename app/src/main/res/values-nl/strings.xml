@@ -340,7 +340,6 @@
 
     <!-- Symbolen &amp; speciale strings -->
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="image_counter">%1$d / %2$d</string>
@@ -432,4 +431,8 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Info openen</string>
+  <string name="nearby_notes_reveal">kijk of hier notities zijn achtergelaten</string>
+  <string name="nearby_notes_one">1 notitie hier achtergelaten — tik om te lezen</string>
+  <string name="nearby_notes_many">%d notities hier achtergelaten — tik om te lezen</string>
 </resources>
