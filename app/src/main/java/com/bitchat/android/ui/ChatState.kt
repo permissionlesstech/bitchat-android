@@ -211,6 +211,7 @@ class ChatState(
 
     fun setNickname(nickname: String) {
         _nickname.value = nickname
+        com.bitchat.android.services.AppStateStore.setNickname(nickname)
     }
     
     fun setIsConnected(connected: Boolean) {
@@ -223,6 +224,7 @@ class ChatState(
     
     fun setSelectedPrivateChatPeer(peerID: String?) {
         _selectedPrivateChatPeer.value = peerID
+        com.bitchat.android.services.AppStateStore.setSelectedPrivateChatPeer(peerID)
     }
     
     fun setUnreadPrivateMessages(unread: Set<String>) {

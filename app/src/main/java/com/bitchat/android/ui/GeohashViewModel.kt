@@ -13,7 +13,6 @@ import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.nostr.GeohashMessageHandler
 import com.bitchat.android.nostr.GeohashRepository
 import com.bitchat.android.nostr.NostrBackgroundRuntime
-import com.bitchat.android.nostr.NostrDirectMessageHandler
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrProtocol
 import com.bitchat.android.nostr.NostrRelayManager
@@ -33,8 +32,6 @@ class GeohashViewModel(
     application: Application,
     private val state: ChatState,
     private val messageManager: MessageManager,
-    private val privateChatManager: PrivateChatManager,
-    private val meshDelegateHandler: MeshDelegateHandler,
     private val dataManager: DataManager,
     private val notificationManager: NotificationManager
 ) : AndroidViewModel(application), DefaultLifecycleObserver {
@@ -49,20 +46,10 @@ class GeohashViewModel(
     )
     private val geohashMessageHandler = GeohashMessageHandler(
         application = application,
-        state = state,
-        messageManager = messageManager,
         repo = repo,
-        scope = NostrBackgroundRuntime.eventScope,
-        dataManager = dataManager
-    )
-    private val dmHandler = NostrDirectMessageHandler(
-        application = application,
-        state = state,
-        privateChatManager = privateChatManager,
-        meshDelegateHandler = meshDelegateHandler,
-        scope = NostrBackgroundRuntime.eventScope,
-        repo = repo,
-        dataManager = dataManager
+        scope = viewModelScope,
+        dataManager = dataManager,
+        addChannelMessage = messageManager::addChannelMessage
     )
 
     // Presence heartbeat firehose (kind 20001). High-volume; paused while backgrounded.
@@ -103,19 +90,6 @@ class GeohashViewModel(
         }
         try {
             locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-            NostrBackgroundRuntime.attachHandlers(
-                NostrBackgroundRuntime.Handlers(
-                    accountDm = { event, identity ->
-                        dmHandler.onGiftWrap(event, "", identity)
-                    },
-                    geohashMessage = { event, geohash ->
-                        geohashMessageHandler.onEvent(event, geohash)
-                    },
-                    geohashDm = { event, geohash, identity ->
-                        dmHandler.onGiftWrap(event, geohash, identity)
-                    }
-                )
-            )
             viewModelScope.launch {
                 locationChannelManager?.selectedChannel?.collect { channel ->
                     state.setSelectedLocationChannel(channel)
@@ -329,14 +303,29 @@ class GeohashViewModel(
     }
 
     fun ensureGeohashDMSubscriptionForConversation(conversationKey: String) {
-        val geohash = repo.getConversationGeohash(conversationKey) ?: return
+        val geohash = repo.getConversationGeohash(conversationKey)
+            ?: NostrBackgroundRuntime.conversationGeohash(conversationKey)
+            ?: return
         NostrBackgroundRuntime.ensureConversationDm(geohash)
     }
 
-    fun displayNameForNostrPubkeyUI(pubkeyHex: String): String = repo.displayNameForNostrPubkeyUI(pubkeyHex)
-    fun displayNameForGeohashConversation(pubkeyHex: String, sourceGeohash: String): String = repo.displayNameForGeohashConversation(pubkeyHex, sourceGeohash)
+    fun displayNameForNostrPubkeyUI(pubkeyHex: String): String {
+        val foregroundName = repo.displayNameForNostrPubkeyUI(pubkeyHex)
+        return foregroundName.takeUnless { it == "anon" }
+            ?: NostrBackgroundRuntime.displayNameForNostrPubkey(pubkeyHex)
+            ?: foregroundName
+    }
+
+    fun displayNameForGeohashConversation(pubkeyHex: String, sourceGeohash: String): String {
+        val foregroundName = repo.displayNameForGeohashConversation(pubkeyHex, sourceGeohash)
+        return foregroundName.takeUnless { it == "anon" }
+            ?: NostrBackgroundRuntime.displayNameForGeohashConversation(pubkeyHex, sourceGeohash)
+            ?: foregroundName
+    }
+
     fun conversationGeohash(conversationKey: String): String? =
         repo.getConversationGeohash(conversationKey)
+            ?: NostrBackgroundRuntime.conversationGeohash(conversationKey)
 
     fun peerIdentityForNostrPubkey(pubkeyHex: String): PeerIdentity =
         PeerIdentity.nostr(pubkeyHex)

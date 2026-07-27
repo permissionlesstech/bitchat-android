@@ -198,8 +198,10 @@ class DataManager(private val context: Context) {
     
     // MARK: - Blocked Users Management
     
+    @Synchronized
     fun loadBlockedUsers() {
         val savedBlockedUsers = prefs.getStringSet("blocked_users", emptySet()) ?: emptySet()
+        _blockedUsers.clear()
         _blockedUsers.addAll(savedBlockedUsers)
     }
     
@@ -217,6 +219,7 @@ class DataManager(private val context: Context) {
         saveBlockedUsers()
     }
     
+    @Synchronized
     fun isUserBlocked(fingerprint: String): Boolean {
         return _blockedUsers.contains(fingerprint)
     }
@@ -226,8 +229,10 @@ class DataManager(private val context: Context) {
     private val _geohashBlockedUsers = mutableSetOf<String>() // Set of nostr pubkey hex
     val geohashBlockedUsers: Set<String> get() = _geohashBlockedUsers.toSet()
     
+    @Synchronized
     fun loadGeohashBlockedUsers() {
         val savedGeohashBlockedUsers = prefs.getStringSet("geohash_blocked_users", emptySet()) ?: emptySet()
+        _geohashBlockedUsers.clear()
         _geohashBlockedUsers.addAll(savedGeohashBlockedUsers)
     }
     
@@ -245,6 +250,7 @@ class DataManager(private val context: Context) {
         saveGeohashBlockedUsers()
     }
     
+    @Synchronized
     fun isGeohashUserBlocked(pubkeyHex: String): Boolean {
         return _geohashBlockedUsers.contains(pubkeyHex)
     }

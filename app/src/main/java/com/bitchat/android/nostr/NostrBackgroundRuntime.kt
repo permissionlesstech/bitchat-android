@@ -23,28 +23,16 @@ import kotlin.random.asKotlinRandom
 /**
  * Process-owned Nostr connectivity and low-volume background subscriptions.
  *
- * Stable subscription handlers delegate to the most recently attached UI-independent handlers.
- * This avoids relay subscriptions retaining a cleared ViewModel while keeping DMs and the selected
- * geohash channel alive for the lifetime of the foreground-service process.
+ * Stable subscriptions dispatch directly to a process-owned event processor. The UI hydrates from
+ * the process state store, so relay events remain useful without retaining a cleared ViewModel.
  */
 object NostrBackgroundRuntime {
     private const val TAG = "NostrBackground"
-    private const val MAX_PENDING_EVENTS = 256
-
-    data class Handlers(
-        val accountDm: (NostrEvent, NostrIdentity) -> Unit,
-        val geohashMessage: (NostrEvent, String) -> Unit,
-        val geohashDm: (NostrEvent, String, NostrIdentity) -> Unit
-    )
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    internal val eventScope: CoroutineScope
-        get() = scope
     private val random = SecureRandom().asKotlinRandom()
     private val lock = Any()
-    private val pendingEvents = ArrayDeque<(Handlers) -> Unit>()
 
-    @Volatile private var handlers: Handlers? = null
     @Volatile private var initialized = false
     @Volatile private var activeGeohash: String? = null
     @Volatile private var activeGeohashLiveToken: Long? = null
@@ -52,31 +40,26 @@ object NostrBackgroundRuntime {
     private lateinit var application: Application
     private lateinit var subscriptions: NostrSubscriptionManager
     private lateinit var locationChannels: LocationChannelManager
+    private lateinit var eventProcessor: NostrBackgroundEventProcessor
 
     fun initialize(app: Application) {
         synchronized(lock) {
             if (initialized) return
-            initialized = true
             application = app
             locationChannels = LocationChannelManager.getInstance(app)
+            eventProcessor = NostrBackgroundEventProcessor(app, scope)
             subscriptions = NostrSubscriptionManager(
                 app,
                 owner = NostrRelayManager.OWNER_BACKGROUND
             )
+            // Publish readiness only after every process-owned dependency is available.
+            initialized = true
         }
 
         subscriptions.connect()
         subscribeAccountDm()
         observeSelectedChannel()
         startPresenceScheduler()
-    }
-
-    fun attachHandlers(newHandlers: Handlers) {
-        handlers = newHandlers
-        val pending = synchronized(lock) {
-            pendingEvents.toList().also { pendingEvents.clear() }
-        }
-        pending.forEach { event -> runCatching { event(newHandlers) } }
     }
 
     fun resetSubscriptions() {
@@ -116,7 +99,7 @@ object NostrBackgroundRuntime {
             sinceMs = System.currentTimeMillis() - 172_800_000L,
             id = "chat-messages",
             handler = { event ->
-                dispatch { it.accountDm(event, identity) }
+                eventProcessor.onAccountDm(event, identity)
             }
         )
     }
@@ -164,7 +147,7 @@ object NostrBackgroundRuntime {
             sinceMs = System.currentTimeMillis() - 3_600_000L,
             limit = 200,
             id = "geohash-$geohash",
-            handler = { event -> dispatch { it.geohashMessage(event, geohash) } },
+            handler = { event -> eventProcessor.onGeohashMessage(event, geohash) },
             liveLocationToken = liveLocationToken
         )
         subscribeGeohashDm(geohash, "geo-dm-$geohash", liveLocationToken)
@@ -183,7 +166,7 @@ object NostrBackgroundRuntime {
                     sinceMs = System.currentTimeMillis() - 172_800_000L,
                     id = subscriptionId,
                     handler = { event ->
-                        dispatch { it.geohashDm(event, geohash, identity) }
+                        eventProcessor.onGeohashDm(event, geohash, identity)
                     },
                     liveLocationToken = liveLocationToken
                 )
@@ -271,15 +254,19 @@ object NostrBackgroundRuntime {
         }
     }
 
-    private fun dispatch(event: (Handlers) -> Unit) {
-        val current = handlers
-        if (current != null) {
-            event(current)
-            return
-        }
-        synchronized(lock) {
-            if (pendingEvents.size >= MAX_PENDING_EVENTS) pendingEvents.removeFirst()
-            pendingEvents.addLast(event)
-        }
+    fun conversationGeohash(conversationKey: String): String? =
+        if (initialized) eventProcessor.conversationGeohash(conversationKey)
+        else GeohashConversationRegistry.get(conversationKey)
+
+    fun displayNameForNostrPubkey(pubkeyHex: String): String? =
+        if (initialized) eventProcessor.displayNameForNostrPubkey(pubkeyHex) else null
+
+    fun displayNameForGeohashConversation(
+        pubkeyHex: String,
+        sourceGeohash: String
+    ): String? = if (initialized) {
+        eventProcessor.displayNameForGeohashConversation(pubkeyHex, sourceGeohash)
+    } else {
+        null
     }
 }

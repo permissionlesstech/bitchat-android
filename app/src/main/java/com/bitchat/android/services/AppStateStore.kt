@@ -31,6 +31,12 @@ object AppStateStore {
     private val _privateMessages = MutableStateFlow<Map<String, List<BitchatMessage>>>(emptyMap())
     val privateMessages: StateFlow<Map<String, List<BitchatMessage>>> = _privateMessages.asStateFlow()
 
+    private val _nickname = MutableStateFlow("")
+    val nickname: StateFlow<String> = _nickname.asStateFlow()
+
+    private val _selectedPrivateChatPeer = MutableStateFlow<String?>(null)
+    val selectedPrivateChatPeer: StateFlow<String?> = _selectedPrivateChatPeer.asStateFlow()
+
     // Channel messages by channel name
     private val _channelMessages = MutableStateFlow<Map<String, List<BitchatMessage>>>(emptyMap())
     val channelMessages: StateFlow<Map<String, List<BitchatMessage>>> = _channelMessages.asStateFlow()
@@ -39,6 +45,14 @@ object AppStateStore {
         synchronized(this) {
             _peers.value = ids.distinct()
         }
+    }
+
+    fun setNickname(nickname: String) {
+        _nickname.value = nickname
+    }
+
+    fun setSelectedPrivateChatPeer(peerID: String?) {
+        _selectedPrivateChatPeer.value = peerID
     }
 
     fun setTransportPeers(transportId: String, ids: List<String>) {
@@ -221,6 +235,8 @@ object AppStateStore {
             _publicMessages.value = emptyList()
             _privateMessages.value = emptyMap()
             _channelMessages.value = emptyMap()
+            _nickname.value = ""
+            _selectedPrivateChatPeer.value = null
         }
     }
 
