@@ -407,6 +407,7 @@
   <string name="nearby_notes_one">这里留有 1 条留言 — 点按阅读</string>
   <string name="nearby_notes_many">这里留有 %d 条留言 — 点按阅读</string>
     <string name="about_language">语言</string>
+    <string name="about_app_language">应用语言</string>
     <string name="about_system_default">跟随系统</string>
     <string name="about_select_language">选择语言</string>
 </resources>

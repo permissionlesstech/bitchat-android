@@ -391,6 +391,7 @@
   <string name="nearby_notes_one">1 notiz hier hinterlassen — tippen zum lesen</string>
   <string name="nearby_notes_many">%d notizen hier hinterlassen — tippen zum lesen</string>
     <string name="about_language">Sprache</string>
+    <string name="about_app_language">App-Sprache</string>
     <string name="about_system_default">Systemstandard</string>
     <string name="about_select_language">Sprache auswählen</string>
 </resources>

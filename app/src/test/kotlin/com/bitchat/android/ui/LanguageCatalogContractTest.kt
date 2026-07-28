@@ -34,6 +34,7 @@ class LanguageCatalogContractTest {
     fun `language picker strings exist in every locale pack`() {
         val requiredKeys = setOf(
             "about_language",
+            "about_app_language",
             "about_system_default",
             "about_select_language",
         )

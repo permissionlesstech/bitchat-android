@@ -377,6 +377,7 @@
   <string name="nearby_notes_one">۱ یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>
   <string name="nearby_notes_many">%d یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>
     <string name="about_language">زبان</string>
+    <string name="about_app_language">زبان برنامه</string>
     <string name="about_system_default">پیش‌فرض سیستم</string>
     <string name="about_select_language">انتخاب زبان</string>
 </resources>

@@ -403,6 +403,7 @@
   <string name="nearby_notes_one">naoty 1 no navela teto — tsindrio raha hamaky</string>
   <string name="nearby_notes_many">naoty %d no navela teto — tsindrio raha hamaky</string>
     <string name="about_language">Fiteny</string>
+    <string name="about_app_language">Fitenin’ny app</string>
     <string name="about_system_default">Fitenin’ny rafitra</string>
     <string name="about_select_language">Safidio ny fiteny</string>
 </resources>

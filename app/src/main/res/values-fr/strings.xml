@@ -408,6 +408,7 @@
   <string name="nearby_notes_one">1 note laissée ici — appuyez pour lire</string>
   <string name="nearby_notes_many">%d notes laissées ici — appuyez pour lire</string>
     <string name="about_language">Langue</string>
+    <string name="about_app_language">Langue de l’appli</string>
     <string name="about_system_default">Langue du système</string>
     <string name="about_select_language">Choisir la langue</string>
 </resources>

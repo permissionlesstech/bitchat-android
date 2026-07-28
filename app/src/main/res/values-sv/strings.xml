@@ -382,6 +382,7 @@
   <string name="nearby_notes_one">1 anteckning lämnad här — tryck för att läsa</string>
   <string name="nearby_notes_many">%d anteckningar lämnade här — tryck för att läsa</string>
     <string name="about_language">Språk</string>
+    <string name="about_app_language">Appspråk</string>
     <string name="about_system_default">Systemstandard</string>
     <string name="about_select_language">Välj språk</string>
 </resources>

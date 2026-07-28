@@ -382,6 +382,7 @@
   <string name="nearby_notes_one">buraya 1 not bırakıldı — okumak için dokun</string>
   <string name="nearby_notes_many">buraya %d not bırakıldı — okumak için dokun</string>
     <string name="about_language">Dil</string>
+    <string name="about_app_language">Uygulama dili</string>
     <string name="about_system_default">Sistem varsayılanı</string>
     <string name="about_select_language">Dil seçin</string>
 </resources>

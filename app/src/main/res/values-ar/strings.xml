@@ -390,6 +390,7 @@
   <string name="nearby_notes_one">تُركت ملاحظة واحدة هنا — انقر للقراءة</string>
   <string name="nearby_notes_many">تُركت %d ملاحظات هنا — انقر للقراءة</string>
     <string name="about_language">اللغة</string>
+    <string name="about_app_language">لغة التطبيق</string>
     <string name="about_system_default">إعداد النظام الافتراضي</string>
     <string name="about_select_language">اختر اللغة</string>
 </resources>

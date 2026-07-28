@@ -45,6 +45,7 @@
   <string name="nearby_notes_one">இங்கே 1 குறிப்பு விடப்பட்டுள்ளது — படிக்க தட்டவும்</string>
   <string name="nearby_notes_many">இங்கே %d குறிப்புகள் விடப்பட்டுள்ளன — படிக்க தட்டவும்</string>
     <string name="about_language">மொழி</string>
+    <string name="about_app_language">பயன்பாட்டு மொழி</string>
     <string name="about_system_default">கணினி இயல்புநிலை</string>
     <string name="about_select_language">மொழியைத் தேர்ந்தெடுக்கவும்</string>
 </resources>

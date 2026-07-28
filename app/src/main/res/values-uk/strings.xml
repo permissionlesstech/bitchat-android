@@ -45,6 +45,7 @@
   <string name="nearby_notes_one">тут залишено 1 нотатку — торкніться, щоб прочитати</string>
   <string name="nearby_notes_many">тут залишено %d нотаток — торкніться, щоб прочитати</string>
     <string name="about_language">Мова</string>
+    <string name="about_app_language">Мова застосунку</string>
     <string name="about_system_default">Системна мова</string>
     <string name="about_select_language">Вибрати мову</string>
 </resources>

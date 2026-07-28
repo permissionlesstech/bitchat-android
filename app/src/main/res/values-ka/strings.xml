@@ -377,6 +377,7 @@
   <string name="nearby_notes_one">აქ 1 ჩანაწერია დატოვებული — წასაკითხად შეეხეთ</string>
   <string name="nearby_notes_many">აქ %d ჩანაწერია დატოვებული — წასაკითხად შეეხეთ</string>
     <string name="about_language">ენა</string>
+    <string name="about_app_language">აპის ენა</string>
     <string name="about_system_default">სისტემის ნაგულისხმევი</string>
     <string name="about_select_language">ენის არჩევა</string>
 </resources>

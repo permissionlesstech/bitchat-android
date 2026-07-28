@@ -390,6 +390,7 @@
   <string name="nearby_notes_one">1 catatan ditinggalkan di sini — ketuk untuk membaca</string>
   <string name="nearby_notes_many">%d catatan ditinggalkan di sini — ketuk untuk membaca</string>
     <string name="about_language">Bahasa</string>
+    <string name="about_app_language">Bahasa aplikasi</string>
     <string name="about_system_default">Default sistem</string>
     <string name="about_select_language">Pilih bahasa</string>
 </resources>
