@@ -91,6 +91,12 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
 
     val buttonsVisible = rememberBottomBarVisibility(scrollState)
     val headerExpanded = scrollState.maxValue - scrollState.value > 60
+    val atNewest = scrollState.maxValue - scrollState.value < 40
+    val listBottomPadding by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (atNewest) 56.dp else 8.dp,
+        animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
+        label = "listBottomPad"
+    )
     val headerIconSize by androidx.compose.animation.core.animateDpAsState(
         targetValue = if (headerExpanded) 16.dp else 11.dp,
         animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
@@ -145,7 +151,7 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp)
+                            .padding(bottom = listBottomPadding)
                             .rotaryScrollable(
                                 RotaryScrollableDefaults.behavior(scrollState),
                                 rotaryFocus

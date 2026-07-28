@@ -91,6 +91,14 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
 
     val buttonsVisible = rememberBottomBarVisibility(scrollState)
     val headerExpanded = scrollState.maxValue - scrollState.value > 60
+    // Full bottom clearance only at the newest message, so the last message sits comfortably
+    // above the floating buttons; collapses when scrolling up so history flows behind them.
+    val atNewest = scrollState.maxValue - scrollState.value < 40
+    val listBottomPadding by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (atNewest) 56.dp else 8.dp,
+        animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
+        label = "listBottomPad"
+    )
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Sticky header
@@ -116,7 +124,7 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp)
+                            .padding(bottom = listBottomPadding)
                             .rotaryScrollable(
                                 RotaryScrollableDefaults.behavior(scrollState),
                                 rotaryFocus
