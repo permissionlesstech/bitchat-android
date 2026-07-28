@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
 import androidx.wear.compose.foundation.rotary.rotaryScrollable
@@ -33,6 +34,7 @@ import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.ui.media.FullScreenImageViewer
 import com.bitchat.watch.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.ChatVisualTokens
@@ -41,6 +43,7 @@ import com.bitchat.watch.ui.theme.colorForPeer
 
 @Composable
 fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
+    val context = LocalContext.current
     val privateMessages by AppStateStore.privateMessages.collectAsState()
     val messages = privateMessages[peerID] ?: emptyList()
     val mesh = WearMeshService.peek()
@@ -58,6 +61,7 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
 
     DisposableEffect(peerID) {
         WearChatState.openDm(peerID)
+        WearNotificationCoordinator.getInstance(context).clearConversation(peerID)
         onDispose { WearChatState.closeDm() }
     }
 

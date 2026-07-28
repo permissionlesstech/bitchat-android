@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +38,9 @@ import androidx.core.content.ContextCompat
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.TextButton
 import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.service.WearMeshForegroundService
 import com.bitchat.watch.ui.ChatScreen
 import com.bitchat.watch.ui.DmScreen
@@ -60,11 +63,15 @@ class MainActivity : ComponentActivity() {
     private var hasPermissions by mutableStateOf(false)
     private var bluetoothEnabled by mutableStateOf(false)
     private var nicknameChosen by mutableStateOf(false)
+    private var notificationsGranted by mutableStateOf(false)
+    private var notificationPromptDismissed by mutableStateOf(false)
+    private var pendingDmPeer by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         nicknameChosen = getSharedPreferences("bitchat_watch_prefs", Context.MODE_PRIVATE)
             .getBoolean("nickname_chosen", false)
+        pendingDmPeer = privateMessagePeerFromIntent(intent)
         refreshState()
         setContent {
             BitchatWearTheme {
@@ -79,7 +86,18 @@ class MainActivity : ComponentActivity() {
                             .edit().putBoolean("nickname_chosen", true).apply()
                         nicknameChosen = true
                     }
-                    else -> WearNavHost()
+                    !notificationsGranted && !notificationPromptDismissed ->
+                        NotificationPermissionScreen(
+                            onResult = { granted ->
+                                notificationPromptDismissed = !granted
+                                refreshState()
+                            },
+                            onSkip = { notificationPromptDismissed = true }
+                        )
+                    else -> WearNavHost(
+                        openDmPeer = pendingDmPeer,
+                        onOpenDmHandled = { pendingDmPeer = null }
+                    )
                 }
             }
         }
@@ -87,13 +105,30 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        WearChatState.setAppInForeground(true)
+        WearChatState.openDmPeer?.let { peerID ->
+            WearChatState.openDm(peerID)
+            WearNotificationCoordinator.getInstance(applicationContext).clearConversation(peerID)
+        }
         refreshState()
+    }
+
+    override fun onPause() {
+        WearChatState.setAppInForeground(false)
+        super.onPause()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        privateMessagePeerFromIntent(intent)?.let { pendingDmPeer = it }
     }
 
     private fun refreshState() {
         hasPermissions = requiredPermissions().all {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
+        notificationsGranted = notificationPermissionGranted()
         val adapter = getSystemService(BluetoothManager::class.java)?.adapter
         bluetoothEnabled = adapter?.isEnabled == true
         if (hasPermissions && bluetoothEnabled) {
@@ -102,11 +137,24 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startMeshService() {
-        val mesh = WearMeshService.getOrCreate(applicationContext)
-        mesh.onPrivateMessage = { message ->
-            message.senderPeerID?.let { WearChatState.onPrivateMessageArrived(it) }
-        }
+        WearMeshService.getOrCreate(applicationContext)
         startForegroundService(Intent(this, WearMeshForegroundService::class.java))
+    }
+
+    private fun privateMessagePeerFromIntent(intent: Intent?): String? {
+        if (intent?.getBooleanExtra(WearNotificationCoordinator.EXTRA_OPEN_DM, false) != true) {
+            return null
+        }
+        return intent.getStringExtra(WearNotificationCoordinator.EXTRA_PEER_ID)
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    private fun notificationPermissionGranted(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
     }
 
     companion object {
@@ -116,15 +164,12 @@ class MainActivity : ComponentActivity() {
                 add(Manifest.permission.BLUETOOTH_CONNECT)
                 add(Manifest.permission.BLUETOOTH_ADVERTISE)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                add(Manifest.permission.POST_NOTIFICATIONS)
-            }
         }
     }
 }
 
 @Composable
-fun WearNavHost() {
+fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
     var screen by remember { mutableStateOf<WearScreen>(WearScreen.Chat) }
     val backStack = remember { mutableStateListOf<WearScreen>() }
 
@@ -142,6 +187,14 @@ fun WearNavHost() {
     }
 
     BackHandler(enabled = backStack.isNotEmpty()) { goBack() }
+
+    LaunchedEffect(openDmPeer) {
+        openDmPeer?.let { peerID ->
+            backStack.clear()
+            screen = WearScreen.Dm(peerID)
+            onOpenDmHandled()
+        }
+    }
 
     AnimatedContent(
         targetState = screen,
@@ -177,6 +230,49 @@ fun WearNavHost() {
                     }
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun NotificationPermissionScreen(onResult: (Boolean) -> Unit, onSkip: () -> Unit) {
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> onResult(granted) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "message alerts",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = "get notified when an encrypted direct message arrives",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 6.dp, bottom = 10.dp)
+        )
+        Button(
+            onClick = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    onResult(true)
+                }
+            }
+        ) {
+            Text("enable")
+        }
+        TextButton(onClick = onSkip) {
+            Text("not now")
         }
     }
 }

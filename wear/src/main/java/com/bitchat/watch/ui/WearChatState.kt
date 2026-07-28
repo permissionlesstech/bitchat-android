@@ -12,18 +12,29 @@ object WearChatState {
     val unreadDms: StateFlow<Map<String, Int>> = _unreadDms.asStateFlow()
 
     @Volatile
+    var appInForeground: Boolean = false
+        private set
+
+    @Volatile
     var openDmPeer: String? = null
 
+    @Synchronized
     fun onPrivateMessageArrived(peerID: String) {
-        if (openDmPeer == peerID) return
+        if (appInForeground && openDmPeer == peerID) return
         _unreadDms.value = _unreadDms.value + (peerID to ((_unreadDms.value[peerID] ?: 0) + 1))
     }
 
+    fun setAppInForeground(inForeground: Boolean) {
+        appInForeground = inForeground
+    }
+
+    @Synchronized
     fun openDm(peerID: String) {
         openDmPeer = peerID
         _unreadDms.value = _unreadDms.value - peerID
     }
 
+    @Synchronized
     fun closeDm() {
         openDmPeer = null
     }

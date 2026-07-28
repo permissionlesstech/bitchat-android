@@ -86,6 +86,7 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/features/voice/**",
     "com/bitchat/android/ui/debug/DebugSettingsManager.kt",
     "com/bitchat/android/ui/debug/DebugPreferenceManager.kt",
+    "com/bitchat/android/ui/NotificationTextUtils.kt",
     "com/bitchat/android/util/AppConstants.kt",
     "com/bitchat/android/util/ByteArrayExtensions.kt",
     "com/bitchat/android/util/ByteArrayWrapper.kt",
