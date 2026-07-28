@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class FragmentingPacketSenderTest {
+class FragmentingPacketSenderConfirmedSendTest {
     @Test
     fun confirmedSendStaysPendingWhenExactRouteDisappearsBetweenFragments() = runTest {
         val fragments = listOf(packet(1), packet(2), packet(3))

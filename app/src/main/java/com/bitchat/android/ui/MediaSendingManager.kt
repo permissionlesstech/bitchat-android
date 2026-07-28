@@ -739,7 +739,16 @@ class MediaSendingManager(
     fun handleTransferProgressEvent(evt: com.bitchat.android.mesh.TransferProgressEvent) {
         val msgId = synchronized(transferMessageMap) { transferMessageMap[evt.transferId] }
         if (msgId != null) {
-            if (evt.completed) {
+            if (evt.failed) {
+                messageManager.updateMessageDeliveryStatus(
+                    msgId,
+                    com.bitchat.android.model.DeliveryStatus.Failed("transfer could not be sent")
+                )
+                synchronized(transferMessageMap) {
+                    val msgIdRemoved = transferMessageMap.remove(evt.transferId)
+                    if (msgIdRemoved != null) messageTransferMap.remove(msgIdRemoved)
+                }
+            } else if (evt.completed) {
                 messageManager.updateMessageDeliveryStatus(
                     msgId,
                     com.bitchat.android.model.DeliveryStatus.Delivered(to = "mesh", at = java.util.Date())
