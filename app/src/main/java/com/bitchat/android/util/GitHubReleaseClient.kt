@@ -23,11 +23,29 @@ object GitHubReleaseClient {
     private const val CACHE_TTL_MILLIS = 10 * 60 * 1000L
     private const val MAX_FETCH_ATTEMPTS = 3
     private const val ROUTE_READY_TIMEOUT_MILLIS = 60_000L
+    private const val HTTP_NOT_MODIFIED = 304
 
     private val fetchMutex = Mutex()
 
     @Volatile
     private var cachedRelease: CachedRelease? = null
+
+    /**
+     * ETag of the cached release, replayed as `If-None-Match`. GitHub does not charge a 304
+     * against the rate limit, so revalidating an expired cache this way costs nothing where an
+     * unconditional refetch costs one of only 60 hourly requests.
+     */
+    @Volatile
+    private var cachedEtag: String? = null
+
+    /**
+     * Epoch millis before which GitHub has already told us it will reject anything we send.
+     *
+     * Without this, an exhausted quota fed itself: nothing cached the failure, so every screen
+     * that asked for release info spent three more requests discovering the same limit.
+     */
+    @Volatile
+    private var blockedUntilMillis = 0L
 
     private val client
         get() = OkHttpProvider.httpClient().newBuilder()
@@ -46,10 +64,31 @@ object GitHubReleaseClient {
     suspend fun fetchLatestRelease(forceRefresh: Boolean = false): Result<Release> =
         withContext(Dispatchers.IO) {
             fetchMutex.withLock {
-                if (!forceRefresh) {
-                    cachedRelease
-                        ?.takeIf { System.currentTimeMillis() - it.fetchedAtMillis < CACHE_TTL_MILLIS }
-                        ?.let { return@withLock Result.success(it.release) }
+                val now = System.currentTimeMillis()
+                val cached = cachedRelease
+
+                if (!forceRefresh &&
+                    cached != null &&
+                    now - cached.fetchedAtMillis < CACHE_TTL_MILLIS
+                ) {
+                    return@withLock Result.success(cached.release)
+                }
+
+                // Honoured even on an explicit refresh: sending a request GitHub has already said
+                // it will reject helps nobody and pushes the reset further out. A stale release is
+                // a better answer than an error the user cannot act on.
+                if (now < blockedUntilMillis) {
+                    val waitMinutes = (blockedUntilMillis - now) / 60_000 + 1
+                    Log.w(TAG, "Rate limited; not contacting GitHub for another ${waitMinutes}min")
+                    cached?.let { return@withLock Result.success(it.release) }
+                    return@withLock Result.failure(
+                        ReleaseFetchException(
+                            message = "GitHub API rate limit reached. Try again in " +
+                                "$waitMinutes minute${if (waitMinutes == 1L) "" else "s"}.",
+                            httpCode = 429,
+                            retryable = false
+                        )
+                    )
                 }
 
                 if (!awaitSelectedNetworkRoute()) {
@@ -95,6 +134,8 @@ object GitHubReleaseClient {
     }
 
     private fun fetchLatestReleaseOnce(): Result<Release> {
+        val cached = cachedRelease
+        val etag = cachedEtag
         return try {
             Log.d(TAG, "Fetching latest release from GitHub API")
             val request = Request.Builder()
@@ -102,29 +143,48 @@ object GitHubReleaseClient {
                 .addHeader("User-Agent", USER_AGENT)
                 .addHeader("Accept", "application/vnd.github+json")
                 .addHeader("X-GitHub-Api-Version", "2022-11-28")
+                .apply {
+                    // Revalidate rather than refetch. GitHub does not charge a 304 against the
+                    // hourly quota, so an unchanged release costs nothing to confirm.
+                    if (cached != null && etag != null) addHeader("If-None-Match", etag)
+                }
                 .build()
 
             client.newCall(request).execute().use { response ->
+                if (response.code == HTTP_NOT_MODIFIED && cached != null) {
+                    Log.d(TAG, "Release unchanged; cache revalidated at no quota cost")
+                    cachedRelease = cached.copy(fetchedAtMillis = System.currentTimeMillis())
+                    return Result.success(cached.release)
+                }
+
                 if (!response.isSuccessful) {
-                    val remaining = response.header("X-RateLimit-Remaining")
-                    val resetAt = response.header("X-RateLimit-Reset")
-                    val message = when {
-                        response.code == 403 && remaining == "0" ->
-                            "GitHub API rate limit exceeded. Try again after reset time $resetAt."
-                        response.code == 429 ->
-                            "GitHub API rate limit exceeded. Please try again later."
-                        else ->
-                            "GitHub release request failed: HTTP ${response.code} ${response.message}"
+                    val blockedUntil = GitHubRateLimit.blockedUntilMillis(
+                        code = response.code,
+                        remaining = response.header("X-RateLimit-Remaining"),
+                        resetEpochSeconds = response.header("X-RateLimit-Reset"),
+                        retryAfterSeconds = response.header("Retry-After"),
+                        nowMillis = System.currentTimeMillis(),
+                    )
+                    if (blockedUntil != null) blockedUntilMillis = blockedUntil
+
+                    val message = if (blockedUntil != null) {
+                        val waitMinutes =
+                            (blockedUntil - System.currentTimeMillis()) / 60_000 + 1
+                        "GitHub API rate limit exceeded. Try again in " +
+                            "$waitMinutes minute${if (waitMinutes == 1L) "" else "s"}."
+                    } else {
+                        "GitHub release request failed: HTTP ${response.code} ${response.message}"
                     }
                     Log.e(TAG, message)
                     return Result.failure(
                         ReleaseFetchException(
                             message = message,
                             httpCode = response.code,
-                            retryable = response.code == 403 ||
-                                response.code == 408 ||
-                                response.code == 429 ||
-                                response.code >= 500
+                            // A rate limit is never worth an in-loop retry: the gate in
+                            // fetchLatestRelease decides when it is worth asking again. A plain
+                            // 403 is a permissions failure and will not fix itself either.
+                            retryable = blockedUntil == null &&
+                                (response.code == 408 || response.code >= 500)
                         )
                     )
                 }
@@ -146,6 +206,10 @@ object GitHubReleaseClient {
                             retryable = false
                         )
                     )
+                // Kept alongside the release so the pair can never drift: a stale ETag would
+                // revalidate to a 304 that confirms a release we no longer hold.
+                cachedEtag = response.header("ETag")
+                blockedUntilMillis = 0L
                 Result.success(release)
             }
         } catch (e: IOException) {
