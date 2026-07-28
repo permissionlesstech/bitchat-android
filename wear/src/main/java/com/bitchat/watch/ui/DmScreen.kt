@@ -78,11 +78,12 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
         else "setting up encryption…",
         voice = voice,
         onOpenImage = { viewerPath = it },
-        header = {
+        header = { expanded ->
             DmHeader(
                 nickname = nickname,
                 peerID = peerID,
-                sessionEstablished = sessionEstablished
+                sessionEstablished = sessionEstablished,
+                expanded = expanded
             )
         },
         actionBar = {
@@ -99,17 +100,30 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
 private fun DmHeader(
     nickname: String,
     peerID: String,
-    sessionEstablished: Boolean
+    sessionEstablished: Boolean,
+    expanded: Boolean
 ) {
     val palette = LocalBitchatPalette.current
-    // Floating title row; the scaffold slides/fades it as a unit when the user scrolls.
-    val headerIconSize = 16.dp
-    val headerTitleSize = 15.dp
+    // Floating title row: full-size at the newest messages, shrinks to its dense form
+    // while scrolling up into history. Rendered as an overlay, so the animation only
+    // relayouts this row, never the message list.
+    val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(
+        BitchatMotion.STANDARD_MS
+    )
+    val headerIconSize by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (expanded) 16.dp else 11.dp, animationSpec = spec, label = "dmHdrIcon"
+    )
+    val headerTitleSize by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (expanded) 15.dp else 11.dp, animationSpec = spec, label = "dmHdrTitle"
+    )
+    val headerVPadding by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (expanded) 6.dp else 1.dp, animationSpec = spec, label = "dmHdrPad"
+    )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 8.dp, vertical = headerVPadding),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -58,7 +58,7 @@ fun ChatScaffold(
     emptyText: String,
     voice: VoiceNoteController,
     onOpenImage: (String) -> Unit,
-    header: @Composable () -> Unit,
+    header: @Composable (expanded: Boolean) -> Unit,
     actionBar: @Composable () -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
@@ -133,7 +133,7 @@ private fun ChatBody(
     onOpenImage: (String) -> Unit,
     columnState: TransformingLazyColumnState,
     controlsVisible: Boolean,
-    header: @Composable () -> Unit,
+    header: @Composable (expanded: Boolean) -> Unit,
     actionBar: @Composable () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -181,19 +181,10 @@ private fun ChatBody(
             }
         }
 
-        AnimatedVisibility(
-            visible = controlsVisible,
-            modifier = Modifier.align(Alignment.TopCenter),
-            enter = slideInVertically(
-                initialOffsetY = { -it },
-                animationSpec = tween(BitchatMotion.STANDARD_MS)
-            ) + fadeIn(animationSpec = tween(BitchatMotion.STANDARD_MS)),
-            exit = slideOutVertically(
-                targetOffsetY = { -it },
-                animationSpec = tween(BitchatMotion.STANDARD_MS)
-            ) + fadeOut(animationSpec = tween(BitchatMotion.STANDARD_MS))
-        ) {
-            header()
+        // The header stays put and shrinks to its dense form instead of disappearing;
+        // as an overlay its size animation never touches the list's scroll geometry.
+        Box(modifier = Modifier.align(Alignment.TopCenter)) {
+            header(controlsVisible)
         }
 
         AnimatedVisibility(

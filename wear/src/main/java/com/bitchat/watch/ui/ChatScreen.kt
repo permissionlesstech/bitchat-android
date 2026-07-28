@@ -75,10 +75,11 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
         emptyText = "no messages yet\nsay hi to the mesh",
         voice = voice,
         onOpenImage = { viewerPath = it },
-        header = {
+        header = { expanded ->
             ChatHeader(
                 peerCount = peers.size,
                 unreadDms = unreadDms.values.sum(),
+                expanded = expanded,
                 onOpenPeople = onOpenPeople
             )
         },
@@ -96,16 +97,29 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
 private fun ChatHeader(
     peerCount: Int,
     unreadDms: Int,
+    expanded: Boolean,
     onOpenPeople: () -> Unit
 ) {
-    // Floating title row; the scaffold slides/fades it as a unit when the user scrolls.
-    val iconSize = 16.dp
-    val titleSize = 15.dp
+    // Floating title row: full-size at the newest messages, shrinks to its dense form
+    // while scrolling up into history. Rendered as an overlay, so the animation only
+    // relayouts this row, never the message list.
+    val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(
+        BitchatMotion.STANDARD_MS
+    )
+    val iconSize by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (expanded) 16.dp else 11.dp, animationSpec = spec, label = "hdrIcon"
+    )
+    val titleSize by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (expanded) 15.dp else 11.dp, animationSpec = spec, label = "hdrTitle"
+    )
+    val vPadding by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (expanded) 6.dp else 1.dp, animationSpec = spec, label = "hdrPad"
+    )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 8.dp, vertical = vPadding),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
