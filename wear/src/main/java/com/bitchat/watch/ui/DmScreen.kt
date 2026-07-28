@@ -78,12 +78,11 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
         else "setting up encryption…",
         voice = voice,
         onOpenImage = { viewerPath = it },
-        header = { expanded ->
+        header = {
             DmHeader(
                 nickname = nickname,
                 peerID = peerID,
-                sessionEstablished = sessionEstablished,
-                expanded = expanded
+                sessionEstablished = sessionEstablished
             )
         },
         actionBar = {
@@ -100,30 +99,17 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
 private fun DmHeader(
     nickname: String,
     peerID: String,
-    sessionEstablished: Boolean,
-    expanded: Boolean
+    sessionEstablished: Boolean
 ) {
     val palette = LocalBitchatPalette.current
-    val headerIconSize by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (expanded) 16.dp else 11.dp,
-        animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
-        label = "dmHdrIcon"
-    )
-    val headerTitleSize by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (expanded) 15.dp else 11.dp,
-        animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
-        label = "dmHdrTitle"
-    )
-    val headerVPadding by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (expanded) 6.dp else 1.dp,
-        animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
-        label = "dmHdrPad"
-    )
+    // Floating title row; the scaffold slides/fades it as a unit when the user scrolls.
+    val headerIconSize = 16.dp
+    val headerTitleSize = 15.dp
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = headerVPadding),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -1,14 +1,13 @@
 package com.bitchat.watch.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,9 +40,16 @@ import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
 
 /**
- * The shared chat body for global chat and DM threads: sticky collapsing header (via [header]),
- * TransformingLazyColumn message list (native Wear center-scaling/fade, rotary, scrollbar),
- * floating scroll-aware action bar, and the push-to-talk overlay.
+ * The shared chat body for global chat and DM threads, following the classic messenger
+ * pattern: a TransformingLazyColumn message list (native Wear center-scaling/fade, rotary,
+ * scrollbar) with the header and action bar as floating overlays that get out of the way
+ * while scrolling up into history and return on any downward scroll; at the newest message
+ * they are always visible.
+ *
+ * The list's contentPadding is CONSTANT and both overlays are layout-neutral, so showing or
+ * hiding them never changes the scroll geometry. Earlier revisions animated the bottom
+ * clearance and resized the header in the layout path, which shifted content under the
+ * user's finger mid-gesture (felt as "resistance") and fed back into the dock detection.
  */
 @Composable
 fun ChatScaffold(
@@ -52,7 +58,7 @@ fun ChatScaffold(
     emptyText: String,
     voice: VoiceNoteController,
     onOpenImage: (String) -> Unit,
-    header: @Composable (expanded: Boolean) -> Unit,
+    header: @Composable () -> Unit,
     actionBar: @Composable () -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
@@ -70,78 +76,52 @@ fun ChatScaffold(
         previousCount = messages.size
     }
 
-    // "Docked at newest" is the single source of truth for the chat's resting state:
-    // bottom clearance expanded (newest message sits above the floating buttons), action
-    // bar visible, header at full size. It is driven by scroll intent, not layout geometry.
-    var dockedAtNewest by remember { mutableStateOf(true) }
-    // Action bar: ALWAYS visible while the list is scrolled to the bottom; hides quickly
-    // when scrolling up into history and reappears as soon as the user scrolls back down,
-    // so replying is one short flick away even from the very top. The bar is an overlay,
-    // so its fast 12dp threshold cannot feed back into the scroll geometry.
-    val buttonsVisible = remember { mutableStateOf(true) }
-    // The docked state, by contrast, changes the geometry: collapsing the bottom clearance
-    // shrinks the scroll range by the 48dp padding delta. Undocking near the bottom would
-    // clamp the scroll position back to the end and instantly re-dock — the hide/show
-    // flapping loop. So undocking requires scrolling well clear of the bottom (60dp > 48dp).
-    val undockThresholdPx = with(androidx.compose.ui.platform.LocalDensity.current) {
-        60.dp.roundToPx()
-    }
+    // One state drives both overlays: visible at the bottom or when scrolling toward it,
+    // hidden when scrolling up into history. The 24px (~12dp) threshold is deliberately
+    // small so the controls answer every flick immediately.
+    var atNewest by remember { mutableStateOf(true) }
+    val controlsVisible = remember { mutableStateOf(true) }
     LaunchedEffect(columnState) {
         var lastPosition = -1
-        var bottomPosition = 0
         snapshotFlow {
             val first = columnState.layoutInfo.visibleItems.firstOrNull()
             Triple(columnState.canScrollForward, first?.index ?: 0, first?.offset ?: 0)
         }.collect { (canScrollForward, index, offset) ->
-            val atBottom = !canScrollForward
             val position = index * 100_000 + offset
-            if (atBottom) {
-                bottomPosition = position
-                dockedAtNewest = true
-                buttonsVisible.value = true
+            atNewest = !canScrollForward
+            if (!canScrollForward) {
+                controlsVisible.value = true
             } else if (lastPosition >= 0) {
                 when {
-                    position > lastPosition + 24 -> buttonsVisible.value = true
-                    position < lastPosition - 24 -> buttonsVisible.value = false
+                    position > lastPosition + 24 -> controlsVisible.value = true
+                    position < lastPosition - 24 -> controlsVisible.value = false
                 }
-                if (bottomPosition - position > undockThresholdPx) dockedAtNewest = false
             }
             lastPosition = position
         }
     }
 
-    // Stick to bottom: on new messages, follow to the last item while the user is docked at
-    // the newest, and re-align whenever the bottom clearance expands (padding growth changes
-    // the scroll range). Gating on dockedAtNewest (maintained by the layout collector above)
-    // avoids the stale-layoutInfo race of computing the distance here directly.
-    LaunchedEffect(columnState, messages.size, dockedAtNewest) {
-        if (messages.isNotEmpty() && dockedAtNewest) {
-            // scrollBy to the end of the range: animateScrollToItem stops as soon as the item
-            // is partially visible, which left the last message cropped behind the buttons.
+    // Stick to bottom: follow new messages while resting at the newest.
+    LaunchedEffect(columnState, messages.size) {
+        if (messages.isNotEmpty() && atNewest) {
+            // scrollBy to the end of the range: animateScrollToItem stops as soon as the
+            // item is partially visible, which left the last message cropped.
             columnState.scroll { scrollBy(Float.MAX_VALUE) }
         }
     }
-    val listBottomPadding by animateDpAsState(
-        targetValue = if (dockedAtNewest) 56.dp else 8.dp,
-        animationSpec = tween(BitchatMotion.STANDARD_MS),
-        label = "listBottomPad"
-    )
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        header(dockedAtNewest)
-        ChatBody(
-            messages = messages,
-            myPeerID = myPeerID,
-            emptyText = emptyText,
-            voice = voice,
-            onOpenImage = onOpenImage,
-            columnState = columnState,
-            listBottomPadding = listBottomPadding,
-            buttonsVisible = buttonsVisible.value,
-            actionBar = actionBar,
-            modifier = Modifier.weight(1f)
-        )
-    }
+    ChatBody(
+        messages = messages,
+        myPeerID = myPeerID,
+        emptyText = emptyText,
+        voice = voice,
+        onOpenImage = onOpenImage,
+        columnState = columnState,
+        controlsVisible = controlsVisible.value,
+        header = header,
+        actionBar = actionBar,
+        modifier = Modifier.fillMaxSize()
+    )
 }
 
 @Composable
@@ -152,8 +132,8 @@ private fun ChatBody(
     voice: VoiceNoteController,
     onOpenImage: (String) -> Unit,
     columnState: TransformingLazyColumnState,
-    listBottomPadding: androidx.compose.ui.unit.Dp,
-    buttonsVisible: Boolean,
+    controlsVisible: Boolean,
+    header: @Composable () -> Unit,
     actionBar: @Composable () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -166,8 +146,10 @@ private fun ChatBody(
                 modifier = Modifier.fillMaxSize(),
                 // Arrangement.Bottom anchors short content to the bottom: the first message
                 // starts just above the action bar and new messages push history upward.
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Bottom,
-                contentPadding = PaddingValues(bottom = listBottomPadding)
+                // The padding reserves permanent room for the floating header and action
+                // bar; being constant, it never disturbs an in-flight scroll gesture.
+                verticalArrangement = Arrangement.Bottom,
+                contentPadding = PaddingValues(top = 30.dp, bottom = 64.dp)
             ) {
                 if (messages.isEmpty()) {
                     item {
@@ -200,7 +182,22 @@ private fun ChatBody(
         }
 
         AnimatedVisibility(
-            visible = buttonsVisible,
+            visible = controlsVisible,
+            modifier = Modifier.align(Alignment.TopCenter),
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = tween(BitchatMotion.STANDARD_MS)
+            ) + fadeIn(animationSpec = tween(BitchatMotion.STANDARD_MS)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(BitchatMotion.STANDARD_MS)
+            ) + fadeOut(animationSpec = tween(BitchatMotion.STANDARD_MS))
+        ) {
+            header()
+        }
+
+        AnimatedVisibility(
+            visible = controlsVisible,
             modifier = Modifier.align(Alignment.BottomCenter),
             enter = slideInVertically(
                 initialOffsetY = { it },
