@@ -1,0 +1,258 @@
+# Reproducible builds
+
+Bitchat's canonical release build produces byte-for-byte reproducible unsigned
+APKs and an unsigned Android App Bundle (AAB). CI builds the release twice in
+independent jobs and refuses to publish it unless every canonical byte matches.
+
+The signing key is intentionally not public. Anyone can reproduce the unsigned
+artifacts; GitHub Actions signs only the already-verified APKs, checks that
+signing itself is deterministic, verifies the expected certificate, and
+publishes checksums and provenance attestations for both unsigned and signed
+artifacts.
+
+## What is pinned
+
+- Gradle wrapper version and distribution SHA-256
+- dependency versions, strict Gradle dependency locks, and downloaded-artifact
+  SHA-256 verification metadata
+- exact Temurin JDK release and digest-pinned Linux builder image
+- Android platform, Platform Tools, and Build Tools archives by filename and
+  SHA-256, plus the accepted SDK license-text SHA-1 required to use them
+- Kotlin/JVM toolchain and bytecode target
+- Arti source tag and full commit, stable native build epoch, Rust, `cargo-ndk`,
+  Android NDK, Cargo lockfile, digest-pinned Rust builder image, and immutable
+  Debian package snapshot
+- immutable full commit SHAs for every third-party GitHub Action
+
+The build uses a clean source tree, an isolated Gradle user home, UTC, a stable
+locale, `SOURCE_DATE_EPOCH` from the Git commit, no Gradle build or configuration
+cache, fresh tasks, and a non-incremental in-process Kotlin compiler. Native
+builds remap source paths and release validation rejects host paths in packaged
+libraries.
+
+AGP's embedded VCS record is disabled because its Git discovery depends on the
+host checkout layout. The canonical `BUILDINFO.json` and GitHub provenance
+attestation record the host-verified commit instead.
+
+The authoritative pins are:
+
+- `gradle/wrapper/gradle-wrapper.properties`
+- `gradle/libs.versions.toml`
+- `settings-gradle.lockfile`
+- `app/gradle.lockfile`
+- `gradle/verification-metadata.xml`
+- `tools/reproducible-builds/TOOLCHAIN.env`
+- `tools/arti-build/TOOLCHAIN.env`
+- `tools/arti-build/Cargo.lock`
+
+## Reproduce a release locally
+
+Requirements are Git, Docker with Linux/amd64 support, and enough free space for
+the Android and Gradle images and dependencies.
+
+```bash
+git clone https://github.com/permissionlesstech/bitchat-android.git
+cd bitchat-android
+git checkout vX.Y.Z
+tools/reproducible-builds/build-in-container.sh \
+  .reproducible-build/local-vX.Y.Z
+```
+
+The output contains:
+
+- unsigned APKs for arm64, armv7, x86, x86_64, and universal installs
+- `bitchat-android-release-unsigned.aab`
+- `BUILDINFO.json`
+- `SHA256SUMS.unsigned`
+
+The output directory must not already contain files. The script rejects a dirty
+checkout so the commit in `BUILDINFO.json` identifies all source inputs.
+
+To test reproducibility yourself, build into two empty directories and compare:
+
+```bash
+BITCHAT_CONTAINER_GRADLE_HOME_NAME=gradle-home-first \
+  tools/reproducible-builds/build-in-container.sh .reproducible-build/first
+BITCHAT_CONTAINER_GRADLE_HOME_NAME=gradle-home-second \
+  tools/reproducible-builds/build-in-container.sh .reproducible-build/second
+tools/reproducible-builds/compare-release.sh \
+  .reproducible-build/first \
+  .reproducible-build/second
+```
+
+If a comparison fails and `diffoscope` is installed, the comparison script
+automatically reports the first differing artifact.
+
+## Verify a GitHub release
+
+Install the GitHub CLI, authenticate it if necessary, check out the release tag,
+and run:
+
+```bash
+git checkout vX.Y.Z
+tools/reproducible-builds/verify-github-release.sh vX.Y.Z
+```
+
+That command:
+
+1. downloads all release APKs, the AAB, build information, and checksum files;
+2. verifies each GitHub artifact-attestation subject against this repository;
+3. verifies `BITCHAT_SHA256SUMS`;
+4. checks that the local source commit is the release commit;
+5. rebuilds in the pinned container; and
+6. byte-compares every unsigned APK, the unsigned AAB, build information, and
+   the unsigned checksum manifest.
+
+To verify the published checksums and attestations without rebuilding:
+
+```bash
+tools/reproducible-builds/verify-github-release.sh vX.Y.Z --no-rebuild
+```
+
+For a manual signature check, use the exact `apksigner` from Android Build Tools
+37.0.0:
+
+```bash
+apksigner verify --verbose --print-certs bitchat-android-universal.apk
+```
+
+Compare the reported signer certificate SHA-256 with
+`BITCHAT_GITHUB_RELEASE_CERT_SHA256` in `gradle.properties`. A matching
+certificate proves who signed the APK; the checksum, attestation, and local
+unsigned rebuild establish which source and build produced it. A third party
+cannot recreate the signed bytes without the private release key.
+
+You can also prove that the signed APK contains the same archive entries and
+uncompressed payload bytes as the reproduced unsigned APK:
+
+```bash
+tools/reproducible-builds/compare-archive-payloads.sh \
+  .reproducible-build/local-vX.Y.Z/bitchat-android-universal-unsigned.apk \
+  bitchat-android-universal.apk
+```
+
+GitHub's manual equivalents are:
+
+```bash
+gh release download vX.Y.Z
+sha256sum -c BITCHAT_SHA256SUMS
+gh attestation verify bitchat-android-universal.apk \
+  --repo permissionlesstech/bitchat-android
+```
+
+## Verify a Google Play release
+
+Google Play App Signing changes the verification boundary:
+
+- maintainers upload a signed AAB using the upload key;
+- Google Play generates optimized, device-specific APK splits from that AAB;
+- Google signs the delivered APKs with the app-signing key.
+
+Consequently, a Play-delivered APK is not expected to be byte-identical to the
+GitHub universal APK or to a locally built APK. Use this procedure instead:
+
+1. In Play Console, open **Test and release > App bundle explorer**, select the
+   release/version code, and download the original app bundle if that option is
+   available to your account. Compare its unsigned payload with the reproduced
+   `bitchat-android-release-unsigned.aab`:
+
+   ```bash
+   tools/reproducible-builds/compare-archive-payloads.sh \
+     .reproducible-build/local-vX.Y.Z/bitchat-android-release-unsigned.aab \
+     downloaded-from-play.aab
+   ```
+
+   The helper excludes JAR-signing metadata and compares every other entry name
+   and uncompressed byte.
+2. In **Setup > App integrity**, record the SHA-256 fingerprint under **App
+   signing key certificate**. This is different from the upload-key certificate
+   and may be different from the GitHub release certificate.
+3. In App bundle explorer, download the Play-generated universal APK or the APKs
+   for a representative device. Verify each APK:
+
+   ```bash
+   apksigner verify --verbose --print-certs downloaded-from-play.apk
+   ```
+
+   The signer SHA-256 must equal the Play Console app-signing certificate.
+4. Confirm package name `com.bitchat.droid`, version code, version name, and
+   manifest/security configuration with Android's `apkanalyzer` or `aapt2`.
+5. Recreate Google's split-generation behavior from the reproduced AAB with the
+   same `bundletool` version and a saved device specification:
+
+   ```bash
+   bundletool build-apks \
+     --bundle=bitchat-android-release-unsigned.aab \
+     --output=local.apks \
+     --device-spec=device.json
+   ```
+
+This last check validates bundle-to-APK behavior, but it is not a byte-equality
+claim: Play's server-side `bundletool` version, optimization, and signing inputs
+are controlled by Google. The strongest public Play verification requires
+maintainers to retain the uploaded AAB, publish its digest and provenance, and
+record the Play version code and app-signing certificate fingerprint alongside
+the release.
+
+The current GitHub release workflow publishes the canonical unsigned AAB for
+verification; it does not upload to Google Play.
+
+## Maintainer release process
+
+Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`:
+
+1. two jobs independently build the canonical unsigned release;
+2. a comparison job requires exact byte equality;
+3. the signing job reads `SIGNING_KEY`, `ALIAS`, `KEY_STORE_PASSWORD`, and
+   `KEY_PASSWORD` from GitHub Actions secrets;
+4. each published GitHub APK is signed twice and the two results must match;
+5. the signing certificate must match the public fingerprint in
+   `gradle.properties`;
+6. GitHub generates build-provenance attestations and publishes all artifacts.
+
+Never store a keystore or password in the repository, workflow artifacts, logs,
+or build information.
+
+## Updating dependencies or toolchains
+
+Dependency changes must update and review both the lock state and verification
+metadata:
+
+```bash
+./gradlew testDebugUnitTest lintDebug \
+  --write-locks \
+  --write-verification-metadata sha256
+```
+
+Generate release lock entries in separate invocations because split APK and AAB
+intermediates cannot coexist:
+
+```bash
+./gradlew clean bundleRelease \
+  --write-locks \
+  --write-verification-metadata sha256
+./gradlew clean assembleRelease \
+  --write-locks \
+  --write-verification-metadata sha256
+```
+
+Review every new repository, component, artifact name, version, and checksum.
+Do not accept verification metadata generated after an unexplained checksum
+failure.
+
+When changing Gradle, update the wrapper and independently verify the new
+distribution SHA-256. When changing JDK or Android tools, update the exact
+version, archive checksum, and base-image digest together. Native updates follow
+[`tools/arti-build/README.md`](../tools/arti-build/README.md).
+
+## References
+
+- [Gradle dependency locking](https://docs.gradle.org/current/userguide/dependency_locking.html)
+- [Gradle dependency verification](https://docs.gradle.org/current/userguide/dependency_verification.html)
+- [Gradle wrapper checksum verification](https://docs.gradle.org/current/userguide/best_practices_security.html#use_the_gradle_wrapper_and_verify_the_wrapper_checksum)
+- [GitHub Actions security hardening](https://docs.github.com/en/actions/reference/security/secure-use)
+- [GitHub artifact attestation verification](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
+- [Google Play App Signing](https://support.google.com/googleplay/android-developer/answer/9842756)
+- [Play Console App bundle explorer](https://support.google.com/googleplay/android-developer/answer/9859152)
+- [Android `bundletool`](https://developer.android.com/tools/bundletool)
+- [Android `apksigner`](https://developer.android.com/tools/apksigner)

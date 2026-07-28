@@ -5,6 +5,7 @@ kotlin = "2.4.10"
 compileSdk = "37"
 minSdk = "26" # API 26 for proper BLE support
 targetSdk = "37"
+buildTools = "37.0.0"
 
 # AndroidX Core
 core-ktx = "1.19.0"

@@ -2,106 +2,152 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vX.Y.Z tag to build and publish
+        required: true
+        type: string
   push:
     tags:
-      - 'v*.*.*' # Triggers for tags like v1.0.0
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: 21.0.11+10
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build unsigned release ${{ matrix.replica }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [a, b]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
-        with:
-          gradle-version: wrapper
-
-      - name: Cache Gradle files
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
-
-      - name: Grant execute permission for Gradlew
-        run: chmod +x ./gradlew
-
-      - name: Build Release APKs (with architecture splits)
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
-
-      - name: List APK files
+      - name: Validate release tag
         run: |
-          echo "APK files built:"
-          find app/build/outputs/apk/release -name "*.apk" -type f -exec ls -lh {} \;
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "error: release tag must look like vX.Y.Z" >&2
+            exit 1
+          fi
 
-      - name: Rename APKs for GitHub Release
-        run: |
-          cd app/build/outputs/apk/release
-          [ -f "app-arm64-v8a-release-unsigned.apk" ] && mv app-arm64-v8a-release-unsigned.apk bitchat-android-arm64.apk
-          [ -f "app-x86_64-release-unsigned.apk" ] && mv app-x86_64-release-unsigned.apk bitchat-android-x86_64.apk
-          [ -f "app-universal-release-unsigned.apk" ] && mv app-universal-release-unsigned.apk bitchat-android-universal.apk
-
-      - name: DEBUG
-        run: |
-          set -x
-          pwd
-          ls -all
-          cd app/build/outputs/
-          ls -all
-          tree || ls -R
-
-      # Optional: Sign APKs (uncomment and configure secrets when ready)
-      # - name: Sign APKs
-      #   uses: r0adkll/sign-android-release@v1
-      #   with:
-      #     releaseDirectory: app/build/outputs/apk/release
-      #     signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-      #     alias: ${{ secrets.ALIAS }}
-      #     keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-      #     keyPassword: ${{ secrets.KEY_PASSWORD }}
-
-      - name: Upload APKs as artifacts
-        uses: actions/upload-artifact@v4
+      - name: Checkout tagged source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          name: bitchat-android-release-${{ github.ref_name }}
-          path: app/build/outputs/apk/release/*.apk
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Validate the Gradle wrapper
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          cache-disabled: true
+
+      - name: Build canonical unsigned APKs and AAB
+        run: tools/reproducible-builds/build-in-container.sh "$RUNNER_TEMP/release-${{ matrix.replica }}"
+
+      - name: Upload unsigned replica
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: unsigned-release-${{ matrix.replica }}
+          path: ${{ runner.temp }}/release-${{ matrix.replica }}/*
           retention-days: 30
           if-no-files-found: error
 
-  release:
+  compare:
+    name: Verify reproducibility
+    runs-on: ubuntu-24.04
     needs: build
-    runs-on: ubuntu-latest
 
     steps:
-      - name: Download release artifacts
-        uses: actions/download-artifact@v4
+      - name: Checkout verification script
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          name: bitchat-android-release-${{ github.ref_name }}
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Download replica A
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: unsigned-release-a
+          path: ${{ runner.temp }}/release-a
+
+      - name: Download replica B
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: unsigned-release-b
+          path: ${{ runner.temp }}/release-b
+
+      - name: Compare every canonical byte
+        run: tools/reproducible-builds/compare-release.sh "$RUNNER_TEMP/release-a" "$RUNNER_TEMP/release-b"
+
+      - name: Upload verified unsigned release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-unsigned-release
+          path: ${{ runner.temp }}/release-a/*
+          retention-days: 30
+          if-no-files-found: error
+
+  sign-and-release:
+    name: Sign, attest, and publish
+    runs-on: ubuntu-24.04
+    needs: compare
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up pinned JDK
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Download verified unsigned release
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-unsigned-release
           path: release
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release/bitchat-android-arm64.apk
-            release/bitchat-android-x86_64.apk
-            release/bitchat-android-universal.apk
-          name: Release ${{ github.ref_name }}
-          body: |
-            **bitchat-android-arm64.apk** - ARM64 (most phones)
-            **bitchat-android-x86_64.apk** - x86_64 (Chromebooks, tablets)
-            **bitchat-android-universal.apk** - All architectures (fallback)
+      - name: Install checksum-verified Android Build Tools
+        run: tools/reproducible-builds/install-android-build-tools.sh "$RUNNER_TEMP/android-sdk"
+
+      - name: Deterministically sign verified GitHub APKs
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+          BITCHAT_SIGNING_KEY_BASE64: ${{ secrets.SIGNING_KEY }}
+          BITCHAT_SIGNING_KEY_ALIAS: ${{ secrets.ALIAS }}
+          BITCHAT_KEYSTORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          BITCHAT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: tools/reproducible-builds/sign-release.sh release
+
+      - name: Prepare public manifest names
+        run: |
+          mv release/BUILDINFO.json release/BITCHAT_BUILDINFO.json
+          mv release/SHA256SUMS.unsigned release/BITCHAT_SHA256SUMS.unsigned
+          sed \
+            -e 's/  BUILDINFO.json$/  BITCHAT_BUILDINFO.json/' \
+            -e 's/  SHA256SUMS.unsigned$/  BITCHAT_SHA256SUMS.unsigned/' \
+            release/SHA256SUMS > release/BITCHAT_SHA256SUMS
+          rm release/SHA256SUMS
+
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: release/*
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$RELEASE_TAG" release/* \
+            --title "Release $RELEASE_TAG" \
+            --notes "Signed installable APKs, canonical unsigned APK/AAB inputs, checksums, and GitHub build-provenance attestations are attached. See docs/reproducible-builds.md for verification instructions."

@@ -70,6 +70,10 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 The app requests Bluetooth, location (required for BLE scanning), and notification permissions at runtime.
 
+Release APKs and the Android App Bundle can be rebuilt byte-for-byte in the
+pinned Linux container. See [Reproducible builds](docs/reproducible-builds.md)
+for the build, GitHub release, and Google Play verification procedures.
+
 ## Testing
 
 ```bash
