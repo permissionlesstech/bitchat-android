@@ -30,6 +30,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Sign with the debug key so release builds can be installed over the
+            // debug app during development (same signature = seamless upgrade).
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

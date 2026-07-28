@@ -221,10 +221,12 @@ fun MessageItem(
                 onOpen = onOpenImage
             )
             BitchatMessageType.Audio -> VoiceNoteItem(path = message.content.trim())
-            BitchatMessageType.File -> FileMessageChip(
-                name = File(message.content.trim()).name,
-                sizeBytes = File(message.content.trim()).length()
-            )
+            BitchatMessageType.File -> {
+                val path = message.content.trim()
+                val file = remember(path) { File(path) }
+                val sizeBytes = remember(path) { file.length() }
+                FileMessageChip(name = file.name, sizeBytes = sizeBytes)
+            }
             BitchatMessageType.Message -> Text(
                 text = message.content,
                 style = ChatVisualTokens.MessageBodyStyle,
@@ -235,5 +237,6 @@ fun MessageItem(
     }
 }
 
-private fun formatTime(date: Date): String =
-    SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
+private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+private fun formatTime(date: Date): String = timeFormat.format(date)
