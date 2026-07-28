@@ -130,6 +130,12 @@ class Device:
         )
         return target
 
+    def clear_incoming(self) -> None:
+        _shell(
+            self.serial,
+            f"run-as {APPLICATION_ID} rm -rf cache/files/incoming cache/images/incoming",
+        )
+
     # -- test hook commands -------------------------------------------------
 
     def cmd(self, cmd: str, timeout_ms: int = 60_000, **extras: object) -> dict:
@@ -296,6 +302,7 @@ def scenario_broadcast(a: Device, b: Device) -> dict:
 def scenario_file(a: Device, b: Device, fixtures: dict[str, dict], private: bool = False) -> dict:
     """File transfer A -> B with sha256 integrity verification."""
     id_b = whoami(b)["peer_id"]
+    b.clear_incoming()  # avoid name-uniquified collisions across runs
     results = {}
     for name, fixture in fixtures.items():
         remote = a.push_fixture(fixture["path"])
