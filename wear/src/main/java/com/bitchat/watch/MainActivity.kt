@@ -13,6 +13,11 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -135,10 +140,19 @@ fun WearNavHost() {
 
     BackHandler(enabled = backStack.isNotEmpty()) { goBack() }
 
-    when (val current = screen) {
-        is WearScreen.Chat -> ChatScreen(onOpenPeople = { navigate(WearScreen.People) })
-        is WearScreen.People -> PeopleScreen(onOpenDm = { navigate(WearScreen.Dm(it)) })
-        is WearScreen.Dm -> DmScreen(peerID = current.peerID)
+    AnimatedContent(
+        targetState = screen,
+        transitionSpec = {
+            fadeIn(tween(com.bitchat.watch.ui.theme.BitchatMotion.EMPHASIZED_MS)) togetherWith
+                fadeOut(tween(com.bitchat.watch.ui.theme.BitchatMotion.QUICK_MS))
+        },
+        label = "screenTransition"
+    ) { current ->
+        when (current) {
+            is WearScreen.Chat -> ChatScreen(onOpenPeople = { navigate(WearScreen.People) })
+            is WearScreen.People -> PeopleScreen(onOpenDm = { navigate(WearScreen.Dm(it)) })
+            is WearScreen.Dm -> DmScreen(peerID = current.peerID)
+        }
     }
 }
 

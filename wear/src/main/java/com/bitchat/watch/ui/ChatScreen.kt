@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -32,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -65,6 +67,7 @@ import java.util.Locale
 fun ChatScreen(onOpenPeople: () -> Unit) {
     val messages by AppStateStore.publicMessages.collectAsState()
     val peers by AppStateStore.peers.collectAsState()
+    val unreadDms by WearChatState.unreadDms.collectAsState()
     val mesh = WearMeshService.peek()
     val myPeerID = mesh?.myPeerID ?: ""
     val listState = rememberScalingLazyListState()
@@ -78,6 +81,10 @@ fun ChatScreen(onOpenPeople: () -> Unit) {
             if (last != null && last.senderPeerID != myPeerID) {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             }
+            // Keep the newest message visible (header + messages + composer indices)
+            if (messages.isNotEmpty()) {
+                listState.animateScrollToItem(messages.size + 1)
+            }
         }
         previousCount = messages.size
     }
@@ -90,6 +97,7 @@ fun ChatScreen(onOpenPeople: () -> Unit) {
             item {
                 ChatHeader(
                     peerCount = peers.size,
+                    unreadDms = unreadDms.values.sum(),
                     onOpenPeople = onOpenPeople
                 )
             }
@@ -121,7 +129,7 @@ fun ChatScreen(onOpenPeople: () -> Unit) {
 }
 
 @Composable
-private fun ChatHeader(peerCount: Int, onOpenPeople: () -> Unit) {
+private fun ChatHeader(peerCount: Int, unreadDms: Int, onOpenPeople: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -141,6 +149,14 @@ private fun ChatHeader(peerCount: Int, onOpenPeople: () -> Unit) {
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.clickable { onOpenPeople() }
         )
+        if (unreadDms > 0) {
+            Text(
+                text = "  ·  $unreadDms new",
+                style = MaterialTheme.typography.bodySmall,
+                color = LocalBitchatPalette.current.accentOrange,
+                modifier = Modifier.clickable { onOpenPeople() }
+            )
+        }
     }
 }
 
@@ -153,10 +169,30 @@ fun MessageItem(message: BitchatMessage, myPeerID: String) {
         else -> colorForPeer(message.sender + (message.senderPeerID ?: ""), palette)
     }
 
+    // Snappy appear animation for incoming messages (BitchatMotion.EMPHASIZED_MS)
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(message.id) { appeared = true }
+    val alpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (appeared) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(
+            com.bitchat.watch.ui.theme.BitchatMotion.EMPHASIZED_MS
+        ),
+        label = "msgAlpha"
+    )
+    val offset by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (appeared) 0.dp else 6.dp,
+        animationSpec = androidx.compose.animation.core.tween(
+            com.bitchat.watch.ui.theme.BitchatMotion.EMPHASIZED_MS
+        ),
+        label = "msgOffset"
+    )
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 3.dp)
+            .offset(y = offset)
+            .alpha(alpha)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
