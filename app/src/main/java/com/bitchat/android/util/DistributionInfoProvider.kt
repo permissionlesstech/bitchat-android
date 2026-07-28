@@ -31,18 +31,21 @@ object DistributionInfoProvider {
         val splitApks = applicationInfo.splitSourceDirs.orEmpty()
         val installerPackage = installerPackageName(context)
         val certificateSha256 = signingCertificateSha256(packageInfo)
-        val installedApkCanBeSharedUniversally = splitApks.isEmpty() &&
-            isUniversalApk(File(applicationInfo.sourceDir))
+        val installedApkVariant = if (splitApks.isEmpty()) {
+            shareableApkVariant(File(applicationInfo.sourceDir))
+        } else {
+            null
+        }
 
         return DistributionInfo(
             installSource = installSourceLabel(installerPackage),
             installerPackage = installerPackage,
             packageFormat = if (splitApks.isEmpty()) "Standalone APK" else "Split APK set",
             architecture = architectureLabel(applicationInfo.sourceDir, splitApks),
-            sharingSource = if (installedApkCanBeSharedUniversally) {
-                "Current installed APK"
-            } else {
-                "Verified GitHub universal APK"
+            sharingSource = when (installedApkVariant) {
+                ShareableApkVariant.UNIVERSAL -> "Current installed APK"
+                ShareableApkVariant.ARM64 -> "Current installed APK (ARM64)"
+                null -> "Verified GitHub universal APK"
             },
             versionName = packageInfo.versionName ?: BuildConfig.VERSION_NAME,
             versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -110,6 +113,21 @@ object DistributionInfoProvider {
     fun isUniversalApk(apk: File): Boolean {
         val packagedAbis = nativeAbisInApk(apk)
         return packagedAbis.isEmpty() || packagedAbis.containsAll(UNIVERSAL_RELEASE_ABIS)
+    }
+
+    /**
+     * Returns the compatibility of an APK that is safe to offer for sharing.
+     * ARM64 is intentionally the only architecture-limited release variant
+     * supported because it is the project's primary per-ABI build.
+     */
+    fun shareableApkVariant(apk: File): ShareableApkVariant? {
+        val packagedAbis = nativeAbisInApk(apk)
+        return when {
+            packagedAbis.isEmpty() || packagedAbis.containsAll(UNIVERSAL_RELEASE_ABIS) ->
+                ShareableApkVariant.UNIVERSAL
+            packagedAbis == setOf("arm64-v8a") -> ShareableApkVariant.ARM64
+            else -> null
+        }
     }
 
     internal fun nativeAbisInApk(apk: File): Set<String> {
@@ -188,4 +206,9 @@ object DistributionInfoProvider {
         val signingChannel: String,
         val certificateSha256: String?
     )
+}
+
+enum class ShareableApkVariant {
+    UNIVERSAL,
+    ARM64
 }
