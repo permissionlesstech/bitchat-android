@@ -691,19 +691,22 @@ class NdrNostrService(
         }
         return when (event.kind) {
             "subscribe" -> {
-                val subid = event.subid ?: return true
-                val filterJson = event.filterJson ?: return true
+                val subid = event.subid?.takeIf(String::isNotBlank) ?: return false
+                val filterJson = event.filterJson ?: return false
                 if (hasRecipientFilter(filterJson)) {
                     Log.w(TAG, "Rejecting recipient-bearing NDR relay filter")
-                    return true
+                    return false
                 }
                 val filter = try {
                     parseFilterJson(filterJson)
                 } catch (_: Throwable) {
                     Log.w(TAG, "Ignoring malformed NDR relay filter")
-                    return true
+                    return false
                 }
-                if (!isPairwiseMessageSubscription(filter)) return true
+                if (!isPairwiseMessageSubscription(filter)) {
+                    Log.w(TAG, "Rejecting non-pairwise NDR relay filter")
+                    return false
+                }
                 if (!activeSubIds.add(subid)) {
                     return true
                 }

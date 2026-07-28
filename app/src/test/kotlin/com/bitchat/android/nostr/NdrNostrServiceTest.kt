@@ -138,7 +138,7 @@ class NdrNostrServiceTest {
         )
         assertEquals(listOf("messages"), relay.subscriptions.map { it.id })
         assertEquals(
-            setOf("message-sub", "appkeys-sub", "invite-sub", "recipient-sub"),
+            setOf("message-sub"),
             runtime.ackedActionIds.toSet()
         )
         assertEquals(
