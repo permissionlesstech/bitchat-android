@@ -52,6 +52,98 @@ android {
     }
 }
 
+// Shared bitchat protocol stack: compiled from :app sources in place (never moved/copied by hand).
+// AGP's source directory sets no longer support include/exclude filters, so a Sync task
+// materializes a filtered mirror into build/sharedSrc and that directory is added as a source
+// root. The app sources remain the single source of truth; extend the include list below (don't
+// copy files into wear/src) when the compiler reveals a missing transitive dependency.
+// Deliberately excluded: ui (except the DebugSettingsManager the mesh layer references),
+// onboarding, nostr (except pure-Kotlin Bech32), net, geohash, wifi-aware, hotspot, voice
+// features, and the phone's foreground service.
+val sharedSourceIncludes = listOf(
+    "com/bitchat/android/protocol/**",
+    "com/bitchat/android/noise/**",
+    "com/bitchat/android/crypto/**",
+    "com/bitchat/android/identity/**",
+    "com/bitchat/android/mesh/**",
+    "com/bitchat/android/model/**",
+    "com/bitchat/android/sync/**",
+    "com/bitchat/android/favorites/**",
+    "com/bitchat/android/services/AppStateStore.kt",
+    "com/bitchat/android/services/ContactDirectory.kt",
+    "com/bitchat/android/services/ContactIdentityResolver.kt",
+    "com/bitchat/android/services/PrivateMessageArrivalOrder.kt",
+    "com/bitchat/android/services/SeenMessageStore.kt",
+    "com/bitchat/android/services/VerificationService.kt",
+    "com/bitchat/android/services/meshgraph/**",
+    "com/bitchat/android/service/TransportBridgeService.kt",
+    "com/bitchat/android/nostr/Bech32.kt",
+    "com/bitchat/android/nostr/GeohashAliasRegistry.kt",
+    "com/bitchat/android/features/file/FileUtils.kt",
+    "com/bitchat/android/ui/debug/DebugSettingsManager.kt",
+    "com/bitchat/android/ui/debug/DebugPreferenceManager.kt",
+    "com/bitchat/android/util/AppConstants.kt",
+    "com/bitchat/android/util/ByteArrayExtensions.kt",
+    "com/bitchat/android/util/ByteArrayWrapper.kt",
+    "com/bitchat/android/util/BinaryEncodingUtils.kt",
+)
+val sharedSourceExcludes = listOf(
+    "com/bitchat/android/model/FileSharingManager.kt",
+    // Legacy phone monolith and Wi-Fi Aware multiplexer; the watch composes its own service
+    // (MeshCore-style) in M2 instead of reusing these.
+    "com/bitchat/android/mesh/BluetoothMeshService.kt",
+    "com/bitchat/android/mesh/UnifiedMeshService.kt",
+)
+
+val syncSharedAppSources = tasks.register<Sync>("syncSharedAppSources") {
+    from("../app/src/main/java") {
+        include(sharedSourceIncludes)
+        exclude(sharedSourceExcludes)
+    }
+    into(layout.buildDirectory.dir("sharedSrc"))
+}
+
+// The app's own unit tests for the shared packages also run in the wear module, so shared
+// behavior is continuously verified on both targets. Includes the app's JVM shims for
+// android.util.Log/Base64 (app/src/test/kotlin/android) that the shared code needs on the JVM.
+val syncSharedAppTests = tasks.register<Sync>("syncSharedAppTests") {
+    from("../app/src/test/java") {
+        include(
+            "com/bitchat/android/protocol/**",
+            "com/bitchat/android/crypto/**",
+            "com/bitchat/android/mesh/**",
+        )
+    }
+    from("../app/src/test/kotlin") {
+        include(
+            "android/**",
+            "com/bitchat/android/mesh/**",
+            "com/bitchat/FileTransferTest.kt",
+        )
+    }
+    into(layout.buildDirectory.dir("sharedTestSrc"))
+}
+
+android {
+    sourceSets {
+        getByName("main") {
+            java.srcDir("build/sharedSrc")
+            kotlin.srcDir("build/sharedSrc")
+        }
+        getByName("test") {
+            java.srcDir("build/sharedTestSrc")
+            kotlin.srcDir("build/sharedTestSrc")
+        }
+    }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    dependsOn(syncSharedAppSources)
+}
+tasks.matching { it.name.contains("UnitTest", ignoreCase = true) }.configureEach {
+    dependsOn(syncSharedAppTests)
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_11)

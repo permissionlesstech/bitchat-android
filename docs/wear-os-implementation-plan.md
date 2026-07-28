@@ -7,7 +7,7 @@
 | Milestone | Title | Status |
 |-----------|-------|--------|
 | M0 | Scaffolding & plan document | done |
-| M1 | Shared core compiles on Wear | pending |
+| M1 | Shared core compiles on Wear | done |
 | M2 | BLE transport & background service on watch | pending |
 | M3 | Global chat | pending |
 | M4 | Noise DMs & people screen | pending |
@@ -139,14 +139,25 @@ round display. No `app/src/` changes.
 
 ### M1 — Shared core compiles on Wear
 
-- [ ] Configure srcDir include list in `wear/build.gradle.kts`; resolve transitive dependencies by
+- [x] Configure shared-source wiring in `wear/build.gradle.kts`; resolve transitive dependencies by
   extending includes (never by copying Kotlin sources)
-- [ ] Copy Geist Mono fonts; create wear theme/palette/peer-color files mirroring `ui/theme/`
-- [ ] Wire shared unit tests (`protocol`, `noise`, `crypto`, `mesh`) into `:wear` test source set
-- [ ] `./gradlew :app:test :wear:test` green
+- [x] Copy Geist Mono fonts; create wear theme/palette/peer-color files mirroring `ui/theme/`
+- [x] Wire shared unit tests (`protocol`, `noise`, `crypto`, `mesh`) into `:wear` test source set
+- [x] `./gradlew :app:test :wear:test` green
+
+**Implementation notes** (deviation from original plan): AGP 9 source directory sets no longer
+support include/exclude filters, so a Gradle `Sync` task (`syncSharedAppSources`) materializes a
+filtered mirror of `app/src/main/java` into `wear/build/sharedSrc` which is added as a source
+root. App sources remain the single source of truth; nothing is hand-copied. Excluded:
+`BluetoothMeshService`/`UnifiedMeshService` (phone monolith / Wi-Fi Aware multiplexer — the watch
+composes its own service in M2). Two tiny wear-owned shims satisfy the only unresolvable
+references from shared code: `com.bitchat.android.service.MeshServiceHolder` (BLE-toggle
+interface, null) and `com.bitchat.android.wifiaware.WifiAwareController` (no-op).
 
 **Success criteria**: the entire shared stack (protocol, noise, crypto, identity, mesh, model,
 AppStateStore) compiles into `:wear`; both modules' unit tests pass; `app/src/` untouched.
+**Result**: PASSED — `:wear` compiles the full shared stack; 172 shared unit tests pass on
+`:wear` (0 failures), `:app` suite green; `app/src/` unchanged.
 
 ---
 
