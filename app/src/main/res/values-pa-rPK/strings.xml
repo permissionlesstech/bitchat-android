@@ -376,4 +376,7 @@
   <string name="nearby_notes_reveal">ایتھے چھڈے نوٹس ویکھو</string>
   <string name="nearby_notes_one">ایتھے 1 نوٹ چھڈیا گیا — پڑھݨ لئی ٹیپ کرو</string>
   <string name="nearby_notes_many">ایتھے %d نوٹس چھڈے گئے — پڑھݨ لئی ٹیپ کرو</string>
+    <string name="about_language">بولی</string>
+    <string name="about_system_default">سسٹم دی ڈیفالٹ</string>
+    <string name="about_select_language">بولی چݨو</string>
 </resources>

@@ -57,4 +57,7 @@
   <string name="nearby_notes_reveal">בדיקה אם הושארו כאן פתקים</string>
   <string name="nearby_notes_one">פתק אחד הושאר כאן — הקש לקריאה</string>
   <string name="nearby_notes_many">%d פתקים הושארו כאן — הקש לקריאה</string>
+    <string name="about_language">שפה</string>
+    <string name="about_system_default">ברירת המחדל של המערכת</string>
+    <string name="about_select_language">בחירת שפה</string>
 </resources>

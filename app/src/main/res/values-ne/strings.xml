@@ -393,4 +393,7 @@
   <string name="nearby_notes_reveal">यहाँ छोडिएका नोटहरू छन् कि हेर्नुहोस्</string>
   <string name="nearby_notes_one">यहाँ 1 नोट छोडिएको छ — पढ्न ट्याप गर्नुहोस्</string>
   <string name="nearby_notes_many">यहाँ %d नोटहरू छोडिएका छन् — पढ्न ट्याप गर्नुहोस्</string>
+    <string name="about_language">भाषा</string>
+    <string name="about_system_default">प्रणालीको पूर्वनिर्धारित</string>
+    <string name="about_select_language">भाषा छान्नुहोस्</string>
 </resources>

@@ -44,4 +44,7 @@
   <string name="nearby_notes_reveal">semak nota yang ditinggalkan di sini</string>
   <string name="nearby_notes_one">1 nota ditinggalkan di sini — ketik untuk baca</string>
   <string name="nearby_notes_many">%d nota ditinggalkan di sini — ketik untuk baca</string>
+    <string name="about_language">Bahasa</string>
+    <string name="about_system_default">Lalai sistem</string>
+    <string name="about_select_language">Pilih bahasa</string>
 </resources>

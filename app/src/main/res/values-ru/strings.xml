@@ -383,4 +383,7 @@
   <string name="nearby_notes_reveal">проверить, есть ли здесь заметки</string>
   <string name="nearby_notes_one">здесь оставлена 1 заметка — нажмите, чтобы прочитать</string>
   <string name="nearby_notes_many">здесь оставлено заметок: %d — нажмите, чтобы прочитать</string>
+    <string name="about_language">Язык</string>
+    <string name="about_system_default">Системный язык</string>
+    <string name="about_select_language">Выбрать язык</string>
 </resources>

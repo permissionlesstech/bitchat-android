@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Share
@@ -52,6 +53,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -117,6 +119,114 @@ private fun ThemeChip(
                 color = labelColor
             )
         }
+    }
+}
+
+@Composable
+private fun LanguagePickerDialog(
+    languages: List<AppLanguage>,
+    selectedLanguageTag: String,
+    onLanguageSelected: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.about_select_language)) },
+        text = {
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                item(key = "system") {
+                    LanguageOptionRow(
+                        label = stringResource(R.string.about_system_default),
+                        selected = selectedLanguageTag.isEmpty(),
+                        onClick = { onLanguageSelected("") },
+                    )
+                }
+                items(
+                    count = languages.size,
+                    key = { index -> languages[index].languageTag },
+                ) { index ->
+                    val language = languages[index]
+                    LanguageOptionRow(
+                        label = language.endonym,
+                        selected = selectedLanguageTag == language.languageTag,
+                        onClick = { onLanguageSelected(language.languageTag) },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun LanguageOptionRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = null,
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+    }
+}
+
+@Composable
+private fun LanguageSettingsRow(
+    selectedLanguageName: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Language,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = stringResource(R.string.about_language),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = selectedLanguageName,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+            imageVector = Icons.Filled.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -259,6 +369,28 @@ fun AboutSheet(
     val colorScheme = MaterialTheme.colorScheme
     val palette = LocalBitchatPalette.current
     var selectedTab by remember { mutableStateOf(AboutTab.Info) }
+    val supportedLanguages = remember(context) {
+        LanguagePreferenceManager.supportedLanguages(context)
+    }
+    var selectedLanguageTag by remember {
+        mutableStateOf(LanguagePreferenceManager.currentLanguageTag())
+    }
+    var showLanguagePicker by remember { mutableStateOf(false) }
+
+    if (showLanguagePicker) {
+        LanguagePickerDialog(
+            languages = supportedLanguages,
+            selectedLanguageTag = selectedLanguageTag,
+            onLanguageSelected = { languageTag ->
+                showLanguagePicker = false
+                if (languageTag != selectedLanguageTag) {
+                    selectedLanguageTag = languageTag
+                    LanguagePreferenceManager.setLanguage(languageTag)
+                }
+            },
+            onDismiss = { showLanguagePicker = false },
+        )
+    }
 
     if (isPresented) {
         BitchatBottomSheet(
@@ -338,6 +470,29 @@ fun AboutSheet(
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
+                            }
+                        }
+                    }
+
+                    item(key = "language") {
+                        val selectedLanguageName = supportedLanguages
+                            .firstOrNull { it.languageTag == selectedLanguageTag }
+                            ?.endonym
+                            ?: stringResource(R.string.about_system_default)
+
+                        Column {
+                            AboutSectionLabel(text = stringResource(R.string.about_language))
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AboutHorizontalPadding),
+                                color = colorScheme.surface,
+                                shape = AboutCardShape,
+                            ) {
+                                LanguageSettingsRow(
+                                    selectedLanguageName = selectedLanguageName,
+                                    onClick = { showLanguagePicker = true },
+                                )
                             }
                         }
                     }

@@ -389,4 +389,7 @@
   <string name="nearby_notes_reveal">ver se há notas deixadas aqui</string>
   <string name="nearby_notes_one">1 nota deixada aqui — toque para ler</string>
   <string name="nearby_notes_many">%d notas deixadas aqui — toque para ler</string>
+    <string name="about_language">Idioma</string>
+    <string name="about_system_default">Predefinição do sistema</string>
+    <string name="about_select_language">Selecionar idioma</string>
 </resources>

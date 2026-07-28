@@ -56,4 +56,7 @@
   <string name="nearby_notes_reveal">查看這裡留下的留言</string>
   <string name="nearby_notes_one">這裡留有 1 則留言 — 點按閱讀</string>
   <string name="nearby_notes_many">這裡留有 %d 則留言 — 點按閱讀</string>
+    <string name="about_language">語言</string>
+    <string name="about_system_default">跟隨系統</string>
+    <string name="about_select_language">選擇語言</string>
 </resources>
