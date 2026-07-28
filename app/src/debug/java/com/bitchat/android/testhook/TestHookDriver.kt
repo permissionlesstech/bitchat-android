@@ -16,6 +16,7 @@ import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.ui.DataManager
+import com.bitchat.android.ui.PrivateMediaRecipientResolver
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -283,6 +284,10 @@ object TestHookDriver {
         )
         val encoded = packet.encode() ?: return err("file_send", "failed to TLV-encode packet")
         val transferId = sha256Hex(encoded)
+        val recipient = peerID?.let {
+            PrivateMediaRecipientResolver.resolve(it, mesh)
+                ?: return err("file_send", "no active mesh route for private conversation: $it")
+        }
 
         return coroutineScope {
             // Subscribe on a background dispatcher before sending so synchronous
@@ -291,7 +296,14 @@ object TestHookDriver {
                 TransferProgressManager.events.first { it.transferId == transferId && it.completed }
             }
             delay(50)
-            val sendError = dispatchFileSend(context, intent, mesh, peerID, packet, transferId)
+            val sendError = dispatchFileSend(
+                context,
+                intent,
+                mesh,
+                recipient?.meshPeerID,
+                packet,
+                transferId
+            )
             if (sendError != null) {
                 completion.cancel()
                 return@coroutineScope sendError.put("cmd", "file_send")
@@ -307,7 +319,8 @@ object TestHookDriver {
                 .put("sent", event.sent)
                 .put("total", event.total)
                 .put("bytes", content.size)
-                .put("peer", peerID)
+                .put("peer", recipient?.meshPeerID)
+                .put("conversation", peerID)
         }
     }
 
