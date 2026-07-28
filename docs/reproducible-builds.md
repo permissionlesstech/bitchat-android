@@ -28,7 +28,8 @@ The build uses a clean source tree, an isolated Gradle user home, UTC, a stable
 locale, `SOURCE_DATE_EPOCH` from the Git commit, no Gradle build or configuration
 cache, fresh tasks, and a non-incremental in-process Kotlin compiler. Native
 builds remap source paths and release validation rejects host paths in packaged
-libraries.
+libraries. The container overlays a canonical `local.properties`, so an ignored
+Android Studio file cannot redirect Gradle to a host-specific SDK.
 
 AGP's embedded VCS record is disabled because its Git discovery depends on the
 host checkout layout. The canonical `BUILDINFO.json` and GitHub provenance

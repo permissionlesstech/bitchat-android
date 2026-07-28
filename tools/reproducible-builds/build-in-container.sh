@@ -7,9 +7,14 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 IMAGE_NAME="bitchat-android-reproducible-builder:21.0.11"
 OUTPUT_DIR="${1:-$PROJECT_ROOT/.reproducible-build/release}"
 GRADLE_HOME_NAME="${BITCHAT_CONTAINER_GRADLE_HOME_NAME:-gradle-home-container}"
+CONTAINER_LOCAL_PROPERTIES="$SCRIPT_DIR/container-local.properties"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "error: Docker is required for the canonical container build" >&2
+  exit 1
+fi
+if [ ! -f "$CONTAINER_LOCAL_PROPERTIES" ]; then
+  echo "error: missing canonical container local.properties" >&2
   exit 1
 fi
 
@@ -58,6 +63,7 @@ docker run \
   --env HOME=/workspace/.reproducible-build \
   --env SOURCE_DATE_EPOCH="$source_date_epoch" \
   --volume "$PROJECT_ROOT:/workspace" \
+  --mount "type=bind,source=$CONTAINER_LOCAL_PROPERTIES,target=/workspace/local.properties,readonly" \
   "${output_mount[@]}" \
   "$IMAGE_NAME" \
   "$container_output"
