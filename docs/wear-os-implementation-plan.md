@@ -13,7 +13,7 @@
 | M4 | Noise DMs & people screen | in-progress (code complete, hardware verification pending) |
 | M5 | File/image receive & display — **DEFERRED** (post-M7, later day) | deferred |
 | M6 | ADB test hook & mesh_lab interop | in-progress (code complete, interop run pending) |
-| M7 | Polish & final design pass | pending |
+| M7 | Polish & final design pass | in-progress (animations/transitions done; power audit & screencap review pending watch) |
 
 ---
 
