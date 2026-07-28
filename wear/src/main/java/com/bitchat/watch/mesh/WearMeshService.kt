@@ -6,6 +6,7 @@ import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.mesh.BluetoothConnectionManager
 import com.bitchat.android.mesh.BluetoothConnectionManagerDelegate
+import com.bitchat.android.mesh.DirectLinkAnnouncementPolicy
 import com.bitchat.android.mesh.MeshCore
 import com.bitchat.android.mesh.MeshTransport
 import com.bitchat.android.model.RoutedPacket
@@ -78,8 +79,22 @@ class WearMeshService private constructor(private val context: Context) {
             hooks = MeshCore.Hooks(
                 onMessageReceived = { message -> handleMessageReceived(message) },
                 onAnnounceProcessed = { routed, _ ->
+                    // Mirror the phone's BluetoothMeshService: learn the direct BLE
+                    // address↔peerID mapping from direct-link announcements.
+                    DirectLinkAnnouncementPolicy.observationFor(routed, MAX_TTL)?.let { obs ->
+                        val observed = connectionManager.observePeerIfCurrent(
+                            obs.relayAddress,
+                            obs.ingressLinkID,
+                            obs.peerID
+                        )
+                        if (observed) {
+                            meshCore.setDirectConnection(obs.peerID, true)
+                            try {
+                                meshCore.gossipSyncManager.scheduleInitialSyncToPeer(obs.peerID, 1_000)
+                            } catch (_: Exception) { }
+                        }
+                    }
                     routed.peerID?.let { pid ->
-                        markDirectFromRelay(pid, routed.relayAddress)
                         try {
                             meshCore.gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000)
                         } catch (_: Exception) { }
@@ -184,17 +199,6 @@ class WearMeshService private constructor(private val context: Context) {
                 }
             }
         }
-    }
-
-    private fun markDirectFromRelay(peerID: String, relayAddress: String?) {
-        if (relayAddress == null) return
-        try {
-            if (connectionManager.addressPeerMap[relayAddress] == peerID ||
-                connectionManager.addressPeerMap.containsValue(peerID)
-            ) {
-                meshCore.setDirectConnection(peerID, true)
-            }
-        } catch (_: Exception) { }
     }
 
     private fun handleMessageReceived(message: com.bitchat.android.model.BitchatMessage) {

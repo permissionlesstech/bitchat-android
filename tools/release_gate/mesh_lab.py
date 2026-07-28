@@ -86,6 +86,7 @@ class Device:
         hook_action: str = TEST_HOOK_ACTION,
         hook_component: str = TEST_HOOK_COMPONENT,
         permissions: list[str] = PERMISSIONS,
+        activity_component: str = f"{APPLICATION_ID}/com.bitchat.android.MainActivity",
     ):
         self.serial = serial
         self.alias = alias
@@ -93,6 +94,7 @@ class Device:
         self.hook_action = hook_action
         self.hook_component = hook_component
         self.permissions = permissions
+        self.activity_component = activity_component
 
     # -- app lifecycle ------------------------------------------------------
 
@@ -121,8 +123,26 @@ class Device:
         _shell(self.serial, f"am force-stop {self.package}")
 
     def launch(self) -> None:
-        _shell(self.serial, f"monkey -p {self.package} -c android.intent.category.LAUNCHER 1")
-        time.sleep(3)
+        """Launch the app and verify it is actually top-resumed.
+
+        A background/cached process can be frozen by the system (observed on Wear OS),
+        which silently hangs test-hook commands; the foreground activity (and the FGS it
+        starts) keeps the process unfrozen.
+        """
+        for _attempt in range(3):
+            _shell(self.serial, f"monkey -p {self.package} -c android.intent.category.LAUNCHER 1")
+            time.sleep(3)
+            try:
+                top = _shell(
+                    self.serial,
+                    "dumpsys activity activities | grep topResumedActivity",
+                )
+                if self.package in top:
+                    return
+            except Exception:
+                pass
+            _shell(self.serial, f"am start -n {self.activity_component}")
+            time.sleep(3)
 
     def wake(self) -> None:
         """Keep the screen on and the app foregrounded (full-power BLE duty cycle).
@@ -257,9 +277,14 @@ class WatchDevice(Device):
             hook_action=WATCH_TEST_HOOK_ACTION,
             hook_component=WATCH_TEST_HOOK_COMPONENT,
             permissions=WATCH_PERMISSIONS,
+            activity_component=f"{WATCH_APPLICATION_ID}/.MainActivity",
         )
 
     def wake(self) -> None:
+        # Keep the screen on while on the charging puck; otherwise Wear shows the
+        # charging activity on top, our app loses foreground, and the OS freezes the
+        # process (cached-app freezer), silently hanging test-hook commands.
+        _shell(self.serial, "settings put global stay_on_while_plugged_in 3")
         _shell(self.serial, "svc power stayon true")
         _shell(self.serial, "settings put system screen_off_timeout 600000")
         _shell(self.serial, "input keyevent KEYCODE_WAKEUP")
@@ -461,19 +486,33 @@ def ensure_direct_link(a: Device, b: Device, id_a: str, id_b: str) -> None:
 
     Backgrounded devices drop to POWER_SAVER duty cycles (1 s scan per 60 s), so
     passively waiting for the mesh to reform takes minutes. The explicit connect
-    makes restart scenarios deterministic.
+    makes restart scenarios deterministic. The address↔peer mapping is learned from
+    direct-link announces and can lag peer-list discovery after a restart, so the
+    connect attempt is retried while the peer announces.
     """
     wait_for_peer(a, id_b, timeout_s=120)
     wait_for_peer(b, id_a, timeout_s=120)
-    for device, peer in ((a, id_b), (b, id_a)):
-        result = device.cmd("connect", timeout_ms=45_000, peer=peer)
-        if result.get("status") == "ok" and result.get("direct"):
-            continue
-        # Already acceptable if the mesh formed a direct link on its own.
-        peers = device.cmd_ok("peers").get("peers", [])
-        match = next((p for p in peers if p.get("id") == peer), None)
-        if not match or not match.get("direct"):
-            raise MeshLabError(f"[{device.alias}] no direct link to {peer}: connect={result}")
+    for device, peer, announcer in ((a, id_b, b), (b, id_a, a)):
+        connected = False
+        last: dict = {}
+        for _attempt in range(4):
+            last = device.cmd("connect", timeout_ms=45_000, peer=peer)
+            if last.get("status") == "ok" and last.get("direct"):
+                connected = True
+                break
+            # Already acceptable if the mesh formed a direct link on its own.
+            peers = device.cmd_ok("peers").get("peers", [])
+            match = next((p for p in peers if p.get("id") == peer), None)
+            if match and match.get("direct"):
+                connected = True
+                break
+            try:
+                announcer.cmd_ok("announce")
+            except MeshLabError:
+                pass
+            time.sleep(4)
+        if not connected:
+            raise MeshLabError(f"[{device.alias}] no direct link to {peer}: connect={last}")
 
 
 def force_handshake(device: Device, peer_id: str, attempts: int = 5, per_attempt_s: int = 20) -> dict:
@@ -625,7 +664,16 @@ def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:
     try:
         supported = WATCH_SCENARIOS if isinstance(b, WatchDevice) else list(SCENARIOS)
         if name == "all":
-            evidence["results"] = {n: run_scenario(n, a, b, None)["results"] for n in supported}
+            results = {}
+            failures = []
+            for n in supported:
+                sub = run_scenario(n, a, b, out)
+                results[n] = sub.get("results", {"error": sub.get("error", "unknown")})
+                if sub["status"] != "pass":
+                    failures.append(n)
+            evidence["results"] = results
+            if failures:
+                raise MeshLabError(f"sub-scenarios failed: {', '.join(failures)}")
         elif name not in supported:
             raise MeshLabError(f"scenario '{name}' is not supported on device '{b.alias}'")
         else:

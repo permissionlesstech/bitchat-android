@@ -93,6 +93,10 @@ val sharedSourceExcludes = listOf(
     // (MeshCore-style) in M2 instead of reusing these.
     "com/bitchat/android/mesh/BluetoothMeshService.kt",
     "com/bitchat/android/mesh/UnifiedMeshService.kt",
+    // Phone permission policy additionally requires location (legacy BLE); the watch app
+    // declares Bluetooth permissions only, so it ships its own same-FQN variant in
+    // wear/src/main (Bluetooth-only check).
+    "com/bitchat/android/mesh/BluetoothPermissionManager.kt",
 )
 
 val syncSharedAppSources = tasks.register<Sync>("syncSharedAppSources") {

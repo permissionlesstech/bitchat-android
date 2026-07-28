@@ -122,8 +122,18 @@ object WearTestHookDriver {
     private suspend fun connect(peerID: String, intent: Intent): JSONObject {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_CONNECT_TIMEOUT_MS)
         val mesh = WearMeshService.peek() ?: return err("connect", "mesh service not running")
-        val address = mesh.getDeviceAddressForPeer(peerID)
-            ?: return err("connect", "no device address known for peer $peerID (scan first)")
+        // The address↔peer mapping is learned from direct-link announces and can lag
+        // peer-list discovery (especially right after a restart); poll while announcing.
+        val deadline = System.currentTimeMillis() + timeoutMs / 2
+        var address: String? = mesh.getDeviceAddressForPeer(peerID)
+        while (address == null && System.currentTimeMillis() < deadline) {
+            mesh.sendBroadcastAnnounce()
+            delay(1_000)
+            address = mesh.getDeviceAddressForPeer(peerID)
+        }
+        if (address == null) {
+            return err("connect", "no device address known for peer $peerID (scan first)")
+        }
         val accepted = mesh.connectToPeer(peerID)
         if (!accepted) return err("connect", "connectToAddress($address) rejected")
         val direct = withTimeoutOrNull(timeoutMs) {

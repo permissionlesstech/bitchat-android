@@ -81,49 +81,53 @@ fun ChatScreen(onOpenPeople: () -> Unit) {
             if (last != null && last.senderPeerID != myPeerID) {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             }
-            // Keep the newest message visible (header + messages + composer indices)
+            // Keep the newest message visible (header is index 0, messages follow)
             if (messages.isNotEmpty()) {
-                listState.animateScrollToItem(messages.size + 1)
+                listState.animateScrollToItem(messages.size)
             }
         }
         previousCount = messages.size
     }
 
     ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            item {
-                ChatHeader(
-                    peerCount = peers.size,
-                    unreadDms = unreadDms.values.sum(),
-                    onOpenPeople = onOpenPeople
-                )
-            }
-            if (messages.isEmpty()) {
+        // Composer pinned outside the ScalingLazyColumn: edge items in a scaling list are
+        // shrunk/faded and hard to tap reliably on a round screen.
+        Box(modifier = Modifier.fillMaxSize()) {
+            ScalingLazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 64.dp)
+            ) {
                 item {
-                    Text(
-                        text = "no messages yet\nsay hi to the mesh",
-                        style = ChatVisualTokens.SystemActionStyle,
-                        color = palette.textTertiary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp)
+                    ChatHeader(
+                        peerCount = peers.size,
+                        unreadDms = unreadDms.values.sum(),
+                        onOpenPeople = onOpenPeople
                     )
                 }
-            }
-            items(messages, key = { it.id }) { message ->
-                MessageItem(message = message, myPeerID = myPeerID)
-            }
-            item {
-                ChatComposer(
-                    onSend = { text ->
-                        mesh?.let { sendPublicMessage(it, text) }
+                if (messages.isEmpty()) {
+                    item {
+                        Text(
+                            text = "no messages yet\nsay hi to the mesh",
+                            style = ChatVisualTokens.SystemActionStyle,
+                            color = palette.textTertiary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp)
+                        )
                     }
-                )
+                }
+                items(messages, key = { it.id }) { message ->
+                    MessageItem(message = message, myPeerID = myPeerID)
+                }
             }
+            ChatComposer(
+                onSend = { text ->
+                    mesh?.let { sendPublicMessage(it, text) }
+                },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 }
@@ -220,7 +224,7 @@ fun MessageItem(message: BitchatMessage, myPeerID: String) {
 }
 
 @Composable
-fun ChatComposer(onSend: (String) -> Unit) {
+fun ChatComposer(onSend: (String) -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalBitchatPalette.current
     var text by remember { mutableStateOf("") }
 
@@ -247,14 +251,16 @@ fun ChatComposer(onSend: (String) -> Unit) {
     }
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .background(MaterialTheme.colorScheme.background)
+            .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         BasicTextField(
             value = text,
             onValueChange = { text = it },
+            singleLine = true,
             textStyle = ChatVisualTokens.MessageBodyStyle.copy(
                 color = MaterialTheme.colorScheme.onSurface
             ),

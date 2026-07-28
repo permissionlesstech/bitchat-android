@@ -1,5 +1,6 @@
 package com.bitchat.watch.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -77,56 +78,58 @@ fun DmScreen(peerID: String) {
     }
 
     ScreenScaffold(scrollState = listState) {
-        ScalingLazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = nickname,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = colorForPeer(nickname + peerID, palette)
-                    )
-                    Text(
-                        text = if (sessionEstablished) "  ·  noise ✓" else "  ·  handshaking…",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (sessionEstablished) MaterialTheme.colorScheme.primary
-                        else palette.textTertiary
-                    )
-                }
-            }
-            if (messages.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            ScalingLazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 64.dp)
+            ) {
                 item {
-                    Text(
-                        text = if (sessionEstablished) "encrypted channel ready\nsay hi"
-                        else "setting up encryption…",
-                        style = ChatVisualTokens.SystemActionStyle,
-                        color = palette.textTertiary,
-                        textAlign = TextAlign.Center,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 16.dp)
-                    )
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = nickname,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = colorForPeer(nickname + peerID, palette)
+                        )
+                        Text(
+                            text = if (sessionEstablished) "  ·  noise ✓" else "  ·  handshaking…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (sessionEstablished) MaterialTheme.colorScheme.primary
+                            else palette.textTertiary
+                        )
+                    }
+                }
+                if (messages.isEmpty()) {
+                    item {
+                        Text(
+                            text = if (sessionEstablished) "encrypted channel ready\nsay hi"
+                            else "setting up encryption…",
+                            style = ChatVisualTokens.SystemActionStyle,
+                            color = palette.textTertiary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp)
+                        )
+                    }
+                }
+                items(messages, key = { it.id }) { message ->
+                    MessageItem(message = message, myPeerID = myPeerID)
                 }
             }
-            items(messages, key = { it.id }) { message ->
-                MessageItem(message = message, myPeerID = myPeerID)
-            }
-            item {
-                ChatComposer(
-                    onSend = { text ->
-                        mesh?.let { sendPrivateMessage(it, peerID, nickname, text) }
-                    }
-                )
-            }
+            ChatComposer(
+                onSend = { text ->
+                    mesh?.let { sendPrivateMessage(it, peerID, nickname, text) }
+                },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 }
