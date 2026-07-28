@@ -192,7 +192,9 @@
   <string name="prepare_apk_status_not_downloaded">Not ready • Tap to download</string>
   <string name="prepare_apk_status_ready">Ready to share</string>
   <string name="prepare_apk_source_installed" translatable="false">Sharing source: this installed APK</string>
+  <string name="prepare_apk_source_installed_arm64" translatable="false">Sharing source: this installed APK • ARM64 devices only</string>
   <string name="prepare_apk_source_github" translatable="false">Sharing source: verified GitHub universal APK</string>
+  <string name="prepare_apk_get_universal" translatable="false">Get universal</string>
   <string name="prepare_apk_status_downloading">Downloading… %1$d%%</string>
   <string name="prepare_apk_status_update_available">Update available</string>
   <string name="prepare_apk_button_prepare">Prepare</string>
