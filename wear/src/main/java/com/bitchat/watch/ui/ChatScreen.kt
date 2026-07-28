@@ -116,7 +116,7 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 56.dp)
+                            .padding(bottom = 8.dp)
                             .rotaryScrollable(
                                 RotaryScrollableDefaults.behavior(scrollState),
                                 rotaryFocus
@@ -133,7 +133,7 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 16.dp)
+                                    .padding(bottom = 48.dp)
                             )
                         }
                         messages.forEach { message ->

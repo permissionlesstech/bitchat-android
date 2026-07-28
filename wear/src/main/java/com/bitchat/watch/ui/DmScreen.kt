@@ -145,7 +145,7 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 56.dp)
+                            .padding(bottom = 8.dp)
                             .rotaryScrollable(
                                 RotaryScrollableDefaults.behavior(scrollState),
                                 rotaryFocus
@@ -163,7 +163,7 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 16.dp)
+                                    .padding(bottom = 48.dp)
                             )
                         }
                         messages.forEach { message ->
