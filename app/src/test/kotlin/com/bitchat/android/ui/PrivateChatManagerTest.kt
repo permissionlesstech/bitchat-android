@@ -10,10 +10,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
@@ -68,6 +70,34 @@ class PrivateChatManagerTest {
     }
 
     @Test
+    fun `headless Nostr processing stores messages without retaining UI unread work`() {
+        val headlessManager = PrivateChatManager(
+            state = state,
+            messageManager = MessageManager(state),
+            dataManager = DataManager(RuntimeEnvironment.getApplication()),
+            noiseSessionDelegate = mock(),
+            trackUnreadMessages = false
+        )
+        val message = BitchatMessage(
+            id = "background-nostr-message",
+            sender = "alice",
+            content = "background",
+            timestamp = Date(1),
+            isPrivate = true,
+            senderPeerID = "nostr_background"
+        )
+
+        headlessManager.handleIncomingPrivateMessage(
+            message = message,
+            suppressUnread = false,
+            origin = PrivateMessageOrigin.NOSTR
+        )
+
+        assertEquals(listOf(message), AppStateStore.privateMessages.value["nostr_background"])
+        assertTrue(state.getUnreadPrivateMessagesValue().isEmpty())
+    }
+
+    @Test
     fun `canonical conversation sends read receipt through live mesh peer id`() {
         val noiseKey = ByteArray(32) { 9 }
         val meshPeerID = ContactIdentityResolver.peerIdForNoiseKey(noiseKey)
@@ -103,5 +133,102 @@ class PrivateChatManagerTest {
         )
 
         verify(meshService).sendReadReceipt(message.id, meshPeerID, "bob")
+    }
+
+    @Test
+    fun `opening canonical unread conversation clears all source aliases`() {
+        val canonicalID = "contact_alice"
+        val nostrAlias = "nostr_0123456789abcdef"
+        val meshAlias = "0123456789abcdef"
+        val unrelatedConversation = "other-contact"
+        val meshService = mock<MeshService>()
+        state.setUnreadPrivateMessages(
+            setOf(canonicalID, nostrAlias, meshAlias, unrelatedConversation)
+        )
+
+        manager.startPrivateChat(
+            peerID = canonicalID,
+            meshService = meshService,
+            unreadAliases = setOf(canonicalID, nostrAlias, meshAlias)
+        )
+
+        assertEquals(
+            setOf(unrelatedConversation),
+            state.getUnreadPrivateMessagesValue()
+        )
+    }
+
+    @Test
+    fun `opening chat skips messages whose receipt send already completed`() {
+        val noiseKey = ByteArray(32) { 8 }
+        val meshPeerID = ContactIdentityResolver.peerIdForNoiseKey(noiseKey)
+        val conversationID = ContactIdentityResolver.contactConversationIdForNoiseKey(noiseKey)
+        val oldMessage = BitchatMessage(
+            id = "already-read",
+            sender = "alice",
+            content = "old",
+            timestamp = Date(1),
+            isPrivate = true,
+            senderPeerID = meshPeerID
+        )
+        val unreadMessage = oldMessage.copy(
+            id = "still-unread",
+            content = "new",
+            timestamp = Date(2)
+        )
+        val meshService = mock<MeshService>()
+        manager = PrivateChatManager(
+            state = state,
+            messageManager = MessageManager(state),
+            dataManager = DataManager(RuntimeEnvironment.getApplication()),
+            noiseSessionDelegate = mock(),
+            hasReadReceiptBeenSent = { it == oldMessage.id }
+        )
+        state.setNickname("bob")
+        state.setPrivateChats(mapOf(conversationID to listOf(oldMessage, unreadMessage)))
+        whenever(meshService.getPeerInfo(meshPeerID)).thenReturn(
+            PeerInfo(
+                id = meshPeerID,
+                nickname = "alice",
+                isConnected = true,
+                isDirectConnection = true,
+                noisePublicKey = noiseKey,
+                signingPublicKey = null,
+                isVerifiedNickname = false,
+                lastSeen = System.currentTimeMillis()
+            )
+        )
+        whenever(meshService.hasEstablishedSession(meshPeerID)).thenReturn(true)
+
+        manager.sendReadReceiptsForPeer(conversationID, meshPeerID, meshService)
+
+        verify(meshService, never()).sendReadReceipt(oldMessage.id, meshPeerID, "bob")
+        verify(meshService).sendReadReceipt(unreadMessage.id, meshPeerID, "bob")
+    }
+
+    @Test
+    fun `canonical conversation send does not require resolved nickname`() {
+        val conversationID =
+            ContactIdentityResolver.contactConversationIdForNoiseKey(ByteArray(32) { 4 })
+        var callbackInvoked = false
+
+        manager.sendPrivateMessage(
+            content = "hello",
+            peerID = conversationID,
+            recipientNickname = null,
+            senderNickname = "bob",
+            myPeerID = "self"
+        ) { content, recipientID, nickname, _ ->
+            callbackInvoked = true
+            assertEquals("hello", content)
+            assertEquals(conversationID, recipientID)
+            assertEquals("", nickname)
+        }
+
+        assertTrue(callbackInvoked)
+        assertEquals(
+            "hello",
+            state.getPrivateChatsValue()[conversationID]?.single()?.content
+        )
     }
 }

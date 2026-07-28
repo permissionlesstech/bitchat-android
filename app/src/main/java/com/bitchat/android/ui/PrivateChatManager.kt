@@ -33,7 +33,10 @@ class PrivateChatManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val dataManager: DataManager,
-    private val noiseSessionDelegate: NoiseSessionDelegate
+    private val noiseSessionDelegate: NoiseSessionDelegate,
+    private val trackUnreadMessages: Boolean = true,
+    private val hasReadReceiptBeenSent: (messageID: String) -> Boolean = { false },
+    private val markMessageReadLocally: (messageID: String) -> Unit = {}
 ) {
 
     companion object {
@@ -47,7 +50,11 @@ class PrivateChatManager(
 
     // MARK: - Private Chat Lifecycle
 
-    fun startPrivateChat(peerID: String, meshService: MeshService): Boolean {
+    fun startPrivateChat(
+        peerID: String,
+        meshService: MeshService,
+        unreadAliases: Set<String> = emptySet()
+    ): Boolean {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
         val route = ContactDirectory.resolve(conversationID)
         val meshPeerID = route.meshPeerID ?: peerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
@@ -75,7 +82,7 @@ class PrivateChatManager(
         state.setSelectedPrivateChatPeer(conversationID)
 
         // Clear unread
-        messageManager.clearPrivateUnreadMessages(conversationID)
+        messageManager.clearPrivateUnreadMessages(conversationID, unreadAliases)
 
         // Initialize chat if needed
         messageManager.initializePrivateChat(conversationID)
@@ -337,7 +344,7 @@ class PrivateChatManager(
                 // Nostr messages originate here and must be added explicitly, even after their
                 // sender alias has canonicalized to a contact_* conversation ID.
                 if (origin == PrivateMessageOrigin.NOSTR) {
-                    if (suppressUnread) {
+                    if (suppressUnread || !trackUnreadMessages) {
                         messageManager.addPrivateMessageNoUnread(conversationID, message)
                     } else {
                         messageManager.addPrivateMessage(conversationID, message)
@@ -345,7 +352,10 @@ class PrivateChatManager(
                 }
 
                 // Track as unread for read receipt purposes if not focused
-                if (!suppressUnread && state.getSelectedPrivateChatPeerValue() != conversationID) {
+                if (trackUnreadMessages &&
+                    !suppressUnread &&
+                    state.getSelectedPrivateChatPeerValue() != conversationID
+                ) {
                     val unreadList = unreadReceivedMessages.getOrPut(conversationID) { mutableListOf() }
                     unreadList.add(message)
                     Log.d(TAG, "Queued unread from $conversationID (count=${unreadList.size})")
@@ -398,7 +408,14 @@ class PrivateChatManager(
                 senderPeerID == meshPeerID ||
                     ContactDirectory.canonicalConversationId(senderPeerID) == canonicalConversationID
                 )
-            if (isFromTarget && meshPeerID != null) {
+            if (isFromTarget) {
+                try {
+                    markMessageReadLocally(msg.id)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to persist local read for message ${msg.id}: ${e.message}")
+                }
+            }
+            if (isFromTarget && meshPeerID != null && !hasReadReceiptBeenSent(msg.id)) {
                 try {
                     if (hasMesh) {
                         meshService.sendReadReceipt(msg.id, meshPeerID, myNickname)

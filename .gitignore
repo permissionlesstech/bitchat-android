@@ -7,6 +7,7 @@ build/
 !*/build/intermediates/
 local.properties
 .gradle/
+.kotlin/
 captures/
 .externalNativeBuild/
 debug_keystore/
@@ -40,6 +41,11 @@ dependency-reduced-pom.xml
 # Linters
 .lint/
 
+# Python test tooling
+**/__pycache__/
+*.py[cod]
+release-gate-results/
+
 # Other
 *.log
 .cxx/
@@ -63,3 +69,6 @@ google-services.json
 # Arti build artifacts (cloned repo and Rust build cache)
 tools/arti-build/.arti-source/
 tools/arti-build/target/
+
+# JVM heap dumps (a Gradle daemon OOM drops these in the repo root)
+*.hprof

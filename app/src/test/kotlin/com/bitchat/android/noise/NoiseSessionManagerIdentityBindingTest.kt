@@ -331,6 +331,51 @@ class NoiseSessionManagerIdentityBindingTest {
     }
 
     @Test
+    fun `simultaneous handshake collision matrix has one deterministic winner`() {
+        val identities = listOf(
+            identity("e61ef9919cde45dd5f82166404bd08e38bceb5dfdfded0a34c8df7ed542214d1"),
+            identity("4a3acbfdb163dec651dfa3194dece676d437029c62a408b4c5ea9114246e4893"),
+            identity("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"),
+            identity("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb")
+        )
+
+        identities.indices.forEach { leftIndex ->
+            ((leftIndex + 1) until identities.size).forEach { rightIndex ->
+                val left = identities[leftIndex]
+                val right = identities[rightIndex]
+                val leftManager = manager(left)
+                val rightManager = manager(right)
+                val leftMessage1 = leftManager.initiateHandshake(right.peerID)!!
+                val rightMessage1 = rightManager.initiateHandshake(left.peerID)!!
+
+                val leftResponse = leftManager.processHandshakeMessage(right.peerID, rightMessage1)
+                val rightResponse = rightManager.processHandshakeMessage(left.peerID, leftMessage1)
+
+                if (left.peerID < right.peerID) {
+                    assertNull(leftResponse)
+                    val message3 = leftManager.processHandshakeMessage(right.peerID, rightResponse!!)!!
+                    assertNull(rightManager.processHandshakeMessage(left.peerID, message3))
+                } else {
+                    assertNull(rightResponse)
+                    val message3 = rightManager.processHandshakeMessage(left.peerID, leftResponse!!)!!
+                    assertNull(leftManager.processHandshakeMessage(right.peerID, message3))
+                }
+
+                assertTrue(leftManager.hasEstablishedSession(right.peerID))
+                assertTrue(rightManager.hasEstablishedSession(left.peerID))
+                val payload = "matrix-$leftIndex-$rightIndex".toByteArray()
+                assertArrayEquals(
+                    payload,
+                    rightManager.decrypt(
+                        leftManager.encrypt(payload, right.peerID),
+                        left.peerID
+                    )
+                )
+            }
+        }
+    }
+
+    @Test
     fun `peer ID derivation rejects malformed keys and non-wire claims`() {
         val peer = identity()
 
@@ -375,6 +420,21 @@ class NoiseSessionManagerIdentityBindingTest {
             val privateKey = ByteArray(32)
             val publicKey = ByteArray(32)
             dh.getPrivateKey(privateKey, 0)
+            dh.getPublicKey(publicKey, 0)
+            TestIdentity(privateKey, publicKey, NoisePeerIdentity.derivePeerID(publicKey)!!)
+        } finally {
+            dh.destroy()
+        }
+    }
+
+    private fun identity(privateKeyHex: String): TestIdentity {
+        val privateKey = privateKeyHex.chunked(2)
+            .map { it.toInt(16).toByte() }
+            .toByteArray()
+        val dh = Noise.createDH("25519")
+        return try {
+            dh.setPrivateKey(privateKey, 0)
+            val publicKey = ByteArray(32)
             dh.getPublicKey(publicKey, 0)
             TestIdentity(privateKey, publicKey, NoisePeerIdentity.derivePeerID(publicKey)!!)
         } finally {

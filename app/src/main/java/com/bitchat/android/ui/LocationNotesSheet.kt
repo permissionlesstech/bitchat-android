@@ -1,17 +1,16 @@
 package com.bitchat.android.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -24,7 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,11 +56,9 @@ fun LocationNotesSheet(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
+    val colorScheme = MaterialTheme.colorScheme
+    val accentGreen = colorScheme.primary
 
-    // iOS color scheme
-    val accentGreen =
-        if (isDark) Color.Green else Color(0xFF008000) // dark: green, light: dark green (0, 0.5, 0)
 
     // Managers
     val notesManager = remember { LocationNotesManager.getInstance() }
@@ -274,7 +271,7 @@ private fun LocationNotesHeader(
             if (name.isNotEmpty()) {
                 Text(
                     text = name,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 12.sp,
                     color = accentGreen,
                 )
@@ -285,7 +282,7 @@ private fun LocationNotesHeader(
         // Description
         Text(
             text = stringResource(R.string.location_notes_description),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
@@ -295,7 +292,7 @@ private fun LocationNotesHeader(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = stringResource(R.string.location_notes_relays_unavailable),
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
@@ -338,7 +335,7 @@ private fun NoteRow(
         ) {
             Text(
                 text = "@$baseName",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -347,7 +344,7 @@ private fun NoteRow(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = ts,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
@@ -359,7 +356,7 @@ private fun NoteRow(
         // Second row: content
         Text(
             text = note.content,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -379,7 +376,7 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
     ) {
         Text(
             text = stringResource(R.string.location_notes_no_relays_title),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -387,14 +384,14 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.location_notes_no_relays_desc),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.retry),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.clickable(onClick = onRetry),
@@ -422,7 +419,7 @@ private fun LoadingRow() {
         Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = stringResource(R.string.loading_location_notes),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
@@ -442,7 +439,7 @@ private fun EmptyRow() {
     ) {
         Text(
             text = stringResource(R.string.location_notes_empty_title),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -450,7 +447,7 @@ private fun EmptyRow() {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.location_notes_empty_desc),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
@@ -482,7 +479,7 @@ private fun ErrorRow(
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = message,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -490,7 +487,7 @@ private fun ErrorRow(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.dismiss),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.clickable(onClick = onDismiss),
@@ -510,7 +507,6 @@ private fun LocationNotesInputSection(
     nickname: String?,
     onSend: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
     val colorScheme = MaterialTheme.colorScheme
 
     Column(
@@ -524,7 +520,7 @@ private fun LocationNotesInputSection(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "@$baseName",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = colorScheme.onSurface
@@ -546,33 +542,27 @@ private fun LocationNotesInputSection(
             androidx.compose.foundation.text.BasicTextField(
                 value = draft,
                 onValueChange = onDraftChange,
-                textStyle =
-                    MaterialTheme.typography.bodyMedium.copy(
-                        color = colorScheme.primary,
-                        fontFamily = FontFamily.Monospace,
-                    ),
-                cursorBrush =
-                    androidx.compose.ui.graphics
-                        .SolidColor(colorScheme.primary),
-                keyboardOptions =
-                    androidx.compose.foundation.text.KeyboardOptions(
-                        imeAction = androidx.compose.ui.text.input.ImeAction.Send,
-                    ),
-                keyboardActions =
-                    androidx.compose.foundation.text.KeyboardActions(
-                        onSend = { if (sendButtonEnabled) onSend() },
-                    ),
-                modifier = Modifier.fillMaxWidth(),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = colorScheme.primary,
+                    fontFamily = BitchatFontFamily
+                ),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(colorScheme.primary),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    imeAction = androidx.compose.ui.text.input.ImeAction.Send
+                ),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onSend = { if (sendButtonEnabled) onSend() }
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
 
             // Placeholder when empty (matches main chat)
             if (draft.isEmpty()) {
                 Text(
                     text = stringResource(R.string.location_notes_input_placeholder),
-                    style =
-                        MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = FontFamily.Monospace,
-                        ),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = BitchatFontFamily
+                    ),
                     color = colorScheme.onSurface.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -604,14 +594,11 @@ private fun LocationNotesInputSection(
                     imageVector = Icons.Filled.ArrowUpward,
                     contentDescription = stringResource(R.string.send_message),
                     modifier = Modifier.size(20.dp),
-                    tint =
-                        if (!sendButtonEnabled) {
-                            colorScheme.onSurface.copy(alpha = 0.5f)
-                        } else if (isDark) {
-                            Color.Black // Black arrow on green in dark theme
-                        } else {
-                            Color.White // White arrow on green in light theme
-                        },
+                    tint = if (!sendButtonEnabled) {
+                        colorScheme.onSurface.copy(alpha = 0.5f)
+                    } else {
+                        colorScheme.onPrimary
+                    }
                 )
             }
         }
@@ -650,7 +637,7 @@ internal fun NoteActionsSheet(
             Text(
                 text = "@$baseName",
                 fontSize = 18.sp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -682,7 +669,7 @@ internal fun NoteActionsSheet(
                 Text(
                     text = stringResource(R.string.cancel_lower),
                     fontSize = BASE_FONT_SIZE.sp,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                 )
             }
         }
@@ -717,14 +704,14 @@ private fun NoteActionRow(
             Text(
                 text = title,
                 fontSize = BASE_FONT_SIZE.sp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Medium,
                 color = titleColor,
             )
             Text(
                 text = subtitle,
                 fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
         }

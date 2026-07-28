@@ -7,6 +7,16 @@ import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.wifiaware.WifiAwareController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * Feature-facing mesh service that hides local transport selection from the rest of the app.
@@ -23,6 +33,10 @@ class UnifiedMeshService(
     companion object {
         private const val TAG = "UnifiedMeshService"
     }
+
+    private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val powerManager = PowerManager.getInstance(context.applicationContext)
+    private var announcementJob: Job? = null
 
     override val myPeerID: String
         get() = bluetooth.myPeerID
@@ -49,12 +63,35 @@ class UnifiedMeshService(
         try { WifiAwareController.startIfPossible() } catch (e: Exception) {
             Log.w(TAG, "Failed to start Wi-Fi Aware transport: ${e.message}")
         }
+        startAnnouncementScheduler()
         refreshDelegates()
     }
 
     override fun stopServices() {
+        announcementJob?.cancel()
+        announcementJob = null
         try { bluetooth.stopServices() } catch (_: Exception) { }
         try { WifiAwareController.stop() } catch (_: Exception) { }
+    }
+
+    private fun startAnnouncementScheduler() {
+        if (announcementJob?.isActive == true) return
+        announcementJob = serviceScope.launch {
+            powerManager.profile
+                .map { profile ->
+                    profile.meshAnnouncementIntervalMs to profile.hasDirectPeers
+                }
+                .distinctUntilChanged()
+                .collectLatest { (intervalMs, hasRecipients) ->
+                    if (!hasRecipients) return@collectLatest
+                    // Connection-specific paths already send an immediate announce. Begin the
+                    // periodic cadence after the configured interval to avoid a transition burst.
+                    while (isActive) {
+                        delay(intervalMs)
+                        if (powerManager.profile.value.hasDirectPeers) sendBroadcastAnnounce()
+                    }
+                }
+            }
     }
 
     override fun sendMessage(content: String, mentions: List<String>, channel: String?) {

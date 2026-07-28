@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.PrivateMessageArrivalOrder
 import java.util.*
 import java.util.Collections
 
@@ -110,6 +111,8 @@ class MessageManager(private val state: ChatState) {
         val chatMessages = currentPrivateChats[conversationID]?.toMutableList() ?: mutableListOf()
         chatMessages.add(message)
         currentPrivateChats[conversationID] = chatMessages
+        // Record the local arrival sequence before canonicalizing UI aliases.
+        PrivateMessageArrivalOrder.record(message.id)
         state.setPrivateChats(ContactDirectory.canonicalizePrivateChats(currentPrivateChats))
         // Reflect into process-wide store
         try { com.bitchat.android.services.AppStateStore.addPrivateMessage(conversationID, message) } catch (_: Exception) { }
@@ -132,6 +135,8 @@ class MessageManager(private val state: ChatState) {
         val chatMessages = currentPrivateChats[conversationID]?.toMutableList() ?: mutableListOf()
         chatMessages.add(message)
         currentPrivateChats[conversationID] = chatMessages
+        // Record the local arrival sequence before canonicalizing UI aliases.
+        PrivateMessageArrivalOrder.record(message.id)
         state.setPrivateChats(ContactDirectory.canonicalizePrivateChats(currentPrivateChats))
         // Reflect into process-wide store
         try { com.bitchat.android.services.AppStateStore.addPrivateMessage(conversationID, message) } catch (_: Exception) { }
@@ -153,11 +158,17 @@ class MessageManager(private val state: ChatState) {
         state.setPrivateChats(updatedChats)
     }
     
-    fun clearPrivateUnreadMessages(peerID: String) {
+    fun clearPrivateUnreadMessages(
+        peerID: String,
+        aliases: Set<String> = emptySet()
+    ) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
         val updatedUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
-        updatedUnread.remove(peerID)
-        updatedUnread.remove(conversationID)
+        val normalizedAliases = (aliases + peerID + conversationID)
+            .mapTo(mutableSetOf()) { it.lowercase() }
+        updatedUnread.removeAll { unreadID ->
+            unreadID.lowercase() in normalizedAliases
+        }
         state.setUnreadPrivateMessages(updatedUnread)
     }
     

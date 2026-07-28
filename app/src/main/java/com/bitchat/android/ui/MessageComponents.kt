@@ -1,6 +1,18 @@
 package com.bitchat.android.ui
 
-
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,16 +21,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,20 +41,25 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.text.AnnotatedClickableText
 import com.bitchat.android.mesh.MeshService
@@ -50,6 +67,13 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.ui.media.FileMessageItem
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.ChatVisualTokens
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.MessageBodyTextStyle
+import com.bitchat.android.ui.theme.MessageSenderTextStyle
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -61,12 +85,119 @@ import java.util.Locale
  * Extracted from ChatScreen.kt for better organization
  */
 
+/** How far a newly arrived message travels up into place. */
+private val MessageEntrySlide = 14.dp
+
+/**
+ * Entry motion for a new message: quick, with just enough damping to settle rather than snap.
+ * Runs entirely on a graphics layer, so it costs a transform and nothing else.
+ */
+private val MessageEntrySpec: AnimationSpec<Float> =
+    spring(dampingRatio = 0.85f, stiffness = 1200f)
+
+/**
+ * Motion for messages being pushed out of the way by an arrival. Softer than the entry so the
+ * conversation glides up while the new message itself lands crisply.
+ */
+private val MessagePlacementSpec: FiniteAnimationSpec<IntOffset> = spring(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow,
+    visibilityThreshold = IntOffset.VisibilityThreshold
+)
+
+/** Removals are not worth dwelling on. */
+private val MessageFadeOutSpec: FiniteAnimationSpec<Float> = tween(BitchatMotion.QUICK_MS)
+
+/**
+ * How long placement animation stays armed after the list gains or loses a message.
+ *
+ * Comfortably longer than [MessagePlacementSpec] takes to settle, so an arrival's push is never cut
+ * short.
+ */
+private const val PlacementArmWindowMs = 600L
+
+/**
+ * Above this many simultaneous arrivals, entry animations are skipped.
+ *
+ * A history sync or a channel switch can append hundreds of messages in one frame. Animating each
+ * would spend the entire frame budget on motion nobody asked to see, so a burst is adopted
+ * silently and only conversational-pace arrivals animate.
+ */
+internal const val MaxAnimatedArrivals = 6
+
+/**
+ * Remembers which message ids have already been seen, so genuine arrivals can be told apart from
+ * items merely scrolling back into view.
+ *
+ * This distinction is the whole reason the entry animation is usable: `LazyColumn` composes items
+ * on demand, so animating on first composition would replay the animation for every old message
+ * the user scrolled back to.
+ */
+internal class MessageArrivalTracker {
+    val known = HashSet<String>()
+    var seeded = false
+}
+
+/**
+ * Ids that should animate in on this composition pass.
+ *
+ * Deliberately computed during composition rather than in a `LaunchedEffect`: effects run *after*
+ * the frame's composition, by which point a new message's item has already composed and would
+ * have missed its cue.
+ */
+internal fun MessageArrivalTracker.arrivals(messages: List<BitchatMessage>): Set<String> {
+    if (!seeded) {
+        // First load adopts everything silently. A whole screenful animating on open reads as a
+        // glitch, not a flourish.
+        messages.forEach { known.add(it.id) }
+        seeded = true
+        return emptySet()
+    }
+
+    // A list with nothing in common with the last one is a different conversation, not a burst of
+    // arrivals — /clear, or a switch the caller did not give us a distinct key for. Adopt it
+    // silently rather than sliding in every message at once.
+    val isWholesaleReplacement =
+        messages.isNotEmpty() && known.isNotEmpty() && messages.none { it.id in known }
+
+    // `HashSet.add` reports whether the id was new, so this both diffs and updates in one pass.
+    val added = messages.filter { known.add(it.id) }
+
+    if (known.size > messages.size) {
+        // Messages disappeared (/clear, channel switch). Drop the stale ids so the set cannot
+        // grow without bound and so re-added messages animate again.
+        known.retainAll(messages.mapTo(HashSet(messages.size)) { it.id })
+    }
+
+    return when {
+        isWholesaleReplacement -> emptySet()
+        added.isEmpty() || added.size > MaxAnimatedArrivals -> emptySet()
+        else -> added.mapTo(HashSet(added.size)) { it.id }
+    }
+}
+
 @Composable
 fun MessagesList(
     messages: List<BitchatMessage>,
     currentUserNickname: String,
     meshService: MeshService,
     modifier: Modifier = Modifier,
+    mentionPeerIdentities: Map<String, PeerIdentity>? = null,
+    /**
+     * Extra inset on top of the list's own gutters.
+     *
+     * The chat screen's bars are translucent and the list scrolls underneath them, so the caller
+     * has to reserve room for their heights here rather than by shrinking the viewport.
+     */
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    /**
+     * Identity of the conversation being shown — a channel, a geohash, a peer.
+     *
+     * Everything below that is per-conversation state is keyed on this. Without it, switching
+     * channels reused the previous conversation's scroll offset, follow flag and seen-message set,
+     * so the new channel opened at a stale position and then animated itself into place.
+     */
+    conversationKey: Any? = null,
     forceScrollToBottom: Boolean = false,
     onScrolledUpChanged: ((Boolean) -> Unit)? = null,
     onNicknameClick: ((String) -> Unit)? = null,
@@ -74,11 +205,23 @@ fun MessagesList(
     onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
     onImageClick: ((String, List<String>, Int) -> Unit)? = null
 ) {
-    val listState = rememberLazyListState()
-    
+    val resolvedMentionPeerIdentities = remember(messages, mentionPeerIdentities) {
+        mentionPeerIdentities ?: buildMentionPeerIdentityMap(messages)
+    }
+
+    // A fresh scroll position per conversation. Sharing one state meant a switch inherited the
+    // previous channel's offset and then had to correct itself, which is what the jump was.
+    //
+    // Passing the key as an *input* rather than as `key =` is deliberate: it discards the saved
+    // offset on every switch, so a conversation always opens on its newest message instead of
+    // wherever the reader happened to be some time ago, with unseen messages below them.
+    val listState = rememberSaveable(conversationKey, saver = LazyListState.Saver) {
+        LazyListState()
+    }
+
     // Track if this is the first time messages are being loaded
-    var hasScrolledToInitialPosition by remember { mutableStateOf(false) }
-    var followIncomingMessages by remember { mutableStateOf(true) }
+    var hasScrolledToInitialPosition by remember(conversationKey) { mutableStateOf(false) }
+    var followIncomingMessages by remember(conversationKey) { mutableStateOf(true) }
     
     // Smart scroll: auto-scroll to bottom for initial load, then follow unless user scrolls away
     LaunchedEffect(messages.size) {
@@ -94,7 +237,7 @@ fun MessagesList(
     }
     
     // Track whether user has scrolled away from the latest messages
-    val isAtLatest by remember {
+    val isAtLatest by remember(listState) {
         derivedStateOf {
             val firstVisibleIndex = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: -1
             firstVisibleIndex <= 2
@@ -114,27 +257,107 @@ fun MessagesList(
         }
     }
     
+    // Recomputed only when the list actually gains or loses a message, and synchronously, so the
+    // arriving item can read its cue during the same composition pass in which it first appears.
+    // Reset per conversation, so a switch adopts the incoming messages silently instead of
+    // treating a whole channel's backlog as brand-new arrivals and sliding each one in.
+    val arrivalTracker = remember(conversationKey) { MessageArrivalTracker() }
+    val enteringIds = remember(conversationKey, messages.size, messages.lastOrNull()?.id) {
+        arrivalTracker.arrivals(messages)
+    }
+
+    // Placement animation exists to soften insertions and removals. But *any* relayout moves every
+    // item — the keyboard opening behind a bottom sheet, that sheet closing again, the composer
+    // growing a line — and animating those made the whole conversation lurch. So it is armed only
+    // briefly around a genuine change to the list, and is otherwise off, letting items track the
+    // viewport exactly.
+    var placementArmed by remember(conversationKey) { mutableStateOf(false) }
+    var previousMessageCount by remember(conversationKey) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(conversationKey, messages.size) {
+        val previous = previousMessageCount
+        previousMessageCount = messages.size
+        // Skip the first composition: the list settling into its initial padding is not a change
+        // worth animating.
+        if (previous == null || previous == messages.size) return@LaunchedEffect
+        placementArmed = true
+        delay(PlacementArmWindowMs)
+        placementArmed = false
+    }
+
+    val layoutDirection = LocalLayoutDirection.current
     LazyColumn(
         state = listState,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        // Wider side gutters than the old 12.dp: the redesign trades a little line length for
+        // a much calmer edge, and long monospace lines were running into the screen bezel.
+        contentPadding = PaddingValues(
+            start = 16.dp + contentPadding.calculateStartPadding(layoutDirection),
+            end = 16.dp + contentPadding.calculateEndPadding(layoutDirection),
+            top = 8.dp + contentPadding.calculateTopPadding(),
+            bottom = 12.dp + contentPadding.calculateBottomPadding()
+        ),
+        // Spacing is owned by each item. The exported transcript uses a consistent 8.dp rhythm;
+        // a new speaker gets additional separation from the visible sender row's top inset.
+        verticalArrangement = Arrangement.spacedBy(0.dp),
         modifier = modifier,
         reverseLayout = true
     ) {
-        items(
-            items = messages.asReversed(),
-            key = { it.id }
-        ) { message ->
-                MessageItem(
-                    message = message,
-                    messages = messages,
-                    currentUserNickname = currentUserNickname,
-                    meshService = meshService,
-                    onNicknameClick = onNicknameClick,
-                    onMessageLongPress = onMessageLongPress,
-                    onCancelTransfer = onCancelTransfer,
-                    onImageClick = onImageClick
-                )
+        val reversed = messages.asReversed()
+        itemsIndexed(
+            items = reversed,
+            key = { _, message -> message.id }
+        ) { reversedIndex, message ->
+            // reverseLayout renders index 0 at the bottom, so the chronological predecessor of
+            // this row lives at a *higher* original index offset. Resolve against the original
+            // list rather than the reversed view to keep the grouping logic readable.
+            val originalIndex = messages.lastIndex - reversedIndex
+            val previous = messages.getOrNull(originalIndex - 1)
+            val isGrouped = MessageGrouping.shouldGroup(previous, message)
+
+            // Decided once per item instance, so an item recycling back into view during a scroll
+            // never re-animates. Items that are not arriving skip the animation machinery
+            // entirely: no Animatable, no coroutine, and no extra render layer per row.
+            val isArriving = remember(message.id) { message.id in enteringIds }
+            val entryModifier = if (isArriving) {
+                val entry = remember(message.id) { Animatable(0f) }
+                LaunchedEffect(message.id) { entry.animateTo(1f, MessageEntrySpec) }
+                // A draw-time transform only: no measure, no layout, and no recomposition of the
+                // message content on any frame of the animation.
+                Modifier.graphicsLayer {
+                    val progress = entry.value
+                    alpha = progress
+                    translationY = (1f - progress) * MessageEntrySlide.toPx()
+                }
+            } else {
+                Modifier
+            }
+
+            MessageItem(
+                message = message,
+                messages = messages,
+                currentUserNickname = currentUserNickname,
+                meshService = meshService,
+                mentionPeerIdentities = resolvedMentionPeerIdentities,
+                showSender = !isGrouped,
+                topSpacing = MessageGrouping.topSpacingFor(
+                    isGrouped = isGrouped,
+                    isFirstInList = originalIndex == 0
+                ),
+                onNicknameClick = onNicknameClick,
+                onMessageLongPress = onMessageLongPress,
+                onCancelTransfer = onCancelTransfer,
+                onImageClick = onImageClick,
+                modifier = Modifier
+                    // Animates the shift when a neighbour is inserted or removed: this is what
+                    // makes the conversation glide up instead of jumping.
+                    .animateItem(
+                        // Entry fade is handled by entryModifier, together with the slide, so the
+                        // two cannot drift out of step.
+                        fadeInSpec = null,
+                        placementSpec = if (placementArmed) MessagePlacementSpec else null,
+                        fadeOutSpec = MessageFadeOutSpec
+                    )
+                    .then(entryModifier)
+            )
         }
     }
 }
@@ -146,16 +369,22 @@ fun MessageItem(
     currentUserNickname: String,
     meshService: MeshService,
     messages: List<BitchatMessage> = emptyList(),
+    mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
+    showSender: Boolean = true,
+    topSpacing: Dp = 0.dp,
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
     onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
-    onImageClick: ((String, List<String>, Int) -> Unit)? = null
+    onImageClick: ((String, List<String>, Int) -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
-    
+    val timeFormatter = remember { SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()) }
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = topSpacing),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -172,8 +401,10 @@ fun MessageItem(
                     messages = messages,
                     currentUserNickname = currentUserNickname,
                     meshService = meshService,
+                    mentionPeerIdentities = mentionPeerIdentities,
                     colorScheme = colorScheme,
                     timeFormatter = timeFormatter,
+                    showSender = showSender,
                     onNicknameClick = onNicknameClick,
                     onMessageLongPress = onMessageLongPress,
                     onCancelTransfer = onCancelTransfer,
@@ -209,14 +440,18 @@ fun MessageItem(
         messages: List<BitchatMessage>,
         currentUserNickname: String,
         meshService: MeshService,
+        mentionPeerIdentities: Map<String, PeerIdentity>,
         colorScheme: ColorScheme,
         timeFormatter: SimpleDateFormat,
+        showSender: Boolean,
         onNicknameClick: ((String) -> Unit)?,
         onMessageLongPress: ((BitchatMessage) -> Unit)?,
         onCancelTransfer: ((BitchatMessage) -> Unit)?,
         onImageClick: ((String, List<String>, Int) -> Unit)?,
         modifier: Modifier = Modifier
     ) {
+    val palette = LocalBitchatPalette.current
+
     // Image special rendering
     if (message.type == BitchatMessageType.Image) {
         com.bitchat.android.ui.media.ImageMessageItem(
@@ -226,6 +461,7 @@ fun MessageItem(
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
+            showSender = showSender,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
@@ -243,6 +479,7 @@ fun MessageItem(
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
+            showSender = showSender,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
@@ -268,9 +505,11 @@ fun MessageItem(
             val headerText = formatMessageHeaderAnnotatedString(
                 message = message,
                 currentUserNickname = currentUserNickname,
-                meshService = meshService,
-                colorScheme = colorScheme,
-                timeFormatter = timeFormatter
+                myPeerID = meshService.myPeerID,
+                palette = palette,
+                contentColor = colorScheme.onSurface,
+                timeFormatter = timeFormatter,
+                includeSender = showSender
             )
             val haptic = LocalHapticFeedback.current
             AnnotatedClickableText(
@@ -286,7 +525,7 @@ fun MessageItem(
                     }
                 },
                 onLongPress = { onMessageLongPress?.invoke(message) },
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 color = colorScheme.onSurface,
             )
 
@@ -335,15 +574,24 @@ fun MessageItem(
                                     .align(Alignment.TopEnd)
                                     .padding(4.dp)
                                     .size(22.dp)
-                                    .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
+                                    .background(colorScheme.surfaceVariant.copy(alpha = 0.85f), CircleShape)
                                     .clickable { onCancelTransfer?.invoke(message) },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(R.string.cd_cancel), tint = Color.White, modifier = Modifier.size(14.dp))
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = stringResource(R.string.cd_cancel),
+                                    tint = colorScheme.onSurface,
+                                    modifier = Modifier.size(14.dp)
+                                )
                             }
                         }
                     } else {
-                        Text(text = stringResource(R.string.file_unavailable), fontFamily = FontFamily.Monospace, color = Color.Gray)
+                        Text(
+                            text = stringResource(R.string.file_unavailable),
+                            fontFamily = BitchatFontFamily,
+                            color = palette.textTertiary
+                        )
                     }
                 }
             }
@@ -351,31 +599,15 @@ fun MessageItem(
         return
     }
 
-    // Check if this message should be animated during PoW mining
-    val shouldAnimate = shouldAnimateMessage(message.id)
-    
-    // If animation is needed, use the matrix animation component for content only
-    if (shouldAnimate) {
-        // Display message with matrix animation for content
-        MessageWithMatrixAnimation(
-            message = message,
-            currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
-            timeFormatter = timeFormatter,
-            onNicknameClick = onNicknameClick,
-            onMessageLongPress = onMessageLongPress,
-            modifier = modifier
-        )
-    } else if (message.sender == "system") {
-        // Keep system messages on the compact legacy line.
-        val annotatedText = formatMessageAsAnnotatedString(
-            message = message,
-            currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
-            timeFormatter = timeFormatter
-        )
+    if (message.sender == "system") {
+        // Background narration: `// Tor started. Routing all chats…`
+        val annotatedText = remember(message, colorScheme.onSurface) {
+            formatSystemMessage(
+                message = message,
+                contentColor = colorScheme.onSurface,
+                timeFormatter = timeFormatter
+            )
+        }
 
         val haptic = LocalHapticFeedback.current
         Text(
@@ -388,11 +620,11 @@ fun MessageItem(
                     }
                 )
             },
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             softWrap = true,
             overflow = TextOverflow.Visible,
-            style = androidx.compose.ui.text.TextStyle(
-                color = colorScheme.onSurface
+            style = ChatVisualTokens.SystemActionStyle.copy(
+                color = colorScheme.onSurface.copy(alpha = ChatVisualTokens.MutedTextAlpha),
             )
         )
     } else {
@@ -400,8 +632,10 @@ fun MessageItem(
             message = message,
             currentUserNickname = currentUserNickname,
             meshService = meshService,
+            mentionPeerIdentities = mentionPeerIdentities,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
+            showSender = showSender,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             modifier = modifier,
@@ -414,37 +648,47 @@ internal fun TextMessageLayout(
     message: BitchatMessage,
     currentUserNickname: String,
     meshService: MeshService,
+    mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     colorScheme: ColorScheme,
     timeFormatter: SimpleDateFormat,
     onNicknameClick: ((String) -> Unit)?,
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier,
+    showSender: Boolean = true,
     bodyContent: String = message.content,
 ) {
+    val palette = LocalBitchatPalette.current
     val myPeerId = meshService.myPeerID
     val displayMessage = remember(message, bodyContent) {
         if (bodyContent == message.content) message else message.copy(content = bodyContent)
     }
-    val senderText = remember(message, currentUserNickname, myPeerId, colorScheme) {
+    val senderText = remember(message, currentUserNickname, myPeerId, palette) {
         formatTextMessageSender(
             message = message,
             currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
+            myPeerID = myPeerId,
+            palette = palette,
         )
     }
-    val metadataText = remember(message.timestamp, message.powDifficulty, timeFormatter) {
-        formatTextMessageMetadata(
-            message = message,
-            timeFormatter = timeFormatter,
-        )
-    }
-    val bodyText = remember(displayMessage, currentUserNickname, myPeerId, colorScheme) {
+    // The timestamp trails the body rather than occupying its own column, so a short message
+    // no longer reserves a full-width row for eight grey characters.
+    val bodyText = remember(
+        displayMessage,
+        currentUserNickname,
+        palette,
+        colorScheme.onSurface,
+        colorScheme.secondary,
+        mentionPeerIdentities,
+        timeFormatter
+    ) {
         formatTextMessageBody(
             message = displayMessage,
             currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
+            palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
+            mentionPeerIdentities = mentionPeerIdentities,
+            timeFormatter = timeFormatter,
         )
     }
     val isSelf = message.isFromSelf(currentUserNickname, myPeerId)
@@ -457,12 +701,9 @@ internal fun TextMessageLayout(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(MessageGrouping.SENDER_TO_BODY_SPACING),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        if (showSender) {
             AnnotatedClickableText(
                 text = senderText,
                 annotationTags = listOf("nickname_click"),
@@ -476,18 +717,13 @@ internal fun TextMessageLayout(
                     }
                 },
                 onLongPress = handleLongPress,
-                modifier = Modifier.weight(1f),
-                fontFamily = FontFamily.Monospace,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = MessageGrouping.SENDER_TOP_PADDING),
+                fontFamily = BitchatFontFamily,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
-            )
-            AnnotatedClickableText(
-                text = metadataText,
-                annotationTags = emptyList(),
-                onAnnotationClick = { _, _ -> false },
-                onLongPress = handleLongPress,
-                fontFamily = FontFamily.Monospace,
-                softWrap = false,
+                style = MessageSenderTextStyle,
             )
         }
 
@@ -512,10 +748,10 @@ internal fun TextMessageLayout(
                 }
             },
             onLongPress = handleLongPress,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             softWrap = true,
             overflow = TextOverflow.Visible,
-            style = androidx.compose.ui.text.TextStyle(color = colorScheme.onSurface),
+            style = MessageBodyTextStyle.copy(color = colorScheme.onSurface),
         )
     }
 }
@@ -523,53 +759,40 @@ internal fun TextMessageLayout(
 @Composable
 fun DeliveryStatusIcon(status: DeliveryStatus) {
     val colorScheme = MaterialTheme.colorScheme
-    
-    when (status) {
-        is DeliveryStatus.Sending -> {
-            Text(
-                text = stringResource(R.string.status_sending),
-                fontSize = 10.sp,
-                color = colorScheme.primary.copy(alpha = 0.6f)
-            )
+
+    // Status advances on its own as acks come back, so a hard glyph swap reads as a flicker.
+    // Keyed on the status *type* rather than the instance, because Delivered/Read carry a
+    // timestamp that would otherwise retrigger the transition on every identical update.
+    AnimatedContent(
+        targetState = status::class,
+        transitionSpec = {
+            fadeIn(tween(BitchatMotion.STANDARD_MS)) togetherWith
+                fadeOut(tween(BitchatMotion.QUICK_MS))
+        },
+        label = "deliveryStatus"
+    ) { statusClass ->
+        val (text, color, weight) = when (statusClass) {
+            DeliveryStatus.Sending::class ->
+                Triple(R.string.status_sending, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
+            // Subtle hollow marker for Sent; a single check is reserved for Delivered (iOS parity).
+            DeliveryStatus.Sent::class ->
+                Triple(R.string.status_pending, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
+            DeliveryStatus.Delivered::class ->
+                Triple(R.string.status_sent, colorScheme.primary.copy(alpha = 0.8f), FontWeight.Normal)
+            DeliveryStatus.Read::class ->
+                Triple(R.string.status_delivered, colorScheme.secondary, FontWeight.Bold)
+            DeliveryStatus.Failed::class ->
+                Triple(R.string.status_failed, colorScheme.error, FontWeight.Normal)
+            // A single subdued check, without the numeric label.
+            else ->
+                Triple(R.string.status_sent, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
         }
-        is DeliveryStatus.Sent -> {
-            // Use a subtle hollow marker for Sent; single check is reserved for Delivered (iOS parity)
-            Text(
-                text = stringResource(R.string.status_pending),
-                fontSize = 10.sp,
-                color = colorScheme.primary.copy(alpha = 0.6f)
-            )
-        }
-        is DeliveryStatus.Delivered -> {
-            // Single check for Delivered (matches iOS expectations)
-            Text(
-                text = stringResource(R.string.status_sent),
-                fontSize = 10.sp,
-                color = colorScheme.primary.copy(alpha = 0.8f)
-            )
-        }
-        is DeliveryStatus.Read -> {
-            Text(
-                text = stringResource(R.string.status_delivered),
-                fontSize = 10.sp,
-                color = Color(0xFF007AFF), // Blue
-                fontWeight = FontWeight.Bold
-            )
-        }
-        is DeliveryStatus.Failed -> {
-            Text(
-                text = stringResource(R.string.status_failed),
-                fontSize = 10.sp,
-                color = Color.Red.copy(alpha = 0.8f)
-            )
-        }
-        is DeliveryStatus.PartiallyDelivered -> {
-            // Show a single subdued check without numeric label
-            Text(
-                text = stringResource(R.string.status_sent),
-                fontSize = 10.sp,
-                color = colorScheme.primary.copy(alpha = 0.6f)
-            )
-        }
+
+        Text(
+            text = stringResource(text),
+            fontSize = 10.sp,
+            color = color,
+            fontWeight = weight
+        )
     }
 }

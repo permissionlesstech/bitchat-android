@@ -32,7 +32,7 @@ class BluetoothConnectionTracker(
     private val firstAnnounceSeen = ConcurrentHashMap<String, Boolean>()
     // RSSI tracking from scan results (for devices we discover but may connect as servers)
     private val scanRSSI = ConcurrentHashMap<String, Int>()
-    private val peerBindingLock = Any()
+    private val connectionStateLock = Any()
     
     /**
      * Consolidated device connection information
@@ -77,9 +77,9 @@ class BluetoothConnectionTracker(
      */
     fun addDeviceConnection(deviceAddress: String, deviceConn: DeviceConnection) {
         Log.d(TAG, "Tracker: Adding device connection for $deviceAddress (isClient: ${deviceConn.isClient}")
-        synchronized(peerBindingLock) {
+        synchronized(connectionStateLock) {
             connectedDevices[deviceAddress] = deviceConn
-            // A mapping authenticates a GATT connection, not a reusable Bluetooth address.
+            // A route observation belongs to this GATT generation, not its reusable address.
             addressPeerMap.remove(deviceAddress)
         }
         removePendingConnection(deviceAddress)
@@ -91,7 +91,7 @@ class BluetoothConnectionTracker(
      * Update a device connection
      */
     fun updateDeviceConnection(deviceAddress: String, deviceConn: DeviceConnection) {
-        synchronized(peerBindingLock) {
+        synchronized(connectionStateLock) {
             connectedDevices[deviceAddress] = deviceConn
         }
     }
@@ -100,7 +100,7 @@ class BluetoothConnectionTracker(
         deviceAddress: String,
         linkID: String,
         update: (DeviceConnection) -> DeviceConnection
-    ): Boolean = synchronized(peerBindingLock) {
+    ): Boolean = synchronized(connectionStateLock) {
         val current = connectedDevices[deviceAddress] ?: return@synchronized false
         if (current.linkID != linkID) return@synchronized false
         connectedDevices[deviceAddress] = update(current)
@@ -117,10 +117,16 @@ class BluetoothConnectionTracker(
     fun getCurrentLinkID(deviceAddress: String): String? =
         connectedDevices[deviceAddress]?.linkID
 
-    fun bindPeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
-        synchronized(peerBindingLock) {
+    /**
+     * Records that the current link delivered a validated, non-relayed ANNOUNCE for [peerID].
+     *
+     * A peer may be reachable over more than one link, so observing one link must not discard the
+     * other observations. The link generation check prevents a late packet from an old GATT
+     * connection from being applied to a replacement connection that reused the same address.
+     */
+    fun observePeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
+        synchronized(connectionStateLock) {
             if (connectedDevices[deviceAddress]?.linkID != linkID) return@synchronized false
-            addressPeerMap.entries.removeIf { it.value == peerID && it.key != deviceAddress }
             addressPeerMap[deviceAddress] = peerID
             true
         }
@@ -265,7 +271,7 @@ class BluetoothConnectionTracker(
      * Clean up a specific device connection
      */
     fun cleanupDeviceConnection(deviceAddress: String) {
-        synchronized(peerBindingLock) {
+        synchronized(connectionStateLock) {
             connectedDevices.remove(deviceAddress)
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
@@ -277,7 +283,7 @@ class BluetoothConnectionTracker(
     fun cleanupDeviceConnectionIfCurrent(
         deviceAddress: String,
         expectedLinkID: String
-    ): Boolean = synchronized(peerBindingLock) {
+    ): Boolean = synchronized(connectionStateLock) {
         val current = connectedDevices[deviceAddress] ?: return@synchronized false
         if (current.linkID != expectedLinkID) {
             return@synchronized false

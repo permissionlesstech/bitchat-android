@@ -17,6 +17,8 @@ object AppStateStore {
     private val peerIdsByTransport = mutableMapOf<String, Set<String>>()
     // Direct (single-hop) peer IDs per transport, used to gossip a unified neighbor set.
     private val directPeerIdsByTransport = mutableMapOf<String, Set<String>>()
+    private val _directPeers = MutableStateFlow<Set<String>>(emptySet())
+    val directPeers: StateFlow<Set<String>> = _directPeers.asStateFlow()
     // Connected peer IDs (mesh ephemeral IDs)
     private val _peers = MutableStateFlow<List<String>>(emptyList())
     val peers: StateFlow<List<String>> = _peers.asStateFlow()
@@ -29,6 +31,12 @@ object AppStateStore {
     private val _privateMessages = MutableStateFlow<Map<String, List<BitchatMessage>>>(emptyMap())
     val privateMessages: StateFlow<Map<String, List<BitchatMessage>>> = _privateMessages.asStateFlow()
 
+    private val _nickname = MutableStateFlow("")
+    val nickname: StateFlow<String> = _nickname.asStateFlow()
+
+    private val _selectedPrivateChatPeer = MutableStateFlow<String?>(null)
+    val selectedPrivateChatPeer: StateFlow<String?> = _selectedPrivateChatPeer.asStateFlow()
+
     // Channel messages by channel name
     private val _channelMessages = MutableStateFlow<Map<String, List<BitchatMessage>>>(emptyMap())
     val channelMessages: StateFlow<Map<String, List<BitchatMessage>>> = _channelMessages.asStateFlow()
@@ -37,6 +45,14 @@ object AppStateStore {
         synchronized(this) {
             _peers.value = ids.distinct()
         }
+    }
+
+    fun setNickname(nickname: String) {
+        _nickname.value = nickname
+    }
+
+    fun setSelectedPrivateChatPeer(peerID: String?) {
+        _selectedPrivateChatPeer.value = peerID
     }
 
     fun setTransportPeers(transportId: String, ids: List<String>) {
@@ -69,20 +85,25 @@ object AppStateStore {
     fun setTransportDirectPeers(transportId: String, ids: Collection<String>) {
         synchronized(this) {
             directPeerIdsByTransport[transportId] = ids.toSet()
+            publishDirectPeersLocked()
         }
     }
 
     fun clearTransportDirectPeers(transportId: String) {
         synchronized(this) {
             directPeerIdsByTransport.remove(transportId)
+            publishDirectPeersLocked()
         }
     }
 
     /** Union of direct peers across all transports. */
-    fun getDirectPeers(): Set<String> {
-        synchronized(this) {
-            return directPeerIdsByTransport.values.flatten().toSet()
-        }
+    fun getDirectPeers(): Set<String> = _directPeers.value
+
+    private fun publishDirectPeersLocked() {
+        _directPeers.value = directPeerIdsByTransport.values
+            .asSequence()
+            .flatten()
+            .toSet()
     }
 
     fun addPublicMessage(msg: BitchatMessage) {
@@ -99,6 +120,7 @@ object AppStateStore {
         synchronized(this) {
             if (seenMessageIds.contains(msg.id)) return
             seenMessageIds.add(msg.id)
+            PrivateMessageArrivalOrder.record(msg.id)
             val conversationID = ContactDirectory.canonicalConversationId(peerID)
             val map = _privateMessages.value.toMutableMap()
             val list = (map[conversationID] ?: emptyList()) + msg
@@ -207,12 +229,16 @@ object AppStateStore {
         synchronized(this) {
             seenMessageIds.clear()
             seenPublicMessageKeys.clear()
+            PrivateMessageArrivalOrder.clear()
             peerIdsByTransport.clear()
             directPeerIdsByTransport.clear()
             _peers.value = emptyList()
+            _directPeers.value = emptySet()
             _publicMessages.value = emptyList()
             _privateMessages.value = emptyMap()
             _channelMessages.value = emptyMap()
+            _nickname.value = ""
+            _selectedPrivateChatPeer.value = null
         }
     }
 

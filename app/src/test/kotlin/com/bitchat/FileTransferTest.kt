@@ -237,7 +237,7 @@ class FileTransferTest {
 
         // Given: Large file size (simulated)
         val largeFileSize = 100L * 1024 * 1024 // 100MB
-        val maxAllowedSize = 50L * 1024 * 1024 // 50MB
+        val maxAllowedSize = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES
 
         // When: Checking if file can be transferred
         val isAllowed = largeFileSize <= maxAllowedSize

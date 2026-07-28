@@ -20,7 +20,6 @@ import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -44,7 +43,6 @@ class MeshCore(
     data class Hooks(
         val onMessageReceived: ((BitchatMessage) -> Unit)? = null,
         val onAnnounceProcessed: ((RoutedPacket, Boolean) -> Unit)? = null,
-        val onDirectNoiseAuthenticated: ((String, String, String, ByteArray) -> Unit)? = null,
         val readReceiptInterceptor: ((String, String) -> Boolean)? = null,
         val onReadReceiptSent: ((String) -> Unit)? = null,
         val announcementNicknameProvider: (() -> String?)? = null,
@@ -53,6 +51,7 @@ class MeshCore(
 
     private val peerManager = PeerManager()
     val fragmentManager = FragmentManager()
+    private val readReceiptRetrySender = RetryingControlPacketSender(scope)
     private val authenticatedPeerStateStore = SecureAuthenticatedPeerStateStore(context)
     private val authenticatedPeerState by lazy {
         AuthenticatedPeerStateCoordinator(
@@ -116,7 +115,6 @@ class MeshCore(
 
     var delegate: MeshDelegate? = null
 
-    private var announceJob: Job? = null
     private var isActive = false
 
     init {
@@ -145,7 +143,6 @@ class MeshCore(
     fun startCore() {
         if (isActive) return
         isActive = true
-        startPeriodicBroadcastAnnounce()
         if (ownsGossipManager) {
             gossipSyncManager.start()
         }
@@ -154,14 +151,14 @@ class MeshCore(
     fun stopCore() {
         if (!isActive) return
         isActive = false
-        announceJob?.cancel()
-        announceJob = null
+        directPeers.clear()
         if (ownsGossipManager) {
             gossipSyncManager.stop()
         }
     }
 
     fun shutdown() {
+        directPeers.clear()
         peerManager.shutdown()
         fragmentManager.shutdown()
         securityManager.shutdown()
@@ -190,21 +187,20 @@ class MeshCore(
         transport.broadcastPacket(packet)
     }
 
+    fun sendFromBridgeAndReport(packet: RoutedPacket): Boolean {
+        return transport.broadcastPacket(packet)
+    }
+
     private fun dispatchGlobal(routed: RoutedPacket) {
         transport.broadcastPacket(routed)
         TransportBridgeService.broadcast(transport.id, routed)
     }
 
-    private fun startPeriodicBroadcastAnnounce() {
-        announceJob?.cancel()
-        announceJob = scope.launch {
-            while (isActive) {
-                try {
-                    delay(30_000)
-                    sendBroadcastAnnounce()
-                } catch (_: Exception) { }
-            }
-        }
+    private suspend fun dispatchGlobalAndReport(routed: RoutedPacket): Boolean {
+        val acceptedByLocalTransport = transport.broadcastPacket(routed)
+        val acceptedByBridgedTransport =
+            TransportBridgeService.broadcastAndReport(transport.id, routed)
+        return acceptedByLocalTransport || acceptedByBridgedTransport
     }
 
     private fun setupDelegates() {
@@ -215,6 +211,7 @@ class MeshCore(
             }
 
             override fun onPeerRemoved(peerID: String) {
+                directPeers.remove(peerID)
                 authenticatedPeerState.clear(peerID)
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
                 try { encryptionService.removePeer(peerID) } catch (_: Exception) { }
@@ -235,14 +232,6 @@ class MeshCore(
                     authenticatedRemoteStaticKey,
                     authenticatedSessionToken
                 )
-                if (directRelayAddress != null && ingressLinkID != null) {
-                    hooks.onDirectNoiseAuthenticated?.invoke(
-                        peerID,
-                        directRelayAddress,
-                        ingressLinkID,
-                        authenticatedRemoteStaticKey
-                    )
-                }
                 scope.launch {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
@@ -370,6 +359,14 @@ class MeshCore(
                 return encryptionService.hasEstablishedSession(peerID)
             }
 
+            override fun removeNoiseSession(peerID: String) {
+                try {
+                    encryptionService.removePeer(peerID)
+                } catch (e: Exception) {
+                    Log.w("MeshCore", "Failed to remove Noise session for $peerID: ${e.message}")
+                }
+            }
+
             override fun initiateNoiseHandshake(peerID: String) {
                 this@MeshCore.initiateNoiseHandshake(peerID)
             }
@@ -404,10 +401,22 @@ class MeshCore(
             }
 
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
+                try {
+                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                        messageID,
+                        com.bitchat.android.model.DeliveryStatus.Delivered(peerID, java.util.Date())
+                    )
+                } catch (_: Exception) { }
                 delegate?.didReceiveDeliveryAck(messageID, peerID)
             }
 
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
+                try {
+                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                        messageID,
+                        com.bitchat.android.model.DeliveryStatus.Read(peerID, java.util.Date())
+                    )
+                } catch (_: Exception) { }
                 delegate?.didReceiveReadReceipt(messageID, peerID)
             }
 
@@ -445,8 +454,8 @@ class MeshCore(
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
 
-            override fun handleNoiseEncrypted(routed: RoutedPacket) {
-                scope.launch { messageHandler.handleNoiseEncrypted(routed) }
+            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
             }
 
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
@@ -697,8 +706,24 @@ class MeshCore(
                     signature = null,
                     ttl = maxTtl
                 )
-                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
-                hooks.onReadReceiptSent?.invoke(messageID)
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                val retryKey = "$recipientPeerID:$messageID"
+                readReceiptRetrySender.enqueue(
+                    key = retryKey,
+                    sendAttempt = {
+                        dispatchGlobalAndReport(RoutedPacket(signedPacket))
+                    },
+                    onComplete = { accepted ->
+                        if (accepted) {
+                            try {
+                                com.bitchat.android.services.SeenMessageStore
+                                    .getInstance(context.applicationContext)
+                                    .markReadReceiptSent(messageID)
+                            } catch (_: Exception) { }
+                            hooks.onReadReceiptSent?.invoke(messageID)
+                        }
+                    }
+                )
             } catch (e: Exception) {
                 Log.e("MeshCore", "Failed to send read receipt: ${e.message}")
             }
@@ -845,6 +870,7 @@ class MeshCore(
     }
 
     fun removePeer(peerID: String) {
+        directPeers.remove(peerID)
         peerManager.removePeer(peerID)
     }
 
@@ -895,44 +921,6 @@ class MeshCore(
             } catch (e: Exception) {
                 Log.e("MeshCore", "Failed to initiate Noise handshake with $peerID: ${e.message}")
             }
-        }
-    }
-
-    /**
-     * Starts a fresh replacement handshake on one exact direct transport generation.
-     * This authenticates provisional transport claims without broadcasting the challenge or
-     * accidentally sending it through a socket that later reused the same alias.
-     */
-    fun initiateNoiseHandshakeOnLink(
-        peerID: String,
-        relayAddress: String,
-        ingressLinkID: String
-    ): Boolean {
-        return try {
-            val handshakeData = encryptionService.initiateHandshake(
-                peerID,
-                replaceEstablished = true
-            ) ?: return false
-            val packet = BitchatPacket(
-                version = 1u,
-                type = MessageType.NOISE_HANDSHAKE.value,
-                senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
-                recipientID = MeshPacketUtils.hexStringToByteArray(peerID),
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = handshakeData,
-                ttl = maxTtl
-            )
-            transport.sendPacketToLink(
-                relayAddress,
-                ingressLinkID,
-                signPacketBeforeBroadcast(packet)
-            )
-        } catch (e: Exception) {
-            Log.e(
-                "MeshCore",
-                "Failed to initiate link-bound Noise handshake with $peerID: ${e.message}"
-            )
-            false
         }
     }
 
@@ -989,6 +977,7 @@ class MeshCore(
     }
 
     fun clearAllInternalData() {
+        directPeers.clear()
         fragmentManager.clearAllFragments()
         storeForwardManager.clearAllCache()
         securityManager.clearAllData()
