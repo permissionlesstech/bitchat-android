@@ -19,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -27,13 +28,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -387,48 +391,39 @@ fun MessageItem(
             .padding(top = topSpacing),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.Top
-            ) {
-                // Provide a small end padding for own private messages so overlay doesn't cover text
-                val endPad = if (message.isPrivate && message.sender == currentUserNickname) 16.dp else 0.dp
-                // Create a custom layout that combines selectable text with clickable nickname areas
-                MessageTextWithClickableNicknames(
-                    message = message,
-                    messages = messages,
-                    currentUserNickname = currentUserNickname,
-                    meshService = meshService,
-                    mentionPeerIdentities = mentionPeerIdentities,
-                    colorScheme = colorScheme,
-                    timeFormatter = timeFormatter,
-                    showSender = showSender,
-                    onNicknameClick = onNicknameClick,
-                    onMessageLongPress = onMessageLongPress,
-                    onCancelTransfer = onCancelTransfer,
-                    onImageClick = onImageClick,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = endPad)
-                )
-            }
+        // The content aligns itself (self bubbles right, received bubbles left), so this just
+        // hands it the full width to place within.
+        MessageTextWithClickableNicknames(
+            message = message,
+            messages = messages,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            mentionPeerIdentities = mentionPeerIdentities,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            showSender = showSender,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
+            onCancelTransfer = onCancelTransfer,
+            onImageClick = onImageClick,
+            modifier = Modifier.fillMaxWidth()
+        )
 
-            // Delivery status for private messages (overlay, non-displacing)
-            if (message.isPrivate && message.sender == currentUserNickname) {
-                message.deliveryStatus?.let { status ->
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 2.dp)
-                    ) {
-                        DeliveryStatusIcon(status = status)
-                    }
+        // Delivery status for private messages: a small right-aligned marker beneath the bubble,
+        // where it no longer risks overlapping the right-aligned self bubble.
+        if (message.isPrivate && message.sender == currentUserNickname) {
+            message.deliveryStatus?.let { status ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp, end = 4.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    DeliveryStatusIcon(status = status)
                 }
             }
         }
-        
+
         // Link previews removed; links are now highlighted inline and clickable within the message text
     }
 }
@@ -671,26 +666,8 @@ internal fun TextMessageLayout(
         )
     }
     // The timestamp trails the body rather than occupying its own column, so a short message
-    // no longer reserves a full-width row for eight grey characters.
-    val bodyText = remember(
-        displayMessage,
-        currentUserNickname,
-        palette,
-        colorScheme.onSurface,
-        colorScheme.secondary,
-        mentionPeerIdentities,
-        timeFormatter
-    ) {
-        formatTextMessageBody(
-            message = displayMessage,
-            currentUserNickname = currentUserNickname,
-            palette = palette,
-            contentColor = colorScheme.onSurface,
-            linkColor = colorScheme.secondary,
-            mentionPeerIdentities = mentionPeerIdentities,
-            timeFormatter = timeFormatter,
-        )
-    }
+    // no longer reserves a full-width row for eight grey characters. The body is built further
+    // below against the bubble's own content color (see resolvedBodyText).
     val isSelf = message.isFromSelf(currentUserNickname, myPeerId)
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -699,9 +676,49 @@ internal fun TextMessageLayout(
         onMessageLongPress?.invoke(message)
     }
 
+    // Bubble geometry: three rounded corners, with the corner on the speaker's own side tightened
+    // into a subtle "tail". Self bubbles sit on the right and tuck their bottom-right corner;
+    // received bubbles sit on the left and tuck their bottom-left corner.
+    val corner = ChatVisualTokens.BubbleCornerRadius
+    val tail = ChatVisualTokens.BubbleTailRadius
+    val bubbleShape = if (isSelf) {
+        RoundedCornerShape(topStart = corner, topEnd = corner, bottomEnd = tail, bottomStart = corner)
+    } else {
+        RoundedCornerShape(topStart = corner, topEnd = corner, bottomEnd = corner, bottomStart = tail)
+    }
+    val bubbleColor = if (isSelf) {
+        colorScheme.primaryContainer
+    } else {
+        colorScheme.surfaceVariant.copy(alpha = ChatVisualTokens.BubbleSurfaceAlpha)
+    }
+    val bubbleContentColor = if (isSelf) colorScheme.onPrimaryContainer else colorScheme.onSurface
+
+    // Rebuild the body against the bubble's own content color so self-message text stays legible
+    // on the tinted primary container rather than defaulting to the surface's onSurface tone.
+    val resolvedBodyText = remember(
+        displayMessage,
+        currentUserNickname,
+        palette,
+        bubbleContentColor,
+        colorScheme.secondary,
+        mentionPeerIdentities,
+        timeFormatter
+    ) {
+        formatTextMessageBody(
+            message = displayMessage,
+            currentUserNickname = currentUserNickname,
+            palette = palette,
+            contentColor = bubbleContentColor,
+            linkColor = colorScheme.secondary,
+            mentionPeerIdentities = mentionPeerIdentities,
+            timeFormatter = timeFormatter,
+        )
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(MessageGrouping.SENDER_TO_BODY_SPACING),
+        horizontalAlignment = if (isSelf) Alignment.End else Alignment.Start,
     ) {
         if (showSender) {
             AnnotatedClickableText(
@@ -718,8 +735,12 @@ internal fun TextMessageLayout(
                 },
                 onLongPress = handleLongPress,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = MessageGrouping.SENDER_TOP_PADDING),
+                    .padding(
+                        top = MessageGrouping.SENDER_TOP_PADDING,
+                        // Nudge the label off the bubble's rounded edge so it lines up with the text.
+                        start = if (isSelf) 0.dp else ChatVisualTokens.BubblePaddingHorizontal,
+                        end = if (isSelf) ChatVisualTokens.BubblePaddingHorizontal else 0.dp,
+                    ),
                 fontFamily = BitchatFontFamily,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
@@ -727,32 +748,52 @@ internal fun TextMessageLayout(
             )
         }
 
-        AnnotatedClickableText(
-            text = bodyText,
-            annotationTags = listOf("geohash_click", "url_click"),
-            onAnnotationClick = { tag, item ->
-                when (tag) {
-                    "geohash_click" -> {
-                        navigateToGeohash(context, item)
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        true
-                    }
+        // Constrain the bubble to a fraction of the available width so short messages hug their
+        // content while long ones still wrap instead of touching the opposite edge.
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val maxBubbleWidth = maxWidth * ChatVisualTokens.BubbleMaxWidthFraction
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    color = bubbleColor,
+                    contentColor = bubbleContentColor,
+                    shape = bubbleShape,
+                    modifier = Modifier
+                        .align(if (isSelf) Alignment.CenterEnd else Alignment.CenterStart)
+                        .widthIn(max = maxBubbleWidth)
+                ) {
+                    AnnotatedClickableText(
+                        text = resolvedBodyText,
+                        annotationTags = listOf("geohash_click", "url_click"),
+                        onAnnotationClick = { tag, item ->
+                            when (tag) {
+                                "geohash_click" -> {
+                                    navigateToGeohash(context, item)
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    true
+                                }
 
-                    "url_click" -> {
-                        openMessageUrl(context, item)
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        true
-                    }
+                                "url_click" -> {
+                                    openMessageUrl(context, item)
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    true
+                                }
 
-                    else -> false
+                                else -> false
+                            }
+                        },
+                        onLongPress = handleLongPress,
+                        modifier = Modifier.padding(
+                            horizontal = ChatVisualTokens.BubblePaddingHorizontal,
+                            vertical = ChatVisualTokens.BubblePaddingVertical,
+                        ),
+                        fontFamily = BitchatFontFamily,
+                        softWrap = true,
+                        overflow = TextOverflow.Visible,
+                        style = MessageBodyTextStyle.copy(color = bubbleContentColor),
+                    )
                 }
-            },
-            onLongPress = handleLongPress,
-            fontFamily = BitchatFontFamily,
-            softWrap = true,
-            overflow = TextOverflow.Visible,
-            style = MessageBodyTextStyle.copy(color = colorScheme.onSurface),
-        )
+            }
+        }
     }
 }
 

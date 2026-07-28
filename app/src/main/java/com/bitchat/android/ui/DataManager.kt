@@ -37,7 +37,7 @@ class DataManager(private val context: Context) {
         return if (savedNickname != null) {
             savedNickname
         } else {
-            val randomNickname = "anon${Random.nextInt(1000, 9999)}"
+            val randomNickname = "ritsu${Random.nextInt(1000, 9999)}"
             saveNickname(randomNickname)
             randomNickname
         }
