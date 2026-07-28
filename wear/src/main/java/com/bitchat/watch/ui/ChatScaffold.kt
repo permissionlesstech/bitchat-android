@@ -72,36 +72,39 @@ fun ChatScaffold(
 
     // "Docked at newest" is the single source of truth for the chat's resting state:
     // bottom clearance expanded (newest message sits above the floating buttons), action
-    // bar visible, header at full size. It is driven by scroll intent, not layout geometry:
-    // reaching the end of the list docks; deliberately scrolling away undocks. Geometry-based
-    // detection (distance-to-last-item) was unreliable here because expanding the bottom
-    // clearance grows the scroll range, which read as "left the bottom", and the edge-scaled
-    // last item skewed the measurement further.
+    // bar visible, header at full size. It is driven by scroll intent, not layout geometry.
     var dockedAtNewest by remember { mutableStateOf(true) }
-    // Action bar: ALWAYS visible while the list is scrolled to the bottom; hides when
-    // scrolling up into history and reappears as soon as the user scrolls back down, so
-    // replying is one short flick away even from the very top.
+    // Action bar: ALWAYS visible while the list is scrolled to the bottom; hides quickly
+    // when scrolling up into history and reappears as soon as the user scrolls back down,
+    // so replying is one short flick away even from the very top. The bar is an overlay,
+    // so its fast 12dp threshold cannot feed back into the scroll geometry.
     val buttonsVisible = remember { mutableStateOf(true) }
+    // The docked state, by contrast, changes the geometry: collapsing the bottom clearance
+    // shrinks the scroll range by the 48dp padding delta. Undocking near the bottom would
+    // clamp the scroll position back to the end and instantly re-dock — the hide/show
+    // flapping loop. So undocking requires scrolling well clear of the bottom (60dp > 48dp).
+    val undockThresholdPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+        60.dp.roundToPx()
+    }
     LaunchedEffect(columnState) {
         var lastPosition = -1
+        var bottomPosition = 0
         snapshotFlow {
             val first = columnState.layoutInfo.visibleItems.firstOrNull()
             Triple(columnState.canScrollForward, first?.index ?: 0, first?.offset ?: 0)
         }.collect { (canScrollForward, index, offset) ->
             val atBottom = !canScrollForward
+            val position = index * 100_000 + offset
             if (atBottom) {
+                bottomPosition = position
                 dockedAtNewest = true
                 buttonsVisible.value = true
-            }
-            val position = index * 100_000 + offset
-            if (lastPosition >= 0) {
+            } else if (lastPosition >= 0) {
                 when {
                     position > lastPosition + 24 -> buttonsVisible.value = true
-                    position < lastPosition - 24 -> {
-                        buttonsVisible.value = false
-                        if (!atBottom) dockedAtNewest = false
-                    }
+                    position < lastPosition - 24 -> buttonsVisible.value = false
                 }
+                if (bottomPosition - position > undockThresholdPx) dockedAtNewest = false
             }
             lastPosition = position
         }
