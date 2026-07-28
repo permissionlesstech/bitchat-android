@@ -91,11 +91,20 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
 
     val buttonsVisible = rememberBottomBarVisibility(scrollState)
     val headerExpanded = scrollState.maxValue - scrollState.value > 60
-    // Full bottom clearance only at the newest message, so the last message sits comfortably
+    // Full bottom clearance only near the newest message, so the last message sits comfortably
     // above the floating buttons; collapses when scrolling up so history flows behind them.
-    val atNewest = scrollState.maxValue - scrollState.value < 40
+    // Hysteresis (expand <40, collapse >120) breaks the feedback loop: the 48dp padding delta
+    // changes maxValue, which would otherwise retrigger the condition every frame.
+    var padExpanded by remember { mutableStateOf(true) }
+    LaunchedEffect(scrollState) {
+        androidx.compose.runtime.snapshotFlow { scrollState.maxValue - scrollState.value }
+            .collect { dist ->
+                if (dist < 40) padExpanded = true
+                else if (dist > 120) padExpanded = false
+            }
+    }
     val listBottomPadding by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (atNewest) 56.dp else 8.dp,
+        targetValue = if (padExpanded) 56.dp else 8.dp,
         animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
         label = "listBottomPad"
     )

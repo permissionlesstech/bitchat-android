@@ -91,9 +91,16 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
 
     val buttonsVisible = rememberBottomBarVisibility(scrollState)
     val headerExpanded = scrollState.maxValue - scrollState.value > 60
-    val atNewest = scrollState.maxValue - scrollState.value < 40
+    var padExpanded by remember { mutableStateOf(true) }
+    LaunchedEffect(scrollState) {
+        androidx.compose.runtime.snapshotFlow { scrollState.maxValue - scrollState.value }
+            .collect { dist ->
+                if (dist < 40) padExpanded = true
+                else if (dist > 120) padExpanded = false
+            }
+    }
     val listBottomPadding by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (atNewest) 56.dp else 8.dp,
+        targetValue = if (padExpanded) 56.dp else 8.dp,
         animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
         label = "listBottomPad"
     )
