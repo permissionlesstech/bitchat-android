@@ -11,7 +11,7 @@
 | M2 | BLE transport & background service on watch | done |
 | M3 | Global chat | done |
 | M4 | Noise DMs & people screen | done |
-| M5 | Files/images receive + voice notes (push-to-talk) + input redesign | in-progress |
+| M5 | Files/images receive + voice notes (push-to-talk) + input redesign | done |
 | M6 | ADB test hook & mesh_lab interop | done |
 | M7 | Polish & final design pass | done |
 
@@ -233,44 +233,54 @@ auto-initiates the handshake. Session recovery after watch force-stop verified b
 
 **Files & images (receive + display)**
 
-- [ ] Receive broadcast + Noise-encrypted private files (shared `BitchatFilePacket` TLV,
+- [x] Receive broadcast + Noise-encrypted private files (shared `BitchatFilePacket` TLV,
   `FileUtils.saveIncomingFile`, `messageTypeForMime` — already wired via shared `MessageHandler`)
-- [ ] Image messages render as compact inline thumbnails (rounded, fit-width); tap → full-screen
+- [x] Image messages render as compact inline thumbnails (rounded, fit-width); tap → full-screen
   viewer (black surface, fit-to-screen, dismiss) — mirrors the phone's `ImageMessageItem` /
   `FullScreenImageViewer`
-- [ ] Non-media files: compact chip (name + size)
-- [ ] mesh_lab: add `file_recv` to the wear test hook; enable `file` + `file_private` scenarios
+- [x] Non-media files: compact chip (name + size)
+- [x] mesh_lab: add `file_recv` to the wear test hook; enable `file` + `file_private` scenarios
   for the watch
 
 **Voice notes (first-class)**
 
-- [ ] RECORD_AUDIO permission (manifest + just-in-time runtime request)
-- [ ] Push-to-talk recording: press-and-hold starts recording, release sends (phone UX constants:
-  220 ms hold threshold, 10 s cap, ~80 ms amplitude polls); full-screen overlay that fades in
-  with a live waveform animation + elapsed time; shared `VoiceRecorder` (16 kHz mono AAC,
-  `audio/mp4`, `.m4a`)
-- [ ] Send as `BitchatFilePacket` broadcast in global chat (`MeshCore.sendFileBroadcast`); in a
-  DM thread send Noise-encrypted (`MeshCore.sendFilePrivate` with handshake/prep retry)
-- [ ] Received voice notes (`BitchatMessageType.Audio`, `content` = local path) render as a
+- [x] RECORD_AUDIO permission (manifest + just-in-time runtime request)
+- [x] Push-to-talk recording: press-and-hold starts recording, release sends (10 s cap, 600 ms
+  minimum, ~80 ms amplitude polls); full-screen overlay that fades in with a live waveform
+  animation + elapsed time; shared `VoiceRecorder` (16 kHz mono AAC, `audio/mp4`, `.m4a`)
+- [x] Send as `BitchatFilePacket` broadcast in global chat (`MeshCore.sendFileBroadcast`); in a
+  DM thread send Noise-encrypted (`WearMeshService.sendFilePrivateEncrypted` with
+  handshake/prep retry, mirroring the phone's `dispatchFileSend`)
+- [x] Received voice notes (`BitchatMessageType.Audio`, `content` = local path) render as a
   voice-note bubble: play/pause + waveform (shared `Waveform.kt` extractor, 120 bins) +
   duration; `MediaPlayer` playback
 
 **Input redesign (native Wear bottom actions)**
 
-- [ ] Replace the inline composer text field with two bottom action buttons docked via the
-  native Wear pattern (`ScreenScaffold` `edgeButton` slot + `ButtonGroup` — adapts to round and
-  square screens):
-  - keyboard button → full-screen text input screen (field auto-focused, IME opens; the Pixel
-    Watch Gboard provides built-in dictation there too)
+- [x] Replaced the inline composer with two always-visible bottom action buttons (the
+  framework's `ScreenScaffold.edgeButton` slot auto-hides on scroll, making push-to-talk
+  unreachable mid-conversation, so the bar is overlaid with the same native look instead):
+  - keyboard button → full-screen text input screen (field auto-focused, the watch IME opens
+    immediately with its built-in dictation; IME hides on send)
   - mic button → push-to-talk (press-and-hold record, release send) with the full-screen
-    waveform overlay
-- [ ] Remove the old inline `ChatComposer` row from chat/DM screens
+    waveform overlay (rendered outside the edgeButton slot, which would clip it)
+- [x] Message lists use `LazyColumn(reverseLayout = true)`: the newest message anchors at the
+  bottom above the buttons; empty space collects at the top. Works identically on round and
+  square screens (no ScalingLazyColumn center-anchor gap).
+- [x] ScreenScaffold contentPadding keeps the last message reachable right above the buttons
 
-**Success criteria**: phone→watch image renders inline and full-screen; `mesh_lab.py scenario
-file` and `file_private` (phone→watch) green with SHA-256 match; push-to-talk voice note
-recorded on the watch arrives on the phone and plays (phone log/evidence), and a phone-sent
-voice note renders + plays on the watch; screencap design review of all new screens/overlays on
-the round display.
+**Result**: PASSED —
+- `mesh_lab.py scenario file` and `file_private` (phone→watch) green, SHA-256 digest match.
+- Push-to-talk voice note (watch→phone) verified end-to-end: broadcast in global chat and
+  Noise-encrypted in DM, digest match on the phone side; phone→watch voice note renders as a
+  bubble and plays (MediaPlayer).
+- Image (phone→watch) verified: compact inline render, tap → full-screen viewer, digest match.
+- Keyboard path: auto-focus opens the IME, send hides it, message arrives on the phone.
+- Full regression: `scenario all` (7 scenarios) green in ~75 s.
+- Robustness: the watch auto-initiates a throttled Noise handshake with peers lacking an
+  established session — heals stale sessions after watch restarts (the protocol has no
+  decrypt-failure kick path; without this, private files/DMs from peers with stale sessions
+  were silently dropped).
 
 ---
 
@@ -357,5 +367,5 @@ adb -s <watch-serial> shell run-as com.bitchat.watch cat cache/testhook/results/
 Notes:
 - If `mesh_lab` raises `GateError: ADB command failed`, the watch's USB link flapped — retry.
 - Wear test-hook commands: `ping start stop whoami set_nickname scan peers connect handshake
-  session announce broadcast_msg dm_send dm_recv msg_recv raw_send state clear_results`.
-- File transfer (`file_send`/`file_recv`) does not exist on the watch yet — see M5 (deferred).
+  session announce broadcast_msg dm_send dm_recv msg_recv raw_send file_recv state
+  clear_results`.
