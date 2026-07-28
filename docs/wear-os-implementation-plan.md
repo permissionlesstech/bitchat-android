@@ -8,11 +8,11 @@
 |-----------|-------|--------|
 | M0 | Scaffolding & plan document | done |
 | M1 | Shared core compiles on Wear | done |
-| M2 | BLE transport & background service on watch | pending |
-| M3 | Global chat | pending |
-| M4 | Noise DMs & people screen | pending |
+| M2 | BLE transport & background service on watch | in-progress (code complete, hardware verification pending — watch off ADB) |
+| M3 | Global chat | in-progress (code complete, hardware verification pending) |
+| M4 | Noise DMs & people screen | in-progress (code complete, hardware verification pending) |
 | M5 | File/image receive & display — **DEFERRED** (post-M7, later day) | deferred |
-| M6 | ADB test hook & mesh_lab interop | pending |
+| M6 | ADB test hook & mesh_lab interop | in-progress (code complete, interop run pending) |
 | M7 | Polish & final design pass | pending |
 
 ---
