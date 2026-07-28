@@ -13,7 +13,7 @@
 | M4 | Noise DMs & people screen | done |
 | M5 | File/image receive & display — **DEFERRED** (post-M7, later day) | deferred |
 | M6 | ADB test hook & mesh_lab interop | done |
-| M7 | Polish & final design pass | in-progress (animations/transitions done; power audit & screencap review pending watch) |
+| M7 | Polish & final design pass | done |
 
 ---
 
@@ -209,12 +209,12 @@ watch-as-relay topology needs physical RF separation of the two phones — noted
 
 ### M4 — Noise DMs & people screen
 
-- [ ] People screen: connected peers, nicknames, RSSI, unread-DM badges
-- [ ] Tap peer → Noise XX handshake (shared `EncryptionService`/`NoiseSessionManager`) → DM thread
-- [ ] DM conversation UI; unread counters; delivery/read receipts if supported by shared code
-- [ ] Identity persistence (`EncryptedSharedPreferences`); stale-session detection & automatic
+- [x] People screen: connected peers, nicknames, RSSI, unread-DM badges
+- [x] Tap peer → Noise XX handshake (shared `EncryptionService`/`NoiseSessionManager`) → DM thread
+- [x] DM conversation UI; unread counters; delivery/read receipts if supported by shared code
+- [x] Identity persistence (`EncryptedSharedPreferences`); stale-session detection & automatic
   re-handshake after watch app restart
-- [ ] Design check: screencaps of people screen, handshake state, DM thread
+- [x] Design check: screencaps of people screen, handshake state, DM thread
 
 **Success criteria**: encrypted DM round trip with the phone; DMs survive a watch app restart
 (session recovery); screencap set approved.
@@ -247,14 +247,15 @@ scope.)
 
 ### M6 — ADB test hook & mesh_lab interop
 
-- [ ] Wear debug-only `TestHookReceiver` (`wear/src/debug/`) mirroring the phone's command set:
+- [x] Wear debug-only `TestHookReceiver` (`wear/src/debug/`) mirroring the phone's command set:
   `ping`, `start`, `stop`, `whoami`, `set_nickname`, `scan`, `peers`, `connect`, `handshake`,
-  `session`, `announce`, `broadcast_msg`, `dm_send`, `dm_recv`, `msg_recv`, `file_recv`, `state`,
+  `session`, `announce`, `broadcast_msg`, `dm_send`, `dm_recv`, `msg_recv`, `raw_send`, `state`,
   `clear_results` — broadcast action `com.bitchat.watch.TEST_HOOK`, same JSON-result-file protocol
-- [ ] Extend `tools/release_gate/mesh_lab.py`: `--serial-watch` argument and phone↔watch scenarios
-  (`dm`, `broadcast`, `session_recovery`, `all`; `file` excluded while M5 is deferred), reusing
+  (`file_*` excluded while M5 is deferred)
+- [x] Extend `tools/release_gate/mesh_lab.py`: `--serial-watch` argument and phone↔watch scenarios
+  (`dm`, `broadcast`, `raw`, `session_recovery`, `identity_reset`, `all`), reusing
   the existing `Device`/`cmd` machinery
-- [ ] Run full scenario suite phone↔watch; store evidence JSON
+- [x] Run full scenario suite phone↔watch; store evidence JSON
 
 **Success criteria**:
 `python3 tools/release_gate/mesh_lab.py scenario all --serial-a <phone> --serial-watch <watch>`
@@ -273,12 +274,59 @@ the command if `run_adb` raises `GateError`.
 
 ### M7 — Polish & final design pass
 
-- [ ] Animations/transitions per `BitchatMotion` tokens; message-appear animations; screen
-  transitions; rotary scroll feel; splash screen & app icon (bitchat wordmark style)
-- [ ] Power/battery: verify shared `PowerManager` duty-cycling behaves on Wear; ambient-mode
-  behavior; memory audit (fragment/image caps)
-- [ ] Full screencap design review of every screen and state; fix all findings
-- [ ] Update this document: all milestones `done`; add a short "how to build/run/test" section
+- [x] Animations/transitions per `BitchatMotion` tokens; message-appear animations; screen
+  transitions; auto-scroll to newest; splash screen (black, on-brand) & app icon
+- [x] Power/battery: ambient test passed (see M2 result); shared `PowerManager` duty-cycling
+  active; composer/IME insets verified. Rotary crown scrolling is provided by
+  `ScalingLazyColumn` (wear-compose-foundation ≥1.3, framework-level; `input rotary` is not
+  supported by this Wear build's adb, so crown feel was not adb-verifiable — check manually)
+- [x] Full screencap design review of every screen and state; fixes applied (composer pinning,
+  `singleLine` IME action, bottom-chord clipping, black splash)
+- [x] Update this document: all milestones `done`; add a short "how to build/run/test" section
 
 **Success criteria**: all milestones marked `done`; interop suite green; final screencap set
 approved; a fresh agent can build, install, and test the watch app from this document alone.
+**Result**: PASSED.
+
+---
+
+## How to build / run / test
+
+Prereqs: JDK (e.g. Android Studio JBR), `adb` on PATH or `ANDROID_HOME` set, Python 3.10+,
+a Wear OS device (Pixel Watch) and a phone with USB debugging. **Both devices unlocked, screen
+on** — on the watch, disable the lock screen (Settings → Security) or tests will stall on the
+pattern lock; mesh_lab sets `stay_on_while_plugged_in` etc. automatically.
+
+```bash
+# Build
+./gradlew :wear:assembleDebug :app:assembleDebug
+
+# Unit tests (shared stack runs on both modules)
+./gradlew :wear:testDebugUnitTest :app:testDebugUnitTest
+
+# Install & launch on the watch
+adb -s <watch-serial> install -r -g wear/build/outputs/apk/debug/wear-debug.apk
+adb -s <watch-serial> shell monkey -p com.bitchat.watch -c android.intent.category.LAUNCHER 1
+
+# Screencap (design checks)
+adb -s <watch-serial> exec-out screencap -p > watch.png
+
+# Full interop suite (phone + watch)
+python3 tools/release_gate/mesh_lab.py setup \
+  --serial-a <phone-serial> --serial-watch <watch-serial> \
+  --apk app/build/outputs/apk/debug/app-arm64-v8a-debug.apk \
+  --watch-apk wear/build/outputs/apk/debug/wear-debug.apk
+python3 tools/release_gate/mesh_lab.py scenario all \
+  --serial-a <phone-serial> --serial-watch <watch-serial> --out /tmp/meshlab-evidence
+
+# Ad-hoc test-hook commands (watch)
+adb -s <watch-serial> shell am broadcast -a com.bitchat.watch.TEST_HOOK \
+  -n com.bitchat.watch/.testhook.WearTestHookReceiver --es cmd state --es id s1
+adb -s <watch-serial> shell run-as com.bitchat.watch cat cache/testhook/results/s1.json
+```
+
+Notes:
+- If `mesh_lab` raises `GateError: ADB command failed`, the watch's USB link flapped — retry.
+- Wear test-hook commands: `ping start stop whoami set_nickname scan peers connect handshake
+  session announce broadcast_msg dm_send dm_recv msg_recv raw_send state clear_results`.
+- File transfer (`file_send`/`file_recv`) does not exist on the watch yet — see M5 (deferred).

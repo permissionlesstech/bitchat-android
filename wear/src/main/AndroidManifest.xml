@@ -39,7 +39,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:taskAffinity="">
+            android:taskAffinity=""
+            android:theme="@style/BitchatLaunchTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
