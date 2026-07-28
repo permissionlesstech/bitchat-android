@@ -1,0 +1,421 @@
+#!/usr/bin/env python3
+"""ADB-driven mesh test orchestrator for two (or more) live devices.
+
+Drives the debug-only TestHookReceiver in the app
+(intent action: com.bitchat.droid.TEST_HOOK) to perform mesh operations:
+peer scanning, connect, Noise handshake, DMs, file transfer, broadcast,
+announce, and raw packet injection.
+
+Each on-device command writes a JSON result to
+cache/testhook/results/<id>.json inside the app sandbox; this module polls
+for it via `run-as` and returns the parsed dict.
+
+Typical usage:
+    python3 tools/release_gate/mesh_lab.py setup --serial-a X --serial-b Y --apk app/build/outputs/apk/debug/app-debug.apk
+    python3 tools/release_gate/mesh_lab.py scenario dm --serial-a X --serial-b Y
+    python3 tools/release_gate/mesh_lab.py scenario all --serial-a X --serial-b Y
+    python3 tools/release_gate/mesh_lab.py cmd --serial X scan --extra timeout_ms=30000
+"""
+
+from __future__ import annotations
+
+import argparse
+import concurrent.futures
+import hashlib
+import json
+import random
+import shlex
+import subprocess
+import sys
+import tempfile
+import time
+import uuid
+from pathlib import Path
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from tools.release_gate.android_lab import APPLICATION_ID, find_adb, run_adb
+
+TEST_HOOK_ACTION = "com.bitchat.droid.TEST_HOOK"
+TEST_HOOK_COMPONENT = f"{APPLICATION_ID}/com.bitchat.android.testhook.TestHookReceiver"
+RESULTS_DIR = "cache/testhook/results"
+DEVICE_TMP_DIR = "/data/local/tmp/meshlab"
+APP_FIXTURE_DIR = f"/data/data/{APPLICATION_ID}/cache/fixtures"
+
+PERMISSIONS = [
+    "android.permission.BLUETOOTH_SCAN",
+    "android.permission.BLUETOOTH_CONNECT",
+    "android.permission.BLUETOOTH_ADVERTISE",
+    "android.permission.ACCESS_FINE_LOCATION",
+    "android.permission.ACCESS_COARSE_LOCATION",
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.NEARBY_WIFI_DEVICES",
+    "android.permission.RECORD_AUDIO",
+]
+
+
+class MeshLabError(Exception):
+    pass
+
+
+def _shell(serial: str, command: str) -> str:
+    return run_adb(serial, ["shell", command])
+
+
+class Device:
+    """One ADB-connected phone running a debug build with the test hook."""
+
+    def __init__(self, serial: str, alias: str):
+        self.serial = serial
+        self.alias = alias
+
+    # -- app lifecycle ------------------------------------------------------
+
+    def install(self, apk: Path) -> None:
+        result = subprocess.run(
+            [find_adb(), "-s", self.serial, "install", "-r", "-g", str(apk)],
+            check=False, capture_output=True, text=True, timeout=300,
+        )
+        if result.returncode != 0 or "Success" not in result.stdout:
+            raise MeshLabError(f"[{self.alias}] install failed: {result.stdout} {result.stderr}")
+
+    def grant_permissions(self) -> None:
+        for perm in PERMISSIONS:
+            subprocess.run(
+                [find_adb(), "-s", self.serial, "shell", "pm", "grant", APPLICATION_ID, perm],
+                check=False, capture_output=True, text=True, timeout=30,
+            )
+
+    def clear_app_data(self) -> None:
+        _shell(self.serial, f"am force-stop {APPLICATION_ID}")
+        output = _shell(self.serial, f"pm clear {APPLICATION_ID}")
+        if "Success" not in output:
+            raise MeshLabError(f"[{self.alias}] pm clear failed: {output}")
+
+    def launch(self) -> None:
+        _shell(self.serial, f"monkey -p {APPLICATION_ID} -c android.intent.category.LAUNCHER 1")
+        time.sleep(3)
+
+    def enable_bluetooth(self) -> None:
+        subprocess.run(
+            [find_adb(), "-s", self.serial, "shell", "svc", "bluetooth", "enable"],
+            check=False, capture_output=True, text=True, timeout=30,
+        )
+
+    # -- fixtures -----------------------------------------------------------
+
+    def push_fixture(self, local: Path, name: str | None = None) -> str:
+        """Stage a fixture inside the app sandbox and return its app-readable path.
+
+        adb push lands files as shell:ext_data_rw, which the app cannot read
+        through the FUSE Android/data mount, so the bytes are piped through
+        the shell into the app's own cache directory via run-as.
+        """
+        fname = name or local.name
+        tmp = f"{DEVICE_TMP_DIR}/{fname}"
+        _shell(self.serial, f"mkdir -p {DEVICE_TMP_DIR}")
+        result = subprocess.run(
+            [find_adb(), "-s", self.serial, "push", str(local), tmp],
+            check=False, capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            raise MeshLabError(f"[{self.alias}] push failed: {result.stderr}")
+        target = f"{APP_FIXTURE_DIR}/{fname}"
+        _shell(
+            self.serial,
+            f"run-as {APPLICATION_ID} mkdir -p {APP_FIXTURE_DIR} && "
+            f"cat {tmp} | run-as {APPLICATION_ID} sh -c 'cat > {target}' && rm -f {tmp}",
+        )
+        return target
+
+    # -- test hook commands -------------------------------------------------
+
+    def cmd(self, cmd: str, timeout_ms: int = 60_000, **extras: object) -> dict:
+        """Send a test-hook command and poll for its JSON result."""
+        cmd_id = uuid.uuid4().hex[:12]
+        _shell(self.serial, f"run-as {APPLICATION_ID} rm -f {RESULTS_DIR}/{cmd_id}.json")
+
+        args = [
+            "am", "broadcast", "-a", TEST_HOOK_ACTION,
+            "-n", TEST_HOOK_COMPONENT,
+            "--es", "cmd", cmd,
+            "--es", "id", cmd_id,
+            "--el", "timeout_ms", str(timeout_ms),
+            "--el", "overall_timeout_ms", str(timeout_ms + 30_000),
+        ]
+        for key, value in extras.items():
+            if value is None:
+                continue
+            if isinstance(value, bool):
+                args += ["--ez", key, "true" if value else "false"]
+            elif isinstance(value, int):
+                args += ["--el", key, str(value)]
+            else:
+                args += ["--es", key, str(value)]
+        try:
+            _shell(self.serial, " ".join(shlex.quote(a) for a in args))
+        except Exception as error:
+            # The shell occasionally hangs even though the broadcast was delivered;
+            # fall through to result polling, which is the authoritative channel.
+            print(f"[{self.alias}] warning: broadcast send for '{cmd}' raised: {error}", file=sys.stderr)
+
+        deadline = time.monotonic() + (timeout_ms + 60_000) / 1000
+        while time.monotonic() < deadline:
+            try:
+                raw = _shell(self.serial, f"run-as {APPLICATION_ID} cat {RESULTS_DIR}/{cmd_id}.json")
+                if raw.strip().startswith("{"):
+                    return json.loads(raw)
+            except Exception:
+                pass
+            time.sleep(1.0)
+        raise MeshLabError(f"[{self.alias}] timed out waiting for result of '{cmd}' ({cmd_id})")
+
+    def cmd_ok(self, cmd: str, timeout_ms: int = 60_000, **extras: object) -> dict:
+        result = self.cmd(cmd, timeout_ms=timeout_ms, **extras)
+        if result.get("status") != "ok":
+            raise MeshLabError(f"[{self.alias}] '{cmd}' failed: {result}")
+        return result
+
+    def logcat_dump(self, lines: int = 200) -> str:
+        return _shell(self.serial, f"logcat -d -t {lines}")
+
+
+# MARK: - fixtures
+
+FIXTURE_SIZES = {
+    "small_1k.bin": 1_024,
+    "medium_512k.bin": 512 * 1_024,
+    "large_2m.bin": 2 * 1_024 * 1_024,
+}
+
+
+def make_fixtures(directory: Path, seed: int = 1337, names: list[str] | None = None) -> dict[str, dict]:
+    directory.mkdir(parents=True, exist_ok=True)
+    fixtures = {}
+    rng = random.Random(seed)
+    for name, size in FIXTURE_SIZES.items():
+        if names is not None and name not in names:
+            rng.randbytes(size)  # keep the stream deterministic across subsets
+            continue
+        path = directory / name
+        data = rng.randbytes(size)
+        path.write_bytes(data)
+        fixtures[name] = {"path": path, "sha256": hashlib.sha256(data).hexdigest(), "bytes": size}
+    return fixtures
+
+
+# MARK: - setup
+
+def setup_pair(a: Device, b: Device, apk: Path | None, nickname_a: str, nickname_b: str) -> None:
+    for device, nickname in ((a, nickname_a), (b, nickname_b)):
+        device.enable_bluetooth()
+        if apk is not None:
+            device.install(apk)
+        device.clear_app_data()
+        device.grant_permissions()
+        device.launch()
+        device.cmd_ok("start")
+        device.cmd_ok("set_nickname", name=nickname)
+    wait_for_mutual_discovery(a, b)
+
+
+def whoami(device: Device) -> dict:
+    return device.cmd_ok("whoami")
+
+
+def wait_for_peer(device: Device, peer_id: str, timeout_s: int = 90) -> dict:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        result = device.cmd_ok("peers")
+        for peer in result.get("peers", []):
+            if peer.get("id") == peer_id:
+                return peer
+        device.cmd_ok("announce")
+        time.sleep(3)
+    raise MeshLabError(f"[{device.alias}] peer {peer_id} not discovered within {timeout_s}s")
+
+
+def wait_for_mutual_discovery(a: Device, b: Device) -> None:
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        fa = pool.submit(wait_for_peer, a, id_b)
+        fb = pool.submit(wait_for_peer, b, id_a)
+        fa.result()
+        fb.result()
+
+
+# MARK: - scenarios
+
+def scenario_dm(a: Device, b: Device) -> dict:
+    """Handshake, then exchange DMs in both directions with content assertions."""
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+
+    hs = a.cmd_ok("handshake", timeout_ms=60_000, peer=id_b)
+    hs_back = b.cmd_ok("handshake", timeout_ms=60_000, peer=id_a)
+
+    token_ab = f"dm-{uuid.uuid4().hex[:8]}"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        recv = pool.submit(b.cmd_ok, "dm_recv", 60_000, peer=id_a, contains=token_ab)
+        time.sleep(2)
+        send = pool.submit(a.cmd_ok, "dm_send", 30_000, peer=id_b, content=f"hello b {token_ab}")
+        recv_result, send_result = recv.result(), send.result()
+    assert token_ab in recv_result["content"], recv_result
+
+    token_ba = f"dm-{uuid.uuid4().hex[:8]}"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        recv = pool.submit(a.cmd_ok, "dm_recv", 60_000, peer=id_b, contains=token_ba)
+        time.sleep(2)
+        send = pool.submit(b.cmd_ok, "dm_send", 30_000, peer=id_a, content=f"hello a {token_ba}")
+        recv_result2, send_result2 = recv.result(), send.result()
+    assert token_ba in recv_result2["content"], recv_result2
+
+    return {
+        "handshake_a_to_b": hs, "handshake_b_to_a": hs_back,
+        "a_to_b": {"send": send_result, "recv": recv_result},
+        "b_to_a": {"send": send_result2, "recv": recv_result2},
+    }
+
+
+def scenario_broadcast(a: Device, b: Device) -> dict:
+    """Public broadcast from A received by B."""
+    id_a = whoami(a)["peer_id"]
+    token = f"bc-{uuid.uuid4().hex[:8]}"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        recv = pool.submit(b.cmd_ok, "msg_recv", 60_000, contains=token)
+        time.sleep(2)
+        send = pool.submit(a.cmd_ok, "broadcast_msg", 30_000, content=f"broadcast {token}")
+        recv_result, send_result = recv.result(), send.result()
+    assert recv_result["from"] == id_a, recv_result
+    return {"send": send_result, "recv": recv_result}
+
+
+def scenario_file(a: Device, b: Device, fixtures: dict[str, dict], private: bool = False) -> dict:
+    """File transfer A -> B with sha256 integrity verification."""
+    id_b = whoami(b)["peer_id"]
+    results = {}
+    for name, fixture in fixtures.items():
+        remote = a.push_fixture(fixture["path"])
+        send_kwargs: dict[str, object] = {"path": remote}
+        if private:
+            send_kwargs["peer"] = id_b
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            recv = pool.submit(b.cmd_ok, "file_recv", 240_000, name_contains=name)
+            time.sleep(2)
+            send = pool.submit(a.cmd_ok, "file_send", 240_000, **send_kwargs)
+            recv_result, send_result = recv.result(), send.result()
+        digest_ok = recv_result["sha256"] == fixture["sha256"]
+        results[name] = {
+            "send": send_result, "recv": recv_result,
+            "expected_sha256": fixture["sha256"], "digest_match": digest_ok,
+        }
+        if not digest_ok:
+            raise MeshLabError(
+                f"file '{name}' digest mismatch: {recv_result['sha256']} != {fixture['sha256']}"
+            )
+    return results
+
+
+def scenario_raw(a: Device, b: Device) -> dict:
+    """Raw packet injection (unsigned announce-type packet) reaches the mesh."""
+    payload = b"meshlab-raw-" + uuid.uuid4().hex[:8].encode()
+    result = a.cmd_ok("raw_send", 30_000, type="05", payload_hex=payload.hex())
+    return {"send": result}
+
+
+SCENARIOS = {
+    "dm": scenario_dm,
+    "broadcast": scenario_broadcast,
+    "file": lambda a, b: scenario_file(a, b, make_fixtures(Path(tempfile.mkdtemp(prefix="meshlab-fixtures-")))),
+    # Private media is hard-capped at 256 fragments (PrivateMediaTransfer), so only
+    # the small fixture fits; larger sizes are expected to be rejected by the sender.
+    "file_private": lambda a, b: scenario_file(
+        a, b,
+        make_fixtures(Path(tempfile.mkdtemp(prefix="meshlab-fixtures-")), names=["small_1k.bin"]),
+        private=True,
+    ),
+    "raw": scenario_raw,
+}
+
+
+def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:
+    started = time.time()
+    evidence: dict[str, object] = {"scenario": name, "devices": [a.alias, b.alias]}
+    try:
+        if name == "all":
+            evidence["results"] = {n: run_scenario(n, a, b, None)["results"] for n in SCENARIOS}
+        else:
+            evidence["results"] = SCENARIOS[name](a, b)
+        evidence["status"] = "pass"
+    except (MeshLabError, AssertionError) as error:
+        evidence["status"] = "fail"
+        evidence["error"] = str(error)
+        evidence["logcat"] = {d.alias: d.logcat_dump() for d in (a, b)}
+    evidence["duration_s"] = round(time.time() - started, 1)
+    if out is not None:
+        out.mkdir(parents=True, exist_ok=True)
+        (out / f"{name}-evidence.json").write_text(json.dumps(evidence, indent=2, default=str))
+    return evidence
+
+
+# MARK: - CLI
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    setup = commands.add_parser("setup", help="install, grant, launch, nickname, discover")
+    setup.add_argument("--serial-a", required=True)
+    setup.add_argument("--serial-b", required=True)
+    setup.add_argument("--apk", type=Path, default=None)
+    setup.add_argument("--nickname-a", default="alice")
+    setup.add_argument("--nickname-b", default="bob")
+
+    scenario = commands.add_parser("scenario", help="run a test scenario on two devices")
+    scenario.add_argument("name", choices=[*SCENARIOS.keys(), "all"])
+    scenario.add_argument("--serial-a", required=True)
+    scenario.add_argument("--serial-b", required=True)
+    scenario.add_argument("--out", type=Path, default=None, help="evidence output directory")
+
+    raw = commands.add_parser("cmd", help="send a raw test-hook command to one device")
+    raw.add_argument("--serial", required=True)
+    raw.add_argument("cmd")
+    raw.add_argument("--extra", action="append", default=[], help="key=value extra (repeatable)")
+    raw.add_argument("--timeout-ms", type=int, default=60_000)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        if args.command == "setup":
+            setup_pair(
+                Device(args.serial_a, "alpha"), Device(args.serial_b, "beta"),
+                args.apk, args.nickname_a, args.nickname_b,
+            )
+            print(json.dumps({"status": "ok", "step": "setup"}))
+        elif args.command == "scenario":
+            evidence = run_scenario(
+                args.name, Device(args.serial_a, "alpha"), Device(args.serial_b, "beta"), args.out
+            )
+            print(json.dumps(evidence, indent=2, default=str))
+            return 0 if evidence["status"] == "pass" else 1
+        elif args.command == "cmd":
+            extras: dict[str, object] = {}
+            for item in args.extra:
+                key, _, value = item.partition("=")
+                extras[key] = int(value) if value.isdigit() else value
+            result = Device(args.serial, "device").cmd(args.cmd, timeout_ms=args.timeout_ms, **extras)
+            print(json.dumps(result, indent=2, default=str))
+            return 0 if result.get("status") == "ok" else 1
+        return 0
+    except MeshLabError as error:
+        print(f"mesh lab error: {error}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

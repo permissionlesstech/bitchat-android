@@ -242,3 +242,32 @@ command and stop the local relay/Tor fixture.
   not waive a mandatory scenario.
 - A flaky result is a failure until its cause is understood. Never average
   retries into a pass.
+
+## Appendix: mesh lab (ADB test hooks, debug builds)
+
+For day-to-day development there is a lighter-weight harness that drives a
+debug-only broadcast receiver (`app/src/debug/`, never shipped in release)
+exposing mesh operations over ADB: scan, connect, Noise handshake, DMs,
+public broadcast, announce, file send/receive, BLE toggle, state dumps, and
+raw packet injection. Results are JSON files in the app sandbox polled by the
+host (`cache/testhook/results/<id>.json`, also logged under tag `TestHook`).
+
+```sh
+# install + grant + launch + nickname + mutual discovery on two devices
+python3 tools/release_gate/mesh_lab.py setup \
+  --serial-a <ephemeral> --serial-b <ephemeral> \
+  --apk app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+
+# scenarios: dm, broadcast, file, file_private, raw, all
+python3 tools/release_gate/mesh_lab.py scenario file \
+  --serial-a <ephemeral> --serial-b <ephemeral> --out /tmp/meshlab-evidence
+
+# single command against one device
+python3 tools/release_gate/mesh_lab.py cmd --serial <ephemeral> scan \
+  --extra timeout_ms=30000
+```
+
+The file scenarios push deterministic fixtures into the app sandbox and verify
+the receiver's saved file by SHA-256. Unlike the release gate, this harness is
+a development aid: it prints raw diagnostics and does not produce a
+privacy-checked approval bundle.
