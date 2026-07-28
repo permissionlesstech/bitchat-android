@@ -136,7 +136,7 @@ class UniversalApkManager(private val context: Context) {
             // A supported standalone APK is already an installable sharing
             // artifact. Split installs still need the universal GitHub artifact.
             val installedApkInfo = cacheInstalledApkIfPreferred()
-            if (installedApkInfo != null) {
+            if (installedApkInfo?.source == ApkSource.INSTALLED) {
                 return@withContext UpdateStatus.UpToDate(installedApkInfo.version)
             }
 
@@ -501,7 +501,8 @@ class UniversalApkManager(private val context: Context) {
             // Downloading the universal release is an explicit compatibility
             // choice. Keep it even when the running ARM64 build is newer; the
             // user can delete it from the UI to return to the local artifact.
-            if (cachedInfo?.source == ApkSource.GITHUB &&
+            if (installedVariant == ShareableApkVariant.ARM64 &&
+                cachedInfo?.source == ApkSource.GITHUB &&
                 cachedInfo.variant == ShareableApkVariant.UNIVERSAL
             ) {
                 return cachedInfo
