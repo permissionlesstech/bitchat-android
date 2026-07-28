@@ -1,10 +1,14 @@
 package com.bitchat.watch.ui
 
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -15,8 +19,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
+import androidx.wear.compose.foundation.rotary.rotaryScrollable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -27,6 +34,7 @@ import androidx.wear.compose.material3.Text
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.ui.media.FullScreenImageViewer
+import com.bitchat.watch.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
 import com.bitchat.watch.ui.theme.colorForPeer
@@ -38,7 +46,9 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
     val mesh = WearMeshService.peek()
     val myPeerID = mesh?.myPeerID ?: ""
     val palette = LocalBitchatPalette.current
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scrollState = androidx.compose.foundation.rememberScrollState()
+    val rotaryFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { rotaryFocus.requestFocus() }
     val haptics = LocalHapticFeedback.current
     var viewerPath by remember { mutableStateOf<String?>(null) }
     val voice = rememberVoiceNoteController { path ->
@@ -73,78 +83,125 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             }
             if (messages.isNotEmpty()) {
-                listState.animateScrollToItem(0)
+                scrollState.animateScrollTo(scrollState.maxValue)
             }
         }
         previousCount = messages.size
     }
 
-    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
-        ScreenScaffold(scrollState = listState) {
-            androidx.compose.foundation.lazy.LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                reverseLayout = true,
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    top = 40.dp,
-                    bottom = 56.dp
-                )
-            ) {
-                items(messages.asReversed(), key = { it.id }) { message ->
-                    MessageItem(
-                        message = message,
-                        myPeerID = myPeerID,
-                        onOpenImage = { viewerPath = it }
-                    )
-                }
-                if (messages.isEmpty()) {
-                    item {
-                        Text(
-                            text = if (sessionEstablished) "encrypted channel ready\nsay hi"
-                            else "setting up encryption…",
-                            style = ChatVisualTokens.SystemActionStyle,
-                            color = palette.textTertiary,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 16.dp)
-                        )
-                    }
-                }
-                item {
-                    Row(
+    val buttonsVisible = rememberBottomBarVisibility(scrollState)
+    val headerExpanded = scrollState.maxValue - scrollState.value > 60
+    val headerIconSize by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (headerExpanded) 16.dp else 11.dp,
+        animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
+        label = "dmHdrIcon"
+    )
+    val headerTitleSize by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (headerExpanded) 15.dp else 11.dp,
+        animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
+        label = "dmHdrTitle"
+    )
+    val headerVPadding by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (headerExpanded) 6.dp else 1.dp,
+        animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
+        label = "dmHdrPad"
+    )
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Sticky collapsing header: nickname + Noise lock (grey open → orange pulse → green)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = headerVPadding),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = nickname,
+                style = MaterialTheme.typography.titleSmall,
+                fontSize = with(androidx.compose.ui.platform.LocalDensity.current) {
+                    headerTitleSize.toSp()
+                },
+                fontWeight = FontWeight.Bold,
+                color = colorForPeer(nickname + peerID, palette)
+            )
+            NoiseLockIcon(
+                state = if (sessionEstablished) NoiseSessionUiState.Established
+                else NoiseSessionUiState.Handshaking,
+                size = headerIconSize,
+                modifier = Modifier.padding(start = 5.dp)
+            )
+        }
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f)
+        ) {
+            ScreenScaffold(scrollState = scrollState) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(bottom = 56.dp)
+                            .rotaryScrollable(
+                                RotaryScrollableDefaults.behavior(scrollState),
+                                rotaryFocus
+                            )
+                            .focusRequester(rotaryFocus)
+                            .focusable()
+                            .verticalScroll(scrollState)
                     ) {
-                        Text(
-                            text = nickname,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = colorForPeer(nickname + peerID, palette)
-                        )
-                        Text(
-                            text = if (sessionEstablished) "  ·  noise ✓" else "  ·  handshaking…",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (sessionEstablished) MaterialTheme.colorScheme.primary
-                            else palette.textTertiary
-                        )
+                        if (messages.isEmpty()) {
+                            Text(
+                                text = if (sessionEstablished) "encrypted channel ready\nsay hi"
+                                else "setting up encryption…",
+                                style = ChatVisualTokens.SystemActionStyle,
+                                color = palette.textTertiary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp)
+                            )
+                        }
+                        messages.forEach { message ->
+                            MessageItem(
+                                message = message,
+                                myPeerID = myPeerID,
+                                onOpenImage = { viewerPath = it }
+                            )
+                        }
                     }
                 }
             }
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = buttonsVisible.value,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = androidx.compose.animation.slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS)
+                ) + androidx.compose.animation.fadeIn(
+                    animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS)
+                ),
+                exit = androidx.compose.animation.slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS)
+                ) + androidx.compose.animation.fadeOut(
+                    animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS)
+                )
+            ) {
+                ChatActionBar(
+                    onKeyboard = onOpenTextInput,
+                    voice = voice,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+            }
+
+            VoiceRecordOverlay(voice)
         }
-
-        ChatActionBar(
-            onKeyboard = onOpenTextInput,
-            voice = voice,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 10.dp)
-        )
-
-        VoiceRecordOverlay(voice)
     }
 
     viewerPath?.let { path ->
