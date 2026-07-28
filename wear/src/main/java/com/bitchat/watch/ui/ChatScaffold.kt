@@ -55,20 +55,8 @@ fun ChatScaffold(
     header: @Composable (expanded: Boolean) -> Unit,
     actionBar: @Composable () -> Unit
 ) {
-    val palette = LocalBitchatPalette.current
     val haptics = LocalHapticFeedback.current
     val columnState = rememberTransformingLazyColumnState()
-
-    // Distance in px from the viewport's bottom edge to the end of the last item;
-    // Int.MAX_VALUE when the last message is not visible at all.
-    fun bottomDist(): Int {
-        if (messages.isEmpty()) return 0
-        val info = columnState.layoutInfo
-        val lastVisible = info.visibleItems.lastOrNull() ?: return Int.MAX_VALUE
-        if (lastVisible.index < messages.size - 1) return Int.MAX_VALUE
-        val viewportH = info.viewportSize.height
-        return viewportH - (lastVisible.offset + lastVisible.transformedHeight)
-    }
 
     // Haptics on incoming messages.
     var previousCount by remember { mutableStateOf(messages.size) }
@@ -84,31 +72,36 @@ fun ChatScaffold(
 
     // "Docked at newest" is the single source of truth for the chat's resting state:
     // bottom clearance expanded (newest message sits above the floating buttons), action
-    // bar visible, header at full size. Scrolling into history collapses all three together;
-    // returning to the bottom restores them. Thresholds 40/120 straddle the 48dp padding
-    // delta, breaking the maxValue feedback loop, and give the header/buttons flicker-free
-    // hysteresis.
+    // bar visible, header at full size. It is driven by scroll intent, not layout geometry:
+    // reaching the end of the list docks; deliberately scrolling away undocks. Geometry-based
+    // detection (distance-to-last-item) was unreliable here because expanding the bottom
+    // clearance grows the scroll range, which read as "left the bottom", and the edge-scaled
+    // last item skewed the measurement further.
     var dockedAtNewest by remember { mutableStateOf(true) }
-    // Action bar hides while scrolling into history, returns toward the newest.
+    // Action bar: ALWAYS visible while the list is scrolled to the bottom; hides when
+    // scrolling up into history and reappears as soon as the user scrolls back down, so
+    // replying is one short flick away even from the very top.
     val buttonsVisible = remember { mutableStateOf(true) }
-    LaunchedEffect(columnState, messages.size) {
-        var lastPosition = 0
+    LaunchedEffect(columnState) {
+        var lastPosition = -1
         snapshotFlow {
             val first = columnState.layoutInfo.visibleItems.firstOrNull()
-            (first?.index ?: 0) * 100_000 + (first?.offset ?: 0)
-        }.collect { position ->
-            val dist = bottomDist()
-            if (dist < 40) {
+            Triple(columnState.canScrollForward, first?.index ?: 0, first?.offset ?: 0)
+        }.collect { (canScrollForward, index, offset) ->
+            val atBottom = !canScrollForward
+            if (atBottom) {
                 dockedAtNewest = true
                 buttonsVisible.value = true
-            } else if (dist in 121..10_000) {
-                // Clearly reading history (MAX_VALUE = last item not laid out yet; transient
-                // right after a new message arrives, so it must not undock the state).
-                dockedAtNewest = false
             }
-            when {
-                dist >= 40 && position < lastPosition - 24 -> buttonsVisible.value = false
-                position > lastPosition + 24 -> buttonsVisible.value = true
+            val position = index * 100_000 + offset
+            if (lastPosition >= 0) {
+                when {
+                    position > lastPosition + 24 -> buttonsVisible.value = true
+                    position < lastPosition - 24 -> {
+                        buttonsVisible.value = false
+                        if (!atBottom) dockedAtNewest = false
+                    }
+                }
             }
             lastPosition = position
         }
