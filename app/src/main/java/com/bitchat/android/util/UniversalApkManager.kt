@@ -206,7 +206,13 @@ class UniversalApkManager(private val context: Context) {
      * @return Result with File on success, or error message
      */
     suspend fun downloadUniversalApk(
-        progressCallback: ((Int) -> Unit)? = null
+        progressCallback: ((Int) -> Unit)? = null,
+        /**
+         * Reports which stage the operation reached. Both stages before the transfer can block
+         * for a long time — a release lookup, then a Tor bootstrap — and reporting neither is why
+         * a download appeared stuck at 0%.
+         */
+        phaseCallback: ((ApkDownloader.DownloadPhase) -> Unit)? = null
     ): Result<File> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Starting universal APK download")
@@ -215,15 +221,18 @@ class UniversalApkManager(private val context: Context) {
             // Reuses the short-lived release metadata cache populated by the
             // status check. If this worker is running after process death, the
             // client performs a retried network fetch instead.
+            phaseCallback?.invoke(ApkDownloader.DownloadPhase.ResolvingRelease)
             val release = GitHubReleaseClient.fetchLatestRelease().getOrElse { error ->
                 return@withContext Result.failure(error)
             }
 
+            phaseCallback?.invoke(ApkDownloader.DownloadPhase.AwaitingNetworkRoute)
             if (!GitHubReleaseClient.awaitSelectedNetworkRoute()) {
                 return@withContext Result.failure(
                     IOException("Tor is still connecting. Try the download again when Tor is ready.")
                 )
             }
+            phaseCallback?.invoke(ApkDownloader.DownloadPhase.Transferring)
 
             val url = release.universalApkUrl
             val expectedSize = release.universalApkSize
@@ -286,6 +295,7 @@ class UniversalApkManager(private val context: Context) {
             // Verify checksum if available
             if (release.universalApkSha256 != null) {
                 Log.d(TAG, "Verifying checksum...")
+                phaseCallback?.invoke(ApkDownloader.DownloadPhase.VerifyingChecksum)
                 val isValid = verifyChecksum(tempFile, release.universalApkSha256)
                 if (!isValid) {
                     tempFile.delete()
@@ -301,6 +311,7 @@ class UniversalApkManager(private val context: Context) {
 
             // Verify the downloaded APK against trusted signing certificates.
             Log.d(TAG, "Verifying APK signature...")
+            phaseCallback?.invoke(ApkDownloader.DownloadPhase.VerifyingSignature)
             if (!verifyApkSignature(tempFile)) {
                 tempFile.delete()
                 progressFile.delete()

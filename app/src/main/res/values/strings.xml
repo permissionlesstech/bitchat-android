@@ -245,6 +245,13 @@
   <string name="prepare_apk_source_github" translatable="false">Sharing source: verified GitHub universal APK</string>
   <string name="prepare_apk_get_universal" translatable="false">Get universal</string>
   <string name="prepare_apk_status_downloading">Downloading… %1$d%%</string>
+  <!-- Stages of preparing the APK. Only the transfer has a meaningful percentage. -->
+  <string name="prepare_apk_phase_resolving">Checking latest release…</string>
+  <string name="prepare_apk_phase_awaiting_route">Waiting for Tor…</string>
+  <string name="prepare_apk_phase_transferring">Downloading…</string>
+  <string name="prepare_apk_phase_verifying_checksum">Verifying checksum…</string>
+  <string name="prepare_apk_phase_verifying_signature">Verifying signature…</string>
+  <string name="prepare_apk_stop">Stop download</string>
   <string name="prepare_apk_status_update_available">Update available</string>
   <string name="prepare_apk_button_prepare">Prepare</string>
   <string name="prepare_apk_button_update">Update</string>

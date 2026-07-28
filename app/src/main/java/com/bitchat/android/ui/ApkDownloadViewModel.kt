@@ -36,7 +36,10 @@ sealed class ApkPreparationStatus {
         val newVersion: String,
         val newSizeMB: Int
     ) : ApkPreparationStatus()
-    object Downloading : ApkPreparationStatus()
+    /** [phase] is what the operation is actually doing; only a transfer has a real percentage. */
+    data class Downloading(
+        val phase: ApkDownloader.DownloadPhase = ApkDownloader.DownloadPhase.ResolvingRelease
+    ) : ApkPreparationStatus()
     data class Resumable(val progressPercent: Int, val message: String) : ApkPreparationStatus()
     data class Error(val message: String) : ApkPreparationStatus()
 }
@@ -200,7 +203,7 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
         val partial = apkManager.getPartialDownloadProgress()
         _state.update {
             it.copy(
-                apkStatus = ApkPreparationStatus.Downloading,
+                apkStatus = ApkPreparationStatus.Downloading(),
                 downloadProgress = partial ?: 0
             )
         }
@@ -237,7 +240,7 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                     is ApkDownloader.DownloadState.Downloading -> {
                         _state.update {
                             it.copy(
-                                apkStatus = ApkPreparationStatus.Downloading,
+                                apkStatus = ApkPreparationStatus.Downloading(downloadState.phase),
                                 downloadProgress = downloadState.progressPercent
                             )
                         }

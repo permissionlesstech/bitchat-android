@@ -33,6 +33,7 @@ class ApkDownloadWorker(
 
         // Progress keys
         const val KEY_PROGRESS = "progress"
+        const val KEY_PHASE = "phase"
         const val KEY_VERSION = "version"
         const val KEY_SIZE_MB = "size_mb"
         const val KEY_ERROR = "error"
@@ -50,6 +51,8 @@ class ApkDownloadWorker(
         applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     private var lastNotifiedProgress = -NOTIFY_STEP_PERCENT
+    private var lastProgress = 0
+    private var currentPhase = ApkDownloader.DownloadPhase.ResolvingRelease
 
     override suspend fun doWork(): Result {
         Log.d(TAG, "Starting APK download work")
@@ -64,10 +67,20 @@ class ApkDownloadWorker(
             Log.w(TAG, "Could not promote download to foreground work", e)
         }
 
-        val result = apkManager.downloadUniversalApk { progress ->
-            setProgressAsync(Data.Builder().putInt(KEY_PROGRESS, progress).build())
-            updateNotification(progress)
-        }
+        val result = apkManager.downloadUniversalApk(
+            progressCallback = { progress ->
+                lastProgress = progress
+                publishProgress(progress, currentPhase)
+                updateNotification(progress)
+            },
+            phaseCallback = { phase ->
+                currentPhase = phase
+                publishProgress(lastProgress, phase)
+                // Forced: a phase change is exactly the moment the percentage stops meaning
+                // anything, so the every-5% threshold must not suppress the redraw.
+                updateNotification(lastProgress, force = true)
+            }
+        )
 
         return if (result.isSuccess) {
             val info = apkManager.getCachedApkInfo()
@@ -118,16 +131,28 @@ class ApkDownloadWorker(
         }
     }
 
+    private fun publishProgress(progress: Int, phase: ApkDownloader.DownloadPhase) {
+        setProgressAsync(
+            Data.Builder()
+                .putInt(KEY_PROGRESS, progress)
+                .putString(KEY_PHASE, phase.name)
+                .build()
+        )
+    }
+
     private fun buildNotification(progress: Int): android.app.Notification {
         val cancelIntent = WorkManager.getInstance(applicationContext)
             .createCancelPendingIntent(id)
 
         return NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setContentTitle(applicationContext.getString(R.string.apk_download_notification_title))
+            .setContentText(applicationContext.getString(downloadPhaseLabel(currentPhase)))
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setProgress(100, progress, progress <= 0)
+            // A percentage is a lie outside the transfer: the release lookup, the Tor bootstrap
+            // and both verification passes have no measurable progress at all.
+            .setProgress(100, progress, !currentPhase.hasMeasurableProgress || progress <= 0)
             .addAction(
                 android.R.drawable.ic_delete,
                 applicationContext.getString(android.R.string.cancel),
@@ -136,8 +161,8 @@ class ApkDownloadWorker(
             .build()
     }
 
-    private fun updateNotification(progress: Int) {
-        if (progress - lastNotifiedProgress < NOTIFY_STEP_PERCENT) return
+    private fun updateNotification(progress: Int, force: Boolean = false) {
+        if (!force && progress - lastNotifiedProgress < NOTIFY_STEP_PERCENT) return
         lastNotifiedProgress = progress
         try {
             notificationManager.notify(NOTIFICATION_ID, buildNotification(progress))

@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
@@ -68,6 +69,7 @@ import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.util.downloadPhaseLabel
 import com.bitchat.android.hotspot.HotspotActivity
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
@@ -702,7 +704,15 @@ fun AboutSheet(
                                                             " • ${status.version} • ${status.sizeMB} MB\n$source"
                                                     }
                                                     is ApkPreparationStatus.UpdateAvailable -> stringResource(R.string.prepare_apk_status_update_available) + " (${status.newVersion})"
-                                                    is ApkPreparationStatus.Downloading -> stringResource(R.string.prepare_apk_status_downloading, downloadProgress)
+                                                    is ApkPreparationStatus.Downloading ->
+                                                        // Only the transfer has a percentage worth
+                                                        // showing; the other phases are named
+                                                        // instead of pretending to be at 0%.
+                                                        if (status.phase.hasMeasurableProgress) {
+                                                            stringResource(R.string.prepare_apk_status_downloading, downloadProgress)
+                                                        } else {
+                                                            stringResource(downloadPhaseLabel(status.phase))
+                                                        }
                                                     is ApkPreparationStatus.Resumable -> "Tap to resume • ${status.progressPercent}% downloaded"
                                                     is ApkPreparationStatus.Error -> status.message
                                                 },
@@ -720,10 +730,35 @@ fun AboutSheet(
                                         // Action buttons
                                         when (apkStatus) {
                                             is ApkPreparationStatus.Downloading -> {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(20.dp),
-                                                    strokeWidth = 2.dp
-                                                )
+                                                // Determinate only while bytes move. Elsewhere a
+                                                // spinner is honest about having no measure.
+                                                if (apkStatus.phase.hasMeasurableProgress &&
+                                                    downloadProgress > 0
+                                                ) {
+                                                    CircularProgressIndicator(
+                                                        progress = { downloadProgress / 100f },
+                                                        modifier = Modifier.size(20.dp),
+                                                        strokeWidth = 2.dp
+                                                    )
+                                                } else {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(20.dp),
+                                                        strokeWidth = 2.dp
+                                                    )
+                                                }
+                                                androidx.compose.material3.IconButton(
+                                                    onClick = {
+                                                        apkViewModel.onEvent(ApkUiEvent.CancelDownload)
+                                                    },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = stringResource(R.string.prepare_apk_stop),
+                                                        tint = colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
                                             }
                                             is ApkPreparationStatus.Ready -> {
                                                 if (apkStatus.variant == ShareableApkVariant.ARM64) {

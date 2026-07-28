@@ -61,11 +61,17 @@ class WorkManagerApkDownloader(context: Context) : ApkDownloader {
             WorkInfo.State.BLOCKED -> {
                 // Waiting for constraints (network). Show existing partial progress if any.
                 val partial = apkManager.getPartialDownloadProgress()
-                ApkDownloader.DownloadState.Downloading(partial ?: 0)
+                ApkDownloader.DownloadState.Downloading(
+                    partial ?: 0,
+                    ApkDownloader.DownloadPhase.ResolvingRelease
+                )
             }
             WorkInfo.State.RUNNING -> {
                 val progress = workInfo.progress.getInt(ApkDownloadWorker.KEY_PROGRESS, 0)
-                ApkDownloader.DownloadState.Downloading(progress)
+                val phase = ApkDownloader.DownloadPhase.fromKey(
+                    workInfo.progress.getString(ApkDownloadWorker.KEY_PHASE)
+                )
+                ApkDownloader.DownloadState.Downloading(progress, phase)
             }
             WorkInfo.State.SUCCEEDED -> {
                 val version = workInfo.outputData.getString(ApkDownloadWorker.KEY_VERSION) ?: ""
