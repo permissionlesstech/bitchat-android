@@ -300,6 +300,7 @@ python3 tools/release_gate/mesh_lab.py scenario all \
 | `file` | 1 KB broadcast file, receiver SHA-256 matches fixture |
 | `file_oversize` | >256-fragment broadcast file is rejected sender-side, receiver sees nothing |
 | `file_private` | Noise-encrypted private file, digest match |
+| `media_private` | private-chat contact ID resolves to the live mesh peer; voice, image, and generic-file digests match |
 | `raw` | raw packet injection is accepted by the mesh |
 | `session_recovery` | force-stop B mid-session: identity persists, re-handshake, DMs flow again |
 | `identity_reset` | pm clear B mid-session: new identity, rediscovery, handshake, DMs |

@@ -241,6 +241,28 @@ def make_fixtures(directory: Path, seed: int = 1337, names: list[str] | None = N
     return fixtures
 
 
+def make_private_media_fixtures(directory: Path, seed: int = 7331) -> dict[str, dict]:
+    """Small attachment fixtures covering every private-media UI type."""
+    directory.mkdir(parents=True, exist_ok=True)
+    fixtures = {}
+    rng = random.Random(seed)
+    for name, mime in (
+        ("voice_note.m4a", "audio/mp4"),
+        ("image_note.jpg", "image/jpeg"),
+        ("document_note.txt", "text/plain"),
+    ):
+        path = directory / name
+        data = rng.randbytes(1_024)
+        path.write_bytes(data)
+        fixtures[name] = {
+            "path": path,
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "bytes": len(data),
+            "mime": mime,
+        }
+    return fixtures
+
+
 # MARK: - setup
 
 def setup_pair(a: Device, b: Device, apk: Path | None, nickname_a: str, nickname_b: str) -> None:
@@ -330,7 +352,13 @@ def scenario_broadcast(a: Device, b: Device) -> dict:
     return {"send": send_result, "recv": recv_result}
 
 
-def scenario_file(a: Device, b: Device, fixtures: dict[str, dict], private: bool = False) -> dict:
+def scenario_file(
+    a: Device,
+    b: Device,
+    fixtures: dict[str, dict],
+    private: bool = False,
+    recipient: str | None = None,
+) -> dict:
     """File transfer A -> B with sha256 integrity verification."""
     id_b = whoami(b)["peer_id"]
     b.clear_incoming()  # avoid name-uniquified collisions across runs
@@ -339,7 +367,9 @@ def scenario_file(a: Device, b: Device, fixtures: dict[str, dict], private: bool
         remote = a.push_fixture(fixture["path"])
         send_kwargs: dict[str, object] = {"path": remote}
         if private:
-            send_kwargs["peer"] = id_b
+            send_kwargs["peer"] = recipient or id_b
+        if fixture.get("mime"):
+            send_kwargs["mime"] = fixture["mime"]
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             recv = pool.submit(b.cmd_ok, "file_recv", 240_000, name_contains=name)
             time.sleep(2)
@@ -355,6 +385,23 @@ def scenario_file(a: Device, b: Device, fixtures: dict[str, dict], private: bool
                 f"file '{name}' digest mismatch: {recv_result['sha256']} != {fixture['sha256']}"
             )
     return results
+
+
+def scenario_private_media(a: Device, b: Device) -> dict:
+    """Voice, image, and generic file sends through the private-chat contact ID."""
+    identity = whoami(b)
+    noise_public_key = bytes.fromhex(identity["noise_public_key"])
+    conversation_id = f"contact_{hashlib.sha256(noise_public_key).hexdigest()}"
+    fixtures = make_private_media_fixtures(
+        Path(tempfile.mkdtemp(prefix="meshlab-private-media-"))
+    )
+    return scenario_file(
+        a,
+        b,
+        fixtures,
+        private=True,
+        recipient=conversation_id,
+    )
 
 
 def scenario_raw(a: Device, b: Device) -> dict:
@@ -553,6 +600,7 @@ SCENARIOS = {
         make_fixtures(Path(tempfile.mkdtemp(prefix="meshlab-fixtures-")), names=["small_1k.bin"]),
         private=True,
     ),
+    "media_private": scenario_private_media,
     "raw": scenario_raw,
     "session_recovery": scenario_session_recovery,
     "identity_reset": scenario_identity_reset,
