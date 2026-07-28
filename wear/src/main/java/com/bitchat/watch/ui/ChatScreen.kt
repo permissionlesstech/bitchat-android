@@ -100,8 +100,9 @@ private fun ChatHeader(
     expanded: Boolean,
     onOpenPeople: () -> Unit
 ) {
-    // Collapsing header: dense (small title, tiny icons) at the newest messages so the chat
-    // gets maximum space; scales up smoothly when the user scrolls into history.
+    // Collapsing header: full-size title and icons while docked at the newest messages (the
+    // chat's resting state); scales down smoothly as the user scrolls into history so the
+    // conversation gets maximum room.
     val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(
         BitchatMotion.STANDARD_MS
     )

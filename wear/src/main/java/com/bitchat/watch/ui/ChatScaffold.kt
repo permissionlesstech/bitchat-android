@@ -82,10 +82,13 @@ fun ChatScaffold(
         previousCount = messages.size
     }
 
-    // Bottom clearance hysteresis: expand near the newest message so it sits comfortably above
-    // the floating buttons; collapse when reading history so text flows behind them.
-    // (Thresholds 40/120 straddle the 48dp padding delta, breaking the maxValue feedback loop.)
-    var padExpanded by remember { mutableStateOf(true) }
+    // "Docked at newest" is the single source of truth for the chat's resting state:
+    // bottom clearance expanded (newest message sits above the floating buttons), action
+    // bar visible, header at full size. Scrolling into history collapses all three together;
+    // returning to the bottom restores them. Thresholds 40/120 straddle the 48dp padding
+    // delta, breaking the maxValue feedback loop, and give the header/buttons flicker-free
+    // hysteresis.
+    var dockedAtNewest by remember { mutableStateOf(true) }
     // Action bar hides while scrolling into history, returns toward the newest.
     val buttonsVisible = remember { mutableStateOf(true) }
     LaunchedEffect(columnState, messages.size) {
@@ -96,12 +99,12 @@ fun ChatScaffold(
         }.collect { position ->
             val dist = bottomDist()
             if (dist < 40) {
-                padExpanded = true
+                dockedAtNewest = true
                 buttonsVisible.value = true
             } else if (dist in 121..10_000) {
                 // Clearly reading history (MAX_VALUE = last item not laid out yet; transient
-                // right after a new message arrives, so it must not collapse the padding).
-                padExpanded = false
+                // right after a new message arrives, so it must not undock the state).
+                dockedAtNewest = false
             }
             when {
                 dist >= 40 && position < lastPosition - 24 -> buttonsVisible.value = false
@@ -111,27 +114,25 @@ fun ChatScaffold(
         }
     }
 
-    // Stick to bottom: on new messages, follow to the last item while the user is near the
-    // bottom, and re-align whenever the bottom clearance expands (padding growth changes the
-    // scroll range). Gating on padExpanded (maintained by the layout collector above) avoids
-    // the stale-layoutInfo race of computing the distance here directly.
-    LaunchedEffect(columnState, messages.size, padExpanded) {
-        if (messages.isNotEmpty() && padExpanded) {
+    // Stick to bottom: on new messages, follow to the last item while the user is docked at
+    // the newest, and re-align whenever the bottom clearance expands (padding growth changes
+    // the scroll range). Gating on dockedAtNewest (maintained by the layout collector above)
+    // avoids the stale-layoutInfo race of computing the distance here directly.
+    LaunchedEffect(columnState, messages.size, dockedAtNewest) {
+        if (messages.isNotEmpty() && dockedAtNewest) {
             // scrollBy to the end of the range: animateScrollToItem stops as soon as the item
             // is partially visible, which left the last message cropped behind the buttons.
             columnState.scroll { scrollBy(Float.MAX_VALUE) }
         }
     }
     val listBottomPadding by animateDpAsState(
-        targetValue = if (padExpanded) 56.dp else 8.dp,
+        targetValue = if (dockedAtNewest) 56.dp else 8.dp,
         animationSpec = tween(BitchatMotion.STANDARD_MS),
         label = "listBottomPad"
     )
-    // Header is dense near the newest messages, expands when reading history.
-    val headerExpanded = bottomDist() > 60
 
     Column(modifier = Modifier.fillMaxSize()) {
-        header(headerExpanded)
+        header(dockedAtNewest)
         ChatBody(
             messages = messages,
             myPeerID = myPeerID,
