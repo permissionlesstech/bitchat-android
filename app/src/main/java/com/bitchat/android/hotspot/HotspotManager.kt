@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.net.wifi.p2p.WifiP2pConfig
 import android.net.wifi.p2p.WifiP2pGroup
 import android.net.wifi.p2p.WifiP2pManager
@@ -16,7 +15,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
-import androidx.core.content.ContextCompat
 import java.net.NetworkInterface
 import java.security.SecureRandom
 import kotlin.random.Random
@@ -100,12 +98,15 @@ class HotspotManager(private val context: Context) {
             return
         }
 
-        val missingPermission = requiredRuntimePermission()?.takeUnless {
-            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-        }
-        if (missingPermission != null) {
-            Log.w(TAG, "Cannot start hotspot without $missingPermission")
-            callback.onError("Nearby Wi-Fi permission is required to start the hotspot")
+        val missingPermissions = HotspotPermissions.missingFrom(context)
+        if (missingPermissions.isNotEmpty()) {
+            Log.w(TAG, "Cannot start hotspot; missing required permissions: $missingPermissions")
+            val message = if (Manifest.permission.ACCESS_LOCAL_NETWORK in missingPermissions) {
+                "Local network permission is required to share the app over the hotspot"
+            } else {
+                "Nearby Wi-Fi permission is required to start the hotspot"
+            }
+            callback.onError(message)
             return
         }
 
@@ -248,7 +249,7 @@ class HotspotManager(private val context: Context) {
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Wi-Fi permission was revoked while creating the group", e)
-            failStartup("Nearby Wi-Fi permission was revoked. Grant it and try again.")
+            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
         }
     }
 
@@ -369,17 +370,7 @@ class HotspotManager(private val context: Context) {
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Wi-Fi permission was revoked while reading group info", e)
-            failStartup("Nearby Wi-Fi permission was revoked. Grant it and try again.")
-        }
-    }
-
-    private fun requiredRuntimePermission(): String? {
-        return when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
-                Manifest.permission.NEARBY_WIFI_DEVICES
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
-                Manifest.permission.ACCESS_FINE_LOCATION
-            else -> null
+            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
         }
     }
 
