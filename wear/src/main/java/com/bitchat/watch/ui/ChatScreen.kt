@@ -116,51 +116,60 @@ private fun ChatHeader(
         targetValue = if (expanded) 6.dp else 1.dp, animationSpec = spec, label = "hdrPad"
     )
 
+    // The entire header region opens the People screen. When there are unread DMs the
+    // title gives way so the people and mail icons (with counts) fit side by side on the
+    // round screen instead of clipping at the edges.
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onOpenPeople() }
             .padding(horizontal = 8.dp, vertical = vPadding),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "bitchat",
-            style = MaterialTheme.typography.titleSmall,
-            fontSize = with(androidx.compose.ui.platform.LocalDensity.current) { titleSize.toSp() },
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+        if (unreadDms == 0) {
+            Text(
+                text = "bitchat",
+                style = MaterialTheme.typography.titleSmall,
+                fontSize = with(androidx.compose.ui.platform.LocalDensity.current) { titleSize.toSp() },
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+        }
+        Icon(
+            imageVector = Icons.Filled.People,
+            contentDescription = "people",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(iconSize)
         )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .padding(start = 8.dp)
-                .clickable { onOpenPeople() }
-        ) {
+        Text(
+            text = "$peerCount",
+            style = MaterialTheme.typography.bodySmall,
+            fontSize = with(androidx.compose.ui.platform.LocalDensity.current) {
+                (iconSize.value * 0.85f).dp.toSp()
+            },
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 2.dp)
+        )
+        if (unreadDms > 0) {
             Icon(
-                imageVector = Icons.Filled.People,
-                contentDescription = "people",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(iconSize)
+                imageVector = Icons.Filled.MailOutline,
+                contentDescription = "$unreadDms unread messages",
+                tint = LocalBitchatPalette.current.accentOrange,
+                modifier = Modifier
+                    .padding(start = 6.dp)
+                    .size(iconSize)
             )
             Text(
-                text = "$peerCount",
+                text = "$unreadDms",
                 style = MaterialTheme.typography.bodySmall,
                 fontSize = with(androidx.compose.ui.platform.LocalDensity.current) {
                     (iconSize.value * 0.85f).dp.toSp()
                 },
-                color = MaterialTheme.colorScheme.primary,
+                color = LocalBitchatPalette.current.accentOrange,
                 modifier = Modifier.padding(start = 2.dp)
             )
-            if (unreadDms > 0) {
-                Icon(
-                    imageVector = Icons.Filled.MailOutline,
-                    contentDescription = "$unreadDms unread messages",
-                    tint = LocalBitchatPalette.current.accentOrange,
-                    modifier = Modifier
-                        .padding(start = 5.dp)
-                        .size(iconSize)
-                )
-            }
         }
     }
 }

@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,6 +22,7 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Card
+import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
@@ -37,7 +41,14 @@ fun PeopleScreen(onOpenDm: (String) -> Unit) {
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     val nicknames = mesh?.getPeerNicknames() ?: emptyMap()
-    val rssi = mesh?.getPeerRSSI() ?: emptyMap()
+
+    // Peers with unread messages float to the top so they are easy to see and reach.
+    val sortedPeers = androidx.compose.runtime.remember(peers, unread, nicknames) {
+        peers.sortedWith(
+            compareByDescending<String> { (unread[it] ?: 0) > 0 }
+                .thenBy { (nicknames[it] ?: it).lowercase() }
+        )
+    }
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
@@ -47,7 +58,7 @@ fun PeopleScreen(onOpenDm: (String) -> Unit) {
             item {
                 ListHeader {
                     Text(
-                        text = "people (${peers.size})",
+                        text = "People (${peers.size})",
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
@@ -66,16 +77,13 @@ fun PeopleScreen(onOpenDm: (String) -> Unit) {
                     )
                 }
             }
-            items(peers, key = { it }) { peerID ->
+            items(sortedPeers, key = { it }) { peerID ->
                 val nick = nicknames[peerID] ?: peerID.take(8)
-                val unreadCount = unread[peerID] ?: 0
-                val encrypted = mesh?.hasEstablishedSession(peerID) == true
                 PersonRow(
                     nickname = nick,
                     peerID = peerID,
-                    rssi = rssi[peerID],
-                    encrypted = encrypted,
-                    unreadCount = unreadCount,
+                    encrypted = mesh?.hasEstablishedSession(peerID) == true,
+                    unreadCount = unread[peerID] ?: 0,
                     onClick = { onOpenDm(peerID) }
                 )
             }
@@ -87,7 +95,6 @@ fun PeopleScreen(onOpenDm: (String) -> Unit) {
 private fun PersonRow(
     nickname: String,
     peerID: String,
-    rssi: Int?,
     encrypted: Boolean,
     unreadCount: Int,
     onClick: () -> Unit
@@ -105,29 +112,49 @@ private fun PersonRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = nickname,
-                    style = ChatVisualTokens.SenderStyle,
-                    color = colorForPeer(nickname + peerID, palette),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = buildString {
-                        append(if (encrypted) "noise ✓" else "tap to chat")
-                        rssi?.let { append(" · ${it}dBm") }
-                    },
-                    style = ChatVisualTokens.SystemActionStyle,
-                    color = if (encrypted) MaterialTheme.colorScheme.primary else palette.textTertiary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = nickname,
+                        style = ChatVisualTokens.SenderStyle,
+                        color = colorForPeer(nickname + peerID, palette),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (encrypted) {
+                        NoiseLockIcon(
+                            state = NoiseSessionUiState.Established,
+                            size = 11.dp,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
+                }
+                if (!encrypted) {
+                    Text(
+                        text = "tap to chat",
+                        style = ChatVisualTokens.SystemActionStyle,
+                        color = palette.textTertiary
+                    )
+                }
             }
             if (unreadCount > 0) {
-                Text(
-                    text = "$unreadCount new",
-                    style = ChatVisualTokens.SystemActionStyle,
-                    color = palette.accentOrange,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(start = 6.dp)
-                )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.MailOutline,
+                        contentDescription = "$unreadCount unread messages",
+                        tint = palette.accentOrange,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Text(
+                        text = "$unreadCount",
+                        style = ChatVisualTokens.SystemActionStyle,
+                        color = palette.accentOrange,
+                        modifier = Modifier.padding(start = 2.dp)
+                    )
+                }
             }
         }
     }
