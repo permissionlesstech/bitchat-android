@@ -95,6 +95,7 @@ class WearMeshService private constructor(private val context: Context) {
                         }
                     }
                     routed.peerID?.let { pid ->
+                        maybeAutoHandshake(pid)
                         try {
                             meshCore.gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000)
                         } catch (_: Exception) { }
@@ -201,6 +202,31 @@ class WearMeshService private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * Proactively establish a Noise session with peers we have no session for (throttled to
+     * one attempt per peer per 60 s). Peers may hold a stale session after we restart — the
+     * protocol has no decrypt-failure kick path, so our fresh handshake replaces it and
+     * restores encrypted DM/file delivery.
+     */
+    private val handshakeAttempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    private fun maybeAutoHandshake(peerID: String) {
+        if (peerID == myPeerID || hasEstablishedSession(peerID)) return
+        val now = System.currentTimeMillis()
+        val last = handshakeAttempts[peerID] ?: 0L
+        if (now - last < 60_000) return
+        handshakeAttempts[peerID] = now
+        serviceScope.launch {
+            delay(1_500)
+            if (!hasEstablishedSession(peerID)) {
+                try {
+                    Log.d(TAG, "Auto-initiating Noise handshake with ${peerID.take(8)}")
+                    initiateNoiseHandshake(peerID)
+                } catch (_: Exception) { }
+            }
+        }
+    }
+
     private fun handleMessageReceived(message: com.bitchat.android.model.BitchatMessage) {
         try {
             when {
@@ -296,6 +322,49 @@ class WearMeshService private constructor(private val context: Context) {
     fun connectToPeer(peerID: String): Boolean {
         val address = getDeviceAddressForPeer(peerID) ?: return false
         return connectionManager.connectToAddress(address)
+    }
+
+    fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
+        meshCore.sendFileBroadcast(file)
+    }
+
+    /**
+     * Noise-encrypted private file transfer with session/prep retry (mirrors the phone's
+     * dispatchFileSend): ensures an established session, then retries transient
+     * preparation states (AwaitingPeerState/NeedsHandshake) before giving up.
+     */
+    fun sendFilePrivateEncrypted(recipientPeerID: String, file: com.bitchat.android.model.BitchatFilePacket) {
+        serviceScope.launch {
+            val sessionDeadline = System.currentTimeMillis() + 15_000
+            while (!hasEstablishedSession(recipientPeerID) && System.currentTimeMillis() < sessionDeadline) {
+                try { initiateNoiseHandshake(recipientPeerID) } catch (_: Exception) { }
+                delay(500)
+            }
+            val transferId = com.bitchat.android.mesh.MeshPacketUtils.sha256Hex(
+                file.encode() ?: return@launch
+            )
+            val prepDeadline = System.currentTimeMillis() + 30_000
+            while (System.currentTimeMillis() < prepDeadline) {
+                when (val prep = meshCore.prepareFilePrivate(recipientPeerID, file, transferId, allowLegacyFallback = false)) {
+                    is com.bitchat.android.mesh.PrivateMediaPreparation.Ready -> {
+                        prep.transfer.commit()
+                        return@launch
+                    }
+                    com.bitchat.android.mesh.PrivateMediaPreparation.AwaitingPeerState,
+                    com.bitchat.android.mesh.PrivateMediaPreparation.NeedsHandshake -> {
+                        if (prep == com.bitchat.android.mesh.PrivateMediaPreparation.NeedsHandshake) {
+                            try { initiateNoiseHandshake(recipientPeerID) } catch (_: Exception) { }
+                        }
+                        delay(500)
+                    }
+                    else -> {
+                        Log.w(TAG, "private voice note preparation failed: $prep")
+                        return@launch
+                    }
+                }
+            }
+            Log.w(TAG, "private voice note preparation timed out")
+        }
     }
 
     fun getPeerFingerprint(peerID: String): String? = meshCore.getPeerFingerprint(peerID)

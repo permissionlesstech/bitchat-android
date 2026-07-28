@@ -64,6 +64,7 @@ WATCH_PERMISSIONS = [
     "android.permission.BLUETOOTH_CONNECT",
     "android.permission.BLUETOOTH_ADVERTISE",
     "android.permission.POST_NOTIFICATIONS",
+    "android.permission.RECORD_AUDIO",
 ]
 
 
@@ -230,7 +231,9 @@ class Device:
             if isinstance(value, bool):
                 args += ["--ez", key, "true" if value else "false"]
             elif isinstance(value, int):
-                args += ["--el", key, str(value)]
+                # `am` stores --el as Long and --ei as Integer; on-device
+                # readers use getIntExtra, so int extras must go via --ei.
+                args += ["--ei", key, str(value)]
             else:
                 args += ["--es", key, str(value)]
         try:
@@ -654,8 +657,9 @@ SCENARIOS = {
     "identity_reset": scenario_identity_reset,
 }
 
-# Scenarios supported when device B is a watch (file transfer deferred on the watch).
-WATCH_SCENARIOS = ["dm", "broadcast", "raw", "session_recovery", "identity_reset"]
+# Scenarios supported when device B is a watch (file scenarios are receive-only: phone sends,
+# the watch must receive with matching digests).
+WATCH_SCENARIOS = ["dm", "broadcast", "raw", "file", "file_private", "session_recovery", "identity_reset"]
 
 
 def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:
@@ -715,7 +719,8 @@ def build_parser() -> argparse.ArgumentParser:
     raw = commands.add_parser("cmd", help="send a raw test-hook command to one device")
     raw.add_argument("--serial", required=True)
     raw.add_argument("cmd")
-    raw.add_argument("--extra", action="append", default=[], help="key=value extra (repeatable)")
+    raw.add_argument("--extra", action="append", default=[], help="key=value string extra (repeatable)")
+    raw.add_argument("--extra-int", action="append", default=[], help="key=value int extra (repeatable)")
     raw.add_argument("--timeout-ms", type=int, default=60_000)
     return parser
 
@@ -748,9 +753,13 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if evidence["status"] == "pass" else 1
         elif args.command == "cmd":
             extras: dict[str, object] = {}
+            extras: dict[str, object] = {}
             for item in args.extra:
                 key, _, value = item.partition("=")
-                extras[key] = int(value) if value.isdigit() else value
+                extras[key] = value
+            for item in args.extra_int:
+                key, _, value = item.partition("=")
+                extras[key] = int(value)
             result = Device(args.serial, "device").cmd(args.cmd, timeout_ms=args.timeout_ms, **extras)
             print(json.dumps(result, indent=2, default=str))
             return 0 if result.get("status") == "ok" else 1

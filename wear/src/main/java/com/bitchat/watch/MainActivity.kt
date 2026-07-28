@@ -44,12 +44,15 @@ import com.bitchat.watch.ui.DmScreen
 import com.bitchat.watch.ui.NicknameSetupScreen
 import com.bitchat.watch.ui.PeopleScreen
 import com.bitchat.watch.ui.WearChatState
+import com.bitchat.watch.ui.sendPrivateMessage
+import com.bitchat.watch.ui.sendPublicMessage
 import com.bitchat.watch.ui.theme.BitchatWearTheme
 
 sealed interface WearScreen {
     data object Chat : WearScreen
     data object People : WearScreen
     data class Dm(val peerID: String) : WearScreen
+    data class TextInput(val peerID: String?) : WearScreen
 }
 
 class MainActivity : ComponentActivity() {
@@ -149,9 +152,31 @@ fun WearNavHost() {
         label = "screenTransition"
     ) { current ->
         when (current) {
-            is WearScreen.Chat -> ChatScreen(onOpenPeople = { navigate(WearScreen.People) })
+            is WearScreen.Chat -> ChatScreen(
+                onOpenPeople = { navigate(WearScreen.People) },
+                onOpenTextInput = { navigate(WearScreen.TextInput(null)) }
+            )
             is WearScreen.People -> PeopleScreen(onOpenDm = { navigate(WearScreen.Dm(it)) })
-            is WearScreen.Dm -> DmScreen(peerID = current.peerID)
+            is WearScreen.Dm -> DmScreen(
+                peerID = current.peerID,
+                onOpenTextInput = { navigate(WearScreen.TextInput(current.peerID)) }
+            )
+            is WearScreen.TextInput -> {
+                val mesh = WearMeshService.peek()
+                com.bitchat.watch.ui.TextInputScreen(
+                    onSend = { text ->
+                        mesh?.let { m ->
+                            if (current.peerID == null) {
+                                sendPublicMessage(m, text)
+                            } else {
+                                val nick = m.getPeerNickname(current.peerID) ?: current.peerID
+                                sendPrivateMessage(m, current.peerID, nick, text)
+                            }
+                        }
+                        goBack()
+                    }
+                )
+            }
         }
     }
 }

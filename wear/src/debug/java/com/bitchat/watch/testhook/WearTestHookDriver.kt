@@ -50,6 +50,7 @@ object WearTestHookDriver {
             "dm_recv" -> dmRecv(context, intent)
             "msg_recv" -> msgRecv(context, intent)
             "raw_send" -> rawSend(context, intent)
+            "file_recv" -> fileRecv(context, intent)
             "state" -> state(context)
             "clear_results" -> clearResults(context)
             else -> err(cmd, "unknown command: $cmd")
@@ -278,6 +279,43 @@ object WearTestHookDriver {
             .put("type", typeStr)
             .put("payload_bytes", payload.size)
             .put("peer", peerID)
+    }
+
+    // MARK: - File transfer (receive only; the watch does not send files via test hook)
+
+    private suspend fun fileRecv(context: Context, intent: Intent): JSONObject {
+        val timeoutMs = intent.getLongExtra("timeout_ms", 180_000L)
+        val nameContains = intent.getStringExtra("name_contains")
+        val startTime = System.currentTimeMillis()
+        val dirs = listOf(
+            File(context.cacheDir, "files/incoming"),
+            File(context.cacheDir, "images/incoming")
+        )
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            val candidate = dirs
+                .flatMap { it.listFiles()?.toList() ?: emptyList() }
+                .filter { it.lastModified() >= startTime - 5_000 }
+                .filter { nameContains == null || it.name.contains(nameContains) }
+                .maxByOrNull { it.lastModified() }
+            if (candidate != null) {
+                val size1 = candidate.length()
+                delay(500)
+                if (candidate.length() == size1 && size1 > 0) {
+                    return ok("file_recv")
+                        .put("path", candidate.absolutePath)
+                        .put("name", candidate.name)
+                        .put("bytes", size1)
+                        .put(
+                            "sha256",
+                            java.security.MessageDigest.getInstance("SHA-256")
+                                .digest(candidate.readBytes()).toHex()
+                        )
+                }
+            }
+            delay(250)
+        }
+        return err("file_recv", "timeout after ${timeoutMs}ms")
     }
 
     // MARK: - State

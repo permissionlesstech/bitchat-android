@@ -11,7 +11,7 @@
 | M2 | BLE transport & background service on watch | done |
 | M3 | Global chat | done |
 | M4 | Noise DMs & people screen | done |
-| M5 | File/image receive & display — **DEFERRED** (post-M7, later day) | deferred |
+| M5 | Files/images receive + voice notes (push-to-talk) + input redesign | in-progress |
 | M6 | ADB test hook & mesh_lab interop | done |
 | M7 | Polish & final design pass | done |
 
@@ -226,22 +226,51 @@ auto-initiates the handshake. Session recovery after watch force-stop verified b
 
 ---
 
-### M5 — File/image receive & display — **DEFERRED**
+### M5 — Files/images receive + voice notes (push-to-talk) + input redesign
 
-> Deferred to a later day (after M7). Milestones M6 and M7 do not depend on M5 and proceed
-> without it. The mesh_lab `file` scenario for the watch is skipped until M5 is un-deferred.
+> Revised scope (was: receive-only, deferred). Now includes voice messages as a first-class
+> input method and a native-Wear bottom-action redesign of the composer.
 
-- [ ] Receive broadcast files (`MessageType.FILE_TRANSFER`, `BitchatFilePacket` TLV decode,
-  fragment reassembly — all shared)
-- [ ] Receive Noise-encrypted private files (`NoisePayloadType.FILE_TRANSFER`)
-- [ ] Inline image rendering in chat timelines; full-screen image viewer (pinch/crown zoom);
-  non-image files saved with a way to open/share them
-- [ ] Transfer progress indicator; respect shared fragment/size caps
-- [ ] Design check: screencaps of inline image, full-screen viewer, transfer progress
+**Files & images (receive + display)**
 
-**Success criteria**: phone→watch image renders inline in both global chat and DM; SHA-256 of
-received file matches sender; screencap set approved. (Sending files from the watch is out of
-scope.)
+- [ ] Receive broadcast + Noise-encrypted private files (shared `BitchatFilePacket` TLV,
+  `FileUtils.saveIncomingFile`, `messageTypeForMime` — already wired via shared `MessageHandler`)
+- [ ] Image messages render as compact inline thumbnails (rounded, fit-width); tap → full-screen
+  viewer (black surface, fit-to-screen, dismiss) — mirrors the phone's `ImageMessageItem` /
+  `FullScreenImageViewer`
+- [ ] Non-media files: compact chip (name + size)
+- [ ] mesh_lab: add `file_recv` to the wear test hook; enable `file` + `file_private` scenarios
+  for the watch
+
+**Voice notes (first-class)**
+
+- [ ] RECORD_AUDIO permission (manifest + just-in-time runtime request)
+- [ ] Push-to-talk recording: press-and-hold starts recording, release sends (phone UX constants:
+  220 ms hold threshold, 10 s cap, ~80 ms amplitude polls); full-screen overlay that fades in
+  with a live waveform animation + elapsed time; shared `VoiceRecorder` (16 kHz mono AAC,
+  `audio/mp4`, `.m4a`)
+- [ ] Send as `BitchatFilePacket` broadcast in global chat (`MeshCore.sendFileBroadcast`); in a
+  DM thread send Noise-encrypted (`MeshCore.sendFilePrivate` with handshake/prep retry)
+- [ ] Received voice notes (`BitchatMessageType.Audio`, `content` = local path) render as a
+  voice-note bubble: play/pause + waveform (shared `Waveform.kt` extractor, 120 bins) +
+  duration; `MediaPlayer` playback
+
+**Input redesign (native Wear bottom actions)**
+
+- [ ] Replace the inline composer text field with two bottom action buttons docked via the
+  native Wear pattern (`ScreenScaffold` `edgeButton` slot + `ButtonGroup` — adapts to round and
+  square screens):
+  - keyboard button → full-screen text input screen (field auto-focused, IME opens; the Pixel
+    Watch Gboard provides built-in dictation there too)
+  - mic button → push-to-talk (press-and-hold record, release send) with the full-screen
+    waveform overlay
+- [ ] Remove the old inline `ChatComposer` row from chat/DM screens
+
+**Success criteria**: phone→watch image renders inline and full-screen; `mesh_lab.py scenario
+file` and `file_private` (phone→watch) green with SHA-256 match; push-to-talk voice note
+recorded on the watch arrives on the phone and plays (phone log/evidence), and a phone-sent
+voice note renders + plays on the watch; screencap design review of all new screens/overlays on
+the round display.
 
 ---
 
