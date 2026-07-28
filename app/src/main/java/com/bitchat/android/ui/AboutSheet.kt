@@ -70,6 +70,7 @@ import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.util.ShareableApkVariant
 import com.bitchat.android.util.UniversalApkManager
 
 /**
@@ -512,10 +513,13 @@ fun AboutSheet(
                                                     is ApkPreparationStatus.Loading -> stringResource(R.string.checking)
                                                     is ApkPreparationStatus.NotDownloaded -> stringResource(R.string.prepare_apk_status_not_downloaded)
                                                     is ApkPreparationStatus.Ready -> {
-                                                        val source = if (status.source == UniversalApkManager.ApkSource.INSTALLED) {
-                                                            stringResource(R.string.prepare_apk_source_installed)
-                                                        } else {
-                                                            stringResource(R.string.prepare_apk_source_github)
+                                                        val source = when {
+                                                            status.source == UniversalApkManager.ApkSource.GITHUB ->
+                                                                stringResource(R.string.prepare_apk_source_github)
+                                                            status.variant == ShareableApkVariant.ARM64 ->
+                                                                stringResource(R.string.prepare_apk_source_installed_arm64)
+                                                            else ->
+                                                                stringResource(R.string.prepare_apk_source_installed)
                                                         }
                                                         stringResource(R.string.prepare_apk_status_ready) +
                                                             " • ${status.version} • ${status.sizeMB} MB\n$source"
@@ -545,14 +549,36 @@ fun AboutSheet(
                                                 )
                                             }
                                             is ApkPreparationStatus.Ready -> {
-                                                if (apkStatus.source == UniversalApkManager.ApkSource.GITHUB) {
+                                                if (apkStatus.variant == ShareableApkVariant.ARM64) {
+                                                    TextButton(
+                                                        onClick = {
+                                                            apkViewModel.onEvent(
+                                                                ApkUiEvent.DownloadUniversalClicked
+                                                            )
+                                                        }
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.CloudDownload,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text(
+                                                            stringResource(
+                                                                R.string.prepare_apk_get_universal
+                                                            )
+                                                        )
+                                                    }
+                                                } else if (apkStatus.source == UniversalApkManager.ApkSource.GITHUB) {
                                                     androidx.compose.material3.IconButton(
                                                         onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
-                                                        modifier = Modifier.size(32.dp)
+                                                        modifier = Modifier.size(48.dp)
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Default.Delete,
-                                                            contentDescription = "Delete",
+                                                            contentDescription = stringResource(
+                                                                R.string.prepare_apk_delete_confirm
+                                                            ),
                                                             tint = colorScheme.error,
                                                             modifier = Modifier.size(20.dp)
                                                         )
@@ -562,11 +588,13 @@ fun AboutSheet(
                                             is ApkPreparationStatus.UpdateAvailable -> {
                                                 androidx.compose.material3.IconButton(
                                                     onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
-                                                    modifier = Modifier.size(32.dp)
+                                                    modifier = Modifier.size(48.dp)
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Delete,
-                                                        contentDescription = "Delete",
+                                                        contentDescription = stringResource(
+                                                            R.string.prepare_apk_delete_confirm
+                                                        ),
                                                         tint = colorScheme.error,
                                                         modifier = Modifier.size(20.dp)
                                                     )
