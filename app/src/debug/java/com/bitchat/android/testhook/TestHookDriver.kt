@@ -18,6 +18,8 @@ import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -282,46 +284,70 @@ object TestHookDriver {
         val encoded = packet.encode() ?: return err("file_send", "failed to TLV-encode packet")
         val transferId = sha256Hex(encoded)
 
+        return coroutineScope {
+            // Subscribe on a background dispatcher before sending so synchronous
+            // failure events are not missed (SharedFlow has replay=0).
+            val completion = async(Dispatchers.Default) {
+                TransferProgressManager.events.first { it.transferId == transferId && it.completed }
+            }
+            delay(50)
+            val sendError = dispatchFileSend(context, intent, mesh, peerID, packet, transferId)
+            if (sendError != null) {
+                completion.cancel()
+                return@coroutineScope sendError.put("cmd", "file_send")
+            }
+            val event = withTimeoutOrNull(timeoutMs) { completion.await() }
+                ?: return@coroutineScope err("file_send", "timeout waiting for transfer completion ($transferId)")
+            if (event.failed) {
+                return@coroutineScope err("file_send", "transfer rejected/failed before send ($transferId)")
+                    .put("transfer_id", transferId)
+            }
+            ok("file_send")
+                .put("transfer_id", transferId)
+                .put("sent", event.sent)
+                .put("total", event.total)
+                .put("bytes", content.size)
+                .put("peer", peerID)
+        }
+    }
+
+    private suspend fun dispatchFileSend(
+        context: Context,
+        intent: Intent,
+        mesh: MeshService,
+        peerID: String?,
+        packet: BitchatFilePacket,
+        transferId: String
+    ): JSONObject? {
         if (peerID == null) {
             mesh.sendFileBroadcast(packet)
-        } else {
-            if (!mesh.hasEstablishedSession(peerID)) {
-                val hs = handshake(context, peerID, intent)
-                if (hs.optString("status") != "ok") return hs.put("cmd", "file_send")
-            }
-            // Peer state (capabilities/identity) can lag session establishment;
-            // retry transient preparation states before giving up.
-            val prepDeadline = System.currentTimeMillis() + 30_000
-            while (true) {
-                when (val prep = mesh.prepareFilePrivate(peerID, packet, transferId, allowLegacyFallback = false)) {
-                    is PrivateMediaPreparation.Ready -> {
-                        if (!prep.transfer.commit()) return err("file_send", "private transfer commit failed")
-                        break
-                    }
-                    PrivateMediaPreparation.AwaitingPeerState,
-                    PrivateMediaPreparation.NeedsHandshake -> {
-                        if (System.currentTimeMillis() >= prepDeadline) {
-                            return err("file_send", "private media preparation stuck at: $prep")
-                        }
-                        if (prep == PrivateMediaPreparation.NeedsHandshake) {
-                            mesh.initiateNoiseHandshake(peerID)
-                        }
-                        delay(500)
-                    }
-                    else -> return err("file_send", "private media preparation: $prep")
+            return null
+        }
+        if (!mesh.hasEstablishedSession(peerID)) {
+            val hs = handshake(context, peerID, intent)
+            if (hs.optString("status") != "ok") return hs
+        }
+        // Peer state (capabilities/identity) can lag session establishment;
+        // retry transient preparation states before giving up.
+        val prepDeadline = System.currentTimeMillis() + 30_000
+        while (true) {
+            when (val prep = mesh.prepareFilePrivate(peerID, packet, transferId, allowLegacyFallback = false)) {
+                is PrivateMediaPreparation.Ready -> {
+                    return if (prep.transfer.commit()) null else err("file_send", "private transfer commit failed")
                 }
+                PrivateMediaPreparation.AwaitingPeerState,
+                PrivateMediaPreparation.NeedsHandshake -> {
+                    if (System.currentTimeMillis() >= prepDeadline) {
+                        return err("file_send", "private media preparation stuck at: $prep")
+                    }
+                    if (prep == PrivateMediaPreparation.NeedsHandshake) {
+                        mesh.initiateNoiseHandshake(peerID)
+                    }
+                    delay(500)
+                }
+                else -> return err("file_send", "private media preparation: $prep")
             }
         }
-
-        val event = withTimeoutOrNull(timeoutMs) {
-            TransferProgressManager.events.first { it.transferId == transferId && it.completed }
-        } ?: return err("file_send", "timeout waiting for transfer completion ($transferId)")
-        return ok("file_send")
-            .put("transfer_id", transferId)
-            .put("sent", event.sent)
-            .put("total", event.total)
-            .put("bytes", content.size)
-            .put("peer", peerID)
     }
 
     private suspend fun fileRecv(context: Context, intent: Intent): JSONObject {

@@ -326,10 +326,33 @@ def scenario_raw(a: Device, b: Device) -> dict:
     return {"send": result}
 
 
+def scenario_file_oversize(a: Device, b: Device, fixtures: dict[str, dict]) -> dict:
+    """Oversized broadcast file must be rejected sender-side (>256 fragments)."""
+    fixture = fixtures["medium_512k.bin"]
+    remote = a.push_fixture(fixture["path"])
+    send = a.cmd("file_send", timeout_ms=60_000, path=remote)
+    rejected = send.get("status") == "error" and "rejected" in send.get("error", "")
+    if not rejected:
+        raise MeshLabError(f"expected sender-side rejection, got: {send}")
+    # Receiver must not see any file appear.
+    recv = b.cmd("file_recv", timeout_ms=15_000, name_contains="medium_512k")
+    if recv.get("status") == "ok":
+        raise MeshLabError(f"receiver unexpectedly saved an oversized file: {recv}")
+    return {"send": send, "receiver_saw_file": False}
+
+
 SCENARIOS = {
     "dm": scenario_dm,
     "broadcast": scenario_broadcast,
-    "file": lambda a, b: scenario_file(a, b, make_fixtures(Path(tempfile.mkdtemp(prefix="meshlab-fixtures-")))),
+    # Broadcast transfers are receiver-capped at 256 fragments (~120 KB); only
+    # the small fixture is end-to-end receivable.
+    "file": lambda a, b: scenario_file(
+        a, b,
+        make_fixtures(Path(tempfile.mkdtemp(prefix="meshlab-fixtures-")), names=["small_1k.bin"]),
+    ),
+    "file_oversize": lambda a, b: scenario_file_oversize(
+        a, b, make_fixtures(Path(tempfile.mkdtemp(prefix="meshlab-fixtures-")))
+    ),
     # Private media is hard-capped at 256 fragments (PrivateMediaTransfer), so only
     # the small fixture fits; larger sizes are expected to be rejected by the sender.
     "file_private": lambda a, b: scenario_file(
