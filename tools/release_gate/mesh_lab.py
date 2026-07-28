@@ -94,8 +94,37 @@ class Device:
         if "Success" not in output:
             raise MeshLabError(f"[{self.alias}] pm clear failed: {output}")
 
+    def force_stop(self) -> None:
+        _shell(self.serial, f"am force-stop {APPLICATION_ID}")
+
     def launch(self) -> None:
         _shell(self.serial, f"monkey -p {APPLICATION_ID} -c android.intent.category.LAUNCHER 1")
+        time.sleep(3)
+
+    def wake(self) -> None:
+        """Keep the screen on and the app foregrounded (full-power BLE duty cycle).
+
+        A backgrounded app drops to POWER_SAVER (1 s scan per 60 s), which makes
+        mesh reformation after restarts take minutes and scenarios flaky.
+        `svc power stayon` only applies while charging, so also stretch the
+        screen timeout as a fallback.
+        """
+        _shell(self.serial, "svc power stayon true")
+        _shell(self.serial, "settings put system screen_off_timeout 600000")
+        subprocess.run(
+            [find_adb(), "-s", self.serial, "shell", "locksettings", "set-disabled", "true"],
+            check=False, capture_output=True, text=True, timeout=30,
+        )
+        _shell(self.serial, "input keyevent KEYCODE_WAKEUP")
+        _shell(self.serial, "wm dismiss-keyguard")
+        _shell(self.serial, "input keyevent 82")  # dismiss non-secure keyguard
+        _shell(self.serial, "input swipe 500 1500 500 400")  # swipe-up dismiss
+
+    def reset_bluetooth(self) -> None:
+        """Cycle the BT adapter; clears zombie GATT connections from peer restarts."""
+        _shell(self.serial, "svc bluetooth disable")
+        time.sleep(2)
+        _shell(self.serial, "svc bluetooth enable")
         time.sleep(3)
 
     def enable_bluetooth(self) -> None:
@@ -216,11 +245,13 @@ def make_fixtures(directory: Path, seed: int = 1337, names: list[str] | None = N
 
 def setup_pair(a: Device, b: Device, apk: Path | None, nickname_a: str, nickname_b: str) -> None:
     for device, nickname in ((a, nickname_a), (b, nickname_b)):
+        device.reset_bluetooth()
         device.enable_bluetooth()
         if apk is not None:
             device.install(apk)
         device.clear_app_data()
         device.grant_permissions()
+        device.wake()
         device.launch()
         device.cmd_ok("start")
         device.cmd_ok("set_nickname", name=nickname)
@@ -333,6 +364,161 @@ def scenario_raw(a: Device, b: Device) -> dict:
     return {"send": result}
 
 
+# MARK: - session / identity churn scenarios
+
+def _dm_roundtrip(a: Device, b: Device, id_a: str, id_b: str) -> dict:
+    """Exchange DMs in both directions with content assertions."""
+    token_ab = f"dm-{uuid.uuid4().hex[:8]}"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        recv = pool.submit(b.cmd_ok, "dm_recv", 60_000, peer=id_a, contains=token_ab)
+        time.sleep(2)
+        send = pool.submit(a.cmd_ok, "dm_send", 30_000, peer=id_b, content=f"hello b {token_ab}")
+        recv_ab, send_ab = recv.result(), send.result()
+    assert token_ab in recv_ab["content"], recv_ab
+
+    token_ba = f"dm-{uuid.uuid4().hex[:8]}"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        recv = pool.submit(a.cmd_ok, "dm_recv", 60_000, peer=id_b, contains=token_ba)
+        time.sleep(2)
+        send = pool.submit(b.cmd_ok, "dm_send", 30_000, peer=id_a, content=f"hello a {token_ba}")
+        recv_ba, send_ba = recv.result(), send.result()
+    assert token_ba in recv_ba["content"], recv_ba
+    return {"a_to_b": recv_ab, "b_to_a": recv_ba}
+
+
+def wait_session_established(device: Device, peer_id: str, timeout_s: int = 90) -> dict:
+    deadline = time.monotonic() + timeout_s
+    last: dict = {}
+    while time.monotonic() < deadline:
+        last = device.cmd_ok("session", peer=peer_id)
+        if last.get("established"):
+            return last
+        time.sleep(2)
+    raise MeshLabError(
+        f"[{device.alias}] session with {peer_id} not established within {timeout_s}s (last: {last})"
+    )
+
+
+def ensure_direct_link(a: Device, b: Device, id_a: str, id_b: str) -> None:
+    """Wait for rediscovery, then force a direct GATT connection both ways.
+
+    Backgrounded devices drop to POWER_SAVER duty cycles (1 s scan per 60 s), so
+    passively waiting for the mesh to reform takes minutes. The explicit connect
+    makes restart scenarios deterministic.
+    """
+    wait_for_peer(a, id_b, timeout_s=120)
+    wait_for_peer(b, id_a, timeout_s=120)
+    for device, peer in ((a, id_b), (b, id_a)):
+        result = device.cmd("connect", timeout_ms=45_000, peer=peer)
+        if result.get("status") == "ok" and result.get("direct"):
+            continue
+        # Already acceptable if the mesh formed a direct link on its own.
+        peers = device.cmd_ok("peers").get("peers", [])
+        match = next((p for p in peers if p.get("id") == peer), None)
+        if not match or not match.get("direct"):
+            raise MeshLabError(f"[{device.alias}] no direct link to {peer}: connect={result}")
+
+
+def force_handshake(device: Device, peer_id: str, attempts: int = 5, per_attempt_s: int = 20) -> dict:
+    """Retry explicit handshakes; inits can be lost while links settle."""
+    last: dict = {}
+    for _ in range(attempts):
+        last = device.cmd("handshake", timeout_ms=per_attempt_s * 1000, peer=peer_id)
+        if last.get("status") == "ok":
+            return last
+        time.sleep(2)
+    raise MeshLabError(f"[{device.alias}] handshake with {peer_id} failed after {attempts} attempts (last: {last})")
+
+
+def scenario_session_recovery(a: Device, b: Device) -> dict:
+    """Process death on B: identity must persist, in-memory Noise sessions are lost.
+
+    Expected recovery flow: A's DM sent with its stale session is dropped by B
+    (B has no session and no kick path on pure decrypt failure); B's outgoing DM
+    auto-triggers a fresh handshake; subsequent DMs must flow both ways.
+    """
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+    a.cmd_ok("handshake", 60_000, peer=id_b)
+    b.cmd_ok("handshake", 60_000, peer=id_a)
+    baseline = _dm_roundtrip(a, b, id_a, id_b)
+
+    b.force_stop()
+    b.wake()
+    b.launch()
+    b.cmd_ok("start")
+    b.cmd_ok("set_nickname", name="bob")
+    id_b_after = whoami(b)["peer_id"]
+    if id_b_after != id_b:
+        raise MeshLabError(f"identity changed across process death: {id_b} -> {id_b_after}")
+
+    wait_for_peer(a, id_b, timeout_s=120)
+    wait_for_peer(b, id_a, timeout_s=120)
+    ensure_direct_link(a, b, id_a, id_b)
+
+    # A -> B with A's stale session: B lost its in-memory session; drop expected.
+    a.cmd_ok("dm_send", 30_000, peer=id_b, content=f"stale-{uuid.uuid4().hex[:8]}")
+    # B -> A: no session on B, sendPrivateMessage auto-fires the re-handshake.
+    # The fire-and-forget handshake has no retry, so repeat the trigger, then
+    # fall back to explicit handshake commands if the auto-path stays stuck.
+    session_b: dict = {}
+    for _attempt in range(3):
+        b.cmd_ok("dm_send", 30_000, peer=id_a, content=f"trigger-{uuid.uuid4().hex[:8]}")
+        try:
+            session_b = wait_session_established(b, id_a, timeout_s=20)
+            break
+        except MeshLabError:
+            continue
+    if not session_b:
+        force_handshake(b, id_a)
+        session_b = wait_session_established(b, id_a, timeout_s=30)
+
+    session_a = wait_session_established(a, id_b)
+    recovered = _dm_roundtrip(a, b, id_a, id_b)
+    return {
+        "identity_preserved": True,
+        "baseline": baseline,
+        "session_a": session_a,
+        "session_b": session_b,
+        "recovered": recovered,
+    }
+
+
+def scenario_identity_reset(a: Device, b: Device) -> dict:
+    """pm clear on B mid-session: new identity, rediscovery, fresh handshake and DMs."""
+    id_a = whoami(a)["peer_id"]
+    id_b_old = whoami(b)["peer_id"]
+    a.cmd_ok("handshake", 60_000, peer=id_b_old)
+    b.cmd_ok("handshake", 60_000, peer=id_a)
+    _dm_roundtrip(a, b, id_a, id_b_old)
+
+    b.clear_app_data()
+    b.grant_permissions()
+    b.wake()
+    b.launch()
+    b.cmd_ok("start")
+    b.cmd_ok("set_nickname", name="bob")
+    id_b_new = whoami(b)["peer_id"]
+    if id_b_new == id_b_old:
+        raise MeshLabError("identity survived pm clear")
+
+    wait_for_peer(a, id_b_new, timeout_s=180)
+    ensure_direct_link(a, b, id_a, id_b_new)
+    force_handshake(a, id_b_new)
+    force_handshake(b, id_a)
+    recovered = _dm_roundtrip(a, b, id_a, id_b_new)
+
+    # Inspect how A treats the dead peer's stale session (evidence, not an assertion).
+    stale = a.cmd("session", peer=id_b_old)
+    return {
+        "old_peer_id": id_b_old,
+        "new_peer_id": id_b_new,
+        "identity_changed": True,
+        "recovered": recovered,
+        "stale_session_on_a": stale,
+    }
+
+
 def scenario_file_oversize(a: Device, b: Device, fixtures: dict[str, dict]) -> dict:
     """Oversized broadcast file must be rejected sender-side (>256 fragments)."""
     fixture = fixtures["medium_512k.bin"]
@@ -368,6 +554,8 @@ SCENARIOS = {
         private=True,
     ),
     "raw": scenario_raw,
+    "session_recovery": scenario_session_recovery,
+    "identity_reset": scenario_identity_reset,
 }
 
 
