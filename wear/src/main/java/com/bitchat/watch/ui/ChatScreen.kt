@@ -64,134 +64,29 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
     val unreadDms by WearChatState.unreadDms.collectAsState()
     val mesh = WearMeshService.peek()
     val myPeerID = mesh?.myPeerID ?: ""
-    val scrollState = androidx.compose.foundation.rememberScrollState()
-    val rotaryFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { rotaryFocus.requestFocus() }
-    val palette = LocalBitchatPalette.current
-    val haptics = LocalHapticFeedback.current
     var viewerPath by remember { mutableStateOf<String?>(null) }
     val voice = rememberVoiceNoteController { path ->
         mesh?.let { sendVoiceNote(it, null, path) }
     }
 
-    var previousCount by remember { mutableStateOf(messages.size) }
-    LaunchedEffect(messages.size) {
-        if (messages.size > previousCount) {
-            val last = messages.lastOrNull()
-            if (last != null && last.senderPeerID != myPeerID) {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            }
-            // Keep the newest message visible (bottom of a normal top-down scrollable)
-            if (messages.isNotEmpty()) {
-                scrollState.animateScrollTo(scrollState.maxValue)
-            }
+    ChatScaffold(
+        messages = messages,
+        myPeerID = myPeerID,
+        emptyText = "no messages yet\nsay hi to the mesh",
+        voice = voice,
+        onOpenImage = { viewerPath = it },
+        header = { expanded ->
+            ChatHeader(
+                peerCount = peers.size,
+                unreadDms = unreadDms.values.sum(),
+                expanded = expanded,
+                onOpenPeople = onOpenPeople
+            )
+        },
+        actionBar = {
+            ChatActionBar(onKeyboard = onOpenTextInput, voice = voice)
         }
-        previousCount = messages.size
-    }
-
-    val buttonsVisible = rememberBottomBarVisibility(scrollState)
-    val headerExpanded = scrollState.maxValue - scrollState.value > 60
-    // Full bottom clearance only near the newest message, so the last message sits comfortably
-    // above the floating buttons; collapses when scrolling up so history flows behind them.
-    // Hysteresis (expand <40, collapse >120) breaks the feedback loop: the 48dp padding delta
-    // changes maxValue, which would otherwise retrigger the condition every frame.
-    var padExpanded by remember { mutableStateOf(true) }
-    LaunchedEffect(scrollState) {
-        androidx.compose.runtime.snapshotFlow { scrollState.maxValue - scrollState.value }
-            .collect { dist ->
-                if (dist < 40) padExpanded = true
-                else if (dist > 120) padExpanded = false
-            }
-    }
-    val listBottomPadding by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (padExpanded) 56.dp else 8.dp,
-        animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
-        label = "listBottomPad"
     )
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Sticky header
-        ChatHeader(
-            peerCount = peers.size,
-            unreadDms = unreadDms.values.sum(),
-            expanded = headerExpanded,
-            onOpenPeople = onOpenPeople
-        )
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .weight(1f)
-        ) {
-            // Normal top-down scrollable (natural rotary direction + ScreenScaffold scrollbar).
-            // BottomCenter alignment anchors short content to the bottom above the action bar;
-            // empty space collects at the top instead of a gap above the buttons.
-            ScreenScaffold(scrollState = scrollState) {
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.BottomCenter
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = listBottomPadding)
-                            .rotaryScrollable(
-                                RotaryScrollableDefaults.behavior(scrollState),
-                                rotaryFocus
-                            )
-                            .focusRequester(rotaryFocus)
-                            .focusable()
-                            .verticalScroll(scrollState)
-                    ) {
-                        if (messages.isEmpty()) {
-                            Text(
-                                text = "no messages yet\nsay hi to the mesh",
-                                style = ChatVisualTokens.SystemActionStyle,
-                                color = palette.textTertiary,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 48.dp)
-                            )
-                        }
-                        messages.forEach { message ->
-                            MessageItem(
-                                message = message,
-                                myPeerID = myPeerID,
-                                onOpenImage = { viewerPath = it }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Scroll-aware action bar: hides while scrolling into history, returns when
-            // scrolling back toward the newest messages.
-            androidx.compose.animation.AnimatedVisibility(
-                visible = buttonsVisible.value,
-                modifier = Modifier.align(Alignment.BottomCenter),
-                enter = androidx.compose.animation.slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS)
-                ) + androidx.compose.animation.fadeIn(
-                    animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS)
-                ),
-                exit = androidx.compose.animation.slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS)
-                ) + androidx.compose.animation.fadeOut(
-                    animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS)
-                )
-            ) {
-                ChatActionBar(
-                    onKeyboard = onOpenTextInput,
-                    voice = voice,
-                    modifier = Modifier.padding(bottom = 10.dp)
-                )
-            }
-
-            VoiceRecordOverlay(voice)
-        }
-    }
 
     viewerPath?.let { path ->
         FullScreenImageViewer(path = path, onClose = { viewerPath = null })
@@ -273,7 +168,8 @@ private fun ChatHeader(
 fun MessageItem(
     message: BitchatMessage,
     myPeerID: String,
-    onOpenImage: (String) -> Unit = {}
+    onOpenImage: (String) -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
     val isSelf = message.senderPeerID == myPeerID
@@ -297,7 +193,7 @@ fun MessageItem(
     )
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 3.dp)
             .offset(y = offset)
