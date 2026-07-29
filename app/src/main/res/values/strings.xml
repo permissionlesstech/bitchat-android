@@ -74,13 +74,46 @@
   <!-- Chat header &amp; accessibility -->
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Messages</string>
-  <string name="conversations" tools:ignore="MissingTranslation">Conversations</string>
-  <string name="offline_not_in_mesh" tools:ignore="MissingTranslation">Offline · not in mesh</string>
-  <string name="offline_reachable_via_nostr" tools:ignore="MissingTranslation">Offline from mesh · reachable via Nostr</string>
-  <string name="delete" tools:ignore="MissingTranslation">Delete</string>
-  <string name="delete_conversation_action" tools:ignore="MissingTranslation">Delete conversation</string>
-  <string name="delete_conversation_title" tools:ignore="MissingTranslation">Delete conversation?</string>
-  <string name="delete_conversation_message" tools:ignore="MissingTranslation">Delete your conversation with %1$s from this device?</string>
+  <string name="conversations">Conversations</string>
+  <string name="offline_not_in_mesh">Offline · not in mesh</string>
+  <string name="offline_reachable_via_nostr">Offline from mesh · Nostr available</string>
+  <string name="delete">Delete</string>
+  <string name="delete_conversation_action">Delete conversation</string>
+  <string name="delete_conversation_title">Delete conversation?</string>
+  <string name="delete_conversation_message">Delete your conversation with %1$s from this device?</string>
+  <string name="search_conversations">Search conversations</string>
+  <string name="clear">Clear</string>
+  <string name="loading_conversations">Loading private conversations…</string>
+  <string name="conversation_storage_error">Private conversations could not be loaded</string>
+  <string name="no_conversations_yet">Private conversations will appear here</string>
+  <string name="no_conversation_results">No matching conversations</string>
+  <string name="online_conversations">ONLINE</string>
+  <string name="offline_conversations">OFFLINE</string>
+  <string name="mark_read">Mark as read</string>
+  <string name="mark_unread">Mark as unread</string>
+  <string name="pin_conversation">Pin conversation</string>
+  <string name="unpin_conversation">Unpin conversation</string>
+  <string name="mute_conversation">Mute conversation</string>
+  <string name="unmute_conversation">Unmute conversation</string>
+  <string name="conversation_actions">Conversation actions</string>
+  <string name="conversation_unread_count">%1$d unread messages</string>
+  <string name="conversation_read">Read</string>
+  <string name="conversation_draft_preview">Draft: %1$s</string>
+  <string name="conversation_you_preview">You: %1$s</string>
+  <string name="conversation_preview_timestamp">· %1$s</string>
+  <string name="conversation_delete_failed">Conversation could not be deleted</string>
+  <string name="conversation_deleted">Deleted conversation with %1$s</string>
+  <string name="undo">Undo</string>
+  <string name="conversation_restore_failed">Conversation could not be restored</string>
+  <string name="notification_reply">Reply</string>
+  <string name="notification_mark_read">Mark read</string>
+  <string name="notification_private_message">New private message</string>
+  <string name="notification_content_hidden">Open bitchat to view it</string>
+  <string name="notification_channel_direct_messages">Direct Messages</string>
+  <string name="notification_channel_direct_messages_description">Notifications for private messages from other users</string>
+  <string name="notification_channel_geohash">Geohash Chats</string>
+  <string name="notification_channel_geohash_description">Notifications for mentions and messages in geohash location channels</string>
+  <string name="you">You</string>
   <string name="cd_location_notes">Location notes</string>
   <string name="cd_teleported">Teleported</string>
   <string name="cd_tor_status">Tor status</string>

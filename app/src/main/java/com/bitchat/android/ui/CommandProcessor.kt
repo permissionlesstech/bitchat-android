@@ -4,6 +4,8 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Handles processing of IRC-style commands
@@ -12,7 +14,8 @@ class CommandProcessor(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
-    private val privateChatManager: PrivateChatManager
+    private val privateChatManager: PrivateChatManager,
+    private val coroutineScope: CoroutineScope? = null
 ) {
     
     // Available commands list
@@ -90,15 +93,15 @@ class CommandProcessor(
                     if (parts.size > 2) {
                         val messageContent = parts.drop(2).joinToString(" ")
                         val recipientNickname = getPeerNickname(peerID, meshService)
-                        privateChatManager.sendPrivateMessage(
+                        sendPrivateMessage(
                             messageContent, 
                             peerID, 
                             recipientNickname,
                             state.getNicknameValue(),
-                            getMyPeerID(meshService)
-                        ) { content, peerIdParam, recipientNicknameParam, messageId ->
-                            sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId, viewModel)
-                        }
+                            getMyPeerID(meshService),
+                            meshService,
+                            viewModel
+                        )
                     } else {
                         val systemMessage = BitchatMessage(
                             sender = "system",
@@ -303,15 +306,15 @@ class CommandProcessor(
             // Send as regular message
             if (state.getSelectedPrivateChatPeerValue() != null) {
                 val peerID = state.getSelectedPrivateChatPeerValue()!!
-                privateChatManager.sendPrivateMessage(
+                sendPrivateMessage(
                     actionMessage,
                     peerID,
                     getPeerNickname(peerID, meshService),
                     state.getNicknameValue(),
-                    myPeerID
-                ) { content, peerIdParam, recipientNicknameParam, messageId ->
-                    sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId, viewModel)
-                }
+                    myPeerID,
+                    meshService,
+                    viewModel
+                )
             } else if (isInLocationChannel) {
                 // Let the transport layer add the echo; just send it out
                 onSendMessage(actionMessage, emptyList(), null)
@@ -527,7 +530,51 @@ class CommandProcessor(
     private fun getMyPeerID(meshService: MeshService): String {
         return meshService.myPeerID
     }
-    
+
+    private fun sendPrivateMessage(
+        content: String,
+        peerID: String,
+        recipientNickname: String?,
+        senderNickname: String?,
+        myPeerID: String,
+        meshService: MeshService,
+        viewModel: ChatViewModel?
+    ) {
+        val send: (String, String, String, String) -> Unit =
+            { messageContent, peerIdParam, recipientNicknameParam, messageId ->
+                sendPrivateMessageVia(
+                    meshService,
+                    messageContent,
+                    peerIdParam,
+                    recipientNicknameParam,
+                    messageId,
+                    viewModel
+                )
+            }
+        val scope = coroutineScope
+        if (scope == null) {
+            privateChatManager.sendPrivateMessage(
+                content,
+                peerID,
+                recipientNickname,
+                senderNickname,
+                myPeerID,
+                send
+            )
+        } else {
+            scope.launch {
+                privateChatManager.sendPrivateMessageDurably(
+                    content,
+                    peerID,
+                    recipientNickname,
+                    senderNickname,
+                    myPeerID,
+                    send
+                )
+            }
+        }
+    }
+
     private fun sendPrivateMessageVia(
         meshService: MeshService,
         content: String,

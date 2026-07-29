@@ -24,14 +24,17 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -39,6 +42,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -58,6 +62,7 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
@@ -68,6 +73,7 @@ import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 
 /**
@@ -85,7 +91,6 @@ fun MeshPeerListSheet(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
     val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
     val currentChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
@@ -97,6 +102,7 @@ fun MeshPeerListSheet(
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
     val conversations by viewModel.conversations.collectAsStateWithLifecycle()
+    val conversationStoreState by viewModel.conversationStoreState.collectAsStateWithLifecycle()
     val peerDirect by viewModel.peerDirect.collectAsStateWithLifecycle()
     val geohashPeopleCount = geohashPeople.size
     val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
@@ -123,6 +129,23 @@ fun MeshPeerListSheet(
     var pendingConversationDelete by remember {
         mutableStateOf<ConversationSummary?>(null)
     }
+    var conversationQuery by rememberSaveable { mutableStateOf("") }
+    val filteredConversations = remember(conversations, conversationQuery) {
+        val query = conversationQuery.trim()
+        if (query.isEmpty()) conversations else conversations.filter { conversation ->
+            conversation.displayName.contains(query, ignoreCase = true) ||
+                conversation.latestMessagePreview.contains(query, ignoreCase = true) ||
+                conversation.draft?.contains(query, ignoreCase = true) == true
+        }
+    }
+    val onlineConversations = remember(filteredConversations) {
+        filteredConversations.filter(ConversationSummary::isConnected)
+    }
+    val offlineConversations = remember(filteredConversations) {
+        filteredConversations.filterNot(ConversationSummary::isConnected)
+    }
+    val sheetScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Bottom sheet state
     val sheetState = rememberModalBottomSheetState(
@@ -158,21 +181,172 @@ fun MeshPeerListSheet(
                         else -> visibleConnectedPeers.count { it != viewModel.myPeerID }
                     }
 
-                    if (conversations.isNotEmpty()) {
-                        item(key = "private_conversations_section") {
-                            DirectMessagesSection(
-                                conversations = conversations,
+                    item(key = "private_conversations_header") {
+                        SheetIconSectionHeader(
+                            iconRes = R.drawable.ic_spec_envelope,
+                            title = stringResource(R.string.conversations),
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+
+                    if (conversations.size >= CONVERSATION_SEARCH_THRESHOLD) {
+                        item(key = "private_conversations_search") {
+                            OutlinedTextField(
+                                value = conversationQuery,
+                                onValueChange = { conversationQuery = it },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AboutHorizontalPadding)
+                                    .padding(top = 10.dp),
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = BitchatFontFamily
+                                ),
+                                placeholder = {
+                                    Text(
+                                        stringResource(R.string.search_conversations),
+                                        fontFamily = BitchatFontFamily
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Search, contentDescription = null)
+                                },
+                                trailingIcon = if (conversationQuery.isNotEmpty()) {
+                                    {
+                                        IconButton(onClick = { conversationQuery = "" }) {
+                                            Icon(
+                                                Icons.Outlined.Close,
+                                                contentDescription = stringResource(R.string.clear)
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                        }
+                    }
+
+                    when {
+                        conversationStoreState is
+                            com.bitchat.android.services.ConversationStoreState.Loading &&
+                            conversations.isEmpty() -> {
+                            item(key = "private_conversations_loading") {
+                                ConversationSectionStatus(
+                                    icon = { CircularProgressIndicator(Modifier.size(20.dp)) },
+                                    text = stringResource(R.string.loading_conversations)
+                                )
+                            }
+                        }
+
+                        conversationStoreState is
+                            com.bitchat.android.services.ConversationStoreState.Error &&
+                            conversations.isEmpty() -> {
+                            item(key = "private_conversations_error") {
+                                ConversationSectionStatus(
+                                    icon = {
+                                        Icon(
+                                            Icons.Outlined.Warning,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    text = stringResource(R.string.conversation_storage_error)
+                                )
+                            }
+                        }
+
+                        conversations.isEmpty() -> {
+                            item(key = "private_conversations_empty") {
+                                ConversationSectionStatus(
+                                    icon = {
+                                        Icon(
+                                            painterResource(R.drawable.ic_spec_envelope),
+                                            contentDescription = null
+                                        )
+                                    },
+                                    text = stringResource(R.string.no_conversations_yet)
+                                )
+                            }
+                        }
+
+                        filteredConversations.isEmpty() -> {
+                            item(key = "private_conversations_no_results") {
+                                ConversationSectionStatus(
+                                    icon = {
+                                        Icon(Icons.Outlined.SearchOff, contentDescription = null)
+                                    },
+                                    text = stringResource(R.string.no_conversation_results)
+                                )
+                            }
+                        }
+                    }
+
+                    if (onlineConversations.isNotEmpty()) {
+                        item(key = "private_conversations_online_label") {
+                            ConversationGroupLabel(
+                                text = stringResource(R.string.online_conversations)
+                            )
+                        }
+                        itemsIndexed(
+                            items = onlineConversations,
+                            key = { _, conversation ->
+                                "conversation:${conversation.conversationID}"
+                            }
+                        ) { index, conversation ->
+                            ConversationSwipeItem(
+                                conversation = conversation,
                                 directPeerIdentityIDs = directPeerIdentityIDs,
                                 wifiAwareIdentityIDs = wifiAwareIdentityIDs,
                                 viewModel = viewModel,
+                                isFirst = index == 0,
+                                isLast = index == onlineConversations.lastIndex,
                                 onPrivateChatStart = { conversationID ->
                                     viewModel.showPrivateChatSheet(conversationID)
                                     onDismiss()
                                 },
-                                onDeleteRequested = { conversation ->
-                                    pendingConversationDelete = conversation
+                                onDeleteRequested = { pendingConversationDelete = it },
+                                onReadStateRequested = { item, isRead ->
+                                    sheetScope.launch {
+                                        viewModel.setConversationRead(item.conversationID, isRead)
+                                    }
                                 },
-                                modifier = Modifier.padding(top = 8.dp)
+                                modifier = Modifier.animateItem()
+                            )
+                        }
+                    }
+
+                    if (offlineConversations.isNotEmpty()) {
+                        item(key = "private_conversations_offline_label") {
+                            ConversationGroupLabel(
+                                text = stringResource(R.string.offline_conversations)
+                            )
+                        }
+                        itemsIndexed(
+                            items = offlineConversations,
+                            key = { _, conversation ->
+                                "conversation:${conversation.conversationID}"
+                            }
+                        ) { index, conversation ->
+                            ConversationSwipeItem(
+                                conversation = conversation,
+                                directPeerIdentityIDs = directPeerIdentityIDs,
+                                wifiAwareIdentityIDs = wifiAwareIdentityIDs,
+                                viewModel = viewModel,
+                                isFirst = index == 0,
+                                isLast = index == offlineConversations.lastIndex,
+                                onPrivateChatStart = { conversationID ->
+                                    viewModel.showPrivateChatSheet(conversationID)
+                                    onDismiss()
+                                },
+                                onDeleteRequested = { pendingConversationDelete = it },
+                                onReadStateRequested = { item, isRead ->
+                                    sheetScope.launch {
+                                        viewModel.setConversationRead(item.conversationID, isRead)
+                                    }
+                                },
+                                modifier = Modifier.animateItem()
                             )
                         }
                     }
@@ -299,10 +473,25 @@ fun MeshPeerListSheet(
                     },
                     onClose = onDismiss,
                 )
+
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp)
+                )
             }
         }
 
         pendingConversationDelete?.let { conversation ->
+            val deleteFailedMessage = stringResource(R.string.conversation_delete_failed)
+            val deletedMessage = stringResource(
+                R.string.conversation_deleted,
+                conversation.displayName
+            )
+            val undoLabel = stringResource(R.string.undo)
+            val restoreFailedMessage =
+                stringResource(R.string.conversation_restore_failed)
             AlertDialog(
                 onDismissRequest = { pendingConversationDelete = null },
                 icon = {
@@ -329,8 +518,31 @@ fun MeshPeerListSheet(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            viewModel.deletePrivateConversation(conversation.conversationID)
                             pendingConversationDelete = null
+                            sheetScope.launch {
+                                val deletion = viewModel.deletePrivateConversation(
+                                    conversation.conversationID
+                                )
+                                if (deletion == null) {
+                                    snackbarHostState.showSnackbar(
+                                        message = deleteFailedMessage
+                                    )
+                                    return@launch
+                                }
+                                val result = snackbarHostState.showSnackbar(
+                                    message = deletedMessage,
+                                    actionLabel = undoLabel,
+                                    withDismissAction = true,
+                                    duration = SnackbarDuration.Long
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    if (!viewModel.restoreDeletedConversation(deletion)) {
+                                        snackbarHostState.showSnackbar(
+                                            restoreFailedMessage
+                                        )
+                                    }
+                                }
+                            }
                         }
                     ) {
                         Text(
@@ -355,6 +567,7 @@ fun MeshPeerListSheet(
 
 /** Icon size for trailing actions on peer rows (matches settings glyph scale). */
 private val PeerRowIconSize = 22.dp
+private const val CONVERSATION_SEARCH_THRESHOLD = 8
 
 @Composable
 private fun ChannelRow(
@@ -693,15 +906,64 @@ fun PeopleSection(
     }
 }
 
+@Composable
+private fun ConversationSectionStatus(
+    icon: @Composable () -> Unit,
+    text: String
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = AboutHorizontalPadding)
+            .padding(top = 10.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = AboutCardShape
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            icon()
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = BitchatFontFamily
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConversationGroupLabel(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = AboutHorizontalPadding + 4.dp)
+            .padding(top = 12.dp, bottom = 6.dp),
+        style = MaterialTheme.typography.labelMedium.copy(
+            fontFamily = BitchatFontFamily,
+            fontWeight = FontWeight.SemiBold
+        ),
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DirectMessagesSection(
-    conversations: List<ConversationSummary>,
+private fun ConversationSwipeItem(
+    conversation: ConversationSummary,
     directPeerIdentityIDs: Set<String>,
     wifiAwareIdentityIDs: Set<String>,
     viewModel: ChatViewModel,
+    isFirst: Boolean,
+    isLast: Boolean,
     onPrivateChatStart: (String) -> Unit,
     onDeleteRequested: (ConversationSummary) -> Unit,
+    onReadStateRequested: (ConversationSummary, Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -710,131 +972,153 @@ private fun DirectMessagesSection(
     val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
     val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
     val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
-
-    Column(modifier = modifier) {
-        SheetIconSectionHeader(
-            iconRes = R.drawable.ic_spec_envelope,
-            title = stringResource(R.string.conversations)
+    val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
+    val favoriteTargetID = conversation.connectedPeerID ?: conversation.conversationID
+    val favoriteRelationship = remember(
+        conversation.identityAliases,
+        favoritePeers,
+        peerFavoritedUs
+    ) {
+        conversation.identityAliases
+            .asSequence()
+            .mapNotNull { alias ->
+                runCatching {
+                    FavoritesPersistenceService.shared.getFavoriteStatus(alias)
+                }.getOrNull()
+            }
+            .firstOrNull()
+    }
+    val fingerprint = conversation.connectedPeerID
+        ?.let(peerFingerprints::get)
+        ?: conversation.identityAliases
+            .asSequence()
+            .mapNotNull(peerFingerprints::get)
+            .firstOrNull()
+        ?: ContactIdentityResolver.fingerprintFromContactConversationId(
+            conversation.conversationID
         )
+        ?: favoriteRelationship?.peerNoisePublicKey?.let {
+            ContactIdentityResolver.fingerprintHex(it)
+        }
+    val isFavorite = if (fingerprint != null) {
+        fingerprint in favoritePeers
+    } else {
+        viewModel.isFavorite(favoriteTargetID)
+    }
+    val theyFavoritedUs =
+        (fingerprint != null && fingerprint in peerFavoritedUs) ||
+            favoriteRelationship?.theyFavoritedUs == true
+    val isVerified = fingerprint != null && fingerprint in verifiedFingerprints
+    val dismissState = rememberSwipeToDismissBoxState()
+    val shape = RoundedCornerShape(
+        topStart = if (isFirst) 14.dp else 0.dp,
+        topEnd = if (isFirst) 14.dp else 0.dp,
+        bottomStart = if (isLast) 14.dp else 0.dp,
+        bottomEnd = if (isLast) 14.dp else 0.dp
+    )
 
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = AboutHorizontalPadding)
-                .padding(top = 10.dp),
-            color = colorScheme.surface,
-            shape = AboutCardShape
-        ) {
-            AnimatedRowColumn(
-                items = conversations,
-                key = { it.conversationID }
-            ) { index, conversation ->
-                Column {
-                    if (index > 0) SheetCardDivider()
+    LaunchedEffect(dismissState.currentValue, conversation.conversationID) {
+        when (dismissState.currentValue) {
+            SwipeToDismissBoxValue.StartToEnd -> {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                onReadStateRequested(conversation, conversation.unreadCount > 0)
+                dismissState.reset()
+            }
 
-                    val dismissState = rememberSwipeToDismissBoxState()
-                    val favoriteTargetID =
-                        conversation.connectedPeerID ?: conversation.conversationID
-                    val favoriteRelationship = remember(
-                        conversation.identityAliases,
-                        favoritePeers,
-                        peerFavoritedUs
-                    ) {
-                        conversation.identityAliases
-                            .asSequence()
-                            .mapNotNull { alias ->
-                                runCatching {
-                                    FavoritesPersistenceService.shared
-                                        .getFavoriteStatus(alias)
-                                }.getOrNull()
-                            }
-                            .firstOrNull()
-                    }
-                    val fingerprint = conversation.connectedPeerID
-                        ?.let(peerFingerprints::get)
-                        ?: conversation.identityAliases
-                            .asSequence()
-                            .mapNotNull(peerFingerprints::get)
-                            .firstOrNull()
-                        ?: ContactIdentityResolver
-                            .fingerprintFromContactConversationId(
-                                conversation.conversationID
-                            )
-                        ?: favoriteRelationship?.peerNoisePublicKey?.let {
-                            ContactIdentityResolver.fingerprintHex(it)
-                        }
-                    val isFavorite = if (fingerprint != null) {
-                        fingerprint in favoritePeers
-                    } else {
-                        viewModel.isFavorite(favoriteTargetID)
-                    }
-                    val theyFavoritedUs =
-                        (fingerprint != null && fingerprint in peerFavoritedUs) ||
-                            favoriteRelationship?.theyFavoritedUs == true
-                    LaunchedEffect(dismissState.currentValue, conversation.conversationID) {
-                        if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onDeleteRequested(conversation)
-                            dismissState.reset()
-                        }
-                    }
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        enableDismissFromStartToEnd = true,
-                        enableDismissFromEndToStart = true,
-                        backgroundContent = {
-                            val alignment = when (dismissState.dismissDirection) {
-                                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-                                else -> Alignment.CenterEnd
-                            }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(colorScheme.errorContainer)
-                                    .padding(horizontal = SheetRowHorizontal),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = when (alignment) {
-                                    Alignment.CenterStart -> Arrangement.Start
-                                    else -> Arrangement.End
+            SwipeToDismissBoxValue.EndToStart -> {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                onDeleteRequested(conversation)
+                dismissState.reset()
+            }
+
+            SwipeToDismissBoxValue.Settled -> Unit
+        }
+    }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = AboutHorizontalPadding)
+            .clip(shape),
+        color = colorScheme.surface,
+        shape = shape
+    ) {
+        Column {
+            if (!isFirst) SheetCardDivider()
+            SwipeToDismissBox(
+                state = dismissState,
+                enableDismissFromStartToEnd = true,
+                enableDismissFromEndToStart = true,
+                backgroundContent = {
+                    val markRead = conversation.unreadCount > 0
+                    val startToEnd =
+                        dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                if (startToEnd) {
+                                    colorScheme.secondaryContainer
+                                } else {
+                                    colorScheme.errorContainer
                                 }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Delete,
-                                    contentDescription = deleteDescription,
-                                    tint = colorScheme.onErrorContainer,
-                                    modifier = Modifier.size(PeerRowIconSize)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = stringResource(R.string.delete),
-                                    fontFamily = BitchatFontFamily,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = colorScheme.onErrorContainer
-                                )
-                            }
+                            )
+                            .padding(horizontal = SheetRowHorizontal),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = if (startToEnd) {
+                            Arrangement.Start
+                        } else {
+                            Arrangement.End
                         }
                     ) {
-                        ConversationRow(
-                            conversation = conversation,
-                            directPeerIdentityIDs = directPeerIdentityIDs,
-                            wifiAwareIdentityIDs = wifiAwareIdentityIDs,
-                            viewModel = viewModel,
-                            isFavorite = isFavorite,
-                            theyFavoritedUs = theyFavoritedUs,
-                            deleteDescription = deleteDescription,
-                            onClick = {
-                                onPrivateChatStart(conversation.conversationID)
+                        Icon(
+                            imageVector = if (startToEnd) {
+                                if (markRead) Icons.Outlined.MarkEmailRead
+                                else Icons.Outlined.MarkEmailUnread
+                            } else {
+                                Icons.Outlined.Delete
                             },
-                            onToggleFavorite = {
-                                viewModel.toggleFavorite(favoriteTargetID)
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (startToEnd) {
+                                stringResource(
+                                    if (markRead) R.string.mark_read else R.string.mark_unread
+                                )
+                            } else {
+                                stringResource(R.string.delete)
                             },
-                            onDeleteRequested = {
-                                onDeleteRequested(conversation)
-                            }
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontFamily = BitchatFontFamily,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         )
                     }
                 }
+            ) {
+                ConversationRow(
+                    conversation = conversation,
+                    directPeerIdentityIDs = directPeerIdentityIDs,
+                    wifiAwareIdentityIDs = wifiAwareIdentityIDs,
+                    viewModel = viewModel,
+                    isFavorite = isFavorite,
+                    theyFavoritedUs = theyFavoritedUs,
+                    isVerified = isVerified,
+                    deleteDescription = deleteDescription,
+                    onClick = { onPrivateChatStart(conversation.conversationID) },
+                    onToggleFavorite = { viewModel.toggleFavorite(favoriteTargetID) },
+                    onTogglePinned = {
+                        viewModel.toggleConversationPinned(conversation.conversationID)
+                    },
+                    onToggleMuted = {
+                        viewModel.toggleConversationMuted(conversation.conversationID)
+                    },
+                    onReadStateRequested = {
+                        onReadStateRequested(conversation, conversation.unreadCount > 0)
+                    },
+                    onDeleteRequested = { onDeleteRequested(conversation) }
+                )
             }
         }
     }
@@ -848,13 +1132,18 @@ private fun ConversationRow(
     viewModel: ChatViewModel,
     isFavorite: Boolean,
     theyFavoritedUs: Boolean,
+    isVerified: Boolean,
     deleteDescription: String,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onTogglePinned: () -> Unit,
+    onToggleMuted: () -> Unit,
+    onReadStateRequested: () -> Unit,
     onDeleteRequested: () -> Unit
 ) {
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
+    var showActions by remember { mutableStateOf(false) }
     val liveIdentityIDs = conversation.identityAliases +
         listOfNotNull(conversation.connectedPeerID?.lowercase())
     val isWifiAware = liveIdentityIDs.any(wifiAwareIdentityIDs::contains)
@@ -868,15 +1157,38 @@ private fun ConversationRow(
         isWifiAware = isWifiAware,
         isDirect = isDirect
     )
-    val messagePreview = when (conversation.latestMessageType) {
-        BitchatMessageType.Image -> stringResource(R.string.notification_sent_image)
-        BitchatMessageType.Audio -> stringResource(R.string.notification_sent_voice)
-        BitchatMessageType.File -> conversation.latestMessagePreview
-            .takeIf(String::isNotBlank)
-            ?.let { "📎 $it" }
-            ?: stringResource(R.string.notification_sent_file)
-        BitchatMessageType.Message -> conversation.latestMessagePreview.ifBlank { "…" }
+    val basePreview = when {
+        !conversation.draft.isNullOrBlank() -> stringResource(
+            R.string.conversation_draft_preview,
+            conversation.draft
+        )
+        conversation.latestMessageType == BitchatMessageType.Image ->
+            stringResource(R.string.notification_sent_image)
+        conversation.latestMessageType == BitchatMessageType.Audio ->
+            stringResource(R.string.notification_sent_voice)
+        conversation.latestMessageType == BitchatMessageType.File ->
+            conversation.latestMessagePreview
+                .takeIf(String::isNotBlank)
+                ?.let { "📎 $it" }
+                ?: stringResource(R.string.notification_sent_file)
+        else -> conversation.latestMessagePreview.ifBlank { "…" }
     }
+    val messagePreview = if (
+        conversation.latestMessageIsOutgoing && conversation.draft.isNullOrBlank()
+    ) {
+        stringResource(R.string.conversation_you_preview, basePreview)
+    } else {
+        basePreview
+    }
+    val deliveryIndicator = when (conversation.latestDeliveryStatus) {
+        DeliveryStatus.Sending -> stringResource(R.string.status_sending)
+        DeliveryStatus.Sent -> stringResource(R.string.status_sent)
+        is DeliveryStatus.Delivered -> stringResource(R.string.status_delivered)
+        is DeliveryStatus.Read -> stringResource(R.string.status_read)
+        is DeliveryStatus.Failed -> stringResource(R.string.status_failed)
+        is DeliveryStatus.PartiallyDelivered -> stringResource(R.string.status_pending)
+        null -> ""
+    }.takeIf { conversation.latestMessageIsOutgoing }
     val presenceDescription = when {
         conversation.isConnected -> connectionDescription
         conversation.transport == DirectMessageTransport.NOSTR ->
@@ -888,22 +1200,56 @@ private fun ConversationRow(
         ?: viewModel.peerIdentityForMeshPeer(conversation.conversationID)
     val assignedColor = colorForPeer(peerIdentity, palette)
     val (baseNameRaw, suffix) = splitSuffix(conversation.displayName)
-    val relativeTime = remember(conversation.latestMessageAt) {
-        DateUtils.getRelativeTimeSpanString(
-            conversation.latestMessageAt,
-            System.currentTimeMillis(),
-            DateUtils.MINUTE_IN_MILLIS,
-            DateUtils.FORMAT_ABBREV_RELATIVE
-        ).toString()
+    val relativeTime by produceState(
+        initialValue = conversationRelativeTime(conversation.latestMessageAt),
+        conversation.latestMessageAt
+    ) {
+        while (true) {
+            value = conversationRelativeTime(conversation.latestMessageAt)
+            delay(DateUtils.MINUTE_IN_MILLIS)
+        }
     }
+    val unreadDescription = if (conversation.unreadCount > 0) {
+        stringResource(R.string.conversation_unread_count, conversation.unreadCount)
+    } else {
+        stringResource(R.string.conversation_read)
+    }
+    val pinDescription = stringResource(
+        if (conversation.isPinned) R.string.unpin_conversation else R.string.pin_conversation
+    )
+    val muteDescription = stringResource(
+        if (conversation.isMuted) R.string.unmute_conversation else R.string.mute_conversation
+    )
+    val readActionDescription = stringResource(
+        if (conversation.unreadCount > 0) R.string.mark_read else R.string.mark_unread
+    )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(colorScheme.surface)
-            .semantics {
+            .semantics(mergeDescendants = true) {
+                contentDescription = listOf(
+                    conversation.displayName,
+                    unreadDescription,
+                    messagePreview,
+                    relativeTime,
+                    presenceDescription
+                ).joinToString(", ")
                 stateDescription = presenceDescription
                 customActions = listOf(
+                    CustomAccessibilityAction(readActionDescription) {
+                        onReadStateRequested()
+                        true
+                    },
+                    CustomAccessibilityAction(pinDescription) {
+                        onTogglePinned()
+                        true
+                    },
+                    CustomAccessibilityAction(muteDescription) {
+                        onToggleMuted()
+                        true
+                    },
                     CustomAccessibilityAction(deleteDescription) {
                         onDeleteRequested()
                         true
@@ -913,43 +1259,78 @@ private fun ConversationRow(
             .clickable(onClick = onClick)
             .padding(
                 horizontal = SheetRowHorizontal,
-                vertical = SheetRowVertical
+                vertical = 10.dp
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(SheetRowLeadingSlot),
-            contentAlignment = Alignment.Center
+            modifier = Modifier.size(42.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            when {
-                conversation.isConnected -> Icon(
-                    painter = painterResource(
-                        conversationTransportIcon(
-                            isReachedOverInternet = false,
-                            isWifiAware = isWifiAware,
-                            isDirect = isDirect
-                        )
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .background(assignedColor.copy(alpha = 0.16f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = baseNameRaw
+                        .trim()
+                        .firstOrNull()
+                        ?.uppercase()
+                        ?: "#",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = BitchatFontFamily,
+                        fontWeight = FontWeight.SemiBold
                     ),
-                    contentDescription = connectionDescription,
-                    modifier = Modifier.size(PeerRowIconSize),
-                    tint = colorScheme.onSurfaceVariant
+                    color = assignedColor
                 )
-                conversation.transport == DirectMessageTransport.NOSTR -> Icon(
-                    painter = painterResource(R.drawable.ic_spec_globe),
-                    contentDescription = stringResource(R.string.cd_reachable_via_nostr),
-                    modifier = Modifier.size(PeerRowIconSize),
-                    tint = palette.accentPurple
-                )
-                else -> Icon(
-                    imageVector = Icons.Outlined.Circle,
-                    contentDescription = stringResource(R.string.offline_not_in_mesh),
-                    modifier = Modifier.size(PeerRowIconSize),
-                    tint = palette.textTertiary
-                )
+            }
+
+            Surface(
+                modifier = Modifier
+                    .size(18.dp)
+                    .align(Alignment.BottomEnd),
+                shape = CircleShape,
+                color = colorScheme.surface,
+                tonalElevation = 1.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    when {
+                        conversation.isConnected -> Icon(
+                            painter = painterResource(
+                                conversationTransportIcon(
+                                    isReachedOverInternet = false,
+                                    isWifiAware = isWifiAware,
+                                    isDirect = isDirect
+                                )
+                            ),
+                            contentDescription = connectionDescription,
+                            modifier = Modifier.size(13.dp),
+                            tint = colorScheme.primary
+                        )
+
+                        conversation.transport == DirectMessageTransport.NOSTR -> Icon(
+                            painter = painterResource(R.drawable.ic_spec_globe),
+                            contentDescription = stringResource(
+                                R.string.offline_reachable_via_nostr
+                            ),
+                            modifier = Modifier.size(13.dp),
+                            tint = palette.accentPurple
+                        )
+
+                        else -> Icon(
+                            imageVector = Icons.Outlined.Circle,
+                            contentDescription = stringResource(R.string.offline_not_in_mesh),
+                            modifier = Modifier.size(11.dp),
+                            tint = palette.textTertiary
+                        )
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.width(SheetRowLeadingGutter))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Row(
@@ -958,13 +1339,14 @@ private fun ConversationRow(
             ) {
                 Text(
                     text = truncateNickname(baseNameRaw),
-                    fontFamily = BitchatFontFamily,
-                    fontSize = 14.sp,
-                    fontWeight = if (conversation.unreadCount > 0) {
-                        FontWeight.Bold
-                    } else {
-                        FontWeight.Medium
-                    },
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontFamily = BitchatFontFamily,
+                        fontWeight = if (conversation.unreadCount > 0) {
+                            FontWeight.Bold
+                        } else {
+                            FontWeight.Medium
+                        }
+                    ),
                     color = assignedColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -972,27 +1354,83 @@ private fun ConversationRow(
                 if (suffix.isNotEmpty()) {
                     Text(
                         text = suffix,
-                        fontFamily = BitchatFontFamily,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = BitchatFontFamily,
+                            fontWeight = FontWeight.Medium
+                        ),
                         color = assignedColor.copy(alpha = SUFFIX_ALPHA)
                     )
                 }
+                if (isVerified) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_spec_check),
+                        contentDescription = stringResource(R.string.verify_title),
+                        modifier = Modifier.size(15.dp),
+                        tint = colorScheme.primary
+                    )
+                }
+                if (conversation.isPinned) {
+                    Icon(
+                        Icons.Filled.PushPin,
+                        contentDescription = pinDescription,
+                        modifier = Modifier.size(14.dp),
+                        tint = palette.textTertiary
+                    )
+                }
+                if (conversation.isMuted) {
+                    Icon(
+                        Icons.Outlined.NotificationsOff,
+                        contentDescription = muteDescription,
+                        modifier = Modifier.size(14.dp),
+                        tint = palette.textTertiary
+                    )
+                }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 Text(
                     text = messagePreview,
-                    fontFamily = BitchatFontFamily,
-                    fontSize = 11.sp,
-                    color = palette.textTertiary,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = BitchatFontFamily,
+                        fontWeight = if (!conversation.draft.isNullOrBlank()) {
+                            FontWeight.Medium
+                        } else {
+                            FontWeight.Normal
+                        }
+                    ),
+                    color = if (!conversation.draft.isNullOrBlank()) {
+                        palette.accentOrange
+                    } else {
+                        palette.textTertiary
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.weight(1f)
                 )
+                deliveryIndicator?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = BitchatFontFamily
+                        ),
+                        color = if (conversation.latestDeliveryStatus is DeliveryStatus.Failed) {
+                            colorScheme.error
+                        } else {
+                            palette.textTertiary
+                        },
+                        maxLines = 1
+                    )
+                }
                 Text(
-                    text = " · $relativeTime",
-                    fontFamily = BitchatFontFamily,
-                    fontSize = 10.sp,
+                    text = stringResource(
+                        R.string.conversation_preview_timestamp,
+                        relativeTime
+                    ),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = BitchatFontFamily
+                    ),
                     color = palette.textTertiary,
                     maxLines = 1
                 )
@@ -1005,11 +1443,9 @@ private fun ConversationRow(
             modifier = Modifier.padding(start = 4.dp)
         )
 
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clickable(onClick = onToggleFavorite),
-            contentAlignment = Alignment.Center
+        IconButton(
+            onClick = onToggleFavorite,
+            modifier = Modifier.size(48.dp)
         ) {
             Icon(
                 painter = painterResource(
@@ -1034,8 +1470,88 @@ private fun ConversationRow(
                 }
             )
         }
+
+        Box {
+            IconButton(
+                onClick = { showActions = true },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.conversation_actions),
+                    tint = palette.textTertiary
+                )
+            }
+            DropdownMenu(
+                expanded = showActions,
+                onDismissRequest = { showActions = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text(pinDescription) },
+                    leadingIcon = { Icon(Icons.Filled.PushPin, contentDescription = null) },
+                    onClick = {
+                        showActions = false
+                        onTogglePinned()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(muteDescription) },
+                    leadingIcon = {
+                        Icon(Icons.Outlined.NotificationsOff, contentDescription = null)
+                    },
+                    onClick = {
+                        showActions = false
+                        onToggleMuted()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(readActionDescription) },
+                    leadingIcon = {
+                        Icon(
+                            if (conversation.unreadCount > 0) {
+                                Icons.Outlined.MarkEmailRead
+                            } else {
+                                Icons.Outlined.MarkEmailUnread
+                            },
+                            contentDescription = null
+                        )
+                    },
+                    onClick = {
+                        showActions = false
+                        onReadStateRequested()
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(R.string.delete),
+                            color = colorScheme.error
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = null,
+                            tint = colorScheme.error
+                        )
+                    },
+                    onClick = {
+                        showActions = false
+                        onDeleteRequested()
+                    }
+                )
+            }
+        }
     }
 }
+
+private fun conversationRelativeTime(timestamp: Long): String =
+    DateUtils.getRelativeTimeSpanString(
+        timestamp,
+        System.currentTimeMillis(),
+        DateUtils.MINUTE_IN_MILLIS,
+        DateUtils.FORMAT_ABBREV_RELATIVE
+    ).toString()
 
 @Composable
 private fun PeerItem(
@@ -1435,10 +1951,10 @@ fun PrivateChatSheet(
 
                     // Input section. No divider here: ChatInputSection draws its own fade and
                     // hairline.
-                    var messageText by remember {
+                    var messageText by remember(peerID) {
                         mutableStateOf(
                             androidx.compose.ui.text.input.TextFieldValue(
-                                ""
+                                viewModel.conversationDraft(peerID)
                             )
                         )
                     }
@@ -1447,13 +1963,19 @@ fun PrivateChatSheet(
                         messageText = messageText,
                         onMessageTextChange = { newText ->
                             messageText = newText
+                            viewModel.setConversationDraft(peerID, newText.text)
                             viewModel.updateMentionSuggestions(newText.text)
                         },
                         onSend = {
                             if (messageText.text.trim().isNotEmpty()) {
-                                viewModel.sendMessage(messageText.text.trim())
-                                messageText = androidx.compose.ui.text.input.TextFieldValue("")
-                                forceScrollToBottom = !forceScrollToBottom
+                                viewModel.sendMessage(messageText.text.trim()) { accepted ->
+                                    if (accepted) {
+                                        messageText =
+                                            androidx.compose.ui.text.input.TextFieldValue("")
+                                        viewModel.setConversationDraft(peerID, "")
+                                        forceScrollToBottom = !forceScrollToBottom
+                                    }
+                                }
                             }
                         },
                         onSendVoiceNote = { peer, channel, path ->

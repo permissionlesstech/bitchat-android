@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicReference
 class ConversationRepositoryTest {
     private lateinit var context: Context
     private lateinit var databaseName: String
+    private lateinit var repository: ConversationRepository
     private val executor = Executors.newSingleThreadExecutor()
     private val dispatcher = executor.asCoroutineDispatcher()
 
@@ -32,16 +33,18 @@ class ConversationRepositoryTest {
 
     @After
     fun tearDown() {
+        if (::repository.isInitialized) repository.closeForTest()
         dispatcher.close()
         context.deleteDatabase(databaseName)
     }
 
     @Test
     fun `reload restores persisted history after initial process restore`() {
-        val repository = ConversationRepository(
+        repository = ConversationRepository(
             context = context,
             dispatcher = dispatcher,
-            databaseName = databaseName
+            databaseName = databaseName,
+            storageCipher = InMemoryConversationStorageCipher()
         )
         val message = BitchatMessage(
             id = "persisted-message",
@@ -78,10 +81,11 @@ class ConversationRepositoryTest {
 
     @Test
     fun `panic clear drains queued writes and leaves database empty`() {
-        val repository = ConversationRepository(
+        repository = ConversationRepository(
             context = context,
             dispatcher = dispatcher,
-            databaseName = databaseName
+            databaseName = databaseName,
+            storageCipher = InMemoryConversationStorageCipher()
         )
         repository.upsertMessage(
             conversationID = "peer-alice",
