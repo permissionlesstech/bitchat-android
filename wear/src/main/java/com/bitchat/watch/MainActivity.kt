@@ -27,8 +27,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +47,8 @@ import com.bitchat.watch.ui.ChatScreen
 import com.bitchat.watch.ui.DmScreen
 import com.bitchat.watch.ui.NicknameSetupScreen
 import com.bitchat.watch.ui.PeopleScreen
+import com.bitchat.watch.ui.UserDetailScreen
+import com.bitchat.watch.ui.VerificationCodeScreen
 import com.bitchat.watch.ui.WearChatState
 import com.bitchat.watch.ui.sendPrivateMessage
 import com.bitchat.watch.ui.sendPublicMessage
@@ -56,6 +59,8 @@ sealed interface WearScreen {
     data object People : WearScreen
     data object Nickname : WearScreen
     data class Dm(val peerID: String) : WearScreen
+    data class UserDetail(val peerID: String) : WearScreen
+    data class Verification(val peerID: String) : WearScreen
     data class TextInput(val peerID: String?) : WearScreen
 }
 
@@ -66,13 +71,24 @@ class MainActivity : ComponentActivity() {
     private var nicknameChosen by mutableStateOf(false)
     private var notificationsGranted by mutableStateOf(false)
     private var notificationPromptDismissed by mutableStateOf(false)
-    private var pendingDmPeer by mutableStateOf<String?>(null)
+    private var pendingLaunchRequest by mutableStateOf<WearLaunchRequest?>(null)
+    private var nextLaunchRequestID = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         nicknameChosen = getSharedPreferences("bitchat_watch_prefs", Context.MODE_PRIVATE)
             .getBoolean("nickname_chosen", false)
-        pendingDmPeer = privateMessagePeerFromIntent(intent)
+        pendingLaunchRequest = restoreWearLaunchRequest(
+            savedInstanceState?.getStringArrayList(KEY_PENDING_LAUNCH_REQUEST)
+        )
+        nextLaunchRequestID = maxOf(
+            savedInstanceState?.getLong(KEY_NEXT_LAUNCH_REQUEST_ID, 0L) ?: 0L,
+            pendingLaunchRequest?.id ?: 0L
+        )
+        val notificationPeer = consumePrivateMessagePeer(intent)
+        if (savedInstanceState == null && notificationPeer != null) {
+            requestLaunch(WearLaunchTarget.Dm(notificationPeer))
+        }
         refreshState()
         setContent {
             BitchatWearTheme {
@@ -96,12 +112,27 @@ class MainActivity : ComponentActivity() {
                             onSkip = { notificationPromptDismissed = true }
                         )
                     else -> WearNavHost(
-                        openDmPeer = pendingDmPeer,
-                        onOpenDmHandled = { pendingDmPeer = null }
+                        launchRequest = pendingLaunchRequest,
+                        onLaunchRequestHandled = { requestID ->
+                            if (pendingLaunchRequest?.id == requestID) {
+                                pendingLaunchRequest = null
+                            }
+                        }
                     )
                 }
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putLong(KEY_NEXT_LAUNCH_REQUEST_ID, nextLaunchRequestID)
+        pendingLaunchRequest?.let {
+            outState.putStringArrayList(
+                KEY_PENDING_LAUNCH_REQUEST,
+                it.toSavedStateValues()
+            )
+        }
+        super.onSaveInstanceState(outState)
     }
 
     override fun onResume() {
@@ -122,7 +153,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        privateMessagePeerFromIntent(intent)?.let { pendingDmPeer = it }
+        val notificationPeer = consumePrivateMessagePeer(intent)
+        requestLaunch(
+            notificationPeer?.let(WearLaunchTarget::Dm) ?: WearLaunchTarget.Chat
+        )
     }
 
     private fun refreshState() {
@@ -142,12 +176,26 @@ class MainActivity : ComponentActivity() {
         startForegroundService(Intent(this, WearMeshForegroundService::class.java))
     }
 
+    private fun consumePrivateMessagePeer(intent: Intent?): String? {
+        val peerID = privateMessagePeerFromIntent(intent)
+        intent?.removeExtra(WearNotificationCoordinator.EXTRA_OPEN_DM)
+        intent?.removeExtra(WearNotificationCoordinator.EXTRA_PEER_ID)
+        return peerID
+    }
+
     private fun privateMessagePeerFromIntent(intent: Intent?): String? {
         if (intent?.getBooleanExtra(WearNotificationCoordinator.EXTRA_OPEN_DM, false) != true) {
             return null
         }
         return intent.getStringExtra(WearNotificationCoordinator.EXTRA_PEER_ID)
             ?.takeIf { it.isNotBlank() }
+    }
+
+    private fun requestLaunch(target: WearLaunchTarget) {
+        pendingLaunchRequest = WearLaunchRequest(
+            id = ++nextLaunchRequestID,
+            target = target
+        )
     }
 
     private fun notificationPermissionGranted(): Boolean {
@@ -159,6 +207,9 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        private const val KEY_NEXT_LAUNCH_REQUEST_ID = "next_launch_request_id"
+        private const val KEY_PENDING_LAUNCH_REQUEST = "pending_launch_request"
+
         fun requiredPermissions(): List<String> = buildList {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 add(Manifest.permission.BLUETOOTH_SCAN)
@@ -169,36 +220,175 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
-    var screen by remember { mutableStateOf<WearScreen>(WearScreen.Chat) }
-    val backStack = remember { mutableStateListOf<WearScreen>() }
+internal sealed interface WearLaunchTarget {
+    data object Chat : WearLaunchTarget
+    data class Dm(val peerID: String) : WearLaunchTarget
+}
+
+internal data class WearLaunchRequest(
+    val id: Long,
+    val target: WearLaunchTarget
+)
+
+internal fun WearLaunchRequest.toSavedStateValues(): ArrayList<String> {
+    val (type, peerID) = when (val launchTarget = target) {
+        WearLaunchTarget.Chat -> "chat" to ""
+        is WearLaunchTarget.Dm -> "dm" to launchTarget.peerID
+    }
+    return arrayListOf(id.toString(), type, peerID)
+}
+
+internal fun restoreWearLaunchRequest(values: List<String>?): WearLaunchRequest? {
+    if (values?.size != 3) return null
+    val id = values[0].toLongOrNull()?.takeIf { it > 0L } ?: return null
+    val target = when (values[1]) {
+        "chat" -> WearLaunchTarget.Chat
+        "dm" -> values[2]
+            .takeIf(String::isNotBlank)
+            ?.let(WearLaunchTarget::Dm)
+            ?: return null
+        else -> return null
+    }
+    return WearLaunchRequest(id = id, target = target)
+}
+
+internal class WearNavigationState(
+    initialScreen: WearScreen = WearScreen.Chat,
+    initialBackStack: List<WearScreen> = emptyList()
+) {
+    private val backStack = mutableStateListOf<WearScreen>().apply {
+        addAll(initialBackStack)
+    }
+
+    var screen by mutableStateOf(initialScreen)
+        private set
+
+    val canGoBack: Boolean
+        get() = screen != WearScreen.Chat || backStack.isNotEmpty()
 
     fun navigate(to: WearScreen) {
         backStack.add(screen)
         screen = to
     }
 
-    fun goBack(): Boolean {
-        val previous = backStack.removeLastOrNull()
-        return if (previous != null) {
-            screen = previous
-            true
-        } else false
+    fun openChat() {
+        backStack.clear()
+        screen = WearScreen.Chat
     }
 
-    BackHandler(enabled = backStack.isNotEmpty()) { goBack() }
+    fun openDmFromNotification(peerID: String) {
+        backStack.clear()
+        backStack.add(WearScreen.Chat)
+        screen = WearScreen.Dm(peerID)
+    }
 
-    LaunchedEffect(openDmPeer) {
-        openDmPeer?.let { peerID ->
-            backStack.clear()
-            screen = WearScreen.Dm(peerID)
-            onOpenDmHandled()
+    fun goBack(): Boolean {
+        if (screen is WearScreen.Dm) {
+            openChat()
+            return true
+        }
+
+        val previous = backStack.removeLastOrNull() ?: return false
+        screen = previous
+        return true
+    }
+
+    internal fun toSavedStateValues(): List<String> {
+        return buildList {
+            add(SAVED_STATE_VERSION)
+            (listOf(screen) + backStack).forEach { savedScreen ->
+                val (type, peerID) = encodeScreen(savedScreen)
+                add(type)
+                add(peerID)
+            }
+        }
+    }
+
+    companion object {
+        private const val SAVED_STATE_VERSION = "1"
+
+        val Saver = listSaver<WearNavigationState, String>(
+            save = { it.toSavedStateValues() },
+            restore = ::restore
+        )
+
+        internal fun restore(values: List<String>): WearNavigationState? {
+            if (
+                values.firstOrNull() != SAVED_STATE_VERSION ||
+                values.size < 3 ||
+                (values.size - 1) % 2 != 0
+            ) {
+                return null
+            }
+
+            val screens = mutableListOf<WearScreen>()
+            var index = 1
+            while (index < values.size) {
+                val restoredScreen = decodeScreen(
+                    type = values[index],
+                    peerID = values[index + 1]
+                ) ?: return null
+                screens += restoredScreen
+                index += 2
+            }
+            return WearNavigationState(
+                initialScreen = screens.first(),
+                initialBackStack = screens.drop(1)
+            )
+        }
+
+        private fun encodeScreen(screen: WearScreen): Pair<String, String> = when (screen) {
+            WearScreen.Chat -> "chat" to ""
+            WearScreen.People -> "people" to ""
+            WearScreen.Nickname -> "nickname" to ""
+            is WearScreen.Dm -> "dm" to screen.peerID
+            is WearScreen.UserDetail -> "user_detail" to screen.peerID
+            is WearScreen.Verification -> "verification" to screen.peerID
+            is WearScreen.TextInput -> screen.peerID?.let { "text_dm" to it }
+                ?: ("text_public" to "")
+        }
+
+        private fun decodeScreen(type: String, peerID: String): WearScreen? = when (type) {
+            "chat" -> WearScreen.Chat
+            "people" -> WearScreen.People
+            "nickname" -> WearScreen.Nickname
+            "dm" -> peerID.takeIf(String::isNotBlank)?.let(WearScreen::Dm)
+            "user_detail" -> peerID
+                .takeIf(String::isNotBlank)
+                ?.let(WearScreen::UserDetail)
+            "verification" -> peerID
+                .takeIf(String::isNotBlank)
+                ?.let(WearScreen::Verification)
+            "text_dm" -> peerID.takeIf(String::isNotBlank)?.let(WearScreen::TextInput)
+            "text_public" -> WearScreen.TextInput(null)
+            else -> null
+        }
+    }
+}
+
+@Composable
+internal fun WearNavHost(
+    launchRequest: WearLaunchRequest?,
+    onLaunchRequestHandled: (Long) -> Unit
+) {
+    val navigation = rememberSaveable(saver = WearNavigationState.Saver) {
+        WearNavigationState()
+    }
+
+    BackHandler(enabled = navigation.canGoBack) { navigation.goBack() }
+
+    LaunchedEffect(launchRequest) {
+        launchRequest?.let { request ->
+            when (val target = request.target) {
+                WearLaunchTarget.Chat -> navigation.openChat()
+                is WearLaunchTarget.Dm -> navigation.openDmFromNotification(target.peerID)
+            }
+            onLaunchRequestHandled(request.id)
         }
     }
 
     AnimatedContent(
-        targetState = screen,
+        targetState = navigation.screen,
         transitionSpec = {
             fadeIn(tween(com.bitchat.watch.ui.theme.BitchatMotion.EMPHASIZED_MS)) togetherWith
                 fadeOut(tween(com.bitchat.watch.ui.theme.BitchatMotion.QUICK_MS))
@@ -207,12 +397,12 @@ fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
     ) { current ->
         when (current) {
             is WearScreen.Chat -> ChatScreen(
-                onOpenPeople = { navigate(WearScreen.People) },
-                onOpenTextInput = { navigate(WearScreen.TextInput(null)) }
+                onOpenPeople = { navigation.navigate(WearScreen.People) },
+                onOpenTextInput = { navigation.navigate(WearScreen.TextInput(null)) }
             )
             is WearScreen.People -> PeopleScreen(
-                onOpenDm = { navigate(WearScreen.Dm(it)) },
-                onEditNickname = { navigate(WearScreen.Nickname) }
+                onOpenDm = { navigation.navigate(WearScreen.Dm(it)) },
+                onEditNickname = { navigation.navigate(WearScreen.Nickname) }
             )
             is WearScreen.Nickname -> {
                 val mesh = WearMeshService.peek()
@@ -223,14 +413,26 @@ fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
                     confirmLabel = "Save",
                     onConfirm = { name ->
                         mesh?.setNickname(name)
-                        goBack()
+                        navigation.goBack()
                     }
                 )
             }
             is WearScreen.Dm -> DmScreen(
                 peerID = current.peerID,
-                onOpenTextInput = { navigate(WearScreen.TextInput(current.peerID)) }
+                onOpenUserDetail = {
+                    navigation.navigate(WearScreen.UserDetail(current.peerID))
+                },
+                onOpenTextInput = {
+                    navigation.navigate(WearScreen.TextInput(current.peerID))
+                }
             )
+            is WearScreen.UserDetail -> UserDetailScreen(
+                peerID = current.peerID,
+                onOpenVerification = {
+                    navigation.navigate(WearScreen.Verification(current.peerID))
+                }
+            )
+            is WearScreen.Verification -> VerificationCodeScreen(peerID = current.peerID)
             is WearScreen.TextInput -> {
                 val mesh = WearMeshService.peek()
                 val sendScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -244,7 +446,7 @@ fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
                                 sendPrivateMessage(m, current.peerID, nick, text, sendScope)
                             }
                         }
-                        goBack()
+                        navigation.goBack()
                     }
                 )
             }

@@ -424,6 +424,101 @@ def scenario_dm(a: Device, b: Device) -> dict:
     }
 
 
+def scenario_favorite_verification(a: Device, b: Device) -> dict:
+    """Assert the three-state favorite exchange and local cryptographic verification."""
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+    identity_a = whoami(a)["identity_fingerprint"]
+
+    a.cmd_ok("handshake", timeout_ms=60_000, peer=id_b)
+    b.cmd_ok("handshake", timeout_ms=60_000, peer=id_a)
+
+    def wait_for_status(
+        device: Device,
+        command: str,
+        peer_id: str,
+        predicate,
+        timeout_s: int = 30,
+    ) -> dict:
+        deadline = time.monotonic() + timeout_s
+        last: dict = {}
+        while time.monotonic() < deadline:
+            last = device.cmd_ok(command, peer=peer_id)
+            if predicate(last):
+                return last
+            time.sleep(1)
+        raise MeshLabError(
+            f"[{device.alias}] {command} did not reach the expected state: {last}"
+        )
+
+    # Start from a known non-favorite relationship without clearing either app's data.
+    a.cmd_ok("favorite_set", peer=id_b, enabled=False)
+    b.cmd_ok("favorite_set", peer=id_a, enabled=False)
+    neutral_a = wait_for_status(
+        a,
+        "favorite_status",
+        id_b,
+        lambda state: not state["is_favorite"] and not state["they_favorited_us"],
+    )
+    neutral_b = wait_for_status(
+        b,
+        "favorite_status",
+        id_a,
+        lambda state: not state["is_favorite"] and not state["they_favorited_us"],
+    )
+
+    # A favorites B. B must show the orange outline while its own favorite remains false.
+    a.cmd_ok("favorite_set", peer=id_b, enabled=True)
+    received_only = wait_for_status(
+        b,
+        "favorite_status",
+        id_a,
+        lambda state: (
+            not state["is_favorite"]
+            and state["they_favorited_us"]
+            and state["star_state"] == "outlined_orange"
+        ),
+    )
+
+    # B favorites back. Both relationships become mutual and B's star becomes filled.
+    b.cmd_ok("favorite_set", peer=id_a, enabled=True)
+    mutual_b = wait_for_status(
+        b,
+        "favorite_status",
+        id_a,
+        lambda state: state["is_mutual"] and state["star_state"] == "filled",
+    )
+    mutual_a = wait_for_status(
+        a,
+        "favorite_status",
+        id_b,
+        lambda state: state["is_mutual"] and state["star_state"] == "filled",
+    )
+
+    # The code B displays for A must be A's SHA-256 Noise identity fingerprint.
+    verification_before = b.cmd_ok("verification_status", peer=id_a)
+    if verification_before.get("fingerprint") != identity_a:
+        raise MeshLabError("displayed verification fingerprint does not match peer identity")
+    b.cmd_ok("verification_set", peer=id_a, enabled=True)
+    verification_after = wait_for_status(
+        b,
+        "verification_status",
+        id_a,
+        lambda state: state["verified"],
+    )
+
+    return {
+        "neutral": {"a": neutral_a, "b": neutral_b},
+        "received_favorite": received_only,
+        "mutual": {"a": mutual_a, "b": mutual_b},
+        "verification": {
+            "fingerprint_matches_peer_identity": True,
+            "before": verification_before,
+            "after": verification_after,
+        },
+    }
+
+
 def scenario_broadcast(a: Device, b: Device) -> dict:
     """Public broadcast from A received by B."""
     id_a = whoami(a)["peer_id"]
@@ -682,6 +777,7 @@ def scenario_file_oversize(a: Device, b: Device, fixtures: dict[str, dict]) -> d
 
 SCENARIOS = {
     "dm": scenario_dm,
+    "favorite_verification": scenario_favorite_verification,
     "broadcast": scenario_broadcast,
     # Broadcast transfers are receiver-capped at 256 fragments (~120 KB); only
     # the small fixture is end-to-end receivable.
@@ -707,7 +803,16 @@ SCENARIOS = {
 
 # Scenarios supported when device B is a watch (file scenarios are receive-only: phone sends,
 # the watch must receive with matching digests).
-WATCH_SCENARIOS = ["dm", "broadcast", "raw", "file", "file_private", "session_recovery", "identity_reset"]
+WATCH_SCENARIOS = [
+    "dm",
+    "favorite_verification",
+    "broadcast",
+    "raw",
+    "file",
+    "file_private",
+    "session_recovery",
+    "identity_reset",
+]
 
 
 def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:

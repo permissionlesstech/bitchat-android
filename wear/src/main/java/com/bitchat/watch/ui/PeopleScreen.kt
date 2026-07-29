@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,6 +30,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.watch.R
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
@@ -41,9 +44,15 @@ fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     val nicknames = mesh?.getPeerNicknames() ?: emptyMap()
+    val identityRevision by WearPeerIdentityState.revision.collectAsState()
 
     // Peers with unread messages float to the top so they are easy to see and reach.
-    val sortedPeers = androidx.compose.runtime.remember(peers, unread, nicknames) {
+    val sortedPeers = androidx.compose.runtime.remember(
+        peers,
+        unread,
+        nicknames,
+        identityRevision
+    ) {
         peers.sortedWith(
             compareByDescending<String> { (unread[it] ?: 0) > 0 }
                 .thenBy { (nicknames[it] ?: it).lowercase() }
@@ -85,10 +94,13 @@ fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
             }
             items(sortedPeers, key = { it }) { peerID ->
                 val nick = nicknames[peerID] ?: peerID.take(8)
+                val identity = WearPeerIdentityState.snapshot(peerID, mesh)
                 PersonRow(
                     nickname = nick,
                     peerID = peerID,
                     encrypted = mesh?.hasEstablishedSession(peerID) == true,
+                    isFavorite = identity.isFavorite,
+                    isVerified = identity.isVerified,
                     unreadCount = unread[peerID] ?: 0,
                     onClick = { onOpenDm(peerID) }
                 )
@@ -136,6 +148,8 @@ private fun PersonRow(
     nickname: String,
     peerID: String,
     encrypted: Boolean,
+    isFavorite: Boolean,
+    isVerified: Boolean,
     unreadCount: Int,
     onClick: () -> Unit
 ) {
@@ -166,6 +180,26 @@ private fun PersonRow(
                             state = NoiseSessionUiState.Established,
                             size = 11.dp,
                             modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
+                    if (isFavorite) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_spec_star_filled),
+                            contentDescription = "Favorite",
+                            tint = palette.accentOrange,
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .size(11.dp)
+                        )
+                    }
+                    if (isVerified) {
+                        Icon(
+                            imageVector = Icons.Filled.Verified,
+                            contentDescription = "Verified",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .size(11.dp)
                         )
                     }
                 }
