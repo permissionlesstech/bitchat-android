@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  JAVA_VERSION: 21.0.11+10
+  SETUP_JAVA_VERSION: 21.0.11+10.0.LTS
 
 jobs:
   verify:
@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
         with:
           distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ env.SETUP_JAVA_VERSION }}
 
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
@@ -69,7 +69,7 @@ jobs:
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
         with:
           distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ env.SETUP_JAVA_VERSION }}
 
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
@@ -100,7 +100,7 @@ jobs:
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
         with:
           distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: ${{ env.SETUP_JAVA_VERSION }}
 
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
