@@ -213,6 +213,29 @@ class CashuTokenDecoderTest {
     }
 
     @Test
+    fun `strict mode rejects structurally incomplete v3 proofs`() {
+        // amount but no mint, no keyset id, no secret, no signature
+        val json = """{"token":[{"proofs":[{"amount":1}]}]}"""
+        val token = "cashuA" + base64Url(json.toByteArray(Charsets.UTF_8))
+        assertNull(CashuTokenDecoder.decode(token, strict = true))
+        // display mode stays lenient — the amount is still shown
+        assertEquals(1L, CashuTokenDecoder.decode(token)?.amount)
+    }
+
+    @Test
+    fun `strict mode rejects v3 proofs missing secret or signature`() {
+        val json = """{"token":[{"mint":"https://mint.example.com","proofs":[{"amount":1,"id":"009a"}]}]}"""
+        val token = "cashuA" + base64Url(json.toByteArray(Charsets.UTF_8))
+        assertNull(CashuTokenDecoder.decode(token, strict = true))
+    }
+
+    @Test
+    fun `strict mode accepts structurally complete v3`() {
+        assertNotNull(CashuTokenDecoder.decode(
+            makeV3Token(listOf("https://mint.example.com" to listOf(5))), strict = true))
+    }
+
+    @Test
     fun `strict mode rejects token without amount`() {
         // Valid JSON structure but zero proofs -> no amount -> not sendable
         val json = """{"token":[{"mint":"https://mint.example.com","proofs":[]}],"unit":"sat"}"""

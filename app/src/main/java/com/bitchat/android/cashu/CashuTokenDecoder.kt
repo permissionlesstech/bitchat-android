@@ -27,7 +27,13 @@ object CashuTokenDecoder {
         /** Host of the (first) mint URL, for display. */
         val mintHost: String?,
         /** Optional sender memo, sanitized for display. */
-        val memo: String?
+        val memo: String?,
+        /**
+         * False when the token is structurally incomplete (V3: missing mint or
+         * proofs lacking secret/signature). Display stays lenient; strict mode
+         * rejects these as unsendable.
+         */
+        val complete: Boolean = true
     ) {
         /** "500 sat" style summary, defaulting the unit to sats per NUT-00. */
         val displayAmount: String?
@@ -99,9 +105,12 @@ object CashuTokenDecoder {
         }
         val info = decoded ?: return null
         if (strict) {
-            // A sendable token must resolve to a positive, sane amount.
+            // A sendable token must resolve to a positive, sane amount and be
+            // structurally complete (mint + full proofs) — an amount alone does
+            // not make an unredeemable payload sendable.
             val amount = info.amount ?: return null
             if (amount <= 0) return null
+            if (!info.complete) return null
         }
         return info
     }
@@ -158,19 +167,24 @@ object CashuTokenDecoder {
 
         var total = 0L
         var sawAmount = false
+        var complete = true
         var mintHost: String? = null
         for (entryEl in entries) {
             val entry = try { entryEl.asJsonObject } catch (e: Exception) { continue }
-            if (mintHost == null) {
-                val mint = entry.get("mint")?.takeIf { it.isJsonPrimitive }?.asString
-                if (mint != null) mintHost = sanitizedHost(mint)
-            }
+            val mint = entry.get("mint")?.takeIf { it.isJsonPrimitive }?.asString
+            if (mint.isNullOrBlank()) complete = false
+            if (mintHost == null && mint != null) mintHost = sanitizedHost(mint)
             val proofs = try { entry.getAsJsonArray("proofs") } catch (e: Exception) { null } ?: continue
             for (proofEl in proofs) {
                 val proof = try { proofEl.asJsonObject } catch (e: Exception) { continue }
                 val amountEl = proof.get("amount")?.takeIf { it.isJsonPrimitive } ?: continue
                 val value = try { amountEl.asLong } catch (e: Exception) { continue }
                 if (value <= 0 || value > MAX_AMOUNT) continue
+                // An amount without keyset id / secret / signature is not redeemable
+                if (proof.get("id")?.takeIf { it.isJsonPrimitive }?.asString.isNullOrBlank() ||
+                    proof.get("secret")?.takeIf { it.isJsonPrimitive }?.asString.isNullOrBlank() ||
+                    proof.get("C")?.takeIf { it.isJsonPrimitive }?.asString.isNullOrBlank()
+                ) complete = false
                 total += value
                 if (total > MAX_AMOUNT) return null
                 sawAmount = true
@@ -181,7 +195,8 @@ object CashuTokenDecoder {
             amount = if (sawAmount) total else null,
             unit = sanitizedUnit(obj.get("unit")?.takeIf { it.isJsonPrimitive }?.asString),
             mintHost = mintHost,
-            memo = sanitizedMemo(obj.get("memo")?.takeIf { it.isJsonPrimitive }?.asString)
+            memo = sanitizedMemo(obj.get("memo")?.takeIf { it.isJsonPrimitive }?.asString),
+            complete = complete
         )
     }
 

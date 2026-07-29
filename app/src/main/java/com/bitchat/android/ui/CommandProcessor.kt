@@ -440,6 +440,15 @@ class CommandProcessor(
             // GeohashViewModel.sendGeohashMessage() adds the local echo with proper metadata
             onSendMessage(token, emptyList(), null)
         } else {
+            val currentChannel = state.getCurrentChannelValue()
+            if (currentChannel != null && channelManager.hasChannelKey(currentChannel)) {
+                // Channel encryption is a no-op stub on main
+                // (ChannelManager.sendEncryptedChannelMessage TODO), and the
+                // command callback broadcasts via mesh.sendMessage in plaintext.
+                // Refuse rather than leak a bearer token outside the channel.
+                systemMessage("payments are disabled in password-protected channels for now — channel encryption is inactive and the token would go out in plaintext")
+                return
+            }
             val message = BitchatMessage(
                 sender = state.getNicknameValue() ?: myPeerID,
                 content = token,
