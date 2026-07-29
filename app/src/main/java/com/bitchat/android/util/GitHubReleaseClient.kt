@@ -73,14 +73,14 @@ object GitHubReleaseClient {
      * The deadline for the route about to be used. When the route cannot be determined the
      * stricter of the two applies: failing to identify it must not release a real cooldown.
      */
-    private fun blockedUntilForCurrentRoute(): Long = when (selectedRouteUsesTor()) {
+    private fun blockedUntilFor(routeUsesTor: Boolean?): Long = when (routeUsesTor) {
         true -> torBlockedUntilMillis
         false -> directBlockedUntilMillis
         null -> maxOf(torBlockedUntilMillis, directBlockedUntilMillis)
     }
 
-    private fun recordBlockedUntil(untilMillis: Long) {
-        when (selectedRouteUsesTor()) {
+    private fun recordBlockedUntil(untilMillis: Long, routeUsesTor: Boolean?) {
+        when (routeUsesTor) {
             true -> torBlockedUntilMillis = untilMillis
             false -> directBlockedUntilMillis = untilMillis
             null -> {
@@ -91,8 +91,8 @@ object GitHubReleaseClient {
     }
 
     /** A success proves this route is clear. The other route's cooldown is left alone. */
-    private fun clearBlockedForCurrentRoute() {
-        when (selectedRouteUsesTor()) {
+    private fun clearBlockedFor(routeUsesTor: Boolean?) {
+        when (routeUsesTor) {
             true -> torBlockedUntilMillis = 0L
             false -> directBlockedUntilMillis = 0L
             null -> {
@@ -100,6 +100,34 @@ object GitHubReleaseClient {
                 directBlockedUntilMillis = 0L
             }
         }
+    }
+
+    /**
+     * The gate's answer for [routeUsesTor], or null when nothing blocks the request.
+     *
+     * Sending a request GitHub has already said it will reject helps nobody and pushes
+     * the reset further out, so a stale release is a better answer than an error the
+     * user cannot act on.
+     */
+    private fun blockedResultOrNull(
+        nowMillis: Long,
+        routeUsesTor: Boolean?,
+        cached: CachedRelease?,
+    ): Result<Release>? {
+        val blockedUntil = blockedUntilFor(routeUsesTor)
+        if (nowMillis >= blockedUntil) return null
+
+        val waitMinutes = (blockedUntil - nowMillis) / 60_000 + 1
+        Log.w(TAG, "Rate limited; not contacting GitHub for another ${waitMinutes}min")
+        cached?.let { return Result.success(it.release) }
+        return Result.failure(
+            ReleaseFetchException(
+                message = "GitHub API rate limit reached. Try again in " +
+                    "$waitMinutes minute${if (waitMinutes == 1L) "" else "s"}.",
+                httpCode = 429,
+                retryable = false
+            )
+        )
     }
 
     private val client
@@ -138,23 +166,9 @@ object GitHubReleaseClient {
                     return@withLock Result.success(cached.release)
                 }
 
-                // Honoured even on an explicit refresh: sending a request GitHub has already said
-                // it will reject helps nobody and pushes the reset further out. A stale release is
-                // a better answer than an error the user cannot act on.
-                val blockedUntil = blockedUntilForCurrentRoute()
-                if (now < blockedUntil) {
-                    val waitMinutes = (blockedUntil - now) / 60_000 + 1
-                    Log.w(TAG, "Rate limited; not contacting GitHub for another ${waitMinutes}min")
-                    cached?.let { return@withLock Result.success(it.release) }
-                    return@withLock Result.failure(
-                        ReleaseFetchException(
-                            message = "GitHub API rate limit reached. Try again in " +
-                                "$waitMinutes minute${if (waitMinutes == 1L) "" else "s"}.",
-                            httpCode = 429,
-                            retryable = false
-                        )
-                    )
-                }
+                // Honoured even on an explicit refresh.
+                blockedResultOrNull(now, selectedRouteUsesTor(), cached)
+                    ?.let { return@withLock it }
 
                 onAwaitingNetworkRoute?.invoke()
                 if (!awaitSelectedNetworkRoute()) {
@@ -171,12 +185,23 @@ object GitHubReleaseClient {
                 // for the whole metadata request.
                 onResolvingRelease?.invoke()
 
+                // That wait can last a minute, in which time the user may have switched
+                // routes. The cooldown that matters is the one for the route the request
+                // will actually take, which is only known now.
+                blockedResultOrNull(System.currentTimeMillis(), selectedRouteUsesTor(), cached)
+                    ?.let { return@withLock it }
+
                 var lastFailure: Throwable = ReleaseFetchException(
                     "Failed to fetch the latest release from GitHub"
                 )
 
                 repeat(MAX_FETCH_ATTEMPTS) { attempt ->
-                    val result = fetchLatestReleaseOnce()
+                    // Sampled immediately before the call and reused for its response, so
+                    // a route change mid-flight cannot file the cooldown against the route
+                    // the request did not use.
+                    val routeUsesTor = selectedRouteUsesTor()
+
+                    val result = fetchLatestReleaseOnce(routeUsesTor)
                     result.onSuccess { release ->
                         cachedRelease = CachedRelease(release, System.currentTimeMillis())
                         return@withLock Result.success(release)
@@ -187,7 +212,7 @@ object GitHubReleaseClient {
                     // on. Reporting an error here and only serving the cache on the next
                     // call makes the first check fail and an immediate retry succeed from
                     // metadata we already had.
-                    if (System.currentTimeMillis() < blockedUntilForCurrentRoute()) {
+                    if (System.currentTimeMillis() < blockedUntilFor(routeUsesTor)) {
                         cached?.let {
                             Log.w(TAG, "Rate limited; serving the cached release instead of failing")
                             return@withLock Result.success(it.release)
@@ -216,7 +241,7 @@ object GitHubReleaseClient {
             .awaitSelectedRoute(ROUTE_READY_TIMEOUT_MILLIS)
     }
 
-    private fun fetchLatestReleaseOnce(): Result<Release> {
+    private fun fetchLatestReleaseOnce(routeUsesTor: Boolean?): Result<Release> {
         val cached = cachedRelease
         val etag = cachedEtag
         return try {
@@ -249,8 +274,9 @@ object GitHubReleaseClient {
                         nowMillis = System.currentTimeMillis(),
                     )
                     if (blockedUntil != null) {
-                        // Recorded against the route that earned it: the quota is that IP's.
-                        recordBlockedUntil(blockedUntil)
+                        // Recorded against the route the request took, not the one
+                        // selected now: the setting can change while a call is in flight.
+                        recordBlockedUntil(blockedUntil, routeUsesTor)
                     }
 
                     val message = if (blockedUntil != null) {
@@ -295,7 +321,7 @@ object GitHubReleaseClient {
                 // Kept alongside the release so the pair can never drift: a stale ETag would
                 // revalidate to a 304 that confirms a release we no longer hold.
                 cachedEtag = response.header("ETag")
-                clearBlockedForCurrentRoute()
+                clearBlockedFor(routeUsesTor)
                 Result.success(release)
             }
         } catch (e: IOException) {
