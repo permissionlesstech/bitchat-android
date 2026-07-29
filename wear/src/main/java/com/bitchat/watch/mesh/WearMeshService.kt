@@ -50,7 +50,7 @@ class WearMeshService private constructor(private val context: Context) {
 
     private val bleTransport = BleTransport()
     private val meshCore: MeshCore
-    private val connectionManager: BluetoothConnectionManager
+    private var connectionManager: BluetoothConnectionManager
 
     @Volatile
     var nickname: String = loadNickname()
@@ -245,6 +245,15 @@ class WearMeshService private constructor(private val context: Context) {
         if (isActive) {
             Log.w(TAG, "Mesh already active, ignoring duplicate start")
             return
+        }
+        if (!connectionManager.isReusable()) {
+            // A previous stopServices() cancelled the manager's coroutine scope; the shared
+            // API marks such managers single-use, so build a fresh one instead of starting
+            // a zombie mesh that reports active while scanning nothing.
+            Log.i(TAG, "Recreating BluetoothConnectionManager after terminal stop")
+            connectionManager = BluetoothConnectionManager(context, myPeerID, meshCore.fragmentManager)
+            bleTransport.connectionManager = connectionManager
+            wireBluetoothDelegate()
         }
         val started = connectionManager.startServices()
         if (started) {

@@ -12,7 +12,9 @@ android {
 
     defaultConfig {
         applicationId = "com.bitchat.watch"
-        minSdk = 30 // Wear OS 3 (Pixel Watch 1); BLE APIs match the phone app's usage
+        minSdk = 33 // Wear OS 4 (Pixel Watch 1+): the S+ Bluetooth permissions the app
+        // declares only exist from API 31, and API 30 would additionally require location
+        // for BLE scan results, which the app deliberately refuses.
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"

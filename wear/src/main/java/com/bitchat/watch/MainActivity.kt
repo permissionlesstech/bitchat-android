@@ -233,6 +233,7 @@ fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
             )
             is WearScreen.TextInput -> {
                 val mesh = WearMeshService.peek()
+                val sendScope = androidx.compose.runtime.rememberCoroutineScope()
                 com.bitchat.watch.ui.TextInputScreen(
                     onSend = { text ->
                         mesh?.let { m ->
@@ -240,7 +241,7 @@ fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
                                 sendPublicMessage(m, text)
                             } else {
                                 val nick = m.getPeerNickname(current.peerID) ?: current.peerID
-                                sendPrivateMessage(m, current.peerID, nick, text)
+                                sendPrivateMessage(m, current.peerID, nick, text, sendScope)
                             }
                         }
                         goBack()
