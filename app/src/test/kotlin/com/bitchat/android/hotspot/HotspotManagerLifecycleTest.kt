@@ -254,6 +254,38 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `fresh channel removes a stable pre Q group after accepted create`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(supportsCustomCredentials = false)
+        )
+        fixture.startUntilCreateRequested()
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+        var completed = 0
+
+        fixture.manager.stopHotspot { completed++ }
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.answerGroup(null)
+
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(livePreQGroup())
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(livePreQGroup())
+
+        assertEquals(0, completed)
+        assertEquals(1, fixture.p2p.removeRequests.size)
+
+        fixture.p2p.acceptRemove()
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+    }
+
+    @Test
     fun `missing create callback enters bounded cleanup`() {
         val fixture = Fixture()
         fixture.startUntilCreateRequested()

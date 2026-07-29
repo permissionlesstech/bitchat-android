@@ -143,12 +143,18 @@ class HotspotManager @VisibleForTesting internal constructor(
             VERIFY_AFTER_CHANNEL_CLOSE
         }
 
+        enum class OwnershipEvidence {
+            NONE,
+            ACCEPTED_CREATE
+        }
+
         data class Inspecting(
             val expectedGroupName: String?,
             val purpose: Inspection,
             val absentObservations: Int = 0,
             val candidateGroupName: String? = null,
-            val candidateObservations: Int = 0
+            val candidateObservations: Int = 0,
+            val ownershipEvidence: OwnershipEvidence = OwnershipEvidence.NONE
         ) : Cleanup
 
         data class Removing(
@@ -158,6 +164,7 @@ class HotspotManager @VisibleForTesting internal constructor(
         data class RecoveringChannel(
             val expectedGroupName: String?,
             val purpose: Inspection,
+            val ownershipEvidence: OwnershipEvidence,
             val attempt: Int
         ) : Cleanup
     }
@@ -905,7 +912,8 @@ class HotspotManager @VisibleForTesting internal constructor(
 
         if (
             cleanup.expectedGroupName == null &&
-            cleanup.purpose.isPostCloseVerification()
+            cleanup.purpose.isPostCloseVerification() &&
+            cleanup.ownershipEvidence != Cleanup.OwnershipEvidence.ACCEPTED_CREATE
         ) {
             // Closing the original pre-Q channel discards the only link between its
             // accepted create command and a later group. Never adopt a group first seen
@@ -1051,11 +1059,13 @@ class HotspotManager @VisibleForTesting internal constructor(
 
         val expectedGroupName: String?
         val verificationPurpose: Cleanup.Inspection
+        val ownershipEvidence: Cleanup.OwnershipEvidence
         when (val cleanup = stopping.cleanup) {
             is Cleanup.AwaitingCreateResult -> {
                 expectedGroupName = cleanup.expectedGroupName
                 verificationPurpose =
                     Cleanup.Inspection.AWAIT_POST_CLOSE_FORMATION
+                ownershipEvidence = Cleanup.OwnershipEvidence.NONE
             }
 
             is Cleanup.Inspecting -> {
@@ -1066,11 +1076,22 @@ class HotspotManager @VisibleForTesting internal constructor(
                     } else {
                         Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
                     }
+                ownershipEvidence =
+                    if (
+                        cleanup.purpose == Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION ||
+                        cleanup.ownershipEvidence ==
+                        Cleanup.OwnershipEvidence.ACCEPTED_CREATE
+                    ) {
+                        Cleanup.OwnershipEvidence.ACCEPTED_CREATE
+                    } else {
+                        Cleanup.OwnershipEvidence.NONE
+                    }
             }
 
             is Cleanup.Removing -> {
                 expectedGroupName = cleanup.expectedGroupName
                 verificationPurpose = Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
+                ownershipEvidence = Cleanup.OwnershipEvidence.NONE
             }
 
             is Cleanup.RecoveringChannel -> return
@@ -1080,6 +1101,7 @@ class HotspotManager @VisibleForTesting internal constructor(
             cleanup = Cleanup.RecoveringChannel(
                 expectedGroupName,
                 verificationPurpose,
+                ownershipEvidence,
                 nextAttempt
             ),
             pendingError = stopping.pendingError
@@ -1102,6 +1124,7 @@ class HotspotManager @VisibleForTesting internal constructor(
             session = session,
             expectedGroupName = expectedGroupName,
             verificationPurpose = verificationPurpose,
+            ownershipEvidence = ownershipEvidence,
             pendingError = stopping.pendingError,
             attempt = nextAttempt
         )
@@ -1154,6 +1177,7 @@ class HotspotManager @VisibleForTesting internal constructor(
         session: Session,
         expectedGroupName: String?,
         verificationPurpose: Cleanup.Inspection,
+        ownershipEvidence: Cleanup.OwnershipEvidence,
         pendingError: HotspotError?,
         attempt: Int
     ) {
@@ -1162,6 +1186,7 @@ class HotspotManager @VisibleForTesting internal constructor(
             cleanup = Cleanup.RecoveringChannel(
                 expectedGroupName,
                 verificationPurpose,
+                ownershipEvidence,
                 attempt
             ),
             pendingError = pendingError
@@ -1196,7 +1221,8 @@ class HotspotManager @VisibleForTesting internal constructor(
             val verifying = recovering.copy(
                 cleanup = Cleanup.Inspecting(
                     expectedGroupName = expectedGroupName,
-                    purpose = effectivePurpose
+                    purpose = effectivePurpose,
+                    ownershipEvidence = ownershipEvidence
                 )
             )
             phase = verifying
@@ -1270,6 +1296,7 @@ class HotspotManager @VisibleForTesting internal constructor(
                     session,
                     recovery.expectedGroupName,
                     recovery.purpose,
+                    recovery.ownershipEvidence,
                     current.pendingError,
                     attempt + 1
                 )
