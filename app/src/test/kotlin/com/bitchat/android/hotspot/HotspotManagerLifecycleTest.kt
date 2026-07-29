@@ -242,6 +242,35 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `API 26 accepted creation that never forms has bounded cleanup`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false,
+                supportsChannelClose = false
+            )
+        )
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+
+        fixture.scheduler.advanceBy(15_000)
+        assertEquals("Stopping", fixture.manager.lifecycleName())
+
+        // Discard the stale formation response, then report no group to cleanup.
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(10_000)
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertFalse(fixture.platform.active)
+        assertEquals(listOf(HotspotError.START_FAILED), fixture.callback.errors)
+        assertEquals(0, fixture.p2p.removeRequests.size)
+    }
+
+    @Test
     fun `fresh channel does not adopt an unknown pre Q group`() {
         val fixture = Fixture(
             p2p = FakeP2p(

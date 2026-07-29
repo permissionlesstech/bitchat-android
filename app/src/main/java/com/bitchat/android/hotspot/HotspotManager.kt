@@ -530,15 +530,15 @@ class HotspotManager @VisibleForTesting internal constructor(
                                     current.session === session &&
                                     current.cleanup is Cleanup.AwaitingCreateResult
                                 ) {
-                                    val next = current.copy(
+                                    beginStopping(
+                                        session = session,
                                         cleanup = Cleanup.Inspecting(
                                             expectedGroupName = expectedGroupName,
                                             purpose =
                                                 Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION
-                                        )
+                                        ),
+                                        pendingError = current.pendingError
                                     )
-                                    phase = next
-                                    inspectCleanup(next)
                                 }
                             }
 
@@ -744,9 +744,27 @@ class HotspotManager @VisibleForTesting internal constructor(
     ) {
         val stopping = Phase.Stopping(session, cleanup, pendingError)
         phase = stopping
+        val canFinishUncloseableFormation =
+            !p2p.supportsChannelClose &&
+                cleanup is Cleanup.Inspecting &&
+                cleanup.purpose == Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION
         schedule(session, TEARDOWN_FORCE_CLOSE_MILLIS) {
             val current = phase as? Phase.Stopping ?: return@schedule
-            if (current.session === session) forceCleanup(current)
+            if (current.session !== session) return@schedule
+
+            if (
+                canFinishUncloseableFormation &&
+                current.cleanup is Cleanup.Inspecting &&
+                current.cleanup.purpose == Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION
+            ) {
+                // API 26 cannot close a channel. Once createGroup() has already returned
+                // success, continued null snapshots are bounded failed-formation evidence;
+                // unlike AwaitingCreateResult, there is no late command callback to retain.
+                Log.w(TAG, "Finishing unformed API 26 group cleanup for session ${session.id}")
+                finishSession(session, current.pendingError)
+            } else {
+                forceCleanup(current)
+            }
         }
 
         when (cleanup) {
