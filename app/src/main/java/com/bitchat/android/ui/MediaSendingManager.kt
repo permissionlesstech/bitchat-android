@@ -441,7 +441,7 @@ class MediaSendingManager(
         }
     }
 
-    private fun handlePrivatePreparation(
+    private suspend fun handlePrivatePreparation(
         preparation: PrivateMediaPreparation,
         pending: PendingAutomaticPrivateMedia
     ) {
@@ -599,7 +599,7 @@ class MediaSendingManager(
         }
     }
 
-    private fun commitPreparedPrivateFile(
+    private suspend fun commitPreparedPrivateFile(
         preparation: PrivateMediaPreparation.Ready,
         conversationID: String,
         recipientMeshPeerID: String,
@@ -630,7 +630,14 @@ class MediaSendingManager(
 
         // Preparation already built and admitted the exact final packet. Map
         // progress before commit so the first asynchronous event cannot race us.
-        messageManager.addPrivateMessage(conversationID, msg)
+        if (!messageManager.addPrivateMessageDurably(conversationID, msg, forceRead = true)) {
+            Log.e(TAG, "Prepared private-media message could not be persisted; send aborted")
+            addPrivateMediaSystemMessage(
+                conversationID,
+                "Private media was not sent because the conversation could not be saved."
+            )
+            return
+        }
         synchronized(transferMessageMap) {
             transferMessageMap[transferId] = msg.id
             messageTransferMap[msg.id] = transferId
@@ -641,12 +648,17 @@ class MediaSendingManager(
         )
 
         if (!preparation.transfer.commit()) {
-            messageManager.removeMessageById(msg.id)
             synchronized(transferMessageMap) {
                 transferMessageMap.remove(transferId)
                 messageTransferMap.remove(msg.id)
             }
-            Log.w(TAG, "Prepared private-media commit failed; local echo rolled back")
+            messageManager.updateMessageDeliveryStatus(
+                msg.id,
+                com.bitchat.android.model.DeliveryStatus.Failed(
+                    "Prepared transfer could not be committed"
+                )
+            )
+            Log.w(TAG, "Prepared private-media commit failed; local echo marked failed")
             addPrivateMediaSystemMessage(
                 conversationID,
                 "Private media was not sent because the prepared transfer could not be committed."

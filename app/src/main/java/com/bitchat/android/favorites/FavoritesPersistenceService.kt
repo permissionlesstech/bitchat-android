@@ -167,6 +167,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         if (ContactIdentityResolver.isMeshPeerId(pid)) {
             peerIdIndex[pid] = normalizedNpub
             savePeerIdIndex()
+            notifyChanged(pid)
             Log.d(TAG, "Indexed npub for peerID ${pid.take(8)}…")
         } else {
             Log.w(TAG, "updateNostrPublicKeyForPeerID called with non-16hex peerID: $peerID")

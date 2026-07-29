@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.PrivateMessageArrivalOrder
 
 /**
@@ -15,12 +16,17 @@ internal data class ConversationSummary(
     val latestActivityOrder: Long,
     val latestMessageType: BitchatMessageType,
     val latestMessagePreview: String,
+    val latestMessageIsOutgoing: Boolean = false,
+    val latestDeliveryStatus: DeliveryStatus? = null,
     val transport: DirectMessageTransport,
     val nostrPubkey: String?,
     val identityAliases: Set<String>,
     val isConnected: Boolean = false,
     val connectedPeerID: String? = null,
-    val sourceGeohash: String? = null
+    val sourceGeohash: String? = null,
+    val isPinned: Boolean = false,
+    val isMuted: Boolean = false,
+    val draft: String? = null
 )
 
 internal fun buildConversationSummaries(
@@ -28,27 +34,38 @@ internal fun buildConversationSummaries(
     privateChats: Map<String, List<BitchatMessage>>,
     currentUserIdentifiers: Set<String>,
     canonicalize: (String) -> String,
-    isMessageRead: (BitchatMessage) -> Boolean
+    isMessageRead: (BitchatMessage) -> Boolean,
+    persistedUnreadCounts: Map<String, Int> = emptyMap()
 ): List<ConversationSummary> {
     if (privateChats.isEmpty()) return emptyList()
 
-    val currentUsers = currentUserIdentifiers.filterTo(mutableSetOf()) { it.isNotBlank() }
+    val currentUsers = currentUserIdentifiers
+        .filter(String::isNotBlank)
+        .mapTo(mutableSetOf()) { it.lowercase() }
     val unreadCanonicalIDs = unreadConversationIDs
         .mapTo(mutableSetOf()) { canonicalize(it).lowercase() }
+    val unreadCountsByCanonicalID = persistedUnreadCounts.entries
+        .groupingBy { canonicalize(it.key).lowercase() }
+        .fold(0) { total, entry -> total + entry.value }
     val aliasesByCanonicalID = linkedMapOf<String, MutableSet<String>>()
     val messagesByCanonicalID = linkedMapOf<String, MutableList<BitchatMessage>>()
+    val displayCanonicalIDByNormalized = linkedMapOf<String, String>()
 
     privateChats.forEach { (sourceID, messages) ->
         val canonicalID = canonicalize(sourceID)
+        val normalizedID = canonicalID.lowercase()
+        displayCanonicalIDByNormalized.putIfAbsent(normalizedID, canonicalID)
         aliasesByCanonicalID
-            .getOrPut(canonicalID) { linkedSetOf() }
+            .getOrPut(normalizedID) { linkedSetOf() }
             .add(sourceID)
         messagesByCanonicalID
-            .getOrPut(canonicalID) { mutableListOf() }
+            .getOrPut(normalizedID) { mutableListOf() }
             .addAll(messages)
     }
 
-    return messagesByCanonicalID.mapNotNull { (conversationID, sourceMessages) ->
+    return messagesByCanonicalID.mapNotNull { (normalizedConversationID, sourceMessages) ->
+        val conversationID =
+            displayCanonicalIDByNormalized.getValue(normalizedConversationID)
         val messages = sourceMessages.distinctBy { it.id }
         if (messages.isEmpty()) return@mapNotNull null
 
@@ -58,19 +75,27 @@ internal fun buildConversationSummaries(
         val latest = messages.maxWithOrNull(
             compareBy<BitchatMessage>(::activityOrder).thenBy { it.id }
         ) ?: return@mapNotNull null
+        fun isOutgoing(message: BitchatMessage): Boolean =
+            message.sender.lowercase() in currentUsers ||
+                message.senderPeerID?.lowercase() in currentUsers
+
         val incoming = messages.filterNot {
-            it.sender in currentUsers || it.sender == "system"
+            isOutgoing(it) || it.sender == "system"
         }
         val latestIncoming = incoming.maxWithOrNull(
             compareBy<BitchatMessage>(::activityOrder).thenBy { it.id }
         )
         val canonicalUnread = conversationID.lowercase() in unreadCanonicalIDs
-        val unreadCount = if (canonicalUnread) {
-            incoming.count { !isMessageRead(it) }.coerceAtLeast(1)
-        } else {
-            0
-        }
-        val aliases = aliasesByCanonicalID[conversationID].orEmpty()
+        val persistedUnreadCount = unreadCountsByCanonicalID[conversationID.lowercase()] ?: 0
+        val unreadCount = maxOf(
+            persistedUnreadCount,
+            if (canonicalUnread && incoming.isNotEmpty()) {
+                incoming.count { !isMessageRead(it) }.coerceAtLeast(1)
+            } else {
+                0
+            }
+        )
+        val aliases = aliasesByCanonicalID[normalizedConversationID].orEmpty()
         val nostrPubkey = latestIncoming?.senderNostrPubkey ?: latest.senderNostrPubkey
         val isNostrConversation = nostrPubkey != null ||
             aliases.any(::isNostrConversationKey) ||
@@ -89,10 +114,13 @@ internal fun buildConversationSummaries(
             conversationID = conversationID,
             displayName = displayName,
             unreadCount = unreadCount,
-            latestMessageAt = latest.timestamp.time,
+            latestMessageAt =
+                PrivateMessageArrivalOrder.receivedAtOf(latest.id) ?: latest.timestamp.time,
             latestActivityOrder = activityOrder(latest),
             latestMessageType = latest.type,
             latestMessagePreview = latest.conversationPreview(),
+            latestMessageIsOutgoing = isOutgoing(latest),
+            latestDeliveryStatus = latest.deliveryStatus,
             transport = if (isNostrConversation) {
                 DirectMessageTransport.NOSTR
             } else {
@@ -105,10 +133,36 @@ internal fun buildConversationSummaries(
     }
 }
 
+internal fun resolveConversationDisplayName(
+    fallbackName: String,
+    connectedPeerID: String?,
+    peerNicknames: Map<String, String>,
+    resolvedContactName: String?,
+    persistedDisplayName: String?
+): String {
+    fun String?.usableName(): String? = this?.takeUnless {
+        it.isBlank() || it.equals("Unknown", ignoreCase = true)
+    }
+
+    val liveName = connectedPeerID?.let { peerID ->
+        peerNicknames[peerID]
+            ?: peerNicknames.entries
+                .firstOrNull { (candidateID, _) ->
+                    candidateID.equals(peerID, ignoreCase = true)
+                }
+                ?.value
+    }
+    return liveName.usableName()
+        ?: resolvedContactName.usableName()
+        ?: persistedDisplayName.usableName()
+        ?: fallbackName
+}
+
 internal fun sortConversationSummaries(
     conversations: List<ConversationSummary>
 ): List<ConversationSummary> = conversations.sortedWith(
     compareByDescending<ConversationSummary> { it.isConnected }
+        .thenByDescending { it.isPinned }
         .thenByDescending { it.unreadCount > 0 }
         .thenByDescending { it.latestActivityOrder }
         .thenBy { it.displayName.lowercase() }

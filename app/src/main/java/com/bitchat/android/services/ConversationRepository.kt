@@ -5,6 +5,7 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.util.Base64
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
@@ -13,9 +14,15 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.security.MessageDigest
 import java.util.Date
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -35,7 +42,8 @@ class ConversationRepository internal constructor(
             Thread(runnable, "conversation-store").apply { isDaemon = true }
         }
         .asCoroutineDispatcher(),
-    databaseName: String = ConversationDatabase.DEFAULT_DATABASE_NAME
+    databaseName: String = ConversationDatabase.DEFAULT_DATABASE_NAME,
+    storageCipher: ConversationStorageCipher = AndroidConversationStorageCipher()
 ) {
     companion object {
         private const val TAG = "ConversationRepository"
@@ -53,12 +61,17 @@ class ConversationRepository internal constructor(
         fun tryGetInstance(): ConversationRepository? = instance
     }
 
+    private val applicationContext = context.applicationContext
     private val database = ConversationDatabase(
-        context = context.applicationContext,
-        databaseName = databaseName
+        context = applicationContext,
+        databaseName = databaseName,
+        storageCipher = storageCipher
     )
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val initialized = AtomicBoolean(false)
+    private val _storeState =
+        MutableStateFlow<ConversationStoreState>(ConversationStoreState.Loading)
+    val storeState: StateFlow<ConversationStoreState> = _storeState.asStateFlow()
 
     internal fun initialize(onLoaded: (PersistedConversationSnapshot) -> Unit) {
         if (!initialized.compareAndSet(false, true)) return
@@ -81,10 +94,16 @@ class ConversationRepository internal constructor(
     ) {
         scope.launch {
             try {
-                if (pruneFirst) database.pruneToRetentionLimits()
-                onLoaded(database.loadSnapshot())
+                if (pruneFirst) {
+                    deleteStoredMedia(database.pruneToRetentionLimits())
+                }
+                onLoaded(database.loadInitialSnapshot())
+                _storeState.value = ConversationStoreState.Ready
             } catch (error: Exception) {
                 Log.e(TAG, "Unable to restore private conversations", error)
+                _storeState.value = ConversationStoreState.Error(
+                    error.message ?: "Unable to restore conversations"
+                )
             }
         }
     }
@@ -96,6 +115,20 @@ class ConversationRepository internal constructor(
         withContext(dispatcher) { Unit }
     }
 
+    internal suspend fun loadConversationAndWait(
+        conversationID: String
+    ): PersistedConversationSnapshot? = withContext(dispatcher) {
+        try {
+            database.loadConversation(conversationID)
+        } catch (error: Exception) {
+            Log.e(TAG, "Unable to load private conversation", error)
+            _storeState.value = ConversationStoreState.Error(
+                error.message ?: "Unable to load conversation"
+            )
+            null
+        }
+    }
+
     fun upsertMessage(
         conversationID: String,
         aliases: Set<String>,
@@ -104,18 +137,43 @@ class ConversationRepository internal constructor(
         isRead: Boolean
     ) {
         scope.launch {
-            try {
-                database.upsertMessage(
-                    conversationID = conversationID,
-                    aliases = aliases,
-                    displayName = displayName,
-                    message = message,
-                    isRead = isRead
-                )
-            } catch (error: Exception) {
-                Log.e(TAG, "Unable to persist private message: ${error.message}")
-            }
+            upsertMessageLocked(conversationID, aliases, displayName, message, isRead)
         }
+    }
+
+    suspend fun upsertMessageAndWait(
+        conversationID: String,
+        aliases: Set<String>,
+        displayName: String?,
+        message: BitchatMessage,
+        isRead: Boolean
+    ): Boolean = withContext(dispatcher) {
+        upsertMessageLocked(conversationID, aliases, displayName, message, isRead)
+    }
+
+    private fun upsertMessageLocked(
+        conversationID: String,
+        aliases: Set<String>,
+        displayName: String?,
+        message: BitchatMessage,
+        isRead: Boolean
+    ): Boolean = try {
+        val result = database.upsertMessage(
+            conversationID = conversationID,
+            aliases = aliases,
+            displayName = displayName,
+            message = message,
+            isRead = isRead
+        )
+        deleteStoredMedia(result.orphanedMediaPaths)
+        _storeState.value = ConversationStoreState.Ready
+        result.inserted
+    } catch (error: Exception) {
+        Log.e(TAG, "Unable to persist private message", error)
+        _storeState.value = ConversationStoreState.Error(
+            error.message ?: "Unable to save conversation"
+        )
+        false
     }
 
     fun updateDeliveryStatus(messageID: String, status: DeliveryStatus) {
@@ -138,6 +196,24 @@ class ConversationRepository internal constructor(
         }
     }
 
+    internal suspend fun setConversationReadAndWait(
+        conversationID: String,
+        isRead: Boolean
+    ): ConversationReadResult = withContext(dispatcher) {
+        try {
+            ConversationReadResult(
+                success = true,
+                affectedMessageID = database.setConversationRead(conversationID, isRead)
+            )
+        } catch (error: Exception) {
+            Log.e(TAG, "Unable to update conversation read state", error)
+            _storeState.value = ConversationStoreState.Error(
+                error.message ?: "Unable to update conversation"
+            )
+            ConversationReadResult(success = false)
+        }
+    }
+
     fun mergeAliases(targetConversationID: String, aliases: Set<String>) {
         scope.launch {
             try {
@@ -148,20 +224,80 @@ class ConversationRepository internal constructor(
         }
     }
 
-    fun deleteConversation(conversationID: String, aliases: Set<String>) {
+    fun updateConversationIdentity(
+        conversationID: String,
+        aliases: Set<String>,
+        displayName: String
+    ) {
         scope.launch {
             try {
-                database.deleteConversation(conversationID, aliases)
+                database.updateConversationIdentity(conversationID, aliases, displayName)
             } catch (error: Exception) {
-                Log.e(TAG, "Unable to delete private conversation: ${error.message}")
+                Log.e(TAG, "Unable to persist conversation identity: ${error.message}")
             }
         }
+    }
+
+    fun deleteConversation(conversationID: String, aliases: Set<String>) {
+        scope.launch {
+            deleteConversationLocked(conversationID, aliases)
+        }
+    }
+
+    suspend fun deleteConversationAndWait(
+        conversationID: String,
+        aliases: Set<String>
+    ): Boolean = withContext(dispatcher) {
+        deleteConversationLocked(conversationID, aliases)
+    }
+
+    suspend fun restoreConversationAndWait(
+        conversationID: String,
+        aliases: Set<String>,
+        displayName: String?,
+        messages: List<BitchatMessage>,
+        readMessageIDs: Set<String>
+    ): Boolean = withContext(dispatcher) {
+        try {
+            deleteStoredMedia(
+                database.restoreConversation(
+                    conversationID,
+                    aliases,
+                    displayName,
+                    messages,
+                    readMessageIDs
+                )
+            )
+            _storeState.value = ConversationStoreState.Ready
+            true
+        } catch (error: Exception) {
+            Log.e(TAG, "Unable to restore deleted conversation", error)
+            _storeState.value = ConversationStoreState.Error(
+                error.message ?: "Unable to restore conversation"
+            )
+            false
+        }
+    }
+
+    private fun deleteConversationLocked(
+        conversationID: String,
+        aliases: Set<String>
+    ): Boolean = try {
+        deleteStoredMedia(database.deleteConversation(conversationID, aliases))
+        _storeState.value = ConversationStoreState.Ready
+        true
+    } catch (error: Exception) {
+        Log.e(TAG, "Unable to delete private conversation", error)
+        _storeState.value = ConversationStoreState.Error(
+            error.message ?: "Unable to delete conversation"
+        )
+        false
     }
 
     fun deleteMessage(messageID: String) {
         scope.launch {
             try {
-                database.deleteMessage(messageID)
+                deleteStoredMedia(database.deleteMessage(messageID))
             } catch (error: Exception) {
                 Log.e(TAG, "Unable to delete private message: ${error.message}")
             }
@@ -177,19 +313,55 @@ class ConversationRepository internal constructor(
     suspend fun clearAllAndWait(): Boolean = withContext(dispatcher) {
         try {
             database.clearAll()
+            _storeState.value = ConversationStoreState.Ready
             true
         } catch (error: Exception) {
             Log.e(TAG, "Unable to synchronously clear private conversations", error)
+            _storeState.value = ConversationStoreState.Error(
+                error.message ?: "Unable to erase conversations"
+            )
             false
         }
     }
+
+    private fun deleteStoredMedia(paths: Collection<String>) {
+        if (paths.isEmpty()) return
+        com.bitchat.android.features.file.FileUtils.deleteStoredMediaPaths(
+            applicationContext,
+            paths
+        )
+    }
+
+    internal fun closeForTest() {
+        database.close()
+    }
 }
+
+sealed interface ConversationStoreState {
+    data object Loading : ConversationStoreState
+    data object Ready : ConversationStoreState
+    data class Error(val message: String) : ConversationStoreState
+}
+
+internal data class ConversationReadResult(
+    val success: Boolean,
+    val affectedMessageID: String? = null
+)
+
+internal data class ConversationUpsertResult(
+    val inserted: Boolean,
+    val orphanedMediaPaths: Set<String>
+)
 
 internal data class PersistedConversationSnapshot(
     val chats: Map<String, List<BitchatMessage>>,
     val readMessageIDs: Set<String>,
     val arrivalOrder: List<String>,
-    val deletedMessageIDs: Set<String>
+    val deletedMessageIDs: Set<String>,
+    val displayNames: Map<String, String> = emptyMap(),
+    val unreadCounts: Map<String, Int> = emptyMap(),
+    val receivedAtByMessageID: Map<String, Long> = emptyMap(),
+    val arrivalSequenceByMessageID: Map<String, Long> = emptyMap()
 )
 
 /**
@@ -204,20 +376,26 @@ internal class ConversationDatabase(
     databaseName: String = DEFAULT_DATABASE_NAME,
     private val maxMessagesPerConversation: Int = MAX_MESSAGES_PER_CONVERSATION,
     private val maxMessagesTotal: Int = MAX_MESSAGES_TOTAL,
-    private val maxPayloadBytes: Long = MAX_PAYLOAD_BYTES
+    private val maxPayloadBytes: Long = MAX_PAYLOAD_BYTES,
+    private val maxMediaBytes: Long = MAX_MEDIA_BYTES,
+    private val storageCipher: ConversationStorageCipher =
+        AndroidConversationStorageCipher()
 ) : SQLiteOpenHelper(context, databaseName, null, DATABASE_VERSION) {
 
     companion object {
+        private const val TAG = "ConversationDatabase"
         const val MAX_MESSAGES_PER_CONVERSATION = 1_000
         const val MAX_MESSAGES_TOTAL = 20_000
         const val MAX_PAYLOAD_BYTES = 32L * 1024L * 1024L
+        const val MAX_MEDIA_BYTES = 256L * 1024L * 1024L
 
         internal const val DEFAULT_DATABASE_NAME = "private_conversations.db"
-        private const val DATABASE_VERSION = 1
+        internal const val DATABASE_VERSION = 4
         private const val PRUNE_INTERVAL = 64
         private const val PRUNE_BATCH_SIZE = 256
     }
 
+    private val applicationContext = context.applicationContext
     private var writesSinceGlobalPrune = 0
 
     init {
@@ -228,6 +406,24 @@ internal class ConversationDatabase(
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
         db.execSQL("PRAGMA auto_vacuum = INCREMENTAL")
+        // Overwrite cells removed while migrating legacy plaintext payload columns.
+        db.rawQuery("PRAGMA secure_delete = ON", null).use { cursor ->
+            if (cursor.moveToFirst()) Unit
+        }
+    }
+
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        // A v1 database may have written plaintext pages to its WAL before the encrypted migration.
+        // Truncating it after SQLite's upgrade transaction prevents those historical frames from
+        // lingering after the scrubbed rows are committed.
+        runCatching {
+            db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { cursor ->
+                if (cursor.moveToFirst()) Unit
+            }
+        }.onFailure { error ->
+            Log.w(TAG, "Unable to truncate conversation WAL: ${error.message}")
+        }
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -236,6 +432,7 @@ internal class ConversationDatabase(
             CREATE TABLE conversations (
                 conversation_id TEXT COLLATE NOCASE PRIMARY KEY NOT NULL,
                 display_name TEXT,
+                display_name_ciphertext BLOB,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
             )
@@ -261,6 +458,7 @@ internal class ConversationDatabase(
                 content TEXT NOT NULL,
                 message_type INTEGER NOT NULL,
                 sent_at INTEGER NOT NULL,
+                received_at INTEGER NOT NULL,
                 is_relay INTEGER NOT NULL,
                 original_sender TEXT,
                 is_private INTEGER NOT NULL,
@@ -276,6 +474,7 @@ internal class ConversationDatabase(
                 delivery_reached INTEGER,
                 delivery_total INTEGER,
                 sender_nostr_pubkey TEXT,
+                payload_ciphertext BLOB NOT NULL,
                 is_read INTEGER NOT NULL DEFAULT 0,
                 FOREIGN KEY(conversation_id) REFERENCES conversations(conversation_id)
                     ON DELETE CASCADE ON UPDATE CASCADE
@@ -290,6 +489,7 @@ internal class ConversationDatabase(
             "CREATE INDEX idx_private_messages_read_arrival " +
                 "ON private_messages(is_read, arrival_sequence)"
         )
+        createAttachmentsTable(db)
         db.execSQL(
             "CREATE INDEX idx_conversation_aliases_conversation " +
                 "ON conversation_aliases(conversation_id)"
@@ -309,21 +509,77 @@ internal class ConversationDatabase(
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Version 1 is the first persisted-conversation schema. Future versions must migrate
-        // without dropping private history.
-        check(oldVersion == newVersion) {
-            "Missing conversation database migration from $oldVersion to $newVersion"
+        var version = oldVersion
+        if (version == 1) {
+            migrateVersion1To2(db)
+            version = 2
+        }
+        if (version == 2) {
+            db.execSQL(
+                "ALTER TABLE private_messages " +
+                    "ADD COLUMN received_at INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "UPDATE private_messages SET received_at = sent_at WHERE received_at = 0"
+            )
+            version = 3
+        }
+        if (version == 3) {
+            createAttachmentsTable(db)
+            db.query(
+                "private_messages",
+                MESSAGE_COLUMNS,
+                null,
+                null,
+                null,
+                null,
+                null
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    registerAttachmentLocked(db, cursor.toMessage())
+                }
+            }
+            version = 4
+        }
+        check(version == newVersion) {
+            "Missing conversation database migration from $version to $newVersion"
         }
     }
 
-    fun loadSnapshot(): PersistedConversationSnapshot {
-        val chats = linkedMapOf<String, MutableList<BitchatMessage>>()
-        val readIDs = linkedSetOf<String>()
-        val arrivalOrder = mutableListOf<String>()
-        val deletedMessageIDs = linkedSetOf<String>()
-        readableDatabase.query(
+    private fun migrateVersion1To2(db: SQLiteDatabase) {
+        db.execSQL("ALTER TABLE conversations ADD COLUMN display_name_ciphertext BLOB")
+        db.execSQL("ALTER TABLE private_messages ADD COLUMN payload_ciphertext BLOB")
+
+        db.query(
+            "conversations",
+            arrayOf("conversation_id", "display_name"),
+            "display_name IS NOT NULL AND display_name != ''",
+            null,
+            null,
+            null,
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val conversationID = cursor.getString(0)
+                val displayName = cursor.getString(1)
+                db.update(
+                    "conversations",
+                    ContentValues().apply {
+                        put(
+                            "display_name_ciphertext",
+                            encryptText(displayName, conversationDisplayNameAad(conversationID))
+                        )
+                        putNull("display_name")
+                    },
+                    "conversation_id = ? COLLATE NOCASE",
+                    arrayOf(conversationID)
+                )
+            }
+        }
+
+        db.query(
             "private_messages",
-            MESSAGE_COLUMNS,
+            LEGACY_MESSAGE_COLUMNS,
             null,
             null,
             null,
@@ -331,13 +587,162 @@ internal class ConversationDatabase(
             "arrival_sequence ASC"
         ).use { cursor ->
             while (cursor.moveToNext()) {
+                val message = cursor.toLegacyMessage()
+                db.update(
+                    "private_messages",
+                    ContentValues().apply {
+                        put(
+                            "payload_ciphertext",
+                            encryptMessagePayload(message)
+                        )
+                        scrubLegacyPayloadColumns(this)
+                    },
+                    "message_id = ?",
+                    arrayOf(message.id)
+                )
+            }
+        }
+    }
+
+    private fun createAttachmentsTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS message_attachments (
+                message_id TEXT PRIMARY KEY NOT NULL,
+                path_hash BLOB NOT NULL,
+                path_ciphertext BLOB NOT NULL,
+                byte_size INTEGER NOT NULL,
+                FOREIGN KEY(message_id) REFERENCES private_messages(message_id)
+                    ON DELETE CASCADE ON UPDATE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS idx_message_attachments_path_hash " +
+                "ON message_attachments(path_hash)"
+        )
+    }
+
+    fun loadSnapshot(): PersistedConversationSnapshot {
+        return loadMessages(
+            selection = null,
+            selectionArgs = null,
+            orderBy = "arrival_sequence ASC",
+            displayNameConversationID = null
+        )
+    }
+
+    /**
+     * Loads one decrypted row per conversation for startup. Full histories are fetched only when
+     * the user opens a chat, keeping cold-start work proportional to conversation count rather
+     * than retained-message count.
+     */
+    fun loadInitialSnapshot(): PersistedConversationSnapshot {
+        return loadMessages(
+            selection = """
+                arrival_sequence IN (
+                    SELECT MAX(arrival_sequence)
+                    FROM private_messages
+                    GROUP BY conversation_id
+                )
+            """.trimIndent(),
+            selectionArgs = null,
+            orderBy = "arrival_sequence ASC",
+            displayNameConversationID = null
+        )
+    }
+
+    fun loadConversation(conversationID: String): PersistedConversationSnapshot {
+        val resolved = resolveStoredConversationLocked(readableDatabase, conversationID)
+        return loadMessages(
+            selection = "conversation_id = ? COLLATE NOCASE",
+            selectionArgs = arrayOf(resolved),
+            orderBy = "arrival_sequence ASC",
+            displayNameConversationID = resolved
+        )
+    }
+
+    private fun loadMessages(
+        selection: String?,
+        selectionArgs: Array<String>?,
+        orderBy: String,
+        displayNameConversationID: String?
+    ): PersistedConversationSnapshot {
+        val chats = linkedMapOf<String, MutableList<BitchatMessage>>()
+        val readIDs = linkedSetOf<String>()
+        val arrivalOrder = mutableListOf<String>()
+        val receivedAtByMessageID = linkedMapOf<String, Long>()
+        val arrivalSequenceByMessageID = linkedMapOf<String, Long>()
+        readableDatabase.query(
+            "private_messages",
+            MESSAGE_COLUMNS,
+            selection,
+            selectionArgs,
+            null,
+            null,
+            orderBy
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
                 val conversationID = cursor.string("conversation_id")
                 val message = cursor.toMessage()
                 chats.getOrPut(conversationID) { mutableListOf() }.add(message)
                 arrivalOrder.add(message.id)
+                receivedAtByMessageID[message.id] = cursor.long("received_at")
+                arrivalSequenceByMessageID[message.id] = cursor.long("arrival_sequence")
                 if (cursor.boolean("is_read")) readIDs.add(message.id)
             }
         }
+        return PersistedConversationSnapshot(
+            chats = chats.mapValues { it.value.toList() },
+            readMessageIDs = readIDs,
+            arrivalOrder = arrivalOrder,
+            deletedMessageIDs = loadDeletedMessageIDs(),
+            displayNames = loadConversationDisplayNames(displayNameConversationID),
+            unreadCounts = loadUnreadCounts(),
+            receivedAtByMessageID = receivedAtByMessageID,
+            arrivalSequenceByMessageID = arrivalSequenceByMessageID
+        )
+    }
+
+    private fun loadConversationDisplayNames(
+        conversationID: String?
+    ): Map<String, String> {
+        val selection = conversationID?.let { "conversation_id = ? COLLATE NOCASE" }
+        val selectionArgs = conversationID?.let { arrayOf(it) }
+        return readableDatabase.query(
+            "conversations",
+            arrayOf("conversation_id", "display_name", "display_name_ciphertext"),
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null
+        ).use { cursor ->
+            buildMap {
+                while (cursor.moveToNext()) {
+                    val storedConversationID = cursor.string("conversation_id")
+                    val encryptedColumn =
+                        cursor.getColumnIndexOrThrow("display_name_ciphertext")
+                    val encryptedName = if (cursor.isNull(encryptedColumn)) {
+                        null
+                    } else {
+                        cursor.getBlob(encryptedColumn)
+                    }
+                    val displayName = encryptedName?.let {
+                        storageCipher.decrypt(
+                            it,
+                            conversationDisplayNameAad(storedConversationID)
+                        ).toString(Charsets.UTF_8)
+                    } ?: cursor.nullableString("display_name")
+                    displayName
+                        ?.takeIf(String::isNotBlank)
+                        ?.let { put(storedConversationID, it) }
+                }
+            }
+        }
+    }
+
+    private fun loadDeletedMessageIDs(): Set<String> {
         readableDatabase.query(
             "deleted_private_messages",
             arrayOf("message_id"),
@@ -347,15 +752,26 @@ internal class ConversationDatabase(
             null,
             "deleted_at ASC"
         ).use { cursor ->
-            while (cursor.moveToNext()) deletedMessageIDs.add(cursor.getString(0))
+            return buildSet {
+                while (cursor.moveToNext()) add(cursor.getString(0))
+            }
         }
-        return PersistedConversationSnapshot(
-            chats = chats.mapValues { it.value.toList() },
-            readMessageIDs = readIDs,
-            arrivalOrder = arrivalOrder,
-            deletedMessageIDs = deletedMessageIDs
-        )
     }
+
+    private fun loadUnreadCounts(): Map<String, Int> =
+        readableDatabase.rawQuery(
+            """
+            SELECT conversation_id, COUNT(*)
+            FROM private_messages
+            WHERE is_read = 0
+            GROUP BY conversation_id
+            """.trimIndent(),
+            null
+        ).use { cursor ->
+            buildMap {
+                while (cursor.moveToNext()) put(cursor.getString(0), cursor.getInt(1))
+            }
+        }
 
     fun upsertMessage(
         conversationID: String,
@@ -363,10 +779,14 @@ internal class ConversationDatabase(
         displayName: String?,
         message: BitchatMessage,
         isRead: Boolean
-    ) {
+    ): ConversationUpsertResult {
         val normalizedID = conversationID.trim()
-        if (normalizedID.isBlank()) return
+        if (normalizedID.isBlank()) {
+            return ConversationUpsertResult(inserted = false, orphanedMediaPaths = emptySet())
+        }
         val now = System.currentTimeMillis()
+        val orphanedMediaPaths = linkedSetOf<String>()
+        var messageInserted = false
         writableDatabase.inTransaction {
             if (isDeletedMessageLocked(this, message.id)) return@inTransaction
             mergeAliasesLocked(
@@ -383,6 +803,10 @@ internal class ConversationDatabase(
                 values,
                 SQLiteDatabase.CONFLICT_IGNORE
             )
+            messageInserted = inserted != -1L
+            if (inserted != -1L) {
+                registerAttachmentLocked(this, message)
+            }
             if (inserted == -1L) {
                 val existingConversation = rawQuery(
                     "SELECT conversation_id, is_read FROM private_messages WHERE message_id = ?",
@@ -419,14 +843,18 @@ internal class ConversationDatabase(
                 }
             }
             updateConversationMetadataLocked(this, normalizedID, displayName, now)
-            pruneConversationLocked(this, normalizedID)
+            orphanedMediaPaths += pruneConversationLocked(this, normalizedID)
         }
 
         writesSinceGlobalPrune += 1
         if (writesSinceGlobalPrune >= PRUNE_INTERVAL) {
             writesSinceGlobalPrune = 0
-            pruneToRetentionLimits()
+            orphanedMediaPaths += pruneToRetentionLimits()
         }
+        return ConversationUpsertResult(
+            inserted = messageInserted,
+            orphanedMediaPaths = orphanedMediaPaths
+        )
     }
 
     fun updateDeliveryStatus(messageID: String, status: DeliveryStatus) {
@@ -434,27 +862,48 @@ internal class ConversationDatabase(
         var found = false
         val existing = db.rawQuery(
             """
-            SELECT delivery_type, delivery_text, delivery_at, delivery_reached, delivery_total
+            SELECT ${MESSAGE_COLUMNS.joinToString(",")}
             FROM private_messages WHERE message_id = ?
             """.trimIndent(),
             arrayOf(messageID)
         ).use { cursor ->
             if (cursor.moveToFirst()) {
                 found = true
-                cursor.toDeliveryStatus()
+                cursor.toMessage().deliveryStatus
             } else {
                 null
             }
         }
 
         if (!found) return
-        if (statusPriority(status) < statusPriority(existing)) return
-        db.update(
-            "private_messages",
-            deliveryValues(status),
-            "message_id = ?",
-            arrayOf(messageID)
-        )
+        val mayReplace = when {
+            status is DeliveryStatus.Failed ->
+                existing !is DeliveryStatus.Delivered && existing !is DeliveryStatus.Read
+            existing is DeliveryStatus.Failed -> true
+            else -> statusPriority(status) >= statusPriority(existing)
+        }
+        if (!mayReplace) return
+        db.inTransaction {
+            val current = rawQuery(
+                "SELECT ${MESSAGE_COLUMNS.joinToString(",")} " +
+                    "FROM private_messages WHERE message_id = ?",
+                arrayOf(messageID)
+            ).use { cursor ->
+                if (cursor.moveToFirst()) cursor.toMessage() else null
+            } ?: return@inTransaction
+            update(
+                "private_messages",
+                ContentValues().apply {
+                    putAll(deliveryValues(status, includeSensitiveText = false))
+                    put(
+                        "payload_ciphertext",
+                        encryptMessagePayload(current.copy(deliveryStatus = status))
+                    )
+                },
+                "message_id = ?",
+                arrayOf(messageID)
+            )
+        }
     }
 
     fun markRead(messageID: String) {
@@ -464,6 +913,43 @@ internal class ConversationDatabase(
             "message_id = ?",
             arrayOf(messageID)
         )
+    }
+
+    fun setConversationRead(conversationID: String, isRead: Boolean): String? {
+        val resolved = resolveStoredConversationLocked(writableDatabase, conversationID)
+        return writableDatabase.inTransaction {
+            if (isRead) {
+                update(
+                    "private_messages",
+                    ContentValues().apply { put("is_read", 1) },
+                    "conversation_id = ? COLLATE NOCASE",
+                    arrayOf(resolved)
+                )
+                null
+            } else {
+                val latestMessageID = rawQuery(
+                    """
+                    SELECT message_id
+                    FROM private_messages
+                    WHERE conversation_id = ? COLLATE NOCASE
+                    ORDER BY arrival_sequence DESC
+                    LIMIT 1
+                    """.trimIndent(),
+                    arrayOf(resolved)
+                ).use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+                if (latestMessageID != null) {
+                    update(
+                        "private_messages",
+                        ContentValues().apply { put("is_read", 0) },
+                        "message_id = ?",
+                        arrayOf(latestMessageID)
+                    )
+                }
+                latestMessageID
+            }
+        }
     }
 
     fun mergeAliases(targetConversationID: String, aliases: Set<String>) {
@@ -479,7 +965,24 @@ internal class ConversationDatabase(
         }
     }
 
-    fun deleteConversation(conversationID: String, aliases: Set<String>) {
+    fun updateConversationIdentity(
+        conversationID: String,
+        aliases: Set<String>,
+        displayName: String
+    ) {
+        if (conversationID.isBlank() || displayName.isBlank()) return
+        writableDatabase.inTransaction {
+            mergeAliasesLocked(
+                db = this,
+                targetConversationID = conversationID,
+                aliases = aliases + conversationID,
+                displayName = displayName,
+                now = System.currentTimeMillis()
+            )
+        }
+    }
+
+    fun deleteConversation(conversationID: String, aliases: Set<String>): Set<String> =
         writableDatabase.inTransaction {
             val ids = linkedSetOf<String>()
             (aliases + conversationID).forEach { value ->
@@ -496,6 +999,12 @@ internal class ConversationDatabase(
                     arrayOf<Any>(System.currentTimeMillis(), id)
                 )
             }
+            val messageIDs = ids
+                .filter(String::isNotBlank)
+                .flatMapTo(linkedSetOf()) { id ->
+                    queryMessageIDsLocked(this, id)
+                }
+            val attachmentCandidates = attachmentCandidatesLocked(this, messageIDs)
             ids.filter { it.isNotBlank() }.forEach { id ->
                 delete(
                     "conversations",
@@ -504,11 +1013,12 @@ internal class ConversationDatabase(
                 )
             }
             pruneDeletedMessageIDsLocked(this)
+            unreferencedAttachmentPathsLocked(this, attachmentCandidates)
         }
-    }
 
-    fun deleteMessage(messageID: String) {
+    fun deleteMessage(messageID: String): Set<String> =
         writableDatabase.inTransaction {
+            val attachmentCandidates = attachmentCandidatesLocked(this, listOf(messageID))
             insertWithOnConflict(
                 "deleted_private_messages",
                 null,
@@ -530,39 +1040,84 @@ internal class ConversationDatabase(
                 null
             )
             pruneDeletedMessageIDsLocked(this)
+            unreferencedAttachmentPathsLocked(this, attachmentCandidates)
         }
+
+    fun restoreConversation(
+        conversationID: String,
+        aliases: Set<String>,
+        displayName: String?,
+        messages: List<BitchatMessage>,
+        readMessageIDs: Set<String>
+    ): Set<String> {
+        if (messages.isEmpty()) return emptySet()
+        val now = System.currentTimeMillis()
+        writableDatabase.inTransaction {
+            mergeAliasesLocked(
+                db = this,
+                targetConversationID = conversationID,
+                aliases = aliases + conversationID,
+                displayName = displayName,
+                now = now
+            )
+            messages.forEach { message ->
+                delete(
+                    "deleted_private_messages",
+                    "message_id = ?",
+                    arrayOf(message.id)
+                )
+                val inserted = insertWithOnConflict(
+                    "private_messages",
+                    null,
+                    message.toContentValues(
+                        conversationID = conversationID,
+                        isRead = message.id in readMessageIDs
+                    ),
+                    SQLiteDatabase.CONFLICT_IGNORE
+                )
+                if (inserted != -1L) registerAttachmentLocked(this, message)
+            }
+            updateConversationMetadataLocked(this, conversationID, displayName, now)
+        }
+        return pruneToRetentionLimits()
     }
 
     fun clearAll() {
+        // Destroy the only usable copy of the history key before attempting filesystem cleanup.
+        storageCipher.destroyKey()
         writableDatabase.inTransaction {
             delete("conversation_aliases", null, null)
+            delete("message_attachments", null, null)
             delete("private_messages", null, null)
             delete("conversations", null, null)
             delete("deleted_private_messages", null, null)
             execSQL("DELETE FROM sqlite_sequence WHERE name = 'private_messages'")
         }
+        writableDatabase.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { }
         writableDatabase.rawQuery("PRAGMA incremental_vacuum", null).use { }
     }
 
-    fun pruneToRetentionLimits() {
+    fun pruneToRetentionLimits(): Set<String> {
         val db = writableDatabase
+        val orphanedMediaPaths = linkedSetOf<String>()
         db.inTransaction {
             rawQuery(
                 "SELECT conversation_id FROM conversations",
                 null
             ).use { cursor ->
                 while (cursor.moveToNext()) {
-                    pruneConversationLocked(this, cursor.getString(0))
+                    orphanedMediaPaths += pruneConversationLocked(this, cursor.getString(0))
                 }
             }
 
             var stats = storageStatsLocked(this)
             while (
-                stats.first > maxMessagesTotal ||
-                stats.second > maxPayloadBytes
+                stats.messageCount > maxMessagesTotal ||
+                stats.payloadBytes > maxPayloadBytes ||
+                stats.mediaBytes > maxMediaBytes
             ) {
-                val candidateLimit = if (stats.first > maxMessagesTotal) {
-                    (stats.first - maxMessagesTotal)
+                val candidateLimit = if (stats.messageCount > maxMessagesTotal) {
+                    (stats.messageCount - maxMessagesTotal)
                         .coerceAtMost(PRUNE_BATCH_SIZE.toLong())
                         .toInt()
                 } else {
@@ -601,15 +1156,19 @@ internal class ConversationDatabase(
                 }
                 if (candidates.isEmpty()) break
                 tombstoneMessagesLocked(this, candidates)
+                val attachmentCandidates = attachmentCandidatesLocked(this, candidates)
                 candidates.forEach { messageID ->
                     delete("private_messages", "message_id = ?", arrayOf(messageID))
                 }
+                orphanedMediaPaths +=
+                    unreferencedAttachmentPathsLocked(this, attachmentCandidates)
                 deleteEmptyConversationsLocked(this)
                 pruneDeletedMessageIDsLocked(this)
                 stats = storageStatsLocked(this)
             }
         }
         db.rawQuery("PRAGMA incremental_vacuum(128)", null).use { }
+        return orphanedMediaPaths
     }
 
     private fun mergeAliasesLocked(
@@ -619,7 +1178,6 @@ internal class ConversationDatabase(
         displayName: String?,
         now: Long
     ) {
-        ensureConversationLocked(db, targetConversationID, displayName, now)
         val normalizedAliases = aliases
             .map(String::trim)
             .filter(String::isNotBlank)
@@ -633,6 +1191,12 @@ internal class ConversationDatabase(
                     selectionValues = normalizedAliases
                 )
             )
+        val effectiveDisplayName = displayName
+            ?: (listOf(targetConversationID) + sourceIDs + normalizedAliases)
+                .asSequence()
+                .mapNotNull { storedConversationDisplayNameLocked(db, it) }
+                .firstOrNull()
+        ensureConversationLocked(db, targetConversationID, effectiveDisplayName, now)
 
         sourceIDs
             .filterNot { it.equals(targetConversationID, ignoreCase = true) }
@@ -667,7 +1231,35 @@ internal class ConversationDatabase(
                 SQLiteDatabase.CONFLICT_REPLACE
             )
         }
-        updateConversationMetadataLocked(db, targetConversationID, displayName, now)
+        updateConversationMetadataLocked(
+            db,
+            targetConversationID,
+            effectiveDisplayName,
+            now
+        )
+    }
+
+    private fun storedConversationDisplayNameLocked(
+        db: SQLiteDatabase,
+        conversationID: String
+    ): String? = db.query(
+        "conversations",
+        arrayOf("conversation_id", "display_name", "display_name_ciphertext"),
+        "conversation_id = ? COLLATE NOCASE",
+        arrayOf(conversationID),
+        null,
+        null,
+        null,
+        "1"
+    ).use { cursor ->
+        if (!cursor.moveToFirst()) return@use null
+        val storedConversationID = cursor.string("conversation_id")
+        cursor.blobOrNull("display_name_ciphertext")?.let {
+            storageCipher.decrypt(
+                it,
+                conversationDisplayNameAad(storedConversationID)
+            ).toString(Charsets.UTF_8)
+        } ?: cursor.nullableString("display_name")
     }
 
     private fun ensureConversationLocked(
@@ -681,7 +1273,13 @@ internal class ConversationDatabase(
             null,
             ContentValues().apply {
                 put("conversation_id", conversationID)
-                put("display_name", displayName)
+                putNull("display_name")
+                if (!displayName.isNullOrBlank()) {
+                    put(
+                        "display_name_ciphertext",
+                        encryptText(displayName, conversationDisplayNameAad(conversationID))
+                    )
+                }
                 put("created_at", now)
                 put("updated_at", now)
             },
@@ -698,7 +1296,13 @@ internal class ConversationDatabase(
         db.update(
             "conversations",
             ContentValues().apply {
-                if (!displayName.isNullOrBlank()) put("display_name", displayName)
+                if (!displayName.isNullOrBlank()) {
+                    putNull("display_name")
+                    put(
+                        "display_name_ciphertext",
+                        encryptText(displayName, conversationDisplayNameAad(conversationID))
+                    )
+                }
                 put("updated_at", now)
             },
             "conversation_id = ? COLLATE NOCASE",
@@ -743,14 +1347,17 @@ internal class ConversationDatabase(
         )
     }
 
-    private fun pruneConversationLocked(db: SQLiteDatabase, conversationID: String) {
+    private fun pruneConversationLocked(
+        db: SQLiteDatabase,
+        conversationID: String
+    ): Set<String> {
         val count = db.longForQuery(
             "SELECT COUNT(*) FROM private_messages WHERE conversation_id = ? COLLATE NOCASE",
             arrayOf(conversationID)
         )
         val excess = (count - maxMessagesPerConversation).coerceAtLeast(0L)
-        if (excess == 0L) return
-        db.rawQuery(
+        if (excess == 0L) return emptySet()
+        return db.rawQuery(
             """
             SELECT message_id
             FROM private_messages
@@ -767,28 +1374,160 @@ internal class ConversationDatabase(
         ).use { cursor ->
             val ids = mutableListOf<String>()
             while (cursor.moveToNext()) ids.add(cursor.getString(0))
+            val attachmentCandidates = attachmentCandidatesLocked(db, ids)
             tombstoneMessagesLocked(db, ids)
             ids.forEach { db.delete("private_messages", "message_id = ?", arrayOf(it)) }
             pruneDeletedMessageIDsLocked(db)
+            unreferencedAttachmentPathsLocked(db, attachmentCandidates)
         }
     }
 
-    private fun storageStatsLocked(db: SQLiteDatabase): Pair<Long, Long> =
+    private fun storageStatsLocked(db: SQLiteDatabase): ConversationStorageStats =
         db.rawQuery(
             """
             SELECT COUNT(*),
                 COALESCE(SUM(
-                    length(content) +
-                    COALESCE(length(encrypted_content), 0) +
-                    COALESCE(length(mentions_json), 0)
+                    COALESCE(length(payload_ciphertext), 0)
+                ), 0),
+                COALESCE((
+                    SELECT SUM(unique_attachment.byte_size)
+                    FROM (
+                        SELECT MAX(byte_size) AS byte_size
+                        FROM message_attachments
+                        GROUP BY path_hash
+                    ) AS unique_attachment
                 ), 0)
             FROM private_messages
             """.trimIndent(),
             null
         ).use { cursor ->
             cursor.moveToFirst()
-            cursor.getLong(0) to cursor.getLong(1)
+            ConversationStorageStats(
+                messageCount = cursor.getLong(0),
+                payloadBytes = cursor.getLong(1),
+                mediaBytes = cursor.getLong(2)
+            )
         }
+
+    private fun registerAttachmentLocked(db: SQLiteDatabase, message: BitchatMessage) {
+        if (message.type !in MEDIA_MESSAGE_TYPES) return
+        val path = appOwnedCanonicalPath(message.content) ?: return
+        val pathBytes = path.toByteArray(Charsets.UTF_8)
+        db.insertWithOnConflict(
+            "message_attachments",
+            null,
+            ContentValues().apply {
+                put("message_id", message.id)
+                put("path_hash", MessageDigest.getInstance("SHA-256").digest(pathBytes))
+                put(
+                    "path_ciphertext",
+                    storageCipher.encrypt(pathBytes, attachmentPathAad(message.id))
+                )
+                put("byte_size", File(path).takeIf(File::isFile)?.length() ?: 0L)
+            },
+            SQLiteDatabase.CONFLICT_REPLACE
+        )
+    }
+
+    private fun queryMessageIDsLocked(
+        db: SQLiteDatabase,
+        conversationID: String
+    ): List<String> =
+        db.query(
+            "private_messages",
+            arrayOf("message_id"),
+            "conversation_id = ? COLLATE NOCASE",
+            arrayOf(conversationID),
+            null,
+            null,
+            null
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(cursor.getString(0))
+            }
+        }
+
+    private fun attachmentCandidatesLocked(
+        db: SQLiteDatabase,
+        messageIDs: Collection<String>
+    ): List<AttachmentCandidate> {
+        if (messageIDs.isEmpty()) return emptyList()
+        return buildList {
+            messageIDs.toList().chunked(400).forEach { chunk ->
+                val placeholders = chunk.joinToString(",") { "?" }
+                db.rawQuery(
+                    """
+                    SELECT message_id, path_hash, path_ciphertext
+                    FROM message_attachments
+                    WHERE message_id IN ($placeholders)
+                    """.trimIndent(),
+                    chunk.toTypedArray()
+                ).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val messageID = cursor.getString(0)
+                        val path = storageCipher.decrypt(
+                            cursor.getBlob(2),
+                            attachmentPathAad(messageID)
+                        ).toString(Charsets.UTF_8)
+                        add(
+                            AttachmentCandidate(
+                                pathHash = cursor.getBlob(1),
+                                canonicalPath = path
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun unreferencedAttachmentPathsLocked(
+        db: SQLiteDatabase,
+        candidates: Collection<AttachmentCandidate>
+    ): Set<String> = candidates
+        .filter { candidate ->
+            db.rawQuery(
+                "SELECT COUNT(*) FROM message_attachments WHERE hex(path_hash) = ?",
+                arrayOf(candidate.pathHash.toHex().uppercase())
+            ).use { cursor ->
+                cursor.moveToFirst()
+                cursor.getLong(0) == 0L
+            }
+        }
+        .mapTo(linkedSetOf(), AttachmentCandidate::canonicalPath)
+
+    private fun appOwnedCanonicalPath(value: String): String? {
+        val file = runCatching { File(value.trim()).canonicalFile }.getOrNull() ?: return null
+        val roots = listOf(applicationContext.filesDir, applicationContext.cacheDir)
+            .mapNotNull { runCatching { it.canonicalFile }.getOrNull() }
+        return file.path.takeIf { path ->
+            roots.any { root ->
+                path == root.path || path.startsWith(root.path + File.separator)
+            }
+        }
+    }
+
+    private fun attachmentPathAad(messageID: String): ByteArray =
+        "attachment:$messageID:path".toByteArray(Charsets.UTF_8)
+
+    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
+
+    private data class ConversationStorageStats(
+        val messageCount: Long,
+        val payloadBytes: Long,
+        val mediaBytes: Long
+    )
+
+    private data class AttachmentCandidate(
+        val pathHash: ByteArray,
+        val canonicalPath: String
+    )
+
+    private val MEDIA_MESSAGE_TYPES = setOf(
+        BitchatMessageType.Audio,
+        BitchatMessageType.Image,
+        BitchatMessageType.File
+    )
 
     private fun pruneCandidatesLocked(
         db: SQLiteDatabase,
@@ -898,42 +1637,49 @@ internal class ConversationDatabase(
     ): ContentValues = ContentValues().apply {
         put("message_id", id)
         put("conversation_id", conversationID)
-        put("sender", sender)
-        put("content", content)
+        // Version 1 columns remain for lossless migration compatibility, but sensitive values are
+        // scrubbed and only the authenticated encrypted payload is populated for new writes.
+        put("sender", "")
+        put("content", "")
         put("message_type", type.ordinal)
         put("sent_at", timestamp.time)
+        put("received_at", System.currentTimeMillis())
         put("is_relay", isRelay.asInt())
-        put("original_sender", originalSender)
+        putNull("original_sender")
         put("is_private", isPrivate.asInt())
-        put("recipient_nickname", recipientNickname)
-        put("sender_peer_id", senderPeerID)
-        put("mentions_json", mentions?.let { JSONArray(it).toString() })
-        put("channel_name", channel)
-        put("encrypted_content", encryptedContent)
+        putNull("recipient_nickname")
+        putNull("sender_peer_id")
+        putNull("mentions_json")
+        putNull("channel_name")
+        putNull("encrypted_content")
         put("is_encrypted", isEncrypted.asInt())
-        putAll(deliveryValues(deliveryStatus))
-        put("sender_nostr_pubkey", senderNostrPubkey)
+        putAll(deliveryValues(deliveryStatus, includeSensitiveText = false))
+        putNull("sender_nostr_pubkey")
+        put("payload_ciphertext", encryptMessagePayload(this@toContentValues))
         put("is_read", isRead.asInt())
     }
 
-    private fun deliveryValues(status: DeliveryStatus?): ContentValues = ContentValues().apply {
+    private fun deliveryValues(
+        status: DeliveryStatus?,
+        includeSensitiveText: Boolean = true
+    ): ContentValues = ContentValues().apply {
         when (status) {
             null -> put("delivery_type", 0)
             DeliveryStatus.Sending -> put("delivery_type", 1)
             DeliveryStatus.Sent -> put("delivery_type", 2)
             is DeliveryStatus.Delivered -> {
                 put("delivery_type", 3)
-                put("delivery_text", status.to)
+                if (includeSensitiveText) put("delivery_text", status.to) else putNull("delivery_text")
                 put("delivery_at", status.at.time)
             }
             is DeliveryStatus.Read -> {
                 put("delivery_type", 4)
-                put("delivery_text", status.by)
+                if (includeSensitiveText) put("delivery_text", status.by) else putNull("delivery_text")
                 put("delivery_at", status.at.time)
             }
             is DeliveryStatus.Failed -> {
                 put("delivery_type", 5)
-                put("delivery_text", status.reason)
+                if (includeSensitiveText) put("delivery_text", status.reason) else putNull("delivery_text")
             }
             is DeliveryStatus.PartiallyDelivered -> {
                 put("delivery_type", 6)
@@ -953,7 +1699,34 @@ internal class ConversationDatabase(
         is DeliveryStatus.Read -> 5
     }
 
-    private fun Cursor.toMessage(): BitchatMessage = BitchatMessage(
+    private fun Cursor.toMessage(): BitchatMessage {
+        val messageID = string("message_id")
+        val encryptedPayload = blobOrNull("payload_ciphertext")
+            ?: error("Conversation message $messageID has no encrypted payload")
+        val payload = decryptMessagePayload(messageID, encryptedPayload)
+        return BitchatMessage(
+            id = messageID,
+            sender = payload.sender,
+            content = payload.content,
+            type = BitchatMessageType.entries.getOrElse(int("message_type")) {
+                BitchatMessageType.Message
+            },
+            timestamp = Date(long("sent_at")),
+            isRelay = boolean("is_relay"),
+            originalSender = payload.originalSender,
+            isPrivate = boolean("is_private"),
+            recipientNickname = payload.recipientNickname,
+            senderPeerID = payload.senderPeerID,
+            mentions = payload.mentions,
+            channel = payload.channel,
+            encryptedContent = payload.encryptedContent,
+            isEncrypted = boolean("is_encrypted"),
+            deliveryStatus = toDeliveryStatus(payload.deliveryText),
+            senderNostrPubkey = payload.senderNostrPubkey
+        )
+    }
+
+    private fun Cursor.toLegacyMessage(): BitchatMessage = BitchatMessage(
         id = string("message_id"),
         sender = string("sender"),
         content = string("content"),
@@ -974,18 +1747,19 @@ internal class ConversationDatabase(
         senderNostrPubkey = nullableString("sender_nostr_pubkey")
     )
 
-    private fun Cursor.toDeliveryStatus(): DeliveryStatus? = when (int("delivery_type")) {
+    private fun Cursor.toDeliveryStatus(deliveryText: String? = nullableString("delivery_text")):
+        DeliveryStatus? = when (int("delivery_type")) {
         1 -> DeliveryStatus.Sending
         2 -> DeliveryStatus.Sent
         3 -> DeliveryStatus.Delivered(
-            to = nullableString("delivery_text").orEmpty(),
+            to = deliveryText.orEmpty(),
             at = Date(nullableLong("delivery_at") ?: 0L)
         )
         4 -> DeliveryStatus.Read(
-            by = nullableString("delivery_text").orEmpty(),
+            by = deliveryText.orEmpty(),
             at = Date(nullableLong("delivery_at") ?: 0L)
         )
-        5 -> DeliveryStatus.Failed(nullableString("delivery_text").orEmpty())
+        5 -> DeliveryStatus.Failed(deliveryText.orEmpty())
         6 -> DeliveryStatus.PartiallyDelivered(
             reached = nullableInt("delivery_reached") ?: 0,
             total = nullableInt("delivery_total") ?: 0
@@ -1015,6 +1789,111 @@ internal class ConversationDatabase(
         index(column).let { if (isNull(it)) null else getBlob(it) }
     private fun Boolean.asInt(): Int = if (this) 1 else 0
 
+    private fun encryptMessagePayload(message: BitchatMessage): ByteArray {
+        val json = JSONObject().apply {
+            put("sender", message.sender)
+            put("content", message.content)
+            putNullable("original_sender", message.originalSender)
+            putNullable("recipient_nickname", message.recipientNickname)
+            putNullable("sender_peer_id", message.senderPeerID)
+            putNullable("mentions_json", message.mentions?.let(::JSONArray))
+            putNullable("channel_name", message.channel)
+            putNullable(
+                "encrypted_content",
+                message.encryptedContent?.let {
+                    Base64.encodeToString(it, Base64.NO_WRAP)
+                }
+            )
+            putNullable("delivery_text", message.deliveryStatus.sensitiveText())
+            putNullable("sender_nostr_pubkey", message.senderNostrPubkey)
+        }
+        return storageCipher.encrypt(
+            json.toString().toByteArray(Charsets.UTF_8),
+            messagePayloadAad(message.id)
+        )
+    }
+
+    private fun decryptMessagePayload(
+        messageID: String,
+        encryptedPayload: ByteArray
+    ): StoredMessagePayload {
+        val json = JSONObject(
+            storageCipher.decrypt(encryptedPayload, messagePayloadAad(messageID))
+                .toString(Charsets.UTF_8)
+        )
+        return StoredMessagePayload(
+            sender = json.getString("sender"),
+            content = json.getString("content"),
+            originalSender = json.optionalString("original_sender"),
+            recipientNickname = json.optionalString("recipient_nickname"),
+            senderPeerID = json.optionalString("sender_peer_id"),
+            mentions = json.optionalArray("mentions_json")?.let(::jsonStringList),
+            channel = json.optionalString("channel_name"),
+            encryptedContent = json.optionalString("encrypted_content")?.let {
+                Base64.decode(it, Base64.NO_WRAP)
+            },
+            deliveryText = json.optionalString("delivery_text"),
+            senderNostrPubkey = json.optionalString("sender_nostr_pubkey")
+        )
+    }
+
+    private fun encryptText(value: String, associatedData: ByteArray): ByteArray =
+        storageCipher.encrypt(value.toByteArray(Charsets.UTF_8), associatedData)
+
+    private fun messagePayloadAad(messageID: String): ByteArray =
+        "message:$messageID".toByteArray(Charsets.UTF_8)
+
+    private fun conversationDisplayNameAad(conversationID: String): ByteArray =
+        "conversation:$conversationID:display-name".toByteArray(Charsets.UTF_8)
+
+    private fun scrubLegacyPayloadColumns(values: ContentValues) {
+        values.put("sender", "")
+        values.put("content", "")
+        values.putNull("original_sender")
+        values.putNull("recipient_nickname")
+        values.putNull("sender_peer_id")
+        values.putNull("mentions_json")
+        values.putNull("channel_name")
+        values.putNull("encrypted_content")
+        values.putNull("delivery_text")
+        values.putNull("sender_nostr_pubkey")
+    }
+
+    private fun JSONObject.putNullable(key: String, value: Any?) {
+        put(key, value ?: JSONObject.NULL)
+    }
+
+    private fun JSONObject.optionalString(key: String): String? =
+        if (!has(key) || isNull(key)) null else getString(key)
+
+    private fun JSONObject.optionalArray(key: String): JSONArray? =
+        if (!has(key) || isNull(key)) null else getJSONArray(key)
+
+    private fun jsonStringList(array: JSONArray): List<String> =
+        buildList(array.length()) {
+            for (index in 0 until array.length()) add(array.getString(index))
+        }
+
+    private fun DeliveryStatus?.sensitiveText(): String? = when (this) {
+        is DeliveryStatus.Delivered -> to
+        is DeliveryStatus.Read -> by
+        is DeliveryStatus.Failed -> reason
+        else -> null
+    }
+
+    private data class StoredMessagePayload(
+        val sender: String,
+        val content: String,
+        val originalSender: String?,
+        val recipientNickname: String?,
+        val senderPeerID: String?,
+        val mentions: List<String>?,
+        val channel: String?,
+        val encryptedContent: ByteArray?,
+        val deliveryText: String?,
+        val senderNostrPubkey: String?
+    )
+
     private val MESSAGE_COLUMNS = arrayOf(
         "arrival_sequence",
         "message_id",
@@ -1023,6 +1902,7 @@ internal class ConversationDatabase(
         "content",
         "message_type",
         "sent_at",
+        "received_at",
         "is_relay",
         "original_sender",
         "is_private",
@@ -1038,6 +1918,11 @@ internal class ConversationDatabase(
         "delivery_reached",
         "delivery_total",
         "sender_nostr_pubkey",
+        "payload_ciphertext",
         "is_read"
     )
+
+    private val LEGACY_MESSAGE_COLUMNS = MESSAGE_COLUMNS.filterNot {
+        it == "payload_ciphertext" || it == "received_at"
+    }.toTypedArray()
 }
