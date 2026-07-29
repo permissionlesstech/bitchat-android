@@ -206,9 +206,10 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
             it.copy(apkStatus = ApkPreparationStatus.Loading, downloadProgress = 0)
         }
 
-        // force, because the guards in checkStatus() protect a job that is still
-        // running, which this one is not.
-        checkStatus(force = true)
+        // No force needed, and it would be harmful: leaving Downloading above already
+        // clears the entry guard, while the completion guard must stay armed so a
+        // download the user restarts during this check is not overwritten by its result.
+        checkStatus()
     }
 
     private fun startDownload() {
@@ -222,23 +223,21 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
         downloader.startDownload()
     }
 
-    /**
-     * @param force resolve even while the state says Downloading. Only cancellation
-     *   should pass true: the guard below exists so a running job is never second-guessed
-     *   from cache contents, but a cancelled one has no other route out of that state.
-     */
-    private fun checkStatus(force: Boolean = false) {
+    private fun checkStatus() {
         viewModelScope.launch {
             // WorkManager is the source of truth for active work. A queued or
             // newly started job legitimately has no partial file yet, so never
             // infer that it is orphaned from cache contents.
-            if (!force && _state.value.apkStatus is ApkPreparationStatus.Downloading) {
+            if (_state.value.apkStatus is ApkPreparationStatus.Downloading) {
                 return@launch
             }
 
             val resolvedStatus = resolveApkStatus()
             _state.update { current ->
-                if (!force && current.apkStatus is ApkPreparationStatus.Downloading) {
+                // Re-checked rather than trusted from entry: this resolve reaches the
+                // network and can take a minute, in which time the user may have started
+                // a download. Its result must not overwrite work that is now running.
+                if (current.apkStatus is ApkPreparationStatus.Downloading) {
                     current
                 } else {
                     current.copy(apkStatus = resolvedStatus, downloadProgress = 0)

@@ -3,6 +3,7 @@ package com.bitchat.android.util
 import android.util.Log
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.OkHttpProvider
+import com.bitchat.android.net.TorMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -48,23 +49,36 @@ object GitHubReleaseClient {
     private var blockedUntilMillis = 0L
 
     /**
-     * Whether the route was proxied when [blockedUntilMillis] was recorded, or null when
-     * no gate is set. GitHub counts unauthenticated requests per IP, so a Tor exit and a
-     * direct connection have separate quotas -- a cooldown earned on one must not be
-     * served to the other.
+     * Whether Tor was the selected route when [blockedUntilMillis] was recorded, or null
+     * when no gate is set. GitHub counts unauthenticated requests per IP, so a Tor exit
+     * and a direct connection have separate quotas -- a cooldown earned on one must not
+     * be served to the other.
      */
-    private var blockedRouteUsedProxy: Boolean? = null
+    @Volatile
+    private var blockedRouteUsedTor: Boolean? = null
+
+    /**
+     * The route requests will take, which is what the quota belongs to.
+     *
+     * Deliberately the selected mode rather than `isProxyEnabled()`: that reports
+     * readiness, and is false while Tor is still bootstrapping or restarting even though
+     * requests will still go through Tor once it is up. Using it as the route identity
+     * would clear a Tor-earned gate mid-bootstrap and apply a direct-earned one to the
+     * first Tor request.
+     */
+    private fun selectedRouteUsesTor(): Boolean? =
+        runCatching { ArtiTorManager.getInstance().statusFlow.value.mode != TorMode.OFF }
+            .getOrNull()
 
     /** Drops a gate earned on a route the app is no longer using. */
     private fun clearGateIfRouteChanged() {
-        val recordedRoute = blockedRouteUsedProxy ?: return
-        val currentRoute = runCatching { ArtiTorManager.getInstance().isProxyEnabled() }
-            .getOrNull() ?: return
+        val recordedRoute = blockedRouteUsedTor ?: return
+        val currentRoute = selectedRouteUsesTor() ?: return
 
         if (recordedRoute != currentRoute) {
             Log.i(TAG, "Route changed since the rate limit was recorded; clearing the gate")
             blockedUntilMillis = 0L
-            blockedRouteUsedProxy = null
+            blockedRouteUsedTor = null
         }
     }
 
@@ -104,11 +118,11 @@ object GitHubReleaseClient {
                     return@withLock Result.success(cached.release)
                 }
 
+                clearGateIfRouteChanged()
+
                 // Honoured even on an explicit refresh: sending a request GitHub has already said
                 // it will reject helps nobody and pushes the reset further out. A stale release is
                 // a better answer than an error the user cannot act on.
-                clearGateIfRouteChanged()
-
                 if (now < blockedUntilMillis) {
                     val waitMinutes = (blockedUntilMillis - now) / 60_000 + 1
                     Log.w(TAG, "Rate limited; not contacting GitHub for another ${waitMinutes}min")
@@ -218,8 +232,7 @@ object GitHubReleaseClient {
                     if (blockedUntil != null) {
                         blockedUntilMillis = blockedUntil
                         // Record which route earned it: the quota belongs to that IP.
-                        blockedRouteUsedProxy =
-                            runCatching { ArtiTorManager.getInstance().isProxyEnabled() }.getOrNull()
+                        blockedRouteUsedTor = selectedRouteUsesTor()
                     }
 
                     val message = if (blockedUntil != null) {
@@ -265,7 +278,7 @@ object GitHubReleaseClient {
                 // revalidate to a 304 that confirms a release we no longer hold.
                 cachedEtag = response.header("ETag")
                 blockedUntilMillis = 0L
-                blockedRouteUsedProxy = null
+                blockedRouteUsedTor = null
                 Result.success(release)
             }
         } catch (e: IOException) {
