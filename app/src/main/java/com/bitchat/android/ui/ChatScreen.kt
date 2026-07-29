@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.os.Build
 import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
 
@@ -259,8 +260,18 @@ fun ChatScreen(viewModel: ChatViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.ime) // This handles keyboard insets
-                .windowInsetsPadding(WindowInsets.navigationBars) // Add bottom padding when keyboard is not expanded
+                .then(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        // Android 11+: Handle both IME and navigation bar insets in Compose
+                        Modifier.windowInsetsPadding(
+                            WindowInsets.ime.union(WindowInsets.navigationBars)
+                        )
+                    } else {
+                        // Android 10 and below: Window is resized by the system (adjustResize),
+                        // so only account for the navigation bar.
+                        Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                    }
+                )
         ) {
           Box(modifier = Modifier.weight(1f)) {
             // Messages area - takes up available space, will compress when keyboard appears
