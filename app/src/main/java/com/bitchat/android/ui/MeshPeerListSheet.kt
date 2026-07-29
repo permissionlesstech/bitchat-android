@@ -62,7 +62,6 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.model.BitchatMessageType
-import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
@@ -1099,7 +1098,6 @@ private fun ConversationSwipeItem(
                     isVerified = isVerified,
                     deleteDescription = deleteDescription,
                     onClick = { onPrivateChatStart(conversation.conversationID) },
-                    onToggleFavorite = { viewModel.toggleFavorite(favoriteTargetID) },
                     onTogglePinned = {
                         viewModel.toggleConversationPinned(conversation.conversationID)
                     },
@@ -1127,7 +1125,6 @@ private fun ConversationRow(
     isVerified: Boolean,
     deleteDescription: String,
     onClick: () -> Unit,
-    onToggleFavorite: () -> Unit,
     onTogglePinned: () -> Unit,
     onToggleMuted: () -> Unit,
     onReadStateRequested: () -> Unit,
@@ -1172,15 +1169,6 @@ private fun ConversationRow(
     } else {
         basePreview
     }
-    val deliveryIndicator = when (conversation.latestDeliveryStatus) {
-        DeliveryStatus.Sending -> stringResource(R.string.status_sending)
-        DeliveryStatus.Sent -> stringResource(R.string.status_sent)
-        is DeliveryStatus.Delivered -> stringResource(R.string.status_delivered)
-        is DeliveryStatus.Read -> stringResource(R.string.status_read)
-        is DeliveryStatus.Failed -> stringResource(R.string.status_failed)
-        is DeliveryStatus.PartiallyDelivered -> stringResource(R.string.status_pending)
-        null -> ""
-    }.takeIf { conversation.latestMessageIsOutgoing }
     val presenceDescription = when {
         conversation.isConnected -> connectionDescription
         conversation.transport == DirectMessageTransport.NOSTR ->
@@ -1258,6 +1246,9 @@ private fun ConversationRow(
         PeerAvatar(
             name = baseNameRaw,
             color = assignedColor,
+            isFavorite = isFavorite,
+            theyFavoritedUs = theyFavoritedUs,
+            isVerified = isVerified,
             badge = {
                 when {
                     conversation.isConnected -> Icon(
@@ -1323,14 +1314,6 @@ private fun ConversationRow(
                         color = assignedColor.copy(alpha = SUFFIX_ALPHA)
                     )
                 }
-                if (isVerified) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_spec_check),
-                        contentDescription = stringResource(R.string.verify_title),
-                        modifier = Modifier.size(15.dp),
-                        tint = colorScheme.primary
-                    )
-                }
                 if (conversation.isPinned) {
                     Icon(
                         Icons.Filled.PushPin,
@@ -1369,22 +1352,8 @@ private fun ConversationRow(
                     },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f, fill = false)
                 )
-                deliveryIndicator?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontFamily = BitchatFontFamily
-                        ),
-                        color = if (conversation.latestDeliveryStatus is DeliveryStatus.Failed) {
-                            colorScheme.error
-                        } else {
-                            palette.textTertiary
-                        },
-                        maxLines = 1
-                    )
-                }
                 Text(
                     text = stringResource(
                         R.string.conversation_preview_timestamp,
@@ -1404,34 +1373,6 @@ private fun ConversationRow(
             colorScheme = colorScheme,
             modifier = Modifier.padding(start = 4.dp)
         )
-
-        IconButton(
-            onClick = onToggleFavorite,
-            modifier = Modifier.size(48.dp)
-        ) {
-            Icon(
-                painter = painterResource(
-                    if (isFavorite) {
-                        R.drawable.ic_spec_star_filled
-                    } else {
-                        R.drawable.ic_spec_star
-                    }
-                ),
-                contentDescription = stringResource(
-                    if (isFavorite) {
-                        R.string.cd_remove_favorite
-                    } else {
-                        R.string.cd_add_favorite
-                    }
-                ),
-                modifier = Modifier.size(PeerRowIconSize),
-                tint = if (isFavorite || theyFavoritedUs) {
-                    palette.accentOrange
-                } else {
-                    palette.textTertiary
-                }
-            )
-        }
 
         Box {
             IconButton(
@@ -1564,6 +1505,7 @@ private fun PeerItem(
             color = baseColor,
             isFavorite = isFavorite,
             theyFavoritedUs = theyFavoritedUs,
+            isVerified = isVerified,
             badge = {
                 when {
                     isConnected -> Icon(
@@ -1620,15 +1562,6 @@ private fun PeerItem(
                     fontSize = 14.sp,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
                     color = baseColor.copy(alpha = SUFFIX_ALPHA)
-                )
-            }
-
-            if (isVerified) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_spec_check),
-                    contentDescription = stringResource(R.string.verify_title),
-                    modifier = Modifier.size(16.dp),
-                    tint = colorScheme.primary
                 )
             }
         }
