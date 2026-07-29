@@ -46,7 +46,7 @@
     <string name="notification_summary_more">dan %1$d lagi</string>
     <string name="notification_messages_from_people">%1$d pesan dari %2$d orang</string>
     <string name="notification_more_conversations">dan %1$d percakapan lagi</string>
-    <string name="notification_active_peers_title">👥 bitchatter terdekat!</string>
+    <string name="notification_active_peers_title">bitchatter terdekat!</string>
     <string name="notification_active_peers_one">1 orang terdekat</string>
     <string name="notification_active_peers_many">%1$d orang terdekat</string>
     <string name="notification_new_messages">Pesan baru</string>

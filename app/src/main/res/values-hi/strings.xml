@@ -46,7 +46,7 @@
     <string name="notification_summary_more">और %1$d</string>
     <string name="notification_messages_from_people">%2$d लोगों से %1$d संदेश</string>
     <string name="notification_more_conversations">और %1$d वार्तालाप</string>
-    <string name="notification_active_peers_title">👥 पास में उपयोगकर्ता!</string>
+    <string name="notification_active_peers_title">पास में उपयोगकर्ता!</string>
     <string name="notification_active_peers_one">पास में 1 व्यक्ति</string>
     <string name="notification_active_peers_many">पास में %1$d लोग</string>
     <string name="notification_new_messages">नए संदेश</string>

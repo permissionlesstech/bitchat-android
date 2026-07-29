@@ -42,7 +42,7 @@
   <string name="notification_summary_more">and %1$d more</string>
   <string name="notification_messages_from_people">%1$d messages from %2$d people</string>
   <string name="notification_more_conversations">and %1$d more conversations</string>
-  <string name="notification_active_peers_title">👥 bitchatters nearby!</string>
+  <string name="notification_active_peers_title">bitchatters nearby!</string>
   <string name="notification_active_peers_one">1 person around</string>
   <string name="notification_active_peers_many">%1$d people around</string>
   <string name="notification_new_messages">New Messages</string>

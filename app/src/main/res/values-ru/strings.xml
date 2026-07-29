@@ -40,7 +40,7 @@
     <string name="notification_summary_more">и ещё %1$d</string>
     <string name="notification_messages_from_people">%1$d сообщений от %2$d людей</string>
     <string name="notification_more_conversations">и ещё %1$d бесед</string>
-    <string name="notification_active_peers_title">👥 bitchatter рядом!</string>
+    <string name="notification_active_peers_title">bitchatter рядом!</string>
     <string name="notification_active_peers_one">Рядом 1 человек</string>
     <string name="notification_active_peers_many">Рядом %1$d человек</string>
     <string name="notification_new_messages">Новые сообщения</string>

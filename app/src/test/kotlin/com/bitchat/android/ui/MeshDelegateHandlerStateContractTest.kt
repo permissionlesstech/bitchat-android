@@ -66,14 +66,12 @@ class MeshDelegateHandlerStateContractTest {
 
         assertEquals(listOf("peer-a", "peer-b"), state.connectedPeers.value)
         assertTrue(state.isConnected.value)
-        verify(notifications).showActiveUserNotification(listOf("peer-a", "peer-b"))
         verify(channels).cleanupDisconnectedMembers(listOf("peer-a", "peer-b"), "self")
 
         handler.didUpdatePeerList(emptyList())
 
         assertTrue(state.connectedPeers.value.isEmpty())
         assertFalse(state.isConnected.value)
-        verify(notifications).showActiveUserNotification(emptyList())
     }
 
     @Test

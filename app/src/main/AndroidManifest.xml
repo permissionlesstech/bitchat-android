@@ -127,16 +127,6 @@
             tools:ignore="DataExtractionRules">
         </service>
 
-        <!-- Listen for in-app broadcast when POST_NOTIFICATIONS is granted -->
-        <receiver
-            android:name=".service.NotificationPermissionChangedReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.bitchat.android.action.NOTIFICATION_PERMISSION_GRANTED" />
-            </intent-filter>
-        </receiver>
-
         <receiver
             android:name=".service.ConversationNotificationReceiver"
             android:enabled="true"
