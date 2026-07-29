@@ -197,10 +197,17 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
     private fun onCancelDownload() {
         downloader.cancelDownload()
 
-        // Nothing else will move the UI off the spinner. checkStatus() refuses to
-        // overwrite a Downloading state, and the Idle that WorkManager reports for a
-        // cancelled job is ignored for the same reason -- both guards protect a job
-        // that is still running, which this one is not.
+        // Leave Downloading now, not when the check returns. resolveApkStatus() reaches
+        // the network and can sit on the route timeout for a full minute, and nothing
+        // else would clear the spinner in the meantime -- the cancelled job maps to Idle,
+        // which the observer ignores. Without this the stop button looks broken for the
+        // whole wait.
+        _state.update {
+            it.copy(apkStatus = ApkPreparationStatus.Loading, downloadProgress = 0)
+        }
+
+        // force, because the guards in checkStatus() protect a job that is still
+        // running, which this one is not.
         checkStatus(force = true)
     }
 

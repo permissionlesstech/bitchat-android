@@ -47,6 +47,27 @@ object GitHubReleaseClient {
     @Volatile
     private var blockedUntilMillis = 0L
 
+    /**
+     * Whether the route was proxied when [blockedUntilMillis] was recorded, or null when
+     * no gate is set. GitHub counts unauthenticated requests per IP, so a Tor exit and a
+     * direct connection have separate quotas -- a cooldown earned on one must not be
+     * served to the other.
+     */
+    private var blockedRouteUsedProxy: Boolean? = null
+
+    /** Drops a gate earned on a route the app is no longer using. */
+    private fun clearGateIfRouteChanged() {
+        val recordedRoute = blockedRouteUsedProxy ?: return
+        val currentRoute = runCatching { ArtiTorManager.getInstance().isProxyEnabled() }
+            .getOrNull() ?: return
+
+        if (recordedRoute != currentRoute) {
+            Log.i(TAG, "Route changed since the rate limit was recorded; clearing the gate")
+            blockedUntilMillis = 0L
+            blockedRouteUsedProxy = null
+        }
+    }
+
     private val client
         get() = OkHttpProvider.httpClient().newBuilder()
             // GitHub requests may travel through Tor, where a 15-second total
@@ -86,6 +107,8 @@ object GitHubReleaseClient {
                 // Honoured even on an explicit refresh: sending a request GitHub has already said
                 // it will reject helps nobody and pushes the reset further out. A stale release is
                 // a better answer than an error the user cannot act on.
+                clearGateIfRouteChanged()
+
                 if (now < blockedUntilMillis) {
                     val waitMinutes = (blockedUntilMillis - now) / 60_000 + 1
                     Log.w(TAG, "Rate limited; not contacting GitHub for another ${waitMinutes}min")
@@ -192,7 +215,12 @@ object GitHubReleaseClient {
                         retryAfterSeconds = response.header("Retry-After"),
                         nowMillis = System.currentTimeMillis(),
                     )
-                    if (blockedUntil != null) blockedUntilMillis = blockedUntil
+                    if (blockedUntil != null) {
+                        blockedUntilMillis = blockedUntil
+                        // Record which route earned it: the quota belongs to that IP.
+                        blockedRouteUsedProxy =
+                            runCatching { ArtiTorManager.getInstance().isProxyEnabled() }.getOrNull()
+                    }
 
                     val message = if (blockedUntil != null) {
                         val waitMinutes =
@@ -237,6 +265,7 @@ object GitHubReleaseClient {
                 // revalidate to a 304 that confirms a release we no longer hold.
                 cachedEtag = response.header("ETag")
                 blockedUntilMillis = 0L
+                blockedRouteUsedProxy = null
                 Result.success(release)
             }
         } catch (e: IOException) {
