@@ -384,8 +384,11 @@ object AppStateStore {
             }
             if (changed) {
                 _privateMessages.value = map
-                conversationRepository?.updateDeliveryStatus(messageID, status)
             }
+            // Full histories are unloaded after a chat closes, so the message may only exist in
+            // SQLite. Always offer the update to the repository; it safely ignores unknown IDs
+            // and enforces the same monotonic status rules as the in-memory path.
+            conversationRepository?.updateDeliveryStatus(messageID, status)
         }
     }
 

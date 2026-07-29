@@ -3,6 +3,7 @@ package com.bitchat.android.services
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.MessageManager
@@ -96,6 +97,40 @@ class IncomingMessageAdmissionTest {
         assertEquals(
             listOf(latest.id),
             AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+        )
+    }
+
+    @Test
+    fun `delivery receipt persists after older message is unloaded from memory`() {
+        val older = privateMessage(id = "older-outgoing").copy(
+            sender = "me",
+            senderPeerID = "self",
+            recipientNickname = "alice",
+            deliveryStatus = DeliveryStatus.Sent
+        )
+        val latest = privateMessage(id = "latest-summary").copy(timestamp = Date(2L))
+        assertTrue(AppStateStore.addPrivateMessage("peer-a", older, forceRead = true))
+        assertTrue(IncomingMessageAdmission.admitToAppState(latest))
+        runBlocking { repository.awaitPendingWrites() }
+
+        AppStateStore.releasePrivateConversationHistory("peer-a")
+        assertEquals(
+            listOf(latest.id),
+            AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+        )
+
+        val delivered = DeliveryStatus.Delivered(to = "alice", at = Date(3L))
+        AppStateStore.updatePrivateMessageStatus(older.id, delivered)
+        runBlocking { repository.awaitPendingWrites() }
+
+        val snapshot = runBlocking {
+            repository.loadConversationAndWait("peer-a")
+        }
+        assertEquals(
+            delivered,
+            snapshot?.chats?.getValue("peer-a")
+                ?.single { it.id == older.id }
+                ?.deliveryStatus
         )
     }
 
