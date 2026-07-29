@@ -271,6 +271,37 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `API 26 rejected cleanup removal survives the formation deadline`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false,
+                supportsChannelClose = false
+            )
+        )
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+        fixture.manager.stopHotspot()
+
+        // Discard the stale formation response, then establish stable cleanup ownership.
+        fixture.p2p.answerGroup(livePreQGroup())
+        fixture.p2p.answerGroup(livePreQGroup())
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(livePreQGroup())
+        fixture.p2p.rejectRemove(WifiP2pManager.BUSY)
+
+        fixture.scheduler.advanceBy(9_500)
+
+        assertEquals("Stopping", fixture.manager.lifecycleName())
+        assertTrue(fixture.platform.active)
+        assertTrue(fixture.callback.errors.isEmpty())
+        assertEquals(2, fixture.p2p.channels.size)
+    }
+
+    @Test
     fun `fresh channel does not adopt an unknown pre Q group`() {
         val fixture = Fixture(
             p2p = FakeP2p(
