@@ -34,6 +34,10 @@ class HotspotManager(private val context: Context) {
         // Give up if the group never forms within this window after creation succeeded
         private const val GROUP_FORMATION_TIMEOUT_MILLIS = 15_000L
 
+        // Bounds how long a caller can be kept waiting for teardown to finish. A framework
+        // listener that never fires must not hold the radio away from the mesh forever.
+        private const val TEARDOWN_TIMEOUT_MILLIS = 10_000L
+
         // SSID and password configuration
         private const val SSID_SUFFIX_LENGTH = 8
         private const val PASSWORD_LENGTH = 16
@@ -93,6 +97,16 @@ class HotspotManager(private val context: Context) {
      * still needs to recognise that group as ours.
      */
     private var recordedGeneratedName = false
+
+    /** Run once the channel is released; see [stopHotspot]. Cleared as it fires. */
+    private var teardownCallback: (() -> Unit)? = null
+
+    /** Idempotent, so the timeout fallback and the real completion cannot both fire. */
+    private fun finishTeardown() {
+        val done = teardownCallback ?: return
+        teardownCallback = null
+        done.invoke()
+    }
 
     private val prefs by lazy { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
@@ -187,7 +201,14 @@ class HotspotManager(private val context: Context) {
     /**
      * Stop the hotspot.
      */
-    fun stopHotspot() {
+    /**
+     * @param onTeardownComplete run once the channel has actually been released, which may
+     *   be well after this returns: a createGroup submitted before the stop still has to
+     *   land and be cleaned up. Callers holding a resource for the hotspot -- the Wi-Fi
+     *   Aware hold in particular -- must wait for this rather than for the call to return,
+     *   or they hand the radio back while a P2P group is still on its way.
+     */
+    fun stopHotspot(onTeardownComplete: (() -> Unit)? = null) {
         Log.d(TAG, "Stopping hotspot")
 
         isStarting = false
@@ -195,6 +216,16 @@ class HotspotManager(private val context: Context) {
 
         // Stop group info polling
         handler.removeCallbacksAndMessages(null)
+
+        teardownCallback = onTeardownComplete
+        if (onTeardownComplete != null) {
+            handler.postDelayed({
+                if (teardownCallback != null) {
+                    Log.w(TAG, "Teardown did not complete within ${TEARDOWN_TIMEOUT_MILLIS}ms")
+                    finishTeardown()
+                }
+            }, TEARDOWN_TIMEOUT_MILLIS)
+        }
 
         // Detach the channel first so any in-flight listener sees the hotspot as stopped,
         // then remove the group and close the channel once the framework has replied.
@@ -222,6 +253,9 @@ class HotspotManager(private val context: Context) {
                     closeChannel(staleChannel)
                 }
             }
+        } else {
+            // Never initialised, so there is nothing to wait for.
+            finishTeardown()
         }
 
         // Release locks
@@ -308,14 +342,19 @@ class HotspotManager(private val context: Context) {
      * another stale client to the framework's list.
      */
     private fun closeChannel(channelToClose: Channel) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) return
-
-        try {
-            channelToClose.close()
-            Log.d(TAG, "P2P channel closed")
-        } catch (e: Exception) {
-            Log.w(TAG, "Error closing P2P channel", e)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            try {
+                channelToClose.close()
+                Log.d(TAG, "P2P channel closed")
+            } catch (e: Exception) {
+                Log.w(TAG, "Error closing P2P channel", e)
+            }
         }
+
+        // Terminal for this channel on every path, including the deferred one, so this is
+        // where a stop is genuinely finished. Below O_MR1 there is nothing to close, but
+        // the caller still has to be released.
+        finishTeardown()
     }
 
     /**

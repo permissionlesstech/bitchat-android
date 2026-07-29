@@ -134,10 +134,20 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         webServer?.stopServer()
         webServer = null
 
-        hotspotManager?.stopHotspot()
+        val manager = hotspotManager
         hotspotManager = null
 
-        WifiAwareController.releaseHotspotHold()
+        if (manager == null) {
+            WifiAwareController.releaseHotspotHold()
+            return
+        }
+
+        // Released on completion, not on return. A createGroup submitted before the stop
+        // can still land afterwards, and letting Aware back onto the radio before that
+        // group has been removed recreates the NAN/P2P contention the hold exists to
+        // prevent. The manager bounds the wait so a listener that never fires cannot keep
+        // the mesh down.
+        manager.stopHotspot { WifiAwareController.releaseHotspotHold() }
     }
 
     /**
