@@ -48,6 +48,7 @@ import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.services.ContactDirectory
 
 private data class SecurityStatusInfo(
     val text: String,
@@ -100,7 +101,12 @@ fun SecurityVerificationSheet(
                 val displayName = viewModel.resolvePeerDisplayNameForFingerprint(selectedPeerID)
                 val fingerprint = viewModel.getPeerFingerprintForDisplay(selectedPeerID)
                 val isVerified = fingerprint != null && verifiedFingerprints.contains(fingerprint)
-                val sessionState = peerSessionStates[selectedPeerID]
+                val activeMeshPeerID = ContactDirectory.resolve(selectedPeerID).meshPeerID
+                val sessionState = resolveConversationSessionState(
+                    conversationID = selectedPeerID,
+                    activeMeshPeerID = activeMeshPeerID,
+                    peerSessionStates = peerSessionStates
+                )
                 val statusInfo = buildStatusInfo(
                     isVerified = isVerified,
                     sessionState = sessionState,

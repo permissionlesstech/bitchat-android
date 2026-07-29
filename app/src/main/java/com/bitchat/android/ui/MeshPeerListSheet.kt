@@ -1858,7 +1858,11 @@ fun PrivateChatSheet(
 
     val conversationID = contactResolution.conversationID
     val messages = privateChats[conversationID] ?: privateChats[peerID] ?: emptyList()
-    val sessionState = activeMeshPeerID?.let { peerSessionStates[it] } ?: peerSessionStates[peerID]
+    val sessionState = resolveConversationSessionState(
+        conversationID = peerID,
+        activeMeshPeerID = activeMeshPeerID,
+        peerSessionStates = peerSessionStates
+    )
     val fingerprint = activeMeshPeerID?.let { peerFingerprints[it] }
         ?: peerFingerprints[peerID]
         ?: ContactIdentityResolver.fingerprintFromContactConversationId(peerID)
@@ -2072,8 +2076,10 @@ fun PrivateChatSheet(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    painter = painterResource(R.drawable.ic_spec_check),
-                                    contentDescription = stringResource(R.string.verify_title),
+                                    imageVector = Icons.Filled.Verified,
+                                    contentDescription = stringResource(
+                                        R.string.fingerprint_verified_label
+                                    ),
                                     modifier = Modifier.size(HeaderIconSize),
                                     tint = colorScheme.primary
                                 )
