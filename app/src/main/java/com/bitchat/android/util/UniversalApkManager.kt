@@ -228,6 +228,9 @@ class UniversalApkManager(private val context: Context) {
             val release = GitHubReleaseClient.fetchLatestRelease(
                 onAwaitingNetworkRoute = {
                     phaseCallback?.invoke(ApkDownloader.DownloadPhase.AwaitingNetworkRoute)
+                },
+                onResolvingRelease = {
+                    phaseCallback?.invoke(ApkDownloader.DownloadPhase.ResolvingRelease)
                 }
             ).getOrElse { error ->
                 return@withContext Result.failure(error)

@@ -69,6 +69,7 @@ object GitHubReleaseClient {
     suspend fun fetchLatestRelease(
         forceRefresh: Boolean = false,
         onAwaitingNetworkRoute: (() -> Unit)? = null,
+        onResolvingRelease: (() -> Unit)? = null,
     ): Result<Release> =
         withContext(Dispatchers.IO) {
             fetchMutex.withLock {
@@ -108,6 +109,11 @@ object GitHubReleaseClient {
                         )
                     )
                 }
+                // The wait is over, so stop saying we are waiting. In direct mode it
+                // returned immediately and never really started, and the fetch below
+                // retries -- either way the caller must not keep reporting a Tor wait
+                // for the whole metadata request.
+                onResolvingRelease?.invoke()
 
                 var lastFailure: Throwable = ReleaseFetchException(
                     "Failed to fetch the latest release from GitHub"
@@ -120,6 +126,18 @@ object GitHubReleaseClient {
                         return@withLock Result.success(release)
                     }
                     lastFailure = result.exceptionOrNull() ?: lastFailure
+
+                    // The response that just set the gate is the one the user is waiting
+                    // on. Reporting an error here and only serving the cache on the next
+                    // call makes the first check fail and an immediate retry succeed from
+                    // metadata we already had.
+                    if (System.currentTimeMillis() < blockedUntilMillis) {
+                        cached?.let {
+                            Log.w(TAG, "Rate limited; serving the cached release instead of failing")
+                            return@withLock Result.success(it.release)
+                        }
+                        return@withLock Result.failure(lastFailure)
+                    }
 
                     if (!isRetryable(lastFailure) || attempt == MAX_FETCH_ATTEMPTS - 1) {
                         return@withLock Result.failure(lastFailure)
