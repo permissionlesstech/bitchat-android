@@ -70,6 +70,13 @@ class HotspotManager(private val context: Context) {
     // Last Wi-Fi P2P state seen on the broadcast, or null before the first one arrives
     private var lastP2pState: Int? = null
 
+    /**
+     * Whether this manager created the group currently on the framework. Gates group
+     * removal on stop: without it, refusing to disturb another app's group and then
+     * tearing it down in cleanup are the same code path.
+     */
+    private var createdActiveGroup = false
+
     private val prefs by lazy { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
     /** Network name of the last group this app created, surviving process death. */
@@ -175,21 +182,32 @@ class HotspotManager(private val context: Context) {
         // Detach the channel first so any in-flight listener sees the hotspot as stopped,
         // then remove the group and close the channel once the framework has replied.
         val staleChannel = channel
+        val removeGroupOnStop = createdActiveGroup
         channel = null
+        createdActiveGroup = false
 
         if (staleChannel != null) {
-            wifiP2pManager?.removeGroup(staleChannel, object : ActionListener {
-                override fun onSuccess() {
-                    Log.d(TAG, "Group removed successfully")
-                    // Nothing of ours is left for a later run to clean up.
-                    ownedGroupName = null
-                    closeChannel(staleChannel)
-                }
-                override fun onFailure(reason: Int) {
-                    Log.w(TAG, "Failed to remove group: $reason")
-                    closeChannel(staleChannel)
-                }
-            })
+            if (removeGroupOnStop) {
+                wifiP2pManager?.removeGroup(staleChannel, object : ActionListener {
+                    override fun onSuccess() {
+                        Log.d(TAG, "Group removed successfully")
+                        // Nothing of ours is left for a later run to clean up.
+                        ownedGroupName = null
+                        closeChannel(staleChannel)
+                    }
+                    override fun onFailure(reason: Int) {
+                        Log.w(TAG, "Failed to remove group: $reason")
+                        closeChannel(staleChannel)
+                    }
+                })
+            } else {
+                // removeGroup() is device-scoped, not app-scoped: calling it here would
+                // tear down whatever group is present, including the Cast or Android Auto
+                // session we just refused to disturb. We created nothing, so release the
+                // channel and leave the group alone.
+                Log.d(TAG, "No group of ours to remove; closing channel only")
+                closeChannel(staleChannel)
+            }
         }
 
         // Release locks
@@ -382,6 +400,7 @@ class HotspotManager(private val context: Context) {
             }
             Log.d(TAG, "P2P group created successfully")
             isStarting = false
+            createdActiveGroup = true
             // Don't call onHotspotStarted() yet - wait for group info
             startGroupInfoPolling()
         }

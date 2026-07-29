@@ -27,6 +27,7 @@ object WifiAwareController {
     private val lifecycleLock = Any()
     private var starting = false
     private val restartInFlight = AtomicBoolean(false)
+    private val restartRequested = AtomicBoolean(false)
     private var awareReceiverRegistered = false
     private var lastBlockedReason: String? = null
 
@@ -264,6 +265,13 @@ object WifiAwareController {
      * startServices() defers and we must try again rather than give up.
      */
     internal fun restartIfStillEnabled(delayMs: Long = 0L) {
+        // Record the request before coalescing. A request that arrives while a loop is
+        // already running — releaseHotspotHold() landing during a loop that has been
+        // burning attempts against the hold — would otherwise be dropped, and the old
+        // loop would exhaust MAX_RESTART_ATTEMPTS without ever seeing the cleared hold,
+        // leaving Aware down despite the user's setting.
+        restartRequested.set(true)
+
         if (!restartInFlight.compareAndSet(false, true)) {
             Log.d(TAG, "Restart already in flight; coalescing request")
             return
@@ -271,17 +279,29 @@ object WifiAwareController {
         scope.launch {
             try {
                 if (delayMs > 0L) delay(delayMs)
-                var attempt = 0
-                while (_enabled.value && !_running.value && attempt < MAX_RESTART_ATTEMPTS) {
-                    val ctx = appContext
-                    if (ctx != null && !refreshSupportStatus(ctx).supported) break
-                    startIfPossible()
-                    if (_running.value) break
-                    attempt++
-                    delay(RESTART_RETRY_DELAY_MS)
-                }
+                do {
+                    // Consume the request before working, so anything arriving during
+                    // the attempts below schedules another pass.
+                    restartRequested.set(false)
+                    var attempt = 0
+                    while (_enabled.value && !_running.value && attempt < MAX_RESTART_ATTEMPTS) {
+                        val ctx = appContext
+                        if (ctx != null && !refreshSupportStatus(ctx).supported) break
+                        startIfPossible()
+                        if (_running.value) break
+                        attempt++
+                        delay(RESTART_RETRY_DELAY_MS)
+                    }
+                } while (restartRequested.get() && _enabled.value && !_running.value)
             } finally {
                 restartInFlight.set(false)
+            }
+
+            // A request landing between the loop exiting and the flag clearing finds
+            // restartInFlight still set and returns; pick it up here. Terminates because
+            // each pass consumes the flag before doing any work.
+            if (restartRequested.get() && _enabled.value && !_running.value) {
+                restartIfStillEnabled()
             }
         }
     }
