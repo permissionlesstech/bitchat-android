@@ -126,6 +126,32 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `stale replacement timer cannot overwrite group creation`() {
+        val fixture = Fixture()
+        fixture.startReplacingExistingGroup()
+
+        fixture.p2p.acceptRemove()
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(foreignGroup())
+
+        fixture.platform.onConnectionChanged?.invoke()
+        fixture.p2p.answerGroup(null)
+        assertEquals("Creating", fixture.manager.lifecycleName())
+
+        fixture.scheduler.advanceBy(500)
+        assertEquals("Creating", fixture.manager.lifecycleName())
+
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+        fixture.p2p.answerGroup(fixture.ownedGroup())
+
+        assertEquals("Hosting", fixture.manager.lifecycleName())
+        assertEquals(1, fixture.callback.started)
+        assertEquals(0, fixture.callback.conflicts)
+    }
+
+    @Test
     fun `stop during confirmed replacement ignores its late callback`() {
         val fixture = Fixture()
         fixture.startReplacingExistingGroup()
@@ -185,6 +211,27 @@ class HotspotManagerLifecycleTest {
 
         assertEquals(1, completed)
         assertTrue(fixture.p2p.channels.last().closed)
+    }
+
+    @Test
+    fun `missing create callback enters bounded cleanup`() {
+        val fixture = Fixture()
+        fixture.startUntilCreateRequested()
+
+        fixture.scheduler.advanceBy(15_000)
+        assertEquals("Stopping", fixture.manager.lifecycleName())
+        assertTrue(fixture.callback.errors.isEmpty())
+
+        fixture.scheduler.advanceBy(10_000)
+        assertEquals(2, fixture.p2p.channels.size)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertFalse(fixture.platform.active)
+        assertEquals(listOf(HotspotError.START_FAILED), fixture.callback.errors)
     }
 
     @Test
@@ -487,6 +534,30 @@ class HotspotManagerLifecycleTest {
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertEquals(0, fixture.p2p.removeRequests.size)
         assertEquals(listOf(HotspotError.GROUP_LOST), fixture.callback.errors)
+    }
+
+    @Test
+    fun `nameless owner snapshot does not end hosting`() {
+        val fixture = Fixture()
+        fixture.startHosting()
+
+        fixture.scheduler.advanceBy(1_000)
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group(
+                networkName = null,
+                passphrase = "test-password",
+                clientCount = 0,
+                isGroupOwner = true
+            )
+        )
+
+        assertEquals("Hosting", fixture.manager.lifecycleName())
+        assertTrue(fixture.callback.errors.isEmpty())
+        assertTrue(fixture.platform.active)
+
+        fixture.scheduler.advanceBy(1_000)
+        fixture.p2p.answerGroup(fixture.ownedGroup())
+        assertEquals("Hosting", fixture.manager.lifecycleName())
     }
 
     @Test

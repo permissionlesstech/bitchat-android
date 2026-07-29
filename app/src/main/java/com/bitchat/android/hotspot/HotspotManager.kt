@@ -34,6 +34,7 @@ class HotspotManager @VisibleForTesting internal constructor(
         private const val GROUP_INFO_POLL_INTERVAL_MILLIS = 1_000L
         private const val REMOVAL_VERIFY_INTERVAL_MILLIS = 500L
         private const val PREFLIGHT_REQUEST_TIMEOUT_MILLIS = 10_000L
+        private const val GROUP_CREATION_RESULT_TIMEOUT_MILLIS = 15_000L
         private const val GROUP_FORMATION_TIMEOUT_MILLIS = 15_000L
         private const val EXISTING_REMOVAL_TIMEOUT_MILLIS = 10_000L
         private const val TEARDOWN_FORCE_CLOSE_MILLIS = 10_000L
@@ -460,6 +461,7 @@ class HotspotManager @VisibleForTesting internal constructor(
                             createGroup(session, attempt)
                         } else {
                             schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                                if (phase !== expected) return@schedule
                                 awaitExistingGroupAbsence(
                                     session,
                                     attempt,
@@ -475,6 +477,7 @@ class HotspotManager @VisibleForTesting internal constructor(
 
                     submission == StartStep.RemovalSubmission.ACCEPTED -> {
                         schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                            if (phase !== expected) return@schedule
                             awaitExistingGroupAbsence(
                                 session,
                                 attempt,
@@ -485,6 +488,7 @@ class HotspotManager @VisibleForTesting internal constructor(
 
                     else -> {
                         schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                            if (phase !== expected) return@schedule
                             inspectBeforeCreate(session, attempt)
                         }
                     }
@@ -564,6 +568,11 @@ class HotspotManager @VisibleForTesting internal constructor(
                     }
                 }
             )
+            schedule(session, GROUP_CREATION_RESULT_TIMEOUT_MILLIS) {
+                if (phase === expected) {
+                    fail(HotspotError.START_FAILED)
+                }
+            }
         } catch (e: SecurityException) {
             if (phase === expected) {
                 finishSession(session, HotspotError.PERMISSION_REVOKED)
@@ -722,7 +731,17 @@ class HotspotManager @VisibleForTesting internal constructor(
                 }
             }
 
-            name != hosting.groupName || !group.isGroupOwner -> {
+            !group.isGroupOwner -> {
+                finishSession(hosting.session, HotspotError.GROUP_LOST)
+            }
+
+            name == null -> {
+                val next = hosting.copy(absentObservations = 0)
+                phase = next
+                pollHosting(next, GROUP_INFO_POLL_INTERVAL_MILLIS)
+            }
+
+            name != hosting.groupName -> {
                 finishSession(hosting.session, HotspotError.GROUP_LOST)
             }
 
