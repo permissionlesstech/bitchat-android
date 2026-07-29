@@ -75,4 +75,35 @@ class WearNavigationStateTest {
         assertTrue(navigation.goBack())
         assertEquals(WearScreen.Chat, navigation.screen)
     }
+
+    @Test
+    fun `navigation state survives activity recreation`() {
+        val navigation = WearNavigationState()
+        navigation.openDmFromNotification("peer-a")
+        navigation.navigate(WearScreen.UserDetail("peer-a"))
+        navigation.navigate(WearScreen.Verification("peer-a"))
+
+        val restored = WearNavigationState.restore(navigation.toSavedStateValues())
+
+        requireNotNull(restored)
+        assertEquals(WearScreen.Verification("peer-a"), restored.screen)
+        assertTrue(restored.goBack())
+        assertEquals(WearScreen.UserDetail("peer-a"), restored.screen)
+        assertTrue(restored.goBack())
+        assertEquals(WearScreen.Dm("peer-a"), restored.screen)
+        assertTrue(restored.goBack())
+        assertEquals(WearScreen.Chat, restored.screen)
+    }
+
+    @Test
+    fun `unhandled notification launch survives activity recreation`() {
+        val request = WearLaunchRequest(
+            id = 42L,
+            target = WearLaunchTarget.Dm("peer-a")
+        )
+
+        val restored = restoreWearLaunchRequest(request.toSavedStateValues())
+
+        assertEquals(request, restored)
+    }
 }
