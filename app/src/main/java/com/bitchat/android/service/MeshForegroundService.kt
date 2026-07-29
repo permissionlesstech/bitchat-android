@@ -144,11 +144,13 @@ class MeshForegroundService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 // Stop FGS and mesh cleanly
+                updateJob?.cancel()
+                updateJob = null
                 try { com.bitchat.android.services.MessageRouter.tryGetInstance()?.stopOutboxScheduler() } catch (_: Exception) { }
                 try { unifiedMeshService?.stopServices() ?: meshService?.stopServices() } catch (_: Exception) { }
                 try { MeshServiceHolder.clear() } catch (_: Exception) { }
                 try { stopForeground(true) } catch (_: Exception) { }
-                notificationManager.cancel(NOTIFICATION_ID)
+                clearMeshNotifications()
                 isInForeground = false
                 stopSelf()
                 return START_NOT_STICKY
@@ -158,7 +160,7 @@ class MeshForegroundService : Service() {
                 updateJob?.cancel()
                 updateJob = null
                 try { stopForeground(true) } catch (_: Exception) { }
-                notificationManager.cancel(NOTIFICATION_ID)
+                clearMeshNotifications()
                 isInForeground = false
                 // Fully stop all background activity, stop Tor (without changing setting), then kill the app
                 AppShutdownCoordinator.requestFullShutdownAndKill(
@@ -224,7 +226,7 @@ class MeshForegroundService : Service() {
 
     private fun updateNotification(force: Boolean) {
         if (isShuttingDown) {
-            notificationManager.cancel(NOTIFICATION_ID)
+            clearMeshNotifications()
             return
         }
         val count = getUnifiedActivePeerCount()
@@ -236,10 +238,15 @@ class MeshForegroundService : Service() {
         } else if (force) {
             // If disabled and forced, make sure to remove any prior foreground state
             try { stopForeground(false) } catch (_: Exception) { }
-            notificationManager.cancel(NOTIFICATION_ID)
+            clearMeshNotifications()
             isInForeground = false
             lastNotifiedPeerCount = null
         }
+    }
+
+    private fun clearMeshNotifications() {
+        notificationManager.cancel(NOTIFICATION_ID)
+        peerAvailabilityNotifier.clear()
     }
 
     private fun hasAllRequiredPermissions(): Boolean {

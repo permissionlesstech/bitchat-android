@@ -185,9 +185,13 @@ internal class PeerAvailabilityNotifier(
     fun onPeerCountChanged(peerCount: Int, isAppInBackground: Boolean) {
         when (tracker.update(peerCount, isAppInBackground)) {
             PeerAvailabilityAction.NONE -> Unit
-            PeerAvailabilityAction.CLEAR -> notificationManager.cancel(NOTIFICATION_ID)
+            PeerAvailabilityAction.CLEAR -> clear()
             PeerAvailabilityAction.SHOW -> showNotification(peerCount)
         }
+    }
+
+    fun clear() {
+        notificationManager.cancel(NOTIFICATION_ID)
     }
 
     private fun createNotificationChannel() {

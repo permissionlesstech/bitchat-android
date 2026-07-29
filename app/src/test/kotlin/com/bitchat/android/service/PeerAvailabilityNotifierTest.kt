@@ -190,6 +190,25 @@ class PeerAvailabilityNotifierTest {
     }
 
     @Test
+    fun `explicit clear cancels availability notification`() {
+        val notifier = PeerAvailabilityNotifier(
+            context = context,
+            tracker = tracker(),
+            textProvider = testTextProvider(),
+            canPostNotifications = { true }
+        )
+
+        notifier.onPeerCountChanged(1, isAppInBackground = true)
+        notifier.clear()
+
+        assertNull(
+            shadowOf(systemNotificationManager).getNotification(
+                PeerAvailabilityNotifier.NOTIFICATION_ID
+            )
+        )
+    }
+
+    @Test
     fun `disabled notifications do not post`() {
         val history = InMemoryAlertHistory()
         val notifier = PeerAvailabilityNotifier(
