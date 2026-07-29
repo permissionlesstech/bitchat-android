@@ -7,10 +7,36 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
 }
 
+val resolveIdeRuntimeClasspathCopyLocks = tasks.register("resolveIdeRuntimeClasspathCopyLocks") {
+    group = "build setup"
+    description = "Resolves Android Studio runtime classpath copies when refreshing lock state."
+}
+
 subprojects {
     dependencyLocking {
         lockAllConfigurations()
         lockMode.set(LockMode.STRICT)
+    }
+
+    pluginManager.withPlugin("com.android.application") {
+        val resolveIdeRuntimeClasspathCopyLock = tasks.register("resolveIdeRuntimeClasspathCopyLock") {
+            group = "build setup"
+            description = "Resolves this module's Android Studio runtime classpath copies."
+            notCompatibleWithConfigurationCache("Resolves copied configurations at execution time")
+            doFirst {
+                check(gradle.startParameter.isWriteDependencyLocks) {
+                    "$path must be run with --write-locks"
+                }
+            }
+            doLast {
+                listOf("debugRuntimeClasspath", "releaseRuntimeClasspath").forEach { configurationName ->
+                    configurations.getByName(configurationName).copy().resolve()
+                }
+            }
+        }
+        resolveIdeRuntimeClasspathCopyLocks.configure {
+            dependsOn(resolveIdeRuntimeClasspathCopyLock)
+        }
     }
 }
 

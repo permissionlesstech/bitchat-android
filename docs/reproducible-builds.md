@@ -224,10 +224,15 @@ Dependency changes must update and review both the lock state and verification
 metadata:
 
 ```bash
-./gradlew testDebugUnitTest lintDebug \
+./gradlew testDebugUnitTest lintDebug resolveIdeRuntimeClasspathCopyLocks \
   --write-locks \
   --write-verification-metadata sha256
 ```
+
+`resolveIdeRuntimeClasspathCopyLocks` records the transient runtime classpath
+copies that Android Studio resolves during model import. Their selected versions
+are persisted under the generated copy configuration names while the canonical
+debug and release runtime classpaths remain strictly locked.
 
 Generate release lock entries in separate invocations because split APK and AAB
 intermediates cannot coexist:
@@ -244,6 +249,11 @@ intermediates cannot coexist:
 Review every new repository, component, artifact name, version, and checksum.
 Do not accept verification metadata generated after an unexplained checksum
 failure.
+
+The verification metadata deliberately trusts only IDE documentation and source
+attachments (`*-javadoc.jar`, `*-sources.jar`, and Gradle's `*-src.zip`). Android
+Studio resolves these outside the build dependency graph, and they are not build
+inputs. Compiled artifacts and dependency metadata remain checksum-verified.
 
 When changing Gradle, update the wrapper and independently verify the new
 distribution SHA-256. When changing JDK or Android tools, update the exact
