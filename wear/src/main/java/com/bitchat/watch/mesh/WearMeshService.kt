@@ -227,18 +227,27 @@ class WearMeshService private constructor(private val context: Context) {
         }
     }
 
-    private fun handleMessageReceived(message: com.bitchat.android.model.BitchatMessage) {
-        try {
-            when {
-                message.isPrivate -> {
-                    val peer = message.senderPeerID ?: return
-                    AppStateStore.addPrivateMessage(peer, message)
-                    try { onPrivateMessage?.invoke(message) } catch (_: Exception) { }
-                }
-                message.channel != null -> AppStateStore.addChannelMessage(message.channel!!, message)
-                else -> AppStateStore.addPublicMessage(message)
+    private fun handleMessageReceived(
+        message: com.bitchat.android.model.BitchatMessage
+    ): Boolean = try {
+        when {
+            message.isPrivate -> {
+                val peer = message.senderPeerID ?: return false
+                if (!AppStateStore.addPrivateMessage(peer, message)) return false
+                try { onPrivateMessage?.invoke(message) } catch (_: Exception) { }
+                true
             }
-        } catch (_: Exception) { }
+            message.channel != null -> {
+                AppStateStore.addChannelMessage(message.channel, message)
+                true
+            }
+            else -> {
+                AppStateStore.addPublicMessage(message)
+                true
+            }
+        }
+    } catch (_: Exception) {
+        !message.isPrivate
     }
 
     fun startServices() {

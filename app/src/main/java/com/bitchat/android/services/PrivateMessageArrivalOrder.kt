@@ -21,6 +21,22 @@ internal object PrivateMessageArrivalOrder {
         }
     }
 
+    fun restore(persistedOrder: List<String>, liveMessageIDs: List<String>) {
+        synchronized(this) {
+            sequenceByMessageID.clear()
+            nextSequence = 0L
+            (persistedOrder + liveMessageIDs).forEach { messageID ->
+                if (messageID !in sequenceByMessageID) {
+                    sequenceByMessageID[messageID] = nextSequence++
+                }
+            }
+        }
+    }
+
+    fun sequenceOf(messageID: String): Long? = synchronized(this) {
+        sequenceByMessageID[messageID]
+    }
+
     fun order(messages: List<BitchatMessage>): List<BitchatMessage> {
         synchronized(this) {
             if (messages.size < 2 || messages.any { it.id !in sequenceByMessageID }) {
