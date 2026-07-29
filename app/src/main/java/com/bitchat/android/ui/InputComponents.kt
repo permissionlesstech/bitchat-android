@@ -494,6 +494,10 @@ fun MessageInput(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            // Same content height as the single-line text field, so the pill
+                            // (and the separator above it) does not change size when the
+                            // recording visualizer replaces the field.
+                            .height(22.dp)
                             .alpha(waveformAlpha),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
