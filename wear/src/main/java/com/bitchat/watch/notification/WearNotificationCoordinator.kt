@@ -33,8 +33,6 @@ class WearNotificationCoordinator private constructor(context: Context) {
         const val EXTRA_PEER_ID = "com.bitchat.watch.extra.PEER_ID"
 
         private const val MESSAGE_CHANNEL_ID = "bitchat_watch_messages"
-        private const val GROUP_KEY_DM = "bitchat_watch_dm_group"
-        private const val SUMMARY_NOTIFICATION_ID = 2
         private const val CONVERSATION_NOTIFICATION_ID_BASE = 10_000
 
         @Volatile
@@ -86,16 +84,12 @@ class WearNotificationCoordinator private constructor(context: Context) {
         )
 
         postConversationNotification(senderPeerID)
-        if (pendingMessages.size > 1) {
-            postSummaryNotification()
-        }
     }
 
     @Synchronized
     fun clearConversation(peerID: String) {
         pendingMessages.remove(peerID)
         notificationManager.cancel(conversationNotificationId(peerID))
-        updateSummaryNotification()
     }
 
     private fun postConversationNotification(peerID: String) {
@@ -109,7 +103,6 @@ class WearNotificationCoordinator private constructor(context: Context) {
             .setName(appContext.getString(R.string.app_name))
             .build()
         val style = NotificationCompat.MessagingStyle(user)
-            .setConversationTitle(latest.senderNickname)
         messages.takeLast(5).forEach { pending ->
             style.addMessage(pending.preview, pending.timestamp, sender)
         }
@@ -142,61 +135,14 @@ class WearNotificationCoordinator private constructor(context: Context) {
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion)
             .setAutoCancel(true)
-            .setOnlyAlertOnce(messages.size > 1)
             .setWhen(latest.timestamp)
             .setShowWhen(true)
-            .setGroup(GROUP_KEY_DM)
-            .addPerson(sender)
             .build()
 
         try {
             notificationManager.notify(conversationNotificationId(peerID), notification)
         } catch (_: SecurityException) {
             // Permission can be revoked between the preflight check and notify().
-        }
-    }
-
-    private fun postSummaryNotification() {
-        val totalMessages = pendingMessages.values.sumOf { it.size }
-        val contentIntent = PendingIntent.getActivity(
-            appContext,
-            SUMMARY_NOTIFICATION_ID,
-            Intent(appContext, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val summary = NotificationCompat.Builder(appContext, MESSAGE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(appContext.getString(R.string.app_name))
-            .setContentText(
-                appContext.resources.getQuantityString(
-                    R.plurals.notification_private_message_summary,
-                    totalMessages,
-                    totalMessages
-                )
-            )
-            .setContentIntent(contentIntent)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
-            .setGroup(GROUP_KEY_DM)
-            .setGroupSummary(true)
-            .build()
-        try {
-            notificationManager.notify(SUMMARY_NOTIFICATION_ID, summary)
-        } catch (_: SecurityException) {
-            // Permission can be revoked between the preflight check and notify().
-        }
-    }
-
-    private fun updateSummaryNotification() {
-        if (pendingMessages.size > 1) {
-            if (canPostNotifications()) postSummaryNotification()
-        } else {
-            notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
         }
     }
 
