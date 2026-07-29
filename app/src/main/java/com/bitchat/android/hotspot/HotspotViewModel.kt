@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.R
 import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,7 +61,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                             // Get connection info
                             val info = manager.getConnectionInfo()
                             if (info == null) {
-                                failWith("Failed to get hotspot connection info")
+                                failWith(HotspotError.CONNECTION_INFO_UNAVAILABLE)
                                 return@launch
                             }
 
@@ -82,7 +83,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                                 )
                             } catch (e: Exception) {
                                 Log.e(TAG, "Failed to start web server", e)
-                                failWith("Failed to start web server: ${e.message}")
+                                failWith(HotspotError.WEB_SERVER_START_FAILED)
                             }
                         }
                     }
@@ -97,14 +98,14 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                         }
                     }
 
-                    override fun onError(message: String) {
-                        viewModelScope.launch { failWith(message) }
+                    override fun onError(error: HotspotError) {
+                        viewModelScope.launch { failWith(error) }
                     }
                 })
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting hotspot", e)
-                failWith(e.message ?: "Unknown error")
+                failWith(HotspotError.UNKNOWN)
             }
         }
     }
@@ -126,7 +127,8 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
      * Wi-Fi Aware hold blocks the mesh until the user happens to retry or close the
      * screen.
      */
-    private fun failWith(message: String) {
+    private fun failWith(error: HotspotError) {
+        val message = context.getString(error.stringResource)
         Log.e(TAG, "Hotspot failed: $message")
         teardown()
         _state.value = HotspotState.Error(message)
@@ -186,4 +188,29 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         ) : HotspotState()
         data class Error(val message: String) : HotspotState()
     }
+
+    private val HotspotError.stringResource: Int
+        get() = when (this) {
+            HotspotError.P2P_UNSUPPORTED -> R.string.hotspot_error_p2p_unsupported
+            HotspotError.LOCAL_NETWORK_PERMISSION_REQUIRED ->
+                R.string.hotspot_error_local_network_permission
+            HotspotError.NEARBY_WIFI_PERMISSION_REQUIRED ->
+                R.string.hotspot_error_nearby_wifi_permission
+            HotspotError.PREPARATION_FAILED -> R.string.hotspot_error_preparation
+            HotspotError.PERMISSION_REVOKED -> R.string.hotspot_error_permission_revoked
+            HotspotError.P2P_DISABLED -> R.string.hotspot_error_p2p_disabled
+            HotspotError.FOREIGN_GROUP_ACTIVE -> R.string.hotspot_error_foreign_group
+            HotspotError.P2P_BUSY -> R.string.hotspot_error_p2p_busy
+            HotspotError.START_FAILED -> R.string.hotspot_error_start_failed
+            HotspotError.PREFLIGHT_TIMEOUT -> R.string.hotspot_error_preflight_timeout
+            HotspotError.STALE_GROUP_REMOVAL_FAILED ->
+                R.string.hotspot_error_stale_group_removal
+            HotspotError.GROUP_LOST -> R.string.hotspot_error_group_lost
+            HotspotError.P2P_SERVICE_DISCONNECTED ->
+                R.string.hotspot_error_service_disconnected
+            HotspotError.CONNECTION_INFO_UNAVAILABLE ->
+                R.string.hotspot_error_connection_info
+            HotspotError.WEB_SERVER_START_FAILED -> R.string.hotspot_error_web_server
+            HotspotError.UNKNOWN -> R.string.hotspot_error_unknown
+        }
 }

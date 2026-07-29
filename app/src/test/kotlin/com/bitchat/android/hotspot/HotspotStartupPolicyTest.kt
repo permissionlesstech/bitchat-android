@@ -16,7 +16,7 @@ class HotspotStartupPolicyTest {
         )
 
         assertEquals(
-            HotspotStartupPolicy.Decision.Fail(HotspotStartupPolicy.P2P_DISABLED_MESSAGE),
+            HotspotStartupPolicy.Decision.Fail(HotspotError.P2P_DISABLED),
             decision
         )
     }
@@ -66,7 +66,7 @@ class HotspotStartupPolicyTest {
         )
 
         assertEquals(
-            HotspotStartupPolicy.Decision.Fail(HotspotStartupPolicy.P2P_UNSUPPORTED_MESSAGE),
+            HotspotStartupPolicy.Decision.Fail(HotspotError.P2P_UNSUPPORTED),
             decision
         )
     }
@@ -91,7 +91,7 @@ class HotspotStartupPolicyTest {
         )
 
         assertEquals(
-            HotspotStartupPolicy.StartAction.Fail(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE),
+            HotspotStartupPolicy.StartAction.Fail(HotspotError.FOREIGN_GROUP_ACTIVE),
             action
         )
     }
@@ -116,7 +116,7 @@ class HotspotStartupPolicyTest {
         )
 
         assertEquals(
-            HotspotStartupPolicy.StartAction.Fail(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE),
+            HotspotStartupPolicy.StartAction.Fail(HotspotError.FOREIGN_GROUP_ACTIVE),
             action
         )
     }
@@ -141,7 +141,7 @@ class HotspotStartupPolicyTest {
         )
 
         assertEquals(
-            HotspotStartupPolicy.StartAction.Fail(HotspotStartupPolicy.P2P_DISABLED_MESSAGE),
+            HotspotStartupPolicy.StartAction.Fail(HotspotError.P2P_DISABLED),
             action
         )
     }

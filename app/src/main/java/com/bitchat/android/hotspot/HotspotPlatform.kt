@@ -9,7 +9,6 @@ import android.net.wifi.p2p.WifiP2pManager
 import android.os.Build
 import android.os.PowerManager
 import android.util.Log
-import androidx.core.content.edit
 
 internal interface HotspotPlatform {
     fun missingPermissions(): Set<String>
@@ -20,25 +19,6 @@ internal interface HotspotPlatform {
     )
 
     fun deactivate()
-}
-
-internal interface OwnedGroupStore {
-    var name: String?
-}
-
-internal class SharedPreferencesOwnedGroupStore(context: Context) : OwnedGroupStore {
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
-    override var name: String?
-        get() = prefs.getString(KEY_OWNED_GROUP, null)
-        set(value) {
-            prefs.edit { putString(KEY_OWNED_GROUP, value) }
-        }
-
-    private companion object {
-        const val PREFS_NAME = "hotspot"
-        const val KEY_OWNED_GROUP = "owned_group_name"
-    }
 }
 
 internal class AndroidHotspotPlatform(

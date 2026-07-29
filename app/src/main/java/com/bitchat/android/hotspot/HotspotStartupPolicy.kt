@@ -13,26 +13,18 @@ internal object HotspotStartupPolicy {
     const val INITIAL_RETRY_DELAY_MILLIS = 1_000L
     const val MAX_RETRY_DELAY_MILLIS = 8_000L
 
-    const val P2P_DISABLED_MESSAGE =
-        "Wi-Fi Direct is unavailable. Turn Wi-Fi off and back on, then try again."
     /** Marks groups this app creates. Shared with [HotspotManager] so the two cannot drift. */
     const val SSID_PREFIX = "DIRECT-BC-" // BC for BitChat
 
-    const val P2P_UNSUPPORTED_MESSAGE = "Wi-Fi Direct is not supported on this device."
-    const val FOREIGN_GROUP_MESSAGE =
-        "Another app is using Wi-Fi Direct. Close it and try again."
-    const val P2P_BUSY_MESSAGE = "Wi-Fi Direct is busy. Please try again in a moment."
-    const val GENERIC_FAILURE_MESSAGE = "Failed to start the hotspot. Please try again."
-
     sealed interface Decision {
         data class Retry(val delayMillis: Long) : Decision
-        data class Fail(val message: String) : Decision
+        data class Fail(val error: HotspotError) : Decision
     }
 
     sealed interface StartAction {
         data object Create : StartAction
         data object RemoveStaleGroupThenCreate : StartAction
-        data class Fail(val message: String) : StartAction
+        data class Fail(val error: HotspotError) : StartAction
     }
 
     /**
@@ -53,10 +45,11 @@ internal object HotspotStartupPolicy {
         existingGroupName: String?,
         ownedGroupName: String?
     ): StartAction = when {
-        p2pState == WifiP2pManager.WIFI_P2P_STATE_DISABLED -> StartAction.Fail(P2P_DISABLED_MESSAGE)
+        p2pState == WifiP2pManager.WIFI_P2P_STATE_DISABLED ->
+            StartAction.Fail(HotspotError.P2P_DISABLED)
         existingGroupName == null -> StartAction.Create
         isOurs(existingGroupName, ownedGroupName) -> StartAction.RemoveStaleGroupThenCreate
-        else -> StartAction.Fail(FOREIGN_GROUP_MESSAGE)
+        else -> StartAction.Fail(HotspotError.FOREIGN_GROUP_ACTIVE)
     }
 
     /**
@@ -73,15 +66,17 @@ internal object HotspotStartupPolicy {
      *   state broadcast has arrived yet
      */
     fun decide(reason: Int, attempt: Int, p2pState: Int?): Decision = when {
-        reason == WifiP2pManager.P2P_UNSUPPORTED -> Decision.Fail(P2P_UNSUPPORTED_MESSAGE)
+        reason == WifiP2pManager.P2P_UNSUPPORTED ->
+            Decision.Fail(HotspotError.P2P_UNSUPPORTED)
 
-        reason != WifiP2pManager.BUSY -> Decision.Fail(GENERIC_FAILURE_MESSAGE)
+        reason != WifiP2pManager.BUSY -> Decision.Fail(HotspotError.START_FAILED)
 
         // BUSY is the framework's catch-all reply when the P2P state machine is
         // disabled, so retrying cannot help — surface something actionable instead.
-        p2pState == WifiP2pManager.WIFI_P2P_STATE_DISABLED -> Decision.Fail(P2P_DISABLED_MESSAGE)
+        p2pState == WifiP2pManager.WIFI_P2P_STATE_DISABLED ->
+            Decision.Fail(HotspotError.P2P_DISABLED)
 
-        attempt >= MAX_ATTEMPTS -> Decision.Fail(P2P_BUSY_MESSAGE)
+        attempt >= MAX_ATTEMPTS -> Decision.Fail(HotspotError.P2P_BUSY)
 
         else -> Decision.Retry(retryDelayMillis(attempt))
     }

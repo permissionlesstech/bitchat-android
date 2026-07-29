@@ -228,6 +228,22 @@
   <string name="hotspot_share_via_subtitle">Create Wi-Fi hotspot to share offline</string>
   <string name="hotspot_share_other">Share via Quick Share</string>
   <string name="hotspot_share_other_subtitle">Use standard Android sharing</string>
+  <string name="hotspot_error_p2p_unsupported">Wi-Fi Direct is not supported on this device.</string>
+  <string name="hotspot_error_local_network_permission">Local network permission is required to share the app over the hotspot.</string>
+  <string name="hotspot_error_nearby_wifi_permission">Nearby Wi-Fi permission is required to start the hotspot.</string>
+  <string name="hotspot_error_preparation">Unable to prepare the Wi-Fi Direct hotspot.</string>
+  <string name="hotspot_error_permission_revoked">A required Wi-Fi or local network permission was revoked. Grant it and try again.</string>
+  <string name="hotspot_error_p2p_disabled">Wi-Fi Direct is unavailable. Turn Wi-Fi off and back on, then try again.</string>
+  <string name="hotspot_error_foreign_group">Another app is using Wi-Fi Direct. Close it and try again.</string>
+  <string name="hotspot_error_p2p_busy">Wi-Fi Direct is busy. Please try again in a moment.</string>
+  <string name="hotspot_error_start_failed">Failed to start the hotspot. Please try again.</string>
+  <string name="hotspot_error_preflight_timeout">Wi-Fi Direct did not respond. Please try again.</string>
+  <string name="hotspot_error_stale_group_removal">The previous Wi-Fi Direct group could not be removed. Please try again.</string>
+  <string name="hotspot_error_group_lost">The Wi-Fi Direct hotspot disconnected. Please try again.</string>
+  <string name="hotspot_error_service_disconnected">The Wi-Fi Direct service disconnected. Please try again.</string>
+  <string name="hotspot_error_connection_info">Failed to get hotspot connection info.</string>
+  <string name="hotspot_error_web_server">Failed to start the hotspot web server.</string>
+  <string name="hotspot_error_unknown">The hotspot could not be started. Please try again.</string>
 
   <!-- APK Installation -->
   <string name="install_bitchat_title">Install Received APK</string>

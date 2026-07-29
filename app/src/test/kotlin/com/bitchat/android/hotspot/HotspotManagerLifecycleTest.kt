@@ -22,7 +22,7 @@ class HotspotManagerLifecycleTest {
         assertFalse(fixture.platform.active)
         assertTrue(fixture.p2p.channels.first().closed)
         assertEquals(
-            listOf("Wi-Fi Direct did not respond. Please try again."),
+            listOf(HotspotError.PREFLIGHT_TIMEOUT),
             fixture.callback.errors
         )
 
@@ -42,7 +42,7 @@ class HotspotManagerLifecycleTest {
         assertFalse(fixture.platform.active)
         assertTrue(fixture.p2p.channels.first().closed)
         assertEquals(
-            listOf("Wi-Fi Direct did not respond. Please try again."),
+            listOf(HotspotError.PREFLIGHT_TIMEOUT),
             fixture.callback.errors
         )
 
@@ -171,7 +171,7 @@ class HotspotManagerLifecycleTest {
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertFalse(fixture.platform.active)
         assertEquals(
-            listOf(HotspotStartupPolicy.P2P_DISABLED_MESSAGE),
+            listOf(HotspotError.P2P_DISABLED),
             fixture.callback.errors
         )
 
@@ -196,7 +196,7 @@ class HotspotManagerLifecycleTest {
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertFalse(fixture.platform.active)
         assertEquals(
-            listOf(HotspotStartupPolicy.P2P_UNSUPPORTED_MESSAGE),
+            listOf(HotspotError.P2P_UNSUPPORTED),
             fixture.callback.errors
         )
 
@@ -351,7 +351,7 @@ class HotspotManagerLifecycleTest {
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertEquals(0, fixture.p2p.removeRequests.size)
         assertNull(fixture.store.name)
-        assertEquals(listOf("The Wi-Fi Direct hotspot disconnected. Please try again."), fixture.callback.errors)
+        assertEquals(listOf(HotspotError.GROUP_LOST), fixture.callback.errors)
     }
 
     @Test
@@ -417,7 +417,7 @@ class HotspotManagerLifecycleTest {
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertEquals(0, fixture.p2p.removeRequests.size)
         assertEquals(
-            listOf(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE),
+            listOf(HotspotError.FOREIGN_GROUP_ACTIVE),
             fixture.callback.errors
         )
     }
@@ -465,7 +465,7 @@ class HotspotManagerLifecycleTest {
         assertEquals(0, fixture.p2p.removeRequests.size)
         assertNull(fixture.store.name)
         assertEquals(
-            listOf(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE),
+            listOf(HotspotError.FOREIGN_GROUP_ACTIVE),
             fixture.callback.errors
         )
     }
@@ -570,7 +570,7 @@ class HotspotManagerLifecycleTest {
         assertNull(fixture.store.name)
         assertEquals(0, fixture.p2p.removeRequests.size)
         assertEquals(
-            listOf(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE),
+            listOf(HotspotError.FOREIGN_GROUP_ACTIVE),
             fixture.callback.errors
         )
     }
@@ -704,7 +704,7 @@ class HotspotManagerLifecycleTest {
 
     private class RecordingCallback : HotspotManager.HotspotCallback {
         var started = 0
-        val errors = mutableListOf<String>()
+        val errors = mutableListOf<HotspotError>()
 
         override fun onHotspotStarted() {
             started++
@@ -712,13 +712,23 @@ class HotspotManagerLifecycleTest {
 
         override fun onConnectionInfoUpdated(info: HotspotManager.ConnectionInfo?) = Unit
 
-        override fun onError(message: String) {
-            errors += message
+        override fun onError(error: HotspotError) {
+            errors += error
         }
     }
 
     private class FakeOwnedGroupStore : OwnedGroupStore {
-        override var name: String? = null
+        var name: String? = null
+
+        override fun readName(): String? = name
+
+        override fun saveName(name: String) {
+            this.name = name
+        }
+
+        override fun clear() {
+            name = null
+        }
     }
 
     private class FakePlatform : HotspotPlatform {
