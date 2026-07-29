@@ -66,13 +66,17 @@ class MainActivity : ComponentActivity() {
     private var nicknameChosen by mutableStateOf(false)
     private var notificationsGranted by mutableStateOf(false)
     private var notificationPromptDismissed by mutableStateOf(false)
-    private var pendingDmPeer by mutableStateOf<String?>(null)
+    private var pendingLaunchRequest by mutableStateOf<WearLaunchRequest?>(null)
+    private var nextLaunchRequestID = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         nicknameChosen = getSharedPreferences("bitchat_watch_prefs", Context.MODE_PRIVATE)
             .getBoolean("nickname_chosen", false)
-        pendingDmPeer = privateMessagePeerFromIntent(intent)
+        val notificationPeer = consumePrivateMessagePeer(intent)
+        if (savedInstanceState == null && notificationPeer != null) {
+            requestLaunch(WearLaunchTarget.Dm(notificationPeer))
+        }
         refreshState()
         setContent {
             BitchatWearTheme {
@@ -96,8 +100,12 @@ class MainActivity : ComponentActivity() {
                             onSkip = { notificationPromptDismissed = true }
                         )
                     else -> WearNavHost(
-                        openDmPeer = pendingDmPeer,
-                        onOpenDmHandled = { pendingDmPeer = null }
+                        launchRequest = pendingLaunchRequest,
+                        onLaunchRequestHandled = { requestID ->
+                            if (pendingLaunchRequest?.id == requestID) {
+                                pendingLaunchRequest = null
+                            }
+                        }
                     )
                 }
             }
@@ -122,7 +130,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        privateMessagePeerFromIntent(intent)?.let { pendingDmPeer = it }
+        val notificationPeer = consumePrivateMessagePeer(intent)
+        requestLaunch(
+            notificationPeer?.let(WearLaunchTarget::Dm) ?: WearLaunchTarget.Chat
+        )
     }
 
     private fun refreshState() {
@@ -142,12 +153,26 @@ class MainActivity : ComponentActivity() {
         startForegroundService(Intent(this, WearMeshForegroundService::class.java))
     }
 
+    private fun consumePrivateMessagePeer(intent: Intent?): String? {
+        val peerID = privateMessagePeerFromIntent(intent)
+        intent?.removeExtra(WearNotificationCoordinator.EXTRA_OPEN_DM)
+        intent?.removeExtra(WearNotificationCoordinator.EXTRA_PEER_ID)
+        return peerID
+    }
+
     private fun privateMessagePeerFromIntent(intent: Intent?): String? {
         if (intent?.getBooleanExtra(WearNotificationCoordinator.EXTRA_OPEN_DM, false) != true) {
             return null
         }
         return intent.getStringExtra(WearNotificationCoordinator.EXTRA_PEER_ID)
             ?.takeIf { it.isNotBlank() }
+    }
+
+    private fun requestLaunch(target: WearLaunchTarget) {
+        pendingLaunchRequest = WearLaunchRequest(
+            id = ++nextLaunchRequestID,
+            target = target
+        )
     }
 
     private fun notificationPermissionGranted(): Boolean {
@@ -169,36 +194,74 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
-    var screen by remember { mutableStateOf<WearScreen>(WearScreen.Chat) }
-    val backStack = remember { mutableStateListOf<WearScreen>() }
+internal sealed interface WearLaunchTarget {
+    data object Chat : WearLaunchTarget
+    data class Dm(val peerID: String) : WearLaunchTarget
+}
+
+internal data class WearLaunchRequest(
+    val id: Long,
+    val target: WearLaunchTarget
+)
+
+internal class WearNavigationState {
+    private val backStack = mutableStateListOf<WearScreen>()
+
+    var screen by mutableStateOf<WearScreen>(WearScreen.Chat)
+        private set
+
+    val canGoBack: Boolean
+        get() = screen != WearScreen.Chat || backStack.isNotEmpty()
 
     fun navigate(to: WearScreen) {
         backStack.add(screen)
         screen = to
     }
 
-    fun goBack(): Boolean {
-        val previous = backStack.removeLastOrNull()
-        return if (previous != null) {
-            screen = previous
-            true
-        } else false
+    fun openChat() {
+        backStack.clear()
+        screen = WearScreen.Chat
     }
 
-    BackHandler(enabled = backStack.isNotEmpty()) { goBack() }
+    fun openDmFromNotification(peerID: String) {
+        backStack.clear()
+        backStack.add(WearScreen.Chat)
+        screen = WearScreen.Dm(peerID)
+    }
 
-    LaunchedEffect(openDmPeer) {
-        openDmPeer?.let { peerID ->
-            backStack.clear()
-            screen = WearScreen.Dm(peerID)
-            onOpenDmHandled()
+    fun goBack(): Boolean {
+        if (screen is WearScreen.Dm) {
+            openChat()
+            return true
+        }
+
+        val previous = backStack.removeLastOrNull() ?: return false
+        screen = previous
+        return true
+    }
+}
+
+@Composable
+internal fun WearNavHost(
+    launchRequest: WearLaunchRequest?,
+    onLaunchRequestHandled: (Long) -> Unit
+) {
+    val navigation = remember { WearNavigationState() }
+
+    BackHandler(enabled = navigation.canGoBack) { navigation.goBack() }
+
+    LaunchedEffect(launchRequest) {
+        launchRequest?.let { request ->
+            when (val target = request.target) {
+                WearLaunchTarget.Chat -> navigation.openChat()
+                is WearLaunchTarget.Dm -> navigation.openDmFromNotification(target.peerID)
+            }
+            onLaunchRequestHandled(request.id)
         }
     }
 
     AnimatedContent(
-        targetState = screen,
+        targetState = navigation.screen,
         transitionSpec = {
             fadeIn(tween(com.bitchat.watch.ui.theme.BitchatMotion.EMPHASIZED_MS)) togetherWith
                 fadeOut(tween(com.bitchat.watch.ui.theme.BitchatMotion.QUICK_MS))
@@ -207,12 +270,12 @@ fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
     ) { current ->
         when (current) {
             is WearScreen.Chat -> ChatScreen(
-                onOpenPeople = { navigate(WearScreen.People) },
-                onOpenTextInput = { navigate(WearScreen.TextInput(null)) }
+                onOpenPeople = { navigation.navigate(WearScreen.People) },
+                onOpenTextInput = { navigation.navigate(WearScreen.TextInput(null)) }
             )
             is WearScreen.People -> PeopleScreen(
-                onOpenDm = { navigate(WearScreen.Dm(it)) },
-                onEditNickname = { navigate(WearScreen.Nickname) }
+                onOpenDm = { navigation.navigate(WearScreen.Dm(it)) },
+                onEditNickname = { navigation.navigate(WearScreen.Nickname) }
             )
             is WearScreen.Nickname -> {
                 val mesh = WearMeshService.peek()
@@ -223,13 +286,15 @@ fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
                     confirmLabel = "Save",
                     onConfirm = { name ->
                         mesh?.setNickname(name)
-                        goBack()
+                        navigation.goBack()
                     }
                 )
             }
             is WearScreen.Dm -> DmScreen(
                 peerID = current.peerID,
-                onOpenTextInput = { navigate(WearScreen.TextInput(current.peerID)) }
+                onOpenTextInput = {
+                    navigation.navigate(WearScreen.TextInput(current.peerID))
+                }
             )
             is WearScreen.TextInput -> {
                 val mesh = WearMeshService.peek()
@@ -244,7 +309,7 @@ fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
                                 sendPrivateMessage(m, current.peerID, nick, text, sendScope)
                             }
                         }
-                        goBack()
+                        navigation.goBack()
                     }
                 )
             }

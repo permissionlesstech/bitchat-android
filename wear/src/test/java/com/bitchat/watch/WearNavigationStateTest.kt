@@ -1,0 +1,61 @@
+package com.bitchat.watch
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class WearNavigationStateTest {
+
+    @Test
+    fun `notification dm goes back to main chat`() {
+        val navigation = WearNavigationState()
+        navigation.navigate(WearScreen.People)
+        navigation.navigate(WearScreen.Nickname)
+
+        navigation.openDmFromNotification("peer-a")
+
+        assertEquals(WearScreen.Dm("peer-a"), navigation.screen)
+        assertTrue(navigation.goBack())
+        assertEquals(WearScreen.Chat, navigation.screen)
+        assertFalse(navigation.canGoBack)
+    }
+
+    @Test
+    fun `dm opened from people also goes back to main chat`() {
+        val navigation = WearNavigationState()
+        navigation.navigate(WearScreen.People)
+        navigation.navigate(WearScreen.Dm("peer-a"))
+
+        assertTrue(navigation.goBack())
+
+        assertEquals(WearScreen.Chat, navigation.screen)
+        assertFalse(navigation.canGoBack)
+    }
+
+    @Test
+    fun `dm text input returns to dm before main chat`() {
+        val navigation = WearNavigationState()
+        navigation.navigate(WearScreen.People)
+        navigation.navigate(WearScreen.Dm("peer-a"))
+        navigation.navigate(WearScreen.TextInput("peer-a"))
+
+        assertTrue(navigation.goBack())
+        assertEquals(WearScreen.Dm("peer-a"), navigation.screen)
+
+        assertTrue(navigation.goBack())
+        assertEquals(WearScreen.Chat, navigation.screen)
+        assertFalse(navigation.canGoBack)
+    }
+
+    @Test
+    fun `normal app launch resets an open dm to main chat`() {
+        val navigation = WearNavigationState()
+        navigation.openDmFromNotification("peer-a")
+
+        navigation.openChat()
+
+        assertEquals(WearScreen.Chat, navigation.screen)
+        assertFalse(navigation.canGoBack)
+    }
+}
