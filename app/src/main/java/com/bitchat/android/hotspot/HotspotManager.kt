@@ -101,8 +101,23 @@ class HotspotManager(private val context: Context) {
     /** Run once the channel is released; see [stopHotspot]. Cleared as it fires. */
     private var teardownCallback: (() -> Unit)? = null
 
+    /**
+     * Whether an earlier stop is still cleaning up asynchronously.
+     *
+     * stopHotspot() is reached more than once in ordinary flows -- failStartup() stops the
+     * manager and then reports the error, which stops it again through the ViewModel. A
+     * detached channel alone cannot distinguish "never initialised" from "already being
+     * torn down", and treating the second as the first fires the completion immediately,
+     * before the first removal has finished.
+     */
+    private var teardownInProgress = false
+
     /** Idempotent, so the timeout fallback and the real completion cannot both fire. */
     private fun finishTeardown() {
+        // Cleared unconditionally: an earlier stop may have had no callback, and leaving
+        // this set would make a later stop wait for a completion that already happened.
+        teardownInProgress = false
+
         val done = teardownCallback ?: return
         teardownCallback = null
         done.invoke()
@@ -236,6 +251,7 @@ class HotspotManager(private val context: Context) {
         createdActiveGroup = false
 
         if (staleChannel != null) {
+            teardownInProgress = true
             when {
                 removeGroupOnStop -> removeOwnGroupThenClose(staleChannel)
 
@@ -253,6 +269,10 @@ class HotspotManager(private val context: Context) {
                     closeChannel(staleChannel)
                 }
             }
+        } else if (teardownInProgress) {
+            // An earlier stop detached the channel and is still cleaning up. Its completion
+            // runs this callback too; firing now would release the radio mid-removal.
+            Log.d(TAG, "Teardown already in progress; chaining onto it")
         } else {
             // Never initialised, so there is nothing to wait for.
             finishTeardown()
@@ -531,17 +551,24 @@ class HotspotManager(private val context: Context) {
                 // Stopped while this was in flight. The group is ours and nobody else is
                 // going to clean it up, so remove it and only then release the channel.
                 Log.w(TAG, "Removing group created after hotspot was stopped")
-                wifiP2pManager?.removeGroup(requestChannel, object : ActionListener {
-                    override fun onSuccess() {
-                        Log.d(TAG, "Late group removed")
-                        ownedGroupName = null
-                        closeChannel(requestChannel)
-                    }
-                    override fun onFailure(reason: Int) {
-                        Log.w(TAG, "Failed to remove late group: $reason")
-                        closeChannel(requestChannel)
-                    }
-                })
+                // On the framework's callback thread, so nothing upstream can catch a
+                // permission revoked since createGroup() was submitted.
+                try {
+                    wifiP2pManager?.removeGroup(requestChannel, object : ActionListener {
+                        override fun onSuccess() {
+                            Log.d(TAG, "Late group removed")
+                            ownedGroupName = null
+                            closeChannel(requestChannel)
+                        }
+                        override fun onFailure(reason: Int) {
+                            Log.w(TAG, "Failed to remove late group: $reason")
+                            closeChannel(requestChannel)
+                        }
+                    })
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Wi-Fi permission was revoked before the late group could be removed", e)
+                    closeChannel(requestChannel)
+                }
                 return
             }
             Log.d(TAG, "P2P group created successfully")
