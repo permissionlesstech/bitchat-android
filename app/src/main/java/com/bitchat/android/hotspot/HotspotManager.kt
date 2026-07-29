@@ -139,6 +139,7 @@ class HotspotManager @VisibleForTesting internal constructor(
             LOCATE_SESSION_GROUP,
             AWAIT_POSSIBLE_FORMATION,
             VERIFY_REMOVAL,
+            AWAIT_POST_CLOSE_FORMATION,
             VERIFY_AFTER_CHANNEL_CLOSE
         }
 
@@ -156,6 +157,7 @@ class HotspotManager @VisibleForTesting internal constructor(
 
         data class RecoveringChannel(
             val expectedGroupName: String?,
+            val purpose: Inspection,
             val attempt: Int
         ) : Cleanup
     }
@@ -172,6 +174,8 @@ class HotspotManager @VisibleForTesting internal constructor(
         var channelClosed = false
         var channelGeneration = 0L
         var cleanupRecoveryAttempt = 0
+        var postCloseFormationDeadlineScheduled = false
+        var postCloseFormationWindowElapsed = false
 
         fun closeChannel() {
             if (channelClosed) return
@@ -770,6 +774,8 @@ class HotspotManager @VisibleForTesting internal constructor(
         schedule(session, TEARDOWN_FORCE_CLOSE_MILLIS) {
             val current = phase as? Phase.Stopping ?: return@schedule
             if (current.session !== session) return@schedule
+            // A fresh verification channel has its own bounded recovery deadline.
+            if (session.cleanupRecoveryAttempt > 0) return@schedule
 
             if (
                 canFinishUncloseableFormation &&
@@ -869,6 +875,17 @@ class HotspotManager @VisibleForTesting internal constructor(
                 return
             }
 
+            if (
+                cleanup.purpose ==
+                Cleanup.Inspection.AWAIT_POST_CLOSE_FORMATION
+            ) {
+                scheduleCleanupInspection(
+                    stopping,
+                    cleanup.copy(absentObservations = 0)
+                )
+                return
+            }
+
             val observations = cleanup.absentObservations + 1
             if (observations >= REQUIRED_ABSENCE_OBSERVATIONS) {
                 finishSession(stopping.session, stopping.pendingError)
@@ -888,7 +905,7 @@ class HotspotManager @VisibleForTesting internal constructor(
 
         if (
             cleanup.expectedGroupName == null &&
-            cleanup.purpose == Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
+            cleanup.purpose.isPostCloseVerification()
         ) {
             // Closing the original pre-Q channel discards the only link between its
             // accepted create command and a later group. Never adopt a group first seen
@@ -952,9 +969,18 @@ class HotspotManager @VisibleForTesting internal constructor(
         val next = stopping.copy(cleanup = cleanup)
         phase = next
         schedule(stopping.session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+            if (phase !== next) return@schedule
             inspectCleanup(next)
         }
     }
+
+    private fun Cleanup.Inspection.isPostCloseVerification(): Boolean =
+        this == Cleanup.Inspection.AWAIT_POST_CLOSE_FORMATION ||
+            this == Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
+
+    private fun Cleanup.Inspection.requiresFormationWait(): Boolean =
+        this == Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION ||
+            this == Cleanup.Inspection.AWAIT_POST_CLOSE_FORMATION
 
     private fun issueRemoval(
         stopping: Phase.Stopping,
@@ -1023,15 +1049,39 @@ class HotspotManager @VisibleForTesting internal constructor(
             return
         }
 
-        val expectedGroupName = when (val cleanup = stopping.cleanup) {
-            is Cleanup.AwaitingCreateResult -> cleanup.expectedGroupName
-            is Cleanup.Inspecting -> cleanup.expectedGroupName
-            is Cleanup.Removing -> cleanup.expectedGroupName
+        val expectedGroupName: String?
+        val verificationPurpose: Cleanup.Inspection
+        when (val cleanup = stopping.cleanup) {
+            is Cleanup.AwaitingCreateResult -> {
+                expectedGroupName = cleanup.expectedGroupName
+                verificationPurpose =
+                    Cleanup.Inspection.AWAIT_POST_CLOSE_FORMATION
+            }
+
+            is Cleanup.Inspecting -> {
+                expectedGroupName = cleanup.expectedGroupName
+                verificationPurpose =
+                    if (cleanup.purpose.requiresFormationWait()) {
+                        Cleanup.Inspection.AWAIT_POST_CLOSE_FORMATION
+                    } else {
+                        Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
+                    }
+            }
+
+            is Cleanup.Removing -> {
+                expectedGroupName = cleanup.expectedGroupName
+                verificationPurpose = Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
+            }
+
             is Cleanup.RecoveringChannel -> return
         }
         val recovering = Phase.Stopping(
             session = session,
-            cleanup = Cleanup.RecoveringChannel(expectedGroupName, nextAttempt),
+            cleanup = Cleanup.RecoveringChannel(
+                expectedGroupName,
+                verificationPurpose,
+                nextAttempt
+            ),
             pendingError = stopping.pendingError
         )
         phase = recovering
@@ -1051,6 +1101,7 @@ class HotspotManager @VisibleForTesting internal constructor(
         recoverCleanupChannel(
             session = session,
             expectedGroupName = expectedGroupName,
+            verificationPurpose = verificationPurpose,
             pendingError = stopping.pendingError,
             attempt = nextAttempt
         )
@@ -1102,12 +1153,17 @@ class HotspotManager @VisibleForTesting internal constructor(
     private fun recoverCleanupChannel(
         session: Session,
         expectedGroupName: String?,
+        verificationPurpose: Cleanup.Inspection,
         pendingError: HotspotError?,
         attempt: Int
     ) {
         val recovering = Phase.Stopping(
             session = session,
-            cleanup = Cleanup.RecoveringChannel(expectedGroupName, attempt),
+            cleanup = Cleanup.RecoveringChannel(
+                expectedGroupName,
+                verificationPurpose,
+                attempt
+            ),
             pendingError = pendingError
         )
         phase = recovering
@@ -1127,23 +1183,72 @@ class HotspotManager @VisibleForTesting internal constructor(
             }
             session.channel = replacement
             session.channelClosed = false
+            val effectivePurpose =
+                if (
+                    verificationPurpose ==
+                    Cleanup.Inspection.AWAIT_POST_CLOSE_FORMATION &&
+                    session.postCloseFormationWindowElapsed
+                ) {
+                    Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
+                } else {
+                    verificationPurpose
+                }
             val verifying = recovering.copy(
                 cleanup = Cleanup.Inspecting(
                     expectedGroupName = expectedGroupName,
-                    purpose = Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
+                    purpose = effectivePurpose
                 )
             )
             phase = verifying
             schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                if (phase !== verifying) return@schedule
                 inspectCleanup(verifying)
             }
-            schedule(session, TEARDOWN_FORCE_CLOSE_MILLIS) {
-                val current = phase as? Phase.Stopping ?: return@schedule
-                if (
-                    current.session === session &&
-                    session.cleanupRecoveryAttempt == attempt
-                ) {
-                    forceCleanup(current)
+            if (
+                effectivePurpose ==
+                Cleanup.Inspection.AWAIT_POST_CLOSE_FORMATION
+            ) {
+                if (!session.postCloseFormationDeadlineScheduled) {
+                    session.postCloseFormationDeadlineScheduled = true
+                    schedule(session, GROUP_FORMATION_TIMEOUT_MILLIS) {
+                        session.postCloseFormationWindowElapsed = true
+                        val current = phase as? Phase.Stopping ?: return@schedule
+                        val inspection =
+                            current.cleanup as? Cleanup.Inspecting ?: return@schedule
+                        if (
+                            current.session === session &&
+                            inspection.purpose ==
+                            Cleanup.Inspection.AWAIT_POST_CLOSE_FORMATION
+                        ) {
+                            // This deadline belongs to the accepted create command, so it
+                            // intentionally survives verification-channel replacement.
+                            val finalVerification = current.copy(
+                                cleanup = inspection.copy(
+                                    purpose = Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE,
+                                    absentObservations = 0
+                                )
+                            )
+                            phase = finalVerification
+                            inspectCleanup(finalVerification)
+                        }
+                    }
+                    schedule(
+                        session,
+                        GROUP_FORMATION_TIMEOUT_MILLIS + TEARDOWN_FORCE_CLOSE_MILLIS
+                    ) {
+                        val current = phase as? Phase.Stopping ?: return@schedule
+                        if (current.session === session) forceCleanup(current)
+                    }
+                }
+            } else {
+                schedule(session, TEARDOWN_FORCE_CLOSE_MILLIS) {
+                    val current = phase as? Phase.Stopping ?: return@schedule
+                    if (
+                        current.session === session &&
+                        session.cleanupRecoveryAttempt == attempt
+                    ) {
+                        forceCleanup(current)
+                    }
                 }
             }
             return
@@ -1161,7 +1266,13 @@ class HotspotManager @VisibleForTesting internal constructor(
             if (current.session === session && recovery.attempt == attempt) {
                 session.cleanupRecoveryAttempt = attempt + 1
                 session.channelGeneration++
-                recoverCleanupChannel(session, expectedGroupName, pendingError, attempt + 1)
+                recoverCleanupChannel(
+                    session,
+                    recovery.expectedGroupName,
+                    recovery.purpose,
+                    current.pendingError,
+                    attempt + 1
+                )
             }
         }
     }

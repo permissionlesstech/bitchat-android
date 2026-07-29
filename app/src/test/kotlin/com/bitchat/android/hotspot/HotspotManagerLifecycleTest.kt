@@ -209,8 +209,48 @@ class HotspotManagerLifecycleTest {
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
 
+        assertEquals(0, completed)
+        fixture.scheduler.advanceBy(14_000)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
         assertEquals(1, completed)
         assertTrue(fixture.p2p.channels.last().closed)
+    }
+
+    @Test
+    fun `fresh channel waits for an accepted create that can still form`() {
+        val fixture = Fixture()
+        fixture.startUntilCreateRequested()
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+        var completed = 0
+
+        fixture.manager.stopHotspot { completed++ }
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.answerGroup(null)
+
+        assertTrue(fixture.p2p.channels.first().closed)
+        assertEquals(2, fixture.p2p.channels.size)
+
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals(0, completed)
+        assertEquals("Stopping", fixture.manager.lifecycleName())
+
+        fixture.scheduler.advanceBy(14_000)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
     }
 
     @Test
@@ -225,6 +265,13 @@ class HotspotManagerLifecycleTest {
         fixture.scheduler.advanceBy(10_000)
         assertEquals(2, fixture.p2p.channels.size)
         fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals("Stopping", fixture.manager.lifecycleName())
+        fixture.scheduler.advanceBy(14_000)
+        fixture.p2p.answerGroup(null)
         fixture.p2p.answerGroup(null)
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
@@ -464,6 +511,36 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `verification channel recovery preserves the possible formation wait`() {
+        val fixture = Fixture()
+        fixture.startUntilCreateRequested()
+        var completed = 0
+
+        fixture.manager.stopHotspot { completed++ }
+        fixture.scheduler.advanceBy(10_000)
+        fixture.p2p.channels.last().disconnect()
+
+        assertEquals(3, fixture.p2p.channels.size)
+
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals(0, completed)
+        assertEquals("Stopping", fixture.manager.lifecycleName())
+
+        fixture.scheduler.advanceBy(14_000)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+    }
+
+    @Test
     fun `hung verification query closes that channel and retries`() {
         val fixture = Fixture()
         fixture.startUntilCreateRequested()
@@ -472,12 +549,13 @@ class HotspotManagerLifecycleTest {
         fixture.manager.stopHotspot { completed++ }
         fixture.scheduler.advanceBy(10_000)
         val firstVerificationChannel = fixture.p2p.channels.last()
-        fixture.scheduler.advanceBy(10_000)
+        fixture.scheduler.advanceBy(25_000)
 
         assertTrue(firstVerificationChannel.closed)
         assertEquals(3, fixture.p2p.channels.size)
 
         fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
         fixture.p2p.answerGroup(null)
         fixture.p2p.answerGroup(null)
         fixture.scheduler.advanceBy(500)
@@ -493,9 +571,7 @@ class HotspotManagerLifecycleTest {
         var completed = 0
 
         fixture.manager.stopHotspot { completed++ }
-        repeat(6) {
-            fixture.scheduler.advanceBy(10_000)
-        }
+        fixture.scheduler.advanceBy(75_000)
 
         assertEquals(1, completed)
         assertEquals("Closed", fixture.manager.lifecycleName())
