@@ -111,13 +111,17 @@ participant belongs to the controlled lab.
 
 Run either the selected scenario or the full suite. Run this entire block in one
 shell invocation so the temporary-directory variable cannot disappear between
-agent shell calls. Verify it is non-empty before passing it to `--out`; otherwise
-an empty path can put private evidence in the repository. Replace `dm` with
+agent shell calls. Abort the block if the directory is empty or missing before
+passing it to `--out`; otherwise an empty path can put private evidence in the
+repository. Replace `dm` with
 `all` only when full-suite data clearing has been authorized.
 
 ```sh
 MESH_EVIDENCE_DIR="$(mktemp -d /tmp/meshlab-evidence.XXXXXX)"
-test -n "$MESH_EVIDENCE_DIR"
+if [ -z "$MESH_EVIDENCE_DIR" ] || [ ! -d "$MESH_EVIDENCE_DIR" ]; then
+  echo "mktemp failed; aborting so evidence cannot land in the repository" >&2
+  exit 1
+fi
 chmod 700 "$MESH_EVIDENCE_DIR"
 
 python3 tools/release_gate/mesh_lab.py scenario dm \
