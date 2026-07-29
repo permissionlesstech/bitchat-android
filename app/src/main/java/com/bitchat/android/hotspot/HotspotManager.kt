@@ -688,11 +688,15 @@ class HotspotManager @VisibleForTesting internal constructor(
             }
 
             Ownership.FrameworkGenerated -> {
-                val observations = if (forming.candidateName == name) {
-                    forming.candidateObservations + 1
-                } else {
-                    1
+                if (forming.candidateName != null && forming.candidateName != name) {
+                    ownedGroups.name = null
+                    finishSession(
+                        forming.session,
+                        HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE
+                    )
+                    return
                 }
+                val observations = forming.candidateObservations + 1
                 if (observations >= REQUIRED_ABSENT_OBSERVATIONS) {
                     val known = Ownership.Known(name)
                     ownedGroups.name = name
@@ -864,11 +868,12 @@ class HotspotManager @VisibleForTesting internal constructor(
                 scheduleCleanupInspection(stopping, cleanup)
                 return
             }
-            val observations = if (cleanup.candidateName == name) {
-                cleanup.candidateObservations + 1
-            } else {
-                1
+            if (cleanup.candidateName != null && cleanup.candidateName != name) {
+                ownedGroups.name = null
+                finishSession(stopping.session, stopping.pendingError)
+                return
             }
+            val observations = cleanup.candidateObservations + 1
             if (observations < REQUIRED_ABSENT_OBSERVATIONS) {
                 scheduleCleanupInspection(
                     stopping,

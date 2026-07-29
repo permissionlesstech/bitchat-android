@@ -353,6 +353,64 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `pre Q formation rejects a changed ownership candidate`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false
+            )
+        )
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group("DIRECT-ab-First", "first-password", 0, true)
+        )
+        fixture.scheduler.advanceBy(1_000)
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group("DIRECT-cd-Replacement", "foreign-password", 0, true)
+        )
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertNull(fixture.store.name)
+        assertEquals(0, fixture.p2p.removeRequests.size)
+        assertEquals(
+            listOf(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE),
+            fixture.callback.errors
+        )
+    }
+
+    @Test
+    fun `pre Q cleanup never removes a changed ownership candidate`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false
+            )
+        )
+        var completed = 0
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.acceptCreate()
+        fixture.manager.stopHotspot { completed++ }
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group("DIRECT-ab-First", "first-password", 0, true)
+        )
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group("DIRECT-cd-Replacement", "foreign-password", 0, true)
+        )
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertNull(fixture.store.name)
+        assertEquals(0, fixture.p2p.removeRequests.size)
+    }
+
+    @Test
     fun `pre Q client-side group is never adopted as the created hotspot`() {
         val fixture = Fixture(
             p2p = FakeP2p(
