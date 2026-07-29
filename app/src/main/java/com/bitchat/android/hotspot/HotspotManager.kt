@@ -245,7 +245,16 @@ class HotspotManager(private val context: Context) {
         try {
             wifiP2pManager?.requestGroupInfo(ch) { group ->
                 val actualName = group?.networkName
-                if (group == null || actualName == null || actualName != expectedName) {
+
+                // Only a name that positively differs proves a stranger owns the radio.
+                // Absence of proof is not proof: requestGroupInfo returns null while a
+                // group is still forming, and below Q expectedName stays null until the
+                // first poll records the framework-generated name. Skipping removal in
+                // either case would strand the group we created.
+                val belongsToSomeoneElse =
+                    actualName != null && expectedName != null && actualName != expectedName
+
+                if (belongsToSomeoneElse) {
                     Log.d(TAG, "Group is '$actualName', not ours ('$expectedName'); leaving it alone")
                     closeChannel(ch)
                     return@requestGroupInfo
