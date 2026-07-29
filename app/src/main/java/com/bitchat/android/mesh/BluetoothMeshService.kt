@@ -480,21 +480,13 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             
             // Callbacks
             override fun onMessageReceived(message: BitchatMessage) {
-                // Always reflect into process-wide store so UI can hydrate after recreation
-                try {
-                    when {
-                        message.isPrivate -> {
-                            val peer = message.senderPeerID ?: ""
-                            if (peer.isNotEmpty()) com.bitchat.android.services.AppStateStore.addPrivateMessage(peer, message)
-                        }
-                        message.channel != null -> {
-                            com.bitchat.android.services.AppStateStore.addChannelMessage(message.channel!!, message)
-                        }
-                        else -> {
-                            com.bitchat.android.services.AppStateStore.addPublicMessage(message)
-                        }
-                    }
-                } catch (_: Exception) { }
+                // Private-message admission is authoritative. In particular, do not forward a
+                // callback or notify after panic mode rejected the message while wiping state.
+                if (
+                    !com.bitchat.android.services.IncomingMessageAdmission
+                        .admitToAppState(message)
+                ) return
+
                 // And forward to UI delegate if attached
                 delegate?.didReceiveMessage(message)
 

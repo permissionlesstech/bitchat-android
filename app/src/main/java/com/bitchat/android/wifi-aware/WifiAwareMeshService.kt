@@ -188,21 +188,13 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         fragmentingSender = FragmentingPacketSender(serviceScope, meshCore.fragmentManager, TAG)
     }
 
-    private fun handleMessageReceived(message: BitchatMessage) {
-        try {
-            when {
-                message.isPrivate -> {
-                    val peer = message.senderPeerID ?: ""
-                    if (peer.isNotEmpty()) com.bitchat.android.services.AppStateStore.addPrivateMessage(peer, message)
-                }
-                message.channel != null -> {
-                    com.bitchat.android.services.AppStateStore.addChannelMessage(message.channel!!, message)
-                }
-                else -> {
-                    com.bitchat.android.services.AppStateStore.addPublicMessage(message)
-                }
-            }
-        } catch (_: Exception) { }
+    private fun handleMessageReceived(message: BitchatMessage): Boolean {
+        // Match BLE admission semantics: a private message rejected during panic or as a
+        // duplicate must not create a notification after the conversation state was cleared.
+        if (
+            !com.bitchat.android.services.IncomingMessageAdmission
+                .admitToAppState(message)
+        ) return false
 
         if (delegate == null && message.isPrivate) {
             try {
@@ -215,6 +207,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 }
             } catch (_: Exception) { }
         }
+        return true
     }
 
     /**
