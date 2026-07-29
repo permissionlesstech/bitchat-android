@@ -153,6 +153,33 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `API 26 P2P disable finishes creation when its action callback is dropped`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false,
+                supportsChannelClose = false
+            )
+        )
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.platform.onStateChanged?.invoke(
+            WifiP2pManager.WIFI_P2P_STATE_DISABLED
+        )
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertFalse(fixture.platform.active)
+        assertEquals(
+            listOf(HotspotStartupPolicy.P2P_DISABLED_MESSAGE),
+            fixture.callback.errors
+        )
+
+        fixture.scheduler.advanceBy(30_000)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+    }
+
+    @Test
     fun `late disconnect from the closed channel cannot replace the verification channel`() {
         val fixture = Fixture()
         fixture.startUntilCreateRequested()

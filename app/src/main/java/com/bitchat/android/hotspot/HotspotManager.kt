@@ -1219,10 +1219,27 @@ class HotspotManager @VisibleForTesting internal constructor(
         if (state != WifiP2pManager.WIFI_P2P_STATE_DISABLED) return
 
         when (val current = phase) {
-            is Phase.Stopping -> forceCleanup(current)
             Phase.Idle, Phase.Closed -> Unit
-            else -> fail(HotspotStartupPolicy.P2P_DISABLED_MESSAGE)
+            is Phase.Stopping ->
+                finishAfterP2pDisabled(current.session, current.pendingError)
+
+            else -> currentSession()?.let { session ->
+                finishAfterP2pDisabled(
+                    session,
+                    HotspotStartupPolicy.P2P_DISABLED_MESSAGE
+                )
+            }
         }
+    }
+
+    /**
+     * A disabled P2P service cannot retain or subsequently form a group. This is also the
+     * only terminal evidence available on API 26 when an accepted create callback is lost,
+     * because that release has no Channel.close().
+     */
+    private fun finishAfterP2pDisabled(session: Session, error: String?) {
+        ownedGroups.name = null
+        finishSession(session, error)
     }
 
     private fun onConnectionChanged() {
