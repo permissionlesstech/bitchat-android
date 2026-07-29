@@ -46,6 +46,8 @@ import com.bitchat.watch.ui.ChatScreen
 import com.bitchat.watch.ui.DmScreen
 import com.bitchat.watch.ui.NicknameSetupScreen
 import com.bitchat.watch.ui.PeopleScreen
+import com.bitchat.watch.ui.UserDetailScreen
+import com.bitchat.watch.ui.VerificationCodeScreen
 import com.bitchat.watch.ui.WearChatState
 import com.bitchat.watch.ui.sendPrivateMessage
 import com.bitchat.watch.ui.sendPublicMessage
@@ -56,6 +58,8 @@ sealed interface WearScreen {
     data object People : WearScreen
     data object Nickname : WearScreen
     data class Dm(val peerID: String) : WearScreen
+    data class UserDetail(val peerID: String) : WearScreen
+    data class Verification(val peerID: String) : WearScreen
     data class TextInput(val peerID: String?) : WearScreen
 }
 
@@ -292,10 +296,20 @@ internal fun WearNavHost(
             }
             is WearScreen.Dm -> DmScreen(
                 peerID = current.peerID,
+                onOpenUserDetail = {
+                    navigation.navigate(WearScreen.UserDetail(current.peerID))
+                },
                 onOpenTextInput = {
                     navigation.navigate(WearScreen.TextInput(current.peerID))
                 }
             )
+            is WearScreen.UserDetail -> UserDetailScreen(
+                peerID = current.peerID,
+                onOpenVerification = {
+                    navigation.navigate(WearScreen.Verification(current.peerID))
+                }
+            )
+            is WearScreen.Verification -> VerificationCodeScreen(peerID = current.peerID)
             is WearScreen.TextInput -> {
                 val mesh = WearMeshService.peek()
                 val sendScope = androidx.compose.runtime.rememberCoroutineScope()

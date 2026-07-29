@@ -3,7 +3,9 @@ package com.bitchat.android.testhook
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.features.file.FileUtils
+import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PrivateMediaPreparation
 import com.bitchat.android.mesh.TransferProgressManager
@@ -63,6 +65,18 @@ object TestHookDriver {
             "dm_send" -> dmSend(context, intent.requiredString("peer"), intent.requiredString("content"), intent.getStringExtra("msg_id"))
             "dm_recv" -> dmRecv(context, intent)
             "msg_recv" -> msgRecv(context, intent)
+            "favorite_set" -> favoriteSet(
+                context,
+                intent.requiredString("peer"),
+                intent.getBooleanExtra("enabled", true)
+            )
+            "favorite_status" -> favoriteStatus(context, intent.requiredString("peer"))
+            "verification_set" -> verificationSet(
+                context,
+                intent.requiredString("peer"),
+                intent.getBooleanExtra("enabled", true)
+            )
+            "verification_status" -> verificationStatus(context, intent.requiredString("peer"))
             "file_send" -> fileSend(context, intent)
             "file_recv" -> fileRecv(context, intent)
             "file_cancel" -> fileCancel(context, intent.requiredString("transfer_id"))
@@ -276,6 +290,68 @@ object TestHookDriver {
             .put("content", found.content)
             .put("channel", found.channel)
             .put("msg_id", found.id)
+    }
+
+    // MARK: - Favorite and verification state
+
+    private fun favoriteSet(context: Context, peerID: String, enabled: Boolean): JSONObject {
+        val mesh = mesh(context)
+        val peerInfo = mesh.getPeerInfo(peerID)
+            ?: return err("favorite_set", "peer is not known")
+        val noisePublicKey = peerInfo.noisePublicKey
+            ?: return err("favorite_set", "peer Noise key is unavailable")
+        FavoritesPersistenceService.initialize(context)
+        FavoritesPersistenceService.shared.updateFavoriteStatus(
+            noisePublicKey = noisePublicKey,
+            nickname = peerInfo.nickname,
+            isFavorite = enabled
+        )
+        mesh.sendFavoriteNotification(peerID, enabled)
+        return favoriteStatus(context, peerID)
+    }
+
+    private fun favoriteStatus(context: Context, peerID: String): JSONObject {
+        val mesh = mesh(context)
+        FavoritesPersistenceService.initialize(context)
+        val relationship = FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+            ?: mesh.getPeerInfo(peerID)?.noisePublicKey?.let {
+                FavoritesPersistenceService.shared.getFavoriteStatus(it)
+            }
+        val isFavorite = relationship?.isFavorite == true
+        val theyFavoritedUs = relationship?.theyFavoritedUs == true
+        return ok("favorite_status")
+            .put("peer", peerID)
+            .put("is_favorite", isFavorite)
+            .put("they_favorited_us", theyFavoritedUs)
+            .put("is_mutual", isFavorite && theyFavoritedUs)
+            .put(
+                "star_state",
+                when {
+                    isFavorite -> "filled"
+                    theyFavoritedUs -> "outlined_orange"
+                    else -> "outlined"
+                }
+            )
+    }
+
+    private fun verificationSet(context: Context, peerID: String, enabled: Boolean): JSONObject {
+        val mesh = mesh(context)
+        val fingerprint = mesh.getPeerFingerprint(peerID)
+            ?: return err("verification_set", "peer fingerprint is unavailable")
+        SecureIdentityStateManager(context).setVerifiedFingerprint(fingerprint, enabled)
+        return verificationStatus(context, peerID)
+    }
+
+    private fun verificationStatus(context: Context, peerID: String): JSONObject {
+        val fingerprint = mesh(context).getPeerFingerprint(peerID)
+        val verified = fingerprint != null &&
+            SecureIdentityStateManager(context).getVerifiedFingerprints().any {
+                it.equals(fingerprint, ignoreCase = true)
+            }
+        return ok("verification_status")
+            .put("peer", peerID)
+            .put("fingerprint", fingerprint ?: JSONObject.NULL)
+            .put("verified", verified)
     }
 
     // MARK: - File transfer

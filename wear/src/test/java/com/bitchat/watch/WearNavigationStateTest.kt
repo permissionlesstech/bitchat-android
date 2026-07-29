@@ -58,4 +58,21 @@ class WearNavigationStateTest {
         assertEquals(WearScreen.Chat, navigation.screen)
         assertFalse(navigation.canGoBack)
     }
+
+    @Test
+    fun `user detail and verification return through dm before main chat`() {
+        val navigation = WearNavigationState()
+        navigation.openDmFromNotification("peer-a")
+        navigation.navigate(WearScreen.UserDetail("peer-a"))
+        navigation.navigate(WearScreen.Verification("peer-a"))
+
+        assertTrue(navigation.goBack())
+        assertEquals(WearScreen.UserDetail("peer-a"), navigation.screen)
+
+        assertTrue(navigation.goBack())
+        assertEquals(WearScreen.Dm("peer-a"), navigation.screen)
+
+        assertTrue(navigation.goBack())
+        assertEquals(WearScreen.Chat, navigation.screen)
+    }
 }
