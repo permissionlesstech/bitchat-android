@@ -26,6 +26,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
     private var hotspotManager: HotspotManager? = null
     private var webServer: ApkWebServer? = null
+    private var pendingApkFile: File? = null
 
     /** Once-releasable radio claim owned by the current hotspot session. */
     private var awareLease: WifiAwareController.HotspotLease? = null
@@ -35,6 +36,13 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
      * Start the hotspot with the provided APK file.
      */
     fun startHotspot(apkFile: File) {
+        startHotspot(apkFile, HotspotManager.ExistingGroupPolicy.REQUIRE_CONFIRMATION)
+    }
+
+    private fun startHotspot(
+        apkFile: File,
+        existingGroupPolicy: HotspotManager.ExistingGroupPolicy
+    ) {
         if (_state.value is HotspotState.Starting || _state.value is HotspotState.Active) {
             Log.w(TAG, "Hotspot already starting or active")
             return
@@ -98,10 +106,18 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                         }
                     }
 
+                    override fun onExistingGroupConflict() {
+                        viewModelScope.launch {
+                            teardown()
+                            pendingApkFile = apkFile
+                            _state.value = HotspotState.ConfirmDisconnect
+                        }
+                    }
+
                     override fun onError(error: HotspotError) {
                         viewModelScope.launch { failWith(error) }
                     }
-                })
+                }, existingGroupPolicy)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting hotspot", e)
@@ -110,11 +126,24 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun confirmDisconnectAndStart() {
+        val apkFile = pendingApkFile ?: return
+        pendingApkFile = null
+        startHotspot(apkFile, HotspotManager.ExistingGroupPolicy.REPLACE)
+    }
+
+    fun cancelDisconnect() {
+        pendingApkFile = null
+        teardown()
+        _state.value = HotspotState.Intro
+    }
+
     /**
      * Stop the hotspot and web server.
      */
     fun stopHotspot() {
         Log.d(TAG, "Stopping hotspot")
+        pendingApkFile = null
         teardown()
         _state.value = HotspotState.Intro
     }
@@ -128,6 +157,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
      * screen.
      */
     private fun failWith(error: HotspotError) {
+        pendingApkFile = null
         val message = context.getString(error.stringResource)
         Log.e(TAG, "Hotspot failed: $message")
         teardown()
@@ -179,6 +209,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     sealed class HotspotState {
         object Intro : HotspotState()
         object Starting : HotspotState()
+        object ConfirmDisconnect : HotspotState()
         data class Active(
             val ssid: String,
             val password: String,
@@ -199,12 +230,11 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
             HotspotError.PREPARATION_FAILED -> R.string.hotspot_error_preparation
             HotspotError.PERMISSION_REVOKED -> R.string.hotspot_error_permission_revoked
             HotspotError.P2P_DISABLED -> R.string.hotspot_error_p2p_disabled
-            HotspotError.FOREIGN_GROUP_ACTIVE -> R.string.hotspot_error_foreign_group
             HotspotError.P2P_BUSY -> R.string.hotspot_error_p2p_busy
             HotspotError.START_FAILED -> R.string.hotspot_error_start_failed
             HotspotError.PREFLIGHT_TIMEOUT -> R.string.hotspot_error_preflight_timeout
-            HotspotError.STALE_GROUP_REMOVAL_FAILED ->
-                R.string.hotspot_error_stale_group_removal
+            HotspotError.EXISTING_GROUP_REMOVAL_FAILED ->
+                R.string.hotspot_error_existing_group_removal
             HotspotError.GROUP_LOST -> R.string.hotspot_error_group_lost
             HotspotError.P2P_SERVICE_DISCONNECTED ->
                 R.string.hotspot_error_service_disconnected

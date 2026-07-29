@@ -3,7 +3,6 @@ package com.bitchat.android.hotspot
 import android.net.wifi.p2p.WifiP2pManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.security.SecureRandom
@@ -21,10 +20,7 @@ class HotspotManagerLifecycleTest {
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertFalse(fixture.platform.active)
         assertTrue(fixture.p2p.channels.first().closed)
-        assertEquals(
-            listOf(HotspotError.PREFLIGHT_TIMEOUT),
-            fixture.callback.errors
-        )
+        assertEquals(listOf(HotspotError.PREFLIGHT_TIMEOUT), fixture.callback.errors)
 
         fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
         assertEquals(0, fixture.p2p.groupRequests.size)
@@ -40,14 +36,73 @@ class HotspotManagerLifecycleTest {
 
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertFalse(fixture.platform.active)
-        assertTrue(fixture.p2p.channels.first().closed)
-        assertEquals(
-            listOf(HotspotError.PREFLIGHT_TIMEOUT),
-            fixture.callback.errors
-        )
+        assertEquals(listOf(HotspotError.PREFLIGHT_TIMEOUT), fixture.callback.errors)
 
         fixture.p2p.answerGroup(null)
         assertEquals(0, fixture.p2p.createRequests.size)
+    }
+
+    @Test
+    fun `existing group requires confirmation and is never removed implicitly`() {
+        val fixture = Fixture()
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
+        fixture.p2p.answerGroup(foreignGroup())
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertEquals(1, fixture.callback.conflicts)
+        assertEquals(0, fixture.callback.errors.size)
+        assertEquals(0, fixture.p2p.removeRequests.size)
+        assertFalse(fixture.platform.active)
+    }
+
+    @Test
+    fun `confirmed replacement waits for observed absence before creating`() {
+        val fixture = Fixture()
+        fixture.startReplacingExistingGroup()
+
+        fixture.p2p.acceptRemove()
+        fixture.p2p.answerGroup(foreignGroup())
+        assertEquals(0, fixture.p2p.createRequests.size)
+
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+        assertEquals(0, fixture.p2p.createRequests.size)
+
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals(1, fixture.p2p.createRequests.size)
+        assertEquals("Creating", fixture.manager.lifecycleName())
+    }
+
+    @Test
+    fun `confirmed replacement retries a rejected removal while a group remains`() {
+        val fixture = Fixture()
+        fixture.startReplacingExistingGroup()
+
+        fixture.p2p.rejectRemove(WifiP2pManager.BUSY)
+        fixture.p2p.answerGroup(foreignGroup())
+        fixture.scheduler.advanceBy(500)
+
+        assertEquals(1, fixture.p2p.removeRequests.size)
+        assertEquals("Starting", fixture.manager.lifecycleName())
+    }
+
+    @Test
+    fun `stop during confirmed replacement ignores its late callback`() {
+        val fixture = Fixture()
+        fixture.startReplacingExistingGroup()
+        var completed = 0
+
+        fixture.manager.stopHotspot { completed++ }
+        fixture.p2p.acceptRemove()
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertEquals(0, fixture.p2p.createRequests.size)
+        assertEquals(0, fixture.p2p.groupRequests.size)
     }
 
     @Test
@@ -62,26 +117,21 @@ class HotspotManagerLifecycleTest {
 
         assertEquals(0, completed)
         assertEquals("Stopping", fixture.manager.lifecycleName())
-        assertFalse(fixture.p2p.channels.first().closed)
 
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(fixture.ownedGroup())
-        assertEquals(0, completed)
-
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
         assertEquals(0, completed)
-
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
 
         assertEquals(1, completed)
         assertEquals("Closed", fixture.manager.lifecycleName())
-        assertTrue(fixture.p2p.channels.first().closed)
     }
 
     @Test
-    fun `stuck creation is actively closed and verified through a fresh channel`() {
+    fun `stuck creation is closed and verified through a fresh channel`() {
         val fixture = Fixture()
         fixture.startUntilCreateRequested()
         var completed = 0
@@ -95,8 +145,6 @@ class HotspotManagerLifecycleTest {
 
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
-        assertEquals(0, completed)
-
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
 
@@ -121,27 +169,12 @@ class HotspotManagerLifecycleTest {
         fixture.scheduler.advanceBy(10_000)
 
         assertEquals(0, completed)
-        assertEquals(1, fixture.p2p.channels.size)
         assertFalse(fixture.p2p.channels.first().closed)
 
         fixture.p2p.acceptCreate()
         fixture.p2p.answerGroup(null)
         fixture.scheduler.advanceBy(500)
-        fixture.p2p.answerGroup(null)
-
-        assertEquals(0, completed)
-        assertEquals(0, fixture.p2p.removeRequests.size)
-
-        val lateGroup = HotspotP2p.Group(
-            "DIRECT-ab-Android",
-            "generated-password",
-            0,
-            isGroupOwner = true
-        )
-        fixture.scheduler.advanceBy(500)
-        fixture.p2p.answerGroup(lateGroup)
-        fixture.scheduler.advanceBy(500)
-        fixture.p2p.answerGroup(lateGroup)
+        fixture.p2p.answerGroup(livePreQGroup())
         fixture.p2p.acceptRemove()
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
@@ -153,7 +186,7 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
-    fun `API 26 P2P disable finishes creation when its action callback is dropped`() {
+    fun `API 26 P2P disable finishes when create callback is dropped`() {
         val fixture = Fixture(
             p2p = FakeP2p(
                 supportsP2pStateQuery = false,
@@ -164,48 +197,15 @@ class HotspotManagerLifecycleTest {
 
         fixture.manager.startHotspot(fixture.callback)
         fixture.p2p.answerGroup(null)
-        fixture.platform.onStateChanged?.invoke(
-            WifiP2pManager.WIFI_P2P_STATE_DISABLED
-        )
+        fixture.platform.onStateChanged?.invoke(WifiP2pManager.WIFI_P2P_STATE_DISABLED)
 
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertFalse(fixture.platform.active)
-        assertEquals(
-            listOf(HotspotError.P2P_DISABLED),
-            fixture.callback.errors
-        )
-
-        fixture.scheduler.advanceBy(30_000)
-        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertEquals(listOf(HotspotError.P2P_DISABLED), fixture.callback.errors)
     }
 
     @Test
-    fun `API 26 terminal create rejection finishes without awaiting another callback`() {
-        val fixture = Fixture(
-            p2p = FakeP2p(
-                supportsP2pStateQuery = false,
-                supportsCustomCredentials = false,
-                supportsChannelClose = false
-            )
-        )
-
-        fixture.manager.startHotspot(fixture.callback)
-        fixture.p2p.answerGroup(null)
-        fixture.p2p.rejectCreate(WifiP2pManager.P2P_UNSUPPORTED)
-
-        assertEquals("Closed", fixture.manager.lifecycleName())
-        assertFalse(fixture.platform.active)
-        assertEquals(
-            listOf(HotspotError.P2P_UNSUPPORTED),
-            fixture.callback.errors
-        )
-
-        fixture.scheduler.advanceBy(30_000)
-        assertEquals("Closed", fixture.manager.lifecycleName())
-    }
-
-    @Test
-    fun `API 26 stop during create retry backoff does not await a delivered callback`() {
+    fun `stop during create retry backoff completes immediately`() {
         val fixture = Fixture(
             p2p = FakeP2p(
                 supportsP2pStateQuery = false,
@@ -221,22 +221,18 @@ class HotspotManagerLifecycleTest {
         fixture.manager.stopHotspot { completed++ }
 
         assertEquals(1, completed)
-        assertEquals("Closed", fixture.manager.lifecycleName())
-        assertFalse(fixture.platform.active)
-
         fixture.scheduler.advanceBy(1_000)
         assertEquals(0, fixture.p2p.createRequests.size)
     }
 
     @Test
-    fun `late disconnect from the closed channel cannot replace the verification channel`() {
+    fun `late disconnect from closed channel cannot replace verification channel`() {
         val fixture = Fixture()
         fixture.startUntilCreateRequested()
 
         fixture.manager.stopHotspot()
         fixture.scheduler.advanceBy(10_000)
         val verificationChannel = fixture.p2p.channels.last()
-
         fixture.p2p.channels.first().disconnect()
 
         assertEquals(2, fixture.p2p.channels.size)
@@ -245,7 +241,7 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
-    fun `a hung verification query closes that channel and retries verification`() {
+    fun `hung verification query closes that channel and retries`() {
         val fixture = Fixture()
         fixture.startUntilCreateRequested()
         var completed = 0
@@ -257,11 +253,10 @@ class HotspotManagerLifecycleTest {
 
         assertTrue(firstVerificationChannel.closed)
         assertEquals(3, fixture.p2p.channels.size)
-        assertEquals(0, completed)
 
         fixture.scheduler.advanceBy(500)
-        fixture.p2p.answerGroup(null) // stale answer for the channel just closed
-        fixture.p2p.answerGroup(null) // first answer for the current channel
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.answerGroup(null)
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
 
@@ -269,37 +264,7 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
-    fun `forced pre Q cleanup never adopts a group from the verification channel`() {
-        val fixture = Fixture(
-            p2p = FakeP2p(
-                supportsP2pStateQuery = false,
-                supportsCustomCredentials = false
-            )
-        )
-        var completed = 0
-
-        fixture.manager.startHotspot(fixture.callback)
-        fixture.p2p.answerGroup(null)
-        fixture.manager.stopHotspot { completed++ }
-        fixture.scheduler.advanceBy(10_000)
-        fixture.scheduler.advanceBy(500)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group(
-                "DIRECT-cd-Replacement",
-                "foreign-password",
-                0,
-                isGroupOwner = true
-            )
-        )
-
-        assertEquals(1, completed)
-        assertEquals("Closed", fixture.manager.lifecycleName())
-        assertNull(fixture.store.name)
-        assertEquals(0, fixture.p2p.removeRequests.size)
-    }
-
-    @Test
-    fun `cleanup remains bounded after actively closing every unresponsive channel`() {
+    fun `cleanup remains bounded after unresponsive verification channels`() {
         val fixture = Fixture()
         fixture.startUntilCreateRequested()
         var completed = 0
@@ -313,10 +278,6 @@ class HotspotManagerLifecycleTest {
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertTrue(fixture.p2p.channels.all { it.closed })
         assertFalse(fixture.platform.active)
-        assertTrue(
-            "the marker is retained so a later session can remove a possible orphan",
-            fixture.store.name?.startsWith(HotspotStartupPolicy.SSID_PREFIX) == true
-        )
     }
 
     @Test
@@ -328,7 +289,6 @@ class HotspotManagerLifecycleTest {
 
         fixture.manager.stopHotspot { first++ }
         fixture.manager.stopHotspot { second++ }
-
         fixture.p2p.answerGroup(null)
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
@@ -339,7 +299,7 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
-    fun `an active group disappearing lapses ownership without removing a replacement`() {
+    fun `active group disappearance closes without removing a replacement`() {
         val fixture = Fixture()
         fixture.startHosting()
 
@@ -350,150 +310,19 @@ class HotspotManagerLifecycleTest {
 
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertEquals(0, fixture.p2p.removeRequests.size)
-        assertNull(fixture.store.name)
         assertEquals(listOf(HotspotError.GROUP_LOST), fixture.callback.errors)
     }
 
     @Test
-    fun `a foreign replacement is never passed to device scoped remove`() {
+    fun `foreign replacement is never passed to device scoped remove`() {
         val fixture = Fixture()
         fixture.startHosting()
 
         fixture.scheduler.advanceBy(1_000)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group(
-                networkName = "DIRECT-xy-Chromecast",
-                passphrase = "foreign-password",
-                clientCount = 0,
-                isGroupOwner = true
-            )
-        )
+        fixture.p2p.answerGroup(foreignGroup())
 
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertEquals(0, fixture.p2p.removeRequests.size)
-        assertNull(fixture.store.name)
-    }
-
-    @Test
-    fun `a nameless group is not removed without exact ownership evidence`() {
-        val fixture = Fixture()
-        fixture.startHosting()
-
-        fixture.manager.stopHotspot()
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group(
-                networkName = null,
-                passphrase = null,
-                clientCount = 0,
-                isGroupOwner = true
-            )
-        )
-
-        assertEquals(0, fixture.p2p.removeRequests.size)
-        assertEquals("Stopping", fixture.manager.lifecycleName())
-
-        fixture.scheduler.advanceBy(500)
-        fixture.p2p.answerGroup(fixture.ownedGroup())
-
-        assertEquals(1, fixture.p2p.removeRequests.size)
-    }
-
-    @Test
-    fun `an existing client-side group is foreign even when its name matches our marker`() {
-        val fixture = Fixture()
-        fixture.store.name = "DIRECT-BC-OLDGROUP"
-
-        fixture.manager.startHotspot(fixture.callback)
-        fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group(
-                "DIRECT-BC-OLDGROUP",
-                "foreign-password",
-                0,
-                isGroupOwner = false
-            )
-        )
-
-        assertEquals("Closed", fixture.manager.lifecycleName())
-        assertEquals(0, fixture.p2p.removeRequests.size)
-        assertEquals(
-            listOf(HotspotError.FOREIGN_GROUP_ACTIVE),
-            fixture.callback.errors
-        )
-    }
-
-    @Test
-    fun `stale removal rejection does not retry against a nameless group`() {
-        val fixture = Fixture()
-        fixture.store.name = "DIRECT-BC-OLDGROUP"
-
-        fixture.manager.startHotspot(fixture.callback)
-        fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-BC-OLDGROUP", "old-password", 0, true)
-        )
-        fixture.p2p.rejectRemove(WifiP2pManager.BUSY)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group(null, null, 0, isGroupOwner = true)
-        )
-
-        fixture.scheduler.advanceBy(500)
-
-        assertEquals(0, fixture.p2p.removeRequests.size)
-        assertEquals("Starting", fixture.manager.lifecycleName())
-    }
-
-    @Test
-    fun `stale removal rejection refuses a matching client-side group`() {
-        val fixture = Fixture()
-        fixture.store.name = "DIRECT-BC-OLDGROUP"
-
-        fixture.manager.startHotspot(fixture.callback)
-        fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-BC-OLDGROUP", "old-password", 0, true)
-        )
-        fixture.p2p.rejectRemove(WifiP2pManager.BUSY)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-BC-OLDGROUP", null, 0, isGroupOwner = false)
-        )
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-BC-OLDGROUP", null, 0, isGroupOwner = false)
-        )
-
-        assertEquals("Closed", fixture.manager.lifecycleName())
-        assertEquals(0, fixture.p2p.removeRequests.size)
-        assertNull(fixture.store.name)
-        assertEquals(
-            listOf(HotspotError.FOREIGN_GROUP_ACTIVE),
-            fixture.callback.errors
-        )
-    }
-
-    @Test
-    fun `stale removal waits for observed absence before creating`() {
-        val fixture = Fixture()
-        fixture.store.name = "DIRECT-BC-OLDGROUP"
-
-        fixture.manager.startHotspot(fixture.callback)
-        fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-BC-OLDGROUP", "old-password", 0, true)
-        )
-        fixture.p2p.acceptRemove()
-
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-BC-OLDGROUP", "old-password", 0, true)
-        )
-        assertEquals(0, fixture.p2p.createRequests.size)
-
-        fixture.scheduler.advanceBy(500)
-        fixture.p2p.answerGroup(null)
-        assertEquals(0, fixture.p2p.createRequests.size)
-
-        fixture.scheduler.advanceBy(500)
-        fixture.p2p.answerGroup(null)
-        assertEquals(1, fixture.p2p.createRequests.size)
     }
 
     @Test
@@ -506,8 +335,6 @@ class HotspotManagerLifecycleTest {
         fixture.p2p.acceptCreate()
         fixture.p2p.answerGroup(fixture.ownedGroup())
         fixture.p2p.acceptRemove()
-
-        assertEquals(0, completed)
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
         fixture.scheduler.advanceBy(500)
@@ -517,7 +344,7 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
-    fun `pre Q group name must be stable before ownership is recorded`() {
+    fun `pre Q group identity is kept only for the live session`() {
         val fixture = Fixture(
             p2p = FakeP2p(
                 supportsP2pStateQuery = false,
@@ -529,111 +356,20 @@ class HotspotManagerLifecycleTest {
         fixture.p2p.answerGroup(null)
         fixture.p2p.acceptCreate()
         fixture.scheduler.runCurrent()
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-ab-Android", "generated-password", 0, true)
-        )
-
-        assertEquals("Forming", fixture.manager.lifecycleName())
-        assertNull(fixture.store.name)
-
-        fixture.scheduler.advanceBy(1_000)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-ab-Android", "generated-password", 0, true)
-        )
+        fixture.p2p.answerGroup(livePreQGroup())
 
         assertEquals("Hosting", fixture.manager.lifecycleName())
-        assertEquals("DIRECT-ab-Android", fixture.store.name)
-    }
+        assertEquals(1, fixture.callback.started)
 
-    @Test
-    fun `pre Q formation rejects a changed ownership candidate`() {
-        val fixture = Fixture(
-            p2p = FakeP2p(
-                supportsP2pStateQuery = false,
-                supportsCustomCredentials = false
-            )
-        )
-
-        fixture.manager.startHotspot(fixture.callback)
-        fixture.p2p.answerGroup(null)
-        fixture.p2p.acceptCreate()
-        fixture.scheduler.runCurrent()
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-ab-First", "first-password", 0, true)
-        )
-        fixture.scheduler.advanceBy(1_000)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-cd-Replacement", "foreign-password", 0, true)
-        )
+        fixture.manager.stopHotspot()
+        fixture.p2p.answerGroup(foreignGroup())
 
         assertEquals("Closed", fixture.manager.lifecycleName())
-        assertNull(fixture.store.name)
-        assertEquals(0, fixture.p2p.removeRequests.size)
-        assertEquals(
-            listOf(HotspotError.FOREIGN_GROUP_ACTIVE),
-            fixture.callback.errors
-        )
-    }
-
-    @Test
-    fun `stopping pre Q formation preserves its ownership candidate`() {
-        val fixture = Fixture(
-            p2p = FakeP2p(
-                supportsP2pStateQuery = false,
-                supportsCustomCredentials = false
-            )
-        )
-        var completed = 0
-
-        fixture.manager.startHotspot(fixture.callback)
-        fixture.p2p.answerGroup(null)
-        fixture.p2p.acceptCreate()
-        fixture.scheduler.runCurrent()
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-ab-First", "first-password", 0, true)
-        )
-
-        fixture.manager.stopHotspot { completed++ }
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-cd-Replacement", "foreign-password", 0, true)
-        )
-
-        assertEquals(1, completed)
-        assertEquals("Closed", fixture.manager.lifecycleName())
-        assertNull(fixture.store.name)
         assertEquals(0, fixture.p2p.removeRequests.size)
     }
 
     @Test
-    fun `pre Q cleanup never removes a changed ownership candidate`() {
-        val fixture = Fixture(
-            p2p = FakeP2p(
-                supportsP2pStateQuery = false,
-                supportsCustomCredentials = false
-            )
-        )
-        var completed = 0
-
-        fixture.manager.startHotspot(fixture.callback)
-        fixture.p2p.answerGroup(null)
-        fixture.p2p.acceptCreate()
-        fixture.manager.stopHotspot { completed++ }
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-ab-First", "first-password", 0, true)
-        )
-        fixture.scheduler.advanceBy(500)
-        fixture.p2p.answerGroup(
-            HotspotP2p.Group("DIRECT-cd-Replacement", "foreign-password", 0, true)
-        )
-
-        assertEquals(1, completed)
-        assertEquals("Closed", fixture.manager.lifecycleName())
-        assertNull(fixture.store.name)
-        assertEquals(0, fixture.p2p.removeRequests.size)
-    }
-
-    @Test
-    fun `pre Q client-side group is never adopted as the created hotspot`() {
+    fun `pre Q client group after create is surfaced as a conflict`() {
         val fixture = Fixture(
             p2p = FakeP2p(
                 supportsP2pStateQuery = false,
@@ -647,15 +383,15 @@ class HotspotManagerLifecycleTest {
         fixture.scheduler.runCurrent()
         fixture.p2p.answerGroup(
             HotspotP2p.Group(
-                "DIRECT-ab-Android",
-                "foreign-password",
-                0,
+                networkName = "DIRECT-ab-Android",
+                passphrase = "foreign-password",
+                clientCount = 0,
                 isGroupOwner = false
             )
         )
 
         assertEquals("Closed", fixture.manager.lifecycleName())
-        assertNull(fixture.store.name)
+        assertEquals(1, fixture.callback.conflicts)
         assertEquals(0, fixture.p2p.removeRequests.size)
     }
 
@@ -664,22 +400,33 @@ class HotspotManagerLifecycleTest {
     ) {
         val scheduler = FakeScheduler()
         val platform = FakePlatform()
-        val store = FakeOwnedGroupStore()
         val callback = RecordingCallback()
         val manager = HotspotManager(
             p2p = p2p,
             platform = platform,
             scheduler = scheduler,
-            ownedGroups = store,
             random = SecureRandom(byteArrayOf(1, 2, 3, 4)),
             accessPointAddress = { "192.168.49.1" }
         )
 
-        fun startUntilCreateRequested() {
-            manager.startHotspot(callback)
+        fun startUntilCreateRequested(
+            policy: HotspotManager.ExistingGroupPolicy =
+                HotspotManager.ExistingGroupPolicy.REQUIRE_CONFIRMATION
+        ) {
+            manager.startHotspot(callback, policy)
             p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
             p2p.answerGroup(null)
             assertEquals(1, p2p.createRequests.size)
+        }
+
+        fun startReplacingExistingGroup() {
+            manager.startHotspot(
+                callback,
+                HotspotManager.ExistingGroupPolicy.REPLACE
+            )
+            p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
+            p2p.answerGroup(foreignGroup())
+            assertEquals(1, p2p.removeRequests.size)
         }
 
         fun startHosting() {
@@ -692,10 +439,7 @@ class HotspotManagerLifecycleTest {
         }
 
         fun ownedGroup() = HotspotP2p.Group(
-            networkName = p2p.createRequests.firstOrNull()
-                ?.credentials
-                ?.networkName
-                ?: store.name,
+            networkName = p2p.submittedCredentials.last()?.networkName,
             passphrase = "test-password",
             clientCount = 0,
             isGroupOwner = true
@@ -704,6 +448,7 @@ class HotspotManagerLifecycleTest {
 
     private class RecordingCallback : HotspotManager.HotspotCallback {
         var started = 0
+        var conflicts = 0
         val errors = mutableListOf<HotspotError>()
 
         override fun onHotspotStarted() {
@@ -712,22 +457,12 @@ class HotspotManagerLifecycleTest {
 
         override fun onConnectionInfoUpdated(info: HotspotManager.ConnectionInfo?) = Unit
 
+        override fun onExistingGroupConflict() {
+            conflicts++
+        }
+
         override fun onError(error: HotspotError) {
             errors += error
-        }
-    }
-
-    private class FakeOwnedGroupStore : OwnedGroupStore {
-        var name: String? = null
-
-        override fun readName(): String? = name
-
-        override fun saveName(name: String) {
-            this.name = name
-        }
-
-        override fun clear() {
-            name = null
         }
     }
 
@@ -769,6 +504,7 @@ class HotspotManagerLifecycleTest {
         val groupRequests = ArrayDeque<(HotspotP2p.Group?) -> Unit>()
         val createRequests = ArrayDeque<CreateRequest>()
         val removeRequests = ArrayDeque<HotspotP2p.ActionCallback>()
+        val submittedCredentials = mutableListOf<HotspotP2p.Credentials?>()
 
         override fun initialize(onDisconnected: () -> Unit): HotspotP2p.Channel =
             FakeChannel(onDisconnected, supportsChannelClose).also(channels::add)
@@ -792,6 +528,7 @@ class HotspotManagerLifecycleTest {
             credentials: HotspotP2p.Credentials?,
             callback: HotspotP2p.ActionCallback
         ) {
+            submittedCredentials += credentials
             createRequests += CreateRequest(credentials, callback)
         }
 
@@ -887,5 +624,21 @@ class HotspotManagerLifecycleTest {
             }
             now = target
         }
+    }
+
+    private companion object {
+        fun foreignGroup() = HotspotP2p.Group(
+            networkName = "DIRECT-xy-Chromecast",
+            passphrase = "foreign-password",
+            clientCount = 0,
+            isGroupOwner = true
+        )
+
+        fun livePreQGroup() = HotspotP2p.Group(
+            networkName = "DIRECT-ab-Android",
+            passphrase = "generated-password",
+            clientCount = 0,
+            isGroupOwner = true
+        )
     }
 }

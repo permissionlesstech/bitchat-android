@@ -19,15 +19,13 @@ class HotspotManager @VisibleForTesting internal constructor(
     private val p2p: HotspotP2p,
     private val platform: HotspotPlatform,
     private val scheduler: HotspotScheduler,
-    private val ownedGroups: OwnedGroupStore,
     private val random: SecureRandom = SecureRandom(),
     private val accessPointAddress: () -> String? = ::findAccessPointAddress
 ) {
     constructor(context: android.content.Context) : this(
         p2p = AndroidHotspotP2p(context.applicationContext),
         platform = AndroidHotspotPlatform(context.applicationContext),
-        scheduler = HandlerHotspotScheduler(),
-        ownedGroups = SharedPreferencesOwnedGroupStore(context.applicationContext)
+        scheduler = HandlerHotspotScheduler()
     )
 
     companion object {
@@ -37,13 +35,13 @@ class HotspotManager @VisibleForTesting internal constructor(
         private const val REMOVAL_VERIFY_INTERVAL_MILLIS = 500L
         private const val PREFLIGHT_REQUEST_TIMEOUT_MILLIS = 10_000L
         private const val GROUP_FORMATION_TIMEOUT_MILLIS = 15_000L
-        private const val STALE_REMOVAL_TIMEOUT_MILLIS = 10_000L
+        private const val EXISTING_REMOVAL_TIMEOUT_MILLIS = 10_000L
         private const val TEARDOWN_FORCE_CLOSE_MILLIS = 10_000L
         private const val CHANNEL_RECOVERY_RETRY_MILLIS = 1_000L
         private const val MAX_CHANNEL_RECOVERY_ATTEMPTS = 5
         private const val REQUIRED_ABSENCE_OBSERVATIONS = 2
-        private const val REQUIRED_OWNERSHIP_OBSERVATIONS = 2
 
+        private const val SSID_PREFIX = "DIRECT-BC-"
         private const val SSID_SUFFIX_LENGTH = 8
         private const val PASSWORD_LENGTH = 16
         private const val RANDOM_CHARS = "ABCDEFGHJKLMNPQRTUVWXY34679"
@@ -79,19 +77,17 @@ class HotspotManager @VisibleForTesting internal constructor(
         data class Creating(
             val session: Session,
             val attempt: Int,
-            val ownership: Ownership
+            val expectedGroupName: String?
         ) : Phase
 
         data class Forming(
             val session: Session,
-            val ownership: Ownership,
-            val candidateName: String? = null,
-            val candidateObservations: Int = 0
+            val expectedGroupName: String?
         ) : Phase
 
         data class Hosting(
             val session: Session,
-            val ownership: Ownership.Known,
+            val groupName: String,
             val group: HotspotP2p.Group,
             val absentObservations: Int = 0
         ) : Phase
@@ -110,32 +106,23 @@ class HotspotManager @VisibleForTesting internal constructor(
         data class Inspecting(val attempt: Int) : StartStep
         data class WaitingToRetry(val attempt: Int) : StartStep
 
-        data class RemovingStale(
-            val attempt: Int,
-            val groupName: String
-        ) : StartStep
+        data class RemovingExisting(val attempt: Int) : StartStep
 
-        data class AwaitingStaleAbsence(
+        data class AwaitingExistingAbsence(
             val attempt: Int,
-            val groupName: String,
-            val removalAccepted: Boolean,
+            val submission: RemovalSubmission,
             val absentObservations: Int = 0
         ) : StartStep
-    }
 
-    private sealed interface Ownership {
-        data class Known(val name: String) : Ownership
-
-        /**
-         * Android 8-9 chooses the group name. The accepted create command is the only
-         * ownership evidence until the first stable group observation supplies the name.
-         */
-        data object FrameworkGenerated : Ownership
+        enum class RemovalSubmission {
+            ACCEPTED,
+            REJECTED
+        }
     }
 
     private sealed interface Cleanup {
         data class AwaitingCreateResult(
-            val ownership: Ownership
+            val expectedGroupName: String?
         ) : Cleanup
 
         /**
@@ -145,26 +132,23 @@ class HotspotManager @VisibleForTesting internal constructor(
          * invalid combinations such as "removal accepted but still awaiting formation".
          */
         enum class Inspection {
-            LOCATE_OWNED_GROUP,
+            LOCATE_SESSION_GROUP,
             AWAIT_POSSIBLE_FORMATION,
-            VERIFY_REMOVAL,
-            VERIFY_AFTER_CHANNEL_CLOSE
+            VERIFY_REMOVAL
         }
 
         data class Inspecting(
-            val ownership: Ownership,
+            val expectedGroupName: String?,
             val purpose: Inspection,
-            val absentObservations: Int = 0,
-            val candidateName: String? = null,
-            val candidateObservations: Int = 0
+            val absentObservations: Int = 0
         ) : Cleanup
 
         data class Removing(
-            val ownership: Ownership
+            val expectedGroupName: String?
         ) : Cleanup
 
         data class RecoveringChannel(
-            val ownership: Ownership,
+            val expectedGroupName: String?,
             val attempt: Int
         ) : Cleanup
     }
@@ -173,7 +157,8 @@ class HotspotManager @VisibleForTesting internal constructor(
         val id: Long,
         var channel: HotspotP2p.Channel,
         val callback: HotspotCallback,
-        val credentials: HotspotP2p.Credentials
+        val credentials: HotspotP2p.Credentials,
+        val existingGroupPolicy: ExistingGroupPolicy
     ) {
         val tasks = mutableListOf<HotspotScheduler.Task>()
         val teardownCallbacks = mutableListOf<() -> Unit>()
@@ -192,7 +177,10 @@ class HotspotManager @VisibleForTesting internal constructor(
     private var nextSessionId = 1L
     private var lastP2pState: Int? = null
 
-    fun startHotspot(callback: HotspotCallback) {
+    fun startHotspot(
+        callback: HotspotCallback,
+        existingGroupPolicy: ExistingGroupPolicy = ExistingGroupPolicy.REQUIRE_CONFIRMATION
+    ) {
         if (phase !is Phase.Idle && phase !is Phase.Closed) {
             Log.w(TAG, "Ignoring start while lifecycle is ${phase.javaClass.simpleName}")
             return
@@ -230,7 +218,7 @@ class HotspotManager @VisibleForTesting internal constructor(
             return
         }
 
-        val session = createSession(callback) ?: run {
+        val session = createSession(callback, existingGroupPolicy) ?: run {
             platform.deactivate()
             callback.onError(HotspotError.P2P_UNSUPPORTED)
             return
@@ -258,41 +246,17 @@ class HotspotManager @VisibleForTesting internal constructor(
 
             is Phase.Starting -> {
                 onTeardownComplete?.let(current.session.teardownCallbacks::add)
-                when (val step = current.step) {
-                    is StartStep.RemovingStale ->
-                        beginStopping(
-                            session = current.session,
-                            cleanup = Cleanup.Inspecting(
-                                ownership = Ownership.Known(step.groupName),
-                                purpose = Cleanup.Inspection.LOCATE_OWNED_GROUP
-                            ),
-                            pendingError = null
-                        )
-
-                    is StartStep.AwaitingStaleAbsence ->
-                        beginStopping(
-                            session = current.session,
-                            cleanup = Cleanup.Inspecting(
-                                ownership = Ownership.Known(step.groupName),
-                                purpose = if (step.removalAccepted) {
-                                    Cleanup.Inspection.VERIFY_REMOVAL
-                                } else {
-                                    Cleanup.Inspection.LOCATE_OWNED_GROUP
-                                },
-                                absentObservations = step.absentObservations
-                            ),
-                            pendingError = null
-                        )
-
-                    else -> finishSession(current.session)
-                }
+                // No create command has been submitted in Starting. A replacement removal
+                // already authorized by the user may still complete, but there is no group
+                // created by this session that teardown needs to own.
+                finishSession(current.session)
             }
 
             is Phase.Creating -> {
                 onTeardownComplete?.let(current.session.teardownCallbacks::add)
                 beginStopping(
                     session = current.session,
-                    cleanup = Cleanup.AwaitingCreateResult(current.ownership),
+                    cleanup = Cleanup.AwaitingCreateResult(current.expectedGroupName),
                     pendingError = null
                 )
             }
@@ -302,10 +266,8 @@ class HotspotManager @VisibleForTesting internal constructor(
                 beginStopping(
                     session = current.session,
                     cleanup = Cleanup.Inspecting(
-                        ownership = current.ownership,
-                        purpose = Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION,
-                        candidateName = current.candidateName,
-                        candidateObservations = current.candidateObservations
+                        expectedGroupName = current.expectedGroupName,
+                        purpose = Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION
                     ),
                     pendingError = null
                 )
@@ -316,8 +278,8 @@ class HotspotManager @VisibleForTesting internal constructor(
                 beginStopping(
                     session = current.session,
                     cleanup = Cleanup.Inspecting(
-                        ownership = current.ownership,
-                        purpose = Cleanup.Inspection.LOCATE_OWNED_GROUP
+                        expectedGroupName = current.groupName,
+                        purpose = Cleanup.Inspection.LOCATE_SESSION_GROUP
                     ),
                     pendingError = null
                 )
@@ -341,7 +303,10 @@ class HotspotManager @VisibleForTesting internal constructor(
         Phase.Closed -> "Closed"
     }
 
-    private fun createSession(callback: HotspotCallback): Session? {
+    private fun createSession(
+        callback: HotspotCallback,
+        existingGroupPolicy: ExistingGroupPolicy
+    ): Session? {
         var session: Session? = null
         val generation = 0L
         val channel = try {
@@ -360,7 +325,8 @@ class HotspotManager @VisibleForTesting internal constructor(
             credentials = HotspotP2p.Credentials(
                 networkName = generateSsid(),
                 passphrase = generatePassword()
-            )
+            ),
+            existingGroupPolicy = existingGroupPolicy
         )
         session = created
         return created
@@ -395,27 +361,16 @@ class HotspotManager @VisibleForTesting internal constructor(
         try {
             p2p.requestGroup(session.channel) { group ->
                 if (phase !== expected) return@requestGroup
-                if (group != null && !group.isGroupOwner) {
-                    fail(HotspotError.FOREIGN_GROUP_ACTIVE)
-                    return@requestGroup
-                }
-                when (
-                    val action = HotspotStartupPolicy.startAction(
-                        p2pState = lastP2pState,
-                        existingGroupName = group?.networkName,
-                        ownedGroupName = ownedGroups.readName()
-                    )
-                ) {
-                    is HotspotStartupPolicy.StartAction.Fail -> fail(action.error)
-                    HotspotStartupPolicy.StartAction.Create -> createGroup(session, attempt)
-                    HotspotStartupPolicy.StartAction.RemoveStaleGroupThenCreate -> {
-                        val name = group?.networkName ?: ownedGroups.readName()
-                        if (name == null) {
-                            createGroup(session, attempt)
-                        } else {
-                            removeStaleGroup(session, attempt, name)
-                        }
-                    }
+                when {
+                    lastP2pState == WifiP2pManager.WIFI_P2P_STATE_DISABLED ->
+                        fail(HotspotError.P2P_DISABLED)
+
+                    group == null -> createGroup(session, attempt)
+
+                    session.existingGroupPolicy == ExistingGroupPolicy.REQUIRE_CONFIRMATION ->
+                        reportExistingGroupConflict(session)
+
+                    else -> removeExistingGroup(session, attempt)
                 }
             }
         } catch (e: SecurityException) {
@@ -434,58 +389,54 @@ class HotspotManager @VisibleForTesting internal constructor(
         }
     }
 
-    private fun removeStaleGroup(session: Session, attempt: Int, groupName: String) {
+    private fun removeExistingGroup(session: Session, attempt: Int) {
         val expected = Phase.Starting(
             session,
-            StartStep.RemovingStale(attempt, groupName)
+            StartStep.RemovingExisting(attempt)
         )
         phase = expected
-        scheduleStaleRemovalDeadline(session, groupName)
+        scheduleExistingRemovalDeadline(session)
 
         try {
             p2p.removeGroup(session.channel, object : HotspotP2p.ActionCallback {
                 override fun onAccepted() {
                     if (phase !== expected) return
-                    awaitStaleGroupAbsence(
+                    awaitExistingGroupAbsence(
                         session = session,
                         attempt = attempt,
-                        groupName = groupName,
-                        removalAccepted = true
+                        submission = StartStep.RemovalSubmission.ACCEPTED
                     )
                 }
 
                 override fun onRejected(reason: Int) {
                     if (phase !== expected) return
-                    Log.w(TAG, "Stale group removal command rejected: $reason")
-                    awaitStaleGroupAbsence(
+                    Log.w(TAG, "Existing group removal command rejected: $reason")
+                    awaitExistingGroupAbsence(
                         session = session,
                         attempt = attempt,
-                        groupName = groupName,
-                        removalAccepted = false
+                        submission = StartStep.RemovalSubmission.REJECTED
                     )
                 }
             })
         } catch (e: SecurityException) {
             fail(HotspotError.PERMISSION_REVOKED)
         } catch (e: RuntimeException) {
-            Log.e(TAG, "Failed to submit stale group removal", e)
+            Log.e(TAG, "Failed to submit existing group removal", e)
             fail(HotspotError.START_FAILED)
         }
     }
 
-    private fun awaitStaleGroupAbsence(
+    private fun awaitExistingGroupAbsence(
         session: Session,
         attempt: Int,
-        groupName: String,
-        removalAccepted: Boolean,
+        submission: StartStep.RemovalSubmission,
         absentObservations: Int = 0
     ) {
         val expected = Phase.Starting(
             session,
-            StartStep.AwaitingStaleAbsence(
+            StartStep.AwaitingExistingAbsence(
                 attempt = attempt,
-                groupName = groupName,
-                removalAccepted = removalAccepted,
+                submission = submission,
                 absentObservations = absentObservations
             )
         )
@@ -494,61 +445,36 @@ class HotspotManager @VisibleForTesting internal constructor(
         try {
             p2p.requestGroup(session.channel) { group ->
                 if (phase !== expected) return@requestGroup
-                val actualName = group?.networkName
                 when {
-                    group != null && !group.isGroupOwner -> {
-                        ownedGroups.clear()
-                        fail(HotspotError.FOREIGN_GROUP_ACTIVE)
-                    }
-
-                    actualName != null && actualName != groupName -> {
-                        ownedGroups.clear()
-                        fail(HotspotError.FOREIGN_GROUP_ACTIVE)
-                    }
-
                     group == null -> {
                         val observations = absentObservations + 1
                         if (observations >= REQUIRED_ABSENCE_OBSERVATIONS) {
-                            ownedGroups.clear()
                             createGroup(session, attempt)
                         } else {
                             schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
-                                awaitStaleGroupAbsence(
+                                awaitExistingGroupAbsence(
                                     session,
                                     attempt,
-                                    groupName,
-                                    removalAccepted,
+                                    submission,
                                     observations
                                 )
                             }
                         }
                     }
 
-                    actualName == null -> {
+                    submission == StartStep.RemovalSubmission.ACCEPTED -> {
                         schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
-                            awaitStaleGroupAbsence(
+                            awaitExistingGroupAbsence(
                                 session,
                                 attempt,
-                                groupName,
-                                removalAccepted
-                            )
-                        }
-                    }
-
-                    removalAccepted -> {
-                        schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
-                            awaitStaleGroupAbsence(
-                                session,
-                                attempt,
-                                groupName,
-                                removalAccepted = true
+                                submission = StartStep.RemovalSubmission.ACCEPTED
                             )
                         }
                     }
 
                     else -> {
                         schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
-                            removeStaleGroup(session, attempt, groupName)
+                            removeExistingGroup(session, attempt)
                         }
                     }
                 }
@@ -556,35 +482,29 @@ class HotspotManager @VisibleForTesting internal constructor(
         } catch (e: SecurityException) {
             fail(HotspotError.PERMISSION_REVOKED)
         } catch (e: RuntimeException) {
-            Log.e(TAG, "Failed while verifying stale group removal", e)
+            Log.e(TAG, "Failed while verifying existing group removal", e)
             fail(HotspotError.START_FAILED)
         }
     }
 
-    private fun scheduleStaleRemovalDeadline(session: Session, groupName: String) {
-        schedule(session, STALE_REMOVAL_TIMEOUT_MILLIS) {
+    private fun scheduleExistingRemovalDeadline(session: Session) {
+        schedule(session, EXISTING_REMOVAL_TIMEOUT_MILLIS) {
             val current = phase as? Phase.Starting ?: return@schedule
             if (current.session !== session) return@schedule
-            val stillRemovingName = when (val step = current.step) {
-                is StartStep.RemovingStale -> step.groupName
-                is StartStep.AwaitingStaleAbsence -> step.groupName
-                else -> null
-            }
-            if (stillRemovingName == groupName) {
-                fail(HotspotError.STALE_GROUP_REMOVAL_FAILED)
+            if (
+                current.step is StartStep.RemovingExisting ||
+                current.step is StartStep.AwaitingExistingAbsence
+            ) {
+                fail(HotspotError.EXISTING_GROUP_REMOVAL_FAILED)
             }
         }
     }
 
     private fun createGroup(session: Session, attempt: Int) {
-        val ownership = if (p2p.supportsCustomCredentials) {
-            ownedGroups.saveName(session.credentials.networkName)
-            Ownership.Known(session.credentials.networkName)
-        } else {
-            Ownership.FrameworkGenerated
-        }
+        val expectedGroupName =
+            session.credentials.networkName.takeIf { p2p.supportsCustomCredentials }
 
-        val expected = Phase.Creating(session, attempt, ownership)
+        val expected = Phase.Creating(session, attempt, expectedGroupName)
         phase = expected
         try {
             p2p.createGroup(
@@ -593,7 +513,7 @@ class HotspotManager @VisibleForTesting internal constructor(
                 callback = object : HotspotP2p.ActionCallback {
                     override fun onAccepted() {
                         when (val current = phase) {
-                            expected -> beginFormation(session, ownership)
+                            expected -> beginFormation(session, expectedGroupName)
                             is Phase.Stopping -> {
                                 if (
                                     current.session === session &&
@@ -601,7 +521,7 @@ class HotspotManager @VisibleForTesting internal constructor(
                                 ) {
                                     val next = current.copy(
                                         cleanup = Cleanup.Inspecting(
-                                            ownership = ownership,
+                                            expectedGroupName = expectedGroupName,
                                             purpose =
                                                 Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION
                                         )
@@ -634,12 +554,10 @@ class HotspotManager @VisibleForTesting internal constructor(
                 }
             )
         } catch (e: SecurityException) {
-            clearMarker(ownership)
             if (phase === expected) {
                 finishSession(session, HotspotError.PERMISSION_REVOKED)
             }
         } catch (e: RuntimeException) {
-            clearMarker(ownership)
             Log.e(TAG, "Failed to submit group creation", e)
             if (phase === expected) {
                 finishSession(session, HotspotError.START_FAILED)
@@ -660,7 +578,6 @@ class HotspotManager @VisibleForTesting internal constructor(
             )
         ) {
             is HotspotStartupPolicy.Decision.Retry -> {
-                clearMarker(creating.ownership)
                 val nextAttempt = creating.attempt + 1
                 val waiting = Phase.Starting(
                     session,
@@ -674,14 +591,13 @@ class HotspotManager @VisibleForTesting internal constructor(
             }
 
             is HotspotStartupPolicy.Decision.Fail -> {
-                clearMarker(creating.ownership)
                 finishSession(session, decision.error)
             }
         }
     }
 
-    private fun beginFormation(session: Session, ownership: Ownership) {
-        val forming = Phase.Forming(session, ownership)
+    private fun beginFormation(session: Session, expectedGroupName: String?) {
+        val forming = Phase.Forming(session, expectedGroupName)
         phase = forming
         pollFormation(forming, delayMillis = 0L)
         schedule(session, GROUP_FORMATION_TIMEOUT_MILLIS) {
@@ -716,59 +632,27 @@ class HotspotManager @VisibleForTesting internal constructor(
             return
         }
         if (!group.isGroupOwner) {
-            clearMarker(forming.ownership)
-            finishSession(
-                forming.session,
-                HotspotError.FOREIGN_GROUP_ACTIVE
-            )
+            handleUnexpectedGroup(forming.session)
             return
         }
 
-        when (val ownership = forming.ownership) {
-            is Ownership.Known -> {
-                if (name != ownership.name) {
-                    clearMarker(ownership)
-                    finishSession(
-                        forming.session,
-                        HotspotError.FOREIGN_GROUP_ACTIVE
-                    )
-                    return
-                }
-                enterHosting(forming.session, ownership, group)
-            }
-
-            Ownership.FrameworkGenerated -> {
-                if (forming.candidateName != null && forming.candidateName != name) {
-                    ownedGroups.clear()
-                    finishSession(
-                        forming.session,
-                        HotspotError.FOREIGN_GROUP_ACTIVE
-                    )
-                    return
-                }
-                val observations = forming.candidateObservations + 1
-                if (observations >= REQUIRED_OWNERSHIP_OBSERVATIONS) {
-                    val known = Ownership.Known(name)
-                    ownedGroups.saveName(name)
-                    enterHosting(forming.session, known, group)
-                } else {
-                    val next = forming.copy(
-                        candidateName = name,
-                        candidateObservations = observations
-                    )
-                    phase = next
-                    pollFormation(next, GROUP_INFO_POLL_INTERVAL_MILLIS)
-                }
-            }
+        if (forming.expectedGroupName != null && name != forming.expectedGroupName) {
+            handleUnexpectedGroup(forming.session)
+            return
         }
+
+        // Android 8-9 chooses the name. Because preflight observed no group and this
+        // snapshot follows our accepted create command, the first owner group is the
+        // live session identity. It is never persisted across process death.
+        enterHosting(forming.session, name, group)
     }
 
     private fun enterHosting(
         session: Session,
-        ownership: Ownership.Known,
+        groupName: String,
         group: HotspotP2p.Group
     ) {
-        val hosting = Phase.Hosting(session, ownership, group)
+        val hosting = Phase.Hosting(session, groupName, group)
         phase = hosting
         session.callback.onHotspotStarted()
         pollHosting(hosting, GROUP_INFO_POLL_INTERVAL_MILLIS)
@@ -797,7 +681,6 @@ class HotspotManager @VisibleForTesting internal constructor(
             group == null -> {
                 val observations = hosting.absentObservations + 1
                 if (observations >= REQUIRED_ABSENCE_OBSERVATIONS) {
-                    clearMarker(hosting.ownership)
                     finishSession(hosting.session, HotspotError.GROUP_LOST)
                 } else {
                     val next = hosting.copy(absentObservations = observations)
@@ -806,8 +689,7 @@ class HotspotManager @VisibleForTesting internal constructor(
                 }
             }
 
-            name != hosting.ownership.name || !group.isGroupOwner -> {
-                clearMarker(hosting.ownership)
+            name != hosting.groupName || !group.isGroupOwner -> {
                 finishSession(hosting.session, HotspotError.GROUP_LOST)
             }
 
@@ -863,23 +745,20 @@ class HotspotManager @VisibleForTesting internal constructor(
         group: HotspotP2p.Group?
     ) {
         val actualName = group?.networkName
-        val known = cleanup.ownership as? Ownership.Known
 
         if (group != null) {
             if (!group.isGroupOwner) {
-                known?.let(::clearMarker)
                 finishSession(stopping.session, stopping.pendingError)
                 return
             }
-            if (known != null) {
+            if (cleanup.expectedGroupName != null) {
                 when {
                     actualName == null -> {
                         scheduleCleanupInspection(stopping, cleanup)
                         return
                     }
 
-                    actualName != known.name -> {
-                        clearMarker(known)
+                    actualName != cleanup.expectedGroupName -> {
                         finishSession(stopping.session, stopping.pendingError)
                         return
                     }
@@ -898,7 +777,6 @@ class HotspotManager @VisibleForTesting internal constructor(
 
             val observations = cleanup.absentObservations + 1
             if (observations >= REQUIRED_ABSENCE_OBSERVATIONS) {
-                clearMarker(cleanup.ownership)
                 finishSession(stopping.session, stopping.pendingError)
             } else {
                 val next = stopping.copy(
@@ -912,49 +790,21 @@ class HotspotManager @VisibleForTesting internal constructor(
             return
         }
 
-        if (
-            cleanup.ownership is Ownership.FrameworkGenerated &&
-            cleanup.purpose == Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
-        ) {
-            // Closing the original pre-Q channel cancels our only evidence that a later
-            // group belongs to this session. A group seen only on the verification channel
-            // may have been created by another app and must never be adopted or removed.
-            ownedGroups.clear()
-            finishSession(stopping.session, stopping.pendingError)
+        val observedName = actualName
+        if (observedName == null) {
+            scheduleCleanupInspection(stopping, cleanup)
             return
         }
 
-        val observedOwnership = if (cleanup.ownership is Ownership.FrameworkGenerated) {
-            val name = actualName
-            if (name == null) {
-                scheduleCleanupInspection(stopping, cleanup)
-                return
-            }
-            if (cleanup.candidateName != null && cleanup.candidateName != name) {
-                ownedGroups.clear()
-                finishSession(stopping.session, stopping.pendingError)
-                return
-            }
-            val observations = cleanup.candidateObservations + 1
-            if (observations < REQUIRED_OWNERSHIP_OBSERVATIONS) {
-                scheduleCleanupInspection(
-                    stopping,
-                    cleanup.copy(
-                        candidateName = name,
-                        candidateObservations = observations
-                    )
-                )
-                return
-            }
-            Ownership.Known(name).also { ownedGroups.saveName(name) }
-        } else {
-            cleanup.ownership
-        }
+        // Pre-Q does not let us choose the name. An accepted create command following an
+        // empty preflight is the session's ownership evidence; the observed name then
+        // protects teardown from removing a later replacement group.
+        val expectedName = cleanup.expectedGroupName ?: observedName
 
         if (cleanup.purpose == Cleanup.Inspection.VERIFY_REMOVAL) {
             val next = stopping.copy(
                 cleanup = cleanup.copy(
-                    ownership = observedOwnership,
+                    expectedGroupName = expectedName,
                     absentObservations = 0
                 )
             )
@@ -963,11 +813,10 @@ class HotspotManager @VisibleForTesting internal constructor(
                 inspectCleanup(next)
             }
         } else {
+            val nextCleanup = cleanup.copy(expectedGroupName = expectedName)
             issueRemoval(
-                stopping.copy(
-                    cleanup = cleanup.copy(ownership = observedOwnership)
-                ),
-                cleanup.copy(ownership = observedOwnership)
+                stopping.copy(cleanup = nextCleanup),
+                nextCleanup
             )
         }
     }
@@ -989,7 +838,7 @@ class HotspotManager @VisibleForTesting internal constructor(
     ) {
         val removing = stopping.copy(
             cleanup = Cleanup.Removing(
-                ownership = cleanup.ownership
+                expectedGroupName = cleanup.expectedGroupName
             )
         )
         phase = removing
@@ -1000,7 +849,7 @@ class HotspotManager @VisibleForTesting internal constructor(
                     if (phase !== removing) return
                     val next = removing.copy(
                         cleanup = Cleanup.Inspecting(
-                            ownership = cleanup.ownership,
+                            expectedGroupName = cleanup.expectedGroupName,
                             purpose = Cleanup.Inspection.VERIFY_REMOVAL
                         )
                     )
@@ -1015,7 +864,7 @@ class HotspotManager @VisibleForTesting internal constructor(
                     Log.w(TAG, "Group removal command rejected: $reason")
                     val next = removing.copy(
                         cleanup = Cleanup.Inspecting(
-                            ownership = cleanup.ownership,
+                            expectedGroupName = cleanup.expectedGroupName,
                             purpose = cleanup.purpose
                         )
                     )
@@ -1050,15 +899,15 @@ class HotspotManager @VisibleForTesting internal constructor(
             return
         }
 
-        val ownership = when (val cleanup = stopping.cleanup) {
-            is Cleanup.AwaitingCreateResult -> cleanup.ownership
-            is Cleanup.Inspecting -> cleanup.ownership
-            is Cleanup.Removing -> cleanup.ownership
+        val expectedGroupName = when (val cleanup = stopping.cleanup) {
+            is Cleanup.AwaitingCreateResult -> cleanup.expectedGroupName
+            is Cleanup.Inspecting -> cleanup.expectedGroupName
+            is Cleanup.Removing -> cleanup.expectedGroupName
             is Cleanup.RecoveringChannel -> return
         }
         val recovering = Phase.Stopping(
             session = session,
-            cleanup = Cleanup.RecoveringChannel(ownership, nextAttempt),
+            cleanup = Cleanup.RecoveringChannel(expectedGroupName, nextAttempt),
             pendingError = stopping.pendingError
         )
         phase = recovering
@@ -1077,7 +926,7 @@ class HotspotManager @VisibleForTesting internal constructor(
 
         recoverCleanupChannel(
             session = session,
-            ownership = ownership,
+            expectedGroupName = expectedGroupName,
             pendingError = stopping.pendingError,
             attempt = nextAttempt
         )
@@ -1128,13 +977,13 @@ class HotspotManager @VisibleForTesting internal constructor(
 
     private fun recoverCleanupChannel(
         session: Session,
-        ownership: Ownership,
+        expectedGroupName: String?,
         pendingError: HotspotError?,
         attempt: Int
     ) {
         val recovering = Phase.Stopping(
             session = session,
-            cleanup = Cleanup.RecoveringChannel(ownership, attempt),
+            cleanup = Cleanup.RecoveringChannel(expectedGroupName, attempt),
             pendingError = pendingError
         )
         phase = recovering
@@ -1156,8 +1005,8 @@ class HotspotManager @VisibleForTesting internal constructor(
             session.channelClosed = false
             val verifying = recovering.copy(
                 cleanup = Cleanup.Inspecting(
-                    ownership = ownership,
-                    purpose = Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
+                    expectedGroupName = expectedGroupName,
+                    purpose = Cleanup.Inspection.LOCATE_SESSION_GROUP
                 )
             )
             phase = verifying
@@ -1188,7 +1037,7 @@ class HotspotManager @VisibleForTesting internal constructor(
             if (current.session === session && recovery.attempt == attempt) {
                 session.cleanupRecoveryAttempt = attempt + 1
                 session.channelGeneration++
-                recoverCleanupChannel(session, ownership, pendingError, attempt + 1)
+                recoverCleanupChannel(session, expectedGroupName, pendingError, attempt + 1)
             }
         }
     }
@@ -1197,39 +1046,12 @@ class HotspotManager @VisibleForTesting internal constructor(
         when (val current = phase) {
             Phase.Idle, Phase.Closed -> Unit
 
-            is Phase.Starting -> when (val step = current.step) {
-                is StartStep.RemovingStale ->
-                    beginStopping(
-                        current.session,
-                        Cleanup.Inspecting(
-                            ownership = Ownership.Known(step.groupName),
-                            purpose = Cleanup.Inspection.LOCATE_OWNED_GROUP
-                        ),
-                        error
-                    )
-
-                is StartStep.AwaitingStaleAbsence ->
-                    beginStopping(
-                        current.session,
-                        Cleanup.Inspecting(
-                            ownership = Ownership.Known(step.groupName),
-                            purpose = if (step.removalAccepted) {
-                                Cleanup.Inspection.VERIFY_REMOVAL
-                            } else {
-                                Cleanup.Inspection.LOCATE_OWNED_GROUP
-                            },
-                            absentObservations = step.absentObservations
-                        ),
-                        error
-                    )
-
-                else -> finishSession(current.session, error)
-            }
+            is Phase.Starting -> finishSession(current.session, error)
 
             is Phase.Creating ->
                 beginStopping(
                     current.session,
-                    Cleanup.AwaitingCreateResult(current.ownership),
+                    Cleanup.AwaitingCreateResult(current.expectedGroupName),
                     error
                 )
 
@@ -1237,10 +1059,8 @@ class HotspotManager @VisibleForTesting internal constructor(
                 beginStopping(
                     current.session,
                     Cleanup.Inspecting(
-                        ownership = current.ownership,
-                        purpose = Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION,
-                        candidateName = current.candidateName,
-                        candidateObservations = current.candidateObservations
+                        expectedGroupName = current.expectedGroupName,
+                        purpose = Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION
                     ),
                     error
                 )
@@ -1249,8 +1069,8 @@ class HotspotManager @VisibleForTesting internal constructor(
                 beginStopping(
                     current.session,
                     Cleanup.Inspecting(
-                        ownership = current.ownership,
-                        purpose = Cleanup.Inspection.LOCATE_OWNED_GROUP
+                        expectedGroupName = current.groupName,
+                        purpose = Cleanup.Inspection.LOCATE_SESSION_GROUP
                     ),
                     error
                 )
@@ -1287,7 +1107,6 @@ class HotspotManager @VisibleForTesting internal constructor(
      * because that release has no Channel.close().
      */
     private fun finishAfterP2pDisabled(session: Session, error: HotspotError?) {
-        ownedGroups.clear()
         finishSession(session, error)
     }
 
@@ -1296,12 +1115,11 @@ class HotspotManager @VisibleForTesting internal constructor(
             is Phase.Forming -> pollFormation(current, delayMillis = 0L)
             is Phase.Hosting -> pollHosting(current, delayMillis = 0L)
             is Phase.Starting -> {
-                val step = current.step as? StartStep.AwaitingStaleAbsence ?: return
-                awaitStaleGroupAbsence(
+                val step = current.step as? StartStep.AwaitingExistingAbsence ?: return
+                awaitExistingGroupAbsence(
                     session = current.session,
                     attempt = step.attempt,
-                    groupName = step.groupName,
-                    removalAccepted = step.removalAccepted,
+                    submission = step.submission,
                     absentObservations = step.absentObservations
                 )
             }
@@ -1329,6 +1147,20 @@ class HotspotManager @VisibleForTesting internal constructor(
             }
             else -> fail(HotspotError.P2P_SERVICE_DISCONNECTED)
         }
+    }
+
+    private fun handleUnexpectedGroup(session: Session) {
+        if (session.existingGroupPolicy == ExistingGroupPolicy.REQUIRE_CONFIRMATION) {
+            reportExistingGroupConflict(session)
+        } else {
+            finishSession(session, HotspotError.P2P_BUSY)
+        }
+    }
+
+    private fun reportExistingGroupConflict(session: Session) {
+        if (currentSession() !== session) return
+        finishSession(session)
+        session.callback.onExistingGroupConflict()
     }
 
     private fun finishSession(
@@ -1384,13 +1216,6 @@ class HotspotManager @VisibleForTesting internal constructor(
         session.tasks += task
     }
 
-    private fun clearMarker(ownership: Ownership) {
-        val known = ownership as? Ownership.Known ?: return
-        if (ownedGroups.readName() == known.name) {
-            ownedGroups.clear()
-        }
-    }
-
     private fun connectionInfo(
         group: HotspotP2p.Group,
         session: Session
@@ -1402,7 +1227,7 @@ class HotspotManager @VisibleForTesting internal constructor(
     )
 
     private fun generateSsid(): String =
-        HotspotStartupPolicy.SSID_PREFIX + randomString(SSID_SUFFIX_LENGTH)
+        SSID_PREFIX + randomString(SSID_SUFFIX_LENGTH)
 
     private fun generatePassword(): String = randomString(PASSWORD_LENGTH)
 
@@ -1420,9 +1245,15 @@ class HotspotManager @VisibleForTesting internal constructor(
         val connectedPeers: Int
     )
 
+    enum class ExistingGroupPolicy {
+        REQUIRE_CONFIRMATION,
+        REPLACE
+    }
+
     interface HotspotCallback {
         fun onHotspotStarted()
         fun onConnectionInfoUpdated(info: ConnectionInfo?)
+        fun onExistingGroupConflict()
         fun onError(error: HotspotError)
     }
 }

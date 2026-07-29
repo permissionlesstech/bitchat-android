@@ -234,16 +234,18 @@
   <string name="hotspot_error_preparation">Unable to prepare the Wi-Fi Direct hotspot.</string>
   <string name="hotspot_error_permission_revoked">A required Wi-Fi or local network permission was revoked. Grant it and try again.</string>
   <string name="hotspot_error_p2p_disabled">Wi-Fi Direct is unavailable. Turn Wi-Fi off and back on, then try again.</string>
-  <string name="hotspot_error_foreign_group">Another app is using Wi-Fi Direct. Close it and try again.</string>
   <string name="hotspot_error_p2p_busy">Wi-Fi Direct is busy. Please try again in a moment.</string>
   <string name="hotspot_error_start_failed">Failed to start the hotspot. Please try again.</string>
   <string name="hotspot_error_preflight_timeout">Wi-Fi Direct did not respond. Please try again.</string>
-  <string name="hotspot_error_stale_group_removal">The previous Wi-Fi Direct group could not be removed. Please try again.</string>
+  <string name="hotspot_error_existing_group_removal">The active Wi-Fi Direct connection could not be disconnected. Please try again.</string>
   <string name="hotspot_error_group_lost">The Wi-Fi Direct hotspot disconnected. Please try again.</string>
   <string name="hotspot_error_service_disconnected">The Wi-Fi Direct service disconnected. Please try again.</string>
   <string name="hotspot_error_connection_info">Failed to get hotspot connection info.</string>
   <string name="hotspot_error_web_server">Failed to start the hotspot web server.</string>
   <string name="hotspot_error_unknown">The hotspot could not be started. Please try again.</string>
+  <string name="hotspot_disconnect_title">Disconnect current Wi-Fi Direct connection?</string>
+  <string name="hotspot_disconnect_message">Starting the hotspot will disconnect the current Wi-Fi Direct connection. This may interrupt Cast, Android Auto, Quick Share, or another nearby connection.</string>
+  <string name="hotspot_disconnect_confirm">Disconnect and start</string>
 
   <!-- APK Installation -->
   <string name="install_bitchat_title">Install Received APK</string>

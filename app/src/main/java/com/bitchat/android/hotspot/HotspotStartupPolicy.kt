@@ -13,51 +13,10 @@ internal object HotspotStartupPolicy {
     const val INITIAL_RETRY_DELAY_MILLIS = 1_000L
     const val MAX_RETRY_DELAY_MILLIS = 8_000L
 
-    /** Marks groups this app creates. Shared with [HotspotManager] so the two cannot drift. */
-    const val SSID_PREFIX = "DIRECT-BC-" // BC for BitChat
-
     sealed interface Decision {
         data class Retry(val delayMillis: Long) : Decision
         data class Fail(val error: HotspotError) : Decision
     }
-
-    sealed interface StartAction {
-        data object Create : StartAction
-        data object RemoveStaleGroupThenCreate : StartAction
-        data class Fail(val error: HotspotError) : StartAction
-    }
-
-    /**
-     * Decides what to do before the first group-creation attempt.
-     *
-     * A P2P group outlives the process that created it, so an app killed while
-     * hosting leaves an orphan behind. The framework rejects createGroup with BUSY
-     * while any group exists, and no amount of retrying clears it.
-     *
-     * Wi-Fi Direct is shared with Cast, Android Auto and Quick Share, so only groups
-     * we can show are ours get torn down.
-     *
-     * @param existingGroupName network name of the group already present, or null
-     * @param ownedGroupName last group name this app recorded creating, or null
-     */
-    fun startAction(
-        p2pState: Int?,
-        existingGroupName: String?,
-        ownedGroupName: String?
-    ): StartAction = when {
-        p2pState == WifiP2pManager.WIFI_P2P_STATE_DISABLED ->
-            StartAction.Fail(HotspotError.P2P_DISABLED)
-        existingGroupName == null -> StartAction.Create
-        isOurs(existingGroupName, ownedGroupName) -> StartAction.RemoveStaleGroupThenCreate
-        else -> StartAction.Fail(HotspotError.FOREIGN_GROUP_ACTIVE)
-    }
-
-    /**
-     * Primary signal is the name we recorded creating. The SSID prefix is only a
-     * fallback, covering orphans left by builds that predate that record.
-     */
-    private fun isOurs(existingGroupName: String, ownedGroupName: String?): Boolean =
-        existingGroupName == ownedGroupName || existingGroupName.startsWith(SSID_PREFIX)
 
     /**
      * @param reason a [WifiP2pManager] failure reason from `ActionListener.onFailure`
