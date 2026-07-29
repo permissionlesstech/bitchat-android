@@ -196,7 +196,12 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
 
     private fun onCancelDownload() {
         downloader.cancelDownload()
-        checkStatus()
+
+        // Nothing else will move the UI off the spinner. checkStatus() refuses to
+        // overwrite a Downloading state, and the Idle that WorkManager reports for a
+        // cancelled job is ignored for the same reason -- both guards protect a job
+        // that is still running, which this one is not.
+        checkStatus(force = true)
     }
 
     private fun startDownload() {
@@ -210,21 +215,26 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
         downloader.startDownload()
     }
 
-    private fun checkStatus() {
+    /**
+     * @param force resolve even while the state says Downloading. Only cancellation
+     *   should pass true: the guard below exists so a running job is never second-guessed
+     *   from cache contents, but a cancelled one has no other route out of that state.
+     */
+    private fun checkStatus(force: Boolean = false) {
         viewModelScope.launch {
             // WorkManager is the source of truth for active work. A queued or
             // newly started job legitimately has no partial file yet, so never
             // infer that it is orphaned from cache contents.
-            if (_state.value.apkStatus is ApkPreparationStatus.Downloading) {
+            if (!force && _state.value.apkStatus is ApkPreparationStatus.Downloading) {
                 return@launch
             }
 
             val resolvedStatus = resolveApkStatus()
             _state.update { current ->
-                if (current.apkStatus is ApkPreparationStatus.Downloading) {
+                if (!force && current.apkStatus is ApkPreparationStatus.Downloading) {
                     current
                 } else {
-                    current.copy(apkStatus = resolvedStatus)
+                    current.copy(apkStatus = resolvedStatus, downloadProgress = 0)
                 }
             }
         }
