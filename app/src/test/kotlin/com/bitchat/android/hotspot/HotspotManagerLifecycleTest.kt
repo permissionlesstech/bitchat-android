@@ -220,6 +220,36 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `forced pre Q cleanup never adopts a group from the verification channel`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false
+            )
+        )
+        var completed = 0
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.manager.stopHotspot { completed++ }
+        fixture.scheduler.advanceBy(10_000)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group(
+                "DIRECT-cd-Replacement",
+                "foreign-password",
+                0,
+                isGroupOwner = true
+            )
+        )
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertNull(fixture.store.name)
+        assertEquals(0, fixture.p2p.removeRequests.size)
+    }
+
+    @Test
     fun `cleanup remains bounded after actively closing every unresponsive channel`() {
         val fixture = Fixture()
         fixture.startUntilCreateRequested()
@@ -337,6 +367,54 @@ class HotspotManagerLifecycleTest {
 
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertEquals(0, fixture.p2p.removeRequests.size)
+        assertEquals(
+            listOf(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE),
+            fixture.callback.errors
+        )
+    }
+
+    @Test
+    fun `stale removal rejection does not retry against a nameless group`() {
+        val fixture = Fixture()
+        fixture.store.name = "DIRECT-BC-OLDGROUP"
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group("DIRECT-BC-OLDGROUP", "old-password", 0, true)
+        )
+        fixture.p2p.rejectRemove(WifiP2pManager.BUSY)
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group(null, null, 0, isGroupOwner = true)
+        )
+
+        fixture.scheduler.advanceBy(500)
+
+        assertEquals(0, fixture.p2p.removeRequests.size)
+        assertEquals("Starting", fixture.manager.lifecycleName())
+    }
+
+    @Test
+    fun `stale removal rejection refuses a matching client-side group`() {
+        val fixture = Fixture()
+        fixture.store.name = "DIRECT-BC-OLDGROUP"
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group("DIRECT-BC-OLDGROUP", "old-password", 0, true)
+        )
+        fixture.p2p.rejectRemove(WifiP2pManager.BUSY)
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group("DIRECT-BC-OLDGROUP", null, 0, isGroupOwner = false)
+        )
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group("DIRECT-BC-OLDGROUP", null, 0, isGroupOwner = false)
+        )
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertEquals(0, fixture.p2p.removeRequests.size)
+        assertNull(fixture.store.name)
         assertEquals(
             listOf(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE),
             fixture.callback.errors
@@ -650,6 +728,10 @@ class HotspotManagerLifecycleTest {
 
         fun acceptRemove() {
             removeRequests.removeFirst().onAccepted()
+        }
+
+        fun rejectRemove(reason: Int) {
+            removeRequests.removeFirst().onRejected(reason)
         }
     }
 

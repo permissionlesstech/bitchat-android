@@ -487,6 +487,11 @@ class HotspotManager @VisibleForTesting internal constructor(
                 if (phase !== expected) return@requestGroup
                 val actualName = group?.networkName
                 when {
+                    group != null && !group.isGroupOwner -> {
+                        ownedGroups.name = null
+                        fail(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE)
+                    }
+
                     actualName != null && actualName != groupName -> {
                         ownedGroups.name = null
                         fail(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE)
@@ -507,6 +512,17 @@ class HotspotManager @VisibleForTesting internal constructor(
                                     observations
                                 )
                             }
+                        }
+                    }
+
+                    actualName == null -> {
+                        schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                            awaitStaleGroupAbsence(
+                                session,
+                                attempt,
+                                groupName,
+                                removalAccepted
+                            )
                         }
                     }
 
@@ -872,6 +888,15 @@ class HotspotManager @VisibleForTesting internal constructor(
                     inspectCleanup(next)
                 }
             }
+            return
+        }
+
+        if (cleanup.ownership is Ownership.FrameworkGenerated && cleanup.forced) {
+            // Closing the original pre-Q channel cancels our only evidence that a later
+            // group belongs to this session. A group seen only on the verification channel
+            // may have been created by another app and must never be adopted or removed.
+            ownedGroups.name = null
+            finishSession(stopping.session, stopping.pendingError)
             return
         }
 
