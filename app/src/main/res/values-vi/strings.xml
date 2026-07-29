@@ -376,4 +376,8 @@
   <string name="nearby_notes_reveal">kiểm tra ghi chú để lại ở đây</string>
   <string name="nearby_notes_one">có 1 ghi chú để lại ở đây — chạm để đọc</string>
   <string name="nearby_notes_many">có %d ghi chú để lại ở đây — chạm để đọc</string>
+    <string name="about_language">Ngôn ngữ</string>
+    <string name="about_app_language">Ngôn ngữ ứng dụng</string>
+    <string name="about_system_default">Mặc định hệ thống</string>
+    <string name="about_select_language">Chọn ngôn ngữ</string>
 </resources>

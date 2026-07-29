@@ -420,4 +420,8 @@
   <string name="nearby_notes_reveal">kijk of hier notities zijn achtergelaten</string>
   <string name="nearby_notes_one">1 notitie hier achtergelaten — tik om te lezen</string>
   <string name="nearby_notes_many">%d notities hier achtergelaten — tik om te lezen</string>
+    <string name="about_language">Taal</string>
+    <string name="about_app_language">App-taal</string>
+    <string name="about_system_default">Systeemstandaard</string>
+    <string name="about_select_language">Taal selecteren</string>
 </resources>

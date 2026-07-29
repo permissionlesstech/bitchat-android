@@ -389,4 +389,8 @@
   <string name="nearby_notes_reveal">ここに残されたメモを確認</string>
   <string name="nearby_notes_one">ここに1件のメモがあります — タップして読む</string>
   <string name="nearby_notes_many">ここに%d件のメモがあります — タップして読む</string>
+    <string name="about_language">言語</string>
+    <string name="about_app_language">アプリの言語</string>
+    <string name="about_system_default">システムのデフォルト</string>
+    <string name="about_select_language">言語を選択</string>
 </resources>

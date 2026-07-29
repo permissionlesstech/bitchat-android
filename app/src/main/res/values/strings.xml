@@ -612,4 +612,8 @@
   </plurals>
 
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
+  <string name="about_language">Language</string>
+  <string name="about_app_language">App language</string>
+  <string name="about_system_default">System default</string>
+  <string name="about_select_language">Select language</string>
 </resources>

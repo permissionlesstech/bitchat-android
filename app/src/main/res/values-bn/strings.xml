@@ -376,4 +376,8 @@
   <string name="nearby_notes_reveal">এখানে রাখা নোট আছে কি না দেখুন</string>
   <string name="nearby_notes_one">এখানে 1টি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
   <string name="nearby_notes_many">এখানে %dটি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
+    <string name="about_language">ভাষা</string>
+    <string name="about_app_language">অ্যাপের ভাষা</string>
+    <string name="about_system_default">সিস্টেম ডিফল্ট</string>
+    <string name="about_select_language">ভাষা নির্বাচন করুন</string>
 </resources>

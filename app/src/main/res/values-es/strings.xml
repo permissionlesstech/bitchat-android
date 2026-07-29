@@ -389,4 +389,8 @@
   <string name="nearby_notes_reveal">buscar notas dejadas aquí</string>
   <string name="nearby_notes_one">1 nota dejada aquí — toca para leer</string>
   <string name="nearby_notes_many">%d notas dejadas aquí — toca para leer</string>
+    <string name="about_language">Idioma</string>
+    <string name="about_app_language">Idioma de la app</string>
+    <string name="about_system_default">Predeterminado del sistema</string>
+    <string name="about_select_language">Seleccionar idioma</string>
 </resources>

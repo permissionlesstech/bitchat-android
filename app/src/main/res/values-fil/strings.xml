@@ -393,4 +393,8 @@
   <string name="nearby_notes_reveal">tingnan kung may mga note na naiwan dito</string>
   <string name="nearby_notes_one">1 note ang naiwan dito — i-tap para basahin</string>
   <string name="nearby_notes_many">%d note ang naiwan dito — i-tap para basahin</string>
+    <string name="about_language">Wika</string>
+    <string name="about_app_language">Wika ng app</string>
+    <string name="about_system_default">Default ng system</string>
+    <string name="about_select_language">Pumili ng wika</string>
 </resources>
