@@ -84,6 +84,16 @@ class HotspotManager(private val context: Context) {
      */
     private var groupCreationPending = false
 
+    /**
+     * Whether the framework-generated name of the current group has been recorded.
+     *
+     * Below Q only the first poll can supply that name, and it must be written exactly
+     * once. Tracking it in memory rather than inferring it from a null [ownedGroupName]
+     * keeps the previous group's marker intact, which a retry after a failed removal
+     * still needs to recognise that group as ours.
+     */
+    private var recordedGeneratedName = false
+
     private val prefs by lazy { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
     /** Network name of the last group this app created, surviving process death. */
@@ -434,10 +444,13 @@ class HotspotManager(private val context: Context) {
 
                 wifiP2pManager?.createGroup(ch, config, groupActionListener(attempt, ch))
             } else {
-                // Android 9 and below: the framework names the group, so ownership cannot
-                // be recorded until the first poll reports it. Clear any name left by an
-                // earlier run, or that poll would treat the marker as already recorded.
-                ownedGroupName = null
+                // Android 9 and below: the framework names the group, so ownership can
+                // only be recorded once the first poll reports it. The previous marker is
+                // deliberately left in place until then -- a retry after a failed
+                // removeStaleGroup() needs it to still recognise the old group as ours,
+                // and clearing it here would have that retry classify it as foreign and
+                // abort instead of recovering.
+                recordedGeneratedName = false
 
                 wifiP2pManager?.createGroup(ch, groupActionListener(attempt, ch))
             }
@@ -583,9 +596,10 @@ class HotspotManager(private val context: Context) {
                         // it on every poll would overwrite the marker with a replacement
                         // group's name, leaving the check below comparing a value with
                         // itself and never detecting the replacement.
-                        if (createdActiveGroup && ownedGroupName == null) {
+                        if (createdActiveGroup && !recordedGeneratedName) {
                             group.networkName?.let {
                                 ownedGroupName = it
+                                recordedGeneratedName = true
                                 Log.d(TAG, "Recorded framework-generated group name '$it'")
                             }
                         }
