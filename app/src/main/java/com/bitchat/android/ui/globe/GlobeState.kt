@@ -76,7 +76,7 @@ class GlobeState(
         if (r <= 0f) return
         val degPerPx = 180.0 / (Math.PI * r)
         centerLon = GlobeMath.normalizeLon(centerLon - dxPx * degPerPx).toFloat()
-        centerLat = (centerLat + dyPx * degPerPx).toFloat().coerceIn(-80f, 80f)
+        centerLat = (centerLat + dyPx * degPerPx).toFloat().coerceIn(MIN_LAT, MAX_LAT)
         syncSelection()
     }
 
@@ -112,7 +112,7 @@ class GlobeState(
             val anim = Animatable(0f)
             anim.animateTo(1f, tween(durationMs, easing = FastOutSlowInEasing)) {
                 val t = value
-                centerLat = (startLat + (lat.toFloat() - startLat) * t).coerceIn(-80f, 80f)
+                centerLat = (startLat + (lat.toFloat() - startLat) * t).coerceIn(MIN_LAT, MAX_LAT)
                 centerLon = GlobeMath.normalizeLon(startLon + dLon * t).toFloat()
                 // exponential interpolation feels natural for zoom
                 zoom = startZoom * (endZoom / startZoom).pow(t)
@@ -168,6 +168,13 @@ class GlobeState(
 
     fun cancelAnimations() {
         animJob?.cancel()
+    }
+
+    private companion object {
+        // Close to the projection limit so polar geohash cells remain selectable;
+        // clamping tighter would make syncSelection() encode the wrong cell.
+        const val MIN_LAT = -89f
+        const val MAX_LAT = 89f
     }
 
     private fun syncSelection() {
