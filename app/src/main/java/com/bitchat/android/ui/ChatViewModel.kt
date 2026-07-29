@@ -1119,8 +1119,22 @@ class ChatViewModel(
     }
     
     // MARK: - Emergency Clear
-    
+
+    private var panicClearInProgress = false
+
     fun panicClearAllData() {
+        if (panicClearInProgress) return
+        panicClearInProgress = true
+        viewModelScope.launch {
+            try {
+                performPanicClearAllData()
+            } finally {
+                panicClearInProgress = false
+            }
+        }
+    }
+
+    private suspend fun performPanicClearAllData() {
         Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
         try {
             com.bitchat.android.geohash.LocationChannelManager
@@ -1131,9 +1145,15 @@ class ChatViewModel(
         // A pending one-shot downgrade confirmation must not survive panic or
         // become actionable against the fresh post-wipe identity.
         mediaSendingManager.clearPendingPrivateMediaConsent()
-        
+
+        // Stop all message admission before wiping storage. The AppStateStore gate also rejects
+        // any transport callback already in flight until the fresh identity is ready.
+        clearAllMeshServiceData()
+        val conversationsCleared =
+            com.bitchat.android.services.AppStateStore
+                .panicClearPrivateConversations()
+
         // Clear all UI managers
-        com.bitchat.android.services.AppStateStore.clearPersistedPrivateConversations()
         com.bitchat.android.services.AppStateStore.clear()
         messageManager.clearAllMessages()
         channelManager.clearAllChannels()
@@ -1144,9 +1164,6 @@ class ChatViewModel(
         try {
             com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
         } catch (_: Exception) { }
-        
-        // Clear all mesh service data
-        clearAllMeshServiceData()
         
         // Clear all cryptographic data
         clearAllCryptographicData()
@@ -1179,8 +1196,17 @@ class ChatViewModel(
         val newNickname = "anon${Random.nextInt(1000, 9999)}"
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
-        
+
+        if (!conversationsCleared) {
+            // Privacy wins over availability: keep private-message admission and transports
+            // stopped if SQLite could not prove that the conversation history was erased.
+            Log.e(TAG, "🚨 PANIC MODE INCOMPLETE - conversation database wipe failed")
+            return
+        }
+
         // Recreate mesh service with fresh identity
+        com.bitchat.android.services.AppStateStore
+            .resumePrivateConversationsAfterPanic()
         recreateMeshServiceAfterPanic()
 
         Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")

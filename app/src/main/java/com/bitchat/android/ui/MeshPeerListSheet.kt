@@ -707,6 +707,9 @@ private fun DirectMessagesSection(
     val colorScheme = MaterialTheme.colorScheme
     val hapticFeedback = LocalHapticFeedback.current
     val deleteDescription = stringResource(R.string.delete_conversation_action)
+    val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+    val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
+    val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
 
     Column(modifier = modifier) {
         SheetIconSectionHeader(
@@ -730,6 +733,44 @@ private fun DirectMessagesSection(
                     if (index > 0) SheetCardDivider()
 
                     val dismissState = rememberSwipeToDismissBoxState()
+                    val favoriteTargetID =
+                        conversation.connectedPeerID ?: conversation.conversationID
+                    val favoriteRelationship = remember(
+                        conversation.identityAliases,
+                        favoritePeers,
+                        peerFavoritedUs
+                    ) {
+                        conversation.identityAliases
+                            .asSequence()
+                            .mapNotNull { alias ->
+                                runCatching {
+                                    FavoritesPersistenceService.shared
+                                        .getFavoriteStatus(alias)
+                                }.getOrNull()
+                            }
+                            .firstOrNull()
+                    }
+                    val fingerprint = conversation.connectedPeerID
+                        ?.let(peerFingerprints::get)
+                        ?: conversation.identityAliases
+                            .asSequence()
+                            .mapNotNull(peerFingerprints::get)
+                            .firstOrNull()
+                        ?: ContactIdentityResolver
+                            .fingerprintFromContactConversationId(
+                                conversation.conversationID
+                            )
+                        ?: favoriteRelationship?.peerNoisePublicKey?.let {
+                            ContactIdentityResolver.fingerprintHex(it)
+                        }
+                    val isFavorite = if (fingerprint != null) {
+                        fingerprint in favoritePeers
+                    } else {
+                        viewModel.isFavorite(favoriteTargetID)
+                    }
+                    val theyFavoritedUs =
+                        (fingerprint != null && fingerprint in peerFavoritedUs) ||
+                            favoriteRelationship?.theyFavoritedUs == true
                     LaunchedEffect(dismissState.currentValue, conversation.conversationID) {
                         if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -779,9 +820,14 @@ private fun DirectMessagesSection(
                             directPeerIdentityIDs = directPeerIdentityIDs,
                             wifiAwareIdentityIDs = wifiAwareIdentityIDs,
                             viewModel = viewModel,
+                            isFavorite = isFavorite,
+                            theyFavoritedUs = theyFavoritedUs,
                             deleteDescription = deleteDescription,
                             onClick = {
                                 onPrivateChatStart(conversation.conversationID)
+                            },
+                            onToggleFavorite = {
+                                viewModel.toggleFavorite(favoriteTargetID)
                             },
                             onDeleteRequested = {
                                 onDeleteRequested(conversation)
@@ -800,8 +846,11 @@ private fun ConversationRow(
     directPeerIdentityIDs: Set<String>,
     wifiAwareIdentityIDs: Set<String>,
     viewModel: ChatViewModel,
+    isFavorite: Boolean,
+    theyFavoritedUs: Boolean,
     deleteDescription: String,
     onClick: () -> Unit,
+    onToggleFavorite: () -> Unit,
     onDeleteRequested: () -> Unit
 ) {
     val palette = LocalBitchatPalette.current
@@ -930,30 +979,59 @@ private fun ConversationRow(
                     )
                 }
             }
-            Text(
-                text = messagePreview,
-                fontFamily = BitchatFontFamily,
-                fontSize = 11.sp,
-                color = palette.textTertiary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = messagePreview,
+                    fontFamily = BitchatFontFamily,
+                    fontSize = 11.sp,
+                    color = palette.textTertiary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                Text(
+                    text = " · $relativeTime",
+                    fontFamily = BitchatFontFamily,
+                    fontSize = 10.sp,
+                    color = palette.textTertiary,
+                    maxLines = 1
+                )
+            }
         }
 
-        Column(
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        UnreadBadge(
+            count = conversation.unreadCount,
+            colorScheme = colorScheme,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clickable(onClick = onToggleFavorite),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = relativeTime,
-                fontFamily = BitchatFontFamily,
-                fontSize = 10.sp,
-                color = palette.textTertiary,
-                maxLines = 1
-            )
-            UnreadBadge(
-                count = conversation.unreadCount,
-                colorScheme = colorScheme
+            Icon(
+                painter = painterResource(
+                    if (isFavorite) {
+                        R.drawable.ic_spec_star_filled
+                    } else {
+                        R.drawable.ic_spec_star
+                    }
+                ),
+                contentDescription = stringResource(
+                    if (isFavorite) {
+                        R.string.cd_remove_favorite
+                    } else {
+                        R.string.cd_add_favorite
+                    }
+                ),
+                modifier = Modifier.size(PeerRowIconSize),
+                tint = if (isFavorite || theyFavoritedUs) {
+                    palette.accentOrange
+                } else {
+                    palette.textTertiary
+                }
             )
         }
     }

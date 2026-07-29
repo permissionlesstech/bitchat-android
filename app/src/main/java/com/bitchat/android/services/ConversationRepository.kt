@@ -168,13 +168,19 @@ class ConversationRepository internal constructor(
         }
     }
 
-    fun clearAll() {
-        scope.launch {
-            try {
-                database.clearAll()
-            } catch (error: Exception) {
-                Log.e(TAG, "Unable to clear private conversations: ${error.message}")
-            }
+    /**
+     * Drains earlier writes and completes the database wipe before returning.
+     *
+     * Panic mode uses this stronger variant so identity regeneration and transport restart cannot
+     * race an outstanding message insert or an unfinished conversation deletion.
+     */
+    suspend fun clearAllAndWait(): Boolean = withContext(dispatcher) {
+        try {
+            database.clearAll()
+            true
+        } catch (error: Exception) {
+            Log.e(TAG, "Unable to synchronously clear private conversations", error)
+            false
         }
     }
 }

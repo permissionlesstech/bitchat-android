@@ -37,6 +37,7 @@ object AppStateStore {
 
     @Volatile
     private var conversationRepository: ConversationRepository? = null
+    private var privateConversationWritesSuspended = false
 
     private val _nickname = MutableStateFlow("")
     val nickname: StateFlow<String> = _nickname.asStateFlow()
@@ -148,6 +149,7 @@ object AppStateStore {
         msg: BitchatMessage,
         forceRead: Boolean = false
     ): Boolean = synchronized(this) {
+        if (privateConversationWritesSuspended) return@synchronized false
         if (seenMessageIds.contains(msg.id)) return@synchronized false
         seenMessageIds.add(msg.id)
         PrivateMessageArrivalOrder.record(msg.id)
@@ -202,6 +204,7 @@ object AppStateStore {
 
     fun updatePrivateMessageStatus(messageID: String, status: DeliveryStatus) {
         synchronized(this) {
+            if (privateConversationWritesSuspended) return
             val map = _privateMessages.value.toMutableMap()
             var changed = false
             map.keys.toList().forEach { peer ->
@@ -227,6 +230,7 @@ object AppStateStore {
     fun unifyPrivateChatsIntoPeer(targetPeerID: String, keysToMerge: List<String>) {
         if (keysToMerge.isEmpty()) return
         synchronized(this) {
+            if (privateConversationWritesSuspended) return
             val targetConversationID = ContactDirectory.canonicalConversationId(targetPeerID)
             val persistenceAliases = (keysToMerge + targetPeerID + targetConversationID)
                 .flatMap { key ->
@@ -285,6 +289,7 @@ object AppStateStore {
 
     fun markPrivateMessageRead(messageID: String) {
         synchronized(this) {
+            if (privateConversationWritesSuspended) return
             if (messageID in _readPrivateMessageIDs.value) return
             _readPrivateMessageIDs.value = _readPrivateMessageIDs.value + messageID
             conversationRepository?.markRead(messageID)
@@ -353,12 +358,24 @@ object AppStateStore {
         }
     }
 
-    fun clearPersistedPrivateConversations() {
-        synchronized(this) {
-            conversationRepository?.clearAll()
+    /**
+     * Atomically hides all conversations, rejects in-flight transport deliveries, then waits for
+     * every earlier database write and the panic wipe itself to finish.
+     */
+    suspend fun panicClearPrivateConversations(): Boolean {
+        val repository = synchronized(this) {
+            privateConversationWritesSuspended = true
             _privateMessages.value = emptyMap()
             _readPrivateMessageIDs.value = emptySet()
             _selectedPrivateChatPeer.value = null
+            conversationRepository
+        }
+        return repository?.clearAllAndWait() ?: true
+    }
+
+    fun resumePrivateConversationsAfterPanic() {
+        synchronized(this) {
+            privateConversationWritesSuspended = false
         }
     }
 
@@ -406,6 +423,7 @@ object AppStateStore {
 
     private fun restorePrivateConversations(snapshot: PersistedConversationSnapshot) {
         synchronized(this) {
+            if (privateConversationWritesSuspended) return
             val liveChats = _privateMessages.value
             val liveMessageIDs = liveChats.values.flatten().map { it.id }
             PrivateMessageArrivalOrder.restore(snapshot.arrivalOrder, liveMessageIDs)
