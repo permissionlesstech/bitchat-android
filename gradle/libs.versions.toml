@@ -14,12 +14,17 @@ appcompat = "1.7.1"
 
 # Compose
 compose-bom = "2026.06.01"
+compose-icons-extended = "1.7.8"
 
 # Navigation
 navigation-compose = "2.9.8"
 
 # Accompanist
 accompanist-permissions = "0.37.3"
+
+# Wear OS
+wear-compose = "1.6.2"
+wear-tooling-preview = "1.0.0"
 
 # Cryptography
 bouncycastle = "1.85"
@@ -84,7 +89,7 @@ androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
-androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "compose-icons-extended" }
 
 # Lifecycle
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle-runtime" }
@@ -94,6 +99,11 @@ androidx-navigation-compose = { module = "androidx.navigation:navigation-compose
 
 # Accompanist
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanist-permissions" }
+
+# Wear OS
+androidx-wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wear-compose" }
+androidx-wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "wear-compose" }
+androidx-wear-tooling-preview = { module = "androidx.wear:wear-tooling-preview", version.ref = "wear-tooling-preview" }
 
 # Cryptography
 bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
