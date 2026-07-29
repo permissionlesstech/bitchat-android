@@ -185,12 +185,6 @@ object GitHubReleaseClient {
                 // for the whole metadata request.
                 onResolvingRelease?.invoke()
 
-                // That wait can last a minute, in which time the user may have switched
-                // routes. The cooldown that matters is the one for the route the request
-                // will actually take, which is only known now.
-                blockedResultOrNull(System.currentTimeMillis(), selectedRouteUsesTor(), cached)
-                    ?.let { return@withLock it }
-
                 var lastFailure: Throwable = ReleaseFetchException(
                     "Failed to fetch the latest release from GitHub"
                 )
@@ -200,6 +194,12 @@ object GitHubReleaseClient {
                     // a route change mid-flight cannot file the cooldown against the route
                     // the request did not use.
                     val routeUsesTor = selectedRouteUsesTor()
+
+                    // Per attempt rather than once before the loop. The route can change
+                    // during the wait above, during a request, or during a backoff, and
+                    // the one we have just switched to may carry a cooldown of its own.
+                    blockedResultOrNull(System.currentTimeMillis(), routeUsesTor, cached)
+                        ?.let { return@withLock it }
 
                     val result = fetchLatestReleaseOnce(routeUsesTor)
                     result.onSuccess { release ->
