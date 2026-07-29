@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import androidx.annotation.VisibleForTesting
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -46,7 +47,10 @@ object WifiAwareController {
     private val hotspotHolds = AtomicInteger(0)
 
     /** True while any hotspot session still needs the radio. */
-    private fun heldForHotspot(): Boolean = hotspotHolds.get() > 0
+    @VisibleForTesting
+    internal fun isHeldForHotspot(): Boolean = hotspotHolds.get() > 0
+
+    private fun heldForHotspot(): Boolean = isHeldForHotspot()
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
