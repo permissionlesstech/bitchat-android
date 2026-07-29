@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * WifiAwareController manages lifecycle and debug surfacing for the WifiAwareMeshService.
@@ -32,13 +33,20 @@ object WifiAwareController {
     private var lastBlockedReason: String? = null
 
     /**
-     * Set while a Wi-Fi Direct hotspot is hosting. Wi-Fi Aware (NAN) and Wi-Fi Direct
-     * (P2P) cannot hold interfaces at the same time on common chipsets — the HAL fails
-     * to create the P2P iface and every createGroup is answered with BUSY. The hold
-     * also blocks [startIfPossible], so a resume or mesh-service restart cannot bring
-     * Aware back while the hotspot is up.
+     * How many hotspot sessions currently need the radio.
+     *
+     * Wi-Fi Aware (NAN) and Wi-Fi Direct (P2P) cannot hold interfaces at the same time on
+     * common chipsets — the HAL fails to create the P2P iface and every createGroup is
+     * answered with BUSY. A non-zero count also blocks [startIfPossible], so a resume or
+     * mesh-service restart cannot bring Aware back while a hotspot is up.
+     *
+     * A count rather than a flag because teardown is asynchronous and sessions can
+     * overlap; see [releaseHotspotHold].
      */
-    private val hotspotHold = AtomicBoolean(false)
+    private val hotspotHolds = AtomicInteger(0)
+
+    /** True while any hotspot session still needs the radio. */
+    private fun heldForHotspot(): Boolean = hotspotHolds.get() > 0
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -102,14 +110,30 @@ object WifiAwareController {
      * and prevents Aware restarting until [releaseHotspotHold] is called.
      */
     fun holdForHotspot() {
-        if (!hotspotHold.compareAndSet(false, true)) return
+        if (hotspotHolds.getAndIncrement() > 0) return
         Log.i(TAG, "Holding Wi-Fi Aware down so the hotspot can use the radio")
         stop()
     }
 
-    /** Drops the hold and restores Aware if the user still has it enabled. */
+    /**
+     * Drops one hold and restores Aware once none remain.
+     *
+     * Counted rather than a flag because a hotspot's teardown is asynchronous: the user
+     * can start a second share while the first is still cleaning up, and a boolean would
+     * let the first session's completion release a hold the second one is relying on --
+     * putting Aware back on the radio while a new group is forming.
+     */
     fun releaseHotspotHold() {
-        if (!hotspotHold.compareAndSet(true, false)) return
+        // Clamped: an unbalanced release must not push the count negative and leave a
+        // later genuine hold unable to reach zero.
+        val remaining = hotspotHolds.updateAndGet { current ->
+            if (current > 0) current - 1 else 0
+        }
+        if (remaining > 0) {
+            Log.d(TAG, "Hotspot finished, but $remaining other hold(s) remain")
+            return
+        }
+
         Log.i(TAG, "Hotspot finished; restoring Wi-Fi Aware if enabled")
         restartIfStillEnabled()
     }
@@ -117,7 +141,7 @@ object WifiAwareController {
     fun startIfPossible() {
         val reusableService = synchronized(lifecycleLock) {
             if (!_enabled.value) return
-            if (hotspotHold.get()) {
+            if (heldForHotspot()) {
                 Log.d(TAG, "Not starting Wi-Fi Aware: held down for the hotspot")
                 return
             }
@@ -180,7 +204,7 @@ object WifiAwareController {
                 return
             }
         }
-        if (!_enabled.value || hotspotHold.get()) {
+        if (!_enabled.value || heldForHotspot()) {
             synchronized(lifecycleLock) { starting = false }
             return
         }
@@ -198,7 +222,7 @@ object WifiAwareController {
             // Ordering holds because holdForHotspot() sets the flag before calling
             // stop(): either we see the flag here, or stop() sees our published service.
             val published = synchronized(lifecycleLock) {
-                val canPublish = !hotspotHold.get() && startedService.isRunning()
+                val canPublish = !heldForHotspot() && startedService.isRunning()
                 if (canPublish) {
                     service = startedService
                     _running.value = true
@@ -215,7 +239,7 @@ object WifiAwareController {
                 try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware started")) } catch (_: Exception) {}
             } else {
                 // stopServices() can block, so keep it out of the lock.
-                val heldForHotspot = hotspotHold.get()
+                val heldForHotspot = heldForHotspot()
                 if (heldForHotspot || reusableService == null) {
                     try { startedService.stopServices() } catch (_: Exception) { }
                 }
