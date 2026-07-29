@@ -76,49 +76,83 @@ class HotspotStartupPolicyTest {
         val action = HotspotStartupPolicy.startAction(
             p2pState = WifiP2pManager.WIFI_P2P_STATE_ENABLED,
             existingGroupName = "DIRECT-BC-CUF6EN63",
-            ownedGroupName = "DIRECT-BC-CUF6EN63"
+            ownedGroupName = "DIRECT-BC-CUF6EN63",
+            confirmedGroupName = null
         )
 
         assertEquals(HotspotStartupPolicy.StartAction.RemoveStaleGroupThenCreate, action)
     }
 
     @Test
-    fun `another app's group is left alone`() {
+    fun `another app's group requires the user's confirmation`() {
         val action = HotspotStartupPolicy.startAction(
             p2pState = WifiP2pManager.WIFI_P2P_STATE_ENABLED,
             existingGroupName = "DIRECT-xY-Chromecast",
-            ownedGroupName = "DIRECT-BC-CUF6EN63"
+            ownedGroupName = "DIRECT-BC-CUF6EN63",
+            confirmedGroupName = null
         )
 
-        assertEquals(
-            HotspotStartupPolicy.StartAction.Fail(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE),
-            action
-        )
+        assertEquals(HotspotStartupPolicy.StartAction.ConfirmReplaceExisting, action)
     }
 
     @Test
-    fun `an orphan from before we recorded ownership is still recognised by its prefix`() {
+    fun `a confirmed replacement removes the confirmed foreign group`() {
+        val action = HotspotStartupPolicy.startAction(
+            p2pState = WifiP2pManager.WIFI_P2P_STATE_ENABLED,
+            existingGroupName = "DIRECT-xY-Chromecast",
+            ownedGroupName = null,
+            confirmedGroupName = "DIRECT-xY-Chromecast"
+        )
+
+        assertEquals(HotspotStartupPolicy.StartAction.RemoveStaleGroupThenCreate, action)
+    }
+
+    @Test
+    fun `consent for one group does not authorize removing a different one`() {
+        val action = HotspotStartupPolicy.startAction(
+            p2pState = WifiP2pManager.WIFI_P2P_STATE_ENABLED,
+            existingGroupName = "DIRECT-aB-QuickShare",
+            ownedGroupName = null,
+            confirmedGroupName = "DIRECT-xY-Chromecast"
+        )
+
+        assertEquals(HotspotStartupPolicy.StartAction.ConfirmReplaceExisting, action)
+    }
+
+    @Test
+    fun `an unrecorded orphan needs confirmation even with our prefix`() {
         val action = HotspotStartupPolicy.startAction(
             p2pState = WifiP2pManager.WIFI_P2P_STATE_ENABLED,
             existingGroupName = "DIRECT-BC-OLDGROUP",
-            ownedGroupName = null
+            ownedGroupName = null,
+            confirmedGroupName = null
         )
 
-        assertEquals(HotspotStartupPolicy.StartAction.RemoveStaleGroupThenCreate, action)
+        assertEquals(HotspotStartupPolicy.StartAction.ConfirmReplaceExisting, action)
     }
 
     @Test
-    fun `a foreign group is left alone even when we recorded nothing`() {
+    fun `another phone's bitchat group is not treated as ours by its prefix`() {
+        val action = HotspotStartupPolicy.startAction(
+            p2pState = WifiP2pManager.WIFI_P2P_STATE_ENABLED,
+            existingGroupName = "DIRECT-BC-THEIRS99",
+            ownedGroupName = "DIRECT-BC-CUF6EN63",
+            confirmedGroupName = null
+        )
+
+        assertEquals(HotspotStartupPolicy.StartAction.ConfirmReplaceExisting, action)
+    }
+
+    @Test
+    fun `a foreign group needs confirmation even when we recorded nothing`() {
         val action = HotspotStartupPolicy.startAction(
             p2pState = WifiP2pManager.WIFI_P2P_STATE_ENABLED,
             existingGroupName = "DIRECT-xY-Chromecast",
-            ownedGroupName = null
+            ownedGroupName = null,
+            confirmedGroupName = null
         )
 
-        assertEquals(
-            HotspotStartupPolicy.StartAction.Fail(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE),
-            action
-        )
+        assertEquals(HotspotStartupPolicy.StartAction.ConfirmReplaceExisting, action)
     }
 
     @Test
@@ -126,10 +160,26 @@ class HotspotStartupPolicyTest {
         val action = HotspotStartupPolicy.startAction(
             p2pState = WifiP2pManager.WIFI_P2P_STATE_ENABLED,
             existingGroupName = null,
-            ownedGroupName = null
+            ownedGroupName = null,
+            confirmedGroupName = null
         )
 
         assertEquals(HotspotStartupPolicy.StartAction.Create, action)
+    }
+
+    @Test
+    fun `confirmation does not skip the disabled-P2P check`() {
+        val action = HotspotStartupPolicy.startAction(
+            p2pState = WifiP2pManager.WIFI_P2P_STATE_DISABLED,
+            existingGroupName = "DIRECT-xY-Chromecast",
+            ownedGroupName = null,
+            confirmedGroupName = "DIRECT-xY-Chromecast"
+        )
+
+        assertEquals(
+            HotspotStartupPolicy.StartAction.Fail(HotspotStartupPolicy.P2P_DISABLED_MESSAGE),
+            action
+        )
     }
 
     @Test
@@ -137,7 +187,8 @@ class HotspotStartupPolicyTest {
         val action = HotspotStartupPolicy.startAction(
             p2pState = WifiP2pManager.WIFI_P2P_STATE_DISABLED,
             existingGroupName = "DIRECT-BC-CUF6EN63",
-            ownedGroupName = "DIRECT-BC-CUF6EN63"
+            ownedGroupName = "DIRECT-BC-CUF6EN63",
+            confirmedGroupName = null
         )
 
         assertEquals(
