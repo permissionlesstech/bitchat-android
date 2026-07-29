@@ -34,7 +34,7 @@ import com.bitchat.watch.ui.theme.LocalBitchatPalette
 import com.bitchat.watch.ui.theme.colorForPeer
 
 @Composable
-fun PeopleScreen(onOpenDm: (String) -> Unit) {
+fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
     val peers by AppStateStore.peers.collectAsState()
     val unread by WearChatState.unreadDms.collectAsState()
     val mesh = WearMeshService.peek()
@@ -77,6 +77,12 @@ fun PeopleScreen(onOpenDm: (String) -> Unit) {
                     )
                 }
             }
+            item(key = "self") {
+                SelfRow(
+                    nickname = mesh?.nickname ?: "me",
+                    onClick = onEditNickname
+                )
+            }
             items(sortedPeers, key = { it }) { peerID ->
                 val nick = nicknames[peerID] ?: peerID.take(8)
                 PersonRow(
@@ -87,6 +93,40 @@ fun PeopleScreen(onOpenDm: (String) -> Unit) {
                     onClick = { onOpenDm(peerID) }
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SelfRow(nickname: String, onClick: () -> Unit) {
+    val palette = LocalBitchatPalette.current
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = nickname,
+                    style = ChatVisualTokens.SenderStyle,
+                    color = palette.accentOrange,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                Text(
+                    text = " (you)",
+                    style = ChatVisualTokens.SenderStyle,
+                    color = palette.textTertiary
+                )
+            }
+            Text(
+                text = "tap to rename",
+                style = ChatVisualTokens.SystemActionStyle,
+                color = palette.textTertiary
+            )
         }
     }
 }

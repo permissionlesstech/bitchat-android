@@ -54,6 +54,7 @@ import com.bitchat.watch.ui.theme.BitchatWearTheme
 sealed interface WearScreen {
     data object Chat : WearScreen
     data object People : WearScreen
+    data object Nickname : WearScreen
     data class Dm(val peerID: String) : WearScreen
     data class TextInput(val peerID: String?) : WearScreen
 }
@@ -209,7 +210,23 @@ fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
                 onOpenPeople = { navigate(WearScreen.People) },
                 onOpenTextInput = { navigate(WearScreen.TextInput(null)) }
             )
-            is WearScreen.People -> PeopleScreen(onOpenDm = { navigate(WearScreen.Dm(it)) })
+            is WearScreen.People -> PeopleScreen(
+                onOpenDm = { navigate(WearScreen.Dm(it)) },
+                onEditNickname = { navigate(WearScreen.Nickname) }
+            )
+            is WearScreen.Nickname -> {
+                val mesh = WearMeshService.peek()
+                NicknameSetupScreen(
+                    initialNickname = mesh?.nickname ?: "",
+                    title = "you",
+                    subtitle = "this is how nearby peers see you",
+                    confirmLabel = "save",
+                    onConfirm = { name ->
+                        mesh?.setNickname(name)
+                        goBack()
+                    }
+                )
+            }
             is WearScreen.Dm -> DmScreen(
                 peerID = current.peerID,
                 onOpenTextInput = { navigate(WearScreen.TextInput(current.peerID)) }
