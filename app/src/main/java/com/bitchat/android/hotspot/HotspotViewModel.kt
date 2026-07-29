@@ -57,8 +57,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                             // Get connection info
                             val info = manager.getConnectionInfo()
                             if (info == null) {
-                                manager.stopHotspot()
-                                _state.value = HotspotState.Error("Failed to get hotspot connection info")
+                                failWith("Failed to get hotspot connection info")
                                 return@launch
                             }
 
@@ -80,8 +79,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                                 )
                             } catch (e: Exception) {
                                 Log.e(TAG, "Failed to start web server", e)
-                                manager.stopHotspot()
-                                _state.value = HotspotState.Error("Failed to start web server: ${e.message}")
+                                failWith("Failed to start web server: ${e.message}")
                             }
                         }
                     }
@@ -97,20 +95,13 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                     }
 
                     override fun onError(message: String) {
-                        viewModelScope.launch {
-                            Log.e(TAG, "Hotspot error: $message")
-                            // The manager has already torn itself down; give the mesh
-                            // its radio back rather than holding it for a dead hotspot.
-                            WifiAwareController.releaseHotspotHold()
-                            _state.value = HotspotState.Error(message)
-                        }
+                        viewModelScope.launch { failWith(message) }
                     }
                 })
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting hotspot", e)
-                hotspotManager?.stopHotspot()
-                _state.value = HotspotState.Error(e.message ?: "Unknown error")
+                failWith(e.message ?: "Unknown error")
             }
         }
     }
@@ -120,7 +111,26 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
      */
     fun stopHotspot() {
         Log.d(TAG, "Stopping hotspot")
+        teardown()
+        _state.value = HotspotState.Intro
+    }
 
+    /**
+     * Every failure after the hotspot has been requested must land here.
+     *
+     * Skipping any part of this leaves something running that shouldn't be: the web
+     * server keeps serving the APK on whatever network the device joins next, and the
+     * Wi-Fi Aware hold blocks the mesh until the user happens to retry or close the
+     * screen.
+     */
+    private fun failWith(message: String) {
+        Log.e(TAG, "Hotspot failed: $message")
+        teardown()
+        _state.value = HotspotState.Error(message)
+    }
+
+    /** Releases every resource startHotspot may have acquired. Safe to call twice. */
+    private fun teardown() {
         webServer?.stopServer()
         webServer = null
 
@@ -128,8 +138,6 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         hotspotManager = null
 
         WifiAwareController.releaseHotspotHold()
-
-        _state.value = HotspotState.Intro
     }
 
     /**

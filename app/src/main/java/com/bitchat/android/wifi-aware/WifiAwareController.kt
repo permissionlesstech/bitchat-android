@@ -179,7 +179,7 @@ object WifiAwareController {
                 return
             }
         }
-        if (!_enabled.value) {
+        if (!_enabled.value || hotspotHold.get()) {
             synchronized(lifecycleLock) { starting = false }
             return
         }
@@ -189,6 +189,20 @@ object WifiAwareController {
                 WifiAwareMeshService(ctx)
             }
             startedService.startServices()
+
+            // The hotspot can claim the radio at any point during the work above.
+            // Committing the service now would resurrect NAN behind its back and
+            // leave every P2P attempt answering BUSY, so drop what we just started.
+            if (hotspotHold.get()) {
+                Log.i(TAG, "Hotspot claimed the radio while starting; abandoning Wi-Fi Aware start")
+                try { startedService.stopServices() } catch (_: Exception) { }
+                synchronized(lifecycleLock) {
+                    if (service === startedService) service = null
+                    _running.value = false
+                }
+                return
+            }
+
             if (startedService.isRunning()) {
                 synchronized(lifecycleLock) {
                     service = startedService
