@@ -69,7 +69,9 @@ class VoiceNoteController(
     fun stop(send: Boolean) {
         if (!recording) return
         recording = false
-        WearHaptics.click(context)
+        // The send path clicks; the cancel path stays silent here because the caller
+        // plays its own reject haptic.
+        if (send) WearHaptics.click(context)
         pollJob?.cancel()
         pollJob = null
         val file = recorder.stop()

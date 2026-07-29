@@ -21,6 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
@@ -140,20 +142,56 @@ private fun ChatBody(
     modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
+    val context = LocalContext.current
     val transformationSpec = rememberTransformationSpec()
+
+    // Slide-to-cancel: while recording, the finger's position is tracked globally; the
+    // overlay's mic button reports its bounds and becomes the cancel target when the
+    // finger hovers it (with generous slack so the snap engages on approach).
+    var cancelBounds by remember { mutableStateOf<Rect?>(null) }
+    var fingerPos by remember { mutableStateOf(Offset.Zero) }
+    var fingerActive by remember { mutableStateOf(false) }
+    val hoveringCancel = fingerActive &&
+        cancelBounds?.inflate(CANCEL_HOVER_SLANT_PX)?.contains(fingerPos) == true
+
+    // Tactile tick each time the finger enters or leaves the cancel target.
+    var hoverHapticState by remember { mutableStateOf(false) }
+    LaunchedEffect(hoveringCancel, voice.recording) {
+        if (!voice.recording) {
+            hoverHapticState = false
+        } else if (hoveringCancel != hoverHapticState) {
+            WearHaptics.tick(context)
+            hoverHapticState = hoveringCancel
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             // Push-to-talk release is tracked globally: once recording, lifting the finger
-            // ANYWHERE on the screen stops and sends. On a 1.4" round screen it is too easy
-            // to drift off the small mic button (the scrollable parent steals the pointer
-            // mid-drag), so the button alone must not own the release.
+            // ANYWHERE on the screen stops — sending, or cancelling when hovering the
+            // cancel target. On a 1.4" round screen it is too easy to drift off the small
+            // mic button (the scrollable parent steals the pointer mid-drag), so the
+            // button alone must not own the release.
             .pointerInput(voice) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
-                        if (voice.recording && event.changes.any { it.changedToUp() }) {
-                            voice.stop(send = true)
+                        if (!voice.recording) continue
+                        val change = event.changes.firstOrNull() ?: continue
+                        fingerPos = change.position
+                        fingerActive = true
+                        if (event.changes.any { it.changedToUp() }) {
+                            val cancel = cancelBounds
+                                ?.inflate(CANCEL_HOVER_SLANT_PX)
+                                ?.contains(change.position) == true
+                            fingerActive = false
+                            if (cancel) {
+                                WearHaptics.reject(context)
+                                voice.stop(send = false)
+                            } else {
+                                voice.stop(send = true)
+                            }
                         }
                     }
                 }
@@ -223,6 +261,14 @@ private fun ChatBody(
             }
         }
 
-        VoiceRecordOverlay(voice)
+        VoiceRecordOverlay(
+            voice = voice,
+            hoveringCancel = hoveringCancel,
+            onCancelBounds = { cancelBounds = it }
+        )
     }
 }
+
+// Extra finger slack (px, ~28dp at watch density) around the cancel target so the snap
+// engages as the finger approaches, not only on exact contact.
+private const val CANCEL_HOVER_SLANT_PX = 56f

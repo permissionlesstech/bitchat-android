@@ -17,6 +17,9 @@ object WearHaptics {
     /** Crisp click: recording stopped, message sent. */
     fun click(context: Context) = vibrate(context, VibrationEffect.EFFECT_CLICK)
 
+    /** Double tap: destructive/cancel confirmation. */
+    fun reject(context: Context) = vibrate(context, VibrationEffect.EFFECT_DOUBLE_CLICK)
+
     /** Light tick: small confirmations. */
     fun tick(context: Context) = vibrate(context, VibrationEffect.EFFECT_TICK)
 

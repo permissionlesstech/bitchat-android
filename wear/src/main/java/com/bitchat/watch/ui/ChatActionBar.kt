@@ -22,13 +22,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -121,10 +126,33 @@ fun ChatActionBar(onKeyboard: () -> Unit, voice: VoiceNoteController, modifier: 
  * Full-screen push-to-talk overlay: fades in over the chat with a live waveform, elapsed time,
  * and a release hint. Rendered as a sibling of the screen content (NOT inside the edgeButton
  * slot, which would clip it to the slot bounds).
+ *
+ * The big mic button doubles as the slide-to-cancel target: when the user's finger approaches
+ * it ([hoveringCancel]), it snaps into a red cancel button with a bouncy spring; lifting the
+ * finger there cancels the recording, dragging back out returns to send mode.
  */
 @Composable
-fun VoiceRecordOverlay(voice: VoiceNoteController) {
+fun VoiceRecordOverlay(
+    voice: VoiceNoteController,
+    hoveringCancel: Boolean,
+    onCancelBounds: (androidx.compose.ui.geometry.Rect) -> Unit
+) {
     val palette = LocalBitchatPalette.current
+    // Snappy, slightly overshooting snap for the cancel morph.
+    val cancelScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (hoveringCancel) 1.3f else 1f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessHigh
+        ),
+        label = "cancelSnap"
+    )
+    val cancelColor by androidx.compose.animation.animateColorAsState(
+        targetValue = if (hoveringCancel) MaterialTheme.colorScheme.error
+        else MaterialTheme.colorScheme.primary,
+        animationSpec = tween(BitchatMotion.QUICK_MS),
+        label = "cancelColor"
+    )
     AnimatedVisibility(
         visible = voice.recording,
         enter = fadeIn(tween(BitchatMotion.EMPHASIZED_MS)),
@@ -140,17 +168,32 @@ fun VoiceRecordOverlay(voice: VoiceNoteController) {
         ) {
             Box(
                 modifier = Modifier
+                    .onGloballyPositioned { coords ->
+                        onCancelBounds(
+                            androidx.compose.ui.geometry.Rect(
+                                coords.localToRoot(androidx.compose.ui.geometry.Offset.Zero),
+                                coords.size.toSize()
+                            )
+                        )
+                    }
                     .size(52.dp)
+                    .graphicsLayer { scaleX = cancelScale; scaleY = cancelScale }
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
+                    .background(cancelColor),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Mic,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(26.dp)
-                )
+                androidx.compose.animation.Crossfade(
+                    targetState = hoveringCancel,
+                    animationSpec = tween(BitchatMotion.QUICK_MS),
+                    label = "cancelIcon"
+                ) { cancel ->
+                    Icon(
+                        imageVector = if (cancel) Icons.Filled.Close else Icons.Filled.Mic,
+                        contentDescription = if (cancel) "cancel recording" else null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
             }
             WaveformBars(
                 samples = voice.liveSamples,
@@ -172,9 +215,10 @@ fun VoiceRecordOverlay(voice: VoiceNoteController) {
                 modifier = Modifier.padding(top = 10.dp)
             )
             Text(
-                text = "Lift finger to send",
+                text = if (hoveringCancel) "Release to cancel" else "Lift finger to send",
                 style = ChatVisualTokens.SystemActionStyle,
-                color = palette.textTertiary,
+                color = if (hoveringCancel) MaterialTheme.colorScheme.error
+                else palette.textTertiary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 2.dp)
             )
