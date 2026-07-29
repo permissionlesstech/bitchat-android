@@ -26,16 +26,8 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     private var hotspotManager: HotspotManager? = null
     private var webServer: ApkWebServer? = null
 
-    /**
-     * Whether this ViewModel took a Wi-Fi Aware hold it has not yet handed back.
-     *
-     * The hold is counted globally, so releasing one this ViewModel does not own would
-     * consume another session's. A null [hotspotManager] cannot stand in for this: a
-     * first teardown nulls it while its asynchronous removal is still pending, and a
-     * second -- a STOP_HOTSPOT intent followed by onCleared() -- would then read that as
-     * permission to release.
-     */
-    private var holdsAwareRadio = false
+    /** Once-releasable radio claim owned by the current hotspot session. */
+    private var awareLease: WifiAwareController.HotspotLease? = null
     private val context = application.applicationContext
 
     /**
@@ -54,9 +46,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
             try {
                 // Wi-Fi Aware holds a NAN interface that blocks the P2P one; release it
                 // first or every createGroup comes back BUSY. Restored when we stop.
-                // Flagged before taking it so teardown can never miss releasing one.
-                holdsAwareRadio = true
-                WifiAwareController.holdForHotspot()
+                awareLease = WifiAwareController.acquireHotspotLease()
 
                 // Start hotspot
                 val manager = HotspotManager(context)
@@ -150,22 +140,21 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         val manager = hotspotManager
         hotspotManager = null
 
-        // Nothing of ours to hand back. Either no hotspot was started, or an earlier
-        // teardown already passed ownership of the hold to its completion callback.
-        if (!holdsAwareRadio) return
-        holdsAwareRadio = false
+        // Nothing of ours to hand back. An earlier teardown may already have passed its
+        // once-releasable lease to the manager's completion callback.
+        val lease = awareLease ?: return
+        awareLease = null
 
         if (manager == null) {
-            WifiAwareController.releaseHotspotHold()
+            lease.close()
             return
         }
 
         // Released on completion, not on return. A createGroup submitted before the stop
         // can still land afterwards, and letting Aware back onto the radio before that
-        // group has been removed recreates the NAN/P2P contention the hold exists to
-        // prevent. The manager bounds the wait so a listener that never fires cannot keep
-        // the mesh down.
-        manager.stopHotspot { WifiAwareController.releaseHotspotHold() }
+        // group has been observed absent recreates the NAN/P2P contention the hold exists
+        // to prevent. Duplicate teardown paths cannot close another session's lease.
+        manager.stopHotspot { lease.close() }
     }
 
     /**

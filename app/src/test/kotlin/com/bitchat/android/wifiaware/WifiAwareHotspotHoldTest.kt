@@ -1,5 +1,6 @@
 package com.bitchat.android.wifiaware
 
+import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -20,48 +21,52 @@ class WifiAwareHotspotHoldTest {
 
     @Before
     fun clearAnyLeftoverHolds() {
-        // The controller is a singleton, so a count left by another test would carry over.
-        repeat(8) { WifiAwareController.releaseHotspotHold() }
+        WifiAwareController.resetHotspotLeasesForTest()
+    }
+
+    @After
+    fun clearTestHolds() {
+        WifiAwareController.resetHotspotLeasesForTest()
     }
 
     @Test
     fun `a single session holds and then releases`() {
-        WifiAwareController.holdForHotspot()
+        val lease = WifiAwareController.acquireHotspotLease()
         assertTrue(WifiAwareController.isHeldForHotspot())
 
-        WifiAwareController.releaseHotspotHold()
+        lease.close()
         assertFalse(WifiAwareController.isHeldForHotspot())
     }
 
     @Test
     fun `a second session starting before the first finishes keeps the radio held`() {
-        WifiAwareController.holdForHotspot()
-        WifiAwareController.holdForHotspot()
+        val first = WifiAwareController.acquireHotspotLease()
+        val second = WifiAwareController.acquireHotspotLease()
 
         // The first session's asynchronous teardown completes.
-        WifiAwareController.releaseHotspotHold()
+        first.close()
 
         assertTrue(
             "the second session still needs the radio",
             WifiAwareController.isHeldForHotspot()
         )
 
-        WifiAwareController.releaseHotspotHold()
+        second.close()
         assertFalse(WifiAwareController.isHeldForHotspot())
     }
 
     @Test
-    fun `an unbalanced release cannot leave a later hold unable to reach zero`() {
-        // teardown() is documented as safe to call twice, so this is reachable.
-        WifiAwareController.releaseHotspotHold()
-        WifiAwareController.releaseHotspotHold()
+    fun `closing one lease twice cannot release another session`() {
+        val first = WifiAwareController.acquireHotspotLease()
+        val second = WifiAwareController.acquireHotspotLease()
 
-        WifiAwareController.holdForHotspot()
+        first.close()
+        first.close()
         assertTrue(WifiAwareController.isHeldForHotspot())
 
-        WifiAwareController.releaseHotspotHold()
+        second.close()
         assertFalse(
-            "a clamped count releases on the matching release, not several later",
+            "only the matching session can release its radio claim",
             WifiAwareController.isHeldForHotspot()
         )
     }

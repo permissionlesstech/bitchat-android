@@ -42,7 +42,8 @@ object WifiAwareController {
      * mesh-service restart cannot bring Aware back while a hotspot is up.
      *
      * A count rather than a flag because teardown is asynchronous and sessions can
-     * overlap; see [releaseHotspotHold].
+     * overlap. Callers receive a once-releasable [HotspotLease], so one session cannot
+     * accidentally consume another session's hold.
      */
     private val hotspotHolds = AtomicInteger(0)
 
@@ -110,36 +111,59 @@ object WifiAwareController {
     }
 
     /**
-     * Releases the Wi-Fi radio so a Wi-Fi Direct hotspot can create its P2P interface,
-     * and prevents Aware restarting until [releaseHotspotHold] is called.
+     * A session-scoped claim on the Wi-Fi radio.
+     *
+     * Closing the same lease twice is a no-op; raw decrements are intentionally not
+     * exposed because lifecycle retries and duplicate teardown calls must not release a
+     * different hotspot session's hold.
      */
-    fun holdForHotspot() {
-        if (hotspotHolds.getAndIncrement() > 0) return
-        Log.i(TAG, "Holding Wi-Fi Aware down so the hotspot can use the radio")
-        stop()
+    class HotspotLease internal constructor(
+        private val releaseAction: () -> Unit
+    ) : AutoCloseable {
+        private val released = AtomicBoolean(false)
+
+        override fun close() {
+            if (released.compareAndSet(false, true)) {
+                releaseAction()
+            }
+        }
     }
 
     /**
-     * Drops one hold and restores Aware once none remain.
+     * Releases the Wi-Fi radio so a Wi-Fi Direct hotspot can create its P2P interface,
+     * and prevents Aware restarting until the returned lease is closed.
      *
-     * Counted rather than a flag because a hotspot's teardown is asynchronous: the user
-     * can start a second share while the first is still cleaning up, and a boolean would
-     * let the first session's completion release a hold the second one is relying on --
-     * putting Aware back on the radio while a new group is forming.
+     * Counted because a second share can start while the first is still cleaning up.
      */
-    fun releaseHotspotHold() {
-        // Clamped: an unbalanced release must not push the count negative and leave a
-        // later genuine hold unable to reach zero.
-        val remaining = hotspotHolds.updateAndGet { current ->
-            if (current > 0) current - 1 else 0
+    fun acquireHotspotLease(): HotspotLease {
+        if (hotspotHolds.getAndIncrement() == 0) {
+            Log.i(TAG, "Holding Wi-Fi Aware down so the hotspot can use the radio")
+            stop()
         }
-        if (remaining > 0) {
+        return HotspotLease(::releaseHotspotLease)
+    }
+
+    private fun releaseHotspotLease() {
+        var remaining: Int
+        while (true) {
+            val current = hotspotHolds.get()
+            if (current == 0) return
+            remaining = current - 1
+            if (hotspotHolds.compareAndSet(current, remaining)) break
+        }
+
+        if (remaining != 0) {
             Log.d(TAG, "Hotspot finished, but $remaining other hold(s) remain")
             return
         }
 
         Log.i(TAG, "Hotspot finished; restoring Wi-Fi Aware if enabled")
         restartIfStillEnabled()
+    }
+
+    @VisibleForTesting
+    internal fun resetHotspotLeasesForTest() {
+        hotspotHolds.set(0)
     }
 
     fun startIfPossible() {
@@ -220,10 +244,10 @@ object WifiAwareController {
             startedService.startServices()
 
             // Test the hold inside the same lock that publishes the service, and that
-            // stop() takes. Testing it outside leaves a window where holdForHotspot()
+            // stop() takes. Testing it outside leaves a window where acquiring a lease
             // sets the flag and stop() finds nothing published yet, and this block then
             // publishes anyway — resurrecting NAN while the hotspot owns the radio.
-            // Ordering holds because holdForHotspot() sets the flag before calling
+            // Ordering holds because acquireHotspotLease() increments before calling
             // stop(): either we see the flag here, or stop() sees our published service.
             val published = synchronized(lifecycleLock) {
                 val canPublish = !heldForHotspot() && startedService.isRunning()
@@ -294,7 +318,7 @@ object WifiAwareController {
      */
     internal fun restartIfStillEnabled(delayMs: Long = 0L) {
         // Record the request before coalescing. A request that arrives while a loop is
-        // already running — releaseHotspotHold() landing during a loop that has been
+        // already running — the final lease closing during a loop that has been
         // burning attempts against the hold — would otherwise be dropped, and the old
         // loop would exhaust MAX_RESTART_ATTEMPTS without ever seeing the cleared hold,
         // leaving Aware down despite the user's setting.

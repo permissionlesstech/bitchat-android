@@ -1,177 +1,203 @@
 package com.bitchat.android.hotspot
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.net.wifi.p2p.WifiP2pConfig
-import android.net.wifi.p2p.WifiP2pGroup
 import android.net.wifi.p2p.WifiP2pManager
-import android.net.wifi.p2p.WifiP2pManager.*
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import android.os.PowerManager
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import java.net.NetworkInterface
 import java.security.SecureRandom
-import kotlin.random.Random
 
 /**
- * Manages Wi-Fi P2P (Wi-Fi Direct) hotspot for offline APK sharing.
- * Based on Briar's implementation.
+ * Manages the Wi-Fi P2P group used for offline APK sharing.
+ *
+ * The Android API is command-oriented: action listeners acknowledge that create/remove
+ * commands were accepted, while group state changes arrive later. This class therefore
+ * keeps one explicit lifecycle phase and only completes teardown after observing that the
+ * owned group is absent (or has been replaced).
  */
-class HotspotManager(private val context: Context) {
+class HotspotManager @VisibleForTesting internal constructor(
+    private val p2p: HotspotP2p,
+    private val platform: HotspotPlatform,
+    private val scheduler: HotspotScheduler,
+    private val ownedGroups: OwnedGroupStore,
+    private val random: SecureRandom = SecureRandom(),
+    private val accessPointAddress: () -> String? = ::findAccessPointAddress
+) {
+    constructor(context: android.content.Context) : this(
+        p2p = AndroidHotspotP2p(context.applicationContext),
+        platform = AndroidHotspotPlatform(context.applicationContext),
+        scheduler = HandlerHotspotScheduler(),
+        ownedGroups = SharedPreferencesOwnedGroupStore(context.applicationContext)
+    )
 
     companion object {
         private const val TAG = "HotspotMgr"
 
-        // Group info polling interval
-        private const val GROUP_INFO_POLL_INTERVAL_MILLIS = 1000L
-
-        // Give up if the group never forms within this window after creation succeeded
+        private const val GROUP_INFO_POLL_INTERVAL_MILLIS = 1_000L
+        private const val REMOVAL_VERIFY_INTERVAL_MILLIS = 500L
         private const val GROUP_FORMATION_TIMEOUT_MILLIS = 15_000L
+        private const val STALE_REMOVAL_TIMEOUT_MILLIS = 10_000L
+        private const val TEARDOWN_FORCE_CLOSE_MILLIS = 10_000L
+        private const val CHANNEL_RECOVERY_RETRY_MILLIS = 1_000L
+        private const val MAX_CHANNEL_RECOVERY_ATTEMPTS = 5
+        private const val REQUIRED_ABSENT_OBSERVATIONS = 2
 
-        // Bounds how long a caller can be kept waiting for teardown to finish. A framework
-        // listener that never fires must not hold the radio away from the mesh forever.
-        private const val TEARDOWN_TIMEOUT_MILLIS = 10_000L
-
-        // SSID and password configuration
         private const val SSID_SUFFIX_LENGTH = 8
         private const val PASSWORD_LENGTH = 16
+        private const val RANDOM_CHARS = "ABCDEFGHJKLMNPQRTUVWXY34679"
 
-        // Records the group we created so a later run can tell our own orphan apart
-        // from a group belonging to Cast, Android Auto or Quick Share.
-        private const val PREFS_NAME = "hotspot"
-        private const val KEY_OWNED_GROUP = "owned_group_name"
+        private const val PERMISSION_REVOKED_MESSAGE =
+            "A required Wi-Fi or local network permission was revoked. Grant it and try again."
+        private const val GROUP_LOST_MESSAGE =
+            "The Wi-Fi Direct hotspot disconnected. Please try again."
 
-        // Characters to use for random generation (excluding confusing ones)
-        private const val RANDOM_CHARS = "ABCDEFGHJKLMNPQRTUVWXY34679" // No 0,O,5,S,1,l,I
-    }
-
-    private val wifiP2pManager: WifiP2pManager? =
-        context.getSystemService(Context.WIFI_P2P_SERVICE) as? WifiP2pManager
-
-    private var channel: Channel? = null
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
-
-    private val handler = Handler(Looper.getMainLooper())
-    private val random = SecureRandom()
-
-    private var currentGroup: WifiP2pGroup? = null
-    private var callback: HotspotCallback? = null
-    private var isStarting = false
-    private var hasNotifiedStarted = false // Track if we've notified the callback
-    private var isReceiverRegistered = false // Track receiver registration to prevent leaks
-
-    // Saved credentials for reconnection
-    private var savedSsid: String? = null
-    private var savedPassword: String? = null
-
-    // Last Wi-Fi P2P state seen on the broadcast, or null before the first one arrives
-    private var lastP2pState: Int? = null
-
-    /**
-     * Whether this manager created the group currently on the framework. Gates group
-     * removal on stop: without it, refusing to disturb another app's group and then
-     * tearing it down in cleanup are the same code path.
-     */
-    private var createdActiveGroup = false
-
-    /**
-     * Whether a createGroup() has been accepted but not yet reported back. The framework can
-     * still complete it after the user stops, so the channel must stay open for the listener
-     * to remove whatever lands.
-     */
-    private var groupCreationPending = false
-
-    /**
-     * Whether the framework-generated name of the current group has been recorded.
-     *
-     * Below Q only the first poll can supply that name, and it must be written exactly
-     * once. Tracking it in memory rather than inferring it from a null [ownedGroupName]
-     * keeps the previous group's marker intact, which a retry after a failed removal
-     * still needs to recognise that group as ours.
-     */
-    private var recordedGeneratedName = false
-
-    /** Run once the channel is released; see [stopHotspot]. Cleared as it fires. */
-    private var teardownCallback: (() -> Unit)? = null
-
-    /**
-     * Whether an earlier stop is still cleaning up asynchronously.
-     *
-     * stopHotspot() is reached more than once in ordinary flows -- failStartup() stops the
-     * manager and then reports the error, which stops it again through the ViewModel. A
-     * detached channel alone cannot distinguish "never initialised" from "already being
-     * torn down", and treating the second as the first fires the completion immediately,
-     * before the first removal has finished.
-     */
-    private var teardownInProgress = false
-
-    /** Idempotent, so the timeout fallback and the real completion cannot both fire. */
-    private fun finishTeardown() {
-        // Cleared unconditionally: an earlier stop may have had no callback, and leaving
-        // this set would make a later stop wait for a completion that already happened.
-        teardownInProgress = false
-
-        val done = teardownCallback ?: return
-        teardownCallback = null
-        done.invoke()
-    }
-
-    private val prefs by lazy { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
-
-    /** Network name of the last group this app created, surviving process death. */
-    private var ownedGroupName: String?
-        get() = prefs.getString(KEY_OWNED_GROUP, null)
-        set(value) = prefs.edit().putString(KEY_OWNED_GROUP, value).apply()
-
-    // Broadcast receiver for Wi-Fi P2P events
-    private val broadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION -> {
-                    val state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1)
-                    lastP2pState = state
-                    Log.d(TAG, "Wi-Fi P2P state changed: $state")
-
-                    // Wi-Fi Direct going away is terminal for this session: without it
-                    // the group cannot form, and any group already up is now dead.
-                    if (state == WIFI_P2P_STATE_DISABLED && (isStarting || hasNotifiedStarted)) {
-                        Log.w(TAG, "Wi-Fi P2P was disabled; aborting hotspot")
-                        failStartup(HotspotStartupPolicy.P2P_DISABLED_MESSAGE)
-                    }
+        private fun findAccessPointAddress(): String? {
+            return try {
+                val interfaces = NetworkInterface.getNetworkInterfaces()
+                while (interfaces.hasMoreElements()) {
+                    val network = interfaces.nextElement()
+                    if (!network.name.startsWith("p2p")) continue
+                    network.interfaceAddresses
+                        .firstOrNull { it.address.address.size == 4 }
+                        ?.address
+                        ?.hostAddress
+                        ?.let { return it }
                 }
-                WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
-                    Log.d(TAG, "Wi-Fi P2P connection changed")
-                    requestGroupInfo()
-                }
+                null
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting P2P access point address", e)
+                null
             }
         }
     }
 
-    /**
-     * Start the Wi-Fi P2P hotspot.
-     */
+    private sealed interface Phase {
+        data object Idle : Phase
+
+        data class Starting(
+            val session: Session,
+            val step: StartStep
+        ) : Phase
+
+        data class Creating(
+            val session: Session,
+            val attempt: Int,
+            val ownership: Ownership
+        ) : Phase
+
+        data class Forming(
+            val session: Session,
+            val ownership: Ownership,
+            val candidateName: String? = null,
+            val candidateObservations: Int = 0
+        ) : Phase
+
+        data class Hosting(
+            val session: Session,
+            val ownership: Ownership.Known,
+            val group: HotspotP2p.Group,
+            val absentObservations: Int = 0
+        ) : Phase
+
+        data class Stopping(
+            val session: Session,
+            val cleanup: Cleanup,
+            val pendingError: String?
+        ) : Phase
+
+        data object Closed : Phase
+    }
+
+    private sealed interface StartStep {
+        data object AwaitingP2pState : StartStep
+        data class Inspecting(val attempt: Int) : StartStep
+
+        data class RemovingStale(
+            val attempt: Int,
+            val groupName: String
+        ) : StartStep
+
+        data class AwaitingStaleAbsence(
+            val attempt: Int,
+            val groupName: String,
+            val removalAccepted: Boolean,
+            val absentObservations: Int = 0
+        ) : StartStep
+    }
+
+    private sealed interface Ownership {
+        data class Known(val name: String) : Ownership
+
+        /**
+         * Android 8-9 chooses the group name. The accepted create command is the only
+         * ownership evidence until the first stable group observation supplies the name.
+         */
+        data object FrameworkGenerated : Ownership
+    }
+
+    private sealed interface Cleanup {
+        data class AwaitingCreateResult(
+            val ownership: Ownership
+        ) : Cleanup
+
+        data class Inspecting(
+            val ownership: Ownership,
+            val mayStillForm: Boolean,
+            val removalAccepted: Boolean = false,
+            val absentObservations: Int = 0,
+            val forced: Boolean = false,
+            val candidateName: String? = null,
+            val candidateObservations: Int = 0
+        ) : Cleanup
+
+        data class Removing(
+            val ownership: Ownership,
+            val mayStillForm: Boolean,
+            val forced: Boolean
+        ) : Cleanup
+
+        data class RecoveringChannel(
+            val ownership: Ownership,
+            val attempt: Int
+        ) : Cleanup
+    }
+
+    private class Session(
+        val id: Long,
+        var channel: HotspotP2p.Channel,
+        val callback: HotspotCallback,
+        val credentials: HotspotP2p.Credentials
+    ) {
+        val tasks = mutableListOf<HotspotScheduler.Task>()
+        val teardownCallbacks = mutableListOf<() -> Unit>()
+        var channelClosed = false
+        var channelGeneration = 0L
+        var cleanupRecoveryAttempt = 0
+
+        fun closeChannel() {
+            if (channelClosed) return
+            channelClosed = true
+            channel.close()
+        }
+    }
+
+    private var phase: Phase = Phase.Idle
+    private var nextSessionId = 1L
+    private var lastP2pState: Int? = null
+
     fun startHotspot(callback: HotspotCallback) {
-        if (isStarting) {
-            Log.w(TAG, "Hotspot already starting")
+        if (phase !is Phase.Idle && phase !is Phase.Closed) {
+            Log.w(TAG, "Ignoring start while lifecycle is ${phase.javaClass.simpleName}")
             return
         }
 
-        if (wifiP2pManager == null) {
-            Log.e(TAG, "Wi-Fi P2P not available on this device")
+        if (!p2p.available) {
             callback.onError("Wi-Fi Direct not supported on this device")
             return
         }
 
-        val missingPermissions = HotspotPermissions.missingFrom(context)
+        val missingPermissions = platform.missingPermissions()
         if (missingPermissions.isNotEmpty()) {
-            Log.w(TAG, "Cannot start hotspot; missing required permissions: $missingPermissions")
             val message = if (Manifest.permission.ACCESS_LOCAL_NETWORK in missingPermissions) {
                 "Local network permission is required to share the app over the hotspot"
             } else {
@@ -181,646 +207,1073 @@ class HotspotManager(private val context: Context) {
             return
         }
 
-        this.callback = callback
-        isStarting = true
-
-        Log.d(TAG, "Starting Wi-Fi P2P hotspot")
-
-        // Register broadcast receiver (only if not already registered)
-        if (!isReceiverRegistered) {
-            val intentFilter = IntentFilter().apply {
-                addAction(WIFI_P2P_STATE_CHANGED_ACTION)
-                addAction(WIFI_P2P_CONNECTION_CHANGED_ACTION)
+        try {
+            platform.activate(
+                onP2pStateChanged = ::onP2pStateChanged,
+                onConnectionChanged = ::onConnectionChanged
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Unable to acquire hotspot resources", e)
+            try {
+                platform.deactivate()
+            } catch (cleanupError: Exception) {
+                Log.w(TAG, "Unable to release partially acquired hotspot resources", cleanupError)
             }
-            context.registerReceiver(broadcastReceiver, intentFilter)
-            isReceiverRegistered = true
-            Log.d(TAG, "Broadcast receiver registered")
+            callback.onError("Unable to prepare the Wi-Fi Direct hotspot")
+            return
         }
 
-        // Acquire locks
-        acquireLocks()
+        val session = createSession(callback) ?: run {
+            platform.deactivate()
+            callback.onError(HotspotStartupPolicy.P2P_UNSUPPORTED_MESSAGE)
+            return
+        }
 
-        // Load or generate credentials
-        if (savedSsid == null || savedPassword == null) {
-            savedSsid = generateSsid()
-            savedPassword = generatePassword()
-            Log.d(TAG, "Generated new credentials: SSID=$savedSsid")
+        Log.d(TAG, "Starting hotspot session ${session.id}")
+        if (p2p.supportsP2pStateQuery) {
+            requestP2pState(session)
         } else {
-            Log.d(TAG, "Using saved credentials: SSID=$savedSsid")
+            inspectBeforeCreate(session, attempt = 1)
         }
-
-        // Start P2P framework (retries reuse this one channel)
-        startWifiP2pFramework()
     }
 
     /**
-     * Stop the hotspot.
-     */
-    /**
-     * @param onTeardownComplete run once the channel has actually been released, which may
-     *   be well after this returns: a createGroup submitted before the stop still has to
-     *   land and be cleaned up. Callers holding a resource for the hotspot -- the Wi-Fi
-     *   Aware hold in particular -- must wait for this rather than for the call to return,
-     *   or they hand the radio back while a P2P group is still on its way.
+     * Stop is idempotent. Every caller waits on the same [Phase.Stopping] lifecycle
+     * instead of overwriting a single completion callback.
      */
     fun stopHotspot(onTeardownComplete: (() -> Unit)? = null) {
-        Log.d(TAG, "Stopping hotspot")
+        when (val current = phase) {
+            Phase.Idle, Phase.Closed -> onTeardownComplete?.invoke()
 
-        isStarting = false
-        hasNotifiedStarted = false
+            is Phase.Stopping -> {
+                onTeardownComplete?.let(current.session.teardownCallbacks::add)
+            }
 
-        // Stop group info polling
-        handler.removeCallbacksAndMessages(null)
+            is Phase.Starting -> {
+                onTeardownComplete?.let(current.session.teardownCallbacks::add)
+                when (val step = current.step) {
+                    is StartStep.RemovingStale ->
+                        beginStopping(
+                            session = current.session,
+                            cleanup = Cleanup.Inspecting(
+                                ownership = Ownership.Known(step.groupName),
+                                mayStillForm = false
+                            ),
+                            pendingError = null
+                        )
 
-        teardownCallback = onTeardownComplete
-        if (onTeardownComplete != null) {
-            handler.postDelayed({
-                if (teardownCallback != null) {
-                    Log.w(TAG, "Teardown did not complete within ${TEARDOWN_TIMEOUT_MILLIS}ms")
-                    finishTeardown()
-                }
-            }, TEARDOWN_TIMEOUT_MILLIS)
-        }
+                    is StartStep.AwaitingStaleAbsence ->
+                        beginStopping(
+                            session = current.session,
+                            cleanup = Cleanup.Inspecting(
+                                ownership = Ownership.Known(step.groupName),
+                                mayStillForm = false,
+                                removalAccepted = step.removalAccepted,
+                                absentObservations = step.absentObservations
+                            ),
+                            pendingError = null
+                        )
 
-        // Detach the channel first so any in-flight listener sees the hotspot as stopped,
-        // then remove the group and close the channel once the framework has replied.
-        val staleChannel = channel
-        val removeGroupOnStop = createdActiveGroup
-        val creationPending = groupCreationPending
-        channel = null
-        createdActiveGroup = false
-
-        if (staleChannel != null) {
-            teardownInProgress = true
-            when {
-                removeGroupOnStop -> removeOwnGroupThenClose(staleChannel)
-
-                // A submitted createGroup can still succeed after this point. Its listener
-                // needs the channel to remove whatever lands, so closing now would strand
-                // the group and hand the radio back to Aware while it still holds it.
-                creationPending ->
-                    Log.d(TAG, "Group creation in flight; deferring channel close to its listener")
-
-                // removeGroup() is device-scoped, not app-scoped: calling it here would tear
-                // down whatever group is present, including the Cast or Android Auto session
-                // we just refused to disturb. We created nothing, so leave it alone.
-                else -> {
-                    Log.d(TAG, "No group of ours to remove; closing channel only")
-                    closeChannel(staleChannel)
+                    else -> finishSession(current.session)
                 }
             }
-        } else if (teardownInProgress) {
-            // An earlier stop detached the channel and is still cleaning up. Its completion
-            // runs this callback too; firing now would release the radio mid-removal.
-            Log.d(TAG, "Teardown already in progress; chaining onto it")
-        } else {
-            // Never initialised, so there is nothing to wait for.
-            finishTeardown()
-        }
 
-        // Release locks
-        releaseLocks()
-
-        // Unregister receiver (only if registered)
-        if (isReceiverRegistered) {
-            try {
-                context.unregisterReceiver(broadcastReceiver)
-                isReceiverRegistered = false
-                Log.d(TAG, "Broadcast receiver unregistered")
-            } catch (e: IllegalArgumentException) {
-                Log.w(TAG, "Receiver was not registered", e)
-                isReceiverRegistered = false
-            }
-        }
-
-        currentGroup = null
-        callback = null
-    }
-
-    /**
-     * Remove the group we created, but only after confirming it is still the one on the
-     * framework. Ours can be torn down externally and replaced between the last poll and
-     * here, and removeGroup() is device-scoped — it would take the replacement with it.
-     */
-    @SuppressLint("MissingPermission")
-    private fun removeOwnGroupThenClose(ch: Channel) {
-        val expectedName = ownedGroupName
-
-        try {
-            wifiP2pManager?.requestGroupInfo(ch) { group ->
-                val actualName = group?.networkName
-
-                // Below Q the marker still holds the previous group's name until the
-                // first poll records the new one, so comparing against it in that window
-                // would read our own freshly created group as a stranger's.
-                val markerDescribesCurrentGroup =
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q || recordedGeneratedName
-
-                // Only a name that positively differs proves a stranger owns the radio.
-                // Absence of proof is not proof: requestGroupInfo returns null while a
-                // group is still forming. Skipping removal in any of these cases would
-                // strand the group we created.
-                val belongsToSomeoneElse = markerDescribesCurrentGroup &&
-                    actualName != null && expectedName != null && actualName != expectedName
-
-                if (belongsToSomeoneElse) {
-                    Log.d(TAG, "Group is '$actualName', not ours ('$expectedName'); leaving it alone")
-                    closeChannel(ch)
-                    return@requestGroupInfo
-                }
-
-                // This runs on the callback, after the outer try has already returned, so
-                // a permission revoked since the query was submitted would otherwise
-                // crash the app on what is only meant to be a teardown.
-                try {
-                    wifiP2pManager?.removeGroup(ch, object : ActionListener {
-                        override fun onSuccess() {
-                            Log.d(TAG, "Group removed successfully")
-                            // Nothing of ours is left for a later run to clean up.
-                            ownedGroupName = null
-                            closeChannel(ch)
-                        }
-                        override fun onFailure(reason: Int) {
-                            Log.w(TAG, "Failed to remove group: $reason")
-                            closeChannel(ch)
-                        }
-                    })
-                } catch (e: SecurityException) {
-                    Log.e(TAG, "Wi-Fi permission was revoked before the group could be removed", e)
-                    closeChannel(ch)
-                }
-            }
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Wi-Fi permission was revoked while confirming group ownership", e)
-            closeChannel(ch)
-        }
-    }
-
-    /**
-     * Release the channel's binder registration with WifiP2pService. Without this the
-     * registration survives until the process dies, and every start/stop cycle adds
-     * another stale client to the framework's list.
-     */
-    private fun closeChannel(channelToClose: Channel) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            try {
-                channelToClose.close()
-                Log.d(TAG, "P2P channel closed")
-            } catch (e: Exception) {
-                Log.w(TAG, "Error closing P2P channel", e)
-            }
-        }
-
-        // Terminal for this channel on every path, including the deferred one, so this is
-        // where a stop is genuinely finished. Below O_MR1 there is nothing to close, but
-        // the caller still has to be released.
-        finishTeardown()
-    }
-
-    /**
-     * Get current connection information.
-     */
-    fun getConnectionInfo(): ConnectionInfo? {
-        val group = currentGroup ?: return null
-        val ipAddress = getAccessPointAddress()
-
-        return ConnectionInfo(
-            ssid = group.networkName ?: savedSsid ?: "",
-            password = group.passphrase ?: savedPassword ?: "",
-            ipAddress = ipAddress ?: "192.168.49.1", // Fallback to standard P2P IP
-            connectedPeers = group.clientList?.size ?: 0
-        )
-    }
-
-    /**
-     * Initialise the P2P framework once. Every retry reuses this channel — calling
-     * initialize() per attempt registers a fresh binder with WifiP2pService that is
-     * never reclaimed until the process dies.
-     */
-    private fun startWifiP2pFramework() {
-        Log.d(TAG, "Initialising P2P channel")
-
-        val newChannel = wifiP2pManager?.initialize(context, Looper.getMainLooper(), null)
-
-        if (newChannel == null) {
-            // The service is unobtainable; retrying will not change that.
-            Log.e(TAG, "Failed to initialize P2P channel")
-            failStartup(HotspotStartupPolicy.P2P_UNSUPPORTED_MESSAGE)
-            return
-        }
-
-        channel = newChannel
-        createGroupWhenP2pAvailable()
-    }
-
-    /**
-     * Ask the framework for the current P2P state before the first attempt.
-     *
-     * When P2P is disabled the state machine answers every createGroup with BUSY —
-     * the same code a genuinely transient collision returns — so without this check
-     * a permanent failure is indistinguishable from a retryable one.
-     */
-    @SuppressLint("MissingPermission")
-    private fun createGroupWhenP2pAvailable() {
-        val ch = channel ?: return
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            clearStaleGroupThenCreate(ch, attempt = 1)
-            return
-        }
-
-        try {
-            wifiP2pManager?.requestP2pState(ch) { state ->
-                if (channel !== ch) return@requestP2pState
-                lastP2pState = state
-                clearStaleGroupThenCreate(ch, attempt = 1)
-            }
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Wi-Fi permission was revoked while reading P2P state", e)
-            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
-        }
-    }
-
-    /**
-     * A P2P group survives the process that created it, so a previous session killed
-     * while hosting leaves an orphan behind. The framework then rejects createGroup
-     * with BUSY for as long as that group exists, which no retry can clear.
-     */
-    @SuppressLint("MissingPermission")
-    private fun clearStaleGroupThenCreate(ch: Channel, attempt: Int) {
-        try {
-            wifiP2pManager?.requestGroupInfo(ch) { existingGroup ->
-                if (channel !== ch) return@requestGroupInfo
-
-                val action = HotspotStartupPolicy.startAction(
-                    p2pState = lastP2pState,
-                    existingGroupName = existingGroup?.networkName,
-                    ownedGroupName = ownedGroupName
+            is Phase.Creating -> {
+                onTeardownComplete?.let(current.session.teardownCallbacks::add)
+                beginStopping(
+                    session = current.session,
+                    cleanup = Cleanup.AwaitingCreateResult(current.ownership),
+                    pendingError = null
                 )
+            }
 
-                when (action) {
-                    is HotspotStartupPolicy.StartAction.Fail -> {
-                        Log.w(TAG, "Not attempting group creation: ${action.message}")
-                        failStartup(action.message)
-                    }
-                    HotspotStartupPolicy.StartAction.Create -> createGroup(attempt)
+            is Phase.Forming -> {
+                onTeardownComplete?.let(current.session.teardownCallbacks::add)
+                beginStopping(
+                    session = current.session,
+                    cleanup = Cleanup.Inspecting(
+                        ownership = current.ownership,
+                        mayStillForm = true
+                    ),
+                    pendingError = null
+                )
+            }
+
+            is Phase.Hosting -> {
+                onTeardownComplete?.let(current.session.teardownCallbacks::add)
+                beginStopping(
+                    session = current.session,
+                    cleanup = Cleanup.Inspecting(
+                        ownership = current.ownership,
+                        mayStillForm = false
+                    ),
+                    pendingError = null
+                )
+            }
+        }
+    }
+
+    fun getConnectionInfo(): ConnectionInfo? {
+        val hosting = phase as? Phase.Hosting ?: return null
+        return connectionInfo(hosting.group, hosting.session)
+    }
+
+    @VisibleForTesting
+    internal fun lifecycleName(): String = when (phase) {
+        Phase.Idle -> "Idle"
+        is Phase.Starting -> "Starting"
+        is Phase.Creating -> "Creating"
+        is Phase.Forming -> "Forming"
+        is Phase.Hosting -> "Hosting"
+        is Phase.Stopping -> "Stopping"
+        Phase.Closed -> "Closed"
+    }
+
+    private fun createSession(callback: HotspotCallback): Session? {
+        var session: Session? = null
+        val generation = 0L
+        val channel = try {
+            p2p.initialize {
+                session?.let { onChannelDisconnected(it, generation) }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize P2P channel", e)
+            null
+        } ?: return null
+
+        val created = Session(
+            id = nextSessionId++,
+            channel = channel,
+            callback = callback,
+            credentials = HotspotP2p.Credentials(
+                networkName = generateSsid(),
+                passphrase = generatePassword()
+            )
+        )
+        session = created
+        return created
+    }
+
+    private fun requestP2pState(session: Session) {
+        val expected = Phase.Starting(session, StartStep.AwaitingP2pState)
+        phase = expected
+        try {
+            p2p.requestP2pState(session.channel) { state ->
+                if (phase !== expected) return@requestP2pState
+                lastP2pState = state
+                if (state == WifiP2pManager.WIFI_P2P_STATE_DISABLED) {
+                    fail(HotspotStartupPolicy.P2P_DISABLED_MESSAGE)
+                } else {
+                    inspectBeforeCreate(session, attempt = 1)
+                }
+            }
+        } catch (e: SecurityException) {
+            fail(PERMISSION_REVOKED_MESSAGE)
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Failed to request P2P state", e)
+            fail(HotspotStartupPolicy.GENERIC_FAILURE_MESSAGE)
+        }
+    }
+
+    private fun inspectBeforeCreate(session: Session, attempt: Int) {
+        val expected = Phase.Starting(session, StartStep.Inspecting(attempt))
+        phase = expected
+        try {
+            p2p.requestGroup(session.channel) { group ->
+                if (phase !== expected) return@requestGroup
+                if (group != null && !group.isGroupOwner) {
+                    fail(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE)
+                    return@requestGroup
+                }
+                when (
+                    val action = HotspotStartupPolicy.startAction(
+                        p2pState = lastP2pState,
+                        existingGroupName = group?.networkName,
+                        ownedGroupName = ownedGroups.name
+                    )
+                ) {
+                    is HotspotStartupPolicy.StartAction.Fail -> fail(action.message)
+                    HotspotStartupPolicy.StartAction.Create -> createGroup(session, attempt)
                     HotspotStartupPolicy.StartAction.RemoveStaleGroupThenCreate -> {
-                        Log.w(TAG, "Removing stale group '${existingGroup?.networkName}' before creating")
-                        removeStaleGroup(ch, attempt)
+                        val name = group?.networkName ?: ownedGroups.name
+                        if (name == null) {
+                            createGroup(session, attempt)
+                        } else {
+                            removeStaleGroup(session, attempt, name)
+                        }
                     }
                 }
             }
         } catch (e: SecurityException) {
-            Log.e(TAG, "Wi-Fi permission was revoked while reading group info", e)
-            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
+            fail(PERMISSION_REVOKED_MESSAGE)
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Failed to inspect the current P2P group", e)
+            fail(HotspotStartupPolicy.GENERIC_FAILURE_MESSAGE)
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private fun removeStaleGroup(ch: Channel, attempt: Int) {
-        // Reached from a requestGroupInfo callback, so the caller's try has already
-        // returned and cannot catch a permission revoked in the meantime.
+    private fun removeStaleGroup(session: Session, attempt: Int, groupName: String) {
+        val expected = Phase.Starting(
+            session,
+            StartStep.RemovingStale(attempt, groupName)
+        )
+        phase = expected
+        scheduleStaleRemovalDeadline(session, groupName)
+
         try {
-            wifiP2pManager?.removeGroup(ch, object : ActionListener {
-                override fun onSuccess() {
-                    if (channel !== ch) return
-                    Log.d(TAG, "Stale group removed")
-                    createGroup(attempt)
+            p2p.removeGroup(session.channel, object : HotspotP2p.ActionCallback {
+                override fun onAccepted() {
+                    if (phase !== expected) return
+                    awaitStaleGroupAbsence(
+                        session = session,
+                        attempt = attempt,
+                        groupName = groupName,
+                        removalAccepted = true
+                    )
                 }
-                override fun onFailure(reason: Int) {
-                    if (channel !== ch) return
-                    // Creation may still succeed, and a BUSY reply here backs off as usual.
-                    Log.w(TAG, "Failed to remove stale group: $reason; attempting creation anyway")
-                    createGroup(attempt)
+
+                override fun onRejected(reason: Int) {
+                    if (phase !== expected) return
+                    Log.w(TAG, "Stale group removal command rejected: $reason")
+                    awaitStaleGroupAbsence(
+                        session = session,
+                        attempt = attempt,
+                        groupName = groupName,
+                        removalAccepted = false
+                    )
                 }
             })
         } catch (e: SecurityException) {
-            Log.e(TAG, "Wi-Fi permission was revoked while removing the stale group", e)
-            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
+            fail(PERMISSION_REVOKED_MESSAGE)
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Failed to submit stale group removal", e)
+            fail(HotspotStartupPolicy.GENERIC_FAILURE_MESSAGE)
         }
     }
 
-    /**
-     * Create Wi-Fi P2P group.
-     */
-    @SuppressLint("MissingPermission")
-    private fun createGroup(attempt: Int) {
-        val ch = channel ?: return
-
-        groupCreationPending = true
-
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Record before the call: if the process dies between creation and the
-                // first group info, the next run still knows this orphan is ours.
-                ownedGroupName = savedSsid
-
-                // Android 10+: Custom SSID and password
-                val config = WifiP2pConfig.Builder()
-                    .setNetworkName(savedSsid!!)
-                    .setPassphrase(savedPassword!!)
-                    .setGroupOperatingBand(WifiP2pConfig.GROUP_OWNER_BAND_2GHZ) // Force 2.4GHz for compatibility
-                    .build()
-
-                wifiP2pManager?.createGroup(ch, config, groupActionListener(attempt, ch))
-            } else {
-                // Android 9 and below: the framework names the group, so ownership can
-                // only be recorded once the first poll reports it. The previous marker is
-                // deliberately left in place until then -- a retry after a failed
-                // removeStaleGroup() needs it to still recognise the old group as ours,
-                // and clearing it here would have that retry classify it as foreign and
-                // abort instead of recovering.
-                recordedGeneratedName = false
-
-                wifiP2pManager?.createGroup(ch, groupActionListener(attempt, ch))
-            }
-        } catch (e: SecurityException) {
-            // The call never reached the framework, so no listener will fire to clear this;
-            // leaving it set would make stopHotspot() defer the channel close forever.
-            groupCreationPending = false
-            Log.e(TAG, "Wi-Fi permission was revoked while creating the group", e)
-            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
-        }
-    }
-
-    private fun groupActionListener(attempt: Int, requestChannel: Channel) = object : ActionListener {
-        override fun onSuccess() {
-            groupCreationPending = false
-
-            if (channel !== requestChannel) {
-                // Stopped while this was in flight. The group is ours and nobody else is
-                // going to clean it up, so remove it and only then release the channel.
-                Log.w(TAG, "Removing group created after hotspot was stopped")
-                // On the framework's callback thread, so nothing upstream can catch a
-                // permission revoked since createGroup() was submitted.
-                try {
-                    wifiP2pManager?.removeGroup(requestChannel, object : ActionListener {
-                        override fun onSuccess() {
-                            Log.d(TAG, "Late group removed")
-                            ownedGroupName = null
-                            closeChannel(requestChannel)
-                        }
-                        override fun onFailure(reason: Int) {
-                            Log.w(TAG, "Failed to remove late group: $reason")
-                            closeChannel(requestChannel)
-                        }
-                    })
-                } catch (e: SecurityException) {
-                    Log.e(TAG, "Wi-Fi permission was revoked before the late group could be removed", e)
-                    closeChannel(requestChannel)
-                }
-                return
-            }
-            Log.d(TAG, "P2P group created successfully")
-            isStarting = false
-            createdActiveGroup = true
-            // Don't call onHotspotStarted() yet - wait for group info
-            startGroupInfoPolling()
-        }
-
-        override fun onFailure(reason: Int) {
-            groupCreationPending = false
-
-            if (channel !== requestChannel) {
-                // Stopped while in flight and nothing was created, so stopHotspot() left the
-                // channel open for us. Nothing to remove; just release it.
-                Log.d(TAG, "Group creation failed after hotspot was stopped; closing channel")
-                closeChannel(requestChannel)
-                return
-            }
-            handleGroupCreationFailure(reason, attempt)
-        }
-    }
-
-    /**
-     * Handle group creation failure, backing off only for genuinely transient causes.
-     */
-    private fun handleGroupCreationFailure(reason: Int, attempt: Int) {
-        val reasonStr = when (reason) {
-            ERROR -> "ERROR"
-            P2P_UNSUPPORTED -> "P2P_UNSUPPORTED"
-            BUSY -> "BUSY"
-            else -> "UNKNOWN($reason)"
-        }
-
-        Log.w(
-            TAG,
-            "Failed to create group: $reasonStr " +
-                "(attempt $attempt/${HotspotStartupPolicy.MAX_ATTEMPTS}, p2pState=$lastP2pState)"
+    private fun awaitStaleGroupAbsence(
+        session: Session,
+        attempt: Int,
+        groupName: String,
+        removalAccepted: Boolean,
+        absentObservations: Int = 0
+    ) {
+        val expected = Phase.Starting(
+            session,
+            StartStep.AwaitingStaleAbsence(
+                attempt = attempt,
+                groupName = groupName,
+                removalAccepted = removalAccepted,
+                absentObservations = absentObservations
+            )
         )
-
-        when (val decision = HotspotStartupPolicy.decide(reason, attempt, lastP2pState)) {
-            is HotspotStartupPolicy.Decision.Retry -> {
-                Log.d(TAG, "Retrying group creation in ${decision.delayMillis}ms")
-                handler.postDelayed({
-                    // Re-check for a stale group each round: BUSY is also how the
-                    // framework reports "a group already exists".
-                    channel?.let { clearStaleGroupThenCreate(it, attempt + 1) }
-                }, decision.delayMillis)
-            }
-            is HotspotStartupPolicy.Decision.Fail -> failStartup(decision.message)
-        }
-    }
-
-    /**
-     * Terminal startup failure: release all resources (locks, receiver, handler
-     * callbacks) before notifying the callback, so a failed attempt doesn't leak
-     * and block subsequent attempts.
-     */
-    private fun failStartup(message: String) {
-        val cb = callback
-        stopHotspot()
-        cb?.onError(message)
-    }
-
-    /**
-     * Start polling for group info to track connected clients.
-     */
-    private fun startGroupInfoPolling() {
-        requestGroupInfo()
-
-        // Keep polling even while the group info is still null — the first
-        // requestGroupInfo() after createGroup() can legitimately return null
-        // while the group is forming. Give up only after a timeout.
-        var elapsedMillis = 0L
-        handler.postDelayed(object : Runnable {
-            override fun run() {
-                if (channel == null) return
-
-                elapsedMillis += GROUP_INFO_POLL_INTERVAL_MILLIS
-                if (currentGroup == null && !hasNotifiedStarted &&
-                    elapsedMillis >= GROUP_FORMATION_TIMEOUT_MILLIS
-                ) {
-                    Log.e(TAG, "Group never formed within ${GROUP_FORMATION_TIMEOUT_MILLIS}ms")
-                    failStartup("Hotspot failed to start. Please try again.")
-                    return
-                }
-
-                requestGroupInfo()
-                handler.postDelayed(this, GROUP_INFO_POLL_INTERVAL_MILLIS)
-            }
-        }, GROUP_INFO_POLL_INTERVAL_MILLIS)
-    }
-
-    /**
-     * Request current group information.
-     */
-    @SuppressLint("MissingPermission")
-    private fun requestGroupInfo() {
-        val ch = channel ?: return
+        phase = expected
 
         try {
-            wifiP2pManager?.requestGroupInfo(ch) { group ->
-                if (group != null) {
-                    currentGroup = group
+            p2p.requestGroup(session.channel) { group ->
+                if (phase !== expected) return@requestGroup
+                val actualName = group?.networkName
+                when {
+                    actualName != null && actualName != groupName -> {
+                        ownedGroups.name = null
+                        fail(HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE)
+                    }
 
-                    // Update saved credentials if using system-generated ones
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                        savedSsid = group.networkName
-                        savedPassword = group.passphrase
-                        // Below Q the framework picks the name, so this is the first point
-                        // we can record it — and it must be recorded exactly once. Writing
-                        // it on every poll would overwrite the marker with a replacement
-                        // group's name, leaving the check below comparing a value with
-                        // itself and never detecting the replacement.
-                        if (createdActiveGroup && !recordedGeneratedName) {
-                            group.networkName?.let {
-                                ownedGroupName = it
-                                recordedGeneratedName = true
-                                Log.d(TAG, "Recorded framework-generated group name '$it'")
+                    group == null -> {
+                        val observations = absentObservations + 1
+                        if (observations >= REQUIRED_ABSENT_OBSERVATIONS) {
+                            ownedGroups.name = null
+                            createGroup(session, attempt)
+                        } else {
+                            schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                                awaitStaleGroupAbsence(
+                                    session,
+                                    attempt,
+                                    groupName,
+                                    removalAccepted,
+                                    observations
+                                )
                             }
                         }
                     }
 
-                    // Our group can be torn down externally and replaced while this screen is
-                    // open. Ownership has to lapse with it, or stop() would remove a stranger's.
-                    val name = group.networkName
-                    if (createdActiveGroup && name != null && name != ownedGroupName) {
-                        Log.w(TAG, "Group is now '$name', not ours ('$ownedGroupName'); dropping ownership")
-                        createdActiveGroup = false
+                    removalAccepted -> {
+                        schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                            awaitStaleGroupAbsence(
+                                session,
+                                attempt,
+                                groupName,
+                                removalAccepted = true
+                            )
+                        }
                     }
 
-                    // Notify callback on FIRST successful group info retrieval
-                    if (!hasNotifiedStarted) {
-                        hasNotifiedStarted = true
-                        Log.d(TAG, "Group info received, notifying callback")
-                        callback?.onHotspotStarted()
-                    } else {
-                        // Subsequent updates
-                        callback?.onConnectionInfoUpdated(getConnectionInfo())
-                    }
-                } else {
-                    Log.w(TAG, "requestGroupInfo returned null group")
-                }
-            }
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Wi-Fi permission was revoked while reading group info", e)
-            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
-        }
-    }
-
-    /**
-     * Acquire WakeLock and WifiLock to keep hotspot active.
-     */
-    private fun acquireLocks() {
-        try {
-            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(
-                PowerManager.PARTIAL_WAKE_LOCK,
-                "BitChat:HotspotWakeLock"
-            )
-            wakeLock?.acquire(30 * 60 * 1000L)
-
-            val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
-            val lockType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF
-            } else {
-                android.net.wifi.WifiManager.WIFI_MODE_FULL
-            }
-            wifiLock = wifiManager.createWifiLock(lockType, "BitChat:HotspotWifiLock")
-            wifiLock?.acquire()
-
-            Log.d(TAG, "Acquired WakeLock and WifiLock")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error acquiring locks", e)
-        }
-    }
-
-    /**
-     * Release WakeLock and WifiLock.
-     */
-    private fun releaseLocks() {
-        try {
-            wakeLock?.let {
-                if (it.isHeld) {
-                    it.release()
-                }
-            }
-            wakeLock = null
-
-            wifiLock?.let {
-                if (it.isHeld) {
-                    it.release()
-                }
-            }
-            wifiLock = null
-
-            Log.d(TAG, "Released WakeLock and WifiLock")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error releasing locks", e)
-        }
-    }
-
-    /**
-     * Get the IP address of the P2P access point.
-     * Looks for network interface starting with "p2p".
-     */
-    private fun getAccessPointAddress(): String? {
-        try {
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val iface = interfaces.nextElement()
-                if (iface.name.startsWith("p2p")) {
-                    val addresses = iface.interfaceAddresses
-                    for (addr in addresses) {
-                        val address = addr.address
-                        // IPv4 only (4 bytes)
-                        if (address.address.size == 4) {
-                            return address.hostAddress
+                    else -> {
+                        schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                            removeStaleGroup(session, attempt, groupName)
                         }
                     }
                 }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting access point address", e)
+        } catch (e: SecurityException) {
+            fail(PERMISSION_REVOKED_MESSAGE)
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Failed while verifying stale group removal", e)
+            fail(HotspotStartupPolicy.GENERIC_FAILURE_MESSAGE)
         }
-        return null
+    }
+
+    private fun scheduleStaleRemovalDeadline(session: Session, groupName: String) {
+        schedule(session, STALE_REMOVAL_TIMEOUT_MILLIS) {
+            val current = phase as? Phase.Starting ?: return@schedule
+            if (current.session !== session) return@schedule
+            val stillRemovingName = when (val step = current.step) {
+                is StartStep.RemovingStale -> step.groupName
+                is StartStep.AwaitingStaleAbsence -> step.groupName
+                else -> null
+            }
+            if (stillRemovingName == groupName) {
+                fail("The previous Wi-Fi Direct group could not be removed. Please try again.")
+            }
+        }
+    }
+
+    private fun createGroup(session: Session, attempt: Int) {
+        val ownership = if (p2p.supportsCustomCredentials) {
+            ownedGroups.name = session.credentials.networkName
+            Ownership.Known(session.credentials.networkName)
+        } else {
+            Ownership.FrameworkGenerated
+        }
+
+        val expected = Phase.Creating(session, attempt, ownership)
+        phase = expected
+        try {
+            p2p.createGroup(
+                channel = session.channel,
+                credentials = session.credentials.takeIf { p2p.supportsCustomCredentials },
+                callback = object : HotspotP2p.ActionCallback {
+                    override fun onAccepted() {
+                        when (val current = phase) {
+                            expected -> beginFormation(session, ownership)
+                            is Phase.Stopping -> {
+                                if (
+                                    current.session === session &&
+                                    current.cleanup is Cleanup.AwaitingCreateResult
+                                ) {
+                                    val next = current.copy(
+                                        cleanup = Cleanup.Inspecting(
+                                            ownership = ownership,
+                                            mayStillForm = true
+                                        )
+                                    )
+                                    phase = next
+                                    inspectCleanup(next)
+                                }
+                            }
+
+                            else -> Unit
+                        }
+                    }
+
+                    override fun onRejected(reason: Int) {
+                        when (val current = phase) {
+                            expected -> handleGroupCreationFailure(expected, reason)
+
+                            is Phase.Stopping -> {
+                                if (
+                                    current.session === session &&
+                                    current.cleanup is Cleanup.AwaitingCreateResult
+                                ) {
+                                    finishSession(session, current.pendingError)
+                                }
+                            }
+
+                            else -> Unit
+                        }
+                    }
+                }
+            )
+        } catch (e: SecurityException) {
+            clearMarker(ownership)
+            fail(PERMISSION_REVOKED_MESSAGE)
+        } catch (e: RuntimeException) {
+            clearMarker(ownership)
+            Log.e(TAG, "Failed to submit group creation", e)
+            fail(HotspotStartupPolicy.GENERIC_FAILURE_MESSAGE)
+        }
+    }
+
+    private fun handleGroupCreationFailure(
+        creating: Phase.Creating,
+        reason: Int
+    ) {
+        val session = creating.session
+        when (
+            val decision = HotspotStartupPolicy.decide(
+                reason,
+                creating.attempt,
+                lastP2pState
+            )
+        ) {
+            is HotspotStartupPolicy.Decision.Retry -> {
+                schedule(session, decision.delayMillis) {
+                    if (phase !== creating) return@schedule
+                    inspectBeforeCreate(session, creating.attempt + 1)
+                }
+            }
+
+            is HotspotStartupPolicy.Decision.Fail -> {
+                clearMarker(creating.ownership)
+                fail(decision.message)
+            }
+        }
+    }
+
+    private fun beginFormation(session: Session, ownership: Ownership) {
+        val forming = Phase.Forming(session, ownership)
+        phase = forming
+        pollFormation(forming, delayMillis = 0L)
+        schedule(session, GROUP_FORMATION_TIMEOUT_MILLIS) {
+            val current = phase
+            if (current is Phase.Forming && current.session === session) {
+                fail("Hotspot failed to start. Please try again.")
+            }
+        }
+    }
+
+    private fun pollFormation(forming: Phase.Forming, delayMillis: Long) {
+        schedule(forming.session, delayMillis) {
+            if (phase !== forming) return@schedule
+            try {
+                p2p.requestGroup(forming.session.channel) { group ->
+                    if (phase !== forming) return@requestGroup
+                    observeFormation(forming, group)
+                }
+            } catch (e: SecurityException) {
+                fail(PERMISSION_REVOKED_MESSAGE)
+            } catch (e: RuntimeException) {
+                Log.e(TAG, "Failed while observing group formation", e)
+                fail(HotspotStartupPolicy.GENERIC_FAILURE_MESSAGE)
+            }
+        }
+    }
+
+    private fun observeFormation(forming: Phase.Forming, group: HotspotP2p.Group?) {
+        val name = group?.networkName
+        if (group == null || name == null) {
+            pollFormation(forming, GROUP_INFO_POLL_INTERVAL_MILLIS)
+            return
+        }
+        if (!group.isGroupOwner) {
+            clearMarker(forming.ownership)
+            finishSession(
+                forming.session,
+                HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE
+            )
+            return
+        }
+
+        when (val ownership = forming.ownership) {
+            is Ownership.Known -> {
+                if (name != ownership.name) {
+                    clearMarker(ownership)
+                    finishSession(
+                        forming.session,
+                        HotspotStartupPolicy.FOREIGN_GROUP_MESSAGE
+                    )
+                    return
+                }
+                enterHosting(forming.session, ownership, group)
+            }
+
+            Ownership.FrameworkGenerated -> {
+                val observations = if (forming.candidateName == name) {
+                    forming.candidateObservations + 1
+                } else {
+                    1
+                }
+                if (observations >= REQUIRED_ABSENT_OBSERVATIONS) {
+                    val known = Ownership.Known(name)
+                    ownedGroups.name = name
+                    enterHosting(forming.session, known, group)
+                } else {
+                    val next = forming.copy(
+                        candidateName = name,
+                        candidateObservations = observations
+                    )
+                    phase = next
+                    pollFormation(next, GROUP_INFO_POLL_INTERVAL_MILLIS)
+                }
+            }
+        }
+    }
+
+    private fun enterHosting(
+        session: Session,
+        ownership: Ownership.Known,
+        group: HotspotP2p.Group
+    ) {
+        val hosting = Phase.Hosting(session, ownership, group)
+        phase = hosting
+        session.callback.onHotspotStarted()
+        pollHosting(hosting, GROUP_INFO_POLL_INTERVAL_MILLIS)
+    }
+
+    private fun pollHosting(hosting: Phase.Hosting, delayMillis: Long) {
+        schedule(hosting.session, delayMillis) {
+            if (phase !== hosting) return@schedule
+            try {
+                p2p.requestGroup(hosting.session.channel) { group ->
+                    if (phase !== hosting) return@requestGroup
+                    observeHosting(hosting, group)
+                }
+            } catch (e: SecurityException) {
+                fail(PERMISSION_REVOKED_MESSAGE)
+            } catch (e: RuntimeException) {
+                Log.e(TAG, "Failed while observing active group", e)
+                fail(GROUP_LOST_MESSAGE)
+            }
+        }
+    }
+
+    private fun observeHosting(hosting: Phase.Hosting, group: HotspotP2p.Group?) {
+        val name = group?.networkName
+        when {
+            group == null -> {
+                val observations = hosting.absentObservations + 1
+                if (observations >= REQUIRED_ABSENT_OBSERVATIONS) {
+                    clearMarker(hosting.ownership)
+                    finishSession(hosting.session, GROUP_LOST_MESSAGE)
+                } else {
+                    val next = hosting.copy(absentObservations = observations)
+                    phase = next
+                    pollHosting(next, GROUP_INFO_POLL_INTERVAL_MILLIS)
+                }
+            }
+
+            name != hosting.ownership.name || !group.isGroupOwner -> {
+                clearMarker(hosting.ownership)
+                finishSession(hosting.session, GROUP_LOST_MESSAGE)
+            }
+
+            else -> {
+                val next = hosting.copy(group = group, absentObservations = 0)
+                phase = next
+                hosting.session.callback.onConnectionInfoUpdated(
+                    connectionInfo(group, hosting.session)
+                )
+                pollHosting(next, GROUP_INFO_POLL_INTERVAL_MILLIS)
+            }
+        }
+    }
+
+    private fun beginStopping(
+        session: Session,
+        cleanup: Cleanup,
+        pendingError: String?
+    ) {
+        val stopping = Phase.Stopping(session, cleanup, pendingError)
+        phase = stopping
+        schedule(session, TEARDOWN_FORCE_CLOSE_MILLIS) {
+            val current = phase as? Phase.Stopping ?: return@schedule
+            if (current.session === session) forceCleanup(current)
+        }
+
+        when (cleanup) {
+            is Cleanup.Inspecting -> inspectCleanup(stopping)
+            is Cleanup.AwaitingCreateResult,
+            is Cleanup.Removing,
+            is Cleanup.RecoveringChannel -> Unit
+        }
+    }
+
+    private fun inspectCleanup(stopping: Phase.Stopping) {
+        val cleanup = stopping.cleanup as? Cleanup.Inspecting ?: return
+        try {
+            p2p.requestGroup(stopping.session.channel) { group ->
+                if (phase !== stopping) return@requestGroup
+                observeCleanup(stopping, cleanup, group)
+            }
+        } catch (e: SecurityException) {
+            forceCleanup(stopping)
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Failed while verifying hotspot cleanup", e)
+            forceCleanup(stopping)
+        }
+    }
+
+    private fun observeCleanup(
+        stopping: Phase.Stopping,
+        cleanup: Cleanup.Inspecting,
+        group: HotspotP2p.Group?
+    ) {
+        val actualName = group?.networkName
+        val known = cleanup.ownership as? Ownership.Known
+
+        if (
+            group != null &&
+            (!group.isGroupOwner || known != null && actualName != null && actualName != known.name)
+        ) {
+            known?.let(::clearMarker)
+            finishSession(stopping.session, stopping.pendingError)
+            return
+        }
+
+        if (group == null) {
+            if (cleanup.mayStillForm && !cleanup.removalAccepted && !cleanup.forced) {
+                // A null snapshot does not prove there is no group, but removeGroup() is
+                // device-scoped. Close our channel to cancel the accepted create command
+                // instead of risking another app's group, then verify on a fresh channel.
+                forceCleanup(stopping)
+                return
+            }
+
+            val observations = cleanup.absentObservations + 1
+            if (observations >= REQUIRED_ABSENT_OBSERVATIONS) {
+                clearMarker(cleanup.ownership)
+                finishSession(stopping.session, stopping.pendingError)
+            } else {
+                val next = stopping.copy(
+                    cleanup = cleanup.copy(absentObservations = observations)
+                )
+                phase = next
+                schedule(stopping.session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                    inspectCleanup(next)
+                }
+            }
+            return
+        }
+
+        val observedOwnership = if (cleanup.ownership is Ownership.FrameworkGenerated) {
+            val name = actualName
+            if (name == null) {
+                scheduleCleanupInspection(stopping, cleanup)
+                return
+            }
+            val observations = if (cleanup.candidateName == name) {
+                cleanup.candidateObservations + 1
+            } else {
+                1
+            }
+            if (observations < REQUIRED_ABSENT_OBSERVATIONS) {
+                scheduleCleanupInspection(
+                    stopping,
+                    cleanup.copy(
+                        candidateName = name,
+                        candidateObservations = observations
+                    )
+                )
+                return
+            }
+            Ownership.Known(name).also { ownedGroups.name = name }
+        } else {
+            cleanup.ownership
+        }
+
+        if (cleanup.removalAccepted) {
+            val next = stopping.copy(
+                cleanup = cleanup.copy(
+                    ownership = observedOwnership,
+                    absentObservations = 0
+                )
+            )
+            phase = next
+            schedule(stopping.session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                inspectCleanup(next)
+            }
+        } else {
+            issueRemoval(
+                stopping.copy(
+                    cleanup = cleanup.copy(ownership = observedOwnership)
+                ),
+                cleanup.copy(ownership = observedOwnership)
+            )
+        }
+    }
+
+    private fun scheduleCleanupInspection(
+        stopping: Phase.Stopping,
+        cleanup: Cleanup.Inspecting
+    ) {
+        val next = stopping.copy(cleanup = cleanup)
+        phase = next
+        schedule(stopping.session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+            inspectCleanup(next)
+        }
+    }
+
+    private fun issueRemoval(
+        stopping: Phase.Stopping,
+        cleanup: Cleanup.Inspecting
+    ) {
+        val removing = stopping.copy(
+            cleanup = Cleanup.Removing(
+                ownership = cleanup.ownership,
+                mayStillForm = cleanup.mayStillForm,
+                forced = cleanup.forced
+            )
+        )
+        phase = removing
+
+        try {
+            p2p.removeGroup(stopping.session.channel, object : HotspotP2p.ActionCallback {
+                override fun onAccepted() {
+                    if (phase !== removing) return
+                    val next = removing.copy(
+                        cleanup = Cleanup.Inspecting(
+                            ownership = cleanup.ownership,
+                            mayStillForm = false,
+                            removalAccepted = true,
+                            forced = cleanup.forced
+                        )
+                    )
+                    phase = next
+                    schedule(stopping.session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                        inspectCleanup(next)
+                    }
+                }
+
+                override fun onRejected(reason: Int) {
+                    if (phase !== removing) return
+                    Log.w(TAG, "Group removal command rejected: $reason")
+                    val next = removing.copy(
+                        cleanup = Cleanup.Inspecting(
+                            ownership = cleanup.ownership,
+                            mayStillForm = cleanup.mayStillForm,
+                            removalAccepted = false,
+                            forced = cleanup.forced
+                        )
+                    )
+                    phase = next
+                    schedule(stopping.session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                        inspectCleanup(next)
+                    }
+                }
+            })
+        } catch (e: SecurityException) {
+            forceCleanup(removing)
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Failed to submit group removal", e)
+            forceCleanup(removing)
+        }
     }
 
     /**
-     * Generate random SSID.
-     * Format: DIRECT-BC-XXXXXXXX
+     * A framework callback that never arrives cannot be the only cleanup path. Closing the
+     * channel actively asks the framework to remove this app's connections, then a fresh
+     * channel verifies group state before the Aware hold is released.
      */
-    private fun generateSsid(): String {
-        val suffix = (1..SSID_SUFFIX_LENGTH)
-            .map { RANDOM_CHARS[random.nextInt(RANDOM_CHARS.length)] }
-            .joinToString("")
-        return "${HotspotStartupPolicy.SSID_PREFIX}$suffix"
+    private fun forceCleanup(stopping: Phase.Stopping) {
+        if (phase !== stopping || stopping.cleanup is Cleanup.RecoveringChannel) return
+
+        val session = stopping.session
+        val nextAttempt = session.cleanupRecoveryAttempt + 1
+        if (nextAttempt > MAX_CHANNEL_RECOVERY_ATTEMPTS) {
+            Log.e(TAG, "Could not verify P2P cleanup after closing app channels")
+            finishSession(session, stopping.pendingError)
+            return
+        }
+
+        val ownership = when (val cleanup = stopping.cleanup) {
+            is Cleanup.AwaitingCreateResult -> cleanup.ownership
+            is Cleanup.Inspecting -> cleanup.ownership
+            is Cleanup.Removing -> cleanup.ownership
+            is Cleanup.RecoveringChannel -> return
+        }
+        val recovering = Phase.Stopping(
+            session = session,
+            cleanup = Cleanup.RecoveringChannel(ownership, nextAttempt),
+            pendingError = stopping.pendingError
+        )
+        phase = recovering
+        session.cleanupRecoveryAttempt = nextAttempt
+        session.channelGeneration++
+
+        Log.w(
+            TAG,
+            "Forcing P2P cleanup for session ${session.id} (attempt $nextAttempt)"
+        )
+        try {
+            session.closeChannel()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to close stuck P2P channel", e)
+        }
+
+        recoverCleanupChannel(
+            session = session,
+            ownership = ownership,
+            pendingError = stopping.pendingError,
+            attempt = nextAttempt
+        )
     }
 
-    /**
-     * Generate random password.
-     * 16 characters, excluding confusing characters.
-     */
-    private fun generatePassword(): String {
-        return (1..PASSWORD_LENGTH)
-            .map { RANDOM_CHARS[random.nextInt(RANDOM_CHARS.length)] }
-            .joinToString("")
+    private fun recoverCleanupChannel(
+        session: Session,
+        ownership: Ownership,
+        pendingError: String?,
+        attempt: Int
+    ) {
+        val recovering = Phase.Stopping(
+            session = session,
+            cleanup = Cleanup.RecoveringChannel(ownership, attempt),
+            pendingError = pendingError
+        )
+        phase = recovering
+
+        val generation = session.channelGeneration
+        val replacement = try {
+            p2p.initialize { onChannelDisconnected(session, generation) }
+        } catch (e: Exception) {
+            Log.w(TAG, "Unable to initialize cleanup verification channel", e)
+            null
+        }
+
+        if (replacement != null) {
+            if (phase !== recovering || session.channelGeneration != generation) {
+                replacement.close()
+                return
+            }
+            session.channel = replacement
+            session.channelClosed = false
+            val verifying = recovering.copy(
+                cleanup = Cleanup.Inspecting(
+                    ownership = ownership,
+                    mayStillForm = false,
+                    forced = true
+                )
+            )
+            phase = verifying
+            schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
+                inspectCleanup(verifying)
+            }
+            schedule(session, TEARDOWN_FORCE_CLOSE_MILLIS) {
+                val current = phase as? Phase.Stopping ?: return@schedule
+                if (
+                    current.session === session &&
+                    session.cleanupRecoveryAttempt == attempt
+                ) {
+                    forceCleanup(current)
+                }
+            }
+            return
+        }
+
+        if (attempt >= MAX_CHANNEL_RECOVERY_ATTEMPTS) {
+            Log.e(TAG, "Could not verify P2P cleanup after closing the app channel")
+            finishSession(session, pendingError)
+            return
+        }
+
+        schedule(session, CHANNEL_RECOVERY_RETRY_MILLIS) {
+            val current = phase as? Phase.Stopping ?: return@schedule
+            val recovery = current.cleanup as? Cleanup.RecoveringChannel ?: return@schedule
+            if (current.session === session && recovery.attempt == attempt) {
+                session.cleanupRecoveryAttempt = attempt + 1
+                session.channelGeneration++
+                recoverCleanupChannel(session, ownership, pendingError, attempt + 1)
+            }
+        }
     }
 
-    /**
-     * Connection information for the hotspot.
-     */
+    private fun fail(message: String) {
+        when (val current = phase) {
+            Phase.Idle, Phase.Closed -> Unit
+
+            is Phase.Starting -> when (val step = current.step) {
+                is StartStep.RemovingStale ->
+                    beginStopping(
+                        current.session,
+                        Cleanup.Inspecting(
+                            ownership = Ownership.Known(step.groupName),
+                            mayStillForm = false
+                        ),
+                        message
+                    )
+
+                is StartStep.AwaitingStaleAbsence ->
+                    beginStopping(
+                        current.session,
+                        Cleanup.Inspecting(
+                            ownership = Ownership.Known(step.groupName),
+                            mayStillForm = false,
+                            removalAccepted = step.removalAccepted,
+                            absentObservations = step.absentObservations
+                        ),
+                        message
+                    )
+
+                else -> finishSession(current.session, message)
+            }
+
+            is Phase.Creating ->
+                beginStopping(
+                    current.session,
+                    Cleanup.AwaitingCreateResult(current.ownership),
+                    message
+                )
+
+            is Phase.Forming ->
+                beginStopping(
+                    current.session,
+                    Cleanup.Inspecting(
+                        ownership = current.ownership,
+                        mayStillForm = true
+                    ),
+                    message
+                )
+
+            is Phase.Hosting ->
+                beginStopping(
+                    current.session,
+                    Cleanup.Inspecting(
+                        ownership = current.ownership,
+                        mayStillForm = false
+                    ),
+                    message
+                )
+
+            is Phase.Stopping -> {
+                if (current.pendingError == null) {
+                    phase = current.copy(pendingError = message)
+                }
+            }
+        }
+    }
+
+    private fun onP2pStateChanged(state: Int) {
+        lastP2pState = state
+        if (state != WifiP2pManager.WIFI_P2P_STATE_DISABLED) return
+
+        when (val current = phase) {
+            is Phase.Stopping -> forceCleanup(current)
+            Phase.Idle, Phase.Closed -> Unit
+            else -> fail(HotspotStartupPolicy.P2P_DISABLED_MESSAGE)
+        }
+    }
+
+    private fun onConnectionChanged() {
+        when (val current = phase) {
+            is Phase.Forming -> pollFormation(current, delayMillis = 0L)
+            is Phase.Hosting -> pollHosting(current, delayMillis = 0L)
+            is Phase.Starting -> {
+                val step = current.step as? StartStep.AwaitingStaleAbsence ?: return
+                awaitStaleGroupAbsence(
+                    session = current.session,
+                    attempt = step.attempt,
+                    groupName = step.groupName,
+                    removalAccepted = step.removalAccepted,
+                    absentObservations = step.absentObservations
+                )
+            }
+
+            is Phase.Stopping -> {
+                if (current.cleanup is Cleanup.Inspecting) inspectCleanup(current)
+            }
+
+            else -> Unit
+        }
+    }
+
+    private fun onChannelDisconnected(session: Session, generation: Long) {
+        if (
+            currentSession() !== session ||
+            session.channelGeneration != generation
+        ) {
+            return
+        }
+        when (val current = phase) {
+            is Phase.Stopping -> {
+                if (current.cleanup !is Cleanup.RecoveringChannel) {
+                    forceCleanup(current)
+                }
+            }
+            else -> fail("The Wi-Fi Direct service disconnected. Please try again.")
+        }
+    }
+
+    private fun finishSession(
+        session: Session,
+        error: String? = null
+    ) {
+        if (currentSession() !== session) return
+        phase = Phase.Closed
+
+        session.tasks.forEach(HotspotScheduler.Task::cancel)
+        session.tasks.clear()
+        try {
+            session.closeChannel()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error closing P2P channel", e)
+        }
+        try {
+            platform.deactivate()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error releasing hotspot platform resources", e)
+        }
+
+        val teardownCallbacks = session.teardownCallbacks.toList()
+        session.teardownCallbacks.clear()
+        teardownCallbacks.forEach { callback ->
+            try {
+                callback()
+            } catch (e: Exception) {
+                Log.e(TAG, "Hotspot teardown callback failed", e)
+            }
+        }
+
+        if (error != null) {
+            session.callback.onError(error)
+        }
+    }
+
+    private fun currentSession(): Session? = when (val current = phase) {
+        is Phase.Starting -> current.session
+        is Phase.Creating -> current.session
+        is Phase.Forming -> current.session
+        is Phase.Hosting -> current.session
+        is Phase.Stopping -> current.session
+        Phase.Idle, Phase.Closed -> null
+    }
+
+    private fun schedule(session: Session, delayMillis: Long, action: () -> Unit) {
+        lateinit var task: HotspotScheduler.Task
+        task = scheduler.schedule(delayMillis) {
+            session.tasks.remove(task)
+            action()
+        }
+        session.tasks += task
+    }
+
+    private fun clearMarker(ownership: Ownership) {
+        val known = ownership as? Ownership.Known ?: return
+        if (ownedGroups.name == known.name) {
+            ownedGroups.name = null
+        }
+    }
+
+    private fun connectionInfo(
+        group: HotspotP2p.Group,
+        session: Session
+    ): ConnectionInfo = ConnectionInfo(
+        ssid = group.networkName ?: session.credentials.networkName,
+        password = group.passphrase ?: session.credentials.passphrase,
+        ipAddress = accessPointAddress() ?: "192.168.49.1",
+        connectedPeers = group.clientCount
+    )
+
+    private fun generateSsid(): String =
+        HotspotStartupPolicy.SSID_PREFIX + randomString(SSID_SUFFIX_LENGTH)
+
+    private fun generatePassword(): String = randomString(PASSWORD_LENGTH)
+
+    private fun randomString(length: Int): String =
+        buildString(length) {
+            repeat(length) {
+                append(RANDOM_CHARS[random.nextInt(RANDOM_CHARS.length)])
+            }
+        }
+
     data class ConnectionInfo(
         val ssid: String,
         val password: String,
@@ -828,9 +1281,6 @@ class HotspotManager(private val context: Context) {
         val connectedPeers: Int
     )
 
-    /**
-     * Callback interface for hotspot events.
-     */
     interface HotspotCallback {
         fun onHotspotStarted()
         fun onConnectionInfoUpdated(info: ConnectionInfo?)
