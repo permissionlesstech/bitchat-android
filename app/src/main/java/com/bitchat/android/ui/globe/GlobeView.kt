@@ -46,6 +46,7 @@ data class GlobeColors(
     val accent: Color,
     val land: Color,
     val coastline: Color,
+    val border: Color,
     val oceanCenter: Color,
     val oceanEdge: Color,
     val atmosphere: Color,
@@ -63,6 +64,8 @@ fun GlobeView(
     state: GlobeState,
     colors: GlobeColors,
     land: List<LandData.Ring>,
+    borders: List<LandData.Ring>,
+    cities: List<LandData.City>,
     labelTypeface: Typeface?,
     labelTypefaceBold: Typeface?,
     modifier: Modifier = Modifier
@@ -84,6 +87,8 @@ fun GlobeView(
 
     val maxRingPoints = remember(land) { land.maxOfOrNull { it.size } ?: 0 }
     val scratch = remember(maxRingPoints) { FloatArray(maxOf(1, maxRingPoints) * 3) }
+    val maxBorderPoints = remember(borders) { borders.maxOfOrNull { it.size } ?: 0 }
+    val borderScratch = remember(maxBorderPoints) { FloatArray(maxOf(1, maxBorderPoints) * 3) }
 
     val labelPaint = remember {
         Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
@@ -262,6 +267,11 @@ fun GlobeView(
             drawLandRing(ring, scratch, cx, cy, r, cLat, cLon, colors, clip)
         }
 
+        // Country borders
+        for (line in borders) {
+            drawBorderLine(line, borderScratch, cx, cy, r, cLat, cLon, colors, clip)
+        }
+
         // Sphere shading: dark limb + night side for 3D depth
         drawCircle(
             brush = Brush.radialGradient(
@@ -285,6 +295,12 @@ fun GlobeView(
             ),
             radius = r + 1,
             center = Offset(cx, cy)
+        )
+
+        // Cities (dots + names) over the shaded sphere
+        drawCities(
+            cities, state, cx, cy, r, cLat, cLon, colors,
+            labelPaint, haloPaint, labelTypeface, labelTextSizeSmall, density.density
         )
 
         // Geohash cells
@@ -377,17 +393,19 @@ private fun limbPoint(behind: DiscPt, front: DiscPt): Pair<Float, Float> {
 /**
  * Splits a projected polygon into front-facing runs. Runs that touch the limb are
  * padded with the horizon intersection point so they can be closed along the horizon.
+ * Pass [closed] = false for open polylines (border lines).
  */
-private fun buildFrontRuns(pts: List<DiscPt>): List<MutableList<Pair<Float, Float>>> {
+private fun buildFrontRuns(pts: List<DiscPt>, closed: Boolean = true): List<MutableList<Pair<Float, Float>>> {
     if (pts.isEmpty()) return emptyList()
     val n = pts.size
     val runs = mutableListOf<MutableList<Pair<Float, Float>>>()
     var run = mutableListOf<Pair<Float, Float>>()
-    var prev = pts[n - 1]
+    var prev: DiscPt? = if (closed) pts[n - 1] else null
     for (i in 0 until n) {
         val cur = pts[i]
+        val p = prev
         if (cur.front) {
-            if (run.isEmpty() && !prev.front) run.add(limbPoint(prev, cur))
+            if (run.isEmpty() && p != null && !p.front) run.add(limbPoint(p, cur))
             // Antimeridian wrap: consecutive front points can jump across the whole
             // disc when a polygon crosses ±180° — break the run instead of drawing
             // a chord through the view.
@@ -402,8 +420,8 @@ private fun buildFrontRuns(pts: List<DiscPt>): List<MutableList<Pair<Float, Floa
             }
             run.add(cur.x to cur.y)
         } else {
-            if (run.isNotEmpty()) {
-                run.add(limbPoint(prev, cur))
+            if (run.isNotEmpty() && p != null) {
+                run.add(limbPoint(p, cur))
                 runs.add(run)
                 run = mutableListOf()
             }
@@ -411,7 +429,7 @@ private fun buildFrontRuns(pts: List<DiscPt>): List<MutableList<Pair<Float, Floa
         prev = cur
     }
     if (run.isNotEmpty()) {
-        if (runs.isNotEmpty() && pts[0].front && pts[n - 1].front) {
+        if (closed && runs.isNotEmpty() && pts[0].front && pts[n - 1].front) {
             runs[0] = (run + runs[0]).toMutableList()
         } else {
             runs.add(run)
@@ -583,6 +601,97 @@ private fun DrawScope.strokeRuns(
         }
         drawPath(path, color, style = Stroke(width = width))
     }
+}
+
+private fun DrawScope.drawBorderLine(
+    line: LandData.Ring,
+    scratch: FloatArray,
+    cx: Float, cy: Float, r: Float,
+    cLat: Double, cLon: Double,
+    colors: GlobeColors,
+    clip: ClipRect
+) {
+    val n = line.size
+    if (n < 2 || n * 3 > scratch.size) return
+
+    var anyFront = false
+    val pts = ArrayList<DiscPt>(n)
+    var i = 0
+    while (i < n) {
+        val lat = line.coords[i * 2].toDouble()
+        val lon = line.coords[i * 2 + 1].toDouble()
+        val p = GlobeMath.projectRaw(lat, lon, cLat, cLon)
+        val front = p.cosC > 0.005f
+        pts.add(DiscPt(p.x, p.y, front))
+        if (p.cosC >= 0f) anyFront = true
+        i++
+    }
+    if (!anyFront) return
+
+    val runs = buildFrontRuns(pts, closed = false)
+    strokeRuns(runs, cx, cy, r, colors.border, 1.2f, clip)
+}
+
+private fun DrawScope.drawCities(
+    cities: List<LandData.City>,
+    state: GlobeState,
+    cx: Float, cy: Float, r: Float,
+    cLat: Double, cLon: Double,
+    colors: GlobeColors,
+    labelPaint: Paint,
+    haloPaint: Paint,
+    typeface: Typeface?,
+    textSize: Float,
+    density: Float
+) {
+    if (cities.isEmpty()) return
+    val zoom = state.zoom
+    val maxRank = when {
+        zoom < 2f -> 1
+        zoom < 8f -> 3
+        zoom < 40f -> 4
+        else -> 10
+    }
+    val canvas = drawContext.canvas.nativeCanvas
+    for (city in cities) {
+        if (city.rank > maxRank) continue
+        val p = GlobeMath.project(city.lat.toDouble(), city.lon.toDouble(), cLat, cLon) ?: continue
+        if (p.cosC < 0.03f) continue
+        val sx = cx + p.x * r
+        val sy = cy + p.y * r
+        if (sx < -50 || sx > size.width + 50 || sy < -50 || sy > size.height + 50) continue
+
+        val alpha = p.cosC.coerceIn(0.25f, 1f)
+        val important = city.capital || city.megacity
+        val dotRadius = (if (important) 2.6f else 1.8f) * density
+        val dotColor = if (city.capital) colors.accent.copy(alpha = alpha)
+            else colors.label.copy(alpha = alpha * 0.85f)
+        drawCircle(dotColor, radius = dotRadius, center = Offset(sx, sy))
+
+        if (zoom >= 6f || (important && zoom >= 2.5f)) {
+            labelPaint.textSize = textSize
+            labelPaint.typeface = typeface
+            labelPaint.textAlign = Paint.Align.LEFT
+            labelPaint.color = android.graphics.Color.argb(
+                (200 * alpha).toInt(),
+                (colors.label.red * 255).toInt(), (colors.label.green * 255).toInt(), (colors.label.blue * 255).toInt()
+            )
+            haloPaint.textSize = textSize
+            haloPaint.typeface = typeface
+            haloPaint.textAlign = Paint.Align.LEFT
+            haloPaint.strokeWidth = textSize * 0.16f
+            haloPaint.color = android.graphics.Color.argb(
+                (140 * alpha).toInt(),
+                (colors.labelHalo.red * 255).toInt(), (colors.labelHalo.green * 255).toInt(), (colors.labelHalo.blue * 255).toInt()
+            )
+            val tx = sx + dotRadius + 3 * density
+            val ty = sy - ((labelPaint.descent() + labelPaint.ascent()) / 2f)
+            canvas.drawText(city.name, tx, ty, haloPaint)
+            canvas.drawText(city.name, tx, ty, labelPaint)
+        }
+    }
+    labelPaint.textAlign = Paint.Align.CENTER
+    haloPaint.textAlign = Paint.Align.CENTER
 }
 
 private fun DrawScope.drawLandRing(

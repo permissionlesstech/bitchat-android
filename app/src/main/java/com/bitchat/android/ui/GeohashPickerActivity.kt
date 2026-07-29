@@ -107,6 +107,12 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                 val land by produceState<List<LandData.Ring>?>(initialValue = null) {
                     value = withContext(Dispatchers.IO) { LandData.load(context) }
                 }
+                val borders by produceState<List<LandData.Ring>>(initialValue = emptyList()) {
+                    value = withContext(Dispatchers.IO) { LandData.loadBorders(context) }
+                }
+                val cities by produceState<List<LandData.City>>(initialValue = emptyList()) {
+                    value = withContext(Dispatchers.IO) { LandData.loadCities(context) }
+                }
 
                 val colorScheme = MaterialTheme.colorScheme
                 val dark = colorScheme.background.luminance() < 0.5f
@@ -116,6 +122,7 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                             accent = colorScheme.primary,
                             land = Color(0xFF16241B),
                             coastline = colorScheme.primary.copy(alpha = 0.45f),
+                            border = colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             oceanCenter = Color(0xFF0A1410),
                             oceanEdge = Color(0xFF020604),
                             atmosphere = colorScheme.primary,
@@ -130,6 +137,7 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                             accent = colorScheme.primary,
                             land = Color(0xFFBCD2C0),
                             coastline = colorScheme.primary.copy(alpha = 0.5f),
+                            border = colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             oceanCenter = Color(0xFFEAF2EC),
                             oceanEdge = Color(0xFFD4E2D7),
                             atmosphere = colorScheme.primary,
@@ -155,6 +163,8 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                             state = globeState,
                             colors = globeColors,
                             land = rings,
+                            borders = borders,
+                            cities = cities,
                             labelTypeface = labelTypeface,
                             labelTypefaceBold = labelTypefaceBold,
                             modifier = Modifier.fillMaxSize()
