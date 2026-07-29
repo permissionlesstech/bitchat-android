@@ -302,6 +302,35 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `API 26 cleanup finishes after a candidate group disappears`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false,
+                supportsChannelClose = false
+            )
+        )
+        var completed = 0
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+        fixture.p2p.answerGroup(livePreQGroup())
+        fixture.manager.stopHotspot { completed++ }
+
+        fixture.p2p.answerGroup(null)
+        assertEquals(0, completed)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertFalse(fixture.platform.active)
+        assertEquals(0, fixture.p2p.removeRequests.size)
+    }
+
+    @Test
     fun `fresh channel does not adopt an unknown pre Q group`() {
         val fixture = Fixture(
             p2p = FakeP2p(
