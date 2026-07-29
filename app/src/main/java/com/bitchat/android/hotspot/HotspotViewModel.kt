@@ -26,7 +26,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
     private var hotspotManager: HotspotManager? = null
     private var webServer: ApkWebServer? = null
-    private var pendingApkFile: File? = null
+    private var pendingStart: PendingStart? = null
 
     /** Once-releasable radio claim owned by the current hotspot session. */
     private var awareLease: WifiAwareController.HotspotLease? = null
@@ -36,7 +36,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
      * Start the hotspot with the provided APK file.
      */
     fun startHotspot(apkFile: File) {
-        startHotspot(apkFile, HotspotManager.ExistingGroupPolicy.REQUIRE_CONFIRMATION)
+        startHotspot(apkFile, HotspotManager.ExistingGroupPolicy.RequireConfirmation)
     }
 
     private fun startHotspot(
@@ -106,10 +106,12 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                         }
                     }
 
-                    override fun onExistingGroupConflict() {
+                    override fun onExistingGroupConflict(
+                        group: HotspotManager.ExistingGroupIdentity
+                    ) {
                         viewModelScope.launch {
                             teardown()
-                            pendingApkFile = apkFile
+                            pendingStart = PendingStart(apkFile, group)
                             _state.value = HotspotState.ConfirmDisconnect
                         }
                     }
@@ -127,13 +129,16 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun confirmDisconnectAndStart() {
-        val apkFile = pendingApkFile ?: return
-        pendingApkFile = null
-        startHotspot(apkFile, HotspotManager.ExistingGroupPolicy.REPLACE)
+        val pending = pendingStart ?: return
+        pendingStart = null
+        startHotspot(
+            pending.apkFile,
+            HotspotManager.ExistingGroupPolicy.ReplaceConfirmed(pending.group)
+        )
     }
 
     fun cancelDisconnect() {
-        pendingApkFile = null
+        pendingStart = null
         teardown()
         _state.value = HotspotState.Intro
     }
@@ -143,7 +148,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
      */
     fun stopHotspot() {
         Log.d(TAG, "Stopping hotspot")
-        pendingApkFile = null
+        pendingStart = null
         teardown()
         _state.value = HotspotState.Intro
     }
@@ -157,7 +162,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
      * screen.
      */
     private fun failWith(error: HotspotError) {
-        pendingApkFile = null
+        pendingStart = null
         val message = context.getString(error.stringResource)
         Log.e(TAG, "Hotspot failed: $message")
         teardown()
@@ -243,4 +248,9 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
             HotspotError.WEB_SERVER_START_FAILED -> R.string.hotspot_error_web_server
             HotspotError.UNKNOWN -> R.string.hotspot_error_unknown
         }
+
+    private data class PendingStart(
+        val apkFile: File,
+        val group: HotspotManager.ExistingGroupIdentity
+    )
 }

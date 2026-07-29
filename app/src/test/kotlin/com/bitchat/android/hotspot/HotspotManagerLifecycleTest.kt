@@ -52,9 +52,41 @@ class HotspotManagerLifecycleTest {
 
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertEquals(1, fixture.callback.conflicts)
+        assertEquals(
+            HotspotManager.ExistingGroupIdentity(
+                networkName = "DIRECT-xy-Chromecast",
+                isGroupOwner = true
+            ),
+            fixture.callback.conflictGroups.single()
+        )
         assertEquals(0, fixture.callback.errors.size)
         assertEquals(0, fixture.p2p.removeRequests.size)
         assertFalse(fixture.platform.active)
+    }
+
+    @Test
+    fun `replacement consent does not authorize a different group`() {
+        val fixture = Fixture()
+        fixture.manager.startHotspot(
+            fixture.callback,
+            HotspotManager.ExistingGroupPolicy.ReplaceConfirmed(
+                HotspotManager.ExistingGroupIdentity(
+                    networkName = "DIRECT-ab-Android",
+                    isGroupOwner = true
+                )
+            )
+        )
+
+        fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
+        fixture.p2p.answerGroup(foreignGroup())
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertEquals(1, fixture.callback.conflicts)
+        assertEquals(
+            "DIRECT-xy-Chromecast",
+            fixture.callback.conflictGroups.single().networkName
+        )
+        assertEquals(0, fixture.p2p.removeRequests.size)
     }
 
     @Test
@@ -85,6 +117,9 @@ class HotspotManagerLifecycleTest {
         fixture.p2p.rejectRemove(WifiP2pManager.BUSY)
         fixture.p2p.answerGroup(foreignGroup())
         fixture.scheduler.advanceBy(500)
+        assertEquals(0, fixture.p2p.removeRequests.size)
+
+        fixture.p2p.answerGroup(foreignGroup())
 
         assertEquals(1, fixture.p2p.removeRequests.size)
         assertEquals("Starting", fixture.manager.lifecycleName())
@@ -175,6 +210,8 @@ class HotspotManagerLifecycleTest {
         fixture.p2p.answerGroup(null)
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(livePreQGroup())
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(livePreQGroup())
         fixture.p2p.acceptRemove()
         fixture.scheduler.advanceBy(500)
         fixture.p2p.answerGroup(null)
@@ -202,6 +239,30 @@ class HotspotManagerLifecycleTest {
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertFalse(fixture.platform.active)
         assertEquals(listOf(HotspotError.P2P_DISABLED), fixture.callback.errors)
+    }
+
+    @Test
+    fun `fresh channel does not adopt an unknown pre Q group`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false
+            )
+        )
+        var completed = 0
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.manager.stopHotspot { completed++ }
+        fixture.scheduler.advanceBy(10_000)
+
+        assertEquals(2, fixture.p2p.channels.size)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(livePreQGroup())
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertEquals(0, fixture.p2p.removeRequests.size)
     }
 
     @Test
@@ -358,6 +419,12 @@ class HotspotManagerLifecycleTest {
         fixture.scheduler.runCurrent()
         fixture.p2p.answerGroup(livePreQGroup())
 
+        assertEquals("Forming", fixture.manager.lifecycleName())
+        assertEquals(0, fixture.callback.started)
+
+        fixture.scheduler.advanceBy(1_000)
+        fixture.p2p.answerGroup(livePreQGroup())
+
         assertEquals("Hosting", fixture.manager.lifecycleName())
         assertEquals(1, fixture.callback.started)
 
@@ -365,6 +432,29 @@ class HotspotManagerLifecycleTest {
         fixture.p2p.answerGroup(foreignGroup())
 
         assertEquals("Closed", fixture.manager.lifecycleName())
+        assertEquals(0, fixture.p2p.removeRequests.size)
+    }
+
+    @Test
+    fun `pre Q ownership candidate must remain stable before hosting`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false
+            )
+        )
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+        fixture.p2p.answerGroup(livePreQGroup())
+        fixture.scheduler.advanceBy(1_000)
+        fixture.p2p.answerGroup(foreignGroup())
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertEquals(0, fixture.callback.started)
+        assertEquals(1, fixture.callback.conflicts)
         assertEquals(0, fixture.p2p.removeRequests.size)
     }
 
@@ -411,7 +501,7 @@ class HotspotManagerLifecycleTest {
 
         fun startUntilCreateRequested(
             policy: HotspotManager.ExistingGroupPolicy =
-                HotspotManager.ExistingGroupPolicy.REQUIRE_CONFIRMATION
+                HotspotManager.ExistingGroupPolicy.RequireConfirmation
         ) {
             manager.startHotspot(callback, policy)
             p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
@@ -422,7 +512,12 @@ class HotspotManagerLifecycleTest {
         fun startReplacingExistingGroup() {
             manager.startHotspot(
                 callback,
-                HotspotManager.ExistingGroupPolicy.REPLACE
+                HotspotManager.ExistingGroupPolicy.ReplaceConfirmed(
+                    HotspotManager.ExistingGroupIdentity(
+                        networkName = "DIRECT-xy-Chromecast",
+                        isGroupOwner = true
+                    )
+                )
             )
             p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
             p2p.answerGroup(foreignGroup())
@@ -449,6 +544,7 @@ class HotspotManagerLifecycleTest {
     private class RecordingCallback : HotspotManager.HotspotCallback {
         var started = 0
         var conflicts = 0
+        val conflictGroups = mutableListOf<HotspotManager.ExistingGroupIdentity>()
         val errors = mutableListOf<HotspotError>()
 
         override fun onHotspotStarted() {
@@ -457,8 +553,9 @@ class HotspotManagerLifecycleTest {
 
         override fun onConnectionInfoUpdated(info: HotspotManager.ConnectionInfo?) = Unit
 
-        override fun onExistingGroupConflict() {
+        override fun onExistingGroupConflict(group: HotspotManager.ExistingGroupIdentity) {
             conflicts++
+            conflictGroups += group
         }
 
         override fun onError(error: HotspotError) {

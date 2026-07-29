@@ -40,6 +40,7 @@ class HotspotManager @VisibleForTesting internal constructor(
         private const val CHANNEL_RECOVERY_RETRY_MILLIS = 1_000L
         private const val MAX_CHANNEL_RECOVERY_ATTEMPTS = 5
         private const val REQUIRED_ABSENCE_OBSERVATIONS = 2
+        private const val REQUIRED_OWNERSHIP_OBSERVATIONS = 2
 
         private const val SSID_PREFIX = "DIRECT-BC-"
         private const val SSID_SUFFIX_LENGTH = 8
@@ -82,7 +83,9 @@ class HotspotManager @VisibleForTesting internal constructor(
 
         data class Forming(
             val session: Session,
-            val expectedGroupName: String?
+            val expectedGroupName: String?,
+            val candidateGroupName: String? = null,
+            val candidateObservations: Int = 0
         ) : Phase
 
         data class Hosting(
@@ -134,13 +137,16 @@ class HotspotManager @VisibleForTesting internal constructor(
         enum class Inspection {
             LOCATE_SESSION_GROUP,
             AWAIT_POSSIBLE_FORMATION,
-            VERIFY_REMOVAL
+            VERIFY_REMOVAL,
+            VERIFY_AFTER_CHANNEL_CLOSE
         }
 
         data class Inspecting(
             val expectedGroupName: String?,
             val purpose: Inspection,
-            val absentObservations: Int = 0
+            val absentObservations: Int = 0,
+            val candidateGroupName: String? = null,
+            val candidateObservations: Int = 0
         ) : Cleanup
 
         data class Removing(
@@ -179,7 +185,7 @@ class HotspotManager @VisibleForTesting internal constructor(
 
     fun startHotspot(
         callback: HotspotCallback,
-        existingGroupPolicy: ExistingGroupPolicy = ExistingGroupPolicy.REQUIRE_CONFIRMATION
+        existingGroupPolicy: ExistingGroupPolicy = ExistingGroupPolicy.RequireConfirmation
     ) {
         if (phase !is Phase.Idle && phase !is Phase.Closed) {
             Log.w(TAG, "Ignoring start while lifecycle is ${phase.javaClass.simpleName}")
@@ -267,7 +273,9 @@ class HotspotManager @VisibleForTesting internal constructor(
                     session = current.session,
                     cleanup = Cleanup.Inspecting(
                         expectedGroupName = current.expectedGroupName,
-                        purpose = Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION
+                        purpose = Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION,
+                        candidateGroupName = current.candidateGroupName,
+                        candidateObservations = current.candidateObservations
                     ),
                     pendingError = null
                 )
@@ -367,10 +375,10 @@ class HotspotManager @VisibleForTesting internal constructor(
 
                     group == null -> createGroup(session, attempt)
 
-                    session.existingGroupPolicy == ExistingGroupPolicy.REQUIRE_CONFIRMATION ->
-                        reportExistingGroupConflict(session)
+                    session.existingGroupPolicy.canReplace(group) ->
+                        removeExistingGroup(session, attempt)
 
-                    else -> removeExistingGroup(session, attempt)
+                    else -> reportExistingGroupConflict(session, group)
                 }
             }
         } catch (e: SecurityException) {
@@ -462,6 +470,9 @@ class HotspotManager @VisibleForTesting internal constructor(
                         }
                     }
 
+                    !session.existingGroupPolicy.canReplace(group) ->
+                        reportExistingGroupConflict(session, group)
+
                     submission == StartStep.RemovalSubmission.ACCEPTED -> {
                         schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
                             awaitExistingGroupAbsence(
@@ -474,7 +485,7 @@ class HotspotManager @VisibleForTesting internal constructor(
 
                     else -> {
                         schedule(session, REMOVAL_VERIFY_INTERVAL_MILLIS) {
-                            removeExistingGroup(session, attempt)
+                            inspectBeforeCreate(session, attempt)
                         }
                     }
                 }
@@ -632,19 +643,41 @@ class HotspotManager @VisibleForTesting internal constructor(
             return
         }
         if (!group.isGroupOwner) {
-            handleUnexpectedGroup(forming.session)
+            handleUnexpectedGroup(forming.session, group)
             return
         }
 
         if (forming.expectedGroupName != null && name != forming.expectedGroupName) {
-            handleUnexpectedGroup(forming.session)
+            handleUnexpectedGroup(forming.session, group)
             return
         }
 
-        // Android 8-9 chooses the name. Because preflight observed no group and this
-        // snapshot follows our accepted create command, the first owner group is the
-        // live session identity. It is never persisted across process death.
-        enterHosting(forming.session, name, group)
+        if (forming.expectedGroupName != null) {
+            enterHosting(forming.session, name, group)
+            return
+        }
+
+        // Android 8-9 chooses the group name. Require the same owner group twice so a
+        // single stale framework snapshot cannot become hosting or teardown ownership.
+        if (
+            forming.candidateGroupName != null &&
+            forming.candidateGroupName != name
+        ) {
+            handleUnexpectedGroup(forming.session, group)
+            return
+        }
+
+        val observations = forming.candidateObservations + 1
+        if (observations >= REQUIRED_OWNERSHIP_OBSERVATIONS) {
+            enterHosting(forming.session, name, group)
+        } else {
+            val next = forming.copy(
+                candidateGroupName = name,
+                candidateObservations = observations
+            )
+            phase = next
+            pollFormation(next, GROUP_INFO_POLL_INTERVAL_MILLIS)
+        }
     }
 
     private fun enterHosting(
@@ -791,15 +824,45 @@ class HotspotManager @VisibleForTesting internal constructor(
         }
 
         val observedName = actualName
+
+        if (
+            cleanup.expectedGroupName == null &&
+            cleanup.purpose == Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
+        ) {
+            // Closing the original pre-Q channel discards the only link between its
+            // accepted create command and a later group. Never adopt a group first seen
+            // on the fresh verification channel.
+            finishSession(stopping.session, stopping.pendingError)
+            return
+        }
+
         if (observedName == null) {
             scheduleCleanupInspection(stopping, cleanup)
             return
         }
 
-        // Pre-Q does not let us choose the name. An accepted create command following an
-        // empty preflight is the session's ownership evidence; the observed name then
-        // protects teardown from removing a later replacement group.
-        val expectedName = cleanup.expectedGroupName ?: observedName
+        val expectedName = cleanup.expectedGroupName ?: run {
+            if (
+                cleanup.candidateGroupName != null &&
+                cleanup.candidateGroupName != observedName
+            ) {
+                finishSession(stopping.session, stopping.pendingError)
+                return
+            }
+
+            val observations = cleanup.candidateObservations + 1
+            if (observations < REQUIRED_OWNERSHIP_OBSERVATIONS) {
+                scheduleCleanupInspection(
+                    stopping,
+                    cleanup.copy(
+                        candidateGroupName = observedName,
+                        candidateObservations = observations
+                    )
+                )
+                return
+            }
+            observedName
+        }
 
         if (cleanup.purpose == Cleanup.Inspection.VERIFY_REMOVAL) {
             val next = stopping.copy(
@@ -1006,7 +1069,7 @@ class HotspotManager @VisibleForTesting internal constructor(
             val verifying = recovering.copy(
                 cleanup = Cleanup.Inspecting(
                     expectedGroupName = expectedGroupName,
-                    purpose = Cleanup.Inspection.LOCATE_SESSION_GROUP
+                    purpose = Cleanup.Inspection.VERIFY_AFTER_CHANNEL_CLOSE
                 )
             )
             phase = verifying
@@ -1060,7 +1123,9 @@ class HotspotManager @VisibleForTesting internal constructor(
                     current.session,
                     Cleanup.Inspecting(
                         expectedGroupName = current.expectedGroupName,
-                        purpose = Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION
+                        purpose = Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION,
+                        candidateGroupName = current.candidateGroupName,
+                        candidateObservations = current.candidateObservations
                     ),
                     error
                 )
@@ -1149,18 +1214,26 @@ class HotspotManager @VisibleForTesting internal constructor(
         }
     }
 
-    private fun handleUnexpectedGroup(session: Session) {
-        if (session.existingGroupPolicy == ExistingGroupPolicy.REQUIRE_CONFIRMATION) {
-            reportExistingGroupConflict(session)
+    private fun handleUnexpectedGroup(session: Session, group: HotspotP2p.Group) {
+        if (session.existingGroupPolicy is ExistingGroupPolicy.RequireConfirmation) {
+            reportExistingGroupConflict(session, group)
         } else {
             finishSession(session, HotspotError.P2P_BUSY)
         }
     }
 
-    private fun reportExistingGroupConflict(session: Session) {
+    private fun reportExistingGroupConflict(
+        session: Session,
+        group: HotspotP2p.Group
+    ) {
         if (currentSession() !== session) return
+        val identity = ExistingGroupIdentity.from(group)
+        if (identity == null) {
+            finishSession(session, HotspotError.P2P_BUSY)
+            return
+        }
         finishSession(session)
-        session.callback.onExistingGroupConflict()
+        session.callback.onExistingGroupConflict(identity)
     }
 
     private fun finishSession(
@@ -1245,15 +1318,34 @@ class HotspotManager @VisibleForTesting internal constructor(
         val connectedPeers: Int
     )
 
-    enum class ExistingGroupPolicy {
-        REQUIRE_CONFIRMATION,
-        REPLACE
+    data class ExistingGroupIdentity(
+        val networkName: String,
+        val isGroupOwner: Boolean
+    ) {
+        internal fun matches(group: HotspotP2p.Group): Boolean =
+            networkName == group.networkName && isGroupOwner == group.isGroupOwner
+
+        internal companion object {
+            fun from(group: HotspotP2p.Group): ExistingGroupIdentity? =
+                group.networkName?.let { ExistingGroupIdentity(it, group.isGroupOwner) }
+        }
+    }
+
+    sealed interface ExistingGroupPolicy {
+        data object RequireConfirmation : ExistingGroupPolicy
+
+        data class ReplaceConfirmed(
+            val group: ExistingGroupIdentity
+        ) : ExistingGroupPolicy
     }
 
     interface HotspotCallback {
         fun onHotspotStarted()
         fun onConnectionInfoUpdated(info: ConnectionInfo?)
-        fun onExistingGroupConflict()
+        fun onExistingGroupConflict(group: ExistingGroupIdentity)
         fun onError(error: HotspotError)
     }
+
+    private fun ExistingGroupPolicy.canReplace(group: HotspotP2p.Group): Boolean =
+        this is ExistingGroupPolicy.ReplaceConfirmed && this.group.matches(group)
 }
