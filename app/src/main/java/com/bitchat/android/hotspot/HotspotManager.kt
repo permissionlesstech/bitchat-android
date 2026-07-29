@@ -256,12 +256,17 @@ class HotspotManager(private val context: Context) {
             wifiP2pManager?.requestGroupInfo(ch) { group ->
                 val actualName = group?.networkName
 
+                // Below Q the marker still holds the previous group's name until the
+                // first poll records the new one, so comparing against it in that window
+                // would read our own freshly created group as a stranger's.
+                val markerDescribesCurrentGroup =
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q || recordedGeneratedName
+
                 // Only a name that positively differs proves a stranger owns the radio.
                 // Absence of proof is not proof: requestGroupInfo returns null while a
-                // group is still forming, and below Q expectedName stays null until the
-                // first poll records the framework-generated name. Skipping removal in
-                // either case would strand the group we created.
-                val belongsToSomeoneElse =
+                // group is still forming. Skipping removal in any of these cases would
+                // strand the group we created.
+                val belongsToSomeoneElse = markerDescribesCurrentGroup &&
                     actualName != null && expectedName != null && actualName != expectedName
 
                 if (belongsToSomeoneElse) {
@@ -270,18 +275,26 @@ class HotspotManager(private val context: Context) {
                     return@requestGroupInfo
                 }
 
-                wifiP2pManager?.removeGroup(ch, object : ActionListener {
-                    override fun onSuccess() {
-                        Log.d(TAG, "Group removed successfully")
-                        // Nothing of ours is left for a later run to clean up.
-                        ownedGroupName = null
-                        closeChannel(ch)
-                    }
-                    override fun onFailure(reason: Int) {
-                        Log.w(TAG, "Failed to remove group: $reason")
-                        closeChannel(ch)
-                    }
-                })
+                // This runs on the callback, after the outer try has already returned, so
+                // a permission revoked since the query was submitted would otherwise
+                // crash the app on what is only meant to be a teardown.
+                try {
+                    wifiP2pManager?.removeGroup(ch, object : ActionListener {
+                        override fun onSuccess() {
+                            Log.d(TAG, "Group removed successfully")
+                            // Nothing of ours is left for a later run to clean up.
+                            ownedGroupName = null
+                            closeChannel(ch)
+                        }
+                        override fun onFailure(reason: Int) {
+                            Log.w(TAG, "Failed to remove group: $reason")
+                            closeChannel(ch)
+                        }
+                    })
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Wi-Fi permission was revoked before the group could be removed", e)
+                    closeChannel(ch)
+                }
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Wi-Fi permission was revoked while confirming group ownership", e)
@@ -404,20 +417,28 @@ class HotspotManager(private val context: Context) {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun removeStaleGroup(ch: Channel, attempt: Int) {
-        wifiP2pManager?.removeGroup(ch, object : ActionListener {
-            override fun onSuccess() {
-                if (channel !== ch) return
-                Log.d(TAG, "Stale group removed")
-                createGroup(attempt)
-            }
-            override fun onFailure(reason: Int) {
-                if (channel !== ch) return
-                // Creation may still succeed, and a BUSY reply here backs off as usual.
-                Log.w(TAG, "Failed to remove stale group: $reason; attempting creation anyway")
-                createGroup(attempt)
-            }
-        })
+        // Reached from a requestGroupInfo callback, so the caller's try has already
+        // returned and cannot catch a permission revoked in the meantime.
+        try {
+            wifiP2pManager?.removeGroup(ch, object : ActionListener {
+                override fun onSuccess() {
+                    if (channel !== ch) return
+                    Log.d(TAG, "Stale group removed")
+                    createGroup(attempt)
+                }
+                override fun onFailure(reason: Int) {
+                    if (channel !== ch) return
+                    // Creation may still succeed, and a BUSY reply here backs off as usual.
+                    Log.w(TAG, "Failed to remove stale group: $reason; attempting creation anyway")
+                    createGroup(attempt)
+                }
+            })
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Wi-Fi permission was revoked while removing the stale group", e)
+            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
+        }
     }
 
     /**
