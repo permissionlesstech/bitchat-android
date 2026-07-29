@@ -1,4 +1,3 @@
-import org.gradle.api.artifacts.dsl.LockMode
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -117,11 +116,6 @@ kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_11)
     }
-}
-
-dependencyLocking {
-    lockAllConfigurations()
-    lockMode.set(LockMode.STRICT)
 }
 
 dependencies {

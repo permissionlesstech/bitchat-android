@@ -11,6 +11,12 @@ The central rule is:
 No keystore or password is stored in GitHub, GitHub Actions, the repository,
 release notes, or workflow artifacts.
 
+This runbook currently releases only the phone app, `com.bitchat.droid`.
+The `:wear` module is tested and dependency-locked in CI but is not included in
+the canonical release artifact set. Do not publish its development-signed
+outputs. Wear distribution requires a separate signing identity, reproducible
+artifact contract, Play listing, and maintainer runbook.
+
 For the technical trust model and third-party verification instructions, see
 [Reproducible builds](reproducible-builds.md).
 

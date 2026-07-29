@@ -52,7 +52,7 @@ gradle_args=(
 )
 
 cd "$PROJECT_ROOT"
-./gradlew "${gradle_args[@]}" clean bundleRelease
+./gradlew "${gradle_args[@]}" :app:clean :app:bundleRelease
 
 aab_source="$PROJECT_ROOT/app/build/outputs/bundle/release/app-release.aab"
 if [ ! -f "$aab_source" ]; then
@@ -62,7 +62,7 @@ fi
 cp "$aab_source" "$OUTPUT_DIR/bitchat-android-release-unsigned.aab"
 
 # AGP cannot build split APKs and an app bundle from the same intermediates.
-./gradlew "${gradle_args[@]}" clean assembleRelease
+./gradlew "${gradle_args[@]}" :app:clean :app:assembleRelease
 
 declare -A apk_names=(
   ["app-arm64-v8a-release-unsigned.apk"]="bitchat-android-arm64-unsigned.apk"

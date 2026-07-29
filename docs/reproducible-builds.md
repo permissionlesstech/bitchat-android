@@ -1,9 +1,11 @@
 # Reproducible builds
 
-Bitchat's canonical release build produces byte-for-byte reproducible unsigned
-APKs and an unsigned Android App Bundle (AAB). CI builds the release twice in
-independent jobs and exposes a verified release artifact only when every
-canonical byte matches.
+Bitchat's canonical phone-app release build produces byte-for-byte reproducible
+unsigned APKs and an unsigned Android App Bundle (AAB). CI builds the release
+twice in independent jobs and exposes a verified release artifact only when
+every canonical byte matches. The `:wear` module is tested and
+dependency-locked but is outside this phone artifact contract until a separate
+Wear release and signing process is defined.
 
 Signing remains local: no keystore or signing password is stored in or exposed
 to GitHub Actions. Anyone can reproduce the unsigned artifacts; maintainers
@@ -46,6 +48,7 @@ The authoritative pins are:
 - `gradle/libs.versions.toml`
 - `settings-gradle.lockfile`
 - `app/gradle.lockfile`
+- `wear/gradle.lockfile`
 - `gradle/verification-metadata.xml`
 - `tools/reproducible-builds/TOOLCHAIN.env`
 - `tools/arti-build/TOOLCHAIN.env`
@@ -230,10 +233,10 @@ Generate release lock entries in separate invocations because split APK and AAB
 intermediates cannot coexist:
 
 ```bash
-./gradlew clean bundleRelease \
+./gradlew :app:clean :app:bundleRelease \
   --write-locks \
   --write-verification-metadata sha256
-./gradlew clean assembleRelease \
+./gradlew :app:clean :app:assembleRelease \
   --write-locks \
   --write-verification-metadata sha256
 ```
