@@ -12,6 +12,45 @@ import java.util.ArrayDeque
 class HotspotManagerLifecycleTest {
 
     @Test
+    fun `missing P2P state callback fails the startup preflight`() {
+        val fixture = Fixture()
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.scheduler.advanceBy(10_000)
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertFalse(fixture.platform.active)
+        assertTrue(fixture.p2p.channels.first().closed)
+        assertEquals(
+            listOf("Wi-Fi Direct did not respond. Please try again."),
+            fixture.callback.errors
+        )
+
+        fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
+        assertEquals(0, fixture.p2p.groupRequests.size)
+    }
+
+    @Test
+    fun `missing initial group callback fails the startup preflight`() {
+        val fixture = Fixture()
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerP2pState(WifiP2pManager.WIFI_P2P_STATE_ENABLED)
+        fixture.scheduler.advanceBy(10_000)
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertFalse(fixture.platform.active)
+        assertTrue(fixture.p2p.channels.first().closed)
+        assertEquals(
+            listOf("Wi-Fi Direct did not respond. Please try again."),
+            fixture.callback.errors
+        )
+
+        fixture.p2p.answerGroup(null)
+        assertEquals(0, fixture.p2p.createRequests.size)
+    }
+
+    @Test
     fun `remove command acceptance is not treated as teardown completion`() {
         val fixture = Fixture()
         fixture.startHosting()

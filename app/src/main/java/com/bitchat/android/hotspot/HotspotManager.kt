@@ -35,6 +35,7 @@ class HotspotManager @VisibleForTesting internal constructor(
 
         private const val GROUP_INFO_POLL_INTERVAL_MILLIS = 1_000L
         private const val REMOVAL_VERIFY_INTERVAL_MILLIS = 500L
+        private const val PREFLIGHT_REQUEST_TIMEOUT_MILLIS = 10_000L
         private const val GROUP_FORMATION_TIMEOUT_MILLIS = 15_000L
         private const val STALE_REMOVAL_TIMEOUT_MILLIS = 10_000L
         private const val TEARDOWN_FORCE_CLOSE_MILLIS = 10_000L
@@ -50,6 +51,8 @@ class HotspotManager @VisibleForTesting internal constructor(
             "A required Wi-Fi or local network permission was revoked. Grant it and try again."
         private const val GROUP_LOST_MESSAGE =
             "The Wi-Fi Direct hotspot disconnected. Please try again."
+        private const val PREFLIGHT_TIMEOUT_MESSAGE =
+            "Wi-Fi Direct did not respond. Please try again."
 
         private fun findAccessPointAddress(): String? {
             return try {
@@ -357,6 +360,7 @@ class HotspotManager @VisibleForTesting internal constructor(
     private fun requestP2pState(session: Session) {
         val expected = Phase.Starting(session, StartStep.AwaitingP2pState)
         phase = expected
+        schedulePreflightDeadline(expected)
         try {
             p2p.requestP2pState(session.channel) { state ->
                 if (phase !== expected) return@requestP2pState
@@ -378,6 +382,7 @@ class HotspotManager @VisibleForTesting internal constructor(
     private fun inspectBeforeCreate(session: Session, attempt: Int) {
         val expected = Phase.Starting(session, StartStep.Inspecting(attempt))
         phase = expected
+        schedulePreflightDeadline(expected)
         try {
             p2p.requestGroup(session.channel) { group ->
                 if (phase !== expected) return@requestGroup
@@ -409,6 +414,14 @@ class HotspotManager @VisibleForTesting internal constructor(
         } catch (e: RuntimeException) {
             Log.e(TAG, "Failed to inspect the current P2P group", e)
             fail(HotspotStartupPolicy.GENERIC_FAILURE_MESSAGE)
+        }
+    }
+
+    private fun schedulePreflightDeadline(expected: Phase.Starting) {
+        schedule(expected.session, PREFLIGHT_REQUEST_TIMEOUT_MILLIS) {
+            if (phase === expected) {
+                fail(PREFLIGHT_TIMEOUT_MESSAGE)
+            }
         }
     }
 
