@@ -31,7 +31,13 @@ class FragmentingPacketSender(
         sendSingle: (RoutedPacket) -> Boolean
     ): Boolean {
         val transferId = transferIdFor(routed)
-        val packets = packetsForTransport(routed) ?: return false
+        val packets = packetsForTransport(routed)
+        if (packets == null) {
+            if (transferId != null) {
+                TransferProgressManager.fail(transferId)
+            }
+            return false
+        }
         val total = packets.size
 
         if (total <= 1) {
@@ -45,9 +51,13 @@ class FragmentingPacketSender(
                     preparedPackets = null
                 )
             )
-            if (sent && transferId != null) {
-                TransferProgressManager.progress(transferId, 1, 1)
-                TransferProgressManager.complete(transferId, 1)
+            if (transferId != null) {
+                if (sent) {
+                    TransferProgressManager.progress(transferId, 1, 1)
+                    TransferProgressManager.complete(transferId, 1)
+                } else {
+                    TransferProgressManager.fail(transferId)
+                }
             }
             return sent
         }
@@ -125,7 +135,12 @@ class FragmentingPacketSender(
 
         val manager = fragmentManager ?: return listOf(packet)
         return try {
-            val fragments = manager.createFragments(packet)
+            // Receivers hard-cap reassembly at MAX_FRAGMENTS_PER_ID; sending more
+            // fragments would be undeliverable, so reject here instead.
+            val fragments = manager.createFragments(
+                packet,
+                com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID
+            )
             if (fragments.isEmpty()) {
                 Log.e(logTag, "Fragment manager returned no packets for packet type ${packet.type}")
                 null

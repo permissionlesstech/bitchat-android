@@ -242,3 +242,102 @@ command and stop the local relay/Tor fixture.
   not waive a mandatory scenario.
 - A flaky result is a failure until its cause is understood. Never average
   retries into a pass.
+
+## Appendix: mesh lab (ADB test hooks, debug builds)
+
+For day-to-day development there is a lighter-weight harness that drives a
+debug-only broadcast receiver (`app/src/debug/`, never shipped in release)
+exposing mesh operations over ADB: scan, connect, Noise handshake, DMs,
+public broadcast, announce, file send/receive, BLE toggle, state dumps, and
+raw packet injection. Results are JSON files in the app sandbox polled by the
+host (`cache/testhook/results/<id>.json`, also logged under tag `TestHook`).
+
+### Prerequisites
+
+- A JDK (e.g. the one bundled with Android Studio; set `JAVA_HOME`) and the
+  Android SDK platform-tools. `adb` must be on `PATH` or `ANDROID_HOME` set.
+- Python 3.10+ on the host. No third-party packages are required.
+- **Two physical Android devices** (API 26+, BLE) with USB debugging enabled,
+  both plugged into the host. Emulators are not supported (BLE mesh).
+- Verify both are visible: `adb devices` → note the serials.
+
+### Device preparation (important)
+
+Keep both phones **unlocked with the screen on** for the whole run. A locked
+or dozing device forces the app into POWER_SAVER (1 s BLE scan per 60 s),
+which makes discovery and handshakes take minutes and will flake every
+scenario. The harness runs `wake()` (dismiss keyguard, stretch screen
+timeout) during `setup`, but it cannot defeat a secure lock screen — unlock
+the devices manually first. Note that `svc power stayon` only helps while a
+device is actually charging.
+
+### Build and set up
+
+```sh
+./gradlew assembleDebug
+python3 tools/release_gate/mesh_lab.py setup \
+  --serial-a <serial-1> --serial-b <serial-2> \
+  --apk app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+```
+
+`setup` cycles Bluetooth, installs the APK, clears app data, grants all
+runtime permissions, wakes and launches the app, sets deterministic nicknames
+(`alice`/`bob`), and waits for mutual peer discovery. It is safe (and
+recommended) to rerun `setup` before each scenario batch; `--apk` may be
+omitted if the current build is already installed.
+
+### Run scenarios
+
+```sh
+python3 tools/release_gate/mesh_lab.py scenario all \
+  --serial-a <serial-1> --serial-b <serial-2> --out /tmp/meshlab-evidence
+```
+
+| Scenario | What it asserts |
+|---|---|
+| `dm` | Noise handshake both ways, encrypted DM round trips with content match |
+| `broadcast` | public mesh message A→B |
+| `file` | 1 KB broadcast file, receiver SHA-256 matches fixture |
+| `file_oversize` | >256-fragment broadcast file is rejected sender-side, receiver sees nothing |
+| `file_private` | Noise-encrypted private file, digest match |
+| `media_private` | private-chat contact ID resolves to the live mesh peer; voice, image, and generic-file digests match |
+| `raw` | raw packet injection is accepted by the mesh |
+| `session_recovery` | force-stop B mid-session: identity persists, re-handshake, DMs flow again |
+| `identity_reset` | pm clear B mid-session: new identity, rediscovery, handshake, DMs |
+| `all` | every scenario above in sequence |
+
+Each run writes `<scenario>-evidence.json` to `--out` (digests, timings,
+session states, logcat excerpts on failure) and exits non-zero on failure.
+Evidence is a local diagnostic artifact; it may contain lab peer IDs and is
+not privacy-checked like release-gate bundles — do not publish it.
+
+### Ad-hoc commands
+
+Any hook command can be sent to one device directly:
+
+```sh
+python3 tools/release_gate/mesh_lab.py cmd --serial <serial> scan --extra timeout_ms=30000
+python3 tools/release_gate/mesh_lab.py cmd --serial <serial> handshake --extra peer=<peer-id>
+python3 tools/release_gate/mesh_lab.py cmd --serial <serial> state   # full mesh dump
+```
+
+See `TestHookDriver.kt` for the full command set (`ping`, `start`, `stop`,
+`whoami`, `set_nickname`, `scan`, `peers`, `connect`, `handshake`, `session`,
+`announce`, `broadcast_msg`, `dm_send`, `dm_recv`, `msg_recv`, `file_send`,
+`file_recv`, `file_cancel`, `raw_send`, `ble`, `state`, `clear_results`).
+
+### Troubleshooting
+
+- **Discovery/handshake timeouts**: almost always a locked or dozing phone —
+  unlock both devices and rerun `setup`. `cmd ... state` shows
+  `App In Background: true` and the BLE duty cycle when this is the cause.
+- **Stale app state after many churn runs**: `svc bluetooth disable/enable`
+  on both devices (done automatically by `setup`) clears zombie GATT links.
+- **Watch the wire**: `adb -s <serial> logcat -s TestHook MessageHandler
+  FragmentManager BitchatFilePacket` shows commands, results, decrypt
+  failures, fragment rejects, and saved incoming files in real time.
+- Results also persist on-device at
+  `run-as com.bitchat.droid cat cache/testhook/results/<id>.json`.
+
+Unlike the release gate, this harness is a development aid: it prints raw
+diagnostics and does not produce a privacy-checked approval bundle.
