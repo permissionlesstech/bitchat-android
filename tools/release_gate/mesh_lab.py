@@ -44,6 +44,10 @@ RESULTS_DIR = "cache/testhook/results"
 DEVICE_TMP_DIR = "/data/local/tmp/meshlab"
 APP_FIXTURE_DIR = f"/data/data/{APPLICATION_ID}/cache/fixtures"
 
+WATCH_APPLICATION_ID = "com.bitchat.watch"
+WATCH_TEST_HOOK_ACTION = "com.bitchat.watch.TEST_HOOK"
+WATCH_TEST_HOOK_COMPONENT = f"{WATCH_APPLICATION_ID}/com.bitchat.watch.testhook.WearTestHookReceiver"
+
 PERMISSIONS = [
     "android.permission.BLUETOOTH_SCAN",
     "android.permission.BLUETOOTH_CONNECT",
@@ -52,6 +56,14 @@ PERMISSIONS = [
     "android.permission.ACCESS_COARSE_LOCATION",
     "android.permission.POST_NOTIFICATIONS",
     "android.permission.NEARBY_WIFI_DEVICES",
+    "android.permission.RECORD_AUDIO",
+]
+
+WATCH_PERMISSIONS = [
+    "android.permission.BLUETOOTH_SCAN",
+    "android.permission.BLUETOOTH_CONNECT",
+    "android.permission.BLUETOOTH_ADVERTISE",
+    "android.permission.POST_NOTIFICATIONS",
     "android.permission.RECORD_AUDIO",
 ]
 
@@ -65,11 +77,25 @@ def _shell(serial: str, command: str) -> str:
 
 
 class Device:
-    """One ADB-connected phone running a debug build with the test hook."""
+    """One ADB-connected device running a debug build with the test hook."""
 
-    def __init__(self, serial: str, alias: str):
+    def __init__(
+        self,
+        serial: str,
+        alias: str,
+        package: str = APPLICATION_ID,
+        hook_action: str = TEST_HOOK_ACTION,
+        hook_component: str = TEST_HOOK_COMPONENT,
+        permissions: list[str] = PERMISSIONS,
+        activity_component: str = f"{APPLICATION_ID}/com.bitchat.android.MainActivity",
+    ):
         self.serial = serial
         self.alias = alias
+        self.package = package
+        self.hook_action = hook_action
+        self.hook_component = hook_component
+        self.permissions = permissions
+        self.activity_component = activity_component
 
     # -- app lifecycle ------------------------------------------------------
 
@@ -82,24 +108,42 @@ class Device:
             raise MeshLabError(f"[{self.alias}] install failed: {result.stdout} {result.stderr}")
 
     def grant_permissions(self) -> None:
-        for perm in PERMISSIONS:
+        for perm in self.permissions:
             subprocess.run(
-                [find_adb(), "-s", self.serial, "shell", "pm", "grant", APPLICATION_ID, perm],
+                [find_adb(), "-s", self.serial, "shell", "pm", "grant", self.package, perm],
                 check=False, capture_output=True, text=True, timeout=30,
             )
 
     def clear_app_data(self) -> None:
-        _shell(self.serial, f"am force-stop {APPLICATION_ID}")
-        output = _shell(self.serial, f"pm clear {APPLICATION_ID}")
+        _shell(self.serial, f"am force-stop {self.package}")
+        output = _shell(self.serial, f"pm clear {self.package}")
         if "Success" not in output:
             raise MeshLabError(f"[{self.alias}] pm clear failed: {output}")
 
     def force_stop(self) -> None:
-        _shell(self.serial, f"am force-stop {APPLICATION_ID}")
+        _shell(self.serial, f"am force-stop {self.package}")
 
     def launch(self) -> None:
-        _shell(self.serial, f"monkey -p {APPLICATION_ID} -c android.intent.category.LAUNCHER 1")
-        time.sleep(3)
+        """Launch the app and verify it is actually top-resumed.
+
+        A background/cached process can be frozen by the system (observed on Wear OS),
+        which silently hangs test-hook commands; the foreground activity (and the FGS it
+        starts) keeps the process unfrozen.
+        """
+        for _attempt in range(3):
+            _shell(self.serial, f"monkey -p {self.package} -c android.intent.category.LAUNCHER 1")
+            time.sleep(3)
+            try:
+                top = _shell(
+                    self.serial,
+                    "dumpsys activity activities | grep topResumedActivity",
+                )
+                if self.package in top:
+                    return
+            except Exception:
+                pass
+            _shell(self.serial, f"am start -n {self.activity_component}")
+            time.sleep(3)
 
     def wake(self) -> None:
         """Keep the screen on and the app foregrounded (full-power BLE duty cycle).
@@ -151,18 +195,19 @@ class Device:
         )
         if result.returncode != 0:
             raise MeshLabError(f"[{self.alias}] push failed: {result.stderr}")
-        target = f"{APP_FIXTURE_DIR}/{fname}"
+        fixture_dir = f"/data/data/{self.package}/cache/fixtures"
+        target = f"{fixture_dir}/{fname}"
         _shell(
             self.serial,
-            f"run-as {APPLICATION_ID} mkdir -p {APP_FIXTURE_DIR} && "
-            f"cat {tmp} | run-as {APPLICATION_ID} sh -c 'cat > {target}' && rm -f {tmp}",
+            f"run-as {self.package} mkdir -p {fixture_dir} && "
+            f"cat {tmp} | run-as {self.package} sh -c 'cat > {target}' && rm -f {tmp}",
         )
         return target
 
     def clear_incoming(self) -> None:
         _shell(
             self.serial,
-            f"run-as {APPLICATION_ID} rm -rf cache/files/incoming cache/images/incoming",
+            f"run-as {self.package} rm -rf cache/files/incoming cache/images/incoming",
         )
 
     # -- test hook commands -------------------------------------------------
@@ -170,11 +215,11 @@ class Device:
     def cmd(self, cmd: str, timeout_ms: int = 60_000, **extras: object) -> dict:
         """Send a test-hook command and poll for its JSON result."""
         cmd_id = uuid.uuid4().hex[:12]
-        _shell(self.serial, f"run-as {APPLICATION_ID} rm -f {RESULTS_DIR}/{cmd_id}.json")
+        _shell(self.serial, f"run-as {self.package} rm -f {RESULTS_DIR}/{cmd_id}.json")
 
         args = [
-            "am", "broadcast", "-a", TEST_HOOK_ACTION,
-            "-n", TEST_HOOK_COMPONENT,
+            "am", "broadcast", "-a", self.hook_action,
+            "-n", self.hook_component,
             "--es", "cmd", cmd,
             "--es", "id", cmd_id,
             "--el", "timeout_ms", str(timeout_ms),
@@ -186,7 +231,9 @@ class Device:
             if isinstance(value, bool):
                 args += ["--ez", key, "true" if value else "false"]
             elif isinstance(value, int):
-                args += ["--el", key, str(value)]
+                # `am` stores --el as Long and --ei as Integer; on-device
+                # readers use getIntExtra, so int extras must go via --ei.
+                args += ["--ei", key, str(value)]
             else:
                 args += ["--es", key, str(value)]
         try:
@@ -199,7 +246,7 @@ class Device:
         deadline = time.monotonic() + (timeout_ms + 60_000) / 1000
         while time.monotonic() < deadline:
             try:
-                raw = _shell(self.serial, f"run-as {APPLICATION_ID} cat {RESULTS_DIR}/{cmd_id}.json")
+                raw = _shell(self.serial, f"run-as {self.package} cat {RESULTS_DIR}/{cmd_id}.json")
                 if raw.strip().startswith("{"):
                     return json.loads(raw)
             except Exception:
@@ -215,6 +262,35 @@ class Device:
 
     def logcat_dump(self, lines: int = 200) -> str:
         return _shell(self.serial, f"logcat -d -t {lines}")
+
+
+class WatchDevice(Device):
+    """Pixel Watch running the com.bitchat.watch debug build.
+
+    Same test-hook protocol as the phone; different package/hook, a smaller permission
+    set (Bluetooth + notifications only), and wake tweaks that skip phone-only keyguard
+    commands. File-transfer scenarios are not supported on the watch yet (M5 deferred).
+    """
+
+    def __init__(self, serial: str, alias: str = "watch"):
+        super().__init__(
+            serial,
+            alias,
+            package=WATCH_APPLICATION_ID,
+            hook_action=WATCH_TEST_HOOK_ACTION,
+            hook_component=WATCH_TEST_HOOK_COMPONENT,
+            permissions=WATCH_PERMISSIONS,
+            activity_component=f"{WATCH_APPLICATION_ID}/.MainActivity",
+        )
+
+    def wake(self) -> None:
+        # Keep the screen on while on the charging puck; otherwise Wear shows the
+        # charging activity on top, our app loses foreground, and the OS freezes the
+        # process (cached-app freezer), silently hanging test-hook commands.
+        _shell(self.serial, "settings put global stay_on_while_plugged_in 3")
+        _shell(self.serial, "svc power stayon true")
+        _shell(self.serial, "settings put system screen_off_timeout 600000")
+        _shell(self.serial, "input keyevent KEYCODE_WAKEUP")
 
 
 # MARK: - fixtures
@@ -265,8 +341,17 @@ def make_private_media_fixtures(directory: Path, seed: int = 7331) -> dict[str, 
 
 # MARK: - setup
 
-def setup_pair(a: Device, b: Device, apk: Path | None, nickname_a: str, nickname_b: str) -> None:
-    for device, nickname in ((a, nickname_a), (b, nickname_b)):
+def setup_pair(
+    a: Device,
+    b: Device,
+    apk_a: Path | None,
+    nickname_a: str,
+    nickname_b: str,
+    apk_b: Path | None = None,
+) -> None:
+    if apk_b is None:
+        apk_b = apk_a
+    for device, nickname, apk in ((a, nickname_a, apk_a), (b, nickname_b, apk_b)):
         device.reset_bluetooth()
         device.enable_bluetooth()
         if apk is not None:
@@ -451,19 +536,33 @@ def ensure_direct_link(a: Device, b: Device, id_a: str, id_b: str) -> None:
 
     Backgrounded devices drop to POWER_SAVER duty cycles (1 s scan per 60 s), so
     passively waiting for the mesh to reform takes minutes. The explicit connect
-    makes restart scenarios deterministic.
+    makes restart scenarios deterministic. The address↔peer mapping is learned from
+    direct-link announces and can lag peer-list discovery after a restart, so the
+    connect attempt is retried while the peer announces.
     """
     wait_for_peer(a, id_b, timeout_s=120)
     wait_for_peer(b, id_a, timeout_s=120)
-    for device, peer in ((a, id_b), (b, id_a)):
-        result = device.cmd("connect", timeout_ms=45_000, peer=peer)
-        if result.get("status") == "ok" and result.get("direct"):
-            continue
-        # Already acceptable if the mesh formed a direct link on its own.
-        peers = device.cmd_ok("peers").get("peers", [])
-        match = next((p for p in peers if p.get("id") == peer), None)
-        if not match or not match.get("direct"):
-            raise MeshLabError(f"[{device.alias}] no direct link to {peer}: connect={result}")
+    for device, peer, announcer in ((a, id_b, b), (b, id_a, a)):
+        connected = False
+        last: dict = {}
+        for _attempt in range(4):
+            last = device.cmd("connect", timeout_ms=45_000, peer=peer)
+            if last.get("status") == "ok" and last.get("direct"):
+                connected = True
+                break
+            # Already acceptable if the mesh formed a direct link on its own.
+            peers = device.cmd_ok("peers").get("peers", [])
+            match = next((p for p in peers if p.get("id") == peer), None)
+            if match and match.get("direct"):
+                connected = True
+                break
+            try:
+                announcer.cmd_ok("announce")
+            except MeshLabError:
+                pass
+            time.sleep(4)
+        if not connected:
+            raise MeshLabError(f"[{device.alias}] no direct link to {peer}: connect={last}")
 
 
 def force_handshake(device: Device, peer_id: str, attempts: int = 5, per_attempt_s: int = 20) -> dict:
@@ -606,13 +705,29 @@ SCENARIOS = {
     "identity_reset": scenario_identity_reset,
 }
 
+# Scenarios supported when device B is a watch (file scenarios are receive-only: phone sends,
+# the watch must receive with matching digests).
+WATCH_SCENARIOS = ["dm", "broadcast", "raw", "file", "file_private", "session_recovery", "identity_reset"]
+
 
 def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:
     started = time.time()
     evidence: dict[str, object] = {"scenario": name, "devices": [a.alias, b.alias]}
     try:
+        supported = WATCH_SCENARIOS if isinstance(b, WatchDevice) else list(SCENARIOS)
         if name == "all":
-            evidence["results"] = {n: run_scenario(n, a, b, None)["results"] for n in SCENARIOS}
+            results = {}
+            failures = []
+            for n in supported:
+                sub = run_scenario(n, a, b, out)
+                results[n] = sub.get("results", {"error": sub.get("error", "unknown")})
+                if sub["status"] != "pass":
+                    failures.append(n)
+            evidence["results"] = results
+            if failures:
+                raise MeshLabError(f"sub-scenarios failed: {', '.join(failures)}")
+        elif name not in supported:
+            raise MeshLabError(f"scenario '{name}' is not supported on device '{b.alias}'")
         else:
             evidence["results"] = SCENARIOS[name](a, b)
         evidence["status"] = "pass"
@@ -635,45 +750,64 @@ def build_parser() -> argparse.ArgumentParser:
 
     setup = commands.add_parser("setup", help="install, grant, launch, nickname, discover")
     setup.add_argument("--serial-a", required=True)
-    setup.add_argument("--serial-b", required=True)
+    setup.add_argument("--serial-b")
+    setup.add_argument("--serial-watch", help="watch serial; used as device B (overrides --serial-b)")
     setup.add_argument("--apk", type=Path, default=None)
+    setup.add_argument("--watch-apk", type=Path, default=None)
     setup.add_argument("--nickname-a", default="alice")
     setup.add_argument("--nickname-b", default="bob")
 
     scenario = commands.add_parser("scenario", help="run a test scenario on two devices")
     scenario.add_argument("name", choices=[*SCENARIOS.keys(), "all"])
     scenario.add_argument("--serial-a", required=True)
-    scenario.add_argument("--serial-b", required=True)
+    scenario.add_argument("--serial-b")
+    scenario.add_argument("--serial-watch", help="watch serial; used as device B (overrides --serial-b)")
     scenario.add_argument("--out", type=Path, default=None, help="evidence output directory")
 
     raw = commands.add_parser("cmd", help="send a raw test-hook command to one device")
     raw.add_argument("--serial", required=True)
     raw.add_argument("cmd")
-    raw.add_argument("--extra", action="append", default=[], help="key=value extra (repeatable)")
+    raw.add_argument("--extra", action="append", default=[], help="key=value string extra (repeatable)")
+    raw.add_argument("--extra-int", action="append", default=[], help="key=value int extra (repeatable)")
     raw.add_argument("--timeout-ms", type=int, default=60_000)
     return parser
+
+
+def _resolve_devices(args: argparse.Namespace) -> tuple[Device, Device]:
+    """Device A is always the phone; device B is a watch when --serial-watch is given."""
+    a = Device(args.serial_a, "alpha")
+    if getattr(args, "serial_watch", None):
+        return a, WatchDevice(args.serial_watch)
+    if not getattr(args, "serial_b", None):
+        raise MeshLabError("either --serial-b or --serial-watch is required")
+    return a, Device(args.serial_b, "beta")
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "setup":
+            a, b = _resolve_devices(args)
+            nickname_b = "watch" if isinstance(b, WatchDevice) and args.nickname_b == "bob" else args.nickname_b
             setup_pair(
-                Device(args.serial_a, "alpha"), Device(args.serial_b, "beta"),
-                args.apk, args.nickname_a, args.nickname_b,
+                a, b, args.apk, args.nickname_a, nickname_b,
+                apk_b=args.watch_apk if isinstance(b, WatchDevice) else None,
             )
             print(json.dumps({"status": "ok", "step": "setup"}))
         elif args.command == "scenario":
-            evidence = run_scenario(
-                args.name, Device(args.serial_a, "alpha"), Device(args.serial_b, "beta"), args.out
-            )
+            a, b = _resolve_devices(args)
+            evidence = run_scenario(args.name, a, b, args.out)
             print(json.dumps(evidence, indent=2, default=str))
             return 0 if evidence["status"] == "pass" else 1
         elif args.command == "cmd":
             extras: dict[str, object] = {}
+            extras: dict[str, object] = {}
             for item in args.extra:
                 key, _, value = item.partition("=")
-                extras[key] = int(value) if value.isdigit() else value
+                extras[key] = value
+            for item in args.extra_int:
+                key, _, value = item.partition("=")
+                extras[key] = int(value)
             result = Device(args.serial, "device").cmd(args.cmd, timeout_ms=args.timeout_ms, **extras)
             print(json.dumps(result, indent=2, default=str))
             return 0 if result.get("status") == "ok" else 1
