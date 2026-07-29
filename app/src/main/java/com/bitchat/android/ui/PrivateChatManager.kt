@@ -134,6 +134,50 @@ class PrivateChatManager(
         return true
     }
 
+    /**
+     * Persists the local echo before handing the payload to a transport.
+     *
+     * A failed database write deliberately aborts the send: otherwise the remote peer could
+     * receive a message that disappears from the sender's conversation after process death.
+     */
+    suspend fun sendPrivateMessageDurably(
+        content: String,
+        peerID: String,
+        recipientNickname: String?,
+        senderNickname: String?,
+        myPeerID: String,
+        onSendMessage: (String, String, String, String) -> Unit
+    ): Boolean {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        if (isPeerBlocked(peerID)) {
+            val systemMessage = BitchatMessage(
+                sender = "system",
+                content = "cannot send message to $recipientNickname: user is blocked.",
+                timestamp = Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+            return false
+        }
+
+        val message = BitchatMessage(
+            sender = senderNickname ?: myPeerID,
+            content = content,
+            timestamp = Date(),
+            isRelay = false,
+            isPrivate = true,
+            recipientNickname = recipientNickname,
+            senderPeerID = myPeerID,
+            deliveryStatus = DeliveryStatus.Sending
+        )
+
+        if (!messageManager.addPrivateMessageDurably(conversationID, message, forceRead = true)) {
+            return false
+        }
+        onSendMessage(content, conversationID, recipientNickname ?: "", message.id)
+        return true
+    }
+
     // MARK: - Peer Management
 
     fun isPeerBlocked(peerID: String): Boolean {
@@ -373,6 +417,51 @@ class PrivateChatManager(
         } else {
             messageManager.addPrivateMessage(inferredPeer, message)
         }
+    }
+
+    /**
+     * Durable admission for transports that do not pass through the mesh admission pipeline.
+     *
+     * Nostr acknowledgements are emitted by the caller only after this returns true, which lets a
+     * failed write be retried rather than silently acknowledging a message that was never saved.
+     */
+    suspend fun handleIncomingPrivateMessageDurably(
+        message: BitchatMessage,
+        suppressUnread: Boolean,
+        origin: PrivateMessageOrigin
+    ): Boolean {
+        val senderPeerID = message.senderPeerID
+        val conversationID = senderPeerID
+            ?.let(ContactDirectory::canonicalConversationId)
+            ?: state.getSelectedPrivateChatPeerValue()
+            ?: return false
+
+        if (senderPeerID != null && isPeerBlocked(senderPeerID)) return false
+        messageManager.initializePrivateChat(conversationID)
+
+        val shouldPersistHere = origin == PrivateMessageOrigin.NOSTR || senderPeerID == null
+        if (shouldPersistHere) {
+            val accepted = messageManager.addPrivateMessageDurably(
+                peerID = conversationID,
+                message = message,
+                forceRead = suppressUnread || !trackUnreadMessages
+            )
+            if (!accepted) return false
+        }
+
+        if (
+            senderPeerID != null &&
+            trackUnreadMessages &&
+            !suppressUnread &&
+            state.getSelectedPrivateChatPeerValue() != conversationID
+        ) {
+            val unreadList = unreadReceivedMessages.getOrPut(conversationID) { mutableListOf() }
+            unreadList.add(message)
+            val currentUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
+            currentUnread.add(conversationID)
+            state.setUnreadPrivateMessages(currentUnread)
+        }
+        return true
     }
 
     /**

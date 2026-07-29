@@ -141,6 +141,47 @@ class ConversationSummaryTest {
         assertEquals(BitchatMessageType.File, conversation.latestMessageType)
     }
 
+    @Test
+    fun `case variants cannot create duplicate conversations or misclassify outgoing messages`() {
+        val outgoing = incoming(
+            id = "outgoing",
+            sender = "Me",
+            timestamp = 200L,
+            content = "sent by me"
+        )
+
+        val conversations = buildConversationSummaries(
+            unreadConversationIDs = emptySet(),
+            privateChats = mapOf(
+                "CONTACT_ALICE" to listOf(outgoing),
+                "contact_alice" to listOf(outgoing)
+            ),
+            currentUserIdentifiers = setOf("me"),
+            canonicalize = { it },
+            isMessageRead = { true }
+        )
+
+        assertEquals(1, conversations.size)
+        assertEquals(setOf("contact_alice"), conversations.single().identityAliases)
+        assertEquals(true, conversations.single().latestMessageIsOutgoing)
+    }
+
+    @Test
+    fun `summary-only startup uses persisted unread count`() {
+        val latest = incoming("latest", "alice", 300L)
+
+        val conversation = buildConversationSummaries(
+            unreadConversationIDs = setOf("contact_alice"),
+            privateChats = mapOf("contact_alice" to listOf(latest)),
+            currentUserIdentifiers = setOf("me"),
+            canonicalize = { it },
+            isMessageRead = { false },
+            persistedUnreadCounts = mapOf("contact_alice" to 47)
+        ).single()
+
+        assertEquals(47, conversation.unreadCount)
+    }
+
     private fun incoming(
         id: String,
         sender: String,
