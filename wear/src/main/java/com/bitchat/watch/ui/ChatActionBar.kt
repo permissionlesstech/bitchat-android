@@ -94,8 +94,13 @@ fun ChatActionBar(onKeyboard: () -> Unit, voice: VoiceNoteController, modifier: 
                             } else {
                                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             }
-                            tryAwaitRelease()
-                            voice.stop(send = true)
+                            // Only a clean release stops here. If the scroll parent steals
+                            // the pointer mid-drag (cancel), keep recording — the
+                            // screen-level release watcher in ChatScaffold stops when the
+                            // finger actually lifts, anywhere on the screen.
+                            if (tryAwaitRelease()) {
+                                voice.stop(send = true)
+                            }
                         }
                     )
                 },
@@ -167,7 +172,7 @@ fun VoiceRecordOverlay(voice: VoiceNoteController) {
                 modifier = Modifier.padding(top = 10.dp)
             )
             Text(
-                text = "Release to send",
+                text = "Lift finger to send",
                 style = ChatVisualTokens.SystemActionStyle,
                 color = palette.textTertiary,
                 textAlign = TextAlign.Center,

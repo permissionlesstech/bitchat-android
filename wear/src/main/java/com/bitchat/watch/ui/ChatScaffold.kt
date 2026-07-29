@@ -22,8 +22,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
@@ -61,16 +63,16 @@ fun ChatScaffold(
     header: @Composable (expanded: Boolean) -> Unit,
     actionBar: @Composable () -> Unit
 ) {
-    val haptics = LocalHapticFeedback.current
     val columnState = rememberTransformingLazyColumnState()
 
     // Haptics on incoming messages.
+    val context = LocalContext.current
     var previousCount by remember { mutableStateOf(messages.size) }
     LaunchedEffect(messages.size) {
         if (messages.size > previousCount) {
             val last = messages.lastOrNull()
             if (last != null && last.senderPeerID != myPeerID) {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                WearHaptics.knock(context)
             }
         }
         previousCount = messages.size
@@ -139,7 +141,24 @@ private fun ChatBody(
 ) {
     val palette = LocalBitchatPalette.current
     val transformationSpec = rememberTransformationSpec()
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            // Push-to-talk release is tracked globally: once recording, lifting the finger
+            // ANYWHERE on the screen stops and sends. On a 1.4" round screen it is too easy
+            // to drift off the small mic button (the scrollable parent steals the pointer
+            // mid-drag), so the button alone must not own the release.
+            .pointerInput(voice) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (voice.recording && event.changes.any { it.changedToUp() }) {
+                            voice.stop(send = true)
+                        }
+                    }
+                }
+            }
+    ) {
         ScreenScaffold(scrollState = columnState) {
             TransformingLazyColumn(
                 state = columnState,

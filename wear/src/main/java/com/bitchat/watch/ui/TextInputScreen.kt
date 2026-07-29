@@ -49,6 +49,7 @@ import com.bitchat.watch.ui.theme.LocalBitchatPalette
 @Composable
 fun TextInputScreen(onSend: (String) -> Unit) {
     val palette = LocalBitchatPalette.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     var text by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -61,6 +62,7 @@ fun TextInputScreen(onSend: (String) -> Unit) {
                 ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
                 ?.firstOrNull()
             if (!spoken.isNullOrBlank()) {
+                WearHaptics.tick(context)
                 onSend(spoken.trim())
             }
         }
@@ -70,6 +72,7 @@ fun TextInputScreen(onSend: (String) -> Unit) {
         val trimmed = text.trim()
         if (trimmed.isNotEmpty()) {
             keyboardController?.hide()
+            WearHaptics.tick(context)
             onSend(trimmed)
             text = ""
         }

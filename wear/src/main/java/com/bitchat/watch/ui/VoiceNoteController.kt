@@ -50,6 +50,7 @@ class VoiceNoteController(
         elapsedMs = 0L
         liveSamples = FloatArray(LIVE_BARS)
         recording = true
+        WearHaptics.knock(context)
         pollJob = scope.launch {
             while (true) {
                 delay(AMPLITUDE_POLL_MS)
@@ -68,6 +69,7 @@ class VoiceNoteController(
     fun stop(send: Boolean) {
         if (!recording) return
         recording = false
+        WearHaptics.click(context)
         pollJob?.cancel()
         pollJob = null
         val file = recorder.stop()
