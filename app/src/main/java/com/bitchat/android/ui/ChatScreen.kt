@@ -98,6 +98,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var forceScrollToBottom by remember { mutableStateOf(false) }
     var isScrolledUp by remember { mutableStateOf(false) }
 
+    LaunchedEffect(selectedPrivatePeer) {
+        selectedPrivatePeer?.let { peerID ->
+            messageText = TextFieldValue(viewModel.conversationDraft(peerID))
+        }
+    }
+
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
         showPasswordDialog = showPasswordPrompt
@@ -356,14 +362,19 @@ fun ChatScreen(viewModel: ChatViewModel) {
         messageText = messageText,
         onMessageTextChange = { newText: TextFieldValue ->
             messageText = newText
+            viewModel.setConversationDraft(selectedPrivatePeer, newText.text)
             viewModel.updateCommandSuggestions(newText.text)
             viewModel.updateMentionSuggestions(newText.text)
         },
         onSend = {
             if (messageText.text.trim().isNotEmpty()) {
-                viewModel.sendMessage(messageText.text.trim())
-                messageText = TextFieldValue("")
-                forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
+                viewModel.sendMessage(messageText.text.trim()) { accepted ->
+                    if (accepted) {
+                        messageText = TextFieldValue("")
+                        viewModel.setConversationDraft(selectedPrivatePeer, "")
+                        forceScrollToBottom = !forceScrollToBottom
+                    }
+                }
             }
         },
         onSendVoiceNote = { peer, onionOrChannel, path ->

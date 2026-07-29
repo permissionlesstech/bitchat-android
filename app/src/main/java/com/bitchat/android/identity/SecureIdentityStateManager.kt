@@ -528,4 +528,11 @@ class SecureIdentityStateManager {
         }
         editor.apply()
     }
+
+    /** Use for panic paths that must finish the disk mutation before identity reset continues. */
+    fun clearSecureValuesSynchronously(vararg keys: String): Boolean {
+        val editor = prefs.edit()
+        keys.forEach(editor::remove)
+        return editor.commit()
+    }
 }

@@ -195,6 +195,68 @@ class AppStateStoreTest {
     }
 
     @Test
+    fun `in flight message can become failed without overwriting confirmed delivery`() {
+        val sending = BitchatMessage(
+            id = "send-failure",
+            sender = "me",
+            content = "hello",
+            timestamp = Date(1),
+            isPrivate = true,
+            deliveryStatus = DeliveryStatus.Sending
+        )
+        AppStateStore.addPrivateMessage("peer-a", sending)
+
+        AppStateStore.updatePrivateMessageStatus(
+            sending.id,
+            DeliveryStatus.Failed("network unavailable")
+        )
+        assertTrue(
+            AppStateStore.privateMessages.value
+                .getValue("peer-a")
+                .single()
+                .deliveryStatus is DeliveryStatus.Failed
+        )
+
+        AppStateStore.updatePrivateMessageStatus(
+            sending.id,
+            DeliveryStatus.Delivered("alice", Date(2))
+        )
+        AppStateStore.updatePrivateMessageStatus(
+            sending.id,
+            DeliveryStatus.Failed("late timeout")
+        )
+        assertTrue(
+            AppStateStore.privateMessages.value
+                .getValue("peer-a")
+                .single()
+                .deliveryStatus is DeliveryStatus.Delivered
+        )
+    }
+
+    @Test
+    fun `closing a conversation releases full payload history but keeps its summary`() {
+        repeat(3) { index ->
+            AppStateStore.addPrivateMessage(
+                "peer-a",
+                BitchatMessage(
+                    id = "history-$index",
+                    sender = "alice",
+                    content = "message $index",
+                    timestamp = Date(index.toLong()),
+                    isPrivate = true
+                )
+            )
+        }
+
+        AppStateStore.releasePrivateConversationHistory("peer-a")
+
+        assertEquals(
+            listOf("history-2"),
+            AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+        )
+    }
+
+    @Test
     fun `long lived process applies the same bounded private history policy`() {
         AppStateStore.setNickname("me")
         repeat(ConversationDatabase.MAX_MESSAGES_PER_CONVERSATION) { index ->
