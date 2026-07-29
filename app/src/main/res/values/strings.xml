@@ -77,6 +77,7 @@
   <string name="cd_location_notes">Location notes</string>
   <string name="cd_teleported">Teleported</string>
   <string name="cd_tor_status">Tor status</string>
+  <string name="cd_open_location_channels">Open location and channel settings</string>
   <string name="cd_connected_peers">Connected peers</string>
   <string name="cd_geohash_participants">Geohash participants</string>
   <string name="cd_ready_for_handshake">Ready for handshake</string>
