@@ -434,7 +434,11 @@ class HotspotManager(private val context: Context) {
 
                 wifiP2pManager?.createGroup(ch, config, groupActionListener(attempt, ch))
             } else {
-                // Android 9 and below: System-generated SSID/password
+                // Android 9 and below: the framework names the group, so ownership cannot
+                // be recorded until the first poll reports it. Clear any name left by an
+                // earlier run, or that poll would treat the marker as already recorded.
+                ownedGroupName = null
+
                 wifiP2pManager?.createGroup(ch, groupActionListener(attempt, ch))
             }
         } catch (e: SecurityException) {
@@ -575,10 +579,15 @@ class HotspotManager(private val context: Context) {
                         savedSsid = group.networkName
                         savedPassword = group.passphrase
                         // Below Q the framework picks the name, so this is the first point
-                        // we can record it. Guarded on having created it: recording whatever
-                        // group happens to be present would claim another app's as ours.
-                        if (createdActiveGroup) {
-                            group.networkName?.let { ownedGroupName = it }
+                        // we can record it — and it must be recorded exactly once. Writing
+                        // it on every poll would overwrite the marker with a replacement
+                        // group's name, leaving the check below comparing a value with
+                        // itself and never detecting the replacement.
+                        if (createdActiveGroup && ownedGroupName == null) {
+                            group.networkName?.let {
+                                ownedGroupName = it
+                                Log.d(TAG, "Recorded framework-generated group name '$it'")
+                            }
                         }
                     }
 
