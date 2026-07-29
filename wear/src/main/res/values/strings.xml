@@ -3,9 +3,10 @@
     <string name="app_name">bitchat</string>
     <string name="mesh_channel_name">Mesh network</string>
     <string name="mesh_channel_description">Keeps the Bluetooth mesh running in the background</string>
+    <string name="mesh_notification_no_peers">Mesh running</string>
     <plurals name="mesh_notification_text">
-        <item quantity="one">Mesh running — %1$d peer</item>
-        <item quantity="other">Mesh running — %1$d peers</item>
+        <item quantity="one">%1$d peer</item>
+        <item quantity="other">%1$d peers</item>
     </plurals>
     <string name="message_channel_name">Direct messages</string>
     <string name="message_channel_description">Encrypted direct-message alerts</string>
