@@ -2,6 +2,9 @@ package com.bitchat.android.ui
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.geohash.GeohashChannel
+import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import junit.framework.TestCase.assertEquals
@@ -135,5 +138,27 @@ class CommandProcessorTest() {
     )
 
     assertTrue(locallyRead.contains(message.id))
+  }
+
+  @Test
+  fun `pay feedback is added to active geohash channel`() {
+    val geohash = "u0nd"
+    chatState.setSelectedLocationChannel(
+      ChannelID.Location(GeohashChannel(GeohashChannelLevel.PROVINCE, geohash))
+    )
+
+    commandProcessor.processCommand(
+      command = "/pay invalid",
+      meshService = meshService,
+      myPeerID = "peer-id",
+      onSendMessage = { _, _, _ -> },
+      viewModel = null
+    )
+
+    assertEquals(
+      "invalid cashu token — not sending it",
+      chatState.getChannelMessagesValue()["geo:$geohash"]?.single()?.content
+    )
+    assertEquals(0, chatState.getMessagesValue().size)
   }
 }

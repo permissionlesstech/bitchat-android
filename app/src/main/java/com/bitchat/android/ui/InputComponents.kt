@@ -327,6 +327,9 @@ fun MessageInput(
     var isRecording by remember { mutableStateOf(false) }
     var elapsedMs by remember { mutableStateOf(0L) }
     var amplitude by remember { mutableStateOf(0) }
+    val cashuToken = remember(value.text) {
+        CashuTokenDecoder.bareToken(value.text)
+    }
 
     // Slide-to-cancel: while recording, the mic button streams the finger position (root
     // coords) up here; the cancel disc beside it reports its bounds. Approaching the disc
@@ -425,16 +428,17 @@ fun MessageInput(
                     // user is composing rather than reading, and green-on-black is tiring to
                     // type into.
                     textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = colorScheme.onSurface,
+                        color = if (cashuToken == null) colorScheme.onSurface else Color.Transparent,
                         fontFamily = BitchatFontFamily
                     ),
                     cursorBrush = SolidColor(
-                        if (isRecording) Color.Transparent else colorScheme.onSurface
+                        if (isRecording || cashuToken != null) Color.Transparent else colorScheme.onSurface
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
                         if (hasText) onSend()
                     }),
+                    singleLine = cashuToken != null,
                     // Cap the growth so a pasted wall of text cannot swallow the message list.
                     maxLines = 6,
                     visualTransformation = remember(
@@ -462,6 +466,14 @@ fun MessageInput(
                             isFocused.value = focusState.isFocused
                         }
                 )
+
+                cashuToken?.let { token ->
+                    CashuPaymentChip(
+                        token = token,
+                        onClick = { focusRequester.requestFocus() },
+                        showActions = false,
+                    )
+                }
 
                 // Placeholder fades rather than blinking, which matters because it reappears
                 // every time a message is sent.
