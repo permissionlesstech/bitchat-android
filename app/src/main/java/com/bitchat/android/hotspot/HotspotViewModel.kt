@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,6 +41,10 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             try {
+                // Wi-Fi Aware holds a NAN interface that blocks the P2P one; release it
+                // first or every createGroup comes back BUSY. Restored when we stop.
+                WifiAwareController.holdForHotspot()
+
                 // Start hotspot
                 val manager = HotspotManager(context)
                 hotspotManager = manager
@@ -94,6 +99,9 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                     override fun onError(message: String) {
                         viewModelScope.launch {
                             Log.e(TAG, "Hotspot error: $message")
+                            // The manager has already torn itself down; give the mesh
+                            // its radio back rather than holding it for a dead hotspot.
+                            WifiAwareController.releaseHotspotHold()
                             _state.value = HotspotState.Error(message)
                         }
                     }
@@ -118,6 +126,8 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
         hotspotManager?.stopHotspot()
         hotspotManager = null
+
+        WifiAwareController.releaseHotspotHold()
 
         _state.value = HotspotState.Intro
     }

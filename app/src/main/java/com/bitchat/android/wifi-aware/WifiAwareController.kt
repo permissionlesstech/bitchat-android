@@ -30,6 +30,15 @@ object WifiAwareController {
     private var awareReceiverRegistered = false
     private var lastBlockedReason: String? = null
 
+    /**
+     * Set while a Wi-Fi Direct hotspot is hosting. Wi-Fi Aware (NAN) and Wi-Fi Direct
+     * (P2P) cannot hold interfaces at the same time on common chipsets — the HAL fails
+     * to create the P2P iface and every createGroup is answered with BUSY. The hold
+     * also blocks [startIfPossible], so a resume or mesh-service restart cannot bring
+     * Aware back while the hotspot is up.
+     */
+    private val hotspotHold = AtomicBoolean(false)
+
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val _enabled = MutableStateFlow(false)
@@ -87,9 +96,30 @@ object WifiAwareController {
         if (value) startIfPossible() else stop()
     }
 
+    /**
+     * Releases the Wi-Fi radio so a Wi-Fi Direct hotspot can create its P2P interface,
+     * and prevents Aware restarting until [releaseHotspotHold] is called.
+     */
+    fun holdForHotspot() {
+        if (!hotspotHold.compareAndSet(false, true)) return
+        Log.i(TAG, "Holding Wi-Fi Aware down so the hotspot can use the radio")
+        stop()
+    }
+
+    /** Drops the hold and restores Aware if the user still has it enabled. */
+    fun releaseHotspotHold() {
+        if (!hotspotHold.compareAndSet(true, false)) return
+        Log.i(TAG, "Hotspot finished; restoring Wi-Fi Aware if enabled")
+        restartIfStillEnabled()
+    }
+
     fun startIfPossible() {
         val reusableService = synchronized(lifecycleLock) {
             if (!_enabled.value) return
+            if (hotspotHold.get()) {
+                Log.d(TAG, "Not starting Wi-Fi Aware: held down for the hotspot")
+                return
+            }
             val existing = service
             if (existing?.isRunning() == true) {
                 _running.value = true
