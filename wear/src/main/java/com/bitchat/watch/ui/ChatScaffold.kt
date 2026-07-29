@@ -154,6 +154,24 @@ private fun ChatBody(
     val hoveringCancel = fingerActive &&
         cancelBounds?.inflate(CANCEL_HOVER_SLANT_PX)?.contains(fingerPos) == true
 
+    // Magnetic attraction: as the finger approaches the target (but is not on it yet), the
+    // button leans toward the finger and blushes red in proportion to the closeness;
+    // only actually entering the activation zone snaps it into full cancel mode.
+    val cancelCenter = cancelBounds?.center
+    val proximity: Float
+    val magnetPull: Offset
+    if (fingerActive && cancelCenter != null) {
+        val toFinger = fingerPos - cancelCenter
+        val dist = toFinger.getDistance()
+        proximity = ((MAGNET_OUTER_PX - dist) / (MAGNET_OUTER_PX - MAGNET_INNER_PX))
+            .coerceIn(0f, 1f)
+        magnetPull = if (dist > 1f) toFinger * (proximity * MAGNET_PULL_PX / dist)
+        else Offset.Zero
+    } else {
+        proximity = 0f
+        magnetPull = Offset.Zero
+    }
+
     // Tactile tick each time the finger enters or leaves the cancel target.
     var hoverHapticState by remember { mutableStateOf(false) }
     LaunchedEffect(hoveringCancel, voice.recording) {
@@ -264,6 +282,8 @@ private fun ChatBody(
         VoiceRecordOverlay(
             voice = voice,
             hoveringCancel = hoveringCancel,
+            proximity = proximity,
+            magnetPull = magnetPull,
             onCancelBounds = { cancelBounds = it }
         )
     }
@@ -272,3 +292,9 @@ private fun ChatBody(
 // Extra finger slack (px, ~28dp at watch density) around the cancel target so the snap
 // engages as the finger approaches, not only on exact contact.
 private const val CANCEL_HOVER_SLANT_PX = 56f
+// Magnetic zone geometry (px at watch density): the button starts reacting at
+// MAGNET_OUTER_PX from its center and fully blushes at MAGNET_INNER_PX (~the activation
+// boundary); it leans toward the finger by up to MAGNET_PULL_PX.
+private const val MAGNET_OUTER_PX = 170f
+private const val MAGNET_INNER_PX = 104f
+private const val MAGNET_PULL_PX = 22f

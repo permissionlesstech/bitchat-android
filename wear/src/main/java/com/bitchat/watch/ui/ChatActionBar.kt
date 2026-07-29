@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -135,23 +136,37 @@ fun ChatActionBar(onKeyboard: () -> Unit, voice: VoiceNoteController, modifier: 
 fun VoiceRecordOverlay(
     voice: VoiceNoteController,
     hoveringCancel: Boolean,
+    proximity: Float,
+    magnetPull: Offset,
     onCancelBounds: (androidx.compose.ui.geometry.Rect) -> Unit
 ) {
     val palette = LocalBitchatPalette.current
-    // Snappy, slightly overshooting snap for the cancel morph.
+    // The cancel morph, choreographed for feel:
+    // - color flows green→red CONTINUOUSLY as the finger approaches (finger-driven, so it
+    //   is perfectly fluid), completing to full red on activation
+    // - the button leans toward the approaching finger (magnetic pull), chasing it with a
+    //   smooth spring so it lags and settles naturally
+    // - scale blooms with a soft bounce on activation — no rotation, no wobble
     val cancelScale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (hoveringCancel) 1.3f else 1f,
+        targetValue = if (hoveringCancel) 1.32f else 1f + 0.1f * proximity,
         animationSpec = androidx.compose.animation.core.spring(
             dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
-            stiffness = androidx.compose.animation.core.Spring.StiffnessHigh
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
         ),
         label = "cancelSnap"
     )
-    val cancelColor by androidx.compose.animation.animateColorAsState(
-        targetValue = if (hoveringCancel) MaterialTheme.colorScheme.error
-        else MaterialTheme.colorScheme.primary,
-        animationSpec = tween(BitchatMotion.QUICK_MS),
-        label = "cancelColor"
+    val pull by androidx.compose.animation.core.animateOffsetAsState(
+        targetValue = magnetPull,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+        ),
+        label = "magnetPull"
+    )
+    val cancelColor = androidx.compose.ui.graphics.lerp(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.error,
+        if (hoveringCancel) 1f else proximity * 0.85f
     )
     AnimatedVisibility(
         visible = voice.recording,
@@ -177,14 +192,19 @@ fun VoiceRecordOverlay(
                         )
                     }
                     .size(52.dp)
-                    .graphicsLayer { scaleX = cancelScale; scaleY = cancelScale }
+                    .graphicsLayer {
+                        translationX = pull.x
+                        translationY = pull.y
+                        scaleX = cancelScale
+                        scaleY = cancelScale
+                    }
                     .clip(CircleShape)
                     .background(cancelColor),
                 contentAlignment = Alignment.Center
             ) {
                 androidx.compose.animation.Crossfade(
                     targetState = hoveringCancel,
-                    animationSpec = tween(BitchatMotion.QUICK_MS),
+                    animationSpec = tween(BitchatMotion.STANDARD_MS),
                     label = "cancelIcon"
                 ) { cancel ->
                     Icon(
