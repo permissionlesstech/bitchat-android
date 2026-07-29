@@ -27,7 +27,6 @@ import com.bitchat.android.protocol.BitchatPacket
 
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
 import java.util.Date
 import kotlin.random.Random
@@ -134,8 +133,7 @@ class ChatViewModel(
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(
       application.applicationContext,
-      NotificationManagerCompat.from(application.applicationContext),
-      NotificationIntervalManager()
+      NotificationManagerCompat.from(application.applicationContext)
     )
 
     private val verificationHandler = VerificationHandler(

@@ -13,7 +13,6 @@ import androidx.core.app.NotificationManagerCompat
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
 import com.bitchat.android.services.ContactDirectory
-import com.bitchat.android.util.NotificationIntervalManager
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -24,12 +23,10 @@ import java.util.concurrent.ConcurrentHashMap
  * - Support for mention notifications in geohash chats
  * - Support for first message notifications in geohash chats
  * - Proper notification management and cleanup
- * - Active peers notification
  */
 class NotificationManager(
   private val context: Context,
-  private val notificationManager: NotificationManagerCompat,
-  private val notificationIntervalManager: NotificationIntervalManager
+  private val notificationManager: NotificationManagerCompat
 ) {
 
     companion object {
@@ -42,9 +39,6 @@ class NotificationManager(
         private const val GEOHASH_NOTIFICATION_REQUEST_CODE = 2000
         private const val SUMMARY_NOTIFICATION_ID = 999
       private const val GEOHASH_SUMMARY_NOTIFICATION_ID = 998
-        private const val ACTIVE_PEERS_NOTIFICATION_ID = 997
-        private const val ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL = com.bitchat.android.util.AppConstants.UI.ACTIVE_PEERS_NOTIFICATION_INTERVAL_MS
-
         // Intent extras for notification handling
         const val EXTRA_OPEN_PRIVATE_CHAT = "open_private_chat"
         const val EXTRA_OPEN_GEOHASH_CHAT = "open_geohash_chat"
@@ -176,22 +170,6 @@ class NotificationManager(
         }
     }
 
-    fun showActiveUserNotification(peers: List<String>) {
-        val currentTime = System.currentTimeMillis()
-        val activePeerNotificationIntervalExceeded =
-          (currentTime - notificationIntervalManager.lastNetworkNotificationTime) > ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL
-        val newPeers = peers - notificationIntervalManager.recentlySeenPeers
-        if (isAppInBackground && activePeerNotificationIntervalExceeded && newPeers.isNotEmpty()) {
-            Log.d(TAG, "Showing notification for active peers")
-            showNotificationForActivePeers(peers.size)
-            notificationIntervalManager.setLastNetworkNotificationTime(currentTime)
-            notificationIntervalManager.recentlySeenPeers.addAll(newPeers)
-        } else {
-            Log.d(TAG, "Skipping notification - app in foreground or it has been less than 5 minutes since last active peer notification")
-            return
-        }
-    }
-
     private fun showNotificationForSender(senderPeerID: String) {
         val notifications = pendingNotifications[senderPeerID] ?: return
         if (notifications.isEmpty()) return
@@ -314,41 +292,6 @@ class NotificationManager(
         notificationManager.notify((System.currentTimeMillis() and 0x7FFFFFFF).toInt(), builder.build())
     }
 
-    private fun showNotificationForActivePeers(peersSize: Int) {
-        // Create intent to open the app
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-
-        val pendingIntent = PendingIntent.getActivity(
-          context,
-          ACTIVE_PEERS_NOTIFICATION_ID,
-          intent,
-          PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        // Build notification content
-        val contentTitle = context.getString(R.string.notification_active_peers_title)
-        val contentText = if (peersSize == 1) {
-            context.getString(R.string.notification_active_peers_one)
-        } else {
-            context.getString(R.string.notification_active_peers_many, peersSize)
-        }
-
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-          .setSmallIcon(R.drawable.ic_notification)
-          .setContentTitle(contentTitle)
-          .setContentText(contentText)
-          .setContentIntent(pendingIntent)
-          .setAutoCancel(true)
-          .setPriority(NotificationCompat.PRIORITY_MIN)
-          .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-          .setShowWhen(true)
-          .setWhen(System.currentTimeMillis())
-
-        notificationManager.notify(ACTIVE_PEERS_NOTIFICATION_ID, builder.build())
-        Log.d(TAG, "Displayed notification for $contentTitle with ID $ACTIVE_PEERS_NOTIFICATION_ID")
-    }
     private fun showSummaryNotification() {
         if (pendingNotifications.isEmpty()) return
 

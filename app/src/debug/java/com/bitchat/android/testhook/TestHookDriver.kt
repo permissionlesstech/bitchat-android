@@ -68,6 +68,7 @@ object TestHookDriver {
             "file_cancel" -> fileCancel(context, intent.requiredString("transfer_id"))
             "raw_send" -> rawSend(context, intent)
             "ble" -> setBle(intent.getBooleanExtra("enabled", true))
+            "inject_peers" -> injectPeers(intent.getStringExtra("peers"))
             "state" -> state(context)
             "clear_results" -> clearResults(context)
             else -> err(cmd, "unknown command: $cmd")
@@ -130,6 +131,21 @@ object TestHookDriver {
     private fun peers(context: Context): JSONObject {
         val mesh = mesh(context)
         return ok("peers").put("peers", peerInfosJson(mesh, AppStateStore.peers.value))
+    }
+
+    /**
+     * Debug-only state injection for testing peer-list consumers such as notifications.
+     * A blank or missing comma-separated value restores the empty state.
+     */
+    private fun injectPeers(commaSeparatedPeers: String?): JSONObject {
+        val peers = commaSeparatedPeers
+            .orEmpty()
+            .split(',')
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .distinct()
+        AppStateStore.setPeers(peers)
+        return ok("inject_peers").put("peers", JSONArray(peers))
     }
 
     private suspend fun connect(peerID: String, intent: Intent): JSONObject {
