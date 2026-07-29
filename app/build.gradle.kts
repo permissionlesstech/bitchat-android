@@ -24,6 +24,7 @@ require(
 android {
     namespace = "com.bitchat.android"
     compileSdk = libs.versions.compileSdk.get().toInt()
+    buildToolsVersion = libs.versions.buildTools.get()
 
     defaultConfig {
         applicationId = "com.bitchat.droid"
@@ -64,6 +65,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            vcsInfo {
+                // BUILDINFO.json and attestations carry the verified commit
+                // without depending on host-specific Git/worktree paths.
+                include = false
+            }
         }
     }
 
@@ -106,6 +112,7 @@ android {
 }
 
 kotlin {
+    jvmToolchain(21)
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_11)
     }
