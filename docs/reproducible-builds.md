@@ -2,13 +2,13 @@
 
 Bitchat's canonical release build produces byte-for-byte reproducible unsigned
 APKs and an unsigned Android App Bundle (AAB). CI builds the release twice in
-independent jobs and refuses to publish it unless every canonical byte matches.
+independent jobs and exposes a verified release artifact only when every
+canonical byte matches.
 
-The signing key is intentionally not public. Anyone can reproduce the unsigned
-artifacts; GitHub Actions signs only the already-verified APKs, checks that
-signing itself is deterministic, verifies the expected certificate, and
-publishes checksums and provenance attestations for both unsigned and signed
-artifacts.
+Signing remains local: no keystore or signing password is stored in or exposed
+to GitHub Actions. Anyone can reproduce the unsigned artifacts; maintainers
+download the verified CI output, sign the selected GitHub APKs and Play upload
+AAB locally, then manually publish those exact files.
 
 ## What is pinned
 
@@ -97,7 +97,8 @@ tools/reproducible-builds/verify-github-release.sh vX.Y.Z
 That command:
 
 1. downloads all release APKs, the AAB, build information, and checksum files;
-2. verifies each GitHub artifact-attestation subject against this repository;
+2. verifies the canonical unsigned build's GitHub artifact-attestation subjects
+   against this repository;
 3. verifies `BITCHAT_SHA256SUMS`;
 4. checks that the local source commit is the release commit;
 5. rebuilds in the pinned container; and
@@ -137,7 +138,7 @@ GitHub's manual equivalents are:
 ```bash
 gh release download vX.Y.Z
 sha256sum -c BITCHAT_SHA256SUMS
-gh attestation verify bitchat-android-universal.apk \
+gh attestation verify bitchat-android-universal-unsigned.apk \
   --repo permissionlesstech/bitchat-android
 ```
 
@@ -195,8 +196,9 @@ maintainers to retain the uploaded AAB, publish its digest and provenance, and
 record the Play version code and app-signing certificate fingerprint alongside
 the release.
 
-The current GitHub release workflow publishes the canonical unsigned AAB for
-verification; it does not upload to Google Play.
+The GitHub workflow builds and attests the canonical unsigned AAB. A maintainer
+locally creates `bitchat-android-play-upload.aab` from that exact file and
+uploads it manually to Google Play.
 
 ## Maintainer release process
 
@@ -204,15 +206,101 @@ Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`:
 
 1. two jobs independently build the canonical unsigned release;
 2. a comparison job requires exact byte equality;
-3. the signing job reads `SIGNING_KEY`, `ALIAS`, `KEY_STORE_PASSWORD`, and
-   `KEY_PASSWORD` from GitHub Actions secrets;
-4. each published GitHub APK is signed twice and the two results must match;
-5. the signing certificate must match the public fingerprint in
-   `gradle.properties`;
-6. GitHub generates build-provenance attestations and publishes all artifacts.
+3. GitHub generates provenance attestations for the canonical unsigned
+   artifacts; and
+4. Actions uploads `verified-unsigned-release` for the maintainer to download.
 
-Never store a keystore or password in the repository, workflow artifacts, logs,
-or build information.
+The workflow has read-only repository access and no signing secrets. It does not
+create a GitHub Release or upload to Google Play.
+
+To rerun an existing tag manually, dispatch the workflow against the tag ref
+(not the default branch):
+
+```bash
+gh workflow run release.yml \
+  --repo permissionlesstech/bitchat-android \
+  --ref vX.Y.Z \
+  -f tag=vX.Y.Z
+```
+
+The workflow rejects a dispatch whose selected ref and requested tag resolve to
+different commits, keeping the GitHub provenance tied to the source actually
+built.
+
+### 1. Download the verified build
+
+Find the completed tag workflow's run ID, then download the promoted replica:
+
+```bash
+gh run download RUN_ID \
+  --repo permissionlesstech/bitchat-android \
+  --name verified-unsigned-release \
+  --dir release
+```
+
+Verify `release/SHA256SUMS.unsigned` before signing.
+
+### 2. Sign GitHub APKs locally
+
+Install Android Build Tools 37.0.0 and set these local environment variables:
+
+- `ANDROID_SDK_ROOT`
+- `BITCHAT_GITHUB_KEYSTORE`
+- `BITCHAT_GITHUB_KEY_ALIAS`
+- `BITCHAT_GITHUB_KEYSTORE_PASSWORD`
+- `BITCHAT_GITHUB_KEY_PASSWORD`
+
+Then run:
+
+```bash
+tools/reproducible-builds/sign-release.sh release
+```
+
+The helper signs the arm64, x86_64, and universal APKs twice, requires the two
+signed results to match, and verifies their certificate against
+`BITCHAT_GITHUB_RELEASE_CERT_SHA256` in `gradle.properties`.
+
+### 3. Sign the Play AAB locally
+
+Use JDK 21 and the Play upload key—not the Play app-signing key managed by
+Google. Set:
+
+- `JAVA_HOME`
+- `BITCHAT_PLAY_UPLOAD_KEYSTORE`
+- `BITCHAT_PLAY_UPLOAD_KEY_ALIAS`
+- `BITCHAT_PLAY_KEYSTORE_PASSWORD`
+- `BITCHAT_PLAY_KEY_PASSWORD`
+
+Then run:
+
+```bash
+tools/reproducible-builds/sign-play-bundle.sh release
+```
+
+This creates `release/bitchat-android-play-upload.aab`, verifies its JAR
+signature, proves that its non-signature payload matches the canonical unsigned
+AAB, and updates `SHA256SUMS`. Upload that exact signed AAB to Play Console; do
+not rebuild it in Android Studio.
+
+### 4. Prepare and publish the GitHub Release
+
+After both local signing steps:
+
+```bash
+tools/reproducible-builds/prepare-github-release.sh release
+gh release create vX.Y.Z release/* \
+  --repo permissionlesstech/bitchat-android \
+  --verify-tag \
+  --draft \
+  --title "Release vX.Y.Z" \
+  --notes "See docs/reproducible-builds.md for verification instructions."
+```
+
+Review the draft assets and Play internal-track result before publishing the
+GitHub Release and promoting the Play rollout.
+
+Never store a keystore or password in the repository, GitHub Actions secrets,
+workflow artifacts, logs, release notes, or build information.
 
 ## Updating dependencies or toolchains
 

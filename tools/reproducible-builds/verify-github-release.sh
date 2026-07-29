@@ -43,10 +43,24 @@ gh release download "$TAG" \
   --pattern 'bitchat-android-*.apk' \
   --pattern 'bitchat-android-*.aab'
 
-for artifact in "$DOWNLOAD_DIR"/*; do
-  gh attestation verify "$artifact" --repo "$REPOSITORY" >/dev/null
+attested_artifacts=(
+  BITCHAT_BUILDINFO.json
+  BITCHAT_SHA256SUMS.unsigned
+  bitchat-android-arm64-unsigned.apk
+  bitchat-android-armv7-unsigned.apk
+  bitchat-android-release-unsigned.aab
+  bitchat-android-universal-unsigned.apk
+  bitchat-android-x86-unsigned.apk
+  bitchat-android-x86_64-unsigned.apk
+)
+for artifact in "${attested_artifacts[@]}"; do
+  if [ ! -f "$DOWNLOAD_DIR/$artifact" ]; then
+    echo "error: attested canonical artifact missing: $artifact" >&2
+    exit 1
+  fi
+  gh attestation verify "$DOWNLOAD_DIR/$artifact" --repo "$REPOSITORY" >/dev/null
 done
-echo "GitHub provenance attestations verified."
+echo "GitHub provenance attestations for the canonical unsigned build verified."
 
 (
   cd "$DOWNLOAD_DIR"

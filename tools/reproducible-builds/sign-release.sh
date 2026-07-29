@@ -9,10 +9,19 @@ RELEASE_DIR="${1:?usage: sign-release.sh RELEASE_DIR}"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/TOOLCHAIN.env"
 
-: "${BITCHAT_SIGNING_KEY_BASE64:?BITCHAT_SIGNING_KEY_BASE64 is required}"
-: "${BITCHAT_SIGNING_KEY_ALIAS:?BITCHAT_SIGNING_KEY_ALIAS is required}"
-: "${BITCHAT_KEYSTORE_PASSWORD:?BITCHAT_KEYSTORE_PASSWORD is required}"
-: "${BITCHAT_KEY_PASSWORD:?BITCHAT_KEY_PASSWORD is required}"
+: "${BITCHAT_GITHUB_KEYSTORE:?BITCHAT_GITHUB_KEYSTORE is required}"
+: "${BITCHAT_GITHUB_KEY_ALIAS:?BITCHAT_GITHUB_KEY_ALIAS is required}"
+: "${BITCHAT_GITHUB_KEYSTORE_PASSWORD:?BITCHAT_GITHUB_KEYSTORE_PASSWORD is required}"
+: "${BITCHAT_GITHUB_KEY_PASSWORD:?BITCHAT_GITHUB_KEY_PASSWORD is required}"
+
+if [ ! -f "$BITCHAT_GITHUB_KEYSTORE" ]; then
+  echo "error: GitHub release keystore not found" >&2
+  exit 1
+fi
+KEYSTORE="$(
+  cd "$(dirname "$BITCHAT_GITHUB_KEYSTORE")"
+  printf '%s/%s\n' "$PWD" "$(basename "$BITCHAT_GITHUB_KEYSTORE")"
+)"
 
 ANDROID_SDK_HOME="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
 if [ -z "$ANDROID_SDK_HOME" ]; then
@@ -27,9 +36,18 @@ if [ ! -x "$APKSIGNER" ] || [ ! -x "$ZIPALIGN" ]; then
   exit 1
 fi
 
+if command -v sha256sum >/dev/null 2>&1; then
+  SHA256=(sha256sum)
+elif command -v shasum >/dev/null 2>&1; then
+  SHA256=(shasum -a 256)
+else
+  echo "error: sha256sum or shasum is required" >&2
+  exit 1
+fi
+
 (
   cd "$RELEASE_DIR"
-  sha256sum -c SHA256SUMS.unsigned
+  "${SHA256[@]}" -c SHA256SUMS.unsigned
 )
 
 EXPECTED_CERT_SHA256="$(
@@ -44,17 +62,8 @@ fi
 
 TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEMP_DIR"' EXIT
-KEYSTORE="$TEMP_DIR/release.jks"
-
-if base64 --help 2>&1 | grep -q -- '--decode'; then
-  printf '%s' "$BITCHAT_SIGNING_KEY_BASE64" | base64 --decode > "$KEYSTORE"
-else
-  printf '%s' "$BITCHAT_SIGNING_KEY_BASE64" | base64 -D > "$KEYSTORE"
-fi
-chmod 600 "$KEYSTORE"
-
-export BITCHAT_KEYSTORE_PASSWORD
-export BITCHAT_KEY_PASSWORD
+export BITCHAT_GITHUB_KEYSTORE_PASSWORD
+export BITCHAT_GITHUB_KEY_PASSWORD
 
 declare -A signed_names=(
   ["bitchat-android-arm64-unsigned.apk"]="bitchat-android-arm64.apk"
@@ -68,14 +77,18 @@ for unsigned_name in "${!signed_names[@]}"; do
   first_signed="$TEMP_DIR/first.apk"
   second_signed="$TEMP_DIR/second.apk"
 
+  if [ -e "$signed_apk" ]; then
+    echo "error: signed APK already exists: ${signed_names[$unsigned_name]}" >&2
+    exit 1
+  fi
   "$ZIPALIGN" -c -P 16 4 "$unsigned_apk"
 
   for output_apk in "$first_signed" "$second_signed"; do
     "$APKSIGNER" sign \
       --ks "$KEYSTORE" \
-      --ks-key-alias "$BITCHAT_SIGNING_KEY_ALIAS" \
-      --ks-pass env:BITCHAT_KEYSTORE_PASSWORD \
-      --key-pass env:BITCHAT_KEY_PASSWORD \
+      --ks-key-alias "$BITCHAT_GITHUB_KEY_ALIAS" \
+      --ks-pass env:BITCHAT_GITHUB_KEYSTORE_PASSWORD \
+      --key-pass env:BITCHAT_GITHUB_KEY_PASSWORD \
       --deterministic-dsa-signing true \
       --min-sdk-version 26 \
       --v1-signing-enabled false \
@@ -113,9 +126,9 @@ done
     for artifact in *; do
       [ "$artifact" = "SHA256SUMS" ] && continue
       [ -f "$artifact" ] || continue
-      sha256sum "$artifact"
+      "${SHA256[@]}" "$artifact"
     done
   } | sort -k2 > SHA256SUMS
 )
 
-echo "Verified unsigned APKs were deterministically signed and checksummed."
+echo "Verified unsigned APKs were deterministically signed locally and checksummed."
