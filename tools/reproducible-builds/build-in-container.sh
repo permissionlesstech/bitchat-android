@@ -30,7 +30,23 @@ if ! [[ "$GRADLE_HOME_NAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
   echo "error: BITCHAT_CONTAINER_GRADLE_HOME_NAME must be a simple directory name" >&2
   exit 1
 fi
-mkdir -p "$PROJECT_ROOT/.reproducible-build/$GRADLE_HOME_NAME"
+
+mkdir -p "$PROJECT_ROOT/.reproducible-build"
+staging_root="$(mktemp -d "$PROJECT_ROOT/.reproducible-build/source.XXXXXX")"
+cleanup() {
+  rm -rf -- "$staging_root"
+}
+trap cleanup EXIT
+
+# Build from the exact committed tree rather than the host checkout. This keeps
+# ignored files and Android Studio state out of the canonical build and avoids
+# nested bind mounts, which are not portable across Docker runtimes.
+git -C "$PROJECT_ROOT" archive --format=tar "$source_commit" |
+  tar -xf - -C "$staging_root"
+cp "$CONTAINER_LOCAL_PROPERTIES" "$staging_root/local.properties"
+
+gradle_home="$PROJECT_ROOT/.reproducible-build/$GRADLE_HOME_NAME"
+mkdir -p "$gradle_home"
 
 docker build \
   --platform linux/amd64 \
@@ -38,32 +54,21 @@ docker build \
   --tag "$IMAGE_NAME" \
   "$PROJECT_ROOT"
 
-container_output="$OUTPUT_DIR"
-case "$OUTPUT_DIR" in
-  "$PROJECT_ROOT"/*)
-    container_output="/workspace/${OUTPUT_DIR#"$PROJECT_ROOT"/}"
-    output_mount=()
-    ;;
-  *)
-    mkdir -p "$OUTPUT_DIR"
-    OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
-    container_output="/output"
-    output_mount=(--volume "$OUTPUT_DIR:/output")
-    ;;
-esac
+mkdir -p "$OUTPUT_DIR"
+OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 
 docker run \
   --rm \
   --platform linux/amd64 \
   --user "$(id -u):$(id -g)" \
   --env BITCHAT_ALLOW_DIRTY="${BITCHAT_ALLOW_DIRTY:-0}" \
-  --env BITCHAT_GRADLE_USER_HOME="/workspace/.reproducible-build/$GRADLE_HOME_NAME" \
+  --env BITCHAT_GRADLE_USER_HOME=/gradle-home \
   --env BITCHAT_SOURCE_COMMIT="$source_commit" \
   --env BITCHAT_SOURCE_TREE_VERIFIED=1 \
-  --env HOME=/workspace/.reproducible-build \
+  --env HOME=/tmp/build-home \
   --env SOURCE_DATE_EPOCH="$source_date_epoch" \
-  --volume "$PROJECT_ROOT:/workspace" \
-  --mount "type=bind,source=$CONTAINER_LOCAL_PROPERTIES,target=/workspace/local.properties,readonly" \
-  "${output_mount[@]}" \
+  --volume "$staging_root:/workspace" \
+  --volume "$gradle_home:/gradle-home" \
+  --volume "$OUTPUT_DIR:/output" \
   "$IMAGE_NAME" \
-  "$container_output"
+  /output
