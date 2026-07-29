@@ -67,7 +67,7 @@ fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
             if (peers.isEmpty()) {
                 item {
                     Text(
-                        text = "no one nearby yet\nkeep the app open to mesh",
+                        text = "No one nearby yet\nKeep the app open to mesh",
                         style = ChatVisualTokens.SystemActionStyle,
                         color = palette.textTertiary,
                         textAlign = TextAlign.Center,
@@ -123,7 +123,7 @@ private fun SelfRow(nickname: String, onClick: () -> Unit) {
                 )
             }
             Text(
-                text = "tap to rename",
+                text = "Tap to rename",
                 style = ChatVisualTokens.SystemActionStyle,
                 color = palette.textTertiary
             )
@@ -171,7 +171,7 @@ private fun PersonRow(
                 }
                 if (!encrypted) {
                     Text(
-                        text = "tap to chat",
+                        text = "Tap to chat",
                         style = ChatVisualTokens.SystemActionStyle,
                         color = palette.textTertiary
                     )

@@ -103,7 +103,7 @@ fun TextInputScreen(onSend: (String) -> Unit) {
                 Box {
                     if (text.isEmpty()) {
                         Text(
-                            text = "message",
+                            text = "Message",
                             style = ChatVisualTokens.MessageBodyStyle,
                             color = palette.textTertiary
                         )
@@ -127,7 +127,7 @@ fun TextInputScreen(onSend: (String) -> Unit) {
                                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
                             )
-                            putExtra(RecognizerIntent.EXTRA_PROMPT, "speak your message")
+                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak your message")
                         }
                     )
                 },

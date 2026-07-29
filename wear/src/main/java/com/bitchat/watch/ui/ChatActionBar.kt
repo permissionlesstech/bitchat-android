@@ -167,7 +167,7 @@ fun VoiceRecordOverlay(voice: VoiceNoteController) {
                 modifier = Modifier.padding(top = 10.dp)
             )
             Text(
-                text = "release to send",
+                text = "Release to send",
                 style = ChatVisualTokens.SystemActionStyle,
                 color = palette.textTertiary,
                 textAlign = TextAlign.Center,

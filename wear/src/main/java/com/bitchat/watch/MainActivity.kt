@@ -218,9 +218,9 @@ fun WearNavHost(openDmPeer: String?, onOpenDmHandled: () -> Unit) {
                 val mesh = WearMeshService.peek()
                 NicknameSetupScreen(
                     initialNickname = mesh?.nickname ?: "",
-                    title = "you",
-                    subtitle = "this is how nearby peers see you",
-                    confirmLabel = "save",
+                    title = "You",
+                    subtitle = "How nearby peers see you",
+                    confirmLabel = "Save",
                     onConfirm = { name ->
                         mesh?.setNickname(name)
                         goBack()
@@ -265,13 +265,13 @@ fun NotificationPermissionScreen(onResult: (Boolean) -> Unit, onSkip: () -> Unit
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "message alerts",
+            text = "Message alerts",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
         Text(
-            text = "get notified when an encrypted direct message arrives",
+            text = "Alerts for encrypted direct messages",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -286,10 +286,10 @@ fun NotificationPermissionScreen(onResult: (Boolean) -> Unit, onSkip: () -> Unit
                 }
             }
         ) {
-            Text("enable")
+            Text("Enable")
         }
         TextButton(onClick = onSkip) {
-            Text("not now")
+            Text("Not now")
         }
     }
 }
@@ -314,7 +314,7 @@ fun PermissionRequestScreen(onGranted: () -> Unit) {
             color = MaterialTheme.colorScheme.primary
         )
         Text(
-            text = "needs bluetooth to mesh with nearby devices",
+            text = "Needs Bluetooth to mesh with nearby devices",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -323,7 +323,7 @@ fun PermissionRequestScreen(onGranted: () -> Unit) {
         Button(onClick = {
             launcher.launch(MainActivity.requiredPermissions().toTypedArray())
         }) {
-            Text("grant access")
+            Text("Grant access")
         }
     }
 }
@@ -342,7 +342,7 @@ fun BluetoothEnableScreen(onEnabled: () -> Unit) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "bluetooth is off",
+            text = "Bluetooth is off",
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -350,7 +350,7 @@ fun BluetoothEnableScreen(onEnabled: () -> Unit) {
             onClick = { launcher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) },
             modifier = Modifier.padding(top = 10.dp)
         ) {
-            Text("turn on")
+            Text("Turn on")
         }
     }
 }

@@ -72,7 +72,7 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
     ChatScaffold(
         messages = messages,
         myPeerID = myPeerID,
-        emptyText = "no messages yet\nsay hi to the mesh",
+        emptyText = "No messages yet\nSay hi to the mesh",
         voice = voice,
         onOpenImage = { viewerPath = it },
         header = { expanded ->

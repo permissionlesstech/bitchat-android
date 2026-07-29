@@ -45,8 +45,8 @@ import com.bitchat.watch.ui.theme.LocalBitchatPalette
 fun NicknameSetupScreen(
     initialNickname: String,
     title: String = "bitchat",
-    subtitle: String = "pick a nickname",
-    confirmLabel: String = "join the mesh",
+    subtitle: String = "Pick a nickname",
+    confirmLabel: String = "Join the mesh",
     onConfirm: (String) -> Unit
 ) {
     val palette = LocalBitchatPalette.current
@@ -114,7 +114,7 @@ fun NicknameSetupScreen(
                 Box(contentAlignment = Alignment.Center) {
                     if (name.text.isEmpty()) {
                         Text(
-                            text = "nickname",
+                            text = "Nickname",
                             style = ChatVisualTokens.MessageBodyStyle,
                             color = palette.textTertiary
                         )

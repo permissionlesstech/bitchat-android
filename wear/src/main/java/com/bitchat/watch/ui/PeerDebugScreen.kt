@@ -47,7 +47,7 @@ fun PeerDebugScreen() {
             item {
                 ListHeader {
                     Text(
-                        text = "peers (${peers.size})",
+                        text = "Peers (${peers.size})",
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
@@ -56,7 +56,7 @@ fun PeerDebugScreen() {
             if (peers.isEmpty()) {
                 item {
                     Text(
-                        text = "scanning for bitchat devices…",
+                        text = "Scanning for bitchat devices…",
                         style = MaterialTheme.typography.bodySmall,
                         color = palette.textTertiary,
                         textAlign = TextAlign.Center,

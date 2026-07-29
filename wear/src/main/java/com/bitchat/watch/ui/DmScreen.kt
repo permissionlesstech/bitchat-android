@@ -78,8 +78,8 @@ fun DmScreen(peerID: String, onOpenTextInput: () -> Unit) {
     ChatScaffold(
         messages = messages,
         myPeerID = myPeerID,
-        emptyText = if (sessionEstablished) "encrypted channel ready\nsay hi"
-        else "setting up encryption…",
+        emptyText = if (sessionEstablished) "Encrypted channel ready\nSay hi"
+        else "Setting up encryption…",
         voice = voice,
         onOpenImage = { viewerPath = it },
         header = { expanded ->
