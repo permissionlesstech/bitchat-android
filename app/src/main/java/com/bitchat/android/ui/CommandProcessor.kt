@@ -1,7 +1,9 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.services.meshgraph.MeshGraphService
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -26,7 +28,9 @@ class CommandProcessor(
         CommandSuggestion("/hug", emptyList(), "<nickname>", "send someone a warm hug"),
         CommandSuggestion("/j", listOf("/join"), "<channel>", "join or create a channel"),
         CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", "send private message"),
+        CommandSuggestion("/ping", emptyList(), "<nickname>", "measure mesh round-trip time"),
         CommandSuggestion("/slap", emptyList(), "<nickname>", "slap someone with a trout"),
+        CommandSuggestion("/trace", emptyList(), "<nickname>", "estimate the mesh path"),
         CommandSuggestion("/unblock", emptyList(), "<nickname>", "unblock a peer"),
         CommandSuggestion("/w", emptyList(), null, "see who's online")
     )
@@ -49,6 +53,8 @@ class CommandProcessor(
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage, viewModel)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage, viewModel)
             "/channels" -> handleChannelsCommand()
+            "/ping" -> handlePingCommand(parts, meshService)
+            "/trace" -> handleTraceCommand(parts, meshService)
             else -> handleUnknownCommand(cmd)
         }
         
@@ -363,6 +369,105 @@ class CommandProcessor(
         )
         messageManager.addMessage(systemMessage)
     }
+
+    private fun handlePingCommand(parts: List<String>, meshService: MeshService) {
+        if (!isMeshContext()) {
+            addCommandOutput("mesh diagnostics are only available in #mesh")
+            return
+        }
+        val targetName = parts.getOrNull(1)?.removePrefix("@")
+        val peerID = targetName?.let { getPeerIDForNickname(it, meshService) }
+        if (targetName == null) {
+            addCommandOutput("usage: /ping <nickname>")
+            return
+        }
+        if (peerID == null) {
+            addCommandOutput("user '$targetName' not found")
+            return
+        }
+        val destination = currentCommandDestination()
+        addCommandOutput("pinging $targetName…", destination)
+        meshService.sendMeshPing(peerID) { result ->
+            val output = if (result == null) {
+                "no reply from $targetName"
+            } else {
+                val hops = if (result.hopCount == 1) {
+                    "direct (1 hop)"
+                } else {
+                    "${result.hopCount} hops"
+                }
+                "pong from $targetName: ${result.rttMillis} ms · $hops"
+            }
+            addCommandOutput(output, destination)
+        }
+    }
+
+    private fun handleTraceCommand(parts: List<String>, meshService: MeshService) {
+        if (!isMeshContext()) {
+            addCommandOutput("mesh diagnostics are only available in #mesh")
+            return
+        }
+        val targetName = parts.getOrNull(1)?.removePrefix("@")
+        val peerID = targetName?.let { getPeerIDForNickname(it, meshService) }
+        if (targetName == null) {
+            addCommandOutput("usage: /trace <nickname>")
+            return
+        }
+        if (peerID == null) {
+            addCommandOutput("user '$targetName' not found")
+            return
+        }
+        val graph = MeshGraphService.getInstance()
+        val route = graph.computeRoute(meshService.myPeerID, peerID)
+            ?: meshService.getPeerInfo(peerID)
+                ?.takeIf { it.isConnected && it.isDirectConnection }
+                ?.let { listOf(meshService.myPeerID, peerID) }
+        if (route == null) {
+            addCommandOutput("no known path to $targetName")
+            return
+        }
+        val labels = route.mapIndexed { index, id ->
+            when {
+                index == 0 -> "you"
+                id == peerID -> targetName
+                else -> meshService.getPeerNicknames()[id] ?: id.take(8)
+            }
+        }
+        val hopCount = route.size - 1
+        val hops = if (hopCount == 1) "1 hop" else "$hopCount hops"
+        addCommandOutput("estimated path: ${labels.joinToString(" → ")} ($hops)")
+    }
+
+    private sealed interface CommandDestination {
+        data object Main : CommandDestination
+        data class Channel(val name: String) : CommandDestination
+        data class Private(val peerID: String) : CommandDestination
+    }
+
+    private fun currentCommandDestination(): CommandDestination =
+        state.getSelectedPrivateChatPeerValue()?.let(CommandDestination::Private)
+            ?: state.getCurrentChannelValue()?.let(CommandDestination::Channel)
+            ?: CommandDestination.Main
+
+    private fun addCommandOutput(
+        text: String,
+        destination: CommandDestination = currentCommandDestination(),
+    ) {
+        val message = BitchatMessage(
+            sender = "system",
+            content = text,
+            timestamp = Date(),
+            isRelay = false,
+        )
+        when (destination) {
+            CommandDestination.Main -> messageManager.addMessage(message)
+            is CommandDestination.Channel -> messageManager.addChannelMessage(destination.name, message)
+            is CommandDestination.Private -> messageManager.addPrivateMessage(destination.peerID, message)
+        }
+    }
+
+    private fun isMeshContext(): Boolean =
+        state.selectedLocationChannel.value.let { it == null || it is ChannelID.Mesh }
     
     private fun handleUnknownCommand(cmd: String) {
         val systemMessage = BitchatMessage(
@@ -410,7 +515,10 @@ class CommandProcessor(
             emptyList()
         }
         
-        return baseCommands + channelCommands
+        val commands = baseCommands + channelCommands
+        return if (isMeshContext()) commands else {
+            commands.filterNot { it.command == "/ping" || it.command == "/trace" }
+        }
     }
     
     private fun filterCommands(commands: List<CommandSuggestion>, input: String): List<CommandSuggestion> {

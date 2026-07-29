@@ -31,6 +31,7 @@ interface MeshService {
 
     fun sendBroadcastAnnounce()
     fun sendAnnouncementToPeer(peerID: String)
+    fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit)
 
     fun getPeerNicknames(): Map<String, String>
     fun getPeerRSSI(): Map<String, Int>
@@ -54,6 +55,7 @@ interface MeshService {
 
     fun getDeviceAddressForPeer(peerID: String): String?
     fun getDeviceAddressToPeerMapping(): Map<String, String>
+    fun getDirectBlePeerIDs(): Set<String> = emptySet()
     fun printDeviceAddressesForPeers(): String
     fun getDebugStatus(): String
 

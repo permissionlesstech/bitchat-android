@@ -4,8 +4,10 @@ import com.bitchat.android.protocol.MessageType
 import android.util.Log
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.protocol.MeshDiagnosticsConstants
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 /**
@@ -32,6 +34,7 @@ class PacketRelayManager(private val myPeerID: String) {
     
     // Coroutines
     private val relayScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val diagnosticRelayTimestamps = ConcurrentHashMap<String, ArrayDeque<Long>>()
     
     /**
      * Main entry point for relay decisions
@@ -58,6 +61,13 @@ class PacketRelayManager(private val myPeerID: String) {
         // Check TTL and decrement
         if (packet.ttl == 0u.toUByte()) {
             Log.d(TAG, "TTL expired, not relaying packet")
+            return
+        }
+
+        val isDiagnostic = MessageType.fromValue(packet.type) in
+            setOf(MessageType.PING, MessageType.PONG)
+        if (isDiagnostic && !consumeDiagnosticRelayBudget(routed, peerID)) {
+            Log.w(TAG, "Diagnostic relay budget exhausted for ingress link")
             return
         }
         
@@ -100,9 +110,34 @@ class PacketRelayManager(private val myPeerID: String) {
         // Apply relay logic based on packet type and debug switch
         val shouldRelay = isRelayEnabled() && shouldRelayPacket(relayPacket, peerID)
         if (shouldRelay) {
+            if (isDiagnostic) {
+                delay(
+                    Random.nextLong(
+                        MeshDiagnosticsConstants.RELAY_JITTER_MIN_MILLIS,
+                        MeshDiagnosticsConstants.RELAY_JITTER_MAX_MILLIS + 1,
+                    )
+                )
+            }
             relayPacket(RoutedPacket(relayPacket, peerID, routed.relayAddress))
         } else {
             Log.d(TAG, "Relay decision: NOT relaying packet type ${packet.type}")
+        }
+    }
+
+    private fun consumeDiagnosticRelayBudget(routed: RoutedPacket, fallbackPeerID: String): Boolean {
+        val ingressKey = routed.ingressLinkID ?: routed.relayAddress ?: fallbackPeerID
+        val now = System.currentTimeMillis()
+        val timestamps = diagnosticRelayTimestamps.computeIfAbsent(ingressKey) { ArrayDeque() }
+        synchronized(timestamps) {
+            while (timestamps.firstOrNull()?.let {
+                    now - it >= MeshDiagnosticsConstants.INBOUND_RATE_WINDOW_MILLIS
+                } == true
+            ) {
+                timestamps.removeFirst()
+            }
+            if (timestamps.size >= MeshDiagnosticsConstants.INBOUND_RATE_LIMIT) return false
+            timestamps.addLast(now)
+            return true
         }
     }
     
@@ -132,6 +167,9 @@ class PacketRelayManager(private val myPeerID: String) {
      * Determine if we should relay this packet based on type and network conditions
      */
     private fun shouldRelayPacket(packet: BitchatPacket, fromPeerID: String): Boolean {
+        if (MessageType.fromValue(packet.type) in setOf(MessageType.PING, MessageType.PONG)) {
+            return true
+        }
         // Always relay if TTL is high enough (indicates important message)
         if (packet.ttl >= 4u) {
             Log.d(TAG, "High TTL (${packet.ttl}), relaying")

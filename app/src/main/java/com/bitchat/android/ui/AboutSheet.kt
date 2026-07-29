@@ -232,6 +232,7 @@ fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
     onShowDebug: (() -> Unit)? = null,
+    onShowMeshTopology: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -982,6 +983,16 @@ fun AboutSheet(
                                         fontSize = 13.sp,
                                         fontFamily = BitchatFontFamily,
                                         color = colorScheme.primary
+                                    )
+                                }
+                            }
+                            if (onShowMeshTopology != null) {
+                                TextButton(onClick = onShowMeshTopology) {
+                                    Text(
+                                        text = "network → mesh topology",
+                                        fontSize = 13.sp,
+                                        fontFamily = BitchatFontFamily,
+                                        color = colorScheme.primary,
                                     )
                                 }
                             }

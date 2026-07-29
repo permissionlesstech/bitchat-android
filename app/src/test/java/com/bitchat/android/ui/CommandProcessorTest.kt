@@ -3,7 +3,9 @@ package com.bitchat.android.ui
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.services.meshgraph.MeshGraphService
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -40,6 +42,7 @@ class CommandProcessorTest() {
 
   @Before
   fun setup() {
+    MeshGraphService.resetForTesting()
     commandProcessor = CommandProcessor(
       state = chatState,
       messageManager = messageManager,
@@ -135,5 +138,37 @@ class CommandProcessorTest() {
     )
 
     assertTrue(locallyRead.contains(message.id))
+  }
+
+  @Test
+  fun `trace falls back to a live direct link before reciprocal gossip arrives`() {
+    val peerID = "0102030405060708"
+    whenever(meshService.myPeerID).thenReturn("1111111111111111")
+    whenever(meshService.getPeerNicknames()).thenReturn(mapOf(peerID to "alice"))
+    whenever(meshService.getPeerInfo(peerID)).thenReturn(
+      PeerInfo(
+        id = peerID,
+        nickname = "alice",
+        isConnected = true,
+        isDirectConnection = true,
+        noisePublicKey = null,
+        signingPublicKey = null,
+        isVerifiedNickname = false,
+        lastSeen = 1L
+      )
+    )
+
+    commandProcessor.processCommand(
+      command = "/trace alice",
+      meshService = meshService,
+      myPeerID = "1111111111111111",
+      onSendMessage = { _, _, _ -> },
+      viewModel = null
+    )
+
+    assertEquals(
+      "estimated path: you → alice (1 hop)",
+      chatState.getMessagesValue().last().content
+    )
   }
 }

@@ -59,17 +59,15 @@ class IdentityAnnouncementTest {
     }
 
     @Test
-    fun `local announcement send advertises private media`() {
+    fun `local announcement advertises supported capabilities`() {
         val encoded = IdentityAnnouncement.forLocalPeer(nickname, noiseKey, signingKey).encode()!!
 
         assertArrayEquals(
-            byteArrayOf(0x05, 0x02, 0x00, 0x01),
-            encoded.takeLast(4).toByteArray()
+            PeerCapabilities.LOCAL_SUPPORTED.encoded(),
+            encoded.takeLast(PeerCapabilities.LOCAL_SUPPORTED.encoded().size).toByteArray(),
         )
-        assertTrue(
-            IdentityAnnouncement.decode(encoded)!!
-                .capabilities!!
-                .contains(PeerCapabilities.PRIVATE_MEDIA)
-        )
+        val capabilities = IdentityAnnouncement.decode(encoded)!!.capabilities!!
+        assertTrue(capabilities.contains(PeerCapabilities.PRIVATE_MEDIA))
+        assertTrue(capabilities.contains(PeerCapabilities.MESH_DIAGNOSTICS))
     }
 }
