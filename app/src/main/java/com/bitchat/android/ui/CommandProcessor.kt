@@ -189,6 +189,9 @@ class CommandProcessor(
                 // Clear private chat
                 val peerID = state.getSelectedPrivateChatPeerValue()!!
                 messageManager.clearPrivateMessages(peerID)
+                // `/clear` removes history but should not navigate away from the chat the
+                // command was issued in. A later message will repopulate this conversation.
+                state.setSelectedPrivateChatPeer(peerID)
             }
             state.getCurrentChannelValue() != null -> {
                 // Clear channel messages

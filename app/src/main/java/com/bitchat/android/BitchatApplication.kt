@@ -33,6 +33,13 @@ class BitchatApplication : Application() {
             com.bitchat.android.favorites.FavoritesPersistenceService.initialize(this)
         } catch (_: Exception) { }
 
+        // Restore private conversations before background transports can deliver new messages.
+        // AppStateStore merges any in-flight arrivals by message ID, so startup cannot replace
+        // newer transport state with an older database snapshot.
+        try {
+            com.bitchat.android.services.AppStateStore.initializeConversationPersistence(this)
+        } catch (_: Exception) { }
+
         // Warm up Nostr identity to ensure npub is available for favorite notifications
         try {
             com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(this)

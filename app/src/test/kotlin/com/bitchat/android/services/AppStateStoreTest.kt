@@ -4,6 +4,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -188,5 +189,54 @@ class AppStateStoreTest {
             .single()
             .deliveryStatus
         assertTrue(status is DeliveryStatus.Read)
+    }
+
+    @Test
+    fun `long lived process applies the same bounded private history policy`() {
+        AppStateStore.setNickname("me")
+        repeat(ConversationDatabase.MAX_MESSAGES_PER_CONVERSATION) { index ->
+            AppStateStore.addPrivateMessage(
+                "peer-a",
+                BitchatMessage(
+                    id = "incoming-$index",
+                    sender = "alice",
+                    content = "message",
+                    timestamp = Date(index.toLong()),
+                    isPrivate = true
+                )
+            )
+        }
+        AppStateStore.addPrivateMessage(
+            "peer-a",
+            BitchatMessage(
+                id = "latest-outgoing",
+                sender = "me",
+                content = "latest",
+                timestamp = Date(Long.MAX_VALUE),
+                isPrivate = true
+            )
+        )
+
+        val retained = AppStateStore.privateMessages.value.getValue("peer-a")
+        assertEquals(ConversationDatabase.MAX_MESSAGES_PER_CONVERSATION, retained.size)
+        assertEquals("incoming-1", retained.first().id)
+        assertEquals("latest-outgoing", retained.last().id)
+    }
+
+    @Test
+    fun `private message admission is atomic and can durably classify known read messages`() {
+        val message = BitchatMessage(
+            id = "same-transport-message",
+            sender = "alice",
+            content = "hello",
+            timestamp = Date(1L),
+            isPrivate = true
+        )
+
+        assertTrue(AppStateStore.addPrivateMessage("peer-a", message, forceRead = true))
+        assertFalse(AppStateStore.addPrivateMessage("peer-a", message))
+
+        assertEquals(1, AppStateStore.privateMessages.value.getValue("peer-a").size)
+        assertTrue(AppStateStore.isPrivateMessageRead(message.id))
     }
 }

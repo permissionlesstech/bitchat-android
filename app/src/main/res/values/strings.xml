@@ -74,6 +74,13 @@
   <!-- Chat header &amp; accessibility -->
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Messages</string>
+  <string name="conversations" tools:ignore="MissingTranslation">Conversations</string>
+  <string name="offline_not_in_mesh" tools:ignore="MissingTranslation">Offline · not in mesh</string>
+  <string name="offline_reachable_via_nostr" tools:ignore="MissingTranslation">Offline from mesh · reachable via Nostr</string>
+  <string name="delete" tools:ignore="MissingTranslation">Delete</string>
+  <string name="delete_conversation_action" tools:ignore="MissingTranslation">Delete conversation</string>
+  <string name="delete_conversation_title" tools:ignore="MissingTranslation">Delete conversation?</string>
+  <string name="delete_conversation_message" tools:ignore="MissingTranslation">Delete your conversation with %1$s from this device?</string>
   <string name="cd_location_notes">Location notes</string>
   <string name="cd_teleported">Teleported</string>
   <string name="cd_tor_status">Tor status</string>
@@ -252,6 +259,9 @@
   <string name="cd_checking_battery_optimization">Checking Battery Optimization</string>
   <string name="cd_not_supported_battery_optimization">Battery Optimization Not Supported</string>
   <string name="cd_bluetooth">Bluetooth</string>
+  <string name="cd_direct_wifi_aware" tools:ignore="MissingTranslation">Direct Wi-Fi Aware</string>
+  <string name="cd_direct_bluetooth" tools:ignore="MissingTranslation">Direct Bluetooth</string>
+  <string name="cd_routed_mesh" tools:ignore="MissingTranslation">Routed mesh</string>
   <string name="cd_unread_message">Unread message</string>
   <string name="cd_open_map">Open map</string>
   <string name="cd_remove_bookmark">Remove bookmark</string>

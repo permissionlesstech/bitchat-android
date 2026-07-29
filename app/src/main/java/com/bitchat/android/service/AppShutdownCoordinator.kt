@@ -64,6 +64,12 @@ object AppShutdownCoordinator {
             val torStop = async {
                 try { torProvider.applyMode(app, TorMode.OFF) } catch (_: Exception) { }
             }
+            val conversationFlush = async {
+                try {
+                    com.bitchat.android.services.AppStateStore
+                        .awaitConversationPersistence()
+                } catch (_: Exception) { }
+            }
 
             // Clear AppState in-memory store
             try { com.bitchat.android.services.AppStateStore.clear() } catch (_: Exception) { }
@@ -75,6 +81,7 @@ object AppShutdownCoordinator {
             // Wait up to 5 seconds for shutdown tasks
             withTimeoutOrNull(5000) {
                 try { torStop.await() } catch (_: Exception) { }
+                try { conversationFlush.await() } catch (_: Exception) { }
                 delay(100)
             }
 
