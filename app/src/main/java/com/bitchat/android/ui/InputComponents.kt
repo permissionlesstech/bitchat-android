@@ -616,7 +616,9 @@ fun MessageInput(
 
                             VoiceRecordButton(
                                 isRecording = isRecording,
-                                shouldCancel = { cancelHover },
+                                shouldCancel = { pos ->
+                                    cancelBounds?.inflate(cancelSlackPx)?.contains(pos) == true
+                                },
                                 onTrackFinger = { cancelFinger = it },
                                 onStart = {
                                     isRecording = true

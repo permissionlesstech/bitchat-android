@@ -68,10 +68,12 @@ fun VoiceRecordButton(
      */
     isRecording: Boolean = false,
     /**
-     * Consulted the instant the finger lifts: when it reports true (finger over the
-     * slide-to-cancel target), the recording is discarded instead of sent.
+     * Consulted the instant the finger lifts, with the final pointer position in root
+     * coordinates: when it lands inside the slide-to-cancel target, the recording is
+     * discarded instead of sent. Receiving the position here (instead of reading composed
+     * state) keeps the verdict exact even for a slide-and-lift within a single frame.
      */
-    shouldCancel: () -> Boolean = { false },
+    shouldCancel: (Offset) -> Boolean = { false },
     /**
      * Finger position in root coordinates while a capture is live (drives the magnetic
      * cancel target); null once the gesture ends.
@@ -216,20 +218,20 @@ fun VoiceRecordButton(
                     // Track the finger in root coordinates until it lifts, so the composer can
                     // run the magnetic slide-to-cancel target. A cancelled pointer (stolen by a
                     // scroller) ends the capture the same way a lift does.
+                    var finalPos: Offset? = null
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: continue
-                        buttonCoords?.let {
-                            latestOnTrackFinger.value(it.localToRoot(change.position))
-                        }
+                        finalPos = buttonCoords?.localToRoot(change.position)
+                        finalPos?.let { latestOnTrackFinger.value(it) }
                         if (!change.pressed) break
                     }
 
                     // Cancelling discards immediately; sending keeps a short tail so the last
                     // syllable is not clipped (an early pointer event simply ends the tail).
-                    // The cancel verdict is read BEFORE the tracker is cleared so the composer
-                    // still sees the final finger position.
-                    val cancel = latestShouldCancel.value()
+                    // The verdict is computed from the final pointer coordinate directly —
+                    // reading recomposed state here could be one frame stale.
+                    val cancel = finalPos?.let { latestShouldCancel.value(it) } == true
                     latestOnTrackFinger.value(null)
                     if (isCapturing && !cancel) {
                         withTimeoutOrNull(ReleaseTailMs) { awaitPointerEvent() }
