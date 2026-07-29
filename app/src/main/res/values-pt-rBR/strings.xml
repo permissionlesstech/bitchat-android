@@ -46,7 +46,7 @@
     <string name="notification_summary_more">e mais %1$d</string>
     <string name="notification_messages_from_people">%1$d mensagens de %2$d pessoas</string>
     <string name="notification_more_conversations">e mais %1$d conversas</string>
-    <string name="notification_active_peers_title">👥 pessoas do bitchat por perto!</string>
+    <string name="notification_active_peers_title">pessoas do bitchat por perto!</string>
     <string name="notification_active_peers_one">1 pessoa por perto</string>
     <string name="notification_active_peers_many">%1$d pessoas por perto</string>
     <string name="notification_new_messages">Novas mensagens</string>

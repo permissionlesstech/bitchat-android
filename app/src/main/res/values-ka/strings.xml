@@ -46,7 +46,7 @@
     <string name="notification_summary_more">და კიდევ %1$d</string>
     <string name="notification_messages_from_people">%2$d ადამიანიდან %1$d შეტყობინება</string>
     <string name="notification_more_conversations">და კიდევ %1$d საუბარი</string>
-    <string name="notification_active_peers_title">👥 bitchatter-ები ახლოს!</string>
+    <string name="notification_active_peers_title">bitchatter-ები ახლოს!</string>
     <string name="notification_active_peers_one">1 ადამიანი ახლოს</string>
     <string name="notification_active_peers_many">ახლოს %1$d ადამიანი</string>
     <string name="notification_new_messages">ახალი შეტყობინებები</string>

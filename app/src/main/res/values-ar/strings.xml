@@ -46,7 +46,7 @@
     <string name="notification_summary_more">و%1$d إضافية</string>
     <string name="notification_messages_from_people">%1$d رسالة من %2$d أشخاص</string>
     <string name="notification_more_conversations">و%1$d محادثات أخرى</string>
-    <string name="notification_active_peers_title">👥 مستخدمون قريبون!</string>
+    <string name="notification_active_peers_title">مستخدمون قريبون!</string>
     <string name="notification_active_peers_one">شخص واحد قريب</string>
     <string name="notification_active_peers_many">%1$d أشخاص قريبون</string>
     <string name="notification_new_messages">رسائل جديدة</string>

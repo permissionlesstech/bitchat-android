@@ -40,7 +40,7 @@
     <string name="notification_summary_more">och %1$d till</string>
     <string name="notification_messages_from_people">%1$d meddelanden från %2$d personer</string>
     <string name="notification_more_conversations">och %1$d fler konversationer</string>
-    <string name="notification_active_peers_title">👥 bitchatter i närheten!</string>
+    <string name="notification_active_peers_title">bitchatter i närheten!</string>
     <string name="notification_active_peers_one">1 person i närheten</string>
     <string name="notification_active_peers_many">%1$d personer i närheten</string>
     <string name="notification_new_messages">Nya meddelanden</string>
