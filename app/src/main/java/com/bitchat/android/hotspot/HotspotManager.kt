@@ -811,13 +811,26 @@ class HotspotManager @VisibleForTesting internal constructor(
         val actualName = group?.networkName
         val known = cleanup.ownership as? Ownership.Known
 
-        if (
-            group != null &&
-            (!group.isGroupOwner || known != null && actualName != null && actualName != known.name)
-        ) {
-            known?.let(::clearMarker)
-            finishSession(stopping.session, stopping.pendingError)
-            return
+        if (group != null) {
+            if (!group.isGroupOwner) {
+                known?.let(::clearMarker)
+                finishSession(stopping.session, stopping.pendingError)
+                return
+            }
+            if (known != null) {
+                when {
+                    actualName == null -> {
+                        scheduleCleanupInspection(stopping, cleanup)
+                        return
+                    }
+
+                    actualName != known.name -> {
+                        clearMarker(known)
+                        finishSession(stopping.session, stopping.pendingError)
+                        return
+                    }
+                }
+            }
         }
 
         if (group == null) {
@@ -966,6 +979,7 @@ class HotspotManager @VisibleForTesting internal constructor(
      */
     private fun forceCleanup(stopping: Phase.Stopping) {
         if (phase !== stopping || stopping.cleanup is Cleanup.RecoveringChannel) return
+        if (preservePendingCreateWhenChannelCannotClose(stopping)) return
 
         val session = stopping.session
         val nextAttempt = session.cleanupRecoveryAttempt + 1
@@ -1006,6 +1020,47 @@ class HotspotManager @VisibleForTesting internal constructor(
             pendingError = stopping.pendingError,
             attempt = nextAttempt
         )
+    }
+
+    /**
+     * API 26 has no Channel.close(), so a submitted create command cannot be cancelled.
+     * Null group snapshots are not terminal while that command can still form a group;
+     * keep the Aware lease and original channel alive until the create callback resolves.
+     */
+    private fun preservePendingCreateWhenChannelCannotClose(
+        stopping: Phase.Stopping
+    ): Boolean {
+        if (p2p.supportsChannelClose) return false
+
+        val delayMillis = when (val cleanup = stopping.cleanup) {
+            is Cleanup.AwaitingCreateResult -> {
+                Log.w(
+                    TAG,
+                    "Waiting for an uncancellable API 26 create callback in session " +
+                        stopping.session.id
+                )
+                TEARDOWN_FORCE_CLOSE_MILLIS
+            }
+
+            is Cleanup.Inspecting -> {
+                if (!cleanup.mayStillForm) return false
+                REMOVAL_VERIFY_INTERVAL_MILLIS
+            }
+
+            is Cleanup.Removing,
+            is Cleanup.RecoveringChannel -> return false
+        }
+
+        schedule(stopping.session, delayMillis) {
+            if (phase !== stopping) return@schedule
+            when (stopping.cleanup) {
+                is Cleanup.AwaitingCreateResult -> forceCleanup(stopping)
+                is Cleanup.Inspecting -> inspectCleanup(stopping)
+                is Cleanup.Removing,
+                is Cleanup.RecoveringChannel -> Unit
+            }
+        }
+        return true
     }
 
     private fun recoverCleanupChannel(

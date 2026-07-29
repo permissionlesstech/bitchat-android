@@ -19,6 +19,7 @@ internal interface HotspotP2p {
     val available: Boolean
     val supportsP2pStateQuery: Boolean
     val supportsCustomCredentials: Boolean
+    val supportsChannelClose: Boolean
 
     interface Channel {
         fun close()
@@ -68,6 +69,9 @@ internal class AndroidHotspotP2p(
 
     override val supportsCustomCredentials: Boolean
         get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+
+    override val supportsChannelClose: Boolean
+        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1
 
     override fun initialize(onDisconnected: () -> Unit): HotspotP2p.Channel? {
         val raw = manager?.initialize(

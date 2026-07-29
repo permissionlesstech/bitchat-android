@@ -66,6 +66,54 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `API 26 keeps pending creation alive until its late group is removed`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false,
+                supportsChannelClose = false
+            )
+        )
+        var completed = 0
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.manager.stopHotspot { completed++ }
+        fixture.scheduler.advanceBy(10_000)
+
+        assertEquals(0, completed)
+        assertEquals(1, fixture.p2p.channels.size)
+        assertFalse(fixture.p2p.channels.first().closed)
+
+        fixture.p2p.acceptCreate()
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals(0, completed)
+        assertEquals(0, fixture.p2p.removeRequests.size)
+
+        val lateGroup = HotspotP2p.Group(
+            "DIRECT-ab-Android",
+            "generated-password",
+            0,
+            isGroupOwner = true
+        )
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(lateGroup)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(lateGroup)
+        fixture.p2p.acceptRemove()
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(null)
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+    }
+
+    @Test
     fun `late disconnect from the closed channel cannot replace the verification channel`() {
         val fixture = Fixture()
         fixture.startUntilCreateRequested()
@@ -179,6 +227,30 @@ class HotspotManagerLifecycleTest {
         assertEquals("Closed", fixture.manager.lifecycleName())
         assertEquals(0, fixture.p2p.removeRequests.size)
         assertNull(fixture.store.name)
+    }
+
+    @Test
+    fun `a nameless group is not removed without exact ownership evidence`() {
+        val fixture = Fixture()
+        fixture.startHosting()
+
+        fixture.manager.stopHotspot()
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group(
+                networkName = null,
+                passphrase = null,
+                clientCount = 0,
+                isGroupOwner = true
+            )
+        )
+
+        assertEquals(0, fixture.p2p.removeRequests.size)
+        assertEquals("Stopping", fixture.manager.lifecycleName())
+
+        fixture.scheduler.advanceBy(500)
+        fixture.p2p.answerGroup(fixture.ownedGroup())
+
+        assertEquals(1, fixture.p2p.removeRequests.size)
     }
 
     @Test
@@ -392,7 +464,8 @@ class HotspotManagerLifecycleTest {
 
     private class FakeP2p(
         override val supportsP2pStateQuery: Boolean = true,
-        override val supportsCustomCredentials: Boolean = true
+        override val supportsCustomCredentials: Boolean = true,
+        override val supportsChannelClose: Boolean = true
     ) : HotspotP2p {
         override val available: Boolean = true
 
@@ -408,7 +481,7 @@ class HotspotManagerLifecycleTest {
         val removeRequests = ArrayDeque<HotspotP2p.ActionCallback>()
 
         override fun initialize(onDisconnected: () -> Unit): HotspotP2p.Channel =
-            FakeChannel(onDisconnected).also(channels::add)
+            FakeChannel(onDisconnected, supportsChannelClose).also(channels::add)
 
         override fun requestP2pState(
             channel: HotspotP2p.Channel,
@@ -457,12 +530,15 @@ class HotspotManagerLifecycleTest {
     }
 
     private class FakeChannel(
-        private val disconnected: () -> Unit
+        private val disconnected: () -> Unit,
+        private val supportsClose: Boolean
     ) : HotspotP2p.Channel {
         var closed = false
 
         override fun close() {
-            closed = true
+            if (supportsClose) {
+                closed = true
+            }
         }
 
         fun disconnect() {
