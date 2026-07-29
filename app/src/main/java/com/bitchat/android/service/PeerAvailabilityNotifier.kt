@@ -13,6 +13,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
 
@@ -22,24 +23,108 @@ internal enum class PeerAvailabilityAction {
     CLEAR
 }
 
+internal interface PeerAvailabilityAlertHistory {
+    var lastAlertAtMillis: Long?
+}
+
+internal class SharedPreferencesPeerAvailabilityAlertHistory(
+    context: Context
+) : PeerAvailabilityAlertHistory {
+    companion object {
+        internal const val PREFERENCES_NAME = "peer_availability_notifications"
+        private const val KEY_LAST_ALERT_AT_MILLIS = "last_alert_at_millis"
+    }
+
+    private val preferences =
+        context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+
+    override var lastAlertAtMillis: Long?
+        get() = if (preferences.contains(KEY_LAST_ALERT_AT_MILLIS)) {
+            preferences.getLong(KEY_LAST_ALERT_AT_MILLIS, 0L)
+        } else {
+            null
+        }
+        set(value) {
+            preferences.edit {
+                if (value == null) {
+                    remove(KEY_LAST_ALERT_AT_MILLIS)
+                } else {
+                    putLong(KEY_LAST_ALERT_AT_MILLIS, value)
+                }
+            }
+        }
+}
+
 /**
- * Tracks mesh availability epochs. A notification is eligible only for a background
- * transition from no peers to at least one peer. Returning to zero starts a new epoch.
+ * Tracks mesh availability epochs with two anti-flapping gates:
+ * - no more than one alert per persisted cooldown window;
+ * - after an alert, the mesh must remain empty before another epoch can re-arm.
  */
-internal class PeerAvailabilityTracker {
+internal class PeerAvailabilityTracker(
+    private val alertHistory: PeerAvailabilityAlertHistory,
+    private val nowMillis: () -> Long = System::currentTimeMillis,
+    private val alertCooldownMs: Long = ALERT_COOLDOWN_MS,
+    private val emptyRearmDelayMs: Long = EMPTY_REARM_DELAY_MS
+) {
+    companion object {
+        internal const val ALERT_COOLDOWN_MS = 5 * 60_000L
+        internal const val EMPTY_REARM_DELAY_MS = 30_000L
+    }
+
     private var previousPeerCount = 0
+    private var isArmed = true
+    private var emptySinceMillis: Long? = null
+
+    init {
+        require(alertCooldownMs >= 0) { "alertCooldownMs must not be negative" }
+        require(emptyRearmDelayMs >= 0) { "emptyRearmDelayMs must not be negative" }
+    }
 
     fun update(peerCount: Int, isAppInBackground: Boolean): PeerAvailabilityAction {
         require(peerCount >= 0) { "peerCount must not be negative" }
 
-        val action = when {
-            peerCount == 0 -> PeerAvailabilityAction.CLEAR
-            previousPeerCount == 0 && isAppInBackground -> PeerAvailabilityAction.SHOW
-            else -> PeerAvailabilityAction.NONE
+        val now = nowMillis()
+        if (peerCount == 0) {
+            if (previousPeerCount > 0 || emptySinceMillis == null) {
+                emptySinceMillis = now
+            }
+            previousPeerCount = 0
+            return PeerAvailabilityAction.CLEAR
         }
 
+        val transitionedFromEmpty = previousPeerCount == 0
         previousPeerCount = peerCount
-        return action
+        if (!transitionedFromEmpty) return PeerAvailabilityAction.NONE
+
+        if (!isArmed) {
+            val emptySince = emptySinceMillis
+            val remainedEmptyLongEnough =
+                emptySince != null && now - emptySince >= emptyRearmDelayMs
+            if (!remainedEmptyLongEnough) {
+                emptySinceMillis = null
+                return PeerAvailabilityAction.NONE
+            }
+            isArmed = true
+        }
+        emptySinceMillis = null
+
+        val lastAlertAt = alertHistory.lastAlertAtMillis
+        val cooldownElapsed =
+            lastAlertAt == null || now - lastAlertAt >= alertCooldownMs
+        return if (isAppInBackground && cooldownElapsed) {
+            PeerAvailabilityAction.SHOW
+        } else {
+            PeerAvailabilityAction.NONE
+        }
+    }
+
+    /**
+     * Called only after NotificationManager accepts the post. Failed or disabled posts
+     * do not consume the cooldown or require the mesh to re-arm.
+     */
+    fun markAlertShown() {
+        alertHistory.lastAlertAtMillis = nowMillis()
+        isArmed = false
     }
 }
 
@@ -71,7 +156,9 @@ internal class PeerAvailabilityNotifier(
     private val context: Context,
     private val notificationManager: NotificationManagerCompat =
         NotificationManagerCompat.from(context),
-    private val tracker: PeerAvailabilityTracker = PeerAvailabilityTracker(),
+    private val tracker: PeerAvailabilityTracker = PeerAvailabilityTracker(
+        SharedPreferencesPeerAvailabilityAlertHistory(context)
+    ),
     private val textProvider: PeerAvailabilityTextProvider =
         AndroidPeerAvailabilityTextProvider(context),
     private val canPostNotifications: () -> Boolean = {
@@ -140,6 +227,7 @@ internal class PeerAvailabilityNotifier(
             .setContentText(textProvider.body(peerCount))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
             .setShowWhen(true)
@@ -148,6 +236,7 @@ internal class PeerAvailabilityNotifier(
 
         try {
             notificationManager.notify(NOTIFICATION_ID, notification)
+            tracker.markAlertShown()
             Log.i(TAG, "Posted peer availability notification for $peerCount peer(s)")
         } catch (error: SecurityException) {
             Log.w(TAG, "Notification permission changed before peer alert was posted", error)
