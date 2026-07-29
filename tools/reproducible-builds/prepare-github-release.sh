@@ -23,9 +23,15 @@ required=(
   BUILDINFO.json
   SHA256SUMS
   SHA256SUMS.unsigned
+  bitchat-android-arm64-unsigned.apk
   bitchat-android-arm64.apk
+  bitchat-android-armv7-unsigned.apk
   bitchat-android-play-upload.aab
+  bitchat-android-release-unsigned.aab
+  bitchat-android-universal-unsigned.apk
   bitchat-android-universal.apk
+  bitchat-android-x86-unsigned.apk
+  bitchat-android-x86_64-unsigned.apk
   bitchat-android-x86_64.apk
 )
 for artifact in "${required[@]}"; do
@@ -33,6 +39,28 @@ for artifact in "${required[@]}"; do
     echo "error: required release artifact missing: $artifact" >&2
     exit 1
   fi
+done
+
+for artifact_path in "$RELEASE_DIR"/*; do
+  if [ ! -f "$artifact_path" ]; then
+    echo "error: unexpected non-file in release directory: $(basename "$artifact_path")" >&2
+    exit 1
+  fi
+  artifact="$(basename "$artifact_path")"
+  case "$artifact" in
+    BUILDINFO.json|SHA256SUMS|SHA256SUMS.unsigned|\
+    bitchat-android-arm64-unsigned.apk|bitchat-android-arm64.apk|\
+    bitchat-android-armv7-unsigned.apk|\
+    bitchat-android-play-upload.aab|bitchat-android-release-unsigned.aab|\
+    bitchat-android-universal-unsigned.apk|bitchat-android-universal.apk|\
+    bitchat-android-x86-unsigned.apk|\
+    bitchat-android-x86_64-unsigned.apk|bitchat-android-x86_64.apk)
+      ;;
+    *)
+      echo "error: unexpected release artifact: $artifact" >&2
+      exit 1
+      ;;
+  esac
 done
 
 for destination in BITCHAT_BUILDINFO.json BITCHAT_SHA256SUMS BITCHAT_SHA256SUMS.unsigned; do

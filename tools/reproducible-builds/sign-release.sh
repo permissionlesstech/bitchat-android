@@ -65,20 +65,27 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 export BITCHAT_GITHUB_KEYSTORE_PASSWORD
 export BITCHAT_GITHUB_KEY_PASSWORD
 
-declare -A signed_names=(
-  ["bitchat-android-arm64-unsigned.apk"]="bitchat-android-arm64.apk"
-  ["bitchat-android-universal-unsigned.apk"]="bitchat-android-universal.apk"
-  ["bitchat-android-x86_64-unsigned.apk"]="bitchat-android-x86_64.apk"
+unsigned_names=(
+  "bitchat-android-arm64-unsigned.apk"
+  "bitchat-android-universal-unsigned.apk"
+  "bitchat-android-x86_64-unsigned.apk"
+)
+signed_names=(
+  "bitchat-android-arm64.apk"
+  "bitchat-android-universal.apk"
+  "bitchat-android-x86_64.apk"
 )
 
-for unsigned_name in "${!signed_names[@]}"; do
+for ((index = 0; index < ${#unsigned_names[@]}; index++)); do
+  unsigned_name="${unsigned_names[$index]}"
+  signed_name="${signed_names[$index]}"
   unsigned_apk="$RELEASE_DIR/$unsigned_name"
-  signed_apk="$RELEASE_DIR/${signed_names[$unsigned_name]}"
+  signed_apk="$RELEASE_DIR/$signed_name"
   first_signed="$TEMP_DIR/first.apk"
   second_signed="$TEMP_DIR/second.apk"
 
   if [ -e "$signed_apk" ]; then
-    echo "error: signed APK already exists: ${signed_names[$unsigned_name]}" >&2
+    echo "error: signed APK already exists: $signed_name" >&2
     exit 1
   fi
   "$ZIPALIGN" -c -P 16 4 "$unsigned_apk"

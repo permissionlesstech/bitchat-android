@@ -10,6 +10,11 @@ to GitHub Actions. Anyone can reproduce the unsigned artifacts; maintainers
 download the verified CI output, sign the selected GitHub APKs and Play upload
 AAB locally, then manually publish those exact files.
 
+Maintainers should use the complete
+[Android maintainer release guide](maintainer-release-guide.md) for the
+step-by-step release procedure, artifact inventory, local signing commands, and
+GitHub/Google Play publication checklist.
+
 ## What is pinned
 
 - Gradle wrapper version and distribution SHA-256
@@ -202,105 +207,13 @@ uploads it manually to Google Play.
 
 ## Maintainer release process
 
-Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`:
+Follow the
+[Android maintainer release guide](maintainer-release-guide.md). It is the
+authoritative operational runbook from version preparation through the signed
+tag, GitHub Actions artifact download, local APK/AAB signing, GitHub draft,
+Play internal test, public rollout, and post-release verification.
 
-1. two jobs independently build the canonical unsigned release;
-2. a comparison job requires exact byte equality;
-3. GitHub generates provenance attestations for the canonical unsigned
-   artifacts; and
-4. Actions uploads `verified-unsigned-release` for the maintainer to download.
-
-The workflow has read-only repository access and no signing secrets. It does not
-create a GitHub Release or upload to Google Play.
-
-To rerun an existing tag manually, dispatch the workflow against the tag ref
-(not the default branch):
-
-```bash
-gh workflow run release.yml \
-  --repo permissionlesstech/bitchat-android \
-  --ref vX.Y.Z \
-  -f tag=vX.Y.Z
-```
-
-The workflow rejects a dispatch whose selected ref and requested tag resolve to
-different commits, keeping the GitHub provenance tied to the source actually
-built.
-
-### 1. Download the verified build
-
-Find the completed tag workflow's run ID, then download the promoted replica:
-
-```bash
-gh run download RUN_ID \
-  --repo permissionlesstech/bitchat-android \
-  --name verified-unsigned-release \
-  --dir release
-```
-
-Verify `release/SHA256SUMS.unsigned` before signing.
-
-### 2. Sign GitHub APKs locally
-
-Install Android Build Tools 37.0.0 and set these local environment variables:
-
-- `ANDROID_SDK_ROOT`
-- `BITCHAT_GITHUB_KEYSTORE`
-- `BITCHAT_GITHUB_KEY_ALIAS`
-- `BITCHAT_GITHUB_KEYSTORE_PASSWORD`
-- `BITCHAT_GITHUB_KEY_PASSWORD`
-
-Then run:
-
-```bash
-tools/reproducible-builds/sign-release.sh release
-```
-
-The helper signs the arm64, x86_64, and universal APKs twice, requires the two
-signed results to match, and verifies their certificate against
-`BITCHAT_GITHUB_RELEASE_CERT_SHA256` in `gradle.properties`.
-
-### 3. Sign the Play AAB locally
-
-Use JDK 21 and the Play upload key—not the Play app-signing key managed by
-Google. Set:
-
-- `JAVA_HOME`
-- `BITCHAT_PLAY_UPLOAD_KEYSTORE`
-- `BITCHAT_PLAY_UPLOAD_KEY_ALIAS`
-- `BITCHAT_PLAY_KEYSTORE_PASSWORD`
-- `BITCHAT_PLAY_KEY_PASSWORD`
-
-Then run:
-
-```bash
-tools/reproducible-builds/sign-play-bundle.sh release
-```
-
-This creates `release/bitchat-android-play-upload.aab`, verifies its JAR
-signature, proves that its non-signature payload matches the canonical unsigned
-AAB, and updates `SHA256SUMS`. Upload that exact signed AAB to Play Console; do
-not rebuild it in Android Studio.
-
-### 4. Prepare and publish the GitHub Release
-
-After both local signing steps:
-
-```bash
-tools/reproducible-builds/prepare-github-release.sh release
-gh release create vX.Y.Z release/* \
-  --repo permissionlesstech/bitchat-android \
-  --verify-tag \
-  --draft \
-  --title "Release vX.Y.Z" \
-  --notes "See docs/reproducible-builds.md for verification instructions."
-```
-
-Review the draft assets and Play internal-track result before publishing the
-GitHub Release and promoting the Play rollout.
-
-Never store a keystore or password in the repository, GitHub Actions secrets,
-workflow artifacts, logs, release notes, or build information.
+The workflow has no signing secrets and never publishes a release by itself.
 
 ## Updating dependencies or toolchains
 
