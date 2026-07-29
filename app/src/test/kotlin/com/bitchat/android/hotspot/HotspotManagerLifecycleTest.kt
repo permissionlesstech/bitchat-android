@@ -730,6 +730,45 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `pre Q waits for generated passphrase and retains it across partial snapshots`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false
+            )
+        )
+        val incompleteGroup = livePreQGroup().copy(passphrase = null)
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+        fixture.p2p.answerGroup(incompleteGroup)
+        fixture.scheduler.advanceBy(1_000)
+        fixture.p2p.answerGroup(incompleteGroup)
+
+        assertEquals("Forming", fixture.manager.lifecycleName())
+        assertEquals(0, fixture.callback.started)
+        assertEquals(null, fixture.manager.getConnectionInfo())
+
+        fixture.scheduler.advanceBy(1_000)
+        fixture.p2p.answerGroup(livePreQGroup())
+
+        assertEquals("Hosting", fixture.manager.lifecycleName())
+        assertEquals(1, fixture.callback.started)
+        assertEquals("generated-password", fixture.manager.getConnectionInfo()?.password)
+
+        fixture.scheduler.advanceBy(1_000)
+        fixture.p2p.answerGroup(incompleteGroup.copy(clientCount = 1))
+
+        assertEquals(
+            "generated-password",
+            fixture.callback.connectionInfos.last()?.password
+        )
+        assertEquals("generated-password", fixture.manager.getConnectionInfo()?.password)
+    }
+
+    @Test
     fun `pre Q ownership candidate must remain stable before hosting`() {
         val fixture = Fixture(
             p2p = FakeP2p(
@@ -839,13 +878,16 @@ class HotspotManagerLifecycleTest {
         var started = 0
         var conflicts = 0
         val conflictGroups = mutableListOf<HotspotManager.ExistingGroupIdentity>()
+        val connectionInfos = mutableListOf<HotspotManager.ConnectionInfo?>()
         val errors = mutableListOf<HotspotError>()
 
         override fun onHotspotStarted() {
             started++
         }
 
-        override fun onConnectionInfoUpdated(info: HotspotManager.ConnectionInfo?) = Unit
+        override fun onConnectionInfoUpdated(info: HotspotManager.ConnectionInfo?) {
+            connectionInfos += info
+        }
 
         override fun onExistingGroupConflict(group: HotspotManager.ExistingGroupIdentity) {
             conflicts++

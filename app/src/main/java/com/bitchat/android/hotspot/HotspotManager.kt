@@ -688,7 +688,11 @@ class HotspotManager @VisibleForTesting internal constructor(
         }
 
         val observations = forming.candidateObservations + 1
-        if (observations >= REQUIRED_OWNERSHIP_OBSERVATIONS) {
+        val hasGeneratedPassphrase = !group.passphrase.isNullOrEmpty()
+        if (
+            observations >= REQUIRED_OWNERSHIP_OBSERVATIONS &&
+            hasGeneratedPassphrase
+        ) {
             enterHosting(forming.session, name, group)
         } else {
             val next = forming.copy(
@@ -757,10 +761,16 @@ class HotspotManager @VisibleForTesting internal constructor(
             }
 
             else -> {
-                val next = hosting.copy(group = group, absentObservations = 0)
+                val completeGroup =
+                    if (group.passphrase.isNullOrEmpty()) {
+                        group.copy(passphrase = hosting.group.passphrase)
+                    } else {
+                        group
+                    }
+                val next = hosting.copy(group = completeGroup, absentObservations = 0)
                 phase = next
                 hosting.session.callback.onConnectionInfoUpdated(
-                    connectionInfo(group, hosting.session)
+                    connectionInfo(completeGroup, hosting.session)
                 )
                 pollHosting(next, GROUP_INFO_POLL_INTERVAL_MILLIS)
             }
