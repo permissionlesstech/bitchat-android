@@ -267,6 +267,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                             WindowInsets.ime.union(WindowInsets.navigationBars)
                         )
                     } else {
+
                         // Android 10 and below: Window is resized by the system (adjustResize),
                         // so only account for the navigation bar.
                         Modifier.windowInsetsPadding(WindowInsets.navigationBars)
