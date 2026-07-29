@@ -180,6 +180,55 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `API 26 terminal create rejection finishes without awaiting another callback`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false,
+                supportsChannelClose = false
+            )
+        )
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.rejectCreate(WifiP2pManager.P2P_UNSUPPORTED)
+
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertFalse(fixture.platform.active)
+        assertEquals(
+            listOf(HotspotStartupPolicy.P2P_UNSUPPORTED_MESSAGE),
+            fixture.callback.errors
+        )
+
+        fixture.scheduler.advanceBy(30_000)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+    }
+
+    @Test
+    fun `API 26 stop during create retry backoff does not await a delivered callback`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false,
+                supportsChannelClose = false
+            )
+        )
+        var completed = 0
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.rejectCreate(WifiP2pManager.BUSY)
+        fixture.manager.stopHotspot { completed++ }
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertFalse(fixture.platform.active)
+
+        fixture.scheduler.advanceBy(1_000)
+        assertEquals(0, fixture.p2p.createRequests.size)
+    }
+
+    @Test
     fun `late disconnect from the closed channel cannot replace the verification channel`() {
         val fixture = Fixture()
         fixture.startUntilCreateRequested()
@@ -527,6 +576,35 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `stopping pre Q formation preserves its ownership candidate`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false
+            )
+        )
+        var completed = 0
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group("DIRECT-ab-First", "first-password", 0, true)
+        )
+
+        fixture.manager.stopHotspot { completed++ }
+        fixture.p2p.answerGroup(
+            HotspotP2p.Group("DIRECT-cd-Replacement", "foreign-password", 0, true)
+        )
+
+        assertEquals(1, completed)
+        assertEquals("Closed", fixture.manager.lifecycleName())
+        assertNull(fixture.store.name)
+        assertEquals(0, fixture.p2p.removeRequests.size)
+    }
+
+    @Test
     fun `pre Q cleanup never removes a changed ownership candidate`() {
         val fixture = Fixture(
             p2p = FakeP2p(
@@ -724,6 +802,10 @@ class HotspotManagerLifecycleTest {
 
         fun acceptCreate() {
             createRequests.removeFirst().callback.onAccepted()
+        }
+
+        fun rejectCreate(reason: Int) {
+            createRequests.removeFirst().callback.onRejected(reason)
         }
 
         fun acceptRemove() {

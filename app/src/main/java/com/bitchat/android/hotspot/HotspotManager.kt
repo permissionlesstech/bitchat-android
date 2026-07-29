@@ -114,6 +114,7 @@ class HotspotManager @VisibleForTesting internal constructor(
     private sealed interface StartStep {
         data object AwaitingP2pState : StartStep
         data class Inspecting(val attempt: Int) : StartStep
+        data class WaitingToRetry(val attempt: Int) : StartStep
 
         data class RemovingStale(
             val attempt: Int,
@@ -296,7 +297,9 @@ class HotspotManager @VisibleForTesting internal constructor(
                     session = current.session,
                     cleanup = Cleanup.Inspecting(
                         ownership = current.ownership,
-                        mayStillForm = true
+                        mayStillForm = true,
+                        candidateName = current.candidateName,
+                        candidateObservations = current.candidateObservations
                     ),
                     pendingError = null
                 )
@@ -625,11 +628,15 @@ class HotspotManager @VisibleForTesting internal constructor(
             )
         } catch (e: SecurityException) {
             clearMarker(ownership)
-            fail(PERMISSION_REVOKED_MESSAGE)
+            if (phase === expected) {
+                finishSession(session, PERMISSION_REVOKED_MESSAGE)
+            }
         } catch (e: RuntimeException) {
             clearMarker(ownership)
             Log.e(TAG, "Failed to submit group creation", e)
-            fail(HotspotStartupPolicy.GENERIC_FAILURE_MESSAGE)
+            if (phase === expected) {
+                finishSession(session, HotspotStartupPolicy.GENERIC_FAILURE_MESSAGE)
+            }
         }
     }
 
@@ -646,15 +653,22 @@ class HotspotManager @VisibleForTesting internal constructor(
             )
         ) {
             is HotspotStartupPolicy.Decision.Retry -> {
+                clearMarker(creating.ownership)
+                val nextAttempt = creating.attempt + 1
+                val waiting = Phase.Starting(
+                    session,
+                    StartStep.WaitingToRetry(nextAttempt)
+                )
+                phase = waiting
                 schedule(session, decision.delayMillis) {
-                    if (phase !== creating) return@schedule
-                    inspectBeforeCreate(session, creating.attempt + 1)
+                    if (phase !== waiting) return@schedule
+                    inspectBeforeCreate(session, nextAttempt)
                 }
             }
 
             is HotspotStartupPolicy.Decision.Fail -> {
                 clearMarker(creating.ownership)
-                fail(decision.message)
+                finishSession(session, decision.message)
             }
         }
     }
@@ -1216,7 +1230,9 @@ class HotspotManager @VisibleForTesting internal constructor(
                     current.session,
                     Cleanup.Inspecting(
                         ownership = current.ownership,
-                        mayStillForm = true
+                        mayStillForm = true,
+                        candidateName = current.candidateName,
+                        candidateObservations = current.candidateObservations
                     ),
                     message
                 )
