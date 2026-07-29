@@ -1,0 +1,41 @@
+{
+  "skill_name": "android-ui-visual-review",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review PR #813 and make before/after screenshots of its Android UI changes. Keep everything local; do not comment on GitHub.",
+      "expected_output": "The agent creates an isolated worktree, compares the PR head with its actual merge-base, discovers the header width thresholds, captures a wide control plus the changed compact widths on the newest stable Android emulator, and produces a validated local report without any GitHub write.",
+      "files": [],
+      "expectations": [
+        "Uses the actual PR merge-base rather than current main or head~1.",
+        "Creates a capture matrix that includes a wide control and every changed width threshold.",
+        "Populates joined-channel state so the conditional count is visible before testing degradation.",
+        "Keeps artifacts local and performs no GitHub write."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Compare branch feature/message-redesign against main. The empty chat will not show the change, so give me populated light and dark screenshots and also show any fresh-install nickname change.",
+      "expected_output": "The agent traces message rendering and nickname generation, adds a temporary deterministic debug-only fixture with received/self short/wrapped messages, applies equivalent state to both builds, captures light/dark and fresh nickname states, removes the fixture, and validates paired PNGs.",
+      "files": [],
+      "expectations": [
+        "Uses synthetic deterministic messages with the real local peer ID for self classification.",
+        "Uses one fixed fixture epoch and identical logical data in both builds.",
+        "Captures both light and dark populated message states plus the fresh nickname state.",
+        "Removes temporary debug fixture changes before handoff."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "This hotspot PR looks UI-related, but inspect it rather than assuming. Capture before/after and, after you show the evidence, post the screenshots and findings to the PR.",
+      "expected_output": "The agent determines whether the diff actually changes UI, captures the nearest affected hotspot surface even if equality is expected, labels behavioral limitations, asks or recognizes explicit publishing authorization, uploads safe screenshots without a source branch, posts through gh, and verifies the comment.",
+      "files": [],
+      "expectations": [
+        "Does not invent a visual delta when the diff is backend-only.",
+        "Labels the screenshots as an expected no-visual-change comparison.",
+        "Does not claim that a static screenshot proves the hotspot ownership race.",
+        "Posts only after explicit authorization and verifies image count and comment URL."
+      ]
+    }
+  ]
+}
