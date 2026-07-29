@@ -63,11 +63,16 @@ class HotspotManager(private val context: Context) {
     private var hasNotifiedStarted = false // Track if we've notified the callback
     private var isReceiverRegistered = false // Track receiver registration to prevent leaks
 
-    // Set once our own createGroup command is accepted. stopHotspot() only calls
-    // removeGroup() when this is true: removal is device-scoped, so issuing it with
-    // nothing of ours on the framework could only tear down another app's session
-    // (Cast, Android Auto, Quick Share).
+    // Set once our own createGroup command is accepted, and re-checked against every
+    // group snapshot afterwards. stopHotspot() only calls removeGroup() when this is
+    // true: removal is device-scoped, so issuing it when the group on the framework
+    // is not ours could only tear down another app's session (Cast, Android Auto,
+    // Quick Share).
     private var createdGroup = false
+
+    // Framework-reported name of the group this session hosts, once known. Null while
+    // the group is still forming, when a null snapshot carries no information.
+    private var hostedGroupName: String? = null
 
     // Name of the foreign group the user explicitly agreed to disconnect, or null.
     // Consent is per-group: a group with a different name asks again.
@@ -199,6 +204,7 @@ class HotspotManager(private val context: Context) {
 
         val hadOwnGroup = createdGroup
         createdGroup = false
+        hostedGroupName = null
 
         if (staleChannel != null && hadOwnGroup) {
             try {
@@ -557,40 +563,105 @@ class HotspotManager(private val context: Context) {
 
         try {
             wifiP2pManager?.requestGroupInfo(ch) { group ->
-                if (group != null) {
-                    currentGroup = group
+                // A reply arriving after the hotspot stopped must not revive any
+                // state the stop just cleared.
+                if (channel !== ch) return@requestGroupInfo
 
-                    // Update saved credentials if using system-generated ones
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                        savedSsid = group.networkName
-                        savedPassword = group.passphrase
-                    }
+                reconcileGroupOwnership(group)
 
-                    // Authoritative name straight from the framework. Only recorded
-                    // for a group we host: in the client role the group is another
-                    // app's, and recording its name would make the next run treat a
-                    // foreign orphan as ours.
-                    if (group.isGroupOwner) {
-                        group.networkName?.let { ownedGroupName = it }
-                    }
-
-                    // Notify callback on FIRST successful group info retrieval
-                    if (!hasNotifiedStarted) {
-                        hasNotifiedStarted = true
-                        Log.d(TAG, "Group info received, notifying callback")
-                        callback?.onHotspotStarted()
-                    } else {
-                        // Subsequent updates
-                        callback?.onConnectionInfoUpdated(getConnectionInfo())
-                    }
-                } else {
+                if (group == null) {
                     Log.w(TAG, "requestGroupInfo returned null group")
+                    return@requestGroupInfo
+                }
+
+                if (!isOurHostedGroup(group)) {
+                    // Someone else's group is on the radio. Reading anything from it
+                    // — its name, its credentials, its client count — would report
+                    // another app's session as our hotspot, and recording its name
+                    // would let the next start remove it without asking.
+                    Log.w(
+                        TAG,
+                        "Observed group '${group.networkName}' is not the one we created"
+                    )
+                    return@requestGroupInfo
+                }
+
+                currentGroup = group
+
+                // Update saved credentials if using system-generated ones
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    savedSsid = group.networkName
+                    savedPassword = group.passphrase
+                }
+
+                // Authoritative name straight from the framework, for the group we
+                // just confirmed is ours.
+                group.networkName?.let {
+                    hostedGroupName = it
+                    ownedGroupName = it
+                }
+
+                // Notify callback on FIRST successful group info retrieval
+                if (!hasNotifiedStarted) {
+                    hasNotifiedStarted = true
+                    Log.d(TAG, "Group info received, notifying callback")
+                    callback?.onHotspotStarted()
+                } else {
+                    // Subsequent updates
+                    callback?.onConnectionInfoUpdated(getConnectionInfo())
                 }
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Wi-Fi permission was revoked while reading group info", e)
             failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
         }
+    }
+
+    /**
+     * Is this snapshot the group this session created?
+     *
+     * `isGroupOwner` cannot answer that on its own: it reports that *this device*
+     * hosts the group, which is equally true of an autonomous group another app
+     * created here. Above Q we chose the network name, so it identifies our group
+     * exactly. Below Q the framework names it, and the first snapshot after our own
+     * createGroup succeeded is the only evidence available — after that the name is
+     * fixed, and a group answering to a different one is not ours.
+     */
+    private fun isOurHostedGroup(group: WifiP2pGroup): Boolean {
+        if (!group.isGroupOwner) return false
+        val name = group.networkName ?: return false
+
+        hostedGroupName?.let { return name == it }
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            name == savedSsid
+        } else {
+            true
+        }
+    }
+
+    /**
+     * Keep [createdGroup] honest about what is actually on the framework.
+     *
+     * Our group can disappear without us — Wi-Fi toggled, another app issuing its own
+     * device-scoped removeGroup(), a driver reset — and another app can then create
+     * one in its place. Believing the group present is still ours would make stop
+     * remove that replacement, the exact disruption consent exists to prevent.
+     *
+     * Reconciled only once the framework has named our group: before that a null
+     * snapshot means the group is still forming, not that it is gone. Losing the flag
+     * to a transient null is safe in a way that keeping it is not — the group we
+     * created is then left behind, and the next start recognises it by name and
+     * removes it silently.
+     */
+    private fun reconcileGroupOwnership(group: WifiP2pGroup?) {
+        val hosted = hostedGroupName ?: return
+
+        val stillOurs = group != null && isOurHostedGroup(group)
+        if (createdGroup && !stillOurs) {
+            Log.w(TAG, "Group '$hosted' is no longer ours; leaving what is present alone")
+        }
+        createdGroup = stillOurs
     }
 
     /**
