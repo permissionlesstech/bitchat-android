@@ -222,10 +222,18 @@ class UniversalApkManager(private val context: Context) {
             // status check. If this worker is running after process death, the
             // client performs a retried network fetch instead.
             phaseCallback?.invoke(ApkDownloader.DownloadPhase.ResolvingRelease)
-            val release = GitHubReleaseClient.fetchLatestRelease().getOrElse { error ->
+            // The fetch waits on the route itself when it has to go to the network, so it
+            // reports that from the inside. Labelling the whole call "resolving release"
+            // would put the app's own name on the long Tor wait this phase exists to explain.
+            val release = GitHubReleaseClient.fetchLatestRelease(
+                onAwaitingNetworkRoute = {
+                    phaseCallback?.invoke(ApkDownloader.DownloadPhase.AwaitingNetworkRoute)
+                }
+            ).getOrElse { error ->
                 return@withContext Result.failure(error)
             }
 
+            // A cache hit skips the fetch's own wait, so for that path the route wait is here.
             phaseCallback?.invoke(ApkDownloader.DownloadPhase.AwaitingNetworkRoute)
             if (!GitHubReleaseClient.awaitSelectedNetworkRoute()) {
                 return@withContext Result.failure(

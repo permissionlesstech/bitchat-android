@@ -52,6 +52,44 @@ class GitHubRateLimitTest {
     }
 
     @Test
+    fun `a secondary limit is a 403 with Retry-After while quota remains`() {
+        // GitHub serves secondary limits as 403 + Retry-After without exhausting the
+        // primary quota, so remaining is still nonzero.
+        assertTrue(
+            GitHubRateLimit.isRateLimited(
+                code = 403,
+                remaining = "42",
+                retryAfterSeconds = "60",
+            )
+        )
+    }
+
+    @Test
+    fun `a secondary limit blocks for the Retry-After it advertises`() {
+        assertEquals(
+            now + 60_000,
+            GitHubRateLimit.blockedUntilMillis(
+                code = 403,
+                remaining = "42",
+                resetEpochSeconds = null,
+                retryAfterSeconds = "60",
+                nowMillis = now,
+            )
+        )
+    }
+
+    @Test
+    fun `a 403 with an unusable Retry-After stays a permissions error`() {
+        assertFalse(
+            GitHubRateLimit.isRateLimited(
+                code = 403,
+                remaining = "42",
+                retryAfterSeconds = "not-a-number",
+            )
+        )
+    }
+
+    @Test
     fun `Retry-After takes precedence over the reset header`() {
         // Retry-After is a delta and is what GitHub sends for secondary limits, which can expire
         // sooner than the primary window the reset header describes.

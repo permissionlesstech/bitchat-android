@@ -61,7 +61,15 @@ object GitHubReleaseClient {
      * Successful metadata is cached briefly so the status screen and download
      * worker use the same release snapshot instead of making duplicate calls.
      */
-    suspend fun fetchLatestRelease(forceRefresh: Boolean = false): Result<Release> =
+    /**
+     * @param onAwaitingNetworkRoute invoked if this call is about to block on the selected route
+     *   (a Tor bootstrap can take the better part of a minute). A cache hit returns before that
+     *   point and never invokes it, so callers can report the wait only when there is one.
+     */
+    suspend fun fetchLatestRelease(
+        forceRefresh: Boolean = false,
+        onAwaitingNetworkRoute: (() -> Unit)? = null,
+    ): Result<Release> =
         withContext(Dispatchers.IO) {
             fetchMutex.withLock {
                 val now = System.currentTimeMillis()
@@ -91,6 +99,7 @@ object GitHubReleaseClient {
                     )
                 }
 
+                onAwaitingNetworkRoute?.invoke()
                 if (!awaitSelectedNetworkRoute()) {
                     return@withLock Result.failure(
                         ReleaseFetchException(

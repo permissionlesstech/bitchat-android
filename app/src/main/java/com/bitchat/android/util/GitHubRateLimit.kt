@@ -17,11 +17,20 @@ internal object GitHubRateLimit {
     const val MAX_BACKOFF_MILLIS = 60 * 60 * 1000L
 
     /**
-     * A 403 alone is not enough: GitHub also uses it for ordinary permission failures. Only a 403
-     * that reports zero remaining quota, or an explicit 429, is a rate limit.
+     * A 403 alone is not enough: GitHub also uses it for ordinary permission failures.
+     *
+     * Three things count as a rate limit. An explicit 429. A 403 reporting zero remaining quota,
+     * which is the primary hourly limit. And a 403 carrying Retry-After while quota remains, which
+     * is how secondary limits arrive — abuse detection rather than the hourly budget, so treating
+     * it as a permissions failure leaves the gate unset and keeps the app calling during exactly
+     * the cooldown GitHub asked for.
      */
-    fun isRateLimited(code: Int, remaining: String?): Boolean =
-        code == 429 || (code == 403 && remaining?.trim() == "0")
+    fun isRateLimited(code: Int, remaining: String?, retryAfterSeconds: String? = null): Boolean =
+        code == 429 ||
+            (code == 403 && (remaining?.trim() == "0" || retryAfterDelayMillis(retryAfterSeconds) != null))
+
+    private fun retryAfterDelayMillis(retryAfterSeconds: String?): Long? =
+        retryAfterSeconds?.trim()?.toLongOrNull()?.takeIf { it > 0 }?.let { it * 1000 }
 
     /**
      * Epoch millis before which no further request should be sent, or null when the response was
@@ -34,13 +43,11 @@ internal object GitHubRateLimit {
         retryAfterSeconds: String?,
         nowMillis: Long,
     ): Long? {
-        if (!isRateLimited(code, remaining)) return null
+        if (!isRateLimited(code, remaining, retryAfterSeconds)) return null
 
         // Retry-After is a delta and is what GitHub sends for secondary limits, which can lift
         // sooner than the primary window X-RateLimit-Reset describes.
-        val fromRetryAfter = retryAfterSeconds?.trim()?.toLongOrNull()
-            ?.takeIf { it > 0 }
-            ?.let { nowMillis + it * 1000 }
+        val fromRetryAfter = retryAfterDelayMillis(retryAfterSeconds)?.let { nowMillis + it }
 
         // Dropped when it is not in the future: a skewed device clock must not turn a genuine
         // rejection into "retry immediately".
