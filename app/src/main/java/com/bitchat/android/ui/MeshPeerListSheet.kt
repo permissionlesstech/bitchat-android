@@ -2054,8 +2054,21 @@ fun PrivateChatSheet(
                             )
                         }
 
-                        // Encryption state, and the verification badge that qualifies it. Both are
-                        // read-only for Nostr peers, which have no Noise session at all.
+                        if (isVerified) {
+                            ConversationHeaderStatus {
+                                Icon(
+                                    imageVector = Icons.Filled.Verified,
+                                    contentDescription = stringResource(
+                                        R.string.fingerprint_verified_label
+                                    ),
+                                    modifier = Modifier.size(HeaderIconSize),
+                                    tint = colorScheme.primary
+                                )
+                            }
+                        }
+
+                        // Keep the lock nearest the close action: from right to left the security
+                        // cluster reads close, encryption, verification, then favorite.
                         if (!isNostrPeer && !isNostrReachableFavorite) {
                             ConversationHeaderAction(
                                 onClick = { viewModel.showSecurityVerificationSheet() },
@@ -2067,22 +2080,6 @@ fun PrivateChatSheet(
                                         modifier = Modifier.size(HeaderIconSize)
                                     )
                                 }
-                            }
-                        }
-
-                        if (isVerified) {
-                            Box(
-                                modifier = Modifier.size(HeaderIconSize),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Verified,
-                                    contentDescription = stringResource(
-                                        R.string.fingerprint_verified_label
-                                    ),
-                                    modifier = Modifier.size(HeaderIconSize),
-                                    tint = colorScheme.primary
-                                )
                             }
                         }
 
