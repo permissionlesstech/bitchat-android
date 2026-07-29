@@ -127,6 +127,11 @@
             tools:ignore="DataExtractionRules">
         </service>
 
+        <receiver
+            android:name=".service.ConversationNotificationReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <!-- Auto-start mesh service after boot if enabled -->
         <receiver
             android:name=".service.BootCompletedReceiver"

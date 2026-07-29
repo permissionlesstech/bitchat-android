@@ -1,6 +1,7 @@
 package com.bitchat.android.services
 
 import com.bitchat.android.model.BitchatMessage
+import kotlinx.coroutines.runBlocking
 
 /**
  * Reflects an incoming transport message into process-wide state before any downstream effects.
@@ -15,7 +16,12 @@ internal object IncomingMessageAdmission {
             message.isPrivate -> {
                 val peerID = message.senderPeerID?.takeIf(String::isNotBlank)
                     ?: return false
-                AppStateStore.addPrivateMessage(peerID, message)
+                // Mesh transport callbacks run on their background service workers. Wait for the
+                // serialized SQLite transaction so a notification can never advertise a message
+                // that an immediate process death would lose.
+                runBlocking {
+                    AppStateStore.addPrivateMessageDurably(peerID, message)
+                }
             }
 
             message.channel != null -> {

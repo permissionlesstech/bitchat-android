@@ -132,7 +132,14 @@ class NostrDirectMessageHandler(
 
                 val favoriteControl = FavoriteControlMessage.parse(pm.content)
                 if (favoriteControl != null) {
-                    handleFavoriteControl(favoriteControl, conversationID, senderNickname, timestamp, senderPubkey)
+                    val admitted = handleFavoriteControl(
+                        favoriteControl,
+                        conversationID,
+                        senderNickname,
+                        timestamp,
+                        senderPubkey
+                    )
+                    if (!admitted) return
                     if (!seenStore.hasDelivered(pm.messageID)) {
                         val nostrTransport = NostrTransport.getInstance(application)
                         nostrTransport.sendDeliveryAckGeohash(pm.messageID, senderPubkey, recipientIdentity)
@@ -157,13 +164,14 @@ class NostrDirectMessageHandler(
                 val isViewing = state.getSelectedPrivateChatPeerValue() == conversationID
                 val suppressUnread = seenStore.hasBeenReadLocally(pm.messageID)
 
-                withContext(Dispatchers.Main) {
-                    privateChatManager.handleIncomingPrivateMessage(
+                val admitted = withContext(Dispatchers.Main) {
+                    privateChatManager.handleIncomingPrivateMessageDurably(
                         message = message,
                         suppressUnread = suppressUnread,
                         origin = PrivateMessageOrigin.NOSTR
                     )
                 }
+                if (!admitted) return
 
                 if (!seenStore.hasDelivered(pm.messageID)) {
                     val nostrTransport = NostrTransport.getInstance(application)
@@ -215,11 +223,17 @@ class NostrDirectMessageHandler(
                         senderNostrPubkey = senderPubkey
                     )
                     Log.d(TAG, "📄 Saved Nostr encrypted incoming file to $savedPath (msgId=$uniqueMsgId)")
-                    withContext(Dispatchers.Main) {
-                        privateChatManager.handleIncomingPrivateMessage(
+                    val admitted = withContext(Dispatchers.Main) {
+                        privateChatManager.handleIncomingPrivateMessageDurably(
                             message = message,
                             suppressUnread = false,
                             origin = PrivateMessageOrigin.NOSTR
+                        )
+                    }
+                    if (!admitted) {
+                        com.bitchat.android.features.file.FileUtils.deleteStoredMediaPaths(
+                            application,
+                            listOf(savedPath)
                         )
                     }
                 } else {
@@ -238,15 +252,15 @@ class NostrDirectMessageHandler(
         senderNickname: String,
         timestamp: Date,
         senderPubkey: String
-    ) {
-        try {
+    ): Boolean {
+        return try {
             val senderNpub = control.npub ?: ContactIdentityResolver.npubFromHex(senderPubkey)
             val noiseKey = senderNpub?.let { FavoritesPersistenceService.shared.findNoiseKey(it) }
                 ?: FavoritesPersistenceService.shared.findNoiseKey(senderPubkey)
 
             if (noiseKey == null) {
                 Log.w(TAG, "Favorite notification from Nostr sender without known Noise key: ${senderPubkey.take(16)}...")
-                return
+                return false
             }
 
             FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, control.isFavorite)
@@ -278,7 +292,7 @@ class NostrDirectMessageHandler(
             )
 
             withContext(Dispatchers.Main) {
-                privateChatManager.handleIncomingPrivateMessage(
+                privateChatManager.handleIncomingPrivateMessageDurably(
                     message = systemMessage,
                     suppressUnread = true,
                     origin = PrivateMessageOrigin.NOSTR
@@ -286,6 +300,7 @@ class NostrDirectMessageHandler(
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to handle Nostr favorite notification: ${e.message}")
+            false
         }
     }
 
