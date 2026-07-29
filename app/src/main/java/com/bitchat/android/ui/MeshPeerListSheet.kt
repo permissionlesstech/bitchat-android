@@ -831,18 +831,14 @@ fun PeopleSection(
                 displayName = displayName,
                 isDirect = isDirectLive,
                 isWifiAware = peerID in wifiAwarePeerIDs,
+                isConnected = true,
                 isSelected = conversationID == selectedPrivatePeer || peerID == selectedPrivatePeer,
                 isFavorite = isFavorite,
                 theyFavoritedUs = theyFavoritedUs,
                 isVerified = isVerified,
-                hasUnreadDM = combinedHasUnread,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
                 onItemClick = { onPrivateChatStart(peerID) },
-                onToggleFavorite = { 
-                    Log.d("SidebarComponents", "Sidebar toggle favorite: peerID=$peerID, currentFavorite=$isFavorite")
-                    viewModel.toggleFavorite(peerID) 
-                },
                 unreadCount = if (combinedUnreadCount > 0) combinedUnreadCount else if (combinedHasUnread) 1 else 0,
                 showNostrGlobe = false,
                 showHashSuffix = showHash
@@ -881,18 +877,14 @@ fun PeopleSection(
                 peerID = favPeerID,
                 displayName = dn,
                 isDirect = false,
+                isConnected = false,
                 isSelected = conversationID == selectedPrivatePeer || (mappedConnectedPeerID ?: favPeerID) == selectedPrivatePeer,
                 isFavorite = true,
                 theyFavoritedUs = fav.theyFavoritedUs,
                 isVerified = isVerified,
-                hasUnreadDM = hasUnread,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
                 onItemClick = { onPrivateChatStart(mappedConnectedPeerID ?: favPeerID) },
-                onToggleFavorite = { 
-                    Log.d("SidebarComponents", "Sidebar toggle favorite (offline): peerID=$favPeerID")
-                    viewModel.toggleFavorite(favPeerID)
-                },
                 unreadCount = if (unreadCount > 0) unreadCount else if (hasUnread) 1 else 0,
                 showNostrGlobe = (fav.isMutual && fav.peerNostrPublicKey != null),
                 showHashSuffix = showHash
@@ -1263,72 +1255,42 @@ private fun ConversationRow(
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(42.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(assignedColor.copy(alpha = 0.16f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = baseNameRaw
-                        .trim()
-                        .firstOrNull()
-                        ?.uppercase()
-                        ?: "#",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = BitchatFontFamily,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = assignedColor
-                )
-            }
+        PeerAvatar(
+            name = baseNameRaw,
+            color = assignedColor,
+            badge = {
+                when {
+                    conversation.isConnected -> Icon(
+                        painter = painterResource(
+                            conversationTransportIcon(
+                                isReachedOverInternet = false,
+                                isWifiAware = isWifiAware,
+                                isDirect = isDirect
+                            )
+                        ),
+                        contentDescription = connectionDescription,
+                        modifier = Modifier.size(13.dp),
+                        tint = colorScheme.primary
+                    )
 
-            Surface(
-                modifier = Modifier
-                    .size(18.dp)
-                    .align(Alignment.BottomEnd),
-                shape = CircleShape,
-                color = colorScheme.surface,
-                tonalElevation = 1.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    when {
-                        conversation.isConnected -> Icon(
-                            painter = painterResource(
-                                conversationTransportIcon(
-                                    isReachedOverInternet = false,
-                                    isWifiAware = isWifiAware,
-                                    isDirect = isDirect
-                                )
-                            ),
-                            contentDescription = connectionDescription,
-                            modifier = Modifier.size(13.dp),
-                            tint = colorScheme.primary
-                        )
+                    conversation.transport == DirectMessageTransport.NOSTR -> Icon(
+                        painter = painterResource(R.drawable.ic_spec_globe),
+                        contentDescription = stringResource(
+                            R.string.offline_reachable_via_nostr
+                        ),
+                        modifier = Modifier.size(13.dp),
+                        tint = palette.accentPurple
+                    )
 
-                        conversation.transport == DirectMessageTransport.NOSTR -> Icon(
-                            painter = painterResource(R.drawable.ic_spec_globe),
-                            contentDescription = stringResource(
-                                R.string.offline_reachable_via_nostr
-                            ),
-                            modifier = Modifier.size(13.dp),
-                            tint = palette.accentPurple
-                        )
-
-                        else -> Icon(
-                            imageVector = Icons.Outlined.Circle,
-                            contentDescription = stringResource(R.string.offline_not_in_mesh),
-                            modifier = Modifier.size(11.dp),
-                            tint = palette.textTertiary
-                        )
-                    }
+                    else -> Icon(
+                        imageVector = Icons.Outlined.Circle,
+                        contentDescription = stringResource(R.string.offline_not_in_mesh),
+                        modifier = Modifier.size(11.dp),
+                        tint = palette.textTertiary
+                    )
                 }
             }
-        }
+        )
 
         Spacer(modifier = Modifier.width(12.dp))
 
@@ -1559,15 +1521,14 @@ private fun PeerItem(
     displayName: String,
     isDirect: Boolean,
     isWifiAware: Boolean = false,
+    isConnected: Boolean = true,
     isSelected: Boolean,
     isFavorite: Boolean,
     theyFavoritedUs: Boolean = false,
     isVerified: Boolean,
-    hasUnreadDM: Boolean,
     colorScheme: ColorScheme,
     viewModel: ChatViewModel,
     onItemClick: () -> Unit,
-    onToggleFavorite: () -> Unit,
     unreadCount: Int = 0,
     showNostrGlobe: Boolean = false,
     showHashSuffix: Boolean = true
@@ -1595,57 +1556,47 @@ private fun PeerItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onItemClick)
-            .padding(horizontal = SheetRowHorizontal, vertical = SheetRowVertical),
+            .padding(horizontal = SheetRowHorizontal, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(SheetRowLeadingSlot),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .size(SheetRowSelectedDot)
-                        .background(colorScheme.primary, CircleShape)
-                )
-            } else if (hasUnreadDM) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_spec_envelope),
-                    contentDescription = stringResource(R.string.cd_unread_message),
-                    modifier = Modifier.size(PeerRowIconSize),
-                    tint = palette.accentOrange
-                )
-            } else if (showNostrGlobe) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_spec_globe),
-                    contentDescription = stringResource(R.string.cd_reachable_via_nostr),
-                    modifier = Modifier.size(PeerRowIconSize),
-                    tint = palette.accentPurple
-                )
-            } else if (!isDirect && isFavorite) {
-                Icon(
-                    imageVector = Icons.Outlined.Circle,
-                    contentDescription = stringResource(R.string.cd_offline_favorite),
-                    modifier = Modifier.size(PeerRowIconSize),
-                    tint = palette.textTertiary
-                )
-            } else {
-                Icon(
-                    painter = painterResource(
-                        conversationTransportIcon(
-                            isReachedOverInternet = false,
-                            isWifiAware = isWifiAware,
-                            isDirect = isDirect
-                        )
-                    ),
-                    contentDescription = connectionDescription,
-                    modifier = Modifier.size(PeerRowIconSize),
-                    tint = colorScheme.onSurfaceVariant
-                )
-            }
-        }
+        PeerAvatar(
+            name = baseNameRaw,
+            color = baseColor,
+            isFavorite = isFavorite,
+            theyFavoritedUs = theyFavoritedUs,
+            badge = {
+                when {
+                    isConnected -> Icon(
+                        painter = painterResource(
+                            conversationTransportIcon(
+                                isReachedOverInternet = false,
+                                isWifiAware = isWifiAware,
+                                isDirect = isDirect
+                            )
+                        ),
+                        contentDescription = connectionDescription,
+                        modifier = Modifier.size(13.dp),
+                        tint = colorScheme.primary
+                    )
 
-        Spacer(modifier = Modifier.width(SheetRowLeadingGutter))
+                    showNostrGlobe -> Icon(
+                        painter = painterResource(R.drawable.ic_spec_globe),
+                        contentDescription = stringResource(R.string.cd_reachable_via_nostr),
+                        modifier = Modifier.size(13.dp),
+                        tint = palette.accentPurple
+                    )
+
+                    else -> Icon(
+                        imageVector = Icons.Outlined.Circle,
+                        contentDescription = stringResource(R.string.cd_offline_favorite),
+                        modifier = Modifier.size(11.dp),
+                        tint = palette.textTertiary
+                    )
+                }
+            }
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
 
         Row(
             modifier = Modifier.weight(1f),
@@ -1682,21 +1633,18 @@ private fun PeerItem(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clickable(onClick = onToggleFavorite),
-            contentAlignment = Alignment.Center
-        ) {
-            // Three-state star (matches private-chat header): grey outline (no relation),
-            // orange outline (they favorited us), filled orange (we favorited them).
-            Icon(
-                painter = painterResource(
-                    if (isFavorite) R.drawable.ic_spec_star_filled else R.drawable.ic_spec_star
-                ),
-                contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                modifier = Modifier.size(PeerRowIconSize),
-                tint = if (isFavorite || theyFavoritedUs) palette.accentOrange else palette.textTertiary
+        UnreadBadge(
+            count = unreadCount,
+            colorScheme = colorScheme,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(SheetRowSelectedDot)
+                    .background(colorScheme.primary, CircleShape)
             )
         }
     }

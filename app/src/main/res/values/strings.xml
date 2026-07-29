@@ -69,6 +69,8 @@
   <!-- Favorites accessibility -->
   <string name="cd_add_favorite">Add to favorites</string>
   <string name="cd_remove_favorite">Remove from favorites</string>
+  <string name="cd_favorite">Favorite</string>
+  <string name="cd_favorited_you">Favorited you</string>
   <string name="cd_add_bookmark">Add bookmark</string>
 
   <!-- Chat header &amp; accessibility -->
