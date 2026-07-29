@@ -1,18 +1,25 @@
 package com.bitchat.android.ui
 
+import android.Manifest
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
-import android.Manifest
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.res.stringResource
 import com.bitchat.android.features.voice.VoiceRecorder
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionStatus
@@ -22,6 +29,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 
 /**
  * How long the button must be held before a recording starts.
@@ -59,24 +67,37 @@ fun VoiceRecordButton(
      * pill's border change together instead of one lagging the other.
      */
     isRecording: Boolean = false,
+    /**
+     * Consulted the instant the finger lifts, with the final pointer position in root
+     * coordinates: when it lands inside the slide-to-cancel target, the recording is
+     * discarded instead of sent. Receiving the position here (instead of reading composed
+     * state) keeps the verdict exact even for a slide-and-lift within a single frame.
+     */
+    shouldCancel: (Offset) -> Boolean = { false },
+    /**
+     * Finger position in root coordinates while a capture is live (drives the magnetic
+     * cancel target); null once the gesture ends.
+     */
+    onTrackFinger: (Offset?) -> Unit = {},
     onStart: () -> Unit,
     onAmplitude: (amplitude: Int, elapsedMs: Long) -> Unit,
     onFinish: (filePath: String) -> Unit,
     /**
      * Invoked whenever a recording ends without producing a file — permission denied, recorder
-     * failure, or the button being torn down mid-capture. The caller needs this to clear its own
-     * recording state; without it a failed capture left the composer stuck in recording mode.
+     * failure, the button being torn down mid-capture, or a deliberate slide-to-cancel.
      */
     onCancel: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
     val micPermission = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
 
     var isCapturing by remember { mutableStateOf(false) }
     var recorder by remember { mutableStateOf<VoiceRecorder?>(null) }
     var recordedFilePath by remember { mutableStateOf<String?>(null) }
     var recordingStart by remember { mutableStateOf(0L) }
+    var buttonCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     val scope = rememberCoroutineScope()
     var ampJob by remember { mutableStateOf<Job?>(null) }
@@ -86,6 +107,8 @@ fun VoiceRecordButton(
     val latestOnAmplitude = rememberUpdatedState(onAmplitude)
     val latestOnFinish = rememberUpdatedState(onFinish)
     val latestOnCancel = rememberUpdatedState(onCancel)
+    val latestShouldCancel = rememberUpdatedState(shouldCancel)
+    val latestOnTrackFinger = rememberUpdatedState(onTrackFinger)
 
     // Set when this instance was composed, so presses inherited from whatever occupied this spot
     // beforehand can be rejected.
@@ -110,6 +133,7 @@ fun VoiceRecordButton(
                 runCatching { recorder?.stop() }
                 recorder = null
                 recordedFilePath = null
+                latestOnTrackFinger.value(null)
                 latestOnCancel.value()
             }
         }
@@ -120,99 +144,123 @@ fun VoiceRecordButton(
         isActive = isRecording || isCapturing,
         isPressed = isCapturing,
         modifier = modifier
+            .onGloballyPositioned { buttonCoords = it }
             .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        // Guard 1: ignore anything arriving before the swap animation settled.
-                        if (System.currentTimeMillis() - composedAt < ArmDelayMs) {
-                            return@detectTapGestures
-                        }
-                        // Guard 2: never start a second capture on top of a live one.
-                        if (isCapturing) return@detectTapGestures
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    // Guard 1: ignore anything arriving before the swap animation settled.
+                    if (System.currentTimeMillis() - composedAt < ArmDelayMs) {
+                        return@awaitEachGesture
+                    }
+                    // Guard 2: never start a second capture on top of a live one.
+                    if (isCapturing) return@awaitEachGesture
 
-                        if (micPermission.status !is PermissionStatus.Granted) {
-                            micPermission.launchPermissionRequest()
-                            return@detectTapGestures
-                        }
+                    if (micPermission.status !is PermissionStatus.Granted) {
+                        micPermission.launchPermissionRequest()
+                        return@awaitEachGesture
+                    }
 
-                        // Guard 3: require a deliberate hold. `tryAwaitRelease` returns true on
-                        // release and false on cancellation; either way the press was not a hold,
-                        // so nothing should happen. Only a timeout means the finger is still down.
-                        val stillHeld = withTimeoutOrNull(HoldToRecordMs) {
-                            tryAwaitRelease()
-                        } == null
-                        if (!stillHeld) return@detectTapGestures
+                    // Guard 3: require a deliberate hold. An up (or a stolen pointer) inside the
+                    // arm window means the press was never a hold; only the timeout means the
+                    // finger is still down.
+                    var stolenDuringArm = false
+                    val releasedEarly = withTimeoutOrNull(HoldToRecordMs) {
+                        waitForUpOrCancellation().also { if (it == null) stolenDuringArm = true }
+                    }
+                    if (releasedEarly != null || stolenDuringArm) return@awaitEachGesture
 
-                        val rec = VoiceRecorder(context)
-                        val startedFile = rec.start()
-                        if (startedFile == null) {
-                            // Recorder refused to start; make sure the caller does not sit in a
-                            // recording state that never began.
-                            runCatching { rec.stop() }
-                            latestOnCancel.value()
-                            return@detectTapGestures
-                        }
+                    val rec = VoiceRecorder(context)
+                    val startedFile = rec.start()
+                    if (startedFile == null) {
+                        // Recorder refused to start; make sure the caller does not sit in a
+                        // recording state that never began.
+                        runCatching { rec.stop() }
+                        latestOnCancel.value()
+                        return@awaitEachGesture
+                    }
 
-                        recorder = rec
-                        recordedFilePath = startedFile.absolutePath
-                        recordingStart = System.currentTimeMillis()
-                        isCapturing = true
-                        latestOnStart.value()
-                        buzz()
+                    recorder = rec
+                    recordedFilePath = startedFile.absolutePath
+                    recordingStart = System.currentTimeMillis()
+                    isCapturing = true
+                    latestOnStart.value()
+                    buzz()
 
-                        ampJob?.cancel()
-                        ampJob = scope.launch {
-                            while (isActive && isCapturing) {
-                                val amp = recorder?.pollAmplitude() ?: 0
-                                val elapsed =
-                                    (System.currentTimeMillis() - recordingStart).coerceAtLeast(0L)
-                                latestOnAmplitude.value(amp, elapsed)
+                    ampJob?.cancel()
+                    ampJob = scope.launch {
+                        while (isActive && isCapturing) {
+                            val amp = recorder?.pollAmplitude() ?: 0
+                            val elapsed =
+                                (System.currentTimeMillis() - recordingStart).coerceAtLeast(0L)
+                            latestOnAmplitude.value(amp, elapsed)
 
-                                if (elapsed >= MaxRecordingMs && isCapturing) {
-                                    val file = recorder?.stop()
-                                    isCapturing = false
-                                    recorder = null
-                                    val path = file?.absolutePath ?: recordedFilePath
-                                    recordedFilePath = null
-                                    buzz()
-                                    // Always report the outcome, even when the file is unusable,
-                                    // or the caller stays stuck showing the waveform.
-                                    if (!path.isNullOrBlank()) {
-                                        latestOnFinish.value(path)
-                                    } else {
-                                        latestOnCancel.value()
-                                    }
-                                    break
-                                }
-                                delay(80)
-                            }
-                        }
-
-                        try {
-                            tryAwaitRelease()
-                        } finally {
-                            if (isCapturing) {
-                                // Keep going briefly past the release so the tail is not clipped.
-                                delay(ReleaseTailMs)
-                            }
-                            if (isCapturing) {
+                            if (elapsed >= MaxRecordingMs && isCapturing) {
                                 val file = recorder?.stop()
                                 isCapturing = false
                                 recorder = null
                                 val path = file?.absolutePath ?: recordedFilePath
                                 recordedFilePath = null
+                                latestOnTrackFinger.value(null)
                                 buzz()
+                                // Always report the outcome, even when the file is unusable,
+                                // or the caller stays stuck showing the waveform.
                                 if (!path.isNullOrBlank()) {
                                     latestOnFinish.value(path)
                                 } else {
                                     latestOnCancel.value()
                                 }
+                                break
                             }
-                            ampJob?.cancel()
-                            ampJob = null
+                            delay(80)
                         }
                     }
-                )
+
+                    // Track the finger in root coordinates until it lifts, so the composer can
+                    // run the magnetic slide-to-cancel target. A cancelled pointer (stolen by a
+                    // scroller) ends the capture the same way a lift does.
+                    var finalPos: Offset? = null
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: continue
+                        finalPos = buttonCoords?.localToRoot(change.position)
+                        finalPos?.let { latestOnTrackFinger.value(it) }
+                        if (!change.pressed) break
+                    }
+
+                    // Cancelling discards immediately; sending keeps a short tail so the last
+                    // syllable is not clipped (an early pointer event simply ends the tail).
+                    // The verdict is computed from the final pointer coordinate directly —
+                    // reading recomposed state here could be one frame stale.
+                    val cancel = finalPos?.let { latestShouldCancel.value(it) } == true
+                    latestOnTrackFinger.value(null)
+                    if (isCapturing && !cancel) {
+                        withTimeoutOrNull(ReleaseTailMs) { awaitPointerEvent() }
+                    }
+                    if (isCapturing) {
+                        val file = recorder?.stop()
+                        isCapturing = false
+                        recorder = null
+                        val path = file?.absolutePath ?: recordedFilePath
+                        recordedFilePath = null
+                        if (cancel) {
+                            path?.let { runCatching { File(it).delete() } }
+                            try {
+                                view.performHapticFeedback(HapticFeedbackConstants.REJECT)
+                            } catch (_: Exception) {
+                            }
+                            latestOnCancel.value()
+                        } else {
+                            buzz()
+                            if (!path.isNullOrBlank()) {
+                                latestOnFinish.value(path)
+                            } else {
+                                latestOnCancel.value()
+                            }
+                        }
+                    }
+                    ampJob?.cancel()
+                    ampJob = null
+                }
             }
     ) { tint ->
         Icon(
