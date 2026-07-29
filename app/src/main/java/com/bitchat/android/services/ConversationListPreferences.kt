@@ -15,16 +15,19 @@ import org.json.JSONObject
  * Keystore-backed preference store. Panic clearing the identity store also removes these values.
  */
 internal class ConversationListPreferences private constructor(
-    private val stateManager: SecureIdentityStateManager
+    private val stateManager: SecureIdentityStateManager,
+    private val canonicalize: (String) -> String
 ) {
     private constructor(context: Context) : this(
-        SecureIdentityStateManager(context.applicationContext)
+        SecureIdentityStateManager(context.applicationContext),
+        ContactDirectory::canonicalConversationId
     )
 
     internal constructor(
         stateManager: SecureIdentityStateManager,
-        testOnly: Boolean
-    ) : this(stateManager) {
+        testOnly: Boolean,
+        canonicalize: (String) -> String = ContactDirectory::canonicalConversationId
+    ) : this(stateManager, canonicalize) {
         require(testOnly) { "Injected conversation preferences are test-only" }
     }
 
@@ -95,6 +98,33 @@ internal class ConversationListPreferences private constructor(
         saveDrafts(_drafts.value)
     }
 
+    /**
+     * Re-key list preferences when a transient mesh ID becomes a stable contact identity.
+     * Without this, pin, mute, and draft state appears to disappear after a Noise/favorite update.
+     */
+    fun canonicalizeAliases() {
+        val canonicalPinned = _pinned.value.mapTo(linkedSetOf(), ::normalize)
+        val canonicalMuted = _muted.value.mapTo(linkedSetOf(), ::normalize)
+        val canonicalDrafts = linkedMapOf<String, String>()
+        _drafts.value.forEach { (conversationID, draft) ->
+            canonicalDrafts[normalize(conversationID)] = draft
+        }
+
+        if (canonicalPinned != _pinned.value) {
+            _pinned.value = canonicalPinned
+            saveSet(PINNED_KEY, canonicalPinned)
+        }
+        if (canonicalMuted != _muted.value) {
+            _muted.value = canonicalMuted
+            saveSet(MUTED_KEY, canonicalMuted)
+        }
+        if (canonicalDrafts != _drafts.value) {
+            val bounded = boundDrafts(canonicalDrafts)
+            _drafts.value = bounded
+            saveDrafts(bounded)
+        }
+    }
+
     fun clearInMemory() {
         _pinned.value = emptySet()
         _muted.value = emptySet()
@@ -147,7 +177,7 @@ internal class ConversationListPreferences private constructor(
         if (value in this) this - value else this + value
 
     private fun normalize(value: String): String =
-        ContactDirectory.canonicalConversationId(value).lowercase()
+        canonicalize(value).lowercase()
 
     private fun boundDrafts(values: Map<String, String>): Map<String, String> {
         val retained = LinkedHashMap(values)

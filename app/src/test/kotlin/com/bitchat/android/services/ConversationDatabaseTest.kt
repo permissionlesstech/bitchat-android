@@ -96,6 +96,7 @@ class ConversationDatabaseTest {
         )
         assertEquals(setOf(message.id), restored.readMessageIDs)
         assertEquals(listOf(message.id), restored.arrivalOrder)
+        assertEquals("alice", restored.displayNames.getValue("contact_alice"))
     }
 
     @Test
@@ -112,7 +113,7 @@ class ConversationDatabaseTest {
         val duplicate = database.upsertMessage(
             "contact_alice",
             setOf("mesh-alias", "nostr_alias"),
-            "alice",
+            null,
             first,
             false
         )
@@ -121,6 +122,7 @@ class ConversationDatabaseTest {
         assertFalse(duplicate.inserted)
         assertEquals(setOf("contact_alice"), restored.chats.keys)
         assertEquals(listOf("first", "second"), restored.chats.getValue("contact_alice").map { it.id })
+        assertEquals("alice", restored.displayNames.getValue("contact_alice"))
     }
 
     @Test
@@ -235,6 +237,31 @@ class ConversationDatabaseTest {
         assertEquals(2, initial.unreadCounts.getValue("contact_alice"))
         assertEquals(setOf("summary-2"), initial.readMessageIDs)
         assertEquals(3, database.loadConversation("contact_alice").arrivalOrder.size)
+    }
+
+    @Test
+    fun `nickname metadata updates without requiring a new message`() {
+        database.upsertMessage(
+            conversationID = "mesh-alias",
+            aliases = setOf("mesh-alias"),
+            displayName = "Alice Old",
+            message = message("rename-message", "Alice Old", 1L),
+            isRead = true
+        )
+
+        database.updateConversationIdentity(
+            conversationID = "contact_alice",
+            aliases = setOf("mesh-alias", "contact_alice"),
+            displayName = "Alice New"
+        )
+        database.close()
+        database = ConversationDatabase(context, databaseName, storageCipher = storageCipher)
+
+        val restored = database.loadInitialSnapshot()
+
+        assertEquals(setOf("contact_alice"), restored.chats.keys)
+        assertEquals("Alice New", restored.displayNames.getValue("contact_alice"))
+        assertEquals("Alice Old", restored.chats.getValue("contact_alice").single().sender)
     }
 
     @Test

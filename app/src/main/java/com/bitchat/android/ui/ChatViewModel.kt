@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.favorites.FavoritesChangeListener
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -38,6 +40,12 @@ import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
+
+private data class ConversationLiveIdentityState(
+    val connectedPeerIDs: List<String>,
+    val peerNicknames: Map<String, String>,
+    val persistedDisplayNames: Map<String, String>
+)
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
@@ -207,20 +215,58 @@ class ChatViewModel(
         com.bitchat.android.services.AppStateStore.conversationStoreState
     private val conversationPresencePeers = MutableStateFlow<List<String>>(emptyList())
     private val conversationPresenceRemovalJobs = mutableMapOf<String, Job>()
+    private val conversationDirectoryRevision = MutableStateFlow(0L)
+    private var favoriteRelationshipListenerRegistered = false
+    private val favoriteRelationshipChangeListener = object : FavoritesChangeListener {
+        override fun onFavoriteChanged(noiseKeyHex: String) {
+            refreshConversationDirectoryState()
+        }
+
+        override fun onAllCleared() {
+            refreshConversationDirectoryState()
+        }
+    }
+
+    private fun refreshConversationDirectoryState() {
+        viewModelScope.launch {
+            refreshPeerFavoritedUs()
+            conversationListPreferences.canonicalizeAliases()
+            conversationDirectoryRevision.update { it + 1L }
+        }
+    }
+
+    private val conversationLiveIdentityState = combine(
+        conversationPresencePeers,
+        state.peerNicknames,
+        state.peerFingerprints,
+        conversationDirectoryRevision,
+        com.bitchat.android.services.AppStateStore.privateConversationDisplayNames
+    ) { connectedPeerIDs, peerNicknames, _, _, persistedDisplayNames ->
+        ConversationLiveIdentityState(
+            connectedPeerIDs = connectedPeerIDs,
+            peerNicknames = peerNicknames,
+            persistedDisplayNames = persistedDisplayNames
+                .mapKeys { (conversationID, _) -> conversationID.lowercase() }
+        )
+    }
     private val baseConversations = combine(
         state.unreadPrivateMessages,
         state.privateChats,
         state.nickname,
-        conversationPresencePeers,
+        conversationLiveIdentityState,
         com.bitchat.android.services.AppStateStore.unreadPrivateMessageCounts
-    ) { unreadConversationIDs, chats, currentNickname, connectedPeerIDs, unreadCounts ->
+    ) { unreadConversationIDs, chats, currentNickname, liveIdentity, unreadCounts ->
         val seenStore = seenMessageStore
-        val connectedIdentitiesByPeer = connectedPeerIDs.associateWith { peerID ->
-            runCatching {
-                ContactDirectory.aliasesForConversation(peerID) +
-                    ContactDirectory.canonicalConversationId(peerID)
-            }.getOrDefault(setOf(peerID))
-                .mapTo(mutableSetOf()) { it.lowercase() }
+        val connectedPeerByIdentity = buildMap {
+            liveIdentity.connectedPeerIDs.forEach { peerID ->
+                val identities = runCatching {
+                    ContactDirectory.aliasesForConversation(peerID) +
+                        ContactDirectory.canonicalConversationId(peerID)
+                }.getOrDefault(setOf(peerID))
+                identities.forEach { identity ->
+                    putIfAbsent(identity.lowercase(), peerID)
+                }
+            }
         }
         buildConversationSummaries(
             unreadConversationIDs = unreadConversationIDs,
@@ -246,19 +292,31 @@ class ChatViewModel(
                     ?.let(ContactIdentityResolver::nostrAliasForPubkey)
                     ?.let(::add)
             }.mapTo(mutableSetOf()) { it.lowercase() }
-            val connectedPeerID = connectedIdentitiesByPeer.entries
-                .firstOrNull { (_, connectedAliases) ->
-                    connectedAliases.any(aliases::contains)
-                }
-                ?.key
+            val connectedPeerID = aliases
+                .asSequence()
+                .mapNotNull(connectedPeerByIdentity::get)
+                .firstOrNull()
+            val persistedDisplayName = liveIdentity.persistedDisplayNames[
+                summary.conversationID.lowercase()
+            ] ?: aliases
+                .asSequence()
+                .mapNotNull(liveIdentity.persistedDisplayNames::get)
+                .firstOrNull()
 
             summary.copy(
-                displayName = resolution.displayName
-                    ?.takeUnless {
-                        it.isBlank() || it.equals("Unknown", ignoreCase = true)
-                    }
-                    ?: summary.displayName,
+                displayName = resolveConversationDisplayName(
+                    fallbackName = summary.displayName,
+                    connectedPeerID = connectedPeerID,
+                    peerNicknames = liveIdentity.peerNicknames,
+                    resolvedContactName = resolution.displayName,
+                    persistedDisplayName = persistedDisplayName
+                ),
                 nostrPubkey = resolvedNostrPubkey,
+                transport = if (resolvedNostrPubkey != null) {
+                    DirectMessageTransport.NOSTR
+                } else {
+                    summary.transport
+                },
                 identityAliases = aliases,
                 isConnected = connectedPeerID != null,
                 connectedPeerID = connectedPeerID,
@@ -344,6 +402,7 @@ class ChatViewModel(
         loadAndInitialize()
         ContactDirectory.initialize(getApplication()) { mesh }
         com.bitchat.android.services.AppStateStore.canonicalizePrivateChats()
+        observeConversationDisplayNames()
         // Application startup performs the initial restore. Repeat it for every new UI owner
         // because a quick reopen can reuse a process whose in-memory state was cleared during
         // controlled shutdown.
@@ -458,6 +517,24 @@ class ChatViewModel(
         }
     }
 
+    private fun observeConversationDisplayNames() {
+        viewModelScope.launch {
+            combine(
+                state.peerNicknames,
+                state.connectedPeers,
+                state.peerFingerprints
+            ) { peerNicknames, connectedPeers, _ ->
+                connectedPeers.mapNotNull { peerID ->
+                    peerNicknames[peerID]?.let { peerID to it }
+                }.toMap()
+            }.collect { connectedNames ->
+                conversationListPreferences.canonicalizeAliases()
+                com.bitchat.android.services.AppStateStore
+                    .updatePrivateConversationDisplayNames(connectedNames)
+            }
+        }
+    }
+
     fun cancelMediaSend(messageId: String) {
         // Delegate to MediaSendingManager which tracks transfer IDs and cleans up UI state
         mediaSendingManager.cancelMediaSend(messageId)
@@ -521,11 +598,9 @@ class ChatViewModel(
         refreshPeerFavoritedUs()
         try {
             com.bitchat.android.favorites.FavoritesPersistenceService.shared.addListener(
-                object : com.bitchat.android.favorites.FavoritesChangeListener {
-                    override fun onFavoriteChanged(noiseKeyHex: String) = refreshPeerFavoritedUs()
-                    override fun onAllCleared() = refreshPeerFavoritedUs()
-                }
+                favoriteRelationshipChangeListener
             )
+            favoriteRelationshipListenerRegistered = true
         } catch (_: Exception) { }
 
         // Load verified fingerprints from secure storage
@@ -544,6 +619,14 @@ class ChatViewModel(
     }
     
     override fun onCleared() {
+        if (favoriteRelationshipListenerRegistered) {
+            runCatching {
+                FavoritesPersistenceService.shared.removeListener(
+                    favoriteRelationshipChangeListener
+                )
+            }
+            favoriteRelationshipListenerRegistered = false
+        }
         geohashViewModel.shutdownUiSubscriptions()
         com.bitchat.android.services.AppStateStore.setSelectedPrivateChatPeer(null)
         // Note: Mesh service lifecycle is now managed by MainActivity

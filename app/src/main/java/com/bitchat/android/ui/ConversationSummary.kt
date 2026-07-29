@@ -75,8 +75,12 @@ internal fun buildConversationSummaries(
         val latest = messages.maxWithOrNull(
             compareBy<BitchatMessage>(::activityOrder).thenBy { it.id }
         ) ?: return@mapNotNull null
+        fun isOutgoing(message: BitchatMessage): Boolean =
+            message.sender.lowercase() in currentUsers ||
+                message.senderPeerID?.lowercase() in currentUsers
+
         val incoming = messages.filterNot {
-            it.sender.lowercase() in currentUsers || it.sender == "system"
+            isOutgoing(it) || it.sender == "system"
         }
         val latestIncoming = incoming.maxWithOrNull(
             compareBy<BitchatMessage>(::activityOrder).thenBy { it.id }
@@ -85,7 +89,7 @@ internal fun buildConversationSummaries(
         val persistedUnreadCount = unreadCountsByCanonicalID[conversationID.lowercase()] ?: 0
         val unreadCount = maxOf(
             persistedUnreadCount,
-            if (canonicalUnread) {
+            if (canonicalUnread && incoming.isNotEmpty()) {
                 incoming.count { !isMessageRead(it) }.coerceAtLeast(1)
             } else {
                 0
@@ -115,7 +119,7 @@ internal fun buildConversationSummaries(
             latestActivityOrder = activityOrder(latest),
             latestMessageType = latest.type,
             latestMessagePreview = latest.conversationPreview(),
-            latestMessageIsOutgoing = latest.sender.lowercase() in currentUsers,
+            latestMessageIsOutgoing = isOutgoing(latest),
             latestDeliveryStatus = latest.deliveryStatus,
             transport = if (isNostrConversation) {
                 DirectMessageTransport.NOSTR
@@ -127,6 +131,31 @@ internal fun buildConversationSummaries(
                 .mapTo(mutableSetOf()) { it.lowercase() }
         )
     }
+}
+
+internal fun resolveConversationDisplayName(
+    fallbackName: String,
+    connectedPeerID: String?,
+    peerNicknames: Map<String, String>,
+    resolvedContactName: String?,
+    persistedDisplayName: String?
+): String {
+    fun String?.usableName(): String? = this?.takeUnless {
+        it.isBlank() || it.equals("Unknown", ignoreCase = true)
+    }
+
+    val liveName = connectedPeerID?.let { peerID ->
+        peerNicknames[peerID]
+            ?: peerNicknames.entries
+                .firstOrNull { (candidateID, _) ->
+                    candidateID.equals(peerID, ignoreCase = true)
+                }
+                ?.value
+    }
+    return liveName.usableName()
+        ?: resolvedContactName.usableName()
+        ?: persistedDisplayName.usableName()
+        ?: fallbackName
 }
 
 internal fun sortConversationSummaries(

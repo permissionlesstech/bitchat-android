@@ -224,6 +224,20 @@ class ConversationRepository internal constructor(
         }
     }
 
+    fun updateConversationIdentity(
+        conversationID: String,
+        aliases: Set<String>,
+        displayName: String
+    ) {
+        scope.launch {
+            try {
+                database.updateConversationIdentity(conversationID, aliases, displayName)
+            } catch (error: Exception) {
+                Log.e(TAG, "Unable to persist conversation identity: ${error.message}")
+            }
+        }
+    }
+
     fun deleteConversation(conversationID: String, aliases: Set<String>) {
         scope.launch {
             deleteConversationLocked(conversationID, aliases)
@@ -344,6 +358,7 @@ internal data class PersistedConversationSnapshot(
     val readMessageIDs: Set<String>,
     val arrivalOrder: List<String>,
     val deletedMessageIDs: Set<String>,
+    val displayNames: Map<String, String> = emptyMap(),
     val unreadCounts: Map<String, Int> = emptyMap(),
     val receivedAtByMessageID: Map<String, Long> = emptyMap(),
     val arrivalSequenceByMessageID: Map<String, Long> = emptyMap()
@@ -612,7 +627,8 @@ internal class ConversationDatabase(
         return loadMessages(
             selection = null,
             selectionArgs = null,
-            orderBy = "arrival_sequence ASC"
+            orderBy = "arrival_sequence ASC",
+            displayNameConversationID = null
         )
     }
 
@@ -631,7 +647,8 @@ internal class ConversationDatabase(
                 )
             """.trimIndent(),
             selectionArgs = null,
-            orderBy = "arrival_sequence ASC"
+            orderBy = "arrival_sequence ASC",
+            displayNameConversationID = null
         )
     }
 
@@ -640,14 +657,16 @@ internal class ConversationDatabase(
         return loadMessages(
             selection = "conversation_id = ? COLLATE NOCASE",
             selectionArgs = arrayOf(resolved),
-            orderBy = "arrival_sequence ASC"
+            orderBy = "arrival_sequence ASC",
+            displayNameConversationID = resolved
         )
     }
 
     private fun loadMessages(
         selection: String?,
         selectionArgs: Array<String>?,
-        orderBy: String
+        orderBy: String,
+        displayNameConversationID: String?
     ): PersistedConversationSnapshot {
         val chats = linkedMapOf<String, MutableList<BitchatMessage>>()
         val readIDs = linkedSetOf<String>()
@@ -678,10 +697,49 @@ internal class ConversationDatabase(
             readMessageIDs = readIDs,
             arrivalOrder = arrivalOrder,
             deletedMessageIDs = loadDeletedMessageIDs(),
+            displayNames = loadConversationDisplayNames(displayNameConversationID),
             unreadCounts = loadUnreadCounts(),
             receivedAtByMessageID = receivedAtByMessageID,
             arrivalSequenceByMessageID = arrivalSequenceByMessageID
         )
+    }
+
+    private fun loadConversationDisplayNames(
+        conversationID: String?
+    ): Map<String, String> {
+        val selection = conversationID?.let { "conversation_id = ? COLLATE NOCASE" }
+        val selectionArgs = conversationID?.let { arrayOf(it) }
+        return readableDatabase.query(
+            "conversations",
+            arrayOf("conversation_id", "display_name", "display_name_ciphertext"),
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null
+        ).use { cursor ->
+            buildMap {
+                while (cursor.moveToNext()) {
+                    val storedConversationID = cursor.string("conversation_id")
+                    val encryptedColumn =
+                        cursor.getColumnIndexOrThrow("display_name_ciphertext")
+                    val encryptedName = if (cursor.isNull(encryptedColumn)) {
+                        null
+                    } else {
+                        cursor.getBlob(encryptedColumn)
+                    }
+                    val displayName = encryptedName?.let {
+                        storageCipher.decrypt(
+                            it,
+                            conversationDisplayNameAad(storedConversationID)
+                        ).toString(Charsets.UTF_8)
+                    } ?: cursor.nullableString("display_name")
+                    displayName
+                        ?.takeIf(String::isNotBlank)
+                        ?.let { put(storedConversationID, it) }
+                }
+            }
+        }
     }
 
     private fun loadDeletedMessageIDs(): Set<String> {
@@ -907,6 +965,23 @@ internal class ConversationDatabase(
         }
     }
 
+    fun updateConversationIdentity(
+        conversationID: String,
+        aliases: Set<String>,
+        displayName: String
+    ) {
+        if (conversationID.isBlank() || displayName.isBlank()) return
+        writableDatabase.inTransaction {
+            mergeAliasesLocked(
+                db = this,
+                targetConversationID = conversationID,
+                aliases = aliases + conversationID,
+                displayName = displayName,
+                now = System.currentTimeMillis()
+            )
+        }
+    }
+
     fun deleteConversation(conversationID: String, aliases: Set<String>): Set<String> =
         writableDatabase.inTransaction {
             val ids = linkedSetOf<String>()
@@ -1103,7 +1178,6 @@ internal class ConversationDatabase(
         displayName: String?,
         now: Long
     ) {
-        ensureConversationLocked(db, targetConversationID, displayName, now)
         val normalizedAliases = aliases
             .map(String::trim)
             .filter(String::isNotBlank)
@@ -1117,6 +1191,12 @@ internal class ConversationDatabase(
                     selectionValues = normalizedAliases
                 )
             )
+        val effectiveDisplayName = displayName
+            ?: (listOf(targetConversationID) + sourceIDs + normalizedAliases)
+                .asSequence()
+                .mapNotNull { storedConversationDisplayNameLocked(db, it) }
+                .firstOrNull()
+        ensureConversationLocked(db, targetConversationID, effectiveDisplayName, now)
 
         sourceIDs
             .filterNot { it.equals(targetConversationID, ignoreCase = true) }
@@ -1151,7 +1231,35 @@ internal class ConversationDatabase(
                 SQLiteDatabase.CONFLICT_REPLACE
             )
         }
-        updateConversationMetadataLocked(db, targetConversationID, displayName, now)
+        updateConversationMetadataLocked(
+            db,
+            targetConversationID,
+            effectiveDisplayName,
+            now
+        )
+    }
+
+    private fun storedConversationDisplayNameLocked(
+        db: SQLiteDatabase,
+        conversationID: String
+    ): String? = db.query(
+        "conversations",
+        arrayOf("conversation_id", "display_name", "display_name_ciphertext"),
+        "conversation_id = ? COLLATE NOCASE",
+        arrayOf(conversationID),
+        null,
+        null,
+        null,
+        "1"
+    ).use { cursor ->
+        if (!cursor.moveToFirst()) return@use null
+        val storedConversationID = cursor.string("conversation_id")
+        cursor.blobOrNull("display_name_ciphertext")?.let {
+            storageCipher.decrypt(
+                it,
+                conversationDisplayNameAad(storedConversationID)
+            ).toString(Charsets.UTF_8)
+        } ?: cursor.nullableString("display_name")
     }
 
     private fun ensureConversationLocked(

@@ -99,9 +99,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var isScrolledUp by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedPrivatePeer) {
-        selectedPrivatePeer?.let { peerID ->
-            messageText = TextFieldValue(viewModel.conversationDraft(peerID))
-        }
+        messageText = TextFieldValue(
+            selectedPrivatePeer
+                ?.let(viewModel::conversationDraft)
+                .orEmpty()
+        )
     }
 
     // Show password dialog when needed

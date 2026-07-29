@@ -136,6 +136,60 @@ class AppStateStoreTest {
     }
 
     @Test
+    fun `live nickname updates retained conversation metadata`() {
+        val message = BitchatMessage(
+            id = "rename-message",
+            sender = "Alice Old",
+            content = "hello",
+            timestamp = Date(1),
+            isPrivate = true
+        )
+        AppStateStore.addPrivateMessage("peer-a", message)
+
+        AppStateStore.updatePrivateConversationDisplayNames(
+            mapOf("peer-a" to "Alice New")
+        )
+
+        assertEquals(
+            "Alice New",
+            AppStateStore.privateConversationDisplayNames.value.getValue("peer-a")
+        )
+    }
+
+    @Test
+    fun `restored unread and nickname state canonicalize with message aliases`() {
+        val noiseKeyHex = "02".repeat(32)
+        val contactID = ContactIdentityResolver.contactConversationIdForNoiseKey(
+            ByteArray(32) { 2 }
+        )
+        val message = BitchatMessage(
+            id = "restored-alias-message",
+            sender = "Alice",
+            content = "hello",
+            timestamp = Date(1),
+            isPrivate = true
+        )
+
+        AppStateStore.restorePrivateConversations(
+            PersistedConversationSnapshot(
+                chats = mapOf(noiseKeyHex to listOf(message)),
+                readMessageIDs = emptySet(),
+                arrivalOrder = listOf(message.id),
+                deletedMessageIDs = emptySet(),
+                displayNames = mapOf(noiseKeyHex to "Alice Renamed"),
+                unreadCounts = mapOf(noiseKeyHex to 1)
+            )
+        )
+
+        assertEquals(setOf(contactID), AppStateStore.privateMessages.value.keys)
+        assertEquals(mapOf(contactID to 1), AppStateStore.unreadPrivateMessageCounts.value)
+        assertEquals(
+            mapOf(contactID to "Alice Renamed"),
+            AppStateStore.privateConversationDisplayNames.value
+        )
+    }
+
+    @Test
     fun `canonicalized private chat history keeps arrival order when peer clocks differ`() {
         val noiseKeyHex = "01".repeat(32)
         val contactID = ContactIdentityResolver.contactConversationIdForNoiseKey(ByteArray(32) { 1 })
@@ -318,8 +372,12 @@ class AppStateStoreTest {
         val afterPanic = beforePanic.copy(id = "after-panic")
 
         assertTrue(AppStateStore.addPrivateMessage("peer-a", beforePanic))
+        AppStateStore.updatePrivateConversationDisplayNames(
+            mapOf("peer-a" to "Alice")
+        )
         assertTrue(runBlocking { AppStateStore.panicClearPrivateConversations() })
         assertTrue(AppStateStore.privateMessages.value.isEmpty())
+        assertTrue(AppStateStore.privateConversationDisplayNames.value.isEmpty())
         assertFalse(AppStateStore.addPrivateMessage("peer-a", duringPanic))
 
         AppStateStore.resumePrivateConversationsAfterPanic()

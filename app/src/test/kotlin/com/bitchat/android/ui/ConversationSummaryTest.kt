@@ -6,6 +6,7 @@ import com.bitchat.android.services.PrivateMessageArrivalOrder
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Date
 
@@ -164,6 +165,56 @@ class ConversationSummaryTest {
         assertEquals(1, conversations.size)
         assertEquals(setOf("contact_alice"), conversations.single().identityAliases)
         assertEquals(true, conversations.single().latestMessageIsOutgoing)
+    }
+
+    @Test
+    fun `outgoing messages remain outgoing after local nickname changes`() {
+        val outgoing = incoming(
+            id = "outgoing-before-rename",
+            sender = "old nickname",
+            timestamp = 200L,
+            content = "sent before rename"
+        ).copy(senderPeerID = "my-stable-peer-id")
+
+        val conversation = buildConversationSummaries(
+            unreadConversationIDs = setOf("contact_alice"),
+            privateChats = mapOf("contact_alice" to listOf(outgoing)),
+            currentUserIdentifiers = setOf("new nickname", "my-stable-peer-id"),
+            canonicalize = { it },
+            isMessageRead = { false },
+            persistedUnreadCounts = emptyMap()
+        ).single()
+
+        assertTrue(conversation.latestMessageIsOutgoing)
+        assertEquals(0, conversation.unreadCount)
+    }
+
+    @Test
+    fun `connected nickname overrides cached conversation names`() {
+        assertEquals(
+            "Alice Renamed",
+            resolveConversationDisplayName(
+                fallbackName = "Alice From Message",
+                connectedPeerID = "peer-a",
+                peerNicknames = mapOf("peer-a" to "Alice Renamed"),
+                resolvedContactName = "Alice Favorite Snapshot",
+                persistedDisplayName = "Alice Persisted"
+            )
+        )
+    }
+
+    @Test
+    fun `persisted nickname is used when no live or contact name remains`() {
+        assertEquals(
+            "Alice Persisted",
+            resolveConversationDisplayName(
+                fallbackName = "Alice From Message",
+                connectedPeerID = null,
+                peerNicknames = emptyMap(),
+                resolvedContactName = null,
+                persistedDisplayName = "Alice Persisted"
+            )
+        )
     }
 
     @Test

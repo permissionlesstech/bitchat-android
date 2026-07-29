@@ -3,6 +3,8 @@ package com.bitchat.android.services
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.identity.SecureIdentityStateManager
+import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -21,6 +23,12 @@ class ConversationListPreferencesTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         preferencesName = "conversation-list-${UUID.randomUUID()}"
+        ContactDirectory.initialize(context) { null }
+    }
+
+    @After
+    fun tearDown() {
+        ContactDirectory.initialize(context) { null }
     }
 
     @Test
@@ -64,12 +72,39 @@ class ConversationListPreferencesTest {
         assertTrue(afterPanic.drafts.value.isEmpty())
     }
 
-    private fun preferences(): ConversationListPreferences {
+    @Test
+    fun `identity canonicalization preserves pin mute and draft state`() {
+        val peerID = "1122334455667788"
+        val contactID = "contact_alice"
+        val beforeIdentityResolution = preferences(canonicalize = { it })
+        beforeIdentityResolution.togglePinned(peerID)
+        beforeIdentityResolution.toggleMuted(peerID)
+        beforeIdentityResolution.setDraft(peerID, "unfinished reply")
+
+        val afterIdentityResolution = preferences(
+            canonicalize = { value ->
+                if (value.equals(peerID, ignoreCase = true)) contactID else value
+            }
+        )
+        afterIdentityResolution.canonicalizeAliases()
+
+        assertEquals(setOf(contactID), afterIdentityResolution.pinned.value)
+        assertEquals(setOf(contactID), afterIdentityResolution.muted.value)
+        assertEquals(
+            mapOf(contactID to "unfinished reply"),
+            afterIdentityResolution.drafts.value
+        )
+    }
+
+    private fun preferences(
+        canonicalize: (String) -> String = ContactDirectory::canonicalConversationId
+    ): ConversationListPreferences {
         val sharedPreferences =
             context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
         return ConversationListPreferences(
             stateManager = SecureIdentityStateManager(sharedPreferences, testOnly = true),
-            testOnly = true
+            testOnly = true,
+            canonicalize = canonicalize
         )
     }
 }
