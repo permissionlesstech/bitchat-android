@@ -756,7 +756,7 @@ class HotspotManager @VisibleForTesting internal constructor(
                 canFinishUncloseableFormation &&
                 current.cleanup is Cleanup.Inspecting &&
                 current.cleanup.purpose == Cleanup.Inspection.AWAIT_POSSIBLE_FORMATION &&
-                current.cleanup.hasTerminalFormationEvidence()
+                current.cleanup.hasNoOwnershipEvidence()
             ) {
                 // API 26 cannot close a channel. Once createGroup() has already returned
                 // success, continued null snapshots are bounded failed-formation evidence;
@@ -785,12 +785,6 @@ class HotspotManager @VisibleForTesting internal constructor(
         expectedGroupName == null &&
             candidateGroupName != null &&
             candidateObservations > 0
-
-    private fun Cleanup.Inspecting.hasDisappearedOwnershipCandidate(): Boolean =
-        hasOwnershipCandidate() && absentObservations > 0
-
-    private fun Cleanup.Inspecting.hasTerminalFormationEvidence(): Boolean =
-        hasNoOwnershipEvidence() || hasDisappearedOwnershipCandidate()
 
     private fun inspectCleanup(stopping: Phase.Stopping) {
         val cleanup = stopping.cleanup as? Cleanup.Inspecting ?: return

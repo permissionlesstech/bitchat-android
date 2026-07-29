@@ -331,6 +331,32 @@ class HotspotManagerLifecycleTest {
     }
 
     @Test
+    fun `API 26 cleanup keeps candidate ownership after one absent snapshot`() {
+        val fixture = Fixture(
+            p2p = FakeP2p(
+                supportsP2pStateQuery = false,
+                supportsCustomCredentials = false,
+                supportsChannelClose = false
+            )
+        )
+
+        fixture.manager.startHotspot(fixture.callback)
+        fixture.p2p.answerGroup(null)
+        fixture.p2p.acceptCreate()
+        fixture.scheduler.runCurrent()
+        fixture.p2p.answerGroup(livePreQGroup())
+        fixture.manager.stopHotspot()
+
+        fixture.p2p.answerGroup(null)
+        fixture.scheduler.advanceBy(10_000)
+
+        assertEquals("Stopping", fixture.manager.lifecycleName())
+        assertTrue(fixture.platform.active)
+        assertTrue(fixture.callback.errors.isEmpty())
+        assertEquals(1, fixture.p2p.channels.size)
+    }
+
+    @Test
     fun `fresh channel does not adopt an unknown pre Q group`() {
         val fixture = Fixture(
             p2p = FakeP2p(
