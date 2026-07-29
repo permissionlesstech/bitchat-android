@@ -144,11 +144,15 @@ class WearMeshForegroundService : Service() {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(
-                resources.getQuantityString(
-                    R.plurals.mesh_notification_text,
-                    activePeers,
-                    activePeers
-                )
+                if (activePeers == 0) {
+                    getString(R.string.mesh_notification_no_peers)
+                } else {
+                    resources.getQuantityString(
+                        R.plurals.mesh_notification_text,
+                        activePeers,
+                        activePeers
+                    )
+                }
             )
             .setContentIntent(launchIntent)
             .setOngoing(true)
