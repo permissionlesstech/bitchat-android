@@ -40,45 +40,65 @@ object GitHubReleaseClient {
     private var cachedEtag: String? = null
 
     /**
-     * Epoch millis before which GitHub has already told us it will reject anything we send.
+     * Epoch millis before which GitHub has already told us it will reject anything we send,
+     * held per route.
      *
-     * Without this, an exhausted quota fed itself: nothing cached the failure, so every screen
-     * that asked for release info spent three more requests discovering the same limit.
+     * GitHub counts unauthenticated requests per IP, so a Tor exit and a direct connection
+     * have separate quotas. They are kept side by side rather than as one deadline that
+     * moves with the route: replacing it would mean switching away and back forgets a
+     * cooldown that is still running, and the app would hit the limited exit again.
+     *
+     * Without any of this, an exhausted quota fed itself: nothing cached the failure, so
+     * every screen that asked for release info spent three more requests rediscovering the
+     * same limit.
      */
     @Volatile
-    private var blockedUntilMillis = 0L
+    private var torBlockedUntilMillis = 0L
 
-    /**
-     * Whether Tor was the selected route when [blockedUntilMillis] was recorded, or null
-     * when no gate is set. GitHub counts unauthenticated requests per IP, so a Tor exit
-     * and a direct connection have separate quotas -- a cooldown earned on one must not
-     * be served to the other.
-     */
     @Volatile
-    private var blockedRouteUsedTor: Boolean? = null
+    private var directBlockedUntilMillis = 0L
 
     /**
      * The route requests will take, which is what the quota belongs to.
      *
      * Deliberately the selected mode rather than `isProxyEnabled()`: that reports
      * readiness, and is false while Tor is still bootstrapping or restarting even though
-     * requests will still go through Tor once it is up. Using it as the route identity
-     * would clear a Tor-earned gate mid-bootstrap and apply a direct-earned one to the
-     * first Tor request.
+     * requests will still go through Tor once it is up.
      */
     private fun selectedRouteUsesTor(): Boolean? =
         runCatching { ArtiTorManager.getInstance().statusFlow.value.mode != TorMode.OFF }
             .getOrNull()
 
-    /** Drops a gate earned on a route the app is no longer using. */
-    private fun clearGateIfRouteChanged() {
-        val recordedRoute = blockedRouteUsedTor ?: return
-        val currentRoute = selectedRouteUsesTor() ?: return
+    /**
+     * The deadline for the route about to be used. When the route cannot be determined the
+     * stricter of the two applies: failing to identify it must not release a real cooldown.
+     */
+    private fun blockedUntilForCurrentRoute(): Long = when (selectedRouteUsesTor()) {
+        true -> torBlockedUntilMillis
+        false -> directBlockedUntilMillis
+        null -> maxOf(torBlockedUntilMillis, directBlockedUntilMillis)
+    }
 
-        if (recordedRoute != currentRoute) {
-            Log.i(TAG, "Route changed since the rate limit was recorded; clearing the gate")
-            blockedUntilMillis = 0L
-            blockedRouteUsedTor = null
+    private fun recordBlockedUntil(untilMillis: Long) {
+        when (selectedRouteUsesTor()) {
+            true -> torBlockedUntilMillis = untilMillis
+            false -> directBlockedUntilMillis = untilMillis
+            null -> {
+                torBlockedUntilMillis = untilMillis
+                directBlockedUntilMillis = untilMillis
+            }
+        }
+    }
+
+    /** A success proves this route is clear. The other route's cooldown is left alone. */
+    private fun clearBlockedForCurrentRoute() {
+        when (selectedRouteUsesTor()) {
+            true -> torBlockedUntilMillis = 0L
+            false -> directBlockedUntilMillis = 0L
+            null -> {
+                torBlockedUntilMillis = 0L
+                directBlockedUntilMillis = 0L
+            }
         }
     }
 
@@ -118,13 +138,12 @@ object GitHubReleaseClient {
                     return@withLock Result.success(cached.release)
                 }
 
-                clearGateIfRouteChanged()
-
                 // Honoured even on an explicit refresh: sending a request GitHub has already said
                 // it will reject helps nobody and pushes the reset further out. A stale release is
                 // a better answer than an error the user cannot act on.
-                if (now < blockedUntilMillis) {
-                    val waitMinutes = (blockedUntilMillis - now) / 60_000 + 1
+                val blockedUntil = blockedUntilForCurrentRoute()
+                if (now < blockedUntil) {
+                    val waitMinutes = (blockedUntil - now) / 60_000 + 1
                     Log.w(TAG, "Rate limited; not contacting GitHub for another ${waitMinutes}min")
                     cached?.let { return@withLock Result.success(it.release) }
                     return@withLock Result.failure(
@@ -168,7 +187,7 @@ object GitHubReleaseClient {
                     // on. Reporting an error here and only serving the cache on the next
                     // call makes the first check fail and an immediate retry succeed from
                     // metadata we already had.
-                    if (System.currentTimeMillis() < blockedUntilMillis) {
+                    if (System.currentTimeMillis() < blockedUntilForCurrentRoute()) {
                         cached?.let {
                             Log.w(TAG, "Rate limited; serving the cached release instead of failing")
                             return@withLock Result.success(it.release)
@@ -230,9 +249,8 @@ object GitHubReleaseClient {
                         nowMillis = System.currentTimeMillis(),
                     )
                     if (blockedUntil != null) {
-                        blockedUntilMillis = blockedUntil
-                        // Record which route earned it: the quota belongs to that IP.
-                        blockedRouteUsedTor = selectedRouteUsesTor()
+                        // Recorded against the route that earned it: the quota is that IP's.
+                        recordBlockedUntil(blockedUntil)
                     }
 
                     val message = if (blockedUntil != null) {
@@ -277,8 +295,7 @@ object GitHubReleaseClient {
                 // Kept alongside the release so the pair can never drift: a stale ETag would
                 // revalidate to a 304 that confirms a release we no longer hold.
                 cachedEtag = response.header("ETag")
-                blockedUntilMillis = 0L
-                blockedRouteUsedTor = null
+                clearBlockedForCurrentRoute()
                 Result.success(release)
             }
         } catch (e: IOException) {
