@@ -1,5 +1,6 @@
 package com.bitchat.android.services
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
@@ -20,6 +21,8 @@ class SeenMessageStore private constructor(private val context: Context) {
         private const val STORAGE_KEY = "seen_message_store_v1"
         private const val MAX_IDS = com.bitchat.android.util.AppConstants.Services.SEEN_MESSAGE_MAX_IDS
 
+        // The constructor always receives applicationContext, so process lifetime is intentional.
+        @SuppressLint("StaticFieldLeak")
         @Volatile private var INSTANCE: SeenMessageStore? = null
         fun getInstance(appContext: Context): SeenMessageStore {
             return INSTANCE ?: synchronized(this) {
@@ -54,6 +57,7 @@ class SeenMessageStore private constructor(private val context: Context) {
             locallyRead.add(id)
             trim(locallyRead)
         }
+        AppStateStore.markPrivateMessageRead(id)
         persist()
     }
 
@@ -62,6 +66,14 @@ class SeenMessageStore private constructor(private val context: Context) {
             readReceiptsSent.add(id)
             trim(readReceiptsSent)
         }
+        persist()
+    }
+
+    @Synchronized fun remove(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        delivered.removeAll(ids)
+        locallyRead.removeAll(ids)
+        readReceiptsSent.removeAll(ids)
         persist()
     }
 

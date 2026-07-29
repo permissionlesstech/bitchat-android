@@ -5,6 +5,8 @@ import android.net.Uri
 import android.os.Environment
 import android.util.Log
 import androidx.core.content.FileProvider
+import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.BitchatMessageType
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -322,5 +324,81 @@ object FileUtils {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear media files", e)
         }
+    }
+
+    /**
+     * Delete app-owned media referenced only by the conversation being removed.
+     *
+     * Canonical-path checks prevent message content from turning this into an arbitrary-file
+     * deletion primitive. Shared paths remain intact while any retained message still references
+     * them.
+     */
+    fun deleteConversationMedia(
+        context: Context,
+        deletedMessages: Collection<BitchatMessage>,
+        retainedMessages: Collection<BitchatMessage>
+    ) {
+        val mediaTypes = setOf(
+            BitchatMessageType.Audio,
+            BitchatMessageType.Image,
+            BitchatMessageType.File
+        )
+        val roots = listOf(context.filesDir, context.cacheDir)
+            .mapNotNull { runCatching { it.canonicalFile }.getOrNull() }
+        val retainedPaths = retainedMessages
+            .asSequence()
+            .filter { it.type in mediaTypes }
+            .mapNotNull { message ->
+                runCatching { File(message.content.trim()).canonicalPath }.getOrNull()
+            }
+            .toSet()
+
+        deletedMessages
+            .asSequence()
+            .filter { it.type in mediaTypes }
+            .mapNotNull { message ->
+                runCatching { File(message.content.trim()).canonicalFile }.getOrNull()
+            }
+            .distinctBy(File::getPath)
+            .filter { file ->
+                file.path !in retainedPaths &&
+                    roots.any { root ->
+                        file.path == root.path ||
+                            file.path.startsWith(root.path + File.separator)
+                    }
+            }
+            .forEach { file ->
+                runCatching {
+                    if (file.isFile && !file.delete()) {
+                        Log.w(TAG, "Unable to delete conversation media")
+                    }
+                }
+            }
+    }
+
+    /**
+     * Deletes paths proven by the conversation database to have no remaining message reference.
+     * The same canonical-root boundary as explicit conversation deletion prevents arbitrary paths
+     * from being removed even if persisted metadata is malformed.
+     */
+    fun deleteStoredMediaPaths(context: Context, paths: Collection<String>) {
+        val roots = listOf(context.filesDir, context.cacheDir)
+            .mapNotNull { runCatching { it.canonicalFile }.getOrNull() }
+        paths.asSequence()
+            .mapNotNull { runCatching { File(it).canonicalFile }.getOrNull() }
+            .distinctBy(File::getPath)
+            .filter { file ->
+                roots.any { root ->
+                    file.path == root.path ||
+                        file.path.startsWith(root.path + File.separator)
+                }
+            }
+            .forEach { file ->
+                runCatching {
+                    if (file.isFile && !file.delete()) {
+                        Log.w(TAG, "Unable to delete unreferenced conversation media")
+                    }
+                }
+            }
     }
 }

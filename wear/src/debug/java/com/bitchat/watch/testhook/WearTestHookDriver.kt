@@ -10,6 +10,7 @@ import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.service.WearMeshForegroundService
+import com.bitchat.watch.ui.WearPeerIdentityState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -49,6 +50,18 @@ object WearTestHookDriver {
             "dm_send" -> dmSend(context, intent.requiredString("peer"), intent.requiredString("content"), intent.getStringExtra("msg_id"))
             "dm_recv" -> dmRecv(context, intent)
             "msg_recv" -> msgRecv(context, intent)
+            "favorite_set" -> favoriteSet(
+                context,
+                intent.requiredString("peer"),
+                intent.getBooleanExtra("enabled", true)
+            )
+            "favorite_status" -> favoriteStatus(context, intent.requiredString("peer"))
+            "verification_set" -> verificationSet(
+                context,
+                intent.requiredString("peer"),
+                intent.getBooleanExtra("enabled", true)
+            )
+            "verification_status" -> verificationStatus(context, intent.requiredString("peer"))
             "raw_send" -> rawSend(context, intent)
             "file_recv" -> fileRecv(context, intent)
             "state" -> state(context)
@@ -250,6 +263,55 @@ object WearTestHookDriver {
             .put("sender", found.sender)
             .put("content", found.content)
             .put("msg_id", found.id)
+    }
+
+    // MARK: - Favorite and verification state
+
+    private fun favoriteSet(context: Context, peerID: String, enabled: Boolean): JSONObject {
+        val mesh = mesh(context)
+        WearPeerIdentityState.initialize(context)
+        if (!WearPeerIdentityState.setFavorite(peerID, enabled, mesh)) {
+            return err("favorite_set", "peer Noise identity is unavailable")
+        }
+        return favoriteStatus(context, peerID)
+    }
+
+    private fun favoriteStatus(context: Context, peerID: String): JSONObject {
+        val mesh = mesh(context)
+        WearPeerIdentityState.initialize(context)
+        val identity = WearPeerIdentityState.snapshot(peerID, mesh)
+        return ok("favorite_status")
+            .put("peer", peerID)
+            .put("is_favorite", identity.isFavorite)
+            .put("they_favorited_us", identity.theyFavoritedUs)
+            .put("is_mutual", identity.isFavorite && identity.theyFavoritedUs)
+            .put(
+                "star_state",
+                when (identity.favoriteIndicator) {
+                    com.bitchat.watch.ui.FavoriteIndicator.Favorite -> "filled"
+                    com.bitchat.watch.ui.FavoriteIndicator.FavoritedUs -> "outlined_orange"
+                    com.bitchat.watch.ui.FavoriteIndicator.None -> "outlined"
+                }
+            )
+    }
+
+    private fun verificationSet(context: Context, peerID: String, enabled: Boolean): JSONObject {
+        val mesh = mesh(context)
+        WearPeerIdentityState.initialize(context)
+        if (!WearPeerIdentityState.setVerified(peerID, enabled, mesh)) {
+            return err("verification_set", "peer fingerprint is unavailable")
+        }
+        return verificationStatus(context, peerID)
+    }
+
+    private fun verificationStatus(context: Context, peerID: String): JSONObject {
+        val mesh = mesh(context)
+        WearPeerIdentityState.initialize(context)
+        val identity = WearPeerIdentityState.snapshot(peerID, mesh)
+        return ok("verification_status")
+            .put("peer", peerID)
+            .put("fingerprint", identity.fingerprint ?: JSONObject.NULL)
+            .put("verified", identity.isVerified)
     }
 
     // MARK: - Raw packet injection

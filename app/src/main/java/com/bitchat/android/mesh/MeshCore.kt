@@ -41,7 +41,11 @@ class MeshCore(
     private val hooks: Hooks = Hooks()
 ) {
     data class Hooks(
-        val onMessageReceived: ((BitchatMessage) -> Unit)? = null,
+        /**
+         * Reflects a decoded message into transport-owned state before delegate dispatch.
+         * Return false to suppress all downstream effects for a rejected message.
+         */
+        val onMessageReceived: ((BitchatMessage) -> Boolean)? = null,
         val onAnnounceProcessed: ((RoutedPacket, Boolean) -> Unit)? = null,
         val readReceiptInterceptor: ((String, String) -> Boolean)? = null,
         val onReadReceiptSent: ((String) -> Unit)? = null,
@@ -392,7 +396,7 @@ class MeshCore(
             }
 
             override fun onMessageReceived(message: BitchatMessage) {
-                hooks.onMessageReceived?.invoke(message)
+                if (hooks.onMessageReceived?.invoke(message) == false) return
                 delegate?.didReceiveMessage(message)
             }
 

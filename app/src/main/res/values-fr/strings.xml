@@ -46,7 +46,7 @@
     <string name="notification_summary_more">et %1$d de plus</string>
     <string name="notification_messages_from_people">%1$d messages de %2$d personnes</string>
     <string name="notification_more_conversations">et %1$d conversations de plus</string>
-    <string name="notification_active_peers_title">👥 bitchatters à proximité !</string>
+    <string name="notification_active_peers_title">bitchatters à proximité !</string>
     <string name="notification_active_peers_one">1 personne à proximité</string>
     <string name="notification_active_peers_many">%1$d personnes à proximité</string>
     <string name="notification_new_messages">Nouveaux messages</string>
@@ -408,4 +408,8 @@
   <string name="nearby_notes_reveal">vérifier s\'il y a des notes laissées ici</string>
   <string name="nearby_notes_one">1 note laissée ici — appuyez pour lire</string>
   <string name="nearby_notes_many">%d notes laissées ici — appuyez pour lire</string>
+    <string name="about_language">Langue</string>
+    <string name="about_app_language">Langue de l’appli</string>
+    <string name="about_system_default">Langue du système</string>
+    <string name="about_select_language">Choisir la langue</string>
 </resources>

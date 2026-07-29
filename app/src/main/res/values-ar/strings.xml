@@ -46,7 +46,7 @@
     <string name="notification_summary_more">و%1$d إضافية</string>
     <string name="notification_messages_from_people">%1$d رسالة من %2$d أشخاص</string>
     <string name="notification_more_conversations">و%1$d محادثات أخرى</string>
-    <string name="notification_active_peers_title">👥 مستخدمون قريبون!</string>
+    <string name="notification_active_peers_title">مستخدمون قريبون!</string>
     <string name="notification_active_peers_one">شخص واحد قريب</string>
     <string name="notification_active_peers_many">%1$d أشخاص قريبون</string>
     <string name="notification_new_messages">رسائل جديدة</string>
@@ -390,4 +390,8 @@
   <string name="nearby_notes_reveal">تحقّق من الملاحظات المتروكة هنا</string>
   <string name="nearby_notes_one">تُركت ملاحظة واحدة هنا — انقر للقراءة</string>
   <string name="nearby_notes_many">تُركت %d ملاحظات هنا — انقر للقراءة</string>
+    <string name="about_language">اللغة</string>
+    <string name="about_app_language">لغة التطبيق</string>
+    <string name="about_system_default">إعداد النظام الافتراضي</string>
+    <string name="about_select_language">اختر اللغة</string>
 </resources>

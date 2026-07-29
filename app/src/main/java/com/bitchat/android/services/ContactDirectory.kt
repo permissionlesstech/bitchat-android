@@ -81,9 +81,19 @@ object ContactDirectory {
             conversationID = conversationID,
             meshPeerID = liveMeshPeerID,
             noisePublicKey = noiseKey ?: liveMeshPeerID?.let { meshProvider?.invoke()?.getPeerInfo(it)?.noisePublicKey },
-            nostrPubkey = favorite?.peerNostrPublicKey,
-            displayName = favorite?.peerNickname?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
-                ?: liveMeshPeerID?.let { meshProvider?.invoke()?.getPeerInfo(it)?.nickname }
+            nostrPubkey = favorite?.peerNostrPublicKey
+                ?: liveMeshPeerID?.let {
+                    runCatching {
+                        FavoritesPersistenceService.shared.findNostrPubkeyForPeerID(it)
+                    }.getOrNull()
+                },
+            // A connected peer's current announcement is authoritative. Favorite and fingerprint
+            // records are offline fallbacks and can legitimately contain an older nickname.
+            displayName = liveMeshPeerID?.let { meshProvider?.invoke()?.getPeerInfo(it)?.nickname }
+                ?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
+                ?: favorite?.peerNickname?.takeIf {
+                    it.isNotBlank() && !it.equals("Unknown", ignoreCase = true)
+                }
                 ?: contactFingerprint?.let { cachedFingerprintNickname(it) },
             isMutualFavorite = favorite?.isMutual == true
         )

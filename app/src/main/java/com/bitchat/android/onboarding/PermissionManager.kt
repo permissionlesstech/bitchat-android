@@ -19,6 +19,8 @@ class PermissionManager(private val context: Context) {
         private const val TAG = "PermissionManager"
         private const val PREFS_NAME = "bitchat_permissions"
         private const val KEY_FIRST_TIME_COMPLETE = "first_time_onboarding_complete"
+        private const val KEY_OPTIONAL_PERMISSION_REQUESTED_PREFIX =
+            "optional_permission_requested_"
     }
 
     private val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -147,6 +149,32 @@ class PermissionManager(private val context: Context) {
             optional.add(Manifest.permission.POST_NOTIFICATIONS)
         }
         return optional
+    }
+
+    /**
+     * Optional permissions are prompted once. A denial must not trap returning users in
+     * onboarding, while users upgrading to a notification-permission Android version
+     * should still receive one contextual request.
+     */
+    fun getUnrequestedOptionalPermissions(): List<String> {
+        return getOptionalPermissions().filter { permission ->
+            !isPermissionGranted(permission) &&
+                !sharedPrefs.getBoolean(optionalPermissionRequestKey(permission), false)
+        }
+    }
+
+    fun markOptionalPermissionsRequested(permissions: Collection<String>) {
+        if (permissions.isEmpty()) return
+
+        sharedPrefs.edit().apply {
+            permissions.forEach { permission ->
+                putBoolean(optionalPermissionRequestKey(permission), true)
+            }
+        }.apply()
+    }
+
+    private fun optionalPermissionRequestKey(permission: String): String {
+        return KEY_OPTIONAL_PERMISSION_REQUESTED_PREFIX + permission
     }
 
     /**

@@ -28,10 +28,6 @@ class HotspotManager(private val context: Context) {
     companion object {
         private const val TAG = "HotspotMgr"
 
-        // Retry configuration
-        private const val MAX_FRAMEWORK_ATTEMPTS = 5
-        private const val RETRY_DELAY_MILLIS = 1000L
-
         // Group info polling interval
         private const val GROUP_INFO_POLL_INTERVAL_MILLIS = 1000L
 
@@ -39,9 +35,13 @@ class HotspotManager(private val context: Context) {
         private const val GROUP_FORMATION_TIMEOUT_MILLIS = 15_000L
 
         // SSID and password configuration
-        private const val SSID_PREFIX = "DIRECT-BC-" // BC for BitChat
         private const val SSID_SUFFIX_LENGTH = 8
         private const val PASSWORD_LENGTH = 16
+
+        // Records the group we created so a later run can tell our own orphan apart
+        // from a group belonging to Cast, Android Auto or Quick Share.
+        private const val PREFS_NAME = "hotspot"
+        private const val KEY_OWNED_GROUP = "owned_group_name"
 
         // Characters to use for random generation (excluding confusing ones)
         private const val RANDOM_CHARS = "ABCDEFGHJKLMNPQRTUVWXY34679" // No 0,O,5,S,1,l,I
@@ -67,13 +67,31 @@ class HotspotManager(private val context: Context) {
     private var savedSsid: String? = null
     private var savedPassword: String? = null
 
+    // Last Wi-Fi P2P state seen on the broadcast, or null before the first one arrives
+    private var lastP2pState: Int? = null
+
+    private val prefs by lazy { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+
+    /** Network name of the last group this app created, surviving process death. */
+    private var ownedGroupName: String?
+        get() = prefs.getString(KEY_OWNED_GROUP, null)
+        set(value) = prefs.edit().putString(KEY_OWNED_GROUP, value).apply()
+
     // Broadcast receiver for Wi-Fi P2P events
     private val broadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION -> {
                     val state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1)
+                    lastP2pState = state
                     Log.d(TAG, "Wi-Fi P2P state changed: $state")
+
+                    // Wi-Fi Direct going away is terminal for this session: without it
+                    // the group cannot form, and any group already up is now dead.
+                    if (state == WIFI_P2P_STATE_DISABLED && (isStarting || hasNotifiedStarted)) {
+                        Log.w(TAG, "Wi-Fi P2P was disabled; aborting hotspot")
+                        failStartup(HotspotStartupPolicy.P2P_DISABLED_MESSAGE)
+                    }
                 }
                 WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
                     Log.d(TAG, "Wi-Fi P2P connection changed")
@@ -138,8 +156,8 @@ class HotspotManager(private val context: Context) {
             Log.d(TAG, "Using saved credentials: SSID=$savedSsid")
         }
 
-        // Start P2P framework with retries
-        startWifiP2pFramework(1)
+        // Start P2P framework (retries reuse this one channel)
+        startWifiP2pFramework()
     }
 
     /**
@@ -154,14 +172,22 @@ class HotspotManager(private val context: Context) {
         // Stop group info polling
         handler.removeCallbacksAndMessages(null)
 
-        // Remove group
-        channel?.let { ch ->
-            wifiP2pManager?.removeGroup(ch, object : ActionListener {
+        // Detach the channel first so any in-flight listener sees the hotspot as stopped,
+        // then remove the group and close the channel once the framework has replied.
+        val staleChannel = channel
+        channel = null
+
+        if (staleChannel != null) {
+            wifiP2pManager?.removeGroup(staleChannel, object : ActionListener {
                 override fun onSuccess() {
                     Log.d(TAG, "Group removed successfully")
+                    // Nothing of ours is left for a later run to clean up.
+                    ownedGroupName = null
+                    closeChannel(staleChannel)
                 }
                 override fun onFailure(reason: Int) {
                     Log.w(TAG, "Failed to remove group: $reason")
+                    closeChannel(staleChannel)
                 }
             })
         }
@@ -182,8 +208,23 @@ class HotspotManager(private val context: Context) {
         }
 
         currentGroup = null
-        channel = null
         callback = null
+    }
+
+    /**
+     * Release the channel's binder registration with WifiP2pService. Without this the
+     * registration survives until the process dies, and every start/stop cycle adds
+     * another stale client to the framework's list.
+     */
+    private fun closeChannel(channelToClose: Channel) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) return
+
+        try {
+            channelToClose.close()
+            Log.d(TAG, "P2P channel closed")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error closing P2P channel", e)
+        }
     }
 
     /**
@@ -202,28 +243,103 @@ class HotspotManager(private val context: Context) {
     }
 
     /**
-     * Start Wi-Fi P2P framework with retry logic.
+     * Initialise the P2P framework once. Every retry reuses this channel — calling
+     * initialize() per attempt registers a fresh binder with WifiP2pService that is
+     * never reclaimed until the process dies.
      */
-    private fun startWifiP2pFramework(attempt: Int) {
-        if (attempt > MAX_FRAMEWORK_ATTEMPTS) {
-            Log.e(TAG, "Failed to start P2P framework after $MAX_FRAMEWORK_ATTEMPTS attempts")
-            failStartup("Failed to start hotspot. Please try again.")
-            return
-        }
+    private fun startWifiP2pFramework() {
+        Log.d(TAG, "Initialising P2P channel")
 
-        Log.d(TAG, "Starting P2P framework (attempt $attempt/$MAX_FRAMEWORK_ATTEMPTS)")
+        val newChannel = wifiP2pManager?.initialize(context, Looper.getMainLooper(), null)
 
-        channel = wifiP2pManager?.initialize(context, Looper.getMainLooper(), null)
-
-        if (channel == null) {
+        if (newChannel == null) {
+            // The service is unobtainable; retrying will not change that.
             Log.e(TAG, "Failed to initialize P2P channel")
-            handler.postDelayed({
-                startWifiP2pFramework(attempt + 1)
-            }, RETRY_DELAY_MILLIS)
+            failStartup(HotspotStartupPolicy.P2P_UNSUPPORTED_MESSAGE)
             return
         }
 
-        createGroup(attempt)
+        channel = newChannel
+        createGroupWhenP2pAvailable()
+    }
+
+    /**
+     * Ask the framework for the current P2P state before the first attempt.
+     *
+     * When P2P is disabled the state machine answers every createGroup with BUSY —
+     * the same code a genuinely transient collision returns — so without this check
+     * a permanent failure is indistinguishable from a retryable one.
+     */
+    @SuppressLint("MissingPermission")
+    private fun createGroupWhenP2pAvailable() {
+        val ch = channel ?: return
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            clearStaleGroupThenCreate(ch, attempt = 1)
+            return
+        }
+
+        try {
+            wifiP2pManager?.requestP2pState(ch) { state ->
+                if (channel !== ch) return@requestP2pState
+                lastP2pState = state
+                clearStaleGroupThenCreate(ch, attempt = 1)
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Wi-Fi permission was revoked while reading P2P state", e)
+            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
+        }
+    }
+
+    /**
+     * A P2P group survives the process that created it, so a previous session killed
+     * while hosting leaves an orphan behind. The framework then rejects createGroup
+     * with BUSY for as long as that group exists, which no retry can clear.
+     */
+    @SuppressLint("MissingPermission")
+    private fun clearStaleGroupThenCreate(ch: Channel, attempt: Int) {
+        try {
+            wifiP2pManager?.requestGroupInfo(ch) { existingGroup ->
+                if (channel !== ch) return@requestGroupInfo
+
+                val action = HotspotStartupPolicy.startAction(
+                    p2pState = lastP2pState,
+                    existingGroupName = existingGroup?.networkName,
+                    ownedGroupName = ownedGroupName
+                )
+
+                when (action) {
+                    is HotspotStartupPolicy.StartAction.Fail -> {
+                        Log.w(TAG, "Not attempting group creation: ${action.message}")
+                        failStartup(action.message)
+                    }
+                    HotspotStartupPolicy.StartAction.Create -> createGroup(attempt)
+                    HotspotStartupPolicy.StartAction.RemoveStaleGroupThenCreate -> {
+                        Log.w(TAG, "Removing stale group '${existingGroup?.networkName}' before creating")
+                        removeStaleGroup(ch, attempt)
+                    }
+                }
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Wi-Fi permission was revoked while reading group info", e)
+            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
+        }
+    }
+
+    private fun removeStaleGroup(ch: Channel, attempt: Int) {
+        wifiP2pManager?.removeGroup(ch, object : ActionListener {
+            override fun onSuccess() {
+                if (channel !== ch) return
+                Log.d(TAG, "Stale group removed")
+                createGroup(attempt)
+            }
+            override fun onFailure(reason: Int) {
+                if (channel !== ch) return
+                // Creation may still succeed, and a BUSY reply here backs off as usual.
+                Log.w(TAG, "Failed to remove stale group: $reason; attempting creation anyway")
+                createGroup(attempt)
+            }
+        })
     }
 
     /**
@@ -235,6 +351,10 @@ class HotspotManager(private val context: Context) {
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Record before the call: if the process dies between creation and the
+                // first group info, the next run still knows this orphan is ours.
+                ownedGroupName = savedSsid
+
                 // Android 10+: Custom SSID and password
                 val config = WifiP2pConfig.Builder()
                     .setNetworkName(savedSsid!!)
@@ -274,7 +394,7 @@ class HotspotManager(private val context: Context) {
     }
 
     /**
-     * Handle group creation failure with retry logic.
+     * Handle group creation failure, backing off only for genuinely transient causes.
      */
     private fun handleGroupCreationFailure(reason: Int, attempt: Int) {
         val reasonStr = when (reason) {
@@ -284,16 +404,22 @@ class HotspotManager(private val context: Context) {
             else -> "UNKNOWN($reason)"
         }
 
-        Log.w(TAG, "Failed to create group: $reasonStr")
+        Log.w(
+            TAG,
+            "Failed to create group: $reasonStr " +
+                "(attempt $attempt/${HotspotStartupPolicy.MAX_ATTEMPTS}, p2pState=$lastP2pState)"
+        )
 
-        if (reason == BUSY && attempt < MAX_FRAMEWORK_ATTEMPTS) {
-            // Framework is busy, retry
-            Log.d(TAG, "P2P framework busy, retrying...")
-            handler.postDelayed({
-                startWifiP2pFramework(attempt + 1)
-            }, RETRY_DELAY_MILLIS)
-        } else {
-            failStartup("Failed to create hotspot: $reasonStr")
+        when (val decision = HotspotStartupPolicy.decide(reason, attempt, lastP2pState)) {
+            is HotspotStartupPolicy.Decision.Retry -> {
+                Log.d(TAG, "Retrying group creation in ${decision.delayMillis}ms")
+                handler.postDelayed({
+                    // Re-check for a stale group each round: BUSY is also how the
+                    // framework reports "a group already exists".
+                    channel?.let { clearStaleGroupThenCreate(it, attempt + 1) }
+                }, decision.delayMillis)
+            }
+            is HotspotStartupPolicy.Decision.Fail -> failStartup(decision.message)
         }
     }
 
@@ -354,6 +480,9 @@ class HotspotManager(private val context: Context) {
                         savedSsid = group.networkName
                         savedPassword = group.passphrase
                     }
+
+                    // Authoritative name straight from the framework
+                    group.networkName?.let { ownedGroupName = it }
 
                     // Notify callback on FIRST successful group info retrieval
                     if (!hasNotifiedStarted) {
@@ -460,7 +589,7 @@ class HotspotManager(private val context: Context) {
         val suffix = (1..SSID_SUFFIX_LENGTH)
             .map { RANDOM_CHARS[random.nextInt(RANDOM_CHARS.length)] }
             .joinToString("")
-        return "$SSID_PREFIX$suffix"
+        return "${HotspotStartupPolicy.SSID_PREFIX}$suffix"
     }
 
     /**

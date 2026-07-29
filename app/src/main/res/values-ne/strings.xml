@@ -46,7 +46,7 @@
     <string name="notification_summary_more">र %1$d थप</string>
     <string name="notification_messages_from_people">%1$d सन्देश %2$d जनाबाट</string>
     <string name="notification_more_conversations">र %1$d अरू कुराकानी</string>
-    <string name="notification_active_peers_title">👥 नजिकै bitchatter हरू!</string>
+    <string name="notification_active_peers_title">नजिकै bitchatter हरू!</string>
     <string name="notification_active_peers_one">१ जना नजिकै</string>
     <string name="notification_active_peers_many">%1$d जना नजिकै</string>
     <string name="notification_new_messages">नयाँ सन्देश</string>
@@ -394,4 +394,8 @@
   <string name="nearby_notes_reveal">यहाँ छोडिएका नोटहरू छन् कि हेर्नुहोस्</string>
   <string name="nearby_notes_one">यहाँ 1 नोट छोडिएको छ — पढ्न ट्याप गर्नुहोस्</string>
   <string name="nearby_notes_many">यहाँ %d नोटहरू छोडिएका छन् — पढ्न ट्याप गर्नुहोस्</string>
+    <string name="about_language">भाषा</string>
+    <string name="about_app_language">एपको भाषा</string>
+    <string name="about_system_default">प्रणालीको पूर्वनिर्धारित</string>
+    <string name="about_select_language">भाषा छान्नुहोस्</string>
 </resources>

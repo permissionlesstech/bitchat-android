@@ -46,7 +46,7 @@
     <string name="notification_summary_more">그리고 %1$d개 더</string>
     <string name="notification_messages_from_people">%2$d명에게서 %1$d개의 메시지</string>
     <string name="notification_more_conversations">그리고 %1$d개의 대화 더</string>
-    <string name="notification_active_peers_title">👥 근처 bitchatter!</string>
+    <string name="notification_active_peers_title">근처 bitchatter!</string>
     <string name="notification_active_peers_one">근처 1명</string>
     <string name="notification_active_peers_many">근처 %1$d명</string>
     <string name="notification_new_messages">새 메시지</string>
@@ -390,4 +390,8 @@
   <string name="nearby_notes_reveal">여기 남겨진 쪽지 확인</string>
   <string name="nearby_notes_one">여기 남겨진 쪽지 1개 — 탭하여 읽기</string>
   <string name="nearby_notes_many">여기 남겨진 쪽지 %d개 — 탭하여 읽기</string>
+    <string name="about_language">언어</string>
+    <string name="about_app_language">앱 언어</string>
+    <string name="about_system_default">시스템 기본값</string>
+    <string name="about_select_language">언어 선택</string>
 </resources>

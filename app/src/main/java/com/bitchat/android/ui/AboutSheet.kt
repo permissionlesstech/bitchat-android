@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -35,11 +36,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Info
@@ -52,6 +55,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -119,6 +124,69 @@ private fun ThemeChip(
             )
         }
     }
+}
+
+@Composable
+private fun LanguageSettingsRow(
+    selectedLanguageName: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.about_app_language),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = selectedLanguageName,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+            imageVector = Icons.Filled.UnfoldMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+private fun LanguageMenuItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        onClick = onClick,
+        trailingIcon = {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        },
+    )
 }
 
 /**
@@ -260,6 +328,13 @@ fun AboutSheet(
     val colorScheme = MaterialTheme.colorScheme
     val palette = LocalBitchatPalette.current
     var selectedTab by remember { mutableStateOf(AboutTab.Info) }
+    val supportedLanguages = remember(context) {
+        LanguagePreferenceManager.supportedLanguages(context)
+    }
+    var selectedLanguageTag by remember {
+        mutableStateOf(LanguagePreferenceManager.currentLanguageTag())
+    }
+    var showLanguagePicker by remember { mutableStateOf(false) }
 
     if (isPresented) {
         BitchatBottomSheet(
@@ -338,6 +413,64 @@ fun AboutSheet(
                                         onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
                                         modifier = Modifier.weight(1f)
                                     )
+                                }
+                            }
+                        }
+                    }
+
+                    item(key = "language") {
+                        val selectedLanguageName = supportedLanguages
+                            .firstOrNull { it.languageTag == selectedLanguageTag }
+                            ?.endonym
+                            ?: stringResource(R.string.about_system_default)
+
+                        Column {
+                            AboutSectionLabel(text = stringResource(R.string.about_language))
+                            BoxWithConstraints(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AboutHorizontalPadding),
+                            ) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = colorScheme.surface,
+                                    shape = AboutCardShape,
+                                ) {
+                                    LanguageSettingsRow(
+                                        selectedLanguageName = selectedLanguageName,
+                                        onClick = { showLanguagePicker = true },
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showLanguagePicker,
+                                    onDismissRequest = { showLanguagePicker = false },
+                                    modifier = Modifier.width(maxWidth),
+                                ) {
+                                    LanguageMenuItem(
+                                        label = stringResource(R.string.about_system_default),
+                                        selected = selectedLanguageTag.isEmpty(),
+                                        onClick = {
+                                            showLanguagePicker = false
+                                            if (selectedLanguageTag.isNotEmpty()) {
+                                                selectedLanguageTag = ""
+                                                LanguagePreferenceManager.setLanguage("")
+                                            }
+                                        },
+                                    )
+                                    HorizontalDivider()
+                                    supportedLanguages.forEach { language ->
+                                        LanguageMenuItem(
+                                            label = language.endonym,
+                                            selected = selectedLanguageTag == language.languageTag,
+                                            onClick = {
+                                                showLanguagePicker = false
+                                                if (language.languageTag != selectedLanguageTag) {
+                                                    selectedLanguageTag = language.languageTag
+                                                    LanguagePreferenceManager.setLanguage(language.languageTag)
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }

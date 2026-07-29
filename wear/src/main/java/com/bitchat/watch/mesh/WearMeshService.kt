@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
+import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.mesh.BluetoothConnectionManager
 import com.bitchat.android.mesh.BluetoothConnectionManagerDelegate
 import com.bitchat.android.mesh.DirectLinkAnnouncementPolicy
@@ -227,18 +228,27 @@ class WearMeshService private constructor(private val context: Context) {
         }
     }
 
-    private fun handleMessageReceived(message: com.bitchat.android.model.BitchatMessage) {
-        try {
-            when {
-                message.isPrivate -> {
-                    val peer = message.senderPeerID ?: return
-                    AppStateStore.addPrivateMessage(peer, message)
-                    try { onPrivateMessage?.invoke(message) } catch (_: Exception) { }
-                }
-                message.channel != null -> AppStateStore.addChannelMessage(message.channel!!, message)
-                else -> AppStateStore.addPublicMessage(message)
+    private fun handleMessageReceived(
+        message: com.bitchat.android.model.BitchatMessage
+    ): Boolean = try {
+        when {
+            message.isPrivate -> {
+                val peer = message.senderPeerID ?: return false
+                if (!AppStateStore.addPrivateMessage(peer, message)) return false
+                try { onPrivateMessage?.invoke(message) } catch (_: Exception) { }
+                true
             }
-        } catch (_: Exception) { }
+            message.channel != null -> {
+                AppStateStore.addChannelMessage(message.channel, message)
+                true
+            }
+            else -> {
+                AppStateStore.addPublicMessage(message)
+                true
+            }
+        }
+    } catch (_: Exception) {
+        !message.isPrivate
     }
 
     fun startServices() {
@@ -295,6 +305,32 @@ class WearMeshService private constructor(private val context: Context) {
 
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String) {
         meshCore.sendPrivateMessage(content, recipientPeerID, recipientNickname)
+    }
+
+    /**
+     * Favorite controls travel as encrypted private control messages. If the profile is opened
+     * while a handshake is still settling, wait briefly rather than silently losing the change.
+     */
+    fun sendFavoriteNotification(peerID: String, isFavorite: Boolean) {
+        serviceScope.launch {
+            val deadline = System.currentTimeMillis() + 15_000L
+            if (!hasEstablishedSession(peerID)) {
+                runCatching { initiateNoiseHandshake(peerID) }
+            }
+            while (!hasEstablishedSession(peerID) && System.currentTimeMillis() < deadline) {
+                delay(250L)
+            }
+            if (!hasEstablishedSession(peerID)) {
+                Log.w(TAG, "Favorite update could not be sent before the Noise timeout")
+                return@launch
+            }
+            val recipientNickname = getPeerNickname(peerID) ?: peerID.take(8)
+            meshCore.sendPrivateMessage(
+                content = FavoriteControlMessage.encode(isFavorite, npub = null),
+                recipientPeerID = peerID,
+                recipientNickname = recipientNickname
+            )
+        }
     }
 
     fun initiateNoiseHandshake(peerID: String) = meshCore.initiateNoiseHandshake(peerID)
