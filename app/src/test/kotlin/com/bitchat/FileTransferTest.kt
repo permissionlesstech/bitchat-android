@@ -5,6 +5,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -199,6 +200,25 @@ class FileTransferTest {
         assertEquals("application/octet-stream", decoded.mimeType)
         assertEquals(content.size.toLong(), decoded.fileSize)
         assertEquals(content.size, decoded.content.size)
+    }
+
+    @Test
+    fun `decode should reject an incomplete TLV header after an unknown extension`() {
+        // Given: a valid file and unknown extension followed by either only a
+        // tag or a tag plus one length byte.
+        val content = ByteArray(8) { 0x2A }
+        val fileName = "truncated.bin".toByteArray(Charsets.UTF_8)
+        val buf = ByteBuffer.allocate(
+            (1 + 2 + fileName.size) + (1 + 4 + content.size) + (1 + 2)
+        ).order(ByteOrder.BIG_ENDIAN)
+        buf.put(0x01.toByte()); buf.putShort(fileName.size.toShort()); buf.put(fileName)
+        buf.put(0x04.toByte()); buf.putInt(content.size); buf.put(content)
+        buf.put(0x05.toByte()); buf.putShort(0)
+        val packetWithUnknownExtension = buf.array()
+
+        // When/Then: Android rejects the same incomplete tails that iOS does.
+        assertNull(BitchatFilePacket.decode(packetWithUnknownExtension + byteArrayOf(0x06)))
+        assertNull(BitchatFilePacket.decode(packetWithUnknownExtension + byteArrayOf(0x06, 0x00)))
     }
 
     @Test

@@ -33,7 +33,15 @@ data class BitchatFilePacket(
 ) {
     private enum class TLVType(val v: UByte) {
         FILE_NAME(0x01u), FILE_SIZE(0x02u), MIME_TYPE(0x03u), CONTENT(0x04u);
-        companion object { fun from(value: UByte) = values().find { it.v == value } }
+        companion object {
+            fun from(value: UByte): TLVType? = when (value) {
+                FILE_NAME.v -> FILE_NAME
+                FILE_SIZE.v -> FILE_SIZE
+                MIME_TYPE.v -> MIME_TYPE
+                CONTENT.v -> CONTENT
+                else -> null
+            }
+        }
     }
 
     fun encode(): ByteArray? {
@@ -98,7 +106,11 @@ data class BitchatFilePacket(
                 var mime: String? = null
                 var contentBytes: ByteArray? = null
                 var skippedUnknownTLVs = 0
-                while (off + 3 <= data.size) { // minimum TLV header size (type + 2 bytes length)
+                while (off < data.size) {
+                    // Every TLV needs at least a type and a 2-byte length.
+                    // Reject a truncated trailing header instead of silently
+                    // accepting it, matching the iOS decoder.
+                    if (data.size - off < 3) return null
                     // A null `t` is an unknown tag: read its length like any
                     // other 2-byte TLV and skip its value, matching iOS.
                     val t = TLVType.from(data[off].toUByte())
@@ -163,4 +175,3 @@ data class BitchatFilePacket(
         }
     }
 }
-
