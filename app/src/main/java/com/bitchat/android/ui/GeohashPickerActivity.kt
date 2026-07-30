@@ -15,9 +15,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -37,8 +34,6 @@ import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.ui.globe.GlobeColors
-import com.bitchat.android.ui.globe.GlobeRenderQuality
-import com.bitchat.android.ui.globe.GlobeRenderQualityPreference
 import com.bitchat.android.ui.globe.GlobeState
 import com.bitchat.android.ui.globe.GlobeView
 import com.bitchat.android.ui.globe.LandData
@@ -95,18 +90,13 @@ class GeohashPickerActivity : OrientationAwareActivity() {
             BitchatTheme {
                 val context = LocalContext.current
                 val scope = rememberCoroutineScope()
-                val initialRenderQuality = remember(context) {
-                    GlobeRenderQualityPreference.load(context)
-                }
-                var renderQuality by remember { mutableStateOf(initialRenderQuality) }
 
                 val globeState = remember {
                     GlobeState(
                         targetLat = targetLat,
                         targetLon = targetLon,
                         initialPrecision = initialPrecision,
-                        startZoomedOut = true,
-                        initialRenderQuality = initialRenderQuality
+                        startZoomedOut = true
                     ).apply {
                         introTarget = Triple(targetLat, targetLon, initialPrecision)
                     }
@@ -193,62 +183,15 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                         tonalElevation = 3.dp,
                         shadowElevation = 6.dp
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                        Text(
+                            text = stringResource(R.string.pan_zoom_instruction),
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            fontFamily = BitchatFontFamily,
+                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier
                                 .padding(horizontal = 14.dp, vertical = 10.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.pan_zoom_instruction),
-                                fontSize = 12.sp,
-                                textAlign = TextAlign.Center,
-                                fontFamily = BitchatFontFamily,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            val qualities = GlobeRenderQuality.entries
-                            SingleChoiceSegmentedButtonRow(
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                qualities.forEachIndexed { index, quality ->
-                                    val selected = renderQuality == quality
-                                    SegmentedButton(
-                                        selected = selected,
-                                        onClick = {
-                                            globeState.setRenderQuality(quality)
-                                            renderQuality = quality
-                                            GlobeRenderQualityPreference.save(context, quality)
-                                        },
-                                        shape = SegmentedButtonDefaults.itemShape(
-                                            index = index,
-                                            count = qualities.size
-                                        ),
-                                        icon = {},
-                                        label = {
-                                            Box(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                if (selected) {
-                                                    Icon(
-                                                        imageVector = Icons.Filled.Check,
-                                                        contentDescription = null,
-                                                        modifier = Modifier
-                                                            .align(Alignment.CenterStart)
-                                                            .size(18.dp)
-                                                    )
-                                                }
-                                                Text(
-                                                    text = stringResource(quality.labelResource),
-                                                    fontSize = 11.sp,
-                                                    fontFamily = BitchatFontFamily
-                                                )
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        )
                     }
 
                     // Floating bottom controls
@@ -346,13 +289,6 @@ class GeohashPickerActivity : OrientationAwareActivity() {
             }
         }
     }
-
-    private val GlobeRenderQuality.labelResource: Int
-        get() = when (this) {
-            GlobeRenderQuality.FAST -> R.string.globe_render_quality_fast
-            GlobeRenderQuality.MEDIUM -> R.string.globe_render_quality_medium
-            GlobeRenderQuality.HIGH -> R.string.globe_render_quality_high
-        }
 
     private fun levelForLength(length: Int): GeohashChannelLevel {
         return when (length) {

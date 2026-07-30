@@ -137,6 +137,18 @@ fun LocationChannelsSheet(
     var customGeohash by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }
 
+    val teleportToGeohash: (String) -> Unit = { value ->
+        val channel = channelForManualGeohash(value)
+        if (channel != null) {
+            customError = null
+            locationManager.selectManual(channel)
+            onDismiss()
+        } else {
+            customGeohash = value.trim().lowercase().replace("#", "")
+            customError = context.getString(R.string.invalid_geohash)
+        }
+    }
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
@@ -158,8 +170,7 @@ fun LocationChannelsSheet(
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             val gh = result.data?.getStringExtra(GeohashPickerActivity.EXTRA_RESULT_GEOHASH)
             if (!gh.isNullOrBlank()) {
-                customGeohash = gh
-                customError = null
+                teleportToGeohash(gh)
             }
         }
     }
@@ -503,15 +514,7 @@ fun LocationChannelsSheet(
                                             mapPickerLauncher.launch(intent)
                                         },
                                         onTeleport = {
-                                            val normalized = customGeohash.trim().lowercase().replace("#", "")
-                                            if (validateGeohash(normalized)) {
-                                                val level = levelForLength(normalized.length)
-                                                val channel = GeohashChannel(level = level, geohash = normalized)
-                                                locationManager.selectManual(channel)
-                                                onDismiss()
-                                            } else {
-                                                customError = context.getString(R.string.invalid_geohash)
-                                            }
+                                            teleportToGeohash(customGeohash)
                                         }
                                     )
                                 }
@@ -1171,6 +1174,15 @@ private fun validateGeohash(geohash: String): Boolean {
     if (geohash.isEmpty() || geohash.length > 12) return false
     val allowed = "0123456789bcdefghjkmnpqrstuvwxyz".toSet()
     return geohash.all { it in allowed }
+}
+
+internal fun channelForManualGeohash(value: String): GeohashChannel? {
+    val normalized = value.trim().lowercase().replace("#", "")
+    if (!validateGeohash(normalized)) return null
+    return GeohashChannel(
+        level = levelForLength(normalized.length),
+        geohash = normalized
+    )
 }
 
 private fun levelForLength(length: Int): GeohashChannelLevel {
