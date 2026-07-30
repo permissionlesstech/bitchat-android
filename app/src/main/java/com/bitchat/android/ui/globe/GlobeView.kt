@@ -684,19 +684,18 @@ private fun DrawScope.fillPolygonClipped(
     cx: Float, cy: Float, r: Float,
     color: Color,
     clip: ClipRect,
-    centerInsideRing: Boolean
+    invertFill: Boolean = false,
+    preparedPolygon: List<Pair<Float, Float>>? = null
 ) {
     if (pts.none { it.front }) return
-    val poly = buildFillPolygon(pts, cx, cy, r)
+    val poly = preparedPolygon ?: buildFillPolygon(pts, cx, cy, r)
     if (poly.size < 3) return
     val clipped = clipPolygon(poly, clip)
     if (clipped.size < 3) return
     val path = Path()
-    val projectedCenterInside = polygonContains(clipped, cx, cy)
-    if (projectedCenterInside != centerInsideRing) {
+    if (invertFill) {
         // Orthographic projection can choose the wrong side of the horizon closure for
-        // very large rings. Even-odd filling with the globe disc flips it back to the
-        // side that agrees with the original geographic polygon.
+        // very large rings. Even-odd filling with the globe disc flips that one ring.
         path.fillType = PathFillType.EvenOdd
         path.addOval(Rect(cx - r, cy - r, cx + r, cy + r))
     }
@@ -706,6 +705,46 @@ private fun DrawScope.fillPolygonClipped(
     }
     path.close()
     drawPath(path, color)
+}
+
+internal fun projectedFillNeedsInversion(
+    polygon: List<Pair<Float, Float>>,
+    ring: LandData.Ring,
+    cx: Float,
+    cy: Float,
+    r: Float,
+    centerLat: Double,
+    centerLon: Double
+): Boolean {
+    // A single center-point check is ambiguous for a large polygon and caused an
+    // occasional whole-disc fill. Compare several visible points with the original
+    // geographic ring, and invert only when the opposite fill wins clearly.
+    val samples = arrayOf(
+        0f to 0f,
+        -0.5f to 0f,
+        0.5f to 0f,
+        0f to -0.5f,
+        0f to 0.5f,
+        -0.35f to -0.35f,
+        0.35f to -0.35f,
+        -0.35f to 0.35f,
+        0.35f to 0.35f
+    )
+    var normalErrors = 0
+    var invertedErrors = 0
+    for ((nx, ny) in samples) {
+        val location = GlobeMath.unproject(
+            x = nx.toDouble(),
+            y = ny.toDouble(),
+            centerLatDeg = centerLat,
+            centerLonDeg = centerLon
+        ) ?: continue
+        val geographicInside = ringContainsLocation(ring, location.first, location.second)
+        val projectedInside = polygonContains(polygon, cx + nx * r, cy + ny * r)
+        if (projectedInside != geographicInside) normalErrors++
+        if (!projectedInside != geographicInside) invertedErrors++
+    }
+    return invertedErrors < normalErrors
 }
 
 internal fun polygonContains(
@@ -892,11 +931,16 @@ private fun DrawScope.drawLandFill(
     if (n < 3 || n * 3 > scratch.size) return null
 
     var anyFront = false
+    var anyBack = false
     var i = 0
     while (i < n) {
         val sourceIndex = (i * pointStride).coerceAtMost(ring.size - 1)
         projector.project(ring.projectionTerms, sourceIndex * 4, scratch, i * 3)
-        if (scratch[i * 3 + 2] >= 0f) anyFront = true
+        if (scratch[i * 3 + 2] >= 0f) {
+            anyFront = true
+        } else {
+            anyBack = true
+        }
         i++
     }
     if (!anyFront) return null
@@ -908,6 +952,7 @@ private fun DrawScope.drawLandFill(
         i++
     }
     val runs = buildFrontRuns(pts)
+    val polygon = buildFillPolygon(pts, cx, cy, r)
     fillPolygonClipped(
         pts = pts,
         cx = cx,
@@ -915,7 +960,16 @@ private fun DrawScope.drawLandFill(
         r = r,
         color = colors.land,
         clip = clip,
-        centerInsideRing = ringContainsLocation(ring, centerLat, centerLon)
+        invertFill = anyBack && projectedFillNeedsInversion(
+                polygon = polygon,
+                ring = ring,
+                cx = cx,
+                cy = cy,
+                r = r,
+                centerLat = centerLat,
+                centerLon = centerLon
+            ),
+        preparedPolygon = polygon
     )
     return runs
 }
@@ -974,15 +1028,13 @@ private fun DrawScope.drawGeohashGrid(
 
         if (isSelected) {
             fillPolygonClipped(
-                discPts, cx, cy, r, colors.accent.copy(alpha = 0.20f), clip,
-                centerInsideRing = true
+                discPts, cx, cy, r, colors.accent.copy(alpha = 0.20f), clip
             )
             strokeRuns(runs, cx, cy, r, colors.accent.copy(alpha = 0.35f), 7f, clip)
             strokeRuns(runs, cx, cy, r, colors.accent, 3.2f, clip)
         } else {
             fillPolygonClipped(
-                discPts, cx, cy, r, colors.grid.copy(alpha = 0.05f), clip,
-                centerInsideRing = false
+                discPts, cx, cy, r, colors.grid.copy(alpha = 0.05f), clip
             )
             strokeRuns(runs, cx, cy, r, colors.grid, 1.6f, clip)
         }
