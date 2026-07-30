@@ -122,7 +122,7 @@
   <string name="cd_unread_private_messages">הודעות פרטיות שלא נקראו</string>
   <string name="cd_location_notes">הערות מיקום</string>
   <string name="cd_teleported">טלפורט</string>
-  <string name="cd_tor_status">סטטוס Tor</string>
+  <string name="cd_open_location_channels">פתיחת הגדרות מיקום וערוצים</string>
   <string name="cd_connected_peers">עמיתים מחוברים</string>
   <string name="cd_geohash_participants">משתתפי geohash</string>
   <string name="cd_ready_for_handshake">מוכן ללחיצת יד</string>

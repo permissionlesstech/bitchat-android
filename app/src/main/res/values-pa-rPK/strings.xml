@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Nostr راہین پہنچ ممکن اے</string>
     <string name="cd_unread_private_messages">انہ پڑھیا ذاتی پیغام</string>
     <string name="cd_teleported">ٹیلپورٹ کیتا گیا</string>
-    <string name="cd_tor_status">Tor حالت</string>
+    <string name="cd_open_location_channels">مقام تے چینل دیاں ترتیباں کھولو</string>
     <string name="cd_connected_peers">جُڑے پیئر</string>
     <string name="cd_geohash_participants">geohash شریک</string>
     <string name="cd_ready_for_handshake">ہینڈشیک لئی تیار</string>

@@ -66,7 +66,7 @@
     <string name="cd_nostr_reachable">Доступен через Nostr</string>
     <string name="cd_unread_private_messages">Непрочитанные личные</string>
     <string name="cd_teleported">Телепортировано</string>
-    <string name="cd_tor_status">Статус Tor</string>
+    <string name="cd_open_location_channels">Открыть настройки местоположения и каналов</string>
     <string name="cd_connected_peers">Подключённые узлы</string>
     <string name="cd_geohash_participants">Участники geohash</string>
     <string name="cd_ready_for_handshake">Готов к рукопожатию</string>

@@ -120,7 +120,7 @@
     <string name="cd_unread_private_messages">Nieprzeczytane wiadomości prywatne</string>
     <string name="cd_location_notes">Notatki lokalizacji</string>
     <string name="cd_teleported">Teleportowany</string>
-    <string name="cd_tor_status">Status Tor</string>
+    <string name="cd_open_location_channels">Otwórz ustawienia lokalizacji i kanałów</string>
     <string name="cd_connected_peers">Połączeni użytkownicy</string>
     <string name="cd_geohash_participants">Uczestnicy geohash</string>
     <string name="cd_ready_for_handshake">Gotowy do uzgadniania</string>

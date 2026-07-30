@@ -121,7 +121,6 @@
   <string name="cd_unread_private_messages">未读私信</string>
   <string name="cd_location_notes">位置笔记</string>
   <string name="cd_teleported">已传送</string>
-  <string name="cd_tor_status">Tor 状态</string>
   <string name="cd_connected_peers">已连接的节点</string>
   <string name="cd_geohash_participants">Geohash 参与者</string>
   <string name="cd_ready_for_handshake">准备握手</string>

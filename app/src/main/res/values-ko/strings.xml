@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Nostr로 연결 가능</string>
     <string name="cd_unread_private_messages">읽지 않은 개인 메시지</string>
     <string name="cd_teleported">텔레포트됨</string>
-    <string name="cd_tor_status">Tor 상태</string>
+    <string name="cd_open_location_channels">위치 및 채널 설정 열기</string>
     <string name="cd_connected_peers">연결된 피어</string>
     <string name="cd_geohash_participants">geohash 참여자</string>
     <string name="cd_ready_for_handshake">핸드셰이크 준비됨</string>

@@ -76,7 +76,7 @@
   <string name="cd_unread_private_messages">Mesej peribadi belum dibaca</string>
   <string name="cd_location_notes">Nota lokasi</string>
   <string name="cd_teleported">Diteleport</string>
-  <string name="cd_tor_status">Status Tor</string>
+  <string name="cd_open_location_channels">Buka tetapan lokasi dan saluran</string>
   <string name="cd_connected_peers">Rakan disambungkan</string>
   <string name="cd_geohash_participants">Peserta geohash</string>
   <string name="cd_ready_for_handshake">Sedia untuk berjabat tangan</string>
