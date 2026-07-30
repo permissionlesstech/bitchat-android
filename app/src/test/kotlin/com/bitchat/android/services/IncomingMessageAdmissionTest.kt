@@ -186,6 +186,51 @@ class IncomingMessageAdmissionTest {
     }
 
     @Test
+    fun `outgoing messages to different peers keep separate persisted conversations`() {
+        val state = ChatState(TestScope())
+        state.setNickname("me")
+        val manager = PrivateChatManager(
+            state = state,
+            messageManager = MessageManager(state),
+            dataManager = DataManager(context),
+            noiseSessionDelegate = testNoiseDelegate()
+        )
+
+        runBlocking {
+            assertTrue(
+                manager.sendPrivateMessageDurably(
+                    content = "only for alice",
+                    peerID = "peer-a",
+                    recipientNickname = "alice",
+                    senderNickname = "me",
+                    myPeerID = "self"
+                ) { _, _, _, _ -> }
+            )
+            assertTrue(
+                manager.sendPrivateMessageDurably(
+                    content = "only for bob",
+                    peerID = "peer-b",
+                    recipientNickname = "bob",
+                    senderNickname = "me",
+                    myPeerID = "self"
+                ) { _, _, _, _ -> }
+            )
+
+            val alice = repository.loadConversationAndWait("peer-a")
+            val bob = repository.loadConversationAndWait("peer-b")
+
+            assertEquals(
+                listOf("only for alice"),
+                alice?.chats?.getValue("peer-a")?.map { it.content }
+            )
+            assertEquals(
+                listOf("only for bob"),
+                bob?.chats?.getValue("peer-b")?.map { it.content }
+            )
+        }
+    }
+
+    @Test
     fun `outgoing callback is suppressed when durable storage fails`() {
         val failingRepository = ConversationRepository(
             context = context,
