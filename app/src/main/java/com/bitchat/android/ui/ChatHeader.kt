@@ -96,6 +96,16 @@ internal fun headerCrowdingMode(availableWidth: Dp): HeaderCrowdingMode = when {
     else -> HeaderCrowdingMode.Full
 }
 
+internal fun locationChannelContentDescription(
+    actionDescription: String,
+    channelLabel: String,
+    showLabel: Boolean,
+): String = if (showLabel) {
+    actionDescription
+} else {
+    "$channelLabel. $actionDescription"
+}
+
 /** Corner radius for the header's tappable label+icon clusters. */
 private val HeaderClusterShape = RoundedCornerShape(8.dp)
 
@@ -850,7 +860,12 @@ private fun LocationChannelsButton(
     } else {
         R.drawable.ic_spec_range
     }
-    val contentDescription = stringResource(R.string.cd_open_location_channels)
+    val actionDescription = stringResource(R.string.cd_open_location_channels)
+    val contentDescription = locationChannelContentDescription(
+        actionDescription = actionDescription,
+        channelLabel = badgeText,
+        showLabel = showLabel
+    )
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -859,7 +874,7 @@ private fun LocationChannelsButton(
             .clip(HeaderClusterShape)
             .pressScaleClickable(
                 onClick = onClick,
-                onClickLabel = contentDescription
+                onClickLabel = actionDescription
             )
             .height(HeaderTapTarget)
             .widthIn(min = HeaderTapTarget)

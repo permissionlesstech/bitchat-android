@@ -35,4 +35,34 @@ class ChatHeaderCrowdingTest {
             headerCrowdingMode(320.dp)
         )
     }
+
+    @Test
+    fun `icon-only location action includes the selected channel in its description`() {
+        val action = "Open location and channel settings"
+
+        assertEquals(
+            action,
+            locationChannelContentDescription(
+                actionDescription = action,
+                channelLabel = "mesh",
+                showLabel = true
+            )
+        )
+        assertEquals(
+            "mesh. $action",
+            locationChannelContentDescription(
+                actionDescription = action,
+                channelLabel = "mesh",
+                showLabel = false
+            )
+        )
+        assertEquals(
+            "#u33d. $action",
+            locationChannelContentDescription(
+                actionDescription = action,
+                channelLabel = "#u33d",
+                showLabel = false
+            )
+        )
+    }
 }
