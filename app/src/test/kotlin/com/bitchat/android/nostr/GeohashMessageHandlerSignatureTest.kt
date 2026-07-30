@@ -42,7 +42,15 @@ class GeohashMessageHandlerSignatureTest {
         dataManager = DataManager(context = application)
         messageManager = MessageManager(state = chatState)
         repo = GeohashRepository(application, chatState, dataManager)
-        handler = GeohashMessageHandler(application, chatState, messageManager, repo, testScope, dataManager)
+        handler = GeohashMessageHandler(
+            application,
+            chatState,
+            messageManager,
+            repo,
+            testScope,
+            dataManager,
+            testDispatcher
+        )
     }
 
     private fun buildSignedEvent(identity: NostrIdentity, content: String): NostrEvent {
