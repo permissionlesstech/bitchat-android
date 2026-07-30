@@ -475,6 +475,19 @@ fun ConversationHeaderAction(
     content = content
 )
 
+/** A read-only status slot matching the footprint of [ConversationHeaderAction]. */
+@Composable
+fun ConversationHeaderStatus(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = modifier.size(HeaderTapTarget),
+        contentAlignment = Alignment.Center,
+        content = { content() }
+    )
+}
+
 @Composable
 fun NicknameEditor(
     value: String,

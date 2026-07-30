@@ -1,9 +1,16 @@
 package com.bitchat.android.ui
 
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.mesh.PreparedPrivateMediaTransfer
 import com.bitchat.android.mesh.PrivateMediaPreparation
 import com.bitchat.android.mesh.PrivateMediaWireMode
+import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactIdentityResolver
+import com.bitchat.android.services.ConversationRepository
+import com.bitchat.android.services.InMemoryConversationStorageCipher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,6 +36,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import java.util.UUID
 
 @RunWith(RobolectricTestRunner::class)
 class MediaSendingManagerMigrationTest {
@@ -37,11 +45,22 @@ class MediaSendingManagerMigrationTest {
     private lateinit var mesh: MeshService
     private lateinit var manager: MediaSendingManager
     private lateinit var file: File
+    private lateinit var conversationRepository: ConversationRepository
+    private lateinit var conversationDatabaseName: String
 
     @Before
     fun setup() {
         state = ChatState(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
         state.setNickname("me")
+        conversationDatabaseName = "media-send-${UUID.randomUUID()}.db"
+        conversationRepository = ConversationRepository(
+            context = org.robolectric.RuntimeEnvironment.getApplication(),
+            dispatcher = Dispatchers.Unconfined,
+            databaseName = conversationDatabaseName,
+            storageCipher = InMemoryConversationStorageCipher()
+        )
+        AppStateStore.clear()
+        AppStateStore.setConversationRepositoryForTest(conversationRepository)
         mesh = mock()
         whenever(mesh.myPeerID).thenReturn("0011223344556677")
         whenever(mesh.getPeerNicknames()).thenReturn(mapOf(peerID to "old peer"))
@@ -60,6 +79,11 @@ class MediaSendingManagerMigrationTest {
 
     @After
     fun tearDown() {
+        AppStateStore.clear()
+        AppStateStore.setConversationRepositoryForTest(null)
+        conversationRepository.closeForTest()
+        org.robolectric.RuntimeEnvironment.getApplication()
+            .deleteDatabase(conversationDatabaseName)
         file.delete()
     }
 
@@ -159,6 +183,99 @@ class MediaSendingManagerMigrationTest {
         assertEquals(1, state.privateChats.value[peerID]?.size)
         verify(mesh, times(2)).prepareFilePrivate(eq(peerID), any(), any(), eq(false))
         verify(mesh, never()).sendFilePrivate(any(), any())
+    }
+
+    @Test
+    fun `contact conversation resolves to live mesh peer for voice image and file sends`() {
+        val noisePublicKey = ByteArray(32) { (it + 1).toByte() }
+        val conversationID =
+            ContactIdentityResolver.contactConversationIdForNoiseKey(noisePublicKey)
+        whenever(mesh.getPeerInfo(peerID)).thenReturn(
+            PeerInfo(
+                id = peerID,
+                nickname = "old peer",
+                isConnected = true,
+                isDirectConnection = true,
+                noisePublicKey = noisePublicKey,
+                signingPublicKey = null,
+                isVerifiedNickname = true,
+                lastSeen = System.currentTimeMillis()
+            )
+        )
+        val commits = AtomicInteger(0)
+        whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
+            .thenAnswer { invocation ->
+                PrivateMediaPreparation.Ready(
+                    PreparedPrivateMediaTransfer(
+                        transferId = invocation.getArgument(2),
+                        wireMode = PrivateMediaWireMode.ENCRYPTED_NOISE_0X20
+                    ) {
+                        commits.incrementAndGet()
+                        true
+                    }
+                )
+            }
+        val genericFile = kotlin.io.path.createTempFile("private-media", ".txt").toFile().apply {
+            writeText("private attachment")
+        }
+        try {
+            manager.sendVoiceNote(conversationID, null, file.absolutePath)
+            manager.sendImageNote(conversationID, null, file.absolutePath)
+            manager.sendFileNote(conversationID, null, genericFile.absolutePath)
+
+            assertEquals(3, commits.get())
+            assertEquals(
+                listOf(BitchatMessageType.Audio, BitchatMessageType.Image, BitchatMessageType.File),
+                state.privateChats.value[conversationID].orEmpty().map { it.type }
+            )
+            verify(mesh, times(3))
+                .prepareFilePrivate(eq(peerID), any(), any(), eq(false))
+            verify(mesh, never())
+                .prepareFilePrivate(eq(conversationID), any(), any(), any())
+        } finally {
+            genericFile.delete()
+        }
+    }
+
+    @Test
+    fun `mesh policy callback retries contact conversation using live peer ID`() {
+        val noisePublicKey = ByteArray(32) { (it + 1).toByte() }
+        val conversationID =
+            ContactIdentityResolver.contactConversationIdForNoiseKey(noisePublicKey)
+        whenever(mesh.getPeerInfo(peerID)).thenReturn(
+            PeerInfo(
+                id = peerID,
+                nickname = "old peer",
+                isConnected = true,
+                isDirectConnection = true,
+                noisePublicKey = noisePublicKey,
+                signingPublicKey = null,
+                isVerifiedNickname = true,
+                lastSeen = System.currentTimeMillis()
+            )
+        )
+        val commits = AtomicInteger(0)
+        whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
+            .thenReturn(PrivateMediaPreparation.NeedsHandshake)
+            .thenAnswer { invocation ->
+                PrivateMediaPreparation.Ready(
+                    PreparedPrivateMediaTransfer(
+                        transferId = invocation.getArgument(2),
+                        wireMode = PrivateMediaWireMode.ENCRYPTED_NOISE_0X20
+                    ) {
+                        commits.incrementAndGet()
+                        true
+                    }
+                )
+            }
+
+        manager.sendVoiceNote(conversationID, null, file.absolutePath)
+        manager.retryPendingPrivateMedia(peerID)
+
+        assertEquals(1, commits.get())
+        assertEquals(BitchatMessageType.Audio, state.privateChats.value[conversationID]?.single()?.type)
+        verify(mesh).initiateNoiseHandshake(peerID)
+        verify(mesh, never()).initiateNoiseHandshake(conversationID)
     }
 
     @Test
@@ -266,7 +383,7 @@ class MediaSendingManagerMigrationTest {
     }
 
     @Test
-    fun `failed prepared commit rolls back the local file echo`() {
+    fun `failed prepared commit keeps a retryable failed local file echo`() {
         whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
             .thenAnswer { invocation ->
                 PrivateMediaPreparation.Ready(
@@ -282,9 +399,13 @@ class MediaSendingManagerMigrationTest {
         manager.sendImageNote(peerID, null, file.absolutePath)
 
         val messages = state.privateChats.value[peerID].orEmpty()
-        assertEquals(1, messages.size)
-        assertTrue(messages.single().content.contains("could not be committed"))
-        assertTrue(messages.none { it.type == com.bitchat.android.model.BitchatMessageType.Image })
+        assertEquals(2, messages.size)
+        val fileEcho = messages.single { it.type == BitchatMessageType.Image }
+        assertTrue(fileEcho.deliveryStatus is DeliveryStatus.Failed)
+        assertTrue(
+            messages.single { it.sender == "system" }
+                .content.contains("could not be committed")
+        )
     }
 
     @Test

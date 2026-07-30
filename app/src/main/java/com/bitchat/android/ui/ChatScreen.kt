@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.os.Build
 import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
 
@@ -97,6 +98,14 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var initialViewerIndex by remember { mutableStateOf(0) }
     var forceScrollToBottom by remember { mutableStateOf(false) }
     var isScrolledUp by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedPrivatePeer) {
+        messageText = TextFieldValue(
+            selectedPrivatePeer
+                ?.let(viewModel::conversationDraft)
+                .orEmpty()
+        )
+    }
 
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
@@ -251,8 +260,19 @@ fun ChatScreen(viewModel: ChatViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.ime) // This handles keyboard insets
-                .windowInsetsPadding(WindowInsets.navigationBars) // Add bottom padding when keyboard is not expanded
+                .then(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        // Android 11+: Handle both IME and navigation bar insets in Compose
+                        Modifier.windowInsetsPadding(
+                            WindowInsets.ime.union(WindowInsets.navigationBars)
+                        )
+                    } else {
+
+                        // Android 10 and below: Window is resized by the system (adjustResize),
+                        // so only account for the navigation bar.
+                        Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                    }
+                )
         ) {
           Box(modifier = Modifier.weight(1f)) {
             // Messages area - takes up available space, will compress when keyboard appears
@@ -356,14 +376,19 @@ fun ChatScreen(viewModel: ChatViewModel) {
         messageText = messageText,
         onMessageTextChange = { newText: TextFieldValue ->
             messageText = newText
+            viewModel.setConversationDraft(selectedPrivatePeer, newText.text)
             viewModel.updateCommandSuggestions(newText.text)
             viewModel.updateMentionSuggestions(newText.text)
         },
         onSend = {
             if (messageText.text.trim().isNotEmpty()) {
-                viewModel.sendMessage(messageText.text.trim())
-                messageText = TextFieldValue("")
-                forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
+                viewModel.sendMessage(messageText.text.trim()) { accepted ->
+                    if (accepted) {
+                        messageText = TextFieldValue("")
+                        viewModel.setConversationDraft(selectedPrivatePeer, "")
+                        forceScrollToBottom = !forceScrollToBottom
+                    }
+                }
             }
         },
         onSendVoiceNote = { peer, onionOrChannel, path ->

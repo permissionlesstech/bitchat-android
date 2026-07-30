@@ -1,6 +1,7 @@
 package com.bitchat
 
 import com.bitchat.android.mesh.PeerManager
+import com.bitchat.android.mesh.PeerManagerDelegate
 import com.bitchat.android.model.PeerCapabilities
 import junit.framework.TestCase.assertEquals
 import org.junit.Test
@@ -165,6 +166,28 @@ class PeerManagerTest {
         val numberOfAllPeers = peerManager.getAllPeerNicknames().size
         assertEquals(testUsers.size - 3, numberOfActivePeers)
         assertEquals(testUsers.size - 3, numberOfAllPeers)
+    }
+
+    @Test
+    fun suppressing_peer_list_update_still_notifies_peer_removal() {
+        val removedPeers = mutableListOf<String>()
+        var peerListUpdates = 0
+        peerManager.delegate = object : PeerManagerDelegate {
+            override fun onPeerListUpdated(peerIDs: List<String>) {
+                peerListUpdates++
+            }
+
+            override fun onPeerRemoved(peerID: String) {
+                removedPeers.add(peerID)
+            }
+        }
+        peerManager.addOrUpdatePeer("peer-stale", "alice")
+        peerListUpdates = 0
+
+        peerManager.removePeer("peer-stale", notifyPeerList = false)
+
+        assertEquals(listOf("peer-stale"), removedPeers)
+        assertEquals(0, peerListUpdates)
     }
 
     @Test

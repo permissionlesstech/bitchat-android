@@ -4,19 +4,23 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 import java.util.Date
 
 class AppStateStoreTest {
     @Before
     fun setUp() {
+        AppStateStore.resumePrivateConversationsAfterPanic()
         AppStateStore.clear()
     }
 
     @After
     fun tearDown() {
+        AppStateStore.resumePrivateConversationsAfterPanic()
         AppStateStore.clear()
     }
 
@@ -132,6 +136,60 @@ class AppStateStoreTest {
     }
 
     @Test
+    fun `live nickname updates retained conversation metadata`() {
+        val message = BitchatMessage(
+            id = "rename-message",
+            sender = "Alice Old",
+            content = "hello",
+            timestamp = Date(1),
+            isPrivate = true
+        )
+        AppStateStore.addPrivateMessage("peer-a", message)
+
+        AppStateStore.updatePrivateConversationDisplayNames(
+            mapOf("peer-a" to "Alice New")
+        )
+
+        assertEquals(
+            "Alice New",
+            AppStateStore.privateConversationDisplayNames.value.getValue("peer-a")
+        )
+    }
+
+    @Test
+    fun `restored unread and nickname state canonicalize with message aliases`() {
+        val noiseKeyHex = "02".repeat(32)
+        val contactID = ContactIdentityResolver.contactConversationIdForNoiseKey(
+            ByteArray(32) { 2 }
+        )
+        val message = BitchatMessage(
+            id = "restored-alias-message",
+            sender = "Alice",
+            content = "hello",
+            timestamp = Date(1),
+            isPrivate = true
+        )
+
+        AppStateStore.restorePrivateConversations(
+            PersistedConversationSnapshot(
+                chats = mapOf(noiseKeyHex to listOf(message)),
+                readMessageIDs = emptySet(),
+                arrivalOrder = listOf(message.id),
+                deletedMessageIDs = emptySet(),
+                displayNames = mapOf(noiseKeyHex to "Alice Renamed"),
+                unreadCounts = mapOf(noiseKeyHex to 1)
+            )
+        )
+
+        assertEquals(setOf(contactID), AppStateStore.privateMessages.value.keys)
+        assertEquals(mapOf(contactID to 1), AppStateStore.unreadPrivateMessageCounts.value)
+        assertEquals(
+            mapOf(contactID to "Alice Renamed"),
+            AppStateStore.privateConversationDisplayNames.value
+        )
+    }
+
+    @Test
     fun `canonicalized private chat history keeps arrival order when peer clocks differ`() {
         val noiseKeyHex = "01".repeat(32)
         val contactID = ContactIdentityResolver.contactConversationIdForNoiseKey(ByteArray(32) { 1 })
@@ -188,5 +246,146 @@ class AppStateStoreTest {
             .single()
             .deliveryStatus
         assertTrue(status is DeliveryStatus.Read)
+    }
+
+    @Test
+    fun `in flight message can become failed without overwriting confirmed delivery`() {
+        val sending = BitchatMessage(
+            id = "send-failure",
+            sender = "me",
+            content = "hello",
+            timestamp = Date(1),
+            isPrivate = true,
+            deliveryStatus = DeliveryStatus.Sending
+        )
+        AppStateStore.addPrivateMessage("peer-a", sending)
+
+        AppStateStore.updatePrivateMessageStatus(
+            sending.id,
+            DeliveryStatus.Failed("network unavailable")
+        )
+        assertTrue(
+            AppStateStore.privateMessages.value
+                .getValue("peer-a")
+                .single()
+                .deliveryStatus is DeliveryStatus.Failed
+        )
+
+        AppStateStore.updatePrivateMessageStatus(
+            sending.id,
+            DeliveryStatus.Delivered("alice", Date(2))
+        )
+        AppStateStore.updatePrivateMessageStatus(
+            sending.id,
+            DeliveryStatus.Failed("late timeout")
+        )
+        assertTrue(
+            AppStateStore.privateMessages.value
+                .getValue("peer-a")
+                .single()
+                .deliveryStatus is DeliveryStatus.Delivered
+        )
+    }
+
+    @Test
+    fun `closing a conversation releases full payload history but keeps its summary`() {
+        repeat(3) { index ->
+            AppStateStore.addPrivateMessage(
+                "peer-a",
+                BitchatMessage(
+                    id = "history-$index",
+                    sender = "alice",
+                    content = "message $index",
+                    timestamp = Date(index.toLong()),
+                    isPrivate = true
+                )
+            )
+        }
+
+        AppStateStore.releasePrivateConversationHistory("peer-a")
+
+        assertEquals(
+            listOf("history-2"),
+            AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+        )
+    }
+
+    @Test
+    fun `long lived process applies the same bounded private history policy`() {
+        AppStateStore.setNickname("me")
+        repeat(ConversationDatabase.MAX_MESSAGES_PER_CONVERSATION) { index ->
+            AppStateStore.addPrivateMessage(
+                "peer-a",
+                BitchatMessage(
+                    id = "incoming-$index",
+                    sender = "alice",
+                    content = "message",
+                    timestamp = Date(index.toLong()),
+                    isPrivate = true
+                )
+            )
+        }
+        AppStateStore.addPrivateMessage(
+            "peer-a",
+            BitchatMessage(
+                id = "latest-outgoing",
+                sender = "me",
+                content = "latest",
+                timestamp = Date(Long.MAX_VALUE),
+                isPrivate = true
+            )
+        )
+
+        val retained = AppStateStore.privateMessages.value.getValue("peer-a")
+        assertEquals(ConversationDatabase.MAX_MESSAGES_PER_CONVERSATION, retained.size)
+        assertEquals("incoming-1", retained.first().id)
+        assertEquals("latest-outgoing", retained.last().id)
+    }
+
+    @Test
+    fun `private message admission is atomic and can durably classify known read messages`() {
+        val message = BitchatMessage(
+            id = "same-transport-message",
+            sender = "alice",
+            content = "hello",
+            timestamp = Date(1L),
+            isPrivate = true
+        )
+
+        assertTrue(AppStateStore.addPrivateMessage("peer-a", message, forceRead = true))
+        assertFalse(AppStateStore.addPrivateMessage("peer-a", message))
+
+        assertEquals(1, AppStateStore.privateMessages.value.getValue("peer-a").size)
+        assertTrue(AppStateStore.isPrivateMessageRead(message.id))
+    }
+
+    @Test
+    fun `panic clear rejects private messages until explicitly resumed`() {
+        val beforePanic = BitchatMessage(
+            id = "before-panic",
+            sender = "alice",
+            content = "erase me",
+            timestamp = Date(1L),
+            isPrivate = true
+        )
+        val duringPanic = beforePanic.copy(id = "during-panic")
+        val afterPanic = beforePanic.copy(id = "after-panic")
+
+        assertTrue(AppStateStore.addPrivateMessage("peer-a", beforePanic))
+        AppStateStore.updatePrivateConversationDisplayNames(
+            mapOf("peer-a" to "Alice")
+        )
+        assertTrue(runBlocking { AppStateStore.panicClearPrivateConversations() })
+        assertTrue(AppStateStore.privateMessages.value.isEmpty())
+        assertTrue(AppStateStore.privateConversationDisplayNames.value.isEmpty())
+        assertFalse(AppStateStore.addPrivateMessage("peer-a", duringPanic))
+
+        AppStateStore.resumePrivateConversationsAfterPanic()
+
+        assertTrue(AppStateStore.addPrivateMessage("peer-a", afterPanic))
+        assertEquals(
+            listOf(afterPanic),
+            AppStateStore.privateMessages.value.getValue("peer-a")
+        )
     }
 }

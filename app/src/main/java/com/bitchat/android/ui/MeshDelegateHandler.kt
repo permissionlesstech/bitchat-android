@@ -109,7 +109,6 @@ class MeshDelegateHandler(
     private suspend fun processPeerUpdate(mergedPeers: List<String>) {
         state.setConnectedPeers(mergedPeers)
         state.setIsConnected(mergedPeers.isNotEmpty())
-        notificationManager.showActiveUserNotification(mergedPeers)
         
         // Flush router outbox for any peers that just connected (and their noiseHex aliases)
         runCatching { com.bitchat.android.services.MessageRouter.tryGetInstance()?.onPeersUpdated(mergedPeers) }

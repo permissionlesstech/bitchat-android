@@ -335,7 +335,7 @@ class PeerManager {
         
         // Remove stale peer IDs
         stalePeerIDs.forEach { stalePeerID ->
-            removePeer(stalePeerID, notifyDelegate = false)
+            removePeer(stalePeerID, notifyPeerList = false)
         }
         
         // Check if this is a new peer announcement
@@ -371,7 +371,7 @@ class PeerManager {
     /**
      * Remove peer
      */
-    fun removePeer(peerID: String, notifyDelegate: Boolean = true) {
+    fun removePeer(peerID: String, notifyPeerList: Boolean = true) {
         val removed = peers.remove(peerID)
         peerRSSI.remove(peerID)
         announcedPeers.remove(peerID)
@@ -380,10 +380,13 @@ class PeerManager {
         // Also remove fingerprint mappings
         fingerprintManager.removePeer(peerID)
         
-        if (notifyDelegate && removed != null) {
-            // Notify specific removal event then list update
+        if (removed != null) {
+            // Lifecycle cleanup must always run. Callers may suppress only the
+            // intermediate peer-list update while atomically replacing a peer.
             try { delegate?.onPeerRemoved(peerID) } catch (_: Exception) {}
-            notifyPeerListUpdate()
+            if (notifyPeerList) {
+                notifyPeerListUpdate()
+            }
         }
     }
     

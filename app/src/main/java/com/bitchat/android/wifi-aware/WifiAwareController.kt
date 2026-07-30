@@ -30,6 +30,15 @@ object WifiAwareController {
     private var awareReceiverRegistered = false
     private var lastBlockedReason: String? = null
 
+    /**
+     * Set while a Wi-Fi Direct hotspot is hosting. Wi-Fi Aware (NAN) and Wi-Fi Direct
+     * (P2P) cannot hold interfaces at the same time on common chipsets — the HAL fails
+     * to create the P2P iface and every createGroup is answered with BUSY. The hold
+     * also blocks [startIfPossible], so a resume or mesh-service restart cannot bring
+     * Aware back while the hotspot is up.
+     */
+    private val hotspotHold = AtomicBoolean(false)
+
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val _enabled = MutableStateFlow(false)
@@ -87,9 +96,30 @@ object WifiAwareController {
         if (value) startIfPossible() else stop()
     }
 
+    /**
+     * Releases the Wi-Fi radio so a Wi-Fi Direct hotspot can create its P2P interface,
+     * and prevents Aware restarting until [releaseHotspotHold] is called.
+     */
+    fun holdForHotspot() {
+        if (!hotspotHold.compareAndSet(false, true)) return
+        Log.i(TAG, "Holding Wi-Fi Aware down so the hotspot can use the radio")
+        stop()
+    }
+
+    /** Drops the hold and restores Aware if the user still has it enabled. */
+    fun releaseHotspotHold() {
+        if (!hotspotHold.compareAndSet(true, false)) return
+        Log.i(TAG, "Hotspot finished; restoring Wi-Fi Aware if enabled")
+        restartIfStillEnabled()
+    }
+
     fun startIfPossible() {
         val reusableService = synchronized(lifecycleLock) {
             if (!_enabled.value) return
+            if (hotspotHold.get()) {
+                Log.d(TAG, "Not starting Wi-Fi Aware: held down for the hotspot")
+                return
+            }
             val existing = service
             if (existing?.isRunning() == true) {
                 _running.value = true
@@ -149,7 +179,7 @@ object WifiAwareController {
                 return
             }
         }
-        if (!_enabled.value) {
+        if (!_enabled.value || hotspotHold.get()) {
             synchronized(lifecycleLock) { starting = false }
             return
         }
@@ -159,23 +189,40 @@ object WifiAwareController {
                 WifiAwareMeshService(ctx)
             }
             startedService.startServices()
-            if (startedService.isRunning()) {
-                synchronized(lifecycleLock) {
+
+            // Test the hold inside the same lock that publishes the service, and that
+            // stop() takes. Testing it outside leaves a window where holdForHotspot()
+            // sets the flag and stop() finds nothing published yet, and this block then
+            // publishes anyway — resurrecting NAN while the hotspot owns the radio.
+            // Ordering holds because holdForHotspot() sets the flag before calling
+            // stop(): either we see the flag here, or stop() sees our published service.
+            val published = synchronized(lifecycleLock) {
+                val canPublish = !hotspotHold.get() && startedService.isRunning()
+                if (canPublish) {
                     service = startedService
                     _running.value = true
+                } else {
+                    if (service === startedService) service = null
+                    _running.value = false
                 }
+                canPublish
+            }
+
+            if (published) {
                 try { com.bitchat.android.service.MeshServiceHolder.unifiedMeshService?.refreshDelegates() } catch (_: Exception) { }
                 clearBlockedDebugMessage()
                 try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware started")) } catch (_: Exception) {}
             } else {
-                if (reusableService == null) {
+                // stopServices() can block, so keep it out of the lock.
+                val heldForHotspot = hotspotHold.get()
+                if (heldForHotspot || reusableService == null) {
                     try { startedService.stopServices() } catch (_: Exception) { }
                 }
-                synchronized(lifecycleLock) {
-                    if (service === startedService) service = null
-                    _running.value = false
+                if (heldForHotspot) {
+                    Log.i(TAG, "Abandoned Wi-Fi Aware start: hotspot claimed the radio")
                 }
-                try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware did not start")) } catch (_: Exception) {}
+                val detail = if (heldForHotspot) "held down for the hotspot" else "did not start"
+                try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware $detail")) } catch (_: Exception) {}
             }
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to start WifiAwareMeshService", e)

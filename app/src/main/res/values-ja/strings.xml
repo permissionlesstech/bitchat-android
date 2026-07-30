@@ -46,7 +46,7 @@
     <string name="notification_summary_more">ほか %1$d 件</string>
     <string name="notification_messages_from_people">%2$d 人からの %1$d 件のメッセージ</string>
     <string name="notification_more_conversations">ほか %1$d 会話</string>
-    <string name="notification_active_peers_title">👥 近くに bitchatter ！</string>
+    <string name="notification_active_peers_title">近くに bitchatter ！</string>
     <string name="notification_active_peers_one">近くに 1 人</string>
     <string name="notification_active_peers_many">近くに %1$d 人</string>
     <string name="notification_new_messages">新着メッセージ</string>
@@ -391,4 +391,8 @@
   <string name="nearby_notes_reveal">ここに残されたメモを確認</string>
   <string name="nearby_notes_one">ここに1件のメモがあります — タップして読む</string>
   <string name="nearby_notes_many">ここに%d件のメモがあります — タップして読む</string>
+    <string name="about_language">言語</string>
+    <string name="about_app_language">アプリの言語</string>
+    <string name="about_system_default">システムのデフォルト</string>
+    <string name="about_select_language">言語を選択</string>
 </resources>
