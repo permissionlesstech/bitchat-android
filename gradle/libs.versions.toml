@@ -16,6 +16,9 @@ appcompat = "1.7.1"
 # Compose
 compose-bom = "2026.06.01"
 compose-icons-extended = "1.7.8"
+# Overrides the BOM's 1.4.0. The expressive wavy progress indicators are Compose-only in the
+# 1.5.0 line, which has no stable release yet; drop this override once 1.5.0 ships.
+compose-material3 = "1.5.0-alpha25"
 
 # Navigation
 navigation-compose = "2.9.8"
@@ -89,7 +92,7 @@ androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
-androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-material3" }
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "compose-icons-extended" }
 
 # Lifecycle
