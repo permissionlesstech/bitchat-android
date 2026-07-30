@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ns2:repository
+    xmlns:ns2="http://schemas.android.com/repository/android/common/02"
+    xmlns:ns5="http://schemas.android.com/repository/android/generic/02">
+    <localPackage path="platform-tools" obsolete="false">
+        <type-details
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:type="ns5:genericDetailsType"/>
+        <revision>
+            <major>37</major>
+            <minor>0</minor>
+            <micro>0</micro>
+        </revision>
+        <display-name>Android SDK Platform-Tools</display-name>
+    </localPackage>
+</ns2:repository>

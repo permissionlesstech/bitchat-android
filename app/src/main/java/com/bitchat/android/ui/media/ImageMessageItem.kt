@@ -1,15 +1,13 @@
 package com.bitchat.android.ui.media
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,21 +16,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.text.font.FontFamily
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import androidx.compose.material3.ColorScheme
+import com.bitchat.android.core.ui.component.text.AnnotatedClickableText
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun ImageMessageItem(
@@ -46,35 +42,37 @@ fun ImageMessageItem(
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     onCancelTransfer: ((BitchatMessage) -> Unit)?,
     onImageClick: ((String, List<String>, Int) -> Unit)?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showSender: Boolean = true
 ) {
+    val palette = LocalBitchatPalette.current
     val path = message.content.trim()
     Column(modifier = modifier.fillMaxWidth()) {
         val headerText = com.bitchat.android.ui.formatMessageHeaderAnnotatedString(
             message = message,
             currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
-            timeFormatter = timeFormatter
+            myPeerID = meshService.myPeerID,
+            palette = palette,
+            contentColor = colorScheme.onSurface,
+            timeFormatter = timeFormatter,
+            includeSender = showSender
         )
         val haptic = LocalHapticFeedback.current
-        var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-        Text(
+        AnnotatedClickableText(
             text = headerText,
-            fontFamily = FontFamily.Monospace,
-            color = colorScheme.onSurface,
-            modifier = Modifier.pointerInput(message.id) {
-                detectTapGestures(onTap = { pos ->
-                    val layout = headerLayout ?: return@detectTapGestures
-                    val offset = layout.getOffsetForPosition(pos)
-                    val ann = headerText.getStringAnnotations("nickname_click", offset, offset)
-                    if (ann.isNotEmpty() && onNicknameClick != null) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onNicknameClick.invoke(ann.first().item)
-                    }
-                }, onLongPress = { onMessageLongPress?.invoke(message) })
+            annotationTags = listOf("nickname_click"),
+            onAnnotationClick = { tag, item ->
+                if (tag == "nickname_click" && onNicknameClick != null) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onNicknameClick.invoke(item)
+                    true
+                } else {
+                    false
+                }
             },
-            onTextLayout = { headerLayout = it }
+            onLongPress = { onMessageLongPress?.invoke(message) },
+            fontFamily = BitchatFontFamily,
+            color = colorScheme.onSurface,
         )
 
         val context = LocalContext.current
@@ -145,7 +143,7 @@ fun ImageMessageItem(
                 }
             }
         } else {
-            Text(text = stringResource(com.bitchat.android.R.string.image_unavailable), fontFamily = FontFamily.Monospace, color = Color.Gray)
+            Text(text = stringResource(com.bitchat.android.R.string.image_unavailable), fontFamily = BitchatFontFamily, color = Color.Gray)
         }
     }
 }

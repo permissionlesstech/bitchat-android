@@ -3,13 +3,20 @@
 This document is the exhaustive implementation guide for Bitchat’s Bluetooth file transfer protocol for voice notes (audio) and images, including interactive features like waveform seeking. It describes the on‑wire packet format (both v1 and v2), fragmentation/progress/cancellation, sender/receiver behaviors, and the complete UX we implemented in the Android client so that other implementers can interoperate and match the user experience precisely.
 
 **Protocol Versions:**
-- **v1**: Original protocol with 2‑byte payload length (≤ 64 KiB files)
-- **v2**: Extended protocol with 4-byte payload length (≤ 4 GiB files) - use for all file transfers
-- File transfer packets use v2 format by default for optimal compatibility
+- **v1**: Original envelope with a 2-byte payload length.
+- **v2**: Extended envelope with a 4-byte payload length.
+- Public and legacy raw file-transfer envelopes use v2. A Noise-encrypted
+  private envelope may use v1 when its ciphertext fits, and source routing
+  upgrades the final envelope to v2.
+- The payload-length field is not the practical transfer limit. Private-media
+  admission is limited to 256 final fragments after route, signature,
+  encryption, and envelope overhead. Generic/public outbound fragmentation
+  retains the UInt16 wire range; receivers may impose a lower safety bound.
 
 **Interactive Features:**
 - **Waveform Seeking**: Tap anywhere on audio waveforms to jump to that playback position
-- **Large File Support**: v2 protocol enables multi-GiB file transfers through fragmentation
+- **Bounded Transfer Support**: v2 removes the 16-bit envelope-length limit,
+  while bounded fragmentation protects receivers from unbounded reassembly.
 - **Unified Experience**: Identical UX between platforms with enhanced user control
 
 The guide is organized into:
@@ -34,12 +41,15 @@ Bitchat BLE transport carries application messages inside the common `BitchatPac
 Fields (subset relevant to file transfer):
 
 - `version: UByte` — protocol version (`1` for v1, `2` for v2 with extended payload length).
-- `type: UByte` — message type. File transfer uses `MessageType.FILE_TRANSFER (0x22)`.
+- `type: UByte` — public file transfer uses `MessageType.FILE_TRANSFER (0x22)`;
+  private file transfer uses outer `MessageType.NOISE_ENCRYPTED (0x11)`.
 - `senderID: ByteArray (8)` — 8‑byte binary peer ID.
 - `recipientID: ByteArray (8)` — 8‑byte recipient. For public: `SpecialRecipients.BROADCAST (0xFF…FF)`; for private: the target peer’s 8‑byte ID.
 - `timestamp: ULong` — milliseconds since epoch.
-- `payload: ByteArray` — TLV file payload (see below).
-- `signature: ByteArray?` — optional signature (present for private sends in our implementation, to match iOS integrity path).
+- `payload: ByteArray` — the public form contains the file TLV directly. The
+  private form contains Noise ciphertext which authenticates payload type
+  `FILE_TRANSFER (0x20)` followed by the same file TLV.
+- `signature: ByteArray?` — packet signature added by the mesh send path.
 - `ttl: UByte` — hop TTL (we use `MAX_TTL` for broadcast, `7` for private).
 
 Envelope creation and broadcast paths are implemented in:
@@ -48,7 +58,9 @@ Envelope creation and broadcast paths are implemented in:
 - `app/src/main/java/com/bitchat/android/mesh/BluetoothConnectionManager.kt` (/Users/cc/git/bitchat-android/app/src/main/java/com/bitchat/android/mesh/BluetoothConnectionManager.kt)
 - `app/src/main/java/com/bitchat/android/mesh/PacketProcessor.kt` (/Users/cc/git/bitchat-android/app/src/main/java/com/bitchat/android/mesh/PacketProcessor.kt)
 
-Private sends are additionally encrypted at the higher layer (Noise) for text messages, but file transfers use the `FILE_TRANSFER` message type in the clear at the envelope level with content carried inside a TLV. See code for any deployment‑specific enforcement.
+Private sends encrypt the complete file TLV as Noise payload `0x20` before
+outer fragmentation. See `PRIVATE_MEDIA_V1.md` for the capability and mixed-
+client interoperability contract.
 
 ### 1.2 Binary Protocol Extensions (v2)
 
@@ -77,19 +89,45 @@ PayloadLength: 4 bytes (big-endian, max ~4 GiB)
 ```
 
 - **Header Size**: Increased from 13 to 15 bytes.
-- **Payload Length Field**: Extended from 16 bits (2 bytes) to 32 bits (4 bytes), allowing file transfers up to ~4 GiB.
-- **Backward Compatibility**: Clients must support both v1 and v2 decoding. File transfer packets always use v2.
+- **Payload Length Field**: Extended from 16 bits (2 bytes) to 32 bits (4
+  bytes). That is the field's theoretical range, not the permitted mesh
+  reassembly size.
+- **Backward Compatibility**: Clients must support both v1 and v2 decoding.
 - **Implementation**: See `BinaryProtocol.kt` with `getHeaderSize(version)` logic.
 
-#### Use Cases for v2
-- **Large Audio Files**: Professional recordings, podcasts, or music samples.
-- **High-Resolution Images**: Full-resolution photos from modern smartphones.
-- **Future File Types**: PDFs, documents, archives, or other large media.
+#### Use cases for v2
+
+v2 carries file payloads that exceed the v1 envelope-length field and carries
+source-route metadata. It does not imply multi-gigabyte mesh transfer support.
 
 #### Interoperability Requirements
 - Clients receiving v2 packets must decode 4-byte `PayloadLength` fields.
 - Clients sending file transfers should preferentially use v2 format.
-- Fragmentation still applies: large files are split into fragments that fit within BLE MTU constraints (~128 KiB per fragment).
+- Fragmentation still applies. Each serialized mesh fragment fits the 512-byte
+  transport threshold; the data portion is at most 469 bytes and becomes
+  smaller when recipient or source-route overhead is present.
+
+#### Compressed expansion rollout gate (resolved)
+
+Android's bounded decoder applies the same 10 MiB expanded-payload ceiling to every outer
+message type. It also requires a non-empty compressed body, an exact declared output size, and a
+complete deflate stream. The `FILE_TRANSFER (0x22)` byte cannot safely grant a larger ceiling: it is
+attacker-controlled before packet signature verification, and the current receive pipeline must
+inflate before it can perform that verification.
+
+New Android senders cap files just below 10 MiB (reserving envelope overhead) and refuse to encode
+any payload above the receiver ceiling; exceeding the cap surfaces a user-visible error in chat.
+Support for legacy >10 MiB compressed transfers is explicitly ended: legacy Android senders can
+still produce a highly compressible public file between 10 MiB and their 50 MiB UI limit that the
+bounded decoder rejects. Grandfathering 50 MiB is not safe after only a type check: inflation
+allocates the declared payload and
+`BitchatFilePacket.decode` currently copies the content again, creating a greater than 100 MiB peak
+for a maximum-size transfer.
+
+Before enabling that legacy range, receive processing needs an authenticated admission decision
+made before large allocation plus streaming inflation/TLV parsing into a bounded temporary file (or
+another ownership-preserving design that avoids the second full-size copy). The sender limit and a
+wire capability/version transition must then be coordinated so old and new clients fail predictably.
 
 ### 1.3 File Transfer TLV payload (BitchatFilePacket)
 
@@ -114,7 +152,8 @@ Encoding rules:
 
 - Standard TLVs use `1 byte type + 2 bytes big‑endian length + value`.
 - CONTENT uses a 4‑byte big‑endian length to allow payloads well beyond 64 KiB.
-- With the v2 envelope (4‑byte payload length), CONTENT can be large; transport still fragments oversize packets to fit BLE MTU.
+- With the v2 envelope (4-byte payload length), CONTENT can exceed 64 KiB, but
+  sender and receiver fragmentation policies still bound practical transfers.
 - Implementations should validate TLV boundaries; decoding should fail fast on malformed structures.
 
 Decoding rules (v2):
@@ -140,8 +179,13 @@ Legacy Compatibility (optional, for mixed‑version meshes):
 File transfers reuse the mesh broadcaster’s fragmentation logic:
 
 - `BluetoothPacketBroadcaster` checks if the serialized envelope exceeds the configured MTU and splits it into fragments via `FragmentManager`.
-- Fragments are sent with a short inter‑fragment delay (currently ~200 ms; matches iOS/Rust behavior notes in code).
+- Fragments are sent with a short inter-fragment delay (currently 20 ms).
 - When only one fragment is needed, send as a single packet.
+- Android receivers reject fragment sets declaring more than 256 fragments.
+  Private senders use that same 256-fragment limit and calculate it from the
+  exact final routed, signed, and encrypted packet before creating a local
+  echo. Generic/public outbound planning retains its prior UInt16 count range,
+  so this private-media migration does not silently change public sending.
 
 ### 2.2 Transfer ID and progress events
 
@@ -216,24 +260,38 @@ Files:
    - Files saved under `files/voicenotes/outgoing/voice_YYYYMMDD_HHMMSS.m4a`.
 
 2) Local echo
-   - We create a `BitchatMessage` with content `"[voice] <path>"` and add to the appropriate timeline (public/channel/private).
-   - For private: `messageManager.addPrivateMessage(peerID, message)`. For public/channel: `messageManager.addMessage(message)` or add to channel.
+   - Public/channel sends create their timeline entry before dispatch.
+   - Private sends first finish capability policy and exact final-fragment
+     admission. They create the local echo and progress mapping only for an
+     admitted plan, then atomically commit that prepared plan.
 
 3) Packet creation
    - Build a `BitchatFilePacket`:
      - `fileName`: basename (e.g., `voice_… .m4a`)
      - `fileSize`: file length
      - `mimeType`: `audio/mp4`
-     - `content`: full bytes (ensure content ≤ 64 KiB; with chosen codec params typical short notes fit fragmentation constraints)
+     - `content`: full bytes; final-packet admission determines whether it fits
+       the 256-fragment limit.
    - Encode TLV; compute `transferId = sha256Hex(payload)`.
    - Map `transferId → messageId` for UI progress.
 
 4) Send
    - Public: `BluetoothMeshService.sendFileBroadcast(filePacket)`.
-   - Private: `BluetoothMeshService.sendFilePrivate(peerID, filePacket)`.
+   - Private UI: `prepareFilePrivate(...)`, followed by one-shot commit of a
+     ready plan. The non-interactive `sendFilePrivate(...)` entry point commits
+     only encrypted-ready plans and never silently chooses a legacy downgrade.
    - Broadcaster handles fragmentation and progress emission.
 
-5) Waveform
+5) Mixed-client private migration
+   - A verified legacy recipient with no private-media capability requires a
+     user warning and one-shot consent.
+   - Approval rechecks policy. The fallback is recipient-directed raw `0x22`,
+     visible to relays, and must have a valid Ed25519 packet signature.
+   - No authenticated Noise identity starts a handshake without a local echo
+     or media send; the user retries after it completes. Signing failure or a
+     private plan above 256 final fragments aborts without an echo or send.
+
+6) Waveform
    - We extract a 120‑bin waveform from the recorded file (the same extractor used for the receiver) and cache by file path, so sender and receiver waveforms are identical.
 
 Core files:
@@ -373,8 +431,10 @@ Files:
 - Path markers in messages
   - We use simple content markers: `"[voice] <abs path>", "[image] <abs path>", "[file] <abs path>"` for local rendering. These are not sent on the wire; the actual file bytes are inside the TLV payload.
 - Progress math for images relies on `(sent / total)` from `TransferProgressManager` (fragment‑level granularity). The block grid density can be tuned; currently 24×16.
-- Private vs public: both use the same file TLV; only the envelope `recipientID` differs. Private may have signatures; code shows a signing step consistent with iOS behavior prior to broadcast to ensure integrity.
-- BLE timing: there is a 200 ms inter‑fragment delay for stability. Adjust as needed for your radio stack while maintaining compatibility.
+- Private vs public: both use the same file TLV. Private media wraps it in a
+  Noise payload of type `0x20`; public media carries it directly in a `0x22`
+  packet.
+- BLE timing: there is a 20 ms inter-fragment delay. Adjust as needed for your radio stack while maintaining compatibility.
 
 
 ---
@@ -426,7 +486,9 @@ Fullscreen image:
    - FILE_NAME and MIME_TYPE: `type(1) + len(2) + value`
    - FILE_SIZE: `type(1) + len(2=4) + value(4, UInt32 BE)`
    - CONTENT: `type(1) + len(4) + value`
-3. Embed the TLV into a `BitchatPacket` envelope with `type = FILE_TRANSFER (0x22)` and the correct `recipientID` (broadcast vs private).
+3. For public media, embed the TLV in `FILE_TRANSFER (0x22)`. For private media,
+   prefix the TLV with Noise payload type `0x20`, encrypt it for the recipient,
+   and put the ciphertext in `NOISE_ENCRYPTED (0x11)`.
 4. Fragment, send, and report progress using a transfer ID derived from `sha256(payload)` so the UI can map progress to a message.
 5. Support cancellation at the fragment sender: stop sending remaining fragments and propagate a cancel to the UI (we remove the message).
 6. On receive, decode TLV, persist to an app directory (separate audio/images/other), and create a chat message with content marker `"[voice] path"`, `"[image] path"`, or `"[file] path"` for local rendering.

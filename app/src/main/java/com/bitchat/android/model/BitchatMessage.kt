@@ -69,7 +69,15 @@ data class BitchatMessage(
     val encryptedContent: ByteArray? = null,
     val isEncrypted: Boolean = false,
     val deliveryStatus: DeliveryStatus? = null,
-    val powDifficulty: Int? = null
+    val powDifficulty: Int? = null,
+    /**
+     * Full canonical Nostr public key supplied by the local Nostr bridge.
+     *
+     * This is local identity metadata, not part of the Bitchat binary wire format. It lets UI
+     * surfaces color the sender by the same stable key while [senderPeerID] remains available for
+     * mesh IDs and private-chat routing aliases.
+     */
+    val senderNostrPubkey: String? = null
 ) : Parcelable {
 
     /**
@@ -354,5 +362,4 @@ data class BitchatMessage(
         return result
     }
 }
-
 

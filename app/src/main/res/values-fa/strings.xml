@@ -46,7 +46,7 @@
     <string name="notification_summary_more">و %1$d مورد دیگر</string>
     <string name="notification_messages_from_people">%1$d پیام از %2$d نفر</string>
     <string name="notification_more_conversations">و %1$d گفت‌وگوی دیگر</string>
-    <string name="notification_active_peers_title">👥 کاربران bitchat در نزدیکی!</string>
+    <string name="notification_active_peers_title">کاربران bitchat در نزدیکی!</string>
     <string name="notification_active_peers_one">۱ نفر در نزدیکی</string>
     <string name="notification_active_peers_many">%1$d نفر در نزدیکی</string>
     <string name="notification_new_messages">پیام‌های جدید</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">افزودن نشانک</string>
 
     <!-- سربرگ چت و دسترسی‌پذیری -->
-    <string name="chat_back">بازگشت</string>
-    <string name="chat_channel_prefix">کانال: %1$s</string>
-    <string name="chat_leave">خروج</string>
     <string name="cd_nostr_reachable">قابل دسترس از طریق Nostr</string>
     <string name="cd_unread_private_messages">پیام‌های خصوصی خوانده‌نشده</string>
-    <string name="cd_toggle_bookmark">تغییر وضعیت نشانک</string>
     <string name="cd_teleported">انتقال مکانی</string>
-    <string name="cd_tor_status">وضعیت Tor</string>
+    <string name="cd_open_location_channels">باز کردن تنظیمات مکان و کانال‌ها</string>
     <string name="cd_connected_peers">همتایان متصل</string>
     <string name="cd_geohash_participants">شرکت‌کنندگان geohash</string>
     <string name="cd_ready_for_handshake">آمادهٔ دست‌دهی</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">انتخاب تصویر</string>
 
     <!-- برگهٔ درباره -->
-    <string name="about_tagline">گفت‌وگوی مِش غیرمتمرکز با رمزگذاری سرتاسری</string>
     <string name="about_offline_mesh_title">گفت‌وگوی مِش آفلاین</string>
     <string name="about_offline_mesh_desc">بدون اینترنت یا سرور، مستقیماً از طریق Bluetooth LE ارتباط برقرار کنید. پیام‌ها از طریق دستگاه‌های نزدیک رله می‌شوند تا بُرد افزایش یابد.</string>
     <string name="about_online_geohash_title">کانال‌های geohash آنلاین</string>
     <string name="about_online_geohash_desc">از طریق کانال‌های مبتنی بر geohash با افراد منطقهٔ خود ارتباط برقرار کنید. مِش را از طریق رله‌های عمومی اینترنت گسترش دهید.</string>
     <string name="about_e2e_title">رمزگذاری سرتاسری</string>
     <string name="about_e2e_desc">پیام‌های خصوصی رمزگذاری می‌شوند. پیام‌های کانال عمومی هستند.</string>
-    <string name="about_appearance">نما</string>
     <string name="about_system">سامانه</string>
     <string name="about_light">روشن</string>
     <string name="about_dark">تیره</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">وضعیت Tor: %1$s، بوت‌استرپ %2$d%%</string>
     <string name="about_last">آخرین: %1$s</string>
     <string name="about_emergency_title">پاکسازی اضطراری داده</string>
-    <string name="about_emergency_tip">نکته: برای پاک کردن همهٔ داده‌های ذخیره‌شده — شامل پیام‌ها، کلیدها و تنظیمات — سه بار روی عنوان برنامه ضربه بزنید.</string>
     <string name="about_debug_settings">تنظیمات اشکال‌زدایی</string>
     <string name="about_footer">متن‌باز • حریم خصوصی در اولویت • غیرمتمرکز</string>
     <string name="close_plain">بستن</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">باز کردن نقشه</string>
     <string name="cd_remove_bookmark">حذف نشانک</string>
     <string name="cd_teleport">انتقال</string>
-    <string name="cd_selected">انتخاب شد</string>
     <string name="cd_leave_channel">خروج از کانال</string>
     <string name="cd_reachable_via_nostr">قابل دسترس از طریق Nostr</string>
     <string name="cd_offline_favorite">دلخواه (آفلاین)</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">مجوزها</string>
     <string name="grant_permissions">اعطای مجوزها</string>
     <string name="location_tracking_warning">bitchat موقعیت شما را پیگیری نمی‌کند</string>
-    <string name="geohash_people_header">افراد</string>
     <string name="nobody_around">کسی در اطراف نیست …</string>
     <string name="you_suffix"> (شما)</string>
     <string name="pan_zoom_instruction">برای انتخاب geohash، جابه‌جا و زوم کنید</string>
     <string name="select">انتخاب</string>
     <string name="type_a_message_placeholder">نوشتن پیام …</string>
     <string name="mention">ذکر</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">تصویر</string>
@@ -307,11 +297,6 @@
     <!-- دسترسی‌پذیری پخش‌کنندهٔ صوت -->
     <string name="cd_play_voice">پخش</string>
     <string name="cd_pause_voice">توقف</string>
-    <string name="cd_mining_pow">استخراج PoW</string>
-    <string name="cd_pow_enabled">PoW فعال است</string>
-    <string name="cd_proof_of_work">گواه کار</string>
-    <string name="pow_mining_ellipsis">در حال استخراج …</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- توضیحات مجوز -->
     <string name="perm_nearby_devices_desc">برای یافتن کاربران bitchat از طریق بلوتوث لازم است</string>
@@ -387,4 +372,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">باز کردن درباره</string>
+  <string name="nearby_notes_reveal">یادداشت‌های باقی‌مانده در اینجا را بررسی کنید</string>
+  <string name="nearby_notes_one">۱ یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>
+  <string name="nearby_notes_many">%d یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>
+    <string name="about_language">زبان</string>
+    <string name="about_app_language">زبان برنامه</string>
+    <string name="about_system_default">پیش‌فرض سیستم</string>
+    <string name="about_select_language">انتخاب زبان</string>
 </resources>

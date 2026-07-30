@@ -56,6 +56,11 @@ The application follows a clean architecture pattern, heavily modularized by fea
 ### Testing
 - **Unit Tests**: Located in `app/src/test/`. Use for business logic, protocols, and utility testing.
 - **Instrumented Tests**: Located in `app/src/androidTest/`. Use for UI and permission integration testing.
+- **Device Mesh Tests (ADB test hooks)**: Two-physical-device scenarios driven over ADB, **kept separate from Gradle/CI** — run them manually when changing mesh/crypto/transfer code. A debug-only broadcast receiver (`app/src/debug/java/com/bitchat/android/testhook/`, never in release builds) exposes mesh operations (scan, connect, Noise handshake, DMs, broadcast, files, raw packet injection) via `am broadcast -a com.bitchat.droid.TEST_HOOK`; the host orchestrator is `tools/release_gate/mesh_lab.py`. Full guide: `docs/release-gate-runbook.md` appendix "mesh lab".
+  - Prereqs: `adb` on PATH, Python 3.10+, two devices with USB debugging, **both unlocked with screen on** (locked/dozing → POWER_SAVER → flaky timing).
+  - Setup: `./gradlew assembleDebug && python3 tools/release_gate/mesh_lab.py setup --serial-a <s1> --serial-b <s2> --apk app/build/outputs/apk/debug/app-arm64-v8a-debug.apk`
+  - Run: `python3 tools/release_gate/mesh_lab.py scenario all --serial-a <s1> --serial-b <s2> --out /tmp/meshlab-evidence`
+  - Scenarios: `dm`, `broadcast`, `file`, `file_oversize`, `file_private`, `raw`, `session_recovery`, `identity_reset`, `all`. Ad-hoc: `... cmd --serial <s> state`.
 - **Execution**:
   - Unit: `./gradlew test`
   - Instrumented: `./gradlew connectedAndroidTest`

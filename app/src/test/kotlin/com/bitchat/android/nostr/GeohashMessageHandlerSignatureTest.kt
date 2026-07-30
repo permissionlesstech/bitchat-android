@@ -43,13 +43,12 @@ class GeohashMessageHandlerSignatureTest {
         messageManager = MessageManager(state = chatState)
         repo = GeohashRepository(application, chatState, dataManager)
         handler = GeohashMessageHandler(
-            application,
-            chatState,
-            messageManager,
-            repo,
-            testScope,
-            dataManager,
-            testDispatcher
+            application = application,
+            repo = repo,
+            scope = testScope,
+            dataManager = dataManager,
+            addChannelMessage = messageManager::addChannelMessage,
+            signatureVerificationDispatcher = testDispatcher
         )
     }
 
