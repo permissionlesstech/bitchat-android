@@ -48,12 +48,10 @@ fun LocationNotesButton(
     val notes by notesManager.notes.collectAsStateWithLifecycle()
     val notesCount = notes.size
 
-    // Only show in mesh mode when location is authorized (iOS pattern)
-    if (selectedLocationChannel is ChannelID.Mesh && locationEnabled) {
-        val hasNotes = notesCount > 0
+    // Keep the header quiet until there is at least one nearby note worth opening.
+    if (selectedLocationChannel is ChannelID.Mesh && locationEnabled && notesCount > 0) {
         val contentDescription = stringResource(R.string.cd_location_notes)
-        val normalTint = if (hasNotes) colorScheme.primary else colorScheme.onSurfaceVariant
-        val torVisual = rememberTorConnectionVisual(normal = normalTint)
+        val torVisual = rememberTorConnectionVisual(normal = colorScheme.primary)
 
         Box(
             modifier = modifier
