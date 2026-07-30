@@ -77,6 +77,23 @@ internal object HotspotStartupPolicy {
     private fun isOurs(existingGroupName: String, ownedGroupName: String?): Boolean =
         ownedGroupName != null && existingGroupName == ownedGroupName
 
+    /** Only an exact owner-role name match authorizes device-scoped removal. */
+    fun isExpectedHostedGroup(
+        existingGroupName: String?,
+        isGroupOwner: Boolean,
+        expectedGroupName: String?
+    ): Boolean =
+        isGroupOwner &&
+            expectedGroupName != null &&
+            existingGroupName == expectedGroupName
+
+    /** A stale teardown must not erase the ownership marker of a newer session. */
+    fun shouldClearOwnedGroupName(
+        storedGroupName: String?,
+        removedGroupName: String?
+    ): Boolean =
+        removedGroupName != null && storedGroupName == removedGroupName
+
     /**
      * @param reason a [WifiP2pManager] failure reason from `ActionListener.onFailure`
      * @param attempt 1-based attempt that just failed

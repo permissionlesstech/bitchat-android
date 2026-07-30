@@ -2,6 +2,7 @@ package com.bitchat.android.hotspot
 
 import android.net.wifi.p2p.WifiP2pManager
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -217,5 +218,53 @@ class HotspotStartupPolicyTest {
         )
 
         assertTrue(decision is HotspotStartupPolicy.Decision.Fail)
+    }
+
+    @Test
+    fun `only the expected hosted group may be removed on stop`() {
+        assertTrue(
+            HotspotStartupPolicy.isExpectedHostedGroup(
+                existingGroupName = "DIRECT-BC-OURS1234",
+                isGroupOwner = true,
+                expectedGroupName = "DIRECT-BC-OURS1234"
+            )
+        )
+        assertFalse(
+            HotspotStartupPolicy.isExpectedHostedGroup(
+                existingGroupName = "DIRECT-xY-Cast",
+                isGroupOwner = true,
+                expectedGroupName = "DIRECT-BC-OURS1234"
+            )
+        )
+        assertFalse(
+            HotspotStartupPolicy.isExpectedHostedGroup(
+                existingGroupName = "DIRECT-BC-OURS1234",
+                isGroupOwner = false,
+                expectedGroupName = "DIRECT-BC-OURS1234"
+            )
+        )
+        assertFalse(
+            HotspotStartupPolicy.isExpectedHostedGroup(
+                existingGroupName = "DIRECT-BC-OURS1234",
+                isGroupOwner = true,
+                expectedGroupName = null
+            )
+        )
+    }
+
+    @Test
+    fun `an old teardown cannot clear a newer ownership marker`() {
+        assertTrue(
+            HotspotStartupPolicy.shouldClearOwnedGroupName(
+                storedGroupName = "DIRECT-BC-OLD12345",
+                removedGroupName = "DIRECT-BC-OLD12345"
+            )
+        )
+        assertFalse(
+            HotspotStartupPolicy.shouldClearOwnedGroupName(
+                storedGroupName = "DIRECT-BC-NEW67890",
+                removedGroupName = "DIRECT-BC-OLD12345"
+            )
+        )
     }
 }
