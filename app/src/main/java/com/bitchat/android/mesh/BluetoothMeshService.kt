@@ -1583,6 +1583,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             securityManager.clearAllData()
             peerManager.clearAllPeers()
             peerManager.clearAllFingerprints()
+            try { gossipSyncManager.clear() } catch (_: Exception) { }
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing mesh service internal data: ${e.message}")
         }

@@ -987,6 +987,7 @@ class MeshCore(
         securityManager.clearAllData()
         peerManager.clearAllPeers()
         peerManager.clearAllFingerprints()
+        try { gossipSyncManager.clear() } catch (_: Exception) { }
     }
 
     fun clearAllEncryptionData() {

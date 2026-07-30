@@ -1445,9 +1445,12 @@ class ChatViewModel(
         dataManager.clearAllData()
         conversationListPreferences.clearAll()
         
-        // Clear seen message store
+        // Clear seen message store and MessageRouter outbox
         try {
             com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
+        } catch (_: Exception) { }
+        try {
+            com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
         } catch (_: Exception) { }
         
         // Clear all cryptographic data
