@@ -10,6 +10,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
@@ -29,13 +30,17 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.geohash.Geohash
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlin.math.ceil
 import kotlin.math.min
@@ -114,21 +119,37 @@ fun GlobeView(
     }
 
     LaunchedEffect(state) {
-        snapshotFlow { state.selectedGeohash }
+        snapshotFlow { state.selectedGeohash to state.isInMotion }
+            .distinctUntilChanged()
             .drop(1)
-            .collect {
-                view.performHapticFeedback(
-                    HapticFeedbackConstants.KEYBOARD_TAP,
-                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
-                )
+            .collectLatest { (geohash, inMotion) ->
+                if (geohash.isNotEmpty() && !inMotion) {
+                    delay(SETTLED_HAPTIC_DELAY_MS)
+                    if (!state.isInMotion && state.selectedGeohash == geohash) {
+                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    }
+                }
             }
     }
 
     val labelTextSize = with(density) { 12.5.sp.toPx() }
     val labelTextSizeSmall = with(density) { 10.sp.toPx() }
 
-    Canvas(
-        modifier = modifier
+    Box(modifier = modifier) {
+        // Static background lives in its own layer and is not invalidated by globe movement.
+        Canvas(modifier = Modifier.matchParentSize()) {
+            stars.forEach { star ->
+                drawCircle(
+                    color = colors.star.copy(alpha = star.alpha),
+                    radius = star.radius * density.density,
+                    center = Offset(star.x * size.width, star.y * size.height)
+                )
+            }
+        }
+
+        Canvas(
+            modifier = Modifier
+            .matchParentSize()
             .onSizeChanged { size: IntSize ->
                 val minDim = min(size.width, size.height).toFloat()
                 state.setViewport(minDim * 0.44f, minDim)
@@ -142,40 +163,45 @@ fun GlobeView(
                     state.isInteracting = true
                     val downTime = SystemClock.uptimeMillis()
                     val downPos = down.position
-                    var maxPointers = 1
                     var moved = Offset.Zero
-                    val panTimes = ArrayDeque<Long>()
-                    val panVec = ArrayDeque<Offset>()
+                    var dragStarted = false
+                    var hadMultiplePointers = false
+                    val velocityTracker = VelocityTracker()
+                    velocityTracker.addPosition(down.uptimeMillis, down.position)
 
                     while (true) {
                         val event = awaitPointerEvent()
                         val pressed = event.changes.filter { it.pressed }
                         if (pressed.isEmpty()) break
-                        maxPointers = maxOf(maxPointers, pressed.size)
+                        if (pressed.size > 1) {
+                            hadMultiplePointers = true
+                            velocityTracker.resetTracking()
+                        }
 
                         val pan = event.calculatePan()
                         val zoomChange = event.calculateZoom()
 
                         if (pan != Offset.Zero) {
-                            state.rotateBy(pan.x, pan.y)
                             moved += pan
-                            val now = SystemClock.uptimeMillis()
-                            panTimes.addLast(now)
-                            panVec.addLast(pan)
-                            while (panTimes.isNotEmpty() && now - panTimes.first() > 120) {
-                                panTimes.removeFirst()
-                                panVec.removeFirst()
+                            if (!dragStarted && moved.getDistance() >= viewConfiguration.touchSlop) {
+                                dragStarted = true
                             }
+                            if (dragStarted) state.rotateBy(pan.x, pan.y)
                         }
                         if (zoomChange != 1f) {
                             state.zoomBy(zoomChange)
+                        }
+                        if (!hadMultiplePointers && pressed.size == 1) {
+                            val change = pressed[0]
+                            velocityTracker.addPosition(change.uptimeMillis, change.position)
                         }
                         event.changes.forEach { if (it.positionChanged()) it.consume() }
                     }
 
                     state.isInteracting = false
                     val upTime = SystemClock.uptimeMillis()
-                    val isTap = maxPointers == 1 &&
+                    val isTap = !hadMultiplePointers &&
+                        !dragStarted &&
                         upTime - downTime < 400 &&
                         moved.getDistance() < viewConfiguration.touchSlop
 
@@ -205,15 +231,13 @@ fun GlobeView(
                                 }
                             }
                         }
-                    } else if (panVec.isNotEmpty()) {
-                        var sx = 0f; var sy = 0f
-                        panVec.forEach { sx += it.x; sy += it.y }
-                        val windowMs = (SystemClock.uptimeMillis() - panTimes.first()).coerceAtLeast(1)
-                        state.fling(sx / windowMs, sy / windowMs)
+                    } else if (dragStarted && !hadMultiplePointers) {
+                        val velocity = velocityTracker.calculateVelocity()
+                        state.fling(velocity.x, velocity.y)
                     }
                 }
             }
-    ) {
+        ) {
         val cx = size.width / 2f
         val cy = size.height / 2f
         val baseR = state.baseRadiusPx
@@ -221,15 +245,7 @@ fun GlobeView(
         val r = state.globeRadiusPx
         val cLat = state.centerLat.toDouble()
         val cLon = state.centerLon.toDouble()
-
-        // Starfield
-        stars.forEach { s ->
-            drawCircle(
-                color = colors.star.copy(alpha = s.alpha),
-                radius = s.radius * density.density,
-                center = Offset(s.x * size.width, s.y * size.height)
-            )
-        }
+        val preparedProjector = GlobeMath.PreparedProjector(cLat, cLon)
 
         // Atmosphere glow
         drawCircle(
@@ -259,17 +275,34 @@ fun GlobeView(
 
         val clip = ClipRect(-size.width, -size.height, size.width * 2f, size.height * 2f)
 
+        val lowDetail = state.isInMotion
+
         // Graticule
-        drawGraticule(cx, cy, r, cLat, cLon, colors.graticule, clip)
+        drawGraticule(
+            cx, cy, r, cLat, cLon, colors.graticule, clip,
+            step = if (lowDetail) 10.0 else 4.0
+        )
 
         // Landmasses
         for (ring in land) {
-            drawLandRing(ring, scratch, cx, cy, r, cLat, cLon, colors, clip)
+            drawLandRing(
+                ring = ring,
+                scratch = scratch,
+                projector = preparedProjector,
+                cx = cx,
+                cy = cy,
+                r = r,
+                colors = colors,
+                clip = clip,
+                pointStride = if (lowDetail && ring.size >= 64) 2 else 1
+            )
         }
 
-        // Country borders
-        for (line in borders) {
-            drawBorderLine(line, borderScratch, cx, cy, r, cLat, cLon, colors, clip)
+        // Country borders are restored when interaction settles.
+        if (!lowDetail) {
+            for (line in borders) {
+                drawBorderLine(line, borderScratch, preparedProjector, cx, cy, r, colors, clip)
+            }
         }
 
         // Sphere shading: dark limb + night side for 3D depth
@@ -297,19 +330,17 @@ fun GlobeView(
             center = Offset(cx, cy)
         )
 
-        // Cities (dots + names) over the shaded sphere
-        drawCities(
-            cities, state, cx, cy, r, cLat, cLon, colors,
-            labelPaint, haloPaint, labelTypeface, labelTextSizeSmall, density.density
-        )
-
-        // Geohash cells
-        if (state.selectedGeohash.isNotEmpty()) {
-            drawGeohashGrid(state, cx, cy, r, cLat, cLon, colors, clip)
+        // Cities are detail-only; omitting them while moving keeps touch latency predictable.
+        if (!lowDetail) {
+            drawCities(
+                cities, state, preparedProjector, cx, cy, r, colors,
+                labelPaint, haloPaint, labelTypeface, labelTextSizeSmall, density.density
+            )
         }
 
-        // Labels
-        if (state.selectedGeohash.isNotEmpty()) {
+        // Detailed cells and labels settle into place after the gesture ends.
+        if (!lowDetail && state.selectedGeohash.isNotEmpty()) {
+            drawGeohashGrid(state, cx, cy, r, cLat, cLon, colors, clip)
             drawGeohashLabels(
                 state, cx, cy, r, cLat, cLon, colors,
                 labelPaint, haloPaint, labelTypeface, labelTypefaceBold,
@@ -317,25 +348,39 @@ fun GlobeView(
             )
         }
 
-        // Center crosshair
-        val crossAlpha = if (state.isInteracting) 0.9f else pulse
-        val crossColor = colors.accent.copy(alpha = crossAlpha)
-        val gap = 5 * density.density
-        val len = 9 * density.density
-        val strokeW = 1.6f * density.density
-        drawLine(crossColor, Offset(cx - gap - len, cy), Offset(cx - gap, cy), strokeW)
-        drawLine(crossColor, Offset(cx + gap, cy), Offset(cx + gap + len, cy), strokeW)
-        drawLine(crossColor, Offset(cx, cy - gap - len), Offset(cx, cy - gap), strokeW)
-        drawLine(crossColor, Offset(cx, cy + gap), Offset(cx, cy + gap + len), strokeW)
-        drawCircle(crossColor, radius = 1.8f * density.density, center = Offset(cx, cy))
+        }
+
+        // Keep this animation isolated so its pulse does not redraw the globe geometry.
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val cx = size.width / 2f
+            val cy = size.height / 2f
+            val crossAlpha = if (state.isInMotion) 0.9f else pulse
+            val crossColor = colors.accent.copy(alpha = crossAlpha)
+            val gap = 5 * density.density
+            val len = 9 * density.density
+            val strokeW = 1.6f * density.density
+            drawLine(crossColor, Offset(cx - gap - len, cy), Offset(cx - gap, cy), strokeW)
+            drawLine(crossColor, Offset(cx + gap, cy), Offset(cx + gap + len, cy), strokeW)
+            drawLine(crossColor, Offset(cx, cy - gap - len), Offset(cx, cy - gap), strokeW)
+            drawLine(crossColor, Offset(cx, cy + gap), Offset(cx, cy + gap + len), strokeW)
+            drawCircle(crossColor, radius = 1.8f * density.density, center = Offset(cx, cy))
+        }
     }
 }
 
+private const val SETTLED_HAPTIC_DELAY_MS = 80L
+
 private fun DrawScope.drawGraticule(
-    cx: Float, cy: Float, r: Float, cLat: Double, cLon: Double, color: Color, clip: ClipRect
+    cx: Float,
+    cy: Float,
+    r: Float,
+    cLat: Double,
+    cLon: Double,
+    color: Color,
+    clip: ClipRect,
+    step: Double
 ) {
     val path = Path()
-    val step = 4.0
     fun strokeSegment(x0: Float, y0: Float, x1: Float, y1: Float) {
         val seg = clipSegment(x0, y0, x1, y1, clip) ?: return
         path.moveTo(seg.first.first, seg.first.second)
@@ -606,8 +651,8 @@ private fun DrawScope.strokeRuns(
 private fun DrawScope.drawBorderLine(
     line: LandData.Ring,
     scratch: FloatArray,
+    projector: GlobeMath.PreparedProjector,
     cx: Float, cy: Float, r: Float,
-    cLat: Double, cLon: Double,
     colors: GlobeColors,
     clip: ClipRect
 ) {
@@ -618,12 +663,13 @@ private fun DrawScope.drawBorderLine(
     val pts = ArrayList<DiscPt>(n)
     var i = 0
     while (i < n) {
-        val lat = line.coords[i * 2].toDouble()
-        val lon = line.coords[i * 2 + 1].toDouble()
-        val p = GlobeMath.projectRaw(lat, lon, cLat, cLon)
-        val front = p.cosC > 0.005f
-        pts.add(DiscPt(p.x, p.y, front))
-        if (p.cosC >= 0f) anyFront = true
+        projector.project(line.projectionTerms, i * 4, scratch, i * 3)
+        val x = scratch[i * 3]
+        val y = scratch[i * 3 + 1]
+        val cosC = scratch[i * 3 + 2]
+        val front = cosC > 0.005f
+        pts.add(DiscPt(x, y, front))
+        if (cosC >= 0f) anyFront = true
         i++
     }
     if (!anyFront) return
@@ -635,8 +681,8 @@ private fun DrawScope.drawBorderLine(
 private fun DrawScope.drawCities(
     cities: List<LandData.City>,
     state: GlobeState,
+    projector: GlobeMath.PreparedProjector,
     cx: Float, cy: Float, r: Float,
-    cLat: Double, cLon: Double,
     colors: GlobeColors,
     labelPaint: Paint,
     haloPaint: Paint,
@@ -645,6 +691,7 @@ private fun DrawScope.drawCities(
     density: Float
 ) {
     if (cities.isEmpty()) return
+    val projection = FloatArray(3)
     val zoom = state.zoom
     val maxRank = when {
         zoom < 2f -> 1
@@ -655,13 +702,14 @@ private fun DrawScope.drawCities(
     val canvas = drawContext.canvas.nativeCanvas
     for (city in cities) {
         if (city.rank > maxRank) continue
-        val p = GlobeMath.project(city.lat.toDouble(), city.lon.toDouble(), cLat, cLon) ?: continue
-        if (p.cosC < 0.03f) continue
-        val sx = cx + p.x * r
-        val sy = cy + p.y * r
+        projector.project(city.projectionTerms, 0, projection, 0)
+        val cosC = projection[2]
+        if (cosC < 0.03f) continue
+        val sx = cx + projection[0] * r
+        val sy = cy + projection[1] * r
         if (sx < -50 || sx > size.width + 50 || sy < -50 || sy > size.height + 50) continue
 
-        val alpha = p.cosC.coerceIn(0.25f, 1f)
+        val alpha = cosC.coerceIn(0.25f, 1f)
         val important = city.capital || city.megacity
         val dotRadius = (if (important) 2.6f else 1.8f) * density
         val dotColor = if (city.capital) colors.accent.copy(alpha = alpha)
@@ -697,24 +745,21 @@ private fun DrawScope.drawCities(
 private fun DrawScope.drawLandRing(
     ring: LandData.Ring,
     scratch: FloatArray,
+    projector: GlobeMath.PreparedProjector,
     cx: Float, cy: Float, r: Float,
-    cLat: Double, cLon: Double,
     colors: GlobeColors,
-    clip: ClipRect
+    clip: ClipRect,
+    pointStride: Int
 ) {
-    val n = ring.size
+    val n = ((ring.size - 1) / pointStride) + 1
     if (n < 3 || n * 3 > scratch.size) return
 
     var anyFront = false
     var i = 0
     while (i < n) {
-        val lat = ring.coords[i * 2].toDouble()
-        val lon = ring.coords[i * 2 + 1].toDouble()
-        val p = GlobeMath.projectRaw(lat, lon, cLat, cLon)
-        scratch[i * 3] = p.x
-        scratch[i * 3 + 1] = p.y
-        scratch[i * 3 + 2] = p.cosC
-        if (p.cosC >= 0f) anyFront = true
+        val sourceIndex = (i * pointStride).coerceAtMost(ring.size - 1)
+        projector.project(ring.projectionTerms, sourceIndex * 4, scratch, i * 3)
+        if (scratch[i * 3 + 2] >= 0f) anyFront = true
         i++
     }
     if (!anyFront) return
