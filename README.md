@@ -20,8 +20,8 @@ This is the Android implementation of bitchat, fully protocol-compatible with th
     <th>Geohash globe picker</th>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/readme-mesh-chat.png" alt="Active Bitchat mesh conversation with an image, voice messages, and text messages" width="360"/></td>
-    <td><img src="docs/screenshots/readme-geohash-globe.png" alt="Bitchat geohash location picker showing the Earth and geohash grid" width="360"/></td>
+    <td><img src="docs/screenshots/readme-mesh-chat.png" alt="Active four-peer Bitchat mesh conversation with an image, voice messages, and text messages" width="360"/></td>
+    <td><img src="docs/screenshots/readme-geohash-globe.png" alt="Bitchat geohash location picker showing the whole Earth and geohash grid" width="360"/></td>
   </tr>
 </table>
 
