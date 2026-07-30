@@ -64,6 +64,54 @@ data class GlobeColors(
 
 private class Star(val x: Float, val y: Float, val radius: Float, val alpha: Float)
 
+internal data class GlobeFrameDetail(
+    val graticuleStepDegrees: Double,
+    val landPointStride: Int,
+    val showBorders: Boolean,
+    val cityMaxRank: Int?,
+    val showCityLabels: Boolean,
+    val showGeohashGrid: Boolean,
+    val showNeighborCells: Boolean
+)
+
+internal fun globeFrameDetail(
+    quality: GlobeRenderQuality,
+    isMoving: Boolean
+): GlobeFrameDetail {
+    if (!isMoving || quality == GlobeRenderQuality.HIGH) {
+        return GlobeFrameDetail(
+            graticuleStepDegrees = 4.0,
+            landPointStride = 1,
+            showBorders = true,
+            cityMaxRank = null,
+            showCityLabels = true,
+            showGeohashGrid = true,
+            showNeighborCells = true
+        )
+    }
+    return when (quality) {
+        GlobeRenderQuality.FAST -> GlobeFrameDetail(
+            graticuleStepDegrees = 10.0,
+            landPointStride = 2,
+            showBorders = false,
+            cityMaxRank = -1,
+            showCityLabels = false,
+            showGeohashGrid = false,
+            showNeighborCells = false
+        )
+        GlobeRenderQuality.MEDIUM -> GlobeFrameDetail(
+            graticuleStepDegrees = 8.0,
+            landPointStride = 2,
+            showBorders = true,
+            cityMaxRank = 1,
+            showCityLabels = false,
+            showGeohashGrid = true,
+            showNeighborCells = false
+        )
+        GlobeRenderQuality.HIGH -> error("Handled above")
+    }
+}
+
 @Composable
 fun GlobeView(
     state: GlobeState,
@@ -71,6 +119,7 @@ fun GlobeView(
     land: List<LandData.Ring>,
     borders: List<LandData.Ring>,
     cities: List<LandData.City>,
+    renderQuality: GlobeRenderQuality,
     labelTypeface: Typeface?,
     labelTypefaceBold: Typeface?,
     modifier: Modifier = Modifier
@@ -275,12 +324,12 @@ fun GlobeView(
 
         val clip = ClipRect(-size.width, -size.height, size.width * 2f, size.height * 2f)
 
-        val lowDetail = state.isInMotion
+        val frameDetail = globeFrameDetail(renderQuality, state.isInMotion)
 
         // Graticule
         drawGraticule(
             cx, cy, r, cLat, cLon, colors.graticule, clip,
-            step = if (lowDetail) 10.0 else 4.0
+            step = frameDetail.graticuleStepDegrees
         )
 
         // Landmasses
@@ -294,12 +343,12 @@ fun GlobeView(
                 r = r,
                 colors = colors,
                 clip = clip,
-                pointStride = if (lowDetail && ring.size >= 64) 2 else 1
+                pointStride = if (ring.size >= 64) frameDetail.landPointStride else 1
             )
         }
 
         // Country borders are restored when interaction settles.
-        if (!lowDetail) {
+        if (frameDetail.showBorders) {
             for (line in borders) {
                 drawBorderLine(line, borderScratch, preparedProjector, cx, cy, r, colors, clip)
             }
@@ -331,20 +380,27 @@ fun GlobeView(
         )
 
         // Cities are detail-only; omitting them while moving keeps touch latency predictable.
-        if (!lowDetail) {
+        val cityMaxRank = frameDetail.cityMaxRank
+        if (cityMaxRank == null || cityMaxRank >= 0) {
             drawCities(
                 cities, state, preparedProjector, cx, cy, r, colors,
-                labelPaint, haloPaint, labelTypeface, labelTextSizeSmall, density.density
+                labelPaint, haloPaint, labelTypeface, labelTextSizeSmall, density.density,
+                maxRankOverride = cityMaxRank,
+                showLabels = frameDetail.showCityLabels
             )
         }
 
         // Detailed cells and labels settle into place after the gesture ends.
-        if (!lowDetail && state.selectedGeohash.isNotEmpty()) {
-            drawGeohashGrid(state, cx, cy, r, cLat, cLon, colors, clip)
+        if (frameDetail.showGeohashGrid && state.selectedGeohash.isNotEmpty()) {
+            drawGeohashGrid(
+                state, cx, cy, r, cLat, cLon, colors, clip,
+                includeNeighbors = frameDetail.showNeighborCells
+            )
             drawGeohashLabels(
                 state, cx, cy, r, cLat, cLon, colors,
                 labelPaint, haloPaint, labelTypeface, labelTypefaceBold,
-                labelTextSize, labelTextSizeSmall
+                labelTextSize, labelTextSizeSmall,
+                includeNeighbors = frameDetail.showNeighborCells
             )
         }
 
@@ -697,12 +753,14 @@ private fun DrawScope.drawCities(
     haloPaint: Paint,
     typeface: Typeface?,
     textSize: Float,
-    density: Float
+    density: Float,
+    maxRankOverride: Int?,
+    showLabels: Boolean
 ) {
     if (cities.isEmpty()) return
     val projection = FloatArray(3)
     val zoom = state.zoom
-    val maxRank = when {
+    val maxRank = maxRankOverride ?: when {
         zoom < 2f -> 1
         zoom < 8f -> 3
         zoom < 40f -> 4
@@ -725,7 +783,7 @@ private fun DrawScope.drawCities(
             else colors.label.copy(alpha = alpha * 0.85f)
         drawCircle(dotColor, radius = dotRadius, center = Offset(sx, sy))
 
-        if (zoom >= 6f || (important && zoom >= 2.5f)) {
+        if (showLabels && (zoom >= 6f || (important && zoom >= 2.5f))) {
             labelPaint.textSize = textSize
             labelPaint.typeface = typeface
             labelPaint.textAlign = Paint.Align.LEFT
@@ -789,11 +847,12 @@ private fun DrawScope.drawGeohashGrid(
     cx: Float, cy: Float, r: Float,
     cLat: Double, cLon: Double,
     colors: GlobeColors,
-    clip: ClipRect
+    clip: ClipRect,
+    includeNeighbors: Boolean
 ) {
     val selected = state.selectedGeohash
     val cells = linkedSetOf(selected)
-    cells.addAll(Geohash.neighborsSamePrecision(selected))
+    if (includeNeighbors) cells.addAll(Geohash.neighborsSamePrecision(selected))
 
     for (cell in cells) {
         val isSelected = cell == selected
@@ -856,11 +915,12 @@ private fun DrawScope.drawGeohashLabels(
     labelTypeface: Typeface?,
     labelTypefaceBold: Typeface?,
     selectedSize: Float,
-    neighborSize: Float
+    neighborSize: Float,
+    includeNeighbors: Boolean
 ) {
     val selected = state.selectedGeohash
     val cells = linkedSetOf(selected)
-    cells.addAll(Geohash.neighborsSamePrecision(selected))
+    if (includeNeighbors) cells.addAll(Geohash.neighborsSamePrecision(selected))
     val canvas = drawContext.canvas.nativeCanvas
 
     for (cell in cells) {
