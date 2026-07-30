@@ -11,6 +11,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PinDrop
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.bitchat.android.ui.theme.BitchatFontFamily
+import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
 import com.bitchat.android.nostr.geohashesForSampling
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
@@ -106,16 +108,21 @@ private const val SelectionConfirmDelayMs = 180L
 fun LocationChannelsSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
+    onLocationNotesClick: () -> Unit,
     viewModel: ChatViewModel,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val locationManager = LocationChannelManager.getInstance(context)
     val bookmarksStore = remember { GeohashBookmarksStore.getInstance(context) }
+    val nearbyNotesController = remember { NearbyNotesController.shared }
+    val notesManager = remember { LocationNotesManager.getInstance() }
 
     val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
-    val notesRevealed by NearbyNotesController.shared.revealed.collectAsStateWithLifecycle()
+    val notesRevealed by nearbyNotesController.revealed.collectAsStateWithLifecycle()
+    val nearbyNotes by notesManager.notes.collectAsStateWithLifecycle()
+    val nearbyNotesState by notesManager.state.collectAsStateWithLifecycle()
     val selectedChannel by locationManager.selectedChannel.collectAsStateWithLifecycle()
     val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
     val appLocationEnabled by locationManager.locationServicesEnabled.collectAsStateWithLifecycle()
@@ -171,6 +178,17 @@ fun LocationChannelsSheet(
     val showNearbyLoading = nearbyChannels.isEmpty() &&
         permissionState == LocationChannelManager.PermissionState.AUTHORIZED &&
         locationServicesEnabled
+    val locationNotesSubtitle = when {
+        !notesRevealed -> stringResource(R.string.nearby_notes_reveal)
+        nearbyNotesState == LocationNotesManager.State.NO_RELAYS ->
+            stringResource(R.string.location_notes_relays_unavailable)
+        nearbyNotesState == LocationNotesManager.State.LOADING ->
+            stringResource(R.string.loading_location_notes)
+        nearbyNotes.size == 1 -> stringResource(R.string.nearby_notes_one)
+        nearbyNotes.size > 1 ->
+            stringResource(R.string.nearby_notes_many, nearbyNotes.size)
+        else -> stringResource(R.string.location_notes_empty_title)
+    }
 
     if (isPresented) {
         BitchatBottomSheet(
@@ -527,6 +545,43 @@ fun LocationChannelsSheet(
                         }
                     }
 
+                    item(key = "location_notes_card") {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = AboutHorizontalPadding)
+                                .padding(top = 10.dp),
+                            color = colorScheme.surface,
+                            shape = AboutCardShape
+                        ) {
+                            ChannelOptionRow(
+                                title = stringResource(R.string.cd_location_notes),
+                                subtitle = locationNotesSubtitle,
+                                isSelected = false,
+                                participantCount = 0,
+                                titleColor = standardGreen,
+                                leadingIconRes = R.drawable.ic_spec_chat_bubbles,
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = Icons.Filled.ChevronRight,
+                                        contentDescription = null,
+                                        tint = colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                onClick = {
+                                    locationManager.refreshChannels()
+                                    nearbyNotesController.reveal()
+                                    coroutineScope.launch {
+                                        runCatching { sheetState.hide() }
+                                        onDismiss()
+                                        onLocationNotesClick()
+                                    }
+                                }
+                            )
+                        }
+                    }
+
                     item(key = "tor_routing") {
                         val torProvider = remember { ArtiTorManager.getInstance() }
                         val torAvailable = remember { torProvider.isTorAvailable() }
@@ -662,6 +717,7 @@ private fun ChannelOptionRow(
     titleColor: Color? = null,
     titleBold: Boolean = false,
     leadingIcon: ImageVector? = null,
+    leadingIconRes: Int? = null,
     trailingContent: (@Composable (() -> Unit))? = null,
     onClick: () -> Unit
 ) {
@@ -690,6 +746,14 @@ private fun ChannelOptionRow(
                 leadingIcon != null -> {
                     Icon(
                         imageVector = leadingIcon,
+                        contentDescription = null,
+                        tint = colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                leadingIconRes != null -> {
+                    Icon(
+                        painter = painterResource(leadingIconRes),
                         contentDescription = null,
                         tint = colorScheme.primary,
                         modifier = Modifier.size(22.dp)

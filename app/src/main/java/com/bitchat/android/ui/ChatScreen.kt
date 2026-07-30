@@ -517,6 +517,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onAppInfoDismiss = { viewModel.hideAppInfo() },
         showLocationChannelsSheet = showLocationChannelsSheet,
         onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
+        onLocationNotesFromChannelsClick = {
+            showLocationChannelsSheet = false
+            showLocationNotesSheet = true
+        },
         showLocationNotesSheet = showLocationNotesSheet,
         onLocationNotesSheetDismiss = { showLocationNotesSheet = false },
         showUserSheet = showUserSheet,
@@ -794,6 +798,7 @@ private fun ChatDialogs(
     onAppInfoDismiss: () -> Unit,
     showLocationChannelsSheet: Boolean,
     onLocationChannelsSheetDismiss: () -> Unit,
+    onLocationNotesFromChannelsClick: () -> Unit,
     showLocationNotesSheet: Boolean,
     onLocationNotesSheetDismiss: () -> Unit,
     showUserSheet: Boolean,
@@ -840,6 +845,7 @@ private fun ChatDialogs(
         LocationChannelsSheet(
             isPresented = showLocationChannelsSheet,
             onDismiss = onLocationChannelsSheetDismiss,
+            onLocationNotesClick = onLocationNotesFromChannelsClick,
             viewModel = viewModel
         )
     }
