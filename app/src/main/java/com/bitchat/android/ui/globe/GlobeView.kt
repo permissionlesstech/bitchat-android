@@ -22,9 +22,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -331,9 +333,11 @@ fun GlobeView(
             step = frameDetail.graticuleStepDegrees
         )
 
-        // Landmasses
+        // Fill every landmass first. Coastlines are drawn in a separate final pass so a
+        // large continent fill can never cover an island outline drawn earlier.
+        val coastlineRuns = ArrayList<List<MutableList<Pair<Float, Float>>>>(land.size)
         for (ring in land) {
-            drawLandRing(
+            val runs = drawLandFill(
                 ring = ring,
                 scratch = scratch,
                 projector = preparedProjector,
@@ -342,8 +346,14 @@ fun GlobeView(
                 r = r,
                 colors = colors,
                 clip = clip,
-                pointStride = if (ring.size >= 64) frameDetail.landPointStride else 1
+                pointStride = if (ring.size >= 64) frameDetail.landPointStride else 1,
+                centerLat = cLat,
+                centerLon = cLon
             )
+            if (runs != null) coastlineRuns.add(runs)
+        }
+        for (runs in coastlineRuns) {
+            strokeRuns(runs, cx, cy, r, colors.coastline, 1.4f, clip)
         }
 
         // Country borders are restored when interaction settles.
@@ -673,7 +683,8 @@ private fun DrawScope.fillPolygonClipped(
     pts: List<DiscPt>,
     cx: Float, cy: Float, r: Float,
     color: Color,
-    clip: ClipRect
+    clip: ClipRect,
+    centerInsideRing: Boolean
 ) {
     if (pts.none { it.front }) return
     val poly = buildFillPolygon(pts, cx, cy, r)
@@ -681,12 +692,70 @@ private fun DrawScope.fillPolygonClipped(
     val clipped = clipPolygon(poly, clip)
     if (clipped.size < 3) return
     val path = Path()
+    val projectedCenterInside = polygonContains(clipped, cx, cy)
+    if (projectedCenterInside != centerInsideRing) {
+        // Orthographic projection can choose the wrong side of the horizon closure for
+        // very large rings. Even-odd filling with the globe disc flips it back to the
+        // side that agrees with the original geographic polygon.
+        path.fillType = PathFillType.EvenOdd
+        path.addOval(Rect(cx - r, cy - r, cx + r, cy + r))
+    }
     path.moveTo(clipped[0].first, clipped[0].second)
     for (k in 1 until clipped.size) {
         path.lineTo(clipped[k].first, clipped[k].second)
     }
     path.close()
     drawPath(path, color)
+}
+
+internal fun polygonContains(
+    polygon: List<Pair<Float, Float>>,
+    x: Float,
+    y: Float
+): Boolean {
+    if (polygon.size < 3) return false
+    var inside = false
+    var previous = polygon.last()
+    for (current in polygon) {
+        val crossesRay = (current.second > y) != (previous.second > y)
+        if (crossesRay) {
+            val intersectionX = (previous.first - current.first) *
+                (y - current.second) / (previous.second - current.second) +
+                current.first
+            if (x < intersectionX) inside = !inside
+        }
+        previous = current
+    }
+    return inside
+}
+
+internal fun ringContainsLocation(
+    ring: LandData.Ring,
+    latitude: Double,
+    longitude: Double
+): Boolean {
+    if (ring.size < 3) return false
+
+    fun relativeLongitude(value: Float): Double =
+        GlobeMath.normalizeLon(value.toDouble() - longitude)
+
+    var inside = false
+    var previousIndex = ring.size - 1
+    for (index in 0 until ring.size) {
+        val currentLat = ring.coords[index * 2].toDouble()
+        val currentLon = relativeLongitude(ring.coords[index * 2 + 1])
+        val previousLat = ring.coords[previousIndex * 2].toDouble()
+        val previousLon = relativeLongitude(ring.coords[previousIndex * 2 + 1])
+        val crossesRay = (currentLat > latitude) != (previousLat > latitude)
+        if (crossesRay) {
+            val intersectionLon = (previousLon - currentLon) *
+                (latitude - currentLat) / (previousLat - currentLat) +
+                currentLon
+            if (0.0 < intersectionLon) inside = !inside
+        }
+        previousIndex = index
+    }
+    return inside
 }
 
 private fun DrawScope.strokeRuns(
@@ -808,17 +877,19 @@ private fun DrawScope.drawCities(
     haloPaint.textAlign = Paint.Align.CENTER
 }
 
-private fun DrawScope.drawLandRing(
+private fun DrawScope.drawLandFill(
     ring: LandData.Ring,
     scratch: FloatArray,
     projector: GlobeMath.PreparedProjector,
     cx: Float, cy: Float, r: Float,
     colors: GlobeColors,
     clip: ClipRect,
-    pointStride: Int
-) {
+    pointStride: Int,
+    centerLat: Double,
+    centerLon: Double
+): List<MutableList<Pair<Float, Float>>>? {
     val n = ((ring.size - 1) / pointStride) + 1
-    if (n < 3 || n * 3 > scratch.size) return
+    if (n < 3 || n * 3 > scratch.size) return null
 
     var anyFront = false
     var i = 0
@@ -828,7 +899,7 @@ private fun DrawScope.drawLandRing(
         if (scratch[i * 3 + 2] >= 0f) anyFront = true
         i++
     }
-    if (!anyFront) return
+    if (!anyFront) return null
 
     val pts = ArrayList<DiscPt>(n)
     i = 0
@@ -837,8 +908,16 @@ private fun DrawScope.drawLandRing(
         i++
     }
     val runs = buildFrontRuns(pts)
-    fillPolygonClipped(pts, cx, cy, r, colors.land, clip)
-    strokeRuns(runs, cx, cy, r, colors.coastline, 1.4f, clip)
+    fillPolygonClipped(
+        pts = pts,
+        cx = cx,
+        cy = cy,
+        r = r,
+        color = colors.land,
+        clip = clip,
+        centerInsideRing = ringContainsLocation(ring, centerLat, centerLon)
+    )
+    return runs
 }
 
 private fun DrawScope.drawGeohashGrid(
@@ -894,11 +973,17 @@ private fun DrawScope.drawGeohashGrid(
         val runs = buildFrontRuns(discPts)
 
         if (isSelected) {
-            fillPolygonClipped(discPts, cx, cy, r, colors.accent.copy(alpha = 0.20f), clip)
+            fillPolygonClipped(
+                discPts, cx, cy, r, colors.accent.copy(alpha = 0.20f), clip,
+                centerInsideRing = true
+            )
             strokeRuns(runs, cx, cy, r, colors.accent.copy(alpha = 0.35f), 7f, clip)
             strokeRuns(runs, cx, cy, r, colors.accent, 3.2f, clip)
         } else {
-            fillPolygonClipped(discPts, cx, cy, r, colors.grid.copy(alpha = 0.05f), clip)
+            fillPolygonClipped(
+                discPts, cx, cy, r, colors.grid.copy(alpha = 0.05f), clip,
+                centerInsideRing = false
+            )
             strokeRuns(runs, cx, cy, r, colors.grid, 1.6f, clip)
         }
     }
