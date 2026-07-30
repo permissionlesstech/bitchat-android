@@ -42,6 +42,22 @@ class LocationChannelsSheetTest {
         )
     }
 
+    @Test
+    fun `globe result resolves to a manual teleport channel`() {
+        assertEquals(
+            GeohashChannel(
+                level = GeohashChannelLevel.CITY,
+                geohash = "u33dc"
+            ),
+            channelForManualGeohash(" #U33DC ")
+        )
+    }
+
+    @Test
+    fun `invalid globe result cannot create a teleport channel`() {
+        assertNull(channelForManualGeohash("not-a-geohash"))
+    }
+
     private fun channel(geohash: String) = GeohashChannel(
         level = GeohashChannelLevel.CITY,
         geohash = geohash

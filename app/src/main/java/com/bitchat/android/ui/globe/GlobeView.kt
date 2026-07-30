@@ -18,8 +18,11 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -39,10 +42,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.geohash.Geohash
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlin.math.ceil
 import kotlin.math.min
@@ -76,12 +76,15 @@ internal data class GlobeFrameDetail(
     val showNeighborCells: Boolean
 )
 
-internal fun globeFrameDetail(
-    quality: GlobeRenderQuality,
-    isMoving: Boolean
-): GlobeFrameDetail {
-    if (!isMoving || quality == GlobeRenderQuality.HIGH) {
-        return GlobeFrameDetail(
+internal enum class GlobeMotionDetail {
+    FULL,
+    BALANCED,
+    FAST
+}
+
+internal fun globeFrameDetail(motionDetail: GlobeMotionDetail): GlobeFrameDetail =
+    when (motionDetail) {
+        GlobeMotionDetail.FULL -> GlobeFrameDetail(
             graticuleStepDegrees = 4.0,
             landPointStride = 1,
             showBorders = true,
@@ -90,18 +93,7 @@ internal fun globeFrameDetail(
             showGeohashGrid = true,
             showNeighborCells = true
         )
-    }
-    return when (quality) {
-        GlobeRenderQuality.FAST -> GlobeFrameDetail(
-            graticuleStepDegrees = 10.0,
-            landPointStride = 2,
-            showBorders = false,
-            cityMaxRank = -1,
-            showCityLabels = false,
-            showGeohashGrid = false,
-            showNeighborCells = false
-        )
-        GlobeRenderQuality.MEDIUM -> GlobeFrameDetail(
+        GlobeMotionDetail.BALANCED -> GlobeFrameDetail(
             graticuleStepDegrees = 8.0,
             landPointStride = 2,
             showBorders = true,
@@ -110,7 +102,44 @@ internal fun globeFrameDetail(
             showGeohashGrid = true,
             showNeighborCells = false
         )
-        GlobeRenderQuality.HIGH -> error("Handled above")
+        GlobeMotionDetail.FAST -> GlobeFrameDetail(
+            graticuleStepDegrees = 10.0,
+            landPointStride = 2,
+            showBorders = false,
+            cityMaxRank = -1,
+            showCityLabels = false,
+            showGeohashGrid = false,
+            showNeighborCells = false
+        )
+    }
+
+/**
+ * Adjusts moving-frame detail from measured frame cadence. Hysteresis keeps the renderer
+ * from oscillating between levels when timings sit near a boundary.
+ */
+internal fun nextGlobeMotionDetail(
+    current: GlobeMotionDetail,
+    averageFrameMillis: Float
+): GlobeMotionDetail {
+    if (!averageFrameMillis.isFinite()) return GlobeMotionDetail.FAST
+    return when (current) {
+        GlobeMotionDetail.FULL -> when {
+            averageFrameMillis > SEVERELY_SLOW_FRAME_MILLIS -> GlobeMotionDetail.FAST
+            averageFrameMillis > SLOW_FRAME_MILLIS -> GlobeMotionDetail.BALANCED
+            else -> GlobeMotionDetail.FULL
+        }
+        GlobeMotionDetail.BALANCED -> when {
+            averageFrameMillis > VERY_SLOW_FRAME_MILLIS -> GlobeMotionDetail.FAST
+            averageFrameMillis < SMOOTH_FRAME_MILLIS -> GlobeMotionDetail.FULL
+            else -> GlobeMotionDetail.BALANCED
+        }
+        GlobeMotionDetail.FAST -> {
+            if (averageFrameMillis < RECOVERING_FRAME_MILLIS) {
+                GlobeMotionDetail.BALANCED
+            } else {
+                GlobeMotionDetail.FAST
+            }
+        }
     }
 }
 
@@ -169,17 +198,46 @@ fun GlobeView(
     }
 
     LaunchedEffect(state) {
-        snapshotFlow { state.selectedGeohash to state.isInMotion }
-            .distinctUntilChanged()
+        snapshotFlow { state.selectedGeohash }
             .drop(1)
-            .collectLatest { (geohash, inMotion) ->
-                if (geohash.isNotEmpty() && !inMotion) {
-                    delay(SETTLED_HAPTIC_DELAY_MS)
-                    if (!state.isInMotion && state.selectedGeohash == geohash) {
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    }
-                }
+            .collect {
+                @Suppress("DEPRECATION")
+                view.performHapticFeedback(
+                    HapticFeedbackConstants.KEYBOARD_TAP,
+                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+                )
             }
+    }
+
+    var motionDetail by remember(state) { mutableStateOf(GlobeMotionDetail.BALANCED) }
+    LaunchedEffect(state, state.isInMotion) {
+        if (!state.isInMotion) {
+            motionDetail = GlobeMotionDetail.FULL
+            return@LaunchedEffect
+        }
+
+        // Balanced is a safe first frame; measured cadence then moves detail up or down.
+        motionDetail = GlobeMotionDetail.BALANCED
+        var previousFrameNanos = withFrameNanos { it }
+        var sampledFrameMillis = 0f
+        var sampledFrameCount = 0
+        while (state.isInMotion) {
+            val frameNanos = withFrameNanos { it }
+            val frameMillis = ((frameNanos - previousFrameNanos) / 1_000_000f)
+                .coerceIn(1f, MAX_SAMPLED_FRAME_MILLIS)
+            previousFrameNanos = frameNanos
+            sampledFrameMillis += frameMillis
+            sampledFrameCount++
+
+            if (sampledFrameCount >= FRAME_SAMPLE_COUNT) {
+                motionDetail = nextGlobeMotionDetail(
+                    current = motionDetail,
+                    averageFrameMillis = sampledFrameMillis / sampledFrameCount
+                )
+                sampledFrameMillis = 0f
+                sampledFrameCount = 0
+            }
+        }
     }
 
     val labelTextSize = with(density) { 12.5.sp.toPx() }
@@ -325,7 +383,9 @@ fun GlobeView(
 
         val clip = ClipRect(-size.width, -size.height, size.width * 2f, size.height * 2f)
 
-        val frameDetail = globeFrameDetail(state.renderQuality, state.isInMotion)
+        val frameDetail = globeFrameDetail(
+            if (state.isInMotion) motionDetail else GlobeMotionDetail.FULL
+        )
 
         // Graticule
         drawGraticule(
@@ -433,7 +493,13 @@ fun GlobeView(
     }
 }
 
-private const val SETTLED_HAPTIC_DELAY_MS = 80L
+private const val FRAME_SAMPLE_COUNT = 8
+private const val MAX_SAMPLED_FRAME_MILLIS = 50f
+private const val SMOOTH_FRAME_MILLIS = 18.5f
+private const val SLOW_FRAME_MILLIS = 22f
+private const val RECOVERING_FRAME_MILLIS = 22f
+private const val VERY_SLOW_FRAME_MILLIS = 29f
+private const val SEVERELY_SLOW_FRAME_MILLIS = 34f
 
 private fun DrawScope.drawGraticule(
     cx: Float,
