@@ -24,21 +24,16 @@ import kotlinx.coroutines.withContext
 
 sealed class ApkPreparationStatus {
     object Loading : ApkPreparationStatus()
-    data class NotDownloaded(val sizeMB: Int?) : ApkPreparationStatus()
+    object NotDownloaded : ApkPreparationStatus()
     data class Ready(
         val version: String,
         val sizeMB: Int,
         val source: UniversalApkManager.ApkSource,
         val variant: ShareableApkVariant
     ) : ApkPreparationStatus()
-    data class UpdateAvailable(
-        val currentVersion: String,
-        val newVersion: String,
-        val newSizeMB: Int
-    ) : ApkPreparationStatus()
     /** [phase] is what the operation is actually doing; only a transfer has a real percentage. */
     data class Downloading(
-        val phase: ApkDownloader.DownloadPhase = ApkDownloader.DownloadPhase.ResolvingRelease
+        val phase: ApkDownloader.DownloadPhase = ApkDownloader.DownloadPhase.SelectingSource
     ) : ApkPreparationStatus()
     data class Resumable(val progressPercent: Int, val message: String) : ApkPreparationStatus()
     data class Error(val message: String) : ApkPreparationStatus()
@@ -68,6 +63,31 @@ sealed class ApkUiEvent {
     object ConfirmAppShare : ApkUiEvent()
     object DismissShareDialog : ApkUiEvent()
     object CancelDownload : ApkUiEvent()
+}
+
+// --- Row tap ---
+
+/** What tapping the body of the prepare row does. */
+internal enum class PrepareRowTapAction {
+    OpenPrepareDialog,
+    StartDownload
+}
+
+/**
+ * What a tap on the prepare row means for [status], or null when the row has nothing to offer.
+ *
+ * The trailing controls are icon-only, so the row body is the discoverable half of every action
+ * and has to stay in step with them. Deriving both the tap handler and the row's `enabled` flag
+ * from this one function keeps the row from looking clickable while doing nothing.
+ */
+internal fun prepareRowTapAction(status: ApkPreparationStatus): PrepareRowTapAction? = when {
+    status is ApkPreparationStatus.NotDownloaded -> PrepareRowTapAction.OpenPrepareDialog
+    // Consent was already given for these; resuming straight away avoids a redundant prompt.
+    status is ApkPreparationStatus.Resumable -> PrepareRowTapAction.StartDownload
+    status is ApkPreparationStatus.Error -> PrepareRowTapAction.StartDownload
+    status is ApkPreparationStatus.Ready && status.variant == ShareableApkVariant.ARM64 ->
+        PrepareRowTapAction.OpenPrepareDialog
+    else -> null
 }
 
 // --- Effects (ViewModel → UI, one-shot) ---
@@ -120,16 +140,11 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     private fun onPrepareRowClicked() {
-        when (_state.value.apkStatus) {
-            is ApkPreparationStatus.NotDownloaded,
-            is ApkPreparationStatus.UpdateAvailable,
-            is ApkPreparationStatus.Error -> {
+        when (prepareRowTapAction(_state.value.apkStatus)) {
+            PrepareRowTapAction.OpenPrepareDialog ->
                 _state.update { it.copy(showPrepareDialog = true) }
-            }
-            is ApkPreparationStatus.Resumable -> {
-                startDownload()
-            }
-            else -> {}
+            PrepareRowTapAction.StartDownload -> startDownload()
+            null -> {}
         }
     }
 
@@ -197,18 +212,12 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
     private fun onCancelDownload() {
         downloader.cancelDownload()
 
-        // Leave Downloading now, not when the check returns. resolveApkStatus() reaches
-        // the network and can sit on the route timeout for a full minute, and nothing
-        // else would clear the spinner in the meantime -- the cancelled job maps to Idle,
-        // which the observer ignores. Without this the stop button looks broken for the
-        // whole wait.
+        // Leave Downloading immediately. The cancelled job maps to Idle, which
+        // the observer intentionally ignores because local status is resolved below.
         _state.update {
             it.copy(apkStatus = ApkPreparationStatus.Loading, downloadProgress = 0)
         }
 
-        // No force needed, and it would be harmful: leaving Downloading above already
-        // clears the entry guard, while the completion guard must stay armed so a
-        // download the user restarts during this check is not overwritten by its result.
         checkStatus()
     }
 
@@ -234,9 +243,8 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
 
             val resolvedStatus = resolveApkStatus()
             _state.update { current ->
-                // Re-checked rather than trusted from entry: this resolve reaches the
-                // network and can take a minute, in which time the user may have started
-                // a download. Its result must not overwrite work that is now running.
+                // Re-check in case the user started a download while the local
+                // artifact was being inspected or copied.
                 if (current.apkStatus is ApkPreparationStatus.Downloading) {
                     current
                 } else {
@@ -270,7 +278,7 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                                     sizeMB = info?.let { cached ->
                                         (cached.size / 1024 / 1024).toInt()
                                     } ?: downloadState.sizeMB,
-                                    source = info?.source ?: UniversalApkManager.ApkSource.GITHUB,
+                                    source = info?.source ?: UniversalApkManager.ApkSource.DOWNLOADED,
                                     variant = info?.variant ?: ShareableApkVariant.UNIVERSAL
                                 ),
                                 downloadProgress = 100
@@ -291,20 +299,21 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                                     )
                                 )
                             }
-                            _effect.send(ApkUiEffect.ShowToast(downloadState.message))
+                            _effect.send(ApkUiEffect.ShowToast(failureMessage(downloadState)))
                         } else {
+                            val message = failureMessage(downloadState)
                             _state.update {
                                 if (downloadState.resumablePercent != null) {
                                     it.copy(
                                         apkStatus = ApkPreparationStatus.Resumable(
                                             progressPercent = downloadState.resumablePercent,
-                                            message = downloadState.message
+                                            message = message
                                         ),
                                         downloadProgress = downloadState.resumablePercent
                                     )
                                 } else {
                                     it.copy(
-                                        apkStatus = ApkPreparationStatus.Error(downloadState.message)
+                                        apkStatus = ApkPreparationStatus.Error(message)
                                     )
                                 }
                             }
@@ -325,72 +334,41 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
         return getApplication<Application>().getString(resId)
     }
 
+    /**
+     * The single place a download failure turns into words. The downloader names the failure and
+     * this resolves it, so the message follows the device locale rather than the worker's.
+     */
+    private fun failureMessage(state: ApkDownloader.DownloadState.Failed): String =
+        getApplication<Application>().getString(
+            state.messageRes,
+            *state.messageArgs.toTypedArray()
+        )
+
     private suspend fun resolveApkStatus(): ApkPreparationStatus = withContext(Dispatchers.IO) {
         try {
-            val updateStatus = apkManager.checkForUpdate()
-            when (updateStatus) {
-                is UniversalApkManager.UpdateStatus.NotDownloaded -> {
-                    val partial = apkManager.getPartialDownloadProgress()
-                    if (partial != null) {
-                        ApkPreparationStatus.Resumable(
-                            progressPercent = partial,
-                            message = getString(R.string.prepare_apk_download_interrupted)
-                        )
-                    } else {
-                        ApkPreparationStatus.NotDownloaded(
-                            sizeMB = (updateStatus.latestRelease.universalApkSize / 1024 / 1024).toInt()
-                        )
-                    }
-                }
-                is UniversalApkManager.UpdateStatus.UpToDate -> {
-                    val info = apkManager.getCachedApkInfo()
-                    if (info != null) {
-                        ApkPreparationStatus.Ready(
-                            version = info.version,
-                            sizeMB = (info.size / 1024 / 1024).toInt(),
-                            source = info.source,
-                            variant = info.variant
-                        )
-                    } else {
-                        ApkPreparationStatus.Error("Cached APK info not found")
-                    }
-                }
-                is UniversalApkManager.UpdateStatus.UpdateAvailable -> {
-                    ApkPreparationStatus.UpdateAvailable(
-                        currentVersion = updateStatus.currentVersion,
-                        newVersion = updateStatus.latestRelease.versionName,
-                        newSizeMB = (updateStatus.latestRelease.universalApkSize / 1024 / 1024).toInt()
+            val info = apkManager.prepareLocalApkInfo()
+            if (info != null) {
+                ApkPreparationStatus.Ready(
+                    version = info.version,
+                    sizeMB = (info.size / 1024 / 1024).toInt(),
+                    source = info.source,
+                    variant = info.variant
+                )
+            } else {
+                val partial = apkManager.getPartialDownloadProgress()
+                if (partial != null) {
+                    ApkPreparationStatus.Resumable(
+                        progressPercent = partial,
+                        message = getString(R.string.prepare_apk_download_interrupted)
                     )
-                }
-                is UniversalApkManager.UpdateStatus.Error -> {
-                    // A cached artifact stays shareable even when the update
-                    // check fails or the release lags the installed version.
-                    val info = apkManager.getCachedApkInfo()
-                    if (info != null) {
-                        ApkPreparationStatus.Ready(
-                            version = info.version,
-                            sizeMB = (info.size / 1024 / 1024).toInt(),
-                            source = info.source,
-                            variant = info.variant
-                        )
-                    } else {
-                        val partial = apkManager.getPartialDownloadProgress()
-                        if (partial != null) {
-                            ApkPreparationStatus.Resumable(
-                                progressPercent = partial,
-                                message = getString(R.string.prepare_apk_download_interrupted)
-                            )
-                        } else {
-                            ApkPreparationStatus.Error(updateStatus.message)
-                        }
-                    }
+                } else {
+                    ApkPreparationStatus.NotDownloaded
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking APK status", e)
-            ApkPreparationStatus.Error(
-                e.message ?: getString(R.string.prepare_apk_error_github)
-            )
+            // The exception text is English and often internal; log it, show a translated line.
+            Log.e(TAG, "Error reading APK status", e)
+            ApkPreparationStatus.Error(getString(R.string.share_apk_error))
         }
     }
 }

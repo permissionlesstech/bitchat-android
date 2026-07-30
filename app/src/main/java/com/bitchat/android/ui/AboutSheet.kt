@@ -41,8 +41,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Warning
@@ -654,7 +655,12 @@ fun AboutSheet(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable(enabled = apkStatus !is ApkPreparationStatus.Downloading) {
+                                            // Enabled by the same mapping that decides what the tap
+                                            // does, so the row can never look tappable and do
+                                            // nothing.
+                                            .clickable(
+                                                enabled = prepareRowTapAction(apkStatus) != null
+                                            ) {
                                                 apkViewModel.onEvent(ApkUiEvent.PrepareRowClicked)
                                             }
                                             .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -693,17 +699,20 @@ fun AboutSheet(
                                                     is ApkPreparationStatus.NotDownloaded -> stringResource(R.string.prepare_apk_status_not_downloaded)
                                                     is ApkPreparationStatus.Ready -> {
                                                         val source = when {
-                                                            status.source == UniversalApkManager.ApkSource.GITHUB ->
-                                                                stringResource(R.string.prepare_apk_source_github)
+                                                            status.source == UniversalApkManager.ApkSource.DOWNLOADED ->
+                                                                stringResource(R.string.prepare_apk_source_downloaded)
                                                             status.variant == ShareableApkVariant.ARM64 ->
                                                                 stringResource(R.string.prepare_apk_source_installed_arm64)
                                                             else ->
                                                                 stringResource(R.string.prepare_apk_source_installed)
                                                         }
-                                                        stringResource(R.string.prepare_apk_status_ready) +
-                                                            " • ${status.version} • ${status.sizeMB} MB\n$source"
+                                                        stringResource(
+                                                            R.string.prepare_apk_ready_detail,
+                                                            status.version,
+                                                            status.sizeMB,
+                                                            source
+                                                        )
                                                     }
-                                                    is ApkPreparationStatus.UpdateAvailable -> stringResource(R.string.prepare_apk_status_update_available) + " (${status.newVersion})"
                                                     is ApkPreparationStatus.Downloading ->
                                                         // Only the transfer has a percentage worth
                                                         // showing; the other phases are named
@@ -713,138 +722,114 @@ fun AboutSheet(
                                                         } else {
                                                             stringResource(downloadPhaseLabel(status.phase))
                                                         }
-                                                    is ApkPreparationStatus.Resumable -> "Tap to resume • ${status.progressPercent}% downloaded"
+                                                    is ApkPreparationStatus.Resumable ->
+                                                        stringResource(
+                                                            R.string.prepare_apk_status_resumable,
+                                                            status.message,
+                                                            status.progressPercent
+                                                        )
                                                     is ApkPreparationStatus.Error -> status.message
                                                 },
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = when (apkStatus) {
                                                     is ApkPreparationStatus.Error -> colorScheme.error
                                                     is ApkPreparationStatus.Resumable -> colorScheme.primary
-                                                    is ApkPreparationStatus.UpdateAvailable -> colorScheme.primary
                                                     else -> colorScheme.onSurface.copy(alpha = 0.6f)
                                                 },
                                                 lineHeight = 16.sp
                                             )
+
+                                            // Progress lives in the column, not the trailing slot,
+                                            // which leaves that slot free for a single control.
+                                            ApkDownloadProgressBar(
+                                                status = apkStatus,
+                                                progressPercent = downloadProgress
+                                            )
                                         }
 
-                                        // Action buttons
+                                        // One control, one width, in every state. The progress
+                                        // readout moved into the column above, so nothing else
+                                        // competes for this slot.
                                         when (apkStatus) {
-                                            is ApkPreparationStatus.Downloading -> {
-                                                // Determinate only while bytes move. Elsewhere a
-                                                // spinner is honest about having no measure.
-                                                if (apkStatus.phase.hasMeasurableProgress &&
-                                                    downloadProgress > 0
-                                                ) {
-                                                    CircularProgressIndicator(
-                                                        progress = { downloadProgress / 100f },
-                                                        modifier = Modifier.size(20.dp),
-                                                        strokeWidth = 2.dp
-                                                    )
-                                                } else {
-                                                    CircularProgressIndicator(
-                                                        modifier = Modifier.size(20.dp),
-                                                        strokeWidth = 2.dp
-                                                    )
-                                                }
-                                                androidx.compose.material3.IconButton(
+                                            is ApkPreparationStatus.Downloading ->
+                                                ApkPrepareRowIconButton(
+                                                    icon = Icons.Default.Close,
+                                                    description = stringResource(
+                                                        R.string.prepare_apk_stop
+                                                    ),
                                                     onClick = {
-                                                        apkViewModel.onEvent(ApkUiEvent.CancelDownload)
-                                                    },
-                                                    modifier = Modifier.size(32.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Close,
-                                                        contentDescription = stringResource(R.string.prepare_apk_stop),
-                                                        tint = colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(20.dp)
-                                                    )
-                                                }
-                                            }
+                                                        apkViewModel.onEvent(
+                                                            ApkUiEvent.CancelDownload
+                                                        )
+                                                    }
+                                                )
                                             is ApkPreparationStatus.Ready -> {
                                                 if (apkStatus.variant == ShareableApkVariant.ARM64) {
-                                                    TextButton(
+                                                    ApkPrepareRowIconButton(
+                                                        icon = Icons.Default.CloudDownload,
+                                                        description = stringResource(
+                                                            R.string.prepare_apk_get_universal
+                                                        ),
                                                         onClick = {
                                                             apkViewModel.onEvent(
                                                                 ApkUiEvent.DownloadUniversalClicked
                                                             )
-                                                        }
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.CloudDownload,
-                                                            contentDescription = null,
-                                                            modifier = Modifier.size(18.dp)
-                                                        )
-                                                        Spacer(modifier = Modifier.width(4.dp))
-                                                        Text(
-                                                            stringResource(
-                                                                R.string.prepare_apk_get_universal
-                                                            )
-                                                        )
-                                                    }
-                                                } else if (apkStatus.source == UniversalApkManager.ApkSource.GITHUB) {
-                                                    androidx.compose.material3.IconButton(
-                                                        onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
-                                                        modifier = Modifier.size(48.dp)
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Delete,
-                                                            contentDescription = stringResource(
-                                                                R.string.prepare_apk_delete_confirm
-                                                            ),
-                                                            tint = colorScheme.error,
-                                                            modifier = Modifier.size(20.dp)
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                            is ApkPreparationStatus.UpdateAvailable -> {
-                                                androidx.compose.material3.IconButton(
-                                                    onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
-                                                    modifier = Modifier.size(48.dp)
+                                                        },
+                                                        tint = colorScheme.primary
+                                                    )
+                                                } else if (
+                                                    apkStatus.source ==
+                                                    UniversalApkManager.ApkSource.DOWNLOADED
                                                 ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Delete,
-                                                        contentDescription = stringResource(
-                                                            R.string.prepare_apk_delete_confirm
+                                                    ApkPrepareRowIconButton(
+                                                        icon = Icons.Default.Delete,
+                                                        description = stringResource(
+                                                            R.string.prepare_apk_button_delete
                                                         ),
-                                                        tint = colorScheme.error,
-                                                        modifier = Modifier.size(20.dp)
+                                                        onClick = {
+                                                            apkViewModel.onEvent(
+                                                                ApkUiEvent.DeleteClicked
+                                                            )
+                                                        },
+                                                        tint = colorScheme.error
                                                     )
                                                 }
                                             }
+                                            is ApkPreparationStatus.Resumable,
+                                            is ApkPreparationStatus.Error ->
+                                                ApkPrepareRowIconButton(
+                                                    icon = Icons.Default.Refresh,
+                                                    description = stringResource(
+                                                        R.string.prepare_apk_retry
+                                                    ),
+                                                    onClick = {
+                                                        apkViewModel.onEvent(
+                                                            ApkUiEvent.PrepareRowClicked
+                                                        )
+                                                    },
+                                                    tint = colorScheme.primary
+                                                )
                                             else -> {}
                                         }
                                     }
 
                                     // Prepare Dialog
                                     if (apkUiState.showPrepareDialog) {
-                                        val status = apkStatus
-                                        val sizeMB: Int? = when (status) {
-                                            is ApkPreparationStatus.NotDownloaded -> status.sizeMB
-                                            is ApkPreparationStatus.UpdateAvailable -> status.newSizeMB
-                                            else -> null
-                                        }
                                         AlertDialog(
                                             onDismissRequest = { apkViewModel.onEvent(ApkUiEvent.DismissPrepareDialog) },
                                             title = {
                                                 Text(
-                                                    text = if (status is ApkPreparationStatus.UpdateAvailable) {
-                                                        stringResource(R.string.prepare_apk_update_dialog_title)
-                                                    } else {
-                                                        stringResource(R.string.prepare_apk_dialog_title)
-                                                    },
+                                                    text = stringResource(
+                                                        R.string.prepare_apk_dialog_title
+                                                    ),
                                                     style = MaterialTheme.typography.titleLarge
                                                 )
                                             },
                                             text = {
                                                 Text(
-                                                    text = if (status is ApkPreparationStatus.UpdateAvailable) {
-                                                        stringResource(R.string.prepare_apk_update_dialog_message, status.newVersion, status.currentVersion)
-                                                    } else if (sizeMB != null) {
-                                                        stringResource(R.string.prepare_apk_dialog_message, sizeMB)
-                                                    } else {
-                                                        stringResource(R.string.prepare_apk_dialog_message_unknown_size)
-                                                    },
+                                                    text = stringResource(
+                                                        R.string.prepare_apk_dialog_message_unknown_size
+                                                    ),
                                                     style = MaterialTheme.typography.bodyMedium
                                                 )
                                             },
@@ -903,8 +888,7 @@ fun AboutSheet(
                                     }
 
                                     // Show sharing rows only when APK is ready
-                                    val canShareAPK = apkStatus is ApkPreparationStatus.Ready ||
-                                            apkStatus is ApkPreparationStatus.UpdateAvailable
+                                    val canShareAPK = apkStatus is ApkPreparationStatus.Ready
 
                                     AnimatedVisibility(
                                         visible = canShareAPK,

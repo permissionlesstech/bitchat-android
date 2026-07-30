@@ -63,7 +63,7 @@ class WorkManagerApkDownloader(context: Context) : ApkDownloader {
                 val partial = apkManager.getPartialDownloadProgress()
                 ApkDownloader.DownloadState.Downloading(
                     partial ?: 0,
-                    ApkDownloader.DownloadPhase.ResolvingRelease
+                    ApkDownloader.DownloadPhase.AwaitingConnectivity
                 )
             }
             WorkInfo.State.RUNNING -> {
@@ -79,16 +79,30 @@ class WorkManagerApkDownloader(context: Context) : ApkDownloader {
                 ApkDownloader.DownloadState.Success(version, sizeMB)
             }
             WorkInfo.State.FAILED -> {
-                val error = workInfo.outputData.getString(ApkDownloadWorker.KEY_ERROR) ?: "Download failed"
+                // Work enqueued by an older build carries no resource id; fall back rather than
+                // resolve 0 and crash.
+                val messageRes = workInfo.outputData
+                    .getInt(ApkDownloadWorker.KEY_ERROR_RES, 0)
+                    .takeIf { it != 0 }
+                    ?: R.string.prepare_apk_error_generic
+                val args = workInfo.outputData
+                    .getStringArray(ApkDownloadWorker.KEY_ERROR_ARGS)
+                    ?.toList()
+                    .orEmpty()
                 val resumable = workInfo.outputData.getInt(ApkDownloadWorker.KEY_RESUMABLE_PERCENT, -1)
-                ApkDownloader.DownloadState.Failed(error, if (resumable >= 0) resumable else null)
+                ApkDownloader.DownloadState.Failed(
+                    messageRes = messageRes,
+                    messageArgs = args,
+                    resumablePercent = if (resumable >= 0) resumable else null
+                )
             }
             WorkInfo.State.CANCELLED -> {
                 val partial = apkManager.getPartialDownloadProgress()
                 if (partial != null) {
                     ApkDownloader.DownloadState.Failed(
-                        appContext.getString(R.string.prepare_apk_download_cancelled),
-                        partial
+                        messageRes = R.string.prepare_apk_download_cancelled,
+                        messageArgs = emptyList(),
+                        resumablePercent = partial
                     )
                 } else {
                     ApkDownloader.DownloadState.Idle

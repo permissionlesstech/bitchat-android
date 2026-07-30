@@ -1,0 +1,162 @@
+package com.bitchat.android.util
+
+import com.bitchat.android.R
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.IOException
+
+class ApkDownloadSourceTest {
+
+    private val source = ApkDownloadSource(
+        id = "mirror-one",
+        displayName = "Mirror One",
+        latestApkUrl = "https://mirror.example/bitchat-universal.apk"
+    )
+    private val now = 1_700_000_000_000L
+
+    @Test
+    fun `default source downloads the stable latest universal asset directly`() {
+        assertEquals(
+            "https://github.com/permissionlesstech/bitchat-android/releases/latest/" +
+                "download/bitchat-android-universal.apk",
+            DefaultApkDownloadSources.all.single().latestApkUrls.first()
+        )
+        assertEquals(
+            "https://github.com/permissionlesstech/bitchat-android/releases/latest/" +
+                "download/app-universal-release.apk",
+            DefaultApkDownloadSources.all.single().latestApkUrls[1]
+        )
+    }
+
+    @Test
+    fun `transient HTTP failures are retryable but ordinary client errors are not`() {
+        assertTrue(httpError(408).retryable)
+        assertTrue(httpError(500).retryable)
+        assertTrue(httpError(503).retryable)
+        assertFalse(httpError(400).retryable)
+        assertFalse(httpError(404).retryable)
+    }
+
+    @Test
+    fun `compatibility URL is only tried when the preferred asset is absent`() {
+        assertTrue(shouldTryNextSourceUrl(httpError(404), hasMoreUrls = true))
+        assertFalse(shouldTryNextSourceUrl(httpError(404), hasMoreUrls = false))
+        assertFalse(shouldTryNextSourceUrl(httpError(429), hasMoreUrls = true))
+        assertFalse(shouldTryNextSourceUrl(httpError(503), hasMoreUrls = true))
+    }
+
+    @Test
+    fun `rate limit response gives the user the advertised retry time`() {
+        val failure = ApkDownloadHttpErrors.fromResponse(
+            source = source,
+            code = 429,
+            responseMessage = "Too Many Requests",
+            retryAfter = "120",
+            rateLimitRemaining = null,
+            rateLimitResetEpochSeconds = null,
+            nowMillis = now
+        )
+
+        assertFalse(failure.retryable)
+        assertEquals(now + 120_000L, failure.retryAtMillis)
+        // The wait is carried as an argument, not baked into an English sentence.
+        assertEquals(R.string.prepare_apk_error_rate_limited_wait, failure.messageRes)
+        assertEquals(listOf(source.displayName, "2"), failure.messageArgs)
+    }
+
+    @Test
+    fun `403 is only treated as a limit when response headers say so`() {
+        val permissionsFailure = ApkDownloadHttpErrors.fromResponse(
+            source = source,
+            code = 403,
+            responseMessage = "Forbidden",
+            retryAfter = "not-a-date",
+            rateLimitRemaining = "42",
+            rateLimitResetEpochSeconds = null,
+            nowMillis = now
+        )
+        val quotaFailure = ApkDownloadHttpErrors.fromResponse(
+            source = source,
+            code = 403,
+            responseMessage = "Forbidden",
+            retryAfter = null,
+            rateLimitRemaining = "0",
+            rateLimitResetEpochSeconds = (now / 1000L + 300L).toString(),
+            nowMillis = now
+        )
+
+        assertNull(permissionsFailure.retryAtMillis)
+        assertEquals(R.string.prepare_apk_error_http, permissionsFailure.messageRes)
+        assertEquals(
+            listOf(source.displayName, "403", "Forbidden"),
+            permissionsFailure.messageArgs
+        )
+        assertEquals(now + 300_000L, quotaFailure.retryAtMillis)
+        assertEquals(R.string.prepare_apk_error_rate_limited_wait, quotaFailure.messageRes)
+    }
+
+    @Test
+    fun `invalid or overflowing retry headers never crash error mapping`() {
+        assertNull(
+            ApkDownloadHttpErrors.retryAtMillis(
+                retryAfter = Long.MAX_VALUE.toString(),
+                rateLimitResetEpochSeconds = Long.MAX_VALUE.toString(),
+                nowMillis = now
+            )
+        )
+    }
+
+    @Test
+    fun `content ranges validate resume offsets and totals`() {
+        assertEquals(
+            ContentRange(start = 1_024L, endInclusive = 2_047L, total = 4_096L),
+            parseContentRange("bytes 1024-2047/4096")
+        )
+        assertEquals(4_096L, parseUnsatisfiedContentRangeTotal("bytes */4096"))
+        assertNull(parseContentRange("bytes nope"))
+        assertNull(parseContentRange("bytes 20-10/100"))
+        assertNull(parseContentRange("bytes 90-100/100"))
+    }
+
+    @Test
+    fun `version comparison is host independent`() {
+        assertTrue(AppVersion.isNewer("1.7.4", "1.7.5"))
+        assertFalse(AppVersion.isNewer("1.7.5", "1.7.4"))
+        assertFalse(AppVersion.isNewer("v1.7.5", "1.7.5"))
+        assertTrue(AppVersion.isNewer("1.7", "1.7.1"))
+    }
+
+    @Test
+    fun `worker policy allows exactly three total attempts`() {
+        val transient = IOException("offline")
+
+        assertTrue(ApkDownloadRetryPolicy.shouldRetry(runAttemptCount = 0, transient))
+        assertTrue(ApkDownloadRetryPolicy.shouldRetry(runAttemptCount = 1, transient))
+        assertFalse(ApkDownloadRetryPolicy.shouldRetry(runAttemptCount = 2, transient))
+        assertFalse(
+            ApkDownloadRetryPolicy.shouldRetry(
+                runAttemptCount = 0,
+                ApkDownloadException(
+                    message = "invalid APK",
+                    messageRes = R.string.prepare_apk_error_generic,
+                    retryable = false
+                )
+            )
+        )
+    }
+
+    private fun httpError(code: Int): ApkDownloadException {
+        return ApkDownloadHttpErrors.fromResponse(
+            source = source,
+            code = code,
+            responseMessage = "test",
+            retryAfter = null,
+            rateLimitRemaining = null,
+            rateLimitResetEpochSeconds = null,
+            nowMillis = now
+        )
+    }
+}

@@ -32,6 +32,18 @@ class DownloadPhaseTest {
     }
 
     @Test
+    fun `phase keys from queued work created by the old downloader still map correctly`() {
+        assertEquals(
+            ApkDownloader.DownloadPhase.SelectingSource,
+            ApkDownloader.DownloadPhase.fromKey("ResolvingRelease")
+        )
+        assertEquals(
+            ApkDownloader.DownloadPhase.VerifyingSignature,
+            ApkDownloader.DownloadPhase.fromKey("VerifyingChecksum")
+        )
+    }
+
+    @Test
     fun `only the transfer claims measurable progress`() {
         assertTrue(ApkDownloader.DownloadPhase.Transferring.hasMeasurableProgress)
 

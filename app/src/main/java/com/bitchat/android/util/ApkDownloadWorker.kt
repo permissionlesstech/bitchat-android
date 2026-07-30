@@ -36,10 +36,9 @@ class ApkDownloadWorker(
         const val KEY_PHASE = "phase"
         const val KEY_VERSION = "version"
         const val KEY_SIZE_MB = "size_mb"
-        const val KEY_ERROR = "error"
+        const val KEY_ERROR_RES = "error_res"
+        const val KEY_ERROR_ARGS = "error_args"
         const val KEY_RESUMABLE_PERCENT = "resumable_percent"
-
-        private const val MAX_RETRIES = 3
 
         private const val CHANNEL_ID = "apk_download"
         private const val NOTIFICATION_ID = 4201
@@ -52,7 +51,7 @@ class ApkDownloadWorker(
 
     private var lastNotifiedProgress = -NOTIFY_STEP_PERCENT
     private var lastProgress = 0
-    private var currentPhase = ApkDownloader.DownloadPhase.ResolvingRelease
+    private var currentPhase = ApkDownloader.DownloadPhase.SelectingSource
 
     override suspend fun doWork(): Result {
         Log.d(TAG, "Starting APK download work")
@@ -94,19 +93,30 @@ class ApkDownloadWorker(
 
             // Retry transient network errors with backoff; the partial file
             // is kept on disk, so the retry resumes where it left off.
-            val isRetryable = when (error) {
-                is GitHubReleaseClient.ReleaseFetchException -> error.retryable
-                is java.io.IOException -> true
-                else -> false
-            }
-            if (isRetryable && runAttemptCount < MAX_RETRIES) {
-                Log.w(TAG, "Transient download error (attempt $runAttemptCount), retrying", error)
+            val attemptNumber = runAttemptCount + 1
+            if (ApkDownloadRetryPolicy.shouldRetry(runAttemptCount, error)) {
+                Log.w(
+                    TAG,
+                    "Transient download error " +
+                        "(attempt $attemptNumber/${ApkDownloadRetryPolicy.MAX_ATTEMPTS}), retrying",
+                    error
+                )
                 return Result.retry()
             }
 
             val partial = apkManager.getPartialDownloadProgress()
+            // Only a named failure carries a localizable message; anything else falls back to a
+            // generic one rather than leaking an untranslated exception string to the user.
+            val failure = error as? ApkDownloadException
             val outputData = Data.Builder()
-                .putString(KEY_ERROR, error?.message ?: "Download failed")
+                .putInt(
+                    KEY_ERROR_RES,
+                    failure?.messageRes ?: R.string.prepare_apk_error_generic
+                )
+                .putStringArray(
+                    KEY_ERROR_ARGS,
+                    failure?.messageArgs.orEmpty().toTypedArray()
+                )
                 .putInt(KEY_RESUMABLE_PERCENT, partial ?: -1)
                 .build()
             Result.failure(outputData)
@@ -174,13 +184,11 @@ class ApkDownloadWorker(
     }
 
     private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                applicationContext.getString(R.string.apk_download_channel_name),
-                NotificationManager.IMPORTANCE_LOW
-            )
-            notificationManager.createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            applicationContext.getString(R.string.apk_download_channel_name),
+            NotificationManager.IMPORTANCE_LOW
+        )
+        notificationManager.createNotificationChannel(channel)
     }
 }
