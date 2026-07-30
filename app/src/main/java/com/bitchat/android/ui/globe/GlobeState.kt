@@ -28,8 +28,7 @@ class GlobeState(
     targetLat: Double,
     targetLon: Double,
     initialPrecision: Int,
-    startZoomedOut: Boolean,
-    initialRenderQuality: GlobeRenderQuality = GlobeRenderQuality.MEDIUM
+    startZoomedOut: Boolean
 ) {
     var centerLat by mutableFloatStateOf(if (startZoomedOut) (targetLat * 0.4).toFloat() else targetLat.toFloat())
         private set
@@ -48,8 +47,6 @@ class GlobeState(
 
     internal var baseRadiusPx by mutableFloatStateOf(0f)
     internal var screenMinPx by mutableFloatStateOf(0f)
-    internal var renderQuality = initialRenderQuality
-        private set
 
     private var scope: CoroutineScope? = null
     private var animJob: Job? = null
@@ -69,14 +66,6 @@ class GlobeState(
 
     fun attach(scope: CoroutineScope) {
         this.scope = scope
-    }
-
-    /**
-     * Rendering quality only affects moving frames. This is deliberately not snapshot state:
-     * changing it must not invalidate the expensive stationary globe beneath the selector.
-     */
-    fun setRenderQuality(quality: GlobeRenderQuality) {
-        renderQuality = quality
     }
 
     fun setViewport(baseRadiusPx: Float, screenMinPx: Float) {
