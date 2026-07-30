@@ -1,6 +1,8 @@
 package com.bitchat.android.hotspot
 
 import android.app.Application
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,6 +20,10 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
     companion object {
         private const val TAG = "HotspotViewModel"
+
+        // Upper bound on waiting for the framework to acknowledge group removal
+        // before the Wi-Fi Aware lease is released anyway.
+        private const val TEARDOWN_FALLBACK_MILLIS = 10_000L
     }
 
     private val _state = MutableStateFlow<HotspotState>(HotspotState.Intro)
@@ -25,12 +31,25 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
     private var hotspotManager: HotspotManager? = null
     private var webServer: ApkWebServer? = null
+
+    /** APK waiting on the user's answer to the disconnect confirmation. */
+    private var pendingApk: File? = null
+
+    /** Group the pending confirmation is about; consent binds to this name only. */
+    private var pendingGroupName: String? = null
+
+    /** Once-releasable radio claim owned by the current hotspot session. */
+    private var awareLease: WifiAwareController.HotspotLease? = null
     private val context = application.applicationContext
 
     /**
      * Start the hotspot with the provided APK file.
      */
     fun startHotspot(apkFile: File) {
+        startHotspot(apkFile, confirmedGroupName = null)
+    }
+
+    private fun startHotspot(apkFile: File, confirmedGroupName: String?) {
         if (_state.value is HotspotState.Starting || _state.value is HotspotState.Active) {
             Log.w(TAG, "Hotspot already starting or active")
             return
@@ -43,7 +62,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
             try {
                 // Wi-Fi Aware holds a NAN interface that blocks the P2P one; release it
                 // first or every createGroup comes back BUSY. Restored when we stop.
-                WifiAwareController.holdForHotspot()
+                awareLease = WifiAwareController.acquireHotspotLease()
 
                 // Start hotspot
                 val manager = HotspotManager(context)
@@ -94,10 +113,21 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                         }
                     }
 
+                    override fun onExistingGroupConflict(groupName: String) {
+                        viewModelScope.launch {
+                            // Nothing was disturbed; the manager already stopped
+                            // itself. Release our resources and ask the user.
+                            teardown()
+                            pendingApk = apkFile
+                            pendingGroupName = groupName
+                            _state.value = HotspotState.ConfirmDisconnect
+                        }
+                    }
+
                     override fun onError(message: String) {
                         viewModelScope.launch { failWith(message) }
                     }
-                })
+                }, confirmedGroupName)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting hotspot", e)
@@ -106,11 +136,34 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /** The user agreed that starting may disconnect the existing Wi-Fi Direct group. */
+    fun confirmDisconnectAndStart() {
+        if (_state.value !is HotspotState.ConfirmDisconnect) return
+        val apk = pendingApk ?: return
+        val groupName = pendingGroupName
+        pendingApk = null
+        pendingGroupName = null
+        startHotspot(apk, confirmedGroupName = groupName)
+    }
+
+    fun cancelDisconnect() {
+        // A tap landing late (e.g. through an exit animation) must not tear down
+        // the session a just-processed confirmation is starting.
+        if (_state.value !is HotspotState.ConfirmDisconnect) return
+        pendingApk = null
+        pendingGroupName = null
+        // The conflict path already tore down; this only covers a stray state.
+        teardown()
+        _state.value = HotspotState.Intro
+    }
+
     /**
      * Stop the hotspot and web server.
      */
     fun stopHotspot() {
         Log.d(TAG, "Stopping hotspot")
+        pendingApk = null
+        pendingGroupName = null
         teardown()
         _state.value = HotspotState.Intro
     }
@@ -125,6 +178,8 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
      */
     private fun failWith(message: String) {
         Log.e(TAG, "Hotspot failed: $message")
+        pendingApk = null
+        pendingGroupName = null
         teardown()
         _state.value = HotspotState.Error(message)
     }
@@ -134,10 +189,34 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         webServer?.stopServer()
         webServer = null
 
-        hotspotManager?.stopHotspot()
+        val manager = hotspotManager
         hotspotManager = null
 
-        WifiAwareController.releaseHotspotHold()
+        // Nothing of ours to hand back. An earlier teardown may already have passed
+        // its once-releasable lease to the manager's completion callback.
+        val lease = awareLease ?: return
+        awareLease = null
+
+        if (manager == null) {
+            lease.close()
+            return
+        }
+
+        // Close the lease only when the manager has finished removing our group.
+        // Restoring Wi-Fi Aware earlier recreates the NAN/P2P radio contention the
+        // lease exists to prevent. The lease is idempotent, so a duplicate or late
+        // completion cannot release a newer session's claim.
+        manager.stopHotspot { lease.close() }
+
+        // A framework that never acknowledges the removal must not pin Wi-Fi Aware
+        // down for the life of the process. close() is idempotent and this lease
+        // belongs to this session alone, so whichever path runs second is a no-op.
+        // A plain handler rather than viewModelScope: onCleared() cancels the scope
+        // right when this teardown may be running.
+        Handler(Looper.getMainLooper()).postDelayed(
+            { lease.close() },
+            TEARDOWN_FALLBACK_MILLIS
+        )
     }
 
     /**
@@ -160,6 +239,10 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     sealed class HotspotState {
         object Intro : HotspotState()
         object Starting : HotspotState()
+
+        /** A foreign Wi-Fi Direct group is up; waiting for the user's go-ahead. */
+        object ConfirmDisconnect : HotspotState()
+
         data class Active(
             val ssid: String,
             val password: String,

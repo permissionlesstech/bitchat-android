@@ -28,12 +28,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.R
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.util.UniversalApkManager
@@ -137,6 +139,12 @@ fun HotspotScreen(
                 is HotspotViewModel.HotspotState.Starting -> {
                     LoadingScreen()
                 }
+                is HotspotViewModel.HotspotState.ConfirmDisconnect -> {
+                    ExistingGroupConfirmation(
+                        onConfirm = viewModel::confirmDisconnectAndStart,
+                        onCancel = viewModel::cancelDisconnect
+                    )
+                }
                 is HotspotViewModel.HotspotState.Active -> {
                     ActiveHotspotScreen(state = currentState)
                 }
@@ -150,6 +158,28 @@ fun HotspotScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ExistingGroupConfirmation(
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.hotspot_disconnect_title)) },
+        text = { Text(stringResource(R.string.hotspot_disconnect_message)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.hotspot_disconnect_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalPermissionsApi::class)
