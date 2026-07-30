@@ -13,6 +13,33 @@ object GlobeMath {
     data class Projection(val x: Float, val y: Float, val cosC: Float)
 
     /**
+     * Frame-local projector for prepared static geometry. Center terms are calculated once
+     * and projection results are written to a caller-owned array without allocating objects.
+     */
+    class PreparedProjector(centerLatDeg: Double, centerLonDeg: Double) {
+        private val sinCenterLat = sin(Math.toRadians(centerLatDeg)).toFloat()
+        private val cosCenterLat = cos(Math.toRadians(centerLatDeg)).toFloat()
+        private val sinCenterLon = sin(Math.toRadians(centerLonDeg)).toFloat()
+        private val cosCenterLon = cos(Math.toRadians(centerLonDeg)).toFloat()
+
+        fun project(terms: FloatArray, termOffset: Int, out: FloatArray, outOffset: Int) {
+            val sinLat = terms[termOffset]
+            val cosLat = terms[termOffset + 1]
+            val sinLon = terms[termOffset + 2]
+            val cosLon = terms[termOffset + 3]
+            val sinDeltaLon = sinLon * cosCenterLon - cosLon * sinCenterLon
+            val cosDeltaLon = cosLon * cosCenterLon + sinLon * sinCenterLon
+            out[outOffset] = cosLat * sinDeltaLon
+            out[outOffset + 1] = -(
+                cosCenterLat * sinLat -
+                    sinCenterLat * cosLat * cosDeltaLon
+                )
+            out[outOffset + 2] =
+                sinCenterLat * sinLat + cosCenterLat * cosLat * cosDeltaLon
+        }
+    }
+
+    /**
      * Projects (lat, lon) onto the view disc of a globe centered at (centerLat, centerLon).
      * Returns x/y in units of globe radius (screen y down). [Projection.cosC] is negative
      * when the point is on the far side of the sphere.

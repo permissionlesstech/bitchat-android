@@ -540,6 +540,9 @@
   <string name="nobody_around">Nobody around…</string>
   <string name="you_suffix"> (you)</string>
   <string name="pan_zoom_instruction">Drag to spin · Pinch to zoom · Tap to focus</string>
+  <string name="globe_render_quality_fast">Fast</string>
+  <string name="globe_render_quality_medium">Medium</string>
+  <string name="globe_render_quality_high">High</string>
   <string name="select">Select</string>
   <string name="type_a_message_placeholder">Type a message…</string>
   <string name="mention_suggestion_at">@%1$s</string>

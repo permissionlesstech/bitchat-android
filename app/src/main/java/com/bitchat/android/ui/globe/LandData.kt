@@ -2,6 +2,8 @@ package com.bitchat.android.ui.globe
 
 import android.content.Context
 import org.json.JSONObject
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Loads the bundled Natural Earth 110m land polygons (public domain) from assets
@@ -9,9 +11,28 @@ import org.json.JSONObject
  */
 object LandData {
 
-    data class Ring(val coords: FloatArray, val size: Int)
+    data class Ring(
+        val coords: FloatArray,
+        val size: Int,
+        /**
+         * Per-point sin(latitude), cos(latitude), sin(longitude), cos(longitude).
+         * Preparing this once removes nearly all trigonometry from animated frames.
+         */
+        val projectionTerms: FloatArray = prepareProjectionTerms(coords, size)
+    )
 
-    data class City(val name: String, val lat: Float, val lon: Float, val rank: Int, val capital: Boolean, val megacity: Boolean)
+    data class City(
+        val name: String,
+        val lat: Float,
+        val lon: Float,
+        val rank: Int,
+        val capital: Boolean,
+        val megacity: Boolean,
+        val projectionTerms: FloatArray = prepareProjectionTerms(
+            floatArrayOf(lat, lon),
+            size = 1
+        )
+    )
 
     @Volatile
     private var cached: List<Ring>? = null
@@ -126,5 +147,18 @@ object LandData {
             }
             out.add(Ring(coords, n))
         }
+    }
+
+    private fun prepareProjectionTerms(coords: FloatArray, size: Int): FloatArray {
+        val result = FloatArray(size * 4)
+        for (index in 0 until size) {
+            val latRadians = Math.toRadians(coords[index * 2].toDouble())
+            val lonRadians = Math.toRadians(coords[index * 2 + 1].toDouble())
+            result[index * 4] = sin(latRadians).toFloat()
+            result[index * 4 + 1] = cos(latRadians).toFloat()
+            result[index * 4 + 2] = sin(lonRadians).toFloat()
+            result[index * 4 + 3] = cos(lonRadians).toFloat()
+        }
+        return result
     }
 }
