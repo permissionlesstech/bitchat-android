@@ -95,13 +95,18 @@ class GeohashPickerActivity : OrientationAwareActivity() {
             BitchatTheme {
                 val context = LocalContext.current
                 val scope = rememberCoroutineScope()
+                val initialRenderQuality = remember(context) {
+                    GlobeRenderQualityPreference.load(context)
+                }
+                var renderQuality by remember { mutableStateOf(initialRenderQuality) }
 
                 val globeState = remember {
                     GlobeState(
                         targetLat = targetLat,
                         targetLon = targetLon,
                         initialPrecision = initialPrecision,
-                        startZoomedOut = true
+                        startZoomedOut = true,
+                        initialRenderQuality = initialRenderQuality
                     ).apply {
                         introTarget = Triple(targetLat, targetLon, initialPrecision)
                     }
@@ -157,9 +162,6 @@ class GeohashPickerActivity : OrientationAwareActivity() {
 
                 val labelTypeface = remember { ResourcesCompat.getFont(context, R.font.geist_mono_medium) }
                 val labelTypefaceBold = remember { ResourcesCompat.getFont(context, R.font.geist_mono_semibold) }
-                var renderQuality by remember {
-                    mutableStateOf(GlobeRenderQualityPreference.load(context))
-                }
 
                 Box(
                     Modifier
@@ -173,7 +175,6 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                             land = rings,
                             borders = borders,
                             cities = cities,
-                            renderQuality = renderQuality,
                             labelTypeface = labelTypeface,
                             labelTypefaceBold = labelTypefaceBold,
                             modifier = Modifier.fillMaxSize()
@@ -210,9 +211,11 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 qualities.forEachIndexed { index, quality ->
+                                    val selected = renderQuality == quality
                                     SegmentedButton(
-                                        selected = renderQuality == quality,
+                                        selected = selected,
                                         onClick = {
+                                            globeState.setRenderQuality(quality)
                                             renderQuality = quality
                                             GlobeRenderQualityPreference.save(context, quality)
                                         },
@@ -220,12 +223,27 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                                             index = index,
                                             count = qualities.size
                                         ),
+                                        icon = {},
                                         label = {
-                                            Text(
-                                                text = stringResource(quality.labelResource),
-                                                fontSize = 11.sp,
-                                                fontFamily = BitchatFontFamily
-                                            )
+                                            Box(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (selected) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Check,
+                                                        contentDescription = null,
+                                                        modifier = Modifier
+                                                            .align(Alignment.CenterStart)
+                                                            .size(18.dp)
+                                                    )
+                                                }
+                                                Text(
+                                                    text = stringResource(quality.labelResource),
+                                                    fontSize = 11.sp,
+                                                    fontFamily = BitchatFontFamily
+                                                )
+                                            }
                                         }
                                     )
                                 }

@@ -15,6 +15,21 @@ class GlobeRenderQualityTest {
     }
 
     @Test
+    fun globeState_usesAndUpdatesRenderQualityWithoutReplacingState() {
+        val state = GlobeState(
+            targetLat = 0.0,
+            targetLon = 0.0,
+            initialPrecision = 2,
+            startZoomedOut = false,
+            initialRenderQuality = GlobeRenderQuality.FAST
+        )
+
+        assertEquals(GlobeRenderQuality.FAST, state.renderQuality)
+        state.setRenderQuality(GlobeRenderQuality.HIGH)
+        assertEquals(GlobeRenderQuality.HIGH, state.renderQuality)
+    }
+
+    @Test
     fun stationaryFrame_alwaysUsesFullDetail() {
         GlobeRenderQuality.entries.forEach { quality ->
             val detail = globeFrameDetail(quality, isMoving = false)

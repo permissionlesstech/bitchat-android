@@ -119,7 +119,6 @@ fun GlobeView(
     land: List<LandData.Ring>,
     borders: List<LandData.Ring>,
     cities: List<LandData.City>,
-    renderQuality: GlobeRenderQuality,
     labelTypeface: Typeface?,
     labelTypefaceBold: Typeface?,
     modifier: Modifier = Modifier
@@ -324,7 +323,7 @@ fun GlobeView(
 
         val clip = ClipRect(-size.width, -size.height, size.width * 2f, size.height * 2f)
 
-        val frameDetail = globeFrameDetail(renderQuality, state.isInMotion)
+        val frameDetail = globeFrameDetail(state.renderQuality, state.isInMotion)
 
         // Graticule
         drawGraticule(
