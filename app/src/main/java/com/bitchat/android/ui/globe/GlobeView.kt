@@ -421,7 +421,7 @@ private fun DrawScope.drawGraticule(
     drawPath(path, color, style = Stroke(width = 1f))
 }
 
-private data class DiscPt(val x: Float, val y: Float, val front: Boolean)
+internal data class DiscPt(val x: Float, val y: Float, val front: Boolean)
 
 private fun limbPoint(behind: DiscPt, front: DiscPt): Pair<Float, Float> {
     var lo = 0f; var hi = 1f
@@ -440,7 +440,10 @@ private fun limbPoint(behind: DiscPt, front: DiscPt): Pair<Float, Float> {
  * padded with the horizon intersection point so they can be closed along the horizon.
  * Pass [closed] = false for open polylines (border lines).
  */
-private fun buildFrontRuns(pts: List<DiscPt>, closed: Boolean = true): List<MutableList<Pair<Float, Float>>> {
+internal fun buildFrontRuns(
+    pts: List<DiscPt>,
+    closed: Boolean = true
+): List<MutableList<Pair<Float, Float>>> {
     if (pts.isEmpty()) return emptyList()
     val n = pts.size
     val runs = mutableListOf<MutableList<Pair<Float, Float>>>()
@@ -477,6 +480,12 @@ private fun buildFrontRuns(pts: List<DiscPt>, closed: Boolean = true): List<Muta
         if (closed && runs.isNotEmpty() && pts[0].front && pts[n - 1].front) {
             runs[0] = (run + runs[0]).toMutableList()
         } else {
+            // A fully front-facing ring has no limb transition to terminate its run.
+            // Close it explicitly; cell boundary sampling intentionally omits the
+            // duplicated final corner.
+            if (closed && runs.isEmpty() && pts[0].front && pts[n - 1].front) {
+                run.add(run.first())
+            }
             runs.add(run)
         }
     }
