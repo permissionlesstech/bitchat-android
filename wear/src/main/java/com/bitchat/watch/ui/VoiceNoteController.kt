@@ -29,11 +29,14 @@ private const val LIVE_BARS = 32
 class VoiceNoteController(
     private val context: Context,
     private val scope: CoroutineScope,
+    private val recorderFactory: () -> VoiceRecorder,
     private val onSendVoice: (String) -> Unit
 ) {
-    private val recorder = VoiceRecorder(context.applicationContext)
+    private var recorder: VoiceRecorder? = null
 
     var recording by mutableStateOf(false)
+        private set
+    var isLive by mutableStateOf(false)
         private set
     var elapsedMs by mutableLongStateOf(0L)
         private set
@@ -45,7 +48,10 @@ class VoiceNoteController(
 
     fun start() {
         if (recording) return
-        recorder.start() ?: return
+        val activeRecorder = recorderFactory()
+        activeRecorder.start() ?: return
+        recorder = activeRecorder
+        isLive = activeRecorder.isLive
         startedAt = System.currentTimeMillis()
         elapsedMs = 0L
         liveSamples = FloatArray(LIVE_BARS)
@@ -54,7 +60,7 @@ class VoiceNoteController(
         pollJob = scope.launch {
             while (true) {
                 delay(AMPLITUDE_POLL_MS)
-                val amp = normalizeAmplitudeSample(recorder.pollAmplitude())
+                val amp = normalizeAmplitudeSample(recorder?.pollAmplitude() ?: 0)
                 liveSamples = liveSamples.copyOfRange(1, LIVE_BARS) + amp
                 val elapsed = System.currentTimeMillis() - startedAt
                 elapsedMs = elapsed
@@ -74,7 +80,9 @@ class VoiceNoteController(
         if (send) WearHaptics.click(context)
         pollJob?.cancel()
         pollJob = null
-        val file = recorder.stop()
+        val file = recorder?.stop(canceled = !send)
+        recorder = null
+        isLive = false
         val elapsed = System.currentTimeMillis() - startedAt
         if (send && file != null && elapsed >= MIN_RECORDING_MS) {
             onSendVoice(file.absolutePath)
@@ -85,8 +93,11 @@ class VoiceNoteController(
 }
 
 @Composable
-fun rememberVoiceNoteController(onSendVoice: (String) -> Unit): VoiceNoteController {
+fun rememberVoiceNoteController(
+    recorderFactory: () -> VoiceRecorder,
+    onSendVoice: (String) -> Unit
+): VoiceNoteController {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    return remember { VoiceNoteController(context, scope, onSendVoice) }
+    return remember { VoiceNoteController(context, scope, recorderFactory, onSendVoice) }
 }

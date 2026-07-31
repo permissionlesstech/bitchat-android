@@ -20,6 +20,7 @@ import com.bitchat.android.util.toHexString
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.service.TransportBridgeService
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import java.util.*
 import kotlin.math.sign
 import kotlin.random.Random
@@ -111,6 +112,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
+    private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
+    private val voiceFrameQueue = Channel<VoiceFrameRequest>(capacity = 128)
     private lateinit var gossipSyncManager: GossipSyncManager
     // Service-level notification manager for background (no-UI) DMs
     private val serviceNotificationManager = com.bitchat.android.ui.NotificationManager(
@@ -129,6 +132,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private var terminated = false
     
     init {
+        serviceScope.launch {
+            for (request in voiceFrameQueue) dispatchVoiceFrame(request)
+        }
         Log.i(TAG, "Initializing BluetoothMeshService for peer=$myPeerID")
         VerificationService.configure(encryptionService)
         setupDelegates()
@@ -607,6 +613,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     }
                 } catch (_: Exception) { }
             }
+
+            override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
+                messageHandler.handlePublicVoiceFrame(routed)
             
             override fun handleLeave(routed: RoutedPacket) {
                 serviceScope.launch { messageHandler.handleLeave(routed) }
@@ -946,6 +955,44 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             PrivateMediaPreparation.AwaitingPeerState -> Unit
             is PrivateMediaPreparation.Rejected ->
                 Log.w(TAG, "Private media blocked: ${prepared.reason}")
+        }
+    }
+
+    fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
+        if (payload.isEmpty()) return
+        voiceFrameQueue.trySend(VoiceFrameRequest(recipientPeerID, payload.copyOf()))
+    }
+
+    private fun dispatchVoiceFrame(request: VoiceFrameRequest) {
+        try {
+            val recipientPeerID = request.recipientPeerID
+            val packet = if (recipientPeerID == null) {
+                BitchatPacket(
+                    version = 1u,
+                    type = MessageType.VOICE_FRAME.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = SpecialRecipients.BROADCAST,
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = request.payload,
+                    ttl = MAX_TTL
+                )
+            } else {
+                if (!encryptionService.hasEstablishedSession(recipientPeerID)) return
+                val plaintext = NoisePayload(NoisePayloadType.VOICE_FRAME, request.payload).encode()
+                val ciphertext = encryptionService.encrypt(plaintext, recipientPeerID)
+                BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_ENCRYPTED.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(recipientPeerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = ciphertext,
+                    ttl = MAX_TTL
+                )
+            }
+            broadcastRoutedPacket(RoutedPacket(signPacketBeforeBroadcast(packet)))
+        } catch (e: Exception) {
+            Log.w(TAG, "Live voice frame send failed: ${e.message}")
         }
     }
 

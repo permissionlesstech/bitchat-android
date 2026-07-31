@@ -1872,6 +1872,7 @@ fun PrivateChatSheet(
                         onSendFileNote = { peer, channel, path ->
                             viewModel.sendFileNote(peer, channel, path)
                         },
+                        recorderFactory = viewModel::createVoiceRecorder,
                         showCommandSuggestions = false,
                         commandSuggestions = emptyList(),
                         showMentionSuggestions = false,

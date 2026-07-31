@@ -297,6 +297,14 @@ class BluetoothGattServerManager(
                     gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
                 }
             }
+
+            override fun onNotificationSent(device: BluetoothDevice, status: Int) {
+                delegate?.onGattServerNotificationComplete(
+                    device.address,
+                    serverLinkIDs[device.address],
+                    status
+                )
+            }
         }
         
         // Proper cleanup sequencing to prevent race conditions

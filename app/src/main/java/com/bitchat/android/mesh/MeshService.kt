@@ -21,6 +21,7 @@ interface MeshService {
     fun sendVerifyResponse(peerID: String, noiseKeyHex: String, nonceA: ByteArray)
     fun sendFileBroadcast(file: BitchatFilePacket)
     fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket)
+    fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray)
     fun prepareFilePrivate(
         recipientPeerID: String,
         file: BitchatFilePacket,

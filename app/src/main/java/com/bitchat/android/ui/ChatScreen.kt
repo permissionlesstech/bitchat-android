@@ -120,6 +120,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val context = LocalContext.current
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     val nearbyNotesController = remember { NearbyNotesController.shared }
+    val liveVoiceManager = remember(context) {
+        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
+    }
     val nearbyNotesRevealed by nearbyNotesController.revealed.collectAsStateWithLifecycle()
     val locationPermissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
@@ -142,10 +145,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
         val observer = object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 nearbyNotesController.updateAppForeground(true)
+                liveVoiceManager.setAppForeground(true)
             }
 
             override fun onStop(owner: LifecycleOwner) {
                 nearbyNotesController.updateAppForeground(false)
+                liveVoiceManager.setAppForeground(false)
             }
         }
 
@@ -157,6 +162,16 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onDispose {
             lifecycle.removeObserver(observer)
             nearbyNotesController.updateAppForeground(false)
+            liveVoiceManager.setAppForeground(false)
+        }
+    }
+
+    LaunchedEffect(isMeshTimeline, privateChatSheetPeer, selectedPrivatePeer) {
+        when {
+            privateChatSheetPeer != null -> liveVoiceManager.showDirectMessage(privateChatSheetPeer!!)
+            selectedPrivatePeer != null -> liveVoiceManager.showDirectMessage(selectedPrivatePeer!!)
+            isMeshTimeline -> liveVoiceManager.showPublicMesh()
+            else -> liveVoiceManager.clearVisibleConversation()
         }
     }
 
@@ -400,6 +415,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onSendFileNote = { peer, onionOrChannel, path ->
             viewModel.sendFileNote(peer, onionOrChannel, path)
         },
+        recorderFactory = viewModel::createVoiceRecorder,
         
         showCommandSuggestions = showCommandSuggestions,
         commandSuggestions = commandSuggestions,
@@ -625,8 +641,13 @@ fun ChatInputSection(
     nickname: String,
     colorScheme: ColorScheme,
     showMediaButtons: Boolean,
+    recorderFactory: ((String?, String?) -> com.bitchat.android.features.voice.VoiceRecorder)? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activePublicTalker by remember(context) {
+        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context).activePublicTalker
+    }.collectAsState()
     Column(
         // Flat, slightly translucent screen background — the same treatment as the top bar, so the
         // two bars are visibly the same kind of surface. No gradient: a soft ramp here just looked
@@ -703,6 +724,8 @@ fun ChatInputSection(
             nickname = nickname,
             showMediaButtons = showMediaButtons,
             mentionPeerIdentities = mentionPeerIdentities,
+            recorderFactory = recorderFactory,
+            activePublicTalker = activePublicTalker,
             modifier = Modifier.fillMaxWidth()
         )
     }
