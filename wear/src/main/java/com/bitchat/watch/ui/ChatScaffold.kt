@@ -113,9 +113,21 @@ fun ChatScaffold(
     val followNewest = remember(messages.size) { atNewest }
     LaunchedEffect(columnState, messages.size) {
         if (messages.isNotEmpty() && followNewest) {
+            val expectedSingleMessageKey = messages.singleOrNull()?.id
             scrollToNewestAfterItemsMeasured(
                 expectedItemCount = messages.size,
-                measuredItemCounts = snapshotFlow { columnState.layoutInfo.totalItemsCount }
+                expectedSingleMessageKey = expectedSingleMessageKey,
+                measuredLayouts = snapshotFlow {
+                    val layoutInfo = columnState.layoutInfo
+                    MeasuredChatLayout(
+                        itemCount = layoutInfo.totalItemsCount,
+                        singleVisibleItemKey = if (expectedSingleMessageKey != null) {
+                            layoutInfo.visibleItems.singleOrNull()?.key
+                        } else {
+                            null
+                        }
+                    )
+                }
             ) {
                 // scrollBy to the end of the range: animateScrollToItem stops as soon as the
                 // item is partially visible, which left the last message cropped.
@@ -138,12 +150,22 @@ fun ChatScaffold(
     )
 }
 
+internal data class MeasuredChatLayout(
+    val itemCount: Int,
+    val singleVisibleItemKey: Any?
+)
+
 internal suspend fun scrollToNewestAfterItemsMeasured(
     expectedItemCount: Int,
-    measuredItemCounts: Flow<Int>,
+    expectedSingleMessageKey: Any?,
+    measuredLayouts: Flow<MeasuredChatLayout>,
     scrollToEnd: suspend () -> Unit
 ) {
-    measuredItemCounts.first { it >= expectedItemCount }
+    measuredLayouts.first { layout ->
+        layout.itemCount >= expectedItemCount &&
+            (expectedSingleMessageKey == null ||
+                layout.singleVisibleItemKey == expectedSingleMessageKey)
+    }
     scrollToEnd()
 }
 
