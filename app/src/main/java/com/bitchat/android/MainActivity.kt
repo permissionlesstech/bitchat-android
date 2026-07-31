@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
@@ -40,6 +41,7 @@ import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.ChatScreen
+import com.bitchat.android.ui.RadarScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
@@ -48,6 +50,8 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+enum class AppView { CHAT, RADAR }
 
 class MainActivity : OrientationAwareActivity() {
 
@@ -207,6 +211,8 @@ class MainActivity : OrientationAwareActivity() {
         val isLocationLoading by mainViewModel.isLocationLoading.collectAsState()
         val isBatteryOptimizationLoading by mainViewModel.isBatteryOptimizationLoading.collectAsState()
 
+        var currentAppView by rememberSaveable { mutableStateOf(AppView.CHAT) }
+
         DisposableEffect(context, bluetoothStatusManager) {
 
             val receiver = bluetoothStatusManager.monitorBluetoothState(
@@ -316,6 +322,10 @@ class MainActivity : OrientationAwareActivity() {
                 // Set up back navigation handling for the chat screen
                 val backCallback = object : OnBackPressedCallback(true) {
                     override fun handleOnBackPressed() {
+                        if (currentAppView == AppView.RADAR) {
+                            currentAppView = AppView.CHAT
+                            return
+                        }
                         // Let ChatViewModel handle navigation state
                         val handled = chatViewModel.handleBackPressed()
                         if (!handled) {
@@ -330,7 +340,21 @@ class MainActivity : OrientationAwareActivity() {
 
                 // Add the callback - this will be automatically removed when the activity is destroyed
                 onBackPressedDispatcher.addCallback(this, backCallback)
-                ChatScreen(viewModel = chatViewModel)
+
+                when (currentAppView) {
+                    AppView.CHAT -> ChatScreen(
+                        viewModel = chatViewModel,
+                        onSwitchToRadar = { currentAppView = AppView.RADAR }
+                    )
+                    AppView.RADAR -> RadarScreen(
+                        viewModel = chatViewModel,
+                        onSwitchToChat = { currentAppView = AppView.CHAT }
+                    )
+                }
+
+                com.bitchat.android.ui.IncomingLocationVerifyRequestDialog(
+                    viewModel = chatViewModel
+                )
             }
             
             OnboardingState.ERROR -> {
@@ -742,12 +766,21 @@ class MainActivity : OrientationAwareActivity() {
         if (pendingMeshForegroundServiceStart) {
             startMeshForegroundServiceBestEffort()
         }
+        com.bitchat.android.service.MeshServiceHolder.locationTelemetryManager?.setAppForegroundState(true)
     }
-    
+
+    override fun onStop() {
+        super.onStop()
+        com.bitchat.android.service.MeshServiceHolder.locationTelemetryManager?.setAppForegroundState(false)
+    }
+
     override fun onResume() {
         super.onResume()
+
+        com.bitchat.android.service.MeshServiceHolder.locationTelemetryManager?.setAppForegroundState(true)
         // Revoke stale live-location work before any resumed UI can use cached channels.
         LocationChannelManager.getInstance(applicationContext).syncPermissionState()
+
 
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
@@ -781,6 +814,7 @@ class MainActivity : OrientationAwareActivity() {
     
     override fun onPause() {
         super.onPause()
+        com.bitchat.android.service.MeshServiceHolder.locationTelemetryManager?.setAppForegroundState(false)
         // Only set background state if app is fully initialized
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Detach UI delegate so the foreground service can own DM notifications while UI is closed
@@ -859,7 +893,6 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
 
-    
     override fun onDestroy() {
         super.onDestroy()
         

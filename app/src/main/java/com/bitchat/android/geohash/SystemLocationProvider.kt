@@ -17,6 +17,14 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
 
     companion object {
         private const val TAG = "SystemLocationProvider"
+
+        // Reject fixes worse than this (meters). GPS outdoors is typically 3-15m;
+        // NETWORK_PROVIDER can be 50-2000m+, so this threshold effectively filters
+        // out bad network fixes while still allowing degraded-but-usable GPS fixes.
+        private const val MAX_ACCEPTABLE_ACCURACY_METERS = 200f
+
+        // How long to wait for a GPS fix before allowing a fallback.
+        private const val GPS_FALLBACK_WINDOW_MS = 15000L
     }
 
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -35,6 +43,11 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
             )
     }
 
+    private fun isAcceptable(location: Location): Boolean {
+        if (!location.hasAccuracy()) return true
+        return location.accuracy in 0.01f..MAX_ACCEPTABLE_ACCURACY_METERS
+    }
+
     @SuppressLint("MissingPermission")
     override fun getLastKnownLocation(callback: (Location?) -> Unit) {
         if (!hasLocationPermission()) {
@@ -46,11 +59,13 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
             var bestLocation: Location? = null
             val providers = locationManager.getProviders(true)
             for (provider in providers) {
-                val location = locationManager.getLastKnownLocation(provider)
-                if (location != null) {
-                    if (bestLocation == null || location.time > bestLocation.time) {
-                        bestLocation = location
-                    }
+                val location = locationManager.getLastKnownLocation(provider) ?: continue
+                // Pick by ACCURACY, not recency. A stale-but-accurate GPS fix beats
+                // a fresh-but-rough network fix for this app's purposes.
+                if (bestLocation == null ||
+                    (location.hasAccuracy() && (!bestLocation.hasAccuracy() || location.accuracy < bestLocation.accuracy))
+                ) {
+                    bestLocation = location
                 }
             }
             callback(bestLocation.takeIf { LiveLocationPrivacyGate.isEnabled })
@@ -67,13 +82,14 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
             return
         }
 
-        try {
-            val providers = listOf(
-                LocationManager.GPS_PROVIDER,
-                LocationManager.NETWORK_PROVIDER,
-                LocationManager.PASSIVE_PROVIDER
-            )
+        if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+            Log.w(TAG, "GPS provider not enabled")
+            callback(null)
+            return
+        }
 
+        try {
+            val providers = locationManager.getProviders(true)
             var providerFound = false
             for (provider in providers) {
                 if (locationManager.isProviderEnabled(provider)) {
@@ -93,7 +109,11 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
                                 synchronized(activeOneShotCancellationSignals) {
                                     activeOneShotCancellationSignals.remove(callback)
                                 }
-                                callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
+                                if (location != null && LiveLocationPrivacyGate.isEnabled && isAcceptable(location)) {
+                                    callback(location)
+                                } else {
+                                    callback(null)
+                                }
                             }
                         } catch (e: Exception) {
                             synchronized(activeOneShotCancellationSignals) {
@@ -134,7 +154,11 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Error removing updates in callback")
                                 }
-                                callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
+                                if (LiveLocationPrivacyGate.isEnabled && isAcceptable(location)) {
+                                    callback(location)
+                                } else {
+                                    callback(null)
+                                }
                             }
                             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
                             override fun onProviderEnabled(provider: String) {}
@@ -175,40 +199,59 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
         try {
             val listener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
-                    if (LiveLocationPrivacyGate.isEnabled) callback(location)
+                    if (LiveLocationPrivacyGate.isEnabled && isAcceptable(location)) {
+                        callback(location)
+                    }
                 }
                 override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+
                 override fun onProviderEnabled(provider: String) {}
                 override fun onProviderDisabled(provider: String) {}
             }
 
-            // Store the listener so we can remove it later
             synchronized(activeListeners) {
                 activeListeners[callback] = listener
             }
 
-            val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-            var registered = false
-            
-            for (provider in providers) {
-                if (locationManager.isProviderEnabled(provider)) {
-                    locationManager.requestLocationUpdates(
-                        provider,
-                        intervalMs,
-                        minDistanceMeters,
-                        listener
-                    )
-                    registered = true
-                    Log.d(TAG, "Registered updates for $provider")
-                }
-            }
-            
-            if (!registered) {
-                Log.w(TAG, "No providers enabled for continuous updates")
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    intervalMs,
+                    minDistanceMeters,
+                    listener,
+                    android.os.Looper.getMainLooper()
+                )
+                Log.d(TAG, "Registered updates for GPS_PROVIDER")
+            } else {
+                Log.w(TAG, "GPS provider not enabled - no location updates will be delivered")
             }
 
         } catch (e: Exception) {
             Log.e(TAG, "Error requesting location updates")
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun updateLocationRequestParams(
+        callback: (Location) -> Unit,
+        intervalMs: Long,
+        minDistanceMeters: Float
+    ) {
+        val listener = synchronized(activeListeners) { activeListeners[callback] } ?: return
+        try {
+            locationManager.removeUpdates(listener)
+            if (hasLocationPermission() && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    intervalMs,
+                    minDistanceMeters,
+                    listener,
+                    android.os.Looper.getMainLooper()
+                )
+                Log.d(TAG, "⚡ Dynamic GPS update: interval=${intervalMs}ms, minDistance=${minDistanceMeters}m")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating location request params: ${e.message}")
         }
     }
 
@@ -217,10 +260,12 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
             val listener = synchronized(activeListeners) {
                 activeListeners.remove(callback)
             }
-            
+
             if (listener != null) {
                 locationManager.removeUpdates(listener)
                 Log.d(TAG, "Removed location updates")
+            } else {
+                Log.w(TAG, "removeLocationUpdates: no matching listener found for callback")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error removing updates")
@@ -229,7 +274,6 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
 
     override fun cancel() {
         try {
-            // Cancel continuous updates
             synchronized(activeListeners) {
                 for ((_, listener) in activeListeners) {
                     try { locationManager.removeUpdates(listener) } catch (_: Exception) {}
@@ -237,13 +281,12 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
                 activeListeners.clear()
             }
 
-            // Cancel one-shot requests
             synchronized(activeOneShotListeners) {
                 for ((_, listener) in activeOneShotListeners) {
                     try { locationManager.removeUpdates(listener) } catch (_: Exception) {}
                 }
                 activeOneShotListeners.clear()
-                
+
                 for ((_, runnable) in activeOneShotRunnables) {
                     handler.removeCallbacks(runnable)
                 }

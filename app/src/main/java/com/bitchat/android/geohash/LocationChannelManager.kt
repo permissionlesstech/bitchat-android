@@ -8,8 +8,6 @@ import android.location.Location
 import android.location.LocationManager
 import android.util.Log
 import androidx.core.app.ActivityCompat
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
 import com.bitchat.android.nostr.NostrIdentityBridge
 import kotlinx.coroutines.*
 import com.google.gson.Gson
@@ -120,16 +118,10 @@ class LocationChannelManager private constructor(private val context: Context) {
 
 
     init {
-        // Choose the best location provider
-        val availability = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
-        locationProvider = if (availability == ConnectionResult.SUCCESS) {
-            Log.i(TAG, "Using FusedLocationProvider (Google Play Services)")
-            FusedLocationProvider(context)
-        } else {
-            Log.i(TAG, "Using SystemLocationProvider (Native LocationManager)")
-            SystemLocationProvider(context)
-        }
+        Log.i(TAG, "Using SystemLocationProvider (Native LocationManager)")
+        locationProvider = SystemLocationProvider(context)
         LiveLocationPrivacyGate.addRevocationListener(::cancelLiveLocationWork)
+
 
         // Initialize DataManager and load persisted settings
         dataManager = com.bitchat.android.ui.DataManager(context)

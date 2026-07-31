@@ -54,6 +54,7 @@ work-runtime = "2.10.1"
 # NanoHTTPD (hotspot APK sharing)
 nanohttpd = "2.3.1"
 
+
 # Security
 security-crypto = "1.1.0"
 
@@ -125,10 +126,13 @@ tor-android-binary = { module = "org.torproject:tor-android-binary", version.ref
 
 # Tor (embed) intentionally not pinned yet; add once repo is chosen
 
+
+
 # Google Play Services
 gms-location = { module = "com.google.android.gms:play-services-location", version.ref = "gms-location" }
 
 # WorkManager
+
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work-runtime" }
 
 # NanoHTTPD

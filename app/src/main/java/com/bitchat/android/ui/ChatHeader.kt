@@ -35,7 +35,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -652,7 +654,12 @@ fun ChatHeaderContent(
     onTripleClick: () -> Unit,
     onShowAppInfo: () -> Unit,
     onLocationChannelsClick: () -> Unit,
-    onLocationNotesClick: () -> Unit
+    onLocationNotesClick: () -> Unit,
+    onTelemetryMapClick: () -> Unit,
+    onPeerVerificationClick: () -> Unit = {},
+    onSwitchToRadar: () -> Unit = {},
+    onSwitchToChat: () -> Unit = {},
+    isRadarMode: Boolean = false
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -676,6 +683,11 @@ fun ChatHeaderContent(
                 onSidebarClick = onSidebarClick,
                 onLocationChannelsClick = onLocationChannelsClick,
                 onLocationNotesClick = onLocationNotesClick,
+                onTelemetryMapClick = onTelemetryMapClick,
+                onPeerVerificationClick = onPeerVerificationClick,
+                onSwitchToRadar = onSwitchToRadar,
+                onSwitchToChat = onSwitchToChat,
+                isRadarMode = isRadarMode,
                 viewModel = viewModel
             )
         }
@@ -716,6 +728,11 @@ private fun MainHeader(
     onSidebarClick: () -> Unit,
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit,
+    onTelemetryMapClick: () -> Unit,
+    onPeerVerificationClick: () -> Unit = {},
+    onSwitchToRadar: () -> Unit = {},
+    onSwitchToChat: () -> Unit = {},
+    isRadarMode: Boolean = false,
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -758,8 +775,6 @@ private fun MainHeader(
                     text = "/",
                     style = MaterialTheme.typography.bodyMedium,
                     fontSize = HeaderTextSize,
-                    // Dimmed: the slash is a separator, not content. At full brightness it competed
-                    // with the nickname beside it.
                     color = colorScheme.primary.copy(alpha = 0.45f),
                     modifier = Modifier.padding(end = 2.dp)
                 )
@@ -771,8 +786,7 @@ private fun MainHeader(
                 )
             }
 
-            // Order, left to right: unread DMs, notes, channel, people. This cluster is measured
-            // before the weighted nickname, so actions cannot be pushed off-screen by identity.
+            // Order, left to right: unread DMs, notes, channel, people, overflow.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -817,9 +831,117 @@ private fun MainHeader(
                     onClick = onSidebarClick,
                     showJoinedChannelCount = crowdingMode == HeaderCrowdingMode.Full
                 )
+
+                // 3-dot overflow menu for Radar mode toggle / Telemetry map / Peer verification
+                var showOverflowMenu by remember { mutableStateOf(false) }
+                val context = LocalContext.current
+                val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+                val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsStateWithLifecycle()
+                val isDark = when (themePref) {
+                    com.bitchat.android.ui.theme.ThemePreference.Dark -> true
+                    com.bitchat.android.ui.theme.ThemePreference.Light -> false
+                    com.bitchat.android.ui.theme.ThemePreference.System -> systemDark
+                }
+
+                Box {
+                    IconButton(
+                        onClick = { showOverflowMenu = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource(R.string.cd_more_options),
+                            tint = colorScheme.onSurface.copy(alpha = 0.9f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showOverflowMenu,
+                        onDismissRequest = { showOverflowMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(if (isDark) "Light Mode" else "Dark Mode") },
+                            onClick = {
+                                showOverflowMenu = false
+                                val nextPref = if (isDark) com.bitchat.android.ui.theme.ThemePreference.Light else com.bitchat.android.ui.theme.ThemePreference.Dark
+                                com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, nextPref)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.location_notes)) },
+                            onClick = {
+                                showOverflowMenu = false
+                                onLocationNotesClick()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Description,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.location_telemetry_map)) },
+                            onClick = {
+                                showOverflowMenu = false
+                                onTelemetryMapClick()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Map,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.peer_verification_title)) },
+                            onClick = {
+                                showOverflowMenu = false
+                                onPeerVerificationClick()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.VerifiedUser,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (isRadarMode) stringResource(R.string.chat_mode) else stringResource(R.string.radar_mode)) },
+                            onClick = {
+                                showOverflowMenu = false
+                                if (isRadarMode) {
+                                    onSwitchToChat()
+                                } else {
+                                    onSwitchToRadar()
+                                }
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (isRadarMode) Icons.Filled.Chat else Icons.Filled.Explore,
+                                    contentDescription = null,
+                                    tint = Color(0xFF007AFF),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        )
+                    }
+                }
             }
         }
     }
+
 }
 
 /**

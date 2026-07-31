@@ -59,7 +59,10 @@ import com.bitchat.android.ui.theme.BitchatMotion
  * - ChatUIUtils: Utility functions for formatting and colors
  */
 @Composable
-fun ChatScreen(viewModel: ChatViewModel) {
+fun ChatScreen(
+    viewModel: ChatViewModel,
+    onSwitchToRadar: () -> Unit = {}
+) {
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
@@ -90,6 +93,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showLocationNotesSheet by remember { mutableStateOf(false) }
+    var showTelemetryMapSheet by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
@@ -443,8 +447,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onLocationNotesClick = {
                 nearbyNotesController.reveal()
                 showLocationNotesSheet = true
-            }
+            },
+            onTelemetryMapClick = { showTelemetryMapSheet = true },
+            onSwitchToRadar = onSwitchToRadar
         )
+
+
 
         // Scroll-to-bottom floating button
         AnimatedVisibility(
@@ -523,6 +531,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
         },
         showLocationNotesSheet = showLocationNotesSheet,
         onLocationNotesSheetDismiss = { showLocationNotesSheet = false },
+        showTelemetryMapSheet = showTelemetryMapSheet,
+        onTelemetryMapSheetDismiss = { showTelemetryMapSheet = false },
         showUserSheet = showUserSheet,
         onUserSheetDismiss = { 
             showUserSheet = false
@@ -735,7 +745,9 @@ private fun ChatFloatingHeader(
     onShowAppInfo: () -> Unit,
     onPanicClear: () -> Unit,
     onLocationChannelsClick: () -> Unit,
-    onLocationNotesClick: () -> Unit
+    onLocationNotesClick: () -> Unit,
+    onTelemetryMapClick: () -> Unit,
+    onSwitchToRadar: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
@@ -744,10 +756,6 @@ private fun ChatFloatingHeader(
         modifier = Modifier
             .fillMaxWidth()
             .zIndex(1f)
-            // Fully opaque where it meets the system status bar, fading to translucent at its
-            // lower edge. The status bar itself is transparent, so anything less than opaque at
-            // the top would let the wallpaper or a light system-bar scrim bleed through and the
-            // header would stop reading as part of the app.
             .background(
                 Brush.verticalGradient(
                     0f to colorScheme.background,
@@ -755,12 +763,8 @@ private fun ChatFloatingHeader(
                     1f to colorScheme.background.copy(alpha = BarBackgroundAlpha)
                 )
             )
-            .windowInsetsPadding(WindowInsets.statusBars) // Extend into status bar area
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        // No TopAppBar: it silently injects a 4.dp horizontal pad plus a 12.dp title inset and
-        // applies its own minimum heights, which made the header's spacing impossible to specify
-        // exactly. Height and edge insets belong to each header variant, so that a conversation
-        // header rendered here and one rendered in a sheet are laid out identically.
         ChatHeaderContent(
             selectedPrivatePeer = selectedPrivatePeer,
             currentChannel = currentChannel,
@@ -777,12 +781,15 @@ private fun ChatFloatingHeader(
             onShowAppInfo = onShowAppInfo,
             onLocationChannelsClick = onLocationChannelsClick,
             onLocationNotesClick = {
-                // Ensure location is loaded before showing sheet
                 locationManager.refreshChannels()
                 onLocationNotesClick()
-            }
+            },
+            onTelemetryMapClick = onTelemetryMapClick,
+            onPeerVerificationClick = { viewModel.showVerificationSheet() },
+            onSwitchToRadar = onSwitchToRadar
         )
     }
+
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -801,6 +808,8 @@ private fun ChatDialogs(
     onLocationNotesFromChannelsClick: () -> Unit,
     showLocationNotesSheet: Boolean,
     onLocationNotesSheetDismiss: () -> Unit,
+    showTelemetryMapSheet: Boolean,
+    onTelemetryMapSheetDismiss: () -> Unit,
     showUserSheet: Boolean,
     onUserSheetDismiss: () -> Unit,
     selectedUserForSheet: String,
@@ -855,6 +864,14 @@ private fun ChatDialogs(
         LocationNotesSheetPresenter(
             viewModel = viewModel,
             onDismiss = onLocationNotesSheetDismiss
+        )
+    }
+
+    if (showTelemetryMapSheet) {
+        TelemetryMapSheet(
+            isPresented = showTelemetryMapSheet,
+            viewModel = viewModel,
+            onDismiss = onTelemetryMapSheetDismiss
         )
     }
     

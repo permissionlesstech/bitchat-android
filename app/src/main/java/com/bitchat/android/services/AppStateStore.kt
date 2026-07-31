@@ -12,6 +12,12 @@ import kotlinx.coroutines.flow.asStateFlow
  * The foreground Mesh service updates this store; UI subscribes/hydrates from it.
  */
 object AppStateStore {
+    data class TelemetryLocation(
+        val latitude: Double,
+        val longitude: Double,
+        val timestampMs: Long
+    )
+
     // Global de-dup set by message id to avoid duplicate keys in Compose lists
     private val seenMessageIds = mutableSetOf<String>()
     private val reservedPrivateMessageIds = mutableSetOf<String>()
@@ -57,6 +63,26 @@ object AppStateStore {
     // Channel messages by channel name
     private val _channelMessages = MutableStateFlow<Map<String, List<BitchatMessage>>>(emptyMap())
     val channelMessages: StateFlow<Map<String, List<BitchatMessage>>> = _channelMessages.asStateFlow()
+
+    // Last known local device location
+    private val _myLocation = MutableStateFlow<TelemetryLocation?>(null)
+    val myLocation: StateFlow<TelemetryLocation?> = _myLocation.asStateFlow()
+
+    // Latest location from each peer (keyed by peer ID)
+    private val _peerLocations = MutableStateFlow<Map<String, TelemetryLocation>>(emptyMap())
+    val peerLocations: StateFlow<Map<String, TelemetryLocation>> = _peerLocations.asStateFlow()
+
+    // Incoming location verification request peer ID
+    private val _incomingLocationVerifyRequest = MutableStateFlow<String?>(null)
+    val incomingLocationVerifyRequest: StateFlow<String?> = _incomingLocationVerifyRequest.asStateFlow()
+
+    fun showIncomingVerifyRequest(peerID: String) {
+        _incomingLocationVerifyRequest.value = peerID.lowercase()
+    }
+
+    fun clearIncomingVerifyRequest() {
+        _incomingLocationVerifyRequest.value = null
+    }
 
     fun setPeers(ids: List<String>) {
         synchronized(this) {
@@ -779,6 +805,21 @@ object AppStateStore {
         }
     }
 
+    fun updateMyLocation(latitude: Double, longitude: Double, timestampMs: Long = System.currentTimeMillis()) {
+        synchronized(this) {
+            _myLocation.value = TelemetryLocation(latitude, longitude, timestampMs)
+        }
+    }
+
+    fun updatePeerLocation(peerID: String, latitude: Double, longitude: Double, timestampMs: Long) {
+        synchronized(this) {
+            val canonicalPeerID = peerID.lowercase()
+            val map = _peerLocations.value.toMutableMap()
+            map[canonicalPeerID] = TelemetryLocation(latitude, longitude, timestampMs)
+            _peerLocations.value = map
+        }
+    }
+
     // Clear all in-memory state (used for full app shutdown)
     fun clear() {
         synchronized(this) {
@@ -798,8 +839,11 @@ object AppStateStore {
             _unreadPrivateMessageCounts.value = emptyMap()
             _privateConversationDisplayNames.value = emptyMap()
             _channelMessages.value = emptyMap()
+            _myLocation.value = null
+            _peerLocations.value = emptyMap()
             _nickname.value = ""
             _selectedPrivateChatPeer.value = null
+
         }
     }
 

@@ -1,6 +1,7 @@
 package com.bitchat.android.mesh
 
 import android.content.Context
+import android.location.Location
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
@@ -12,6 +13,7 @@ import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.protocol.LocationTelemetryPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RequestSyncPacket
@@ -37,7 +39,7 @@ import kotlin.random.Random
  * - BluetoothConnectionManager: BLE connections and GATT operations
  * - PacketProcessor: Incoming packet routing
  */
-class BluetoothMeshService(private val context: Context) : TransportBridgeService.TransportLayer {
+class BluetoothMeshService(val context: Context) : TransportBridgeService.TransportLayer {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
     
     companion object {
@@ -927,7 +929,42 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         }
     }
 
+    /**
+     * Send compact location telemetry packet only to mutually verified peers.
+     */
+    fun sendLocationTelemetry(location: Location) {
+        serviceScope.launch {
+            try {
+                val verifiedStore = com.bitchat.android.geohash.VerifiedLocationPeersStore.getInstance(context)
+                val verifiedPeers = verifiedStore.verifiedPeersFlow.value
+                if (verifiedPeers.isEmpty()) {
+                    Log.d(TAG, "📍 Skipping location telemetry: no verified peers authorized")
+                    return@launch
+                }
+                val timestampMs = location.time.takeIf { it > 0L } ?: System.currentTimeMillis()
+                for (peerID in verifiedPeers) {
+                    val packet = LocationTelemetryPacket.buildPacket(
+                        myPeerID = myPeerID,
+                        targetPeerID = peerID,
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        timestampMillis = timestampMs
+                    )
+                    val signed = signPacketBeforeBroadcast(packet)
+                    broadcastRoutedPacket(RoutedPacket(signed))
+                    Log.d(
+                        TAG,
+                        "📍 Sent verified location telemetry to $peerID lat=${location.latitude}, lon=${location.longitude}"
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send location telemetry: ${e.message}", e)
+            }
+        }
+    }
+
     /** Safe non-interactive entry point: encrypted sends commit; legacy sends require UI consent. */
+
     fun sendFilePrivate(recipientPeerID: String, file: com.bitchat.android.model.BitchatFilePacket) {
         val payload = file.encode() ?: return
         when (val prepared = prepareFilePrivate(
@@ -1430,10 +1467,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      * Get all peers with established encrypted sessions
      */
     fun getEncryptedPeers(): List<String> {
-        // SIMPLIFIED: Return empty list for now since we don't have direct access to sessionManager
-        // This method is not critical for the session retention fix
-        return emptyList()
+        return encryptionService.getEstablishedPeers()
     }
+
     
     /**
      * Get device address for a specific peer ID
@@ -1565,7 +1601,22 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             packet
         }
     }
-    
+
+    fun sendLocationVerifyPacket(targetPeerID: String, action: com.bitchat.android.protocol.LocationVerifyPacket.Action) {
+        try {
+            val packet = com.bitchat.android.protocol.LocationVerifyPacket.buildPacket(
+                myPeerID = myPeerID,
+                targetPeerID = targetPeerID,
+                action = action
+            )
+            val signed = signPacketBeforeBroadcast(packet)
+            broadcastRoutedPacket(RoutedPacket(signed))
+            Log.d(TAG, "🔒 Sent location verify packet (${action.name}) to $targetPeerID")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending location verify packet to $targetPeerID: ${e.message}")
+        }
+    }
+
     // MARK: - Panic Mode Support
     
     /**

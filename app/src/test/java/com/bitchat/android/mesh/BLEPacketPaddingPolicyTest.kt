@@ -21,6 +21,7 @@ class BLEPacketPaddingPolicyTest {
             MessageType.ANNOUNCE to false,
             MessageType.MESSAGE to false,
             MessageType.LEAVE to false,
+            MessageType.LOCATION to false,
             MessageType.REQUEST_SYNC to false,
             MessageType.FRAGMENT to false,
             MessageType.FILE_TRANSFER to false,
@@ -48,6 +49,7 @@ class BLEPacketPaddingPolicyTest {
             MessageType.ANNOUNCE,
             MessageType.MESSAGE,
             MessageType.LEAVE,
+            MessageType.LOCATION,
             MessageType.REQUEST_SYNC,
             MessageType.FRAGMENT,
             MessageType.FILE_TRANSFER

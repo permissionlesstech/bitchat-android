@@ -621,9 +621,26 @@
     <item quantity="other">%d people</item>
   </plurals>
 
+    <!-- Telemetry & Radar Strings -->
+    <string name="telemetry_map_title">Radar Telemetry</string>
+    <string name="telemetry_heading_format">Heading: %1$d°</string>
+    <string name="telemetry_waiting_for_my_location">Waiting for GPS fix…</string>
+    <string name="telemetry_no_peer_locations">No active peer telemetry signals</string>
+    <string name="telemetry_peer_row_format">%1$s — %2$dm [%3$s]</string>
+
+    <!-- Top Header Overflow Menu Strings -->
+    <string name="cd_more_options">More options</string>
+    <string name="location_notes">Location Notes</string>
+    <string name="location_telemetry_map">Location / Telemetry Map</string>
+    <string name="peer_verification_title">Peer Verification</string>
+    <string name="radar_mode">Radar Mode</string>
+    <string name="chat_mode">Chat Mode</string>
+
+    <string name="about_language">Language</string>
+    <string name="about_app_language">App language</string>
+    <string name="about_system_default">System default</string>
+    <string name="about_select_language">Select language</string>
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
-  <string name="about_language">Language</string>
-  <string name="about_app_language">App language</string>
-  <string name="about_system_default">System default</string>
-  <string name="about_select_language">Select language</string>
 </resources>
+
+

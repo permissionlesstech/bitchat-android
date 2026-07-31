@@ -34,6 +34,7 @@ import kotlinx.coroutines.delay
 import java.util.Date
 import kotlin.random.Random
 import com.bitchat.android.services.VerificationService
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.services.ContactDirectory
@@ -381,6 +382,8 @@ class ChatViewModel(
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
     val teleportedGeo: StateFlow<Set<String>> = state.teleportedGeo
     val geohashParticipantCounts: StateFlow<Map<String, Int>> = state.geohashParticipantCounts
+    val myTelemetryLocation: StateFlow<AppStateStore.TelemetryLocation?> = AppStateStore.myLocation
+    val peerTelemetryLocations: StateFlow<Map<String, AppStateStore.TelemetryLocation>> = AppStateStore.peerLocations
     val meshServiceFacade: MeshService
         get() = mesh
     val myPeerID: String
@@ -1691,10 +1694,37 @@ class ChatViewModel(
      */
     fun peerIdentityForMeshPeer(peerID: String): PeerIdentity = PeerIdentity.mesh(peerID)
 
-    /**
-     * Return the stable identity used by every UI surface to color a Nostr peer.
-     */
     fun peerIdentityForNostrPubkey(pubkeyHex: String): PeerIdentity =
         geohashViewModel.peerIdentityForNostrPubkey(pubkeyHex)
 
+
+    // MARK: - Location Verification Handshake Helpers
+
+    val verifiedLocationStore by lazy { com.bitchat.android.geohash.VerifiedLocationPeersStore.getInstance(getApplication()) }
+    val verifiedLocationPeers = verifiedLocationStore.verifiedPeersFlow
+    val incomingLocationVerifyRequest = AppStateStore.incomingLocationVerifyRequest
+
+    fun sendLocationVerificationRequest(peerID: String) {
+        val canonical = peerID.lowercase()
+        if (!verifiedLocationStore.canSendRequest(canonical)) return
+        meshService.sendLocationVerifyPacket(canonical, com.bitchat.android.protocol.LocationVerifyPacket.Action.REQUEST)
+        MeshServiceHolder.locationTelemetryManager?.broadcastCurrentLocationImmediately()
+            ?: MeshServiceHolder.lastKnownLocation?.let { meshService.sendLocationTelemetry(it) }
+    }
+
+    fun acceptLocationVerificationRequest(peerID: String) {
+        val canonical = peerID.lowercase()
+        verifiedLocationStore.addVerifiedPeer(canonical)
+        meshService.sendLocationVerifyPacket(canonical, com.bitchat.android.protocol.LocationVerifyPacket.Action.ACCEPT)
+        AppStateStore.clearIncomingVerifyRequest()
+        MeshServiceHolder.locationTelemetryManager?.broadcastCurrentLocationImmediately()
+            ?: MeshServiceHolder.lastKnownLocation?.let { meshService.sendLocationTelemetry(it) }
+    }
+
+    fun rejectLocationVerificationRequest(peerID: String) {
+        val canonical = peerID.lowercase()
+        verifiedLocationStore.recordRejection(canonical)
+        meshService.sendLocationVerifyPacket(canonical, com.bitchat.android.protocol.LocationVerifyPacket.Action.REJECT)
+        AppStateStore.clearIncomingVerifyRequest()
+    }
 }
