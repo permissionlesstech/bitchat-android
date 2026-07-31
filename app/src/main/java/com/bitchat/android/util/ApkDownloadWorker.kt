@@ -36,7 +36,7 @@ class ApkDownloadWorker(
         const val KEY_PHASE = "phase"
         const val KEY_VERSION = "version"
         const val KEY_SIZE_MB = "size_mb"
-        const val KEY_ERROR_RES = "error_res"
+        const val KEY_ERROR_REASON = "error_reason"
         const val KEY_ERROR_ARGS = "error_args"
         const val KEY_RESUMABLE_PERCENT = "resumable_percent"
 
@@ -109,9 +109,11 @@ class ApkDownloadWorker(
             // generic one rather than leaking an untranslated exception string to the user.
             val failure = error as? ApkDownloadException
             val outputData = Data.Builder()
-                .putInt(
-                    KEY_ERROR_RES,
-                    failure?.messageRes ?: R.string.prepare_apk_error_generic
+                // The reason's name, never its resource id: this record can outlive the build
+                // that wrote it, and resource ids are reassigned on every build.
+                .putString(
+                    KEY_ERROR_REASON,
+                    (failure?.reason ?: ApkDownloadFailureReason.Generic).name
                 )
                 .putStringArray(
                     KEY_ERROR_ARGS,

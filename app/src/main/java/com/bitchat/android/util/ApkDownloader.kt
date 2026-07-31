@@ -1,6 +1,5 @@
 package com.bitchat.android.util
 
-import androidx.annotation.StringRes
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -36,12 +35,12 @@ interface ApkDownloader {
         ) : DownloadState()
         data class Success(val version: String, val sizeMB: Int) : DownloadState()
         /**
-         * [messageRes] and [messageArgs] are resolved by the ViewModel, which has a Context.
-         * Carrying the ids rather than formatted text keeps the failure localizable all the way
-         * across the WorkManager boundary.
+         * [reason] and [messageArgs] are resolved by the ViewModel, which has a Context.
+         * Carrying the reason rather than formatted text keeps the failure localizable all the
+         * way across the WorkManager boundary.
          */
         data class Failed(
-            @StringRes val messageRes: Int,
+            val reason: ApkDownloadFailureReason,
             val messageArgs: List<String>,
             val resumablePercent: Int?
         ) : DownloadState()

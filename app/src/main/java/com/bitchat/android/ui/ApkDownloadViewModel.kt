@@ -340,7 +340,7 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
      */
     private fun failureMessage(state: ApkDownloader.DownloadState.Failed): String =
         getApplication<Application>().getString(
-            state.messageRes,
+            state.reason.messageRes,
             *state.messageArgs.toTypedArray()
         )
 

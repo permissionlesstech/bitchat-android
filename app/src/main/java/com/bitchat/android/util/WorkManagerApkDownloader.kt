@@ -3,7 +3,6 @@ package com.bitchat.android.util
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.BackoffPolicy
-import com.bitchat.android.R
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
@@ -79,19 +78,17 @@ class WorkManagerApkDownloader(context: Context) : ApkDownloader {
                 ApkDownloader.DownloadState.Success(version, sizeMB)
             }
             WorkInfo.State.FAILED -> {
-                // Work enqueued by an older build carries no resource id; fall back rather than
-                // resolve 0 and crash.
-                val messageRes = workInfo.outputData
-                    .getInt(ApkDownloadWorker.KEY_ERROR_RES, 0)
-                    .takeIf { it != 0 }
-                    ?: R.string.prepare_apk_error_generic
+                // Tolerates a missing or retired reason from an older build's record.
+                val reason = ApkDownloadFailureReason.fromKey(
+                    workInfo.outputData.getString(ApkDownloadWorker.KEY_ERROR_REASON)
+                )
                 val args = workInfo.outputData
                     .getStringArray(ApkDownloadWorker.KEY_ERROR_ARGS)
                     ?.toList()
                     .orEmpty()
                 val resumable = workInfo.outputData.getInt(ApkDownloadWorker.KEY_RESUMABLE_PERCENT, -1)
                 ApkDownloader.DownloadState.Failed(
-                    messageRes = messageRes,
+                    reason = reason,
                     messageArgs = args,
                     resumablePercent = if (resumable >= 0) resumable else null
                 )
@@ -100,7 +97,7 @@ class WorkManagerApkDownloader(context: Context) : ApkDownloader {
                 val partial = apkManager.getPartialDownloadProgress()
                 if (partial != null) {
                     ApkDownloader.DownloadState.Failed(
-                        messageRes = R.string.prepare_apk_download_cancelled,
+                        reason = ApkDownloadFailureReason.Cancelled,
                         messageArgs = emptyList(),
                         resumablePercent = partial
                     )

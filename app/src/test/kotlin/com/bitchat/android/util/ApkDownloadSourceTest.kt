@@ -1,6 +1,5 @@
 package com.bitchat.android.util
 
-import com.bitchat.android.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -63,7 +62,7 @@ class ApkDownloadSourceTest {
         assertFalse(failure.retryable)
         assertEquals(now + 120_000L, failure.retryAtMillis)
         // The wait is carried as an argument, not baked into an English sentence.
-        assertEquals(R.string.prepare_apk_error_rate_limited_wait, failure.messageRes)
+        assertEquals(ApkDownloadFailureReason.RateLimitedWithWait, failure.reason)
         assertEquals(listOf(source.displayName, "2"), failure.messageArgs)
     }
 
@@ -89,13 +88,13 @@ class ApkDownloadSourceTest {
         )
 
         assertNull(permissionsFailure.retryAtMillis)
-        assertEquals(R.string.prepare_apk_error_http, permissionsFailure.messageRes)
+        assertEquals(ApkDownloadFailureReason.HttpFailure, permissionsFailure.reason)
         assertEquals(
             listOf(source.displayName, "403", "Forbidden"),
             permissionsFailure.messageArgs
         )
         assertEquals(now + 300_000L, quotaFailure.retryAtMillis)
-        assertEquals(R.string.prepare_apk_error_rate_limited_wait, quotaFailure.messageRes)
+        assertEquals(ApkDownloadFailureReason.RateLimitedWithWait, quotaFailure.reason)
     }
 
     @Test
@@ -141,10 +140,32 @@ class ApkDownloadSourceTest {
                 runAttemptCount = 0,
                 ApkDownloadException(
                     message = "invalid APK",
-                    messageRes = R.string.prepare_apk_error_generic,
+                    reason = ApkDownloadFailureReason.Generic,
                     retryable = false
                 )
             )
+        )
+    }
+
+    @Test
+    fun `a failure reason survives the round trip through its key`() {
+        // WorkManager keeps failed records across app updates, so the key written by one build is
+        // read by the next. Resource ids are reassigned per build and would resolve to the wrong
+        // string; the name does not move.
+        ApkDownloadFailureReason.entries.forEach { reason ->
+            assertEquals(reason, ApkDownloadFailureReason.fromKey(reason.name))
+        }
+    }
+
+    @Test
+    fun `an absent or retired reason falls back instead of resolving nothing`() {
+        assertEquals(
+            ApkDownloadFailureReason.Generic,
+            ApkDownloadFailureReason.fromKey(null)
+        )
+        assertEquals(
+            ApkDownloadFailureReason.Generic,
+            ApkDownloadFailureReason.fromKey("ReasonFromAFutureBuild")
         )
     }
 

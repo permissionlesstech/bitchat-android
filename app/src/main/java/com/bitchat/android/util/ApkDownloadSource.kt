@@ -59,16 +59,55 @@ internal object DefaultApkDownloadSources {
 }
 
 /**
+ * Why a download failed, and which string says so.
+ *
+ * Crosses a WorkManager `Data` boundary by [name], never by resource id: WorkManager keeps failed
+ * records in its own database across app updates, and AAPT2 reassigns `R.string` ids on every
+ * build, so a persisted id would resolve against the wrong resource table after an update. Same
+ * reasoning as [ApkDownloader.DownloadPhase.fromKey].
+ */
+enum class ApkDownloadFailureReason(@StringRes val messageRes: Int) {
+    Generic(R.string.prepare_apk_error_generic),
+    Cancelled(R.string.prepare_apk_download_cancelled),
+    RateLimitedWithWait(R.string.prepare_apk_error_rate_limited_wait),
+    RateLimited(R.string.prepare_apk_error_rate_limited),
+    NoUniversalApk(R.string.prepare_apk_error_no_universal),
+    HttpFailure(R.string.prepare_apk_error_http),
+    InsufficientStorage(R.string.prepare_apk_error_storage_needed),
+    NoSources(R.string.prepare_apk_error_no_sources),
+    TorConnecting(R.string.prepare_apk_error_tor_connecting),
+    NoUsableUrl(R.string.prepare_apk_error_no_url),
+    Unreachable(R.string.prepare_apk_error_unreachable),
+    InsecureRedirect(R.string.prepare_apk_error_insecure_redirect),
+    ResumeRejected(R.string.prepare_apk_error_resume_rejected),
+    Incomplete(R.string.prepare_apk_error_incomplete),
+    InvalidResume(R.string.prepare_apk_error_invalid_resume),
+    UntrustedKey(R.string.prepare_apk_error_untrusted_key),
+    NotUniversal(R.string.prepare_apk_error_not_universal),
+    ApkUnreadable(R.string.prepare_apk_error_apk_unreadable),
+    NotBitchat(R.string.prepare_apk_error_not_bitchat),
+    NoVersion(R.string.prepare_apk_error_no_version),
+    SourceFailed(R.string.prepare_apk_error_source_failed),
+    AllSourcesFailed(R.string.prepare_apk_error_all_sources);
+
+    companion object {
+        /** Work enqueued by an older build may name a reason this build no longer has. */
+        fun fromKey(key: String?): ApkDownloadFailureReason =
+            entries.firstOrNull { it.name == key } ?: Generic
+    }
+}
+
+/**
  * A host-neutral download failure that tells the worker whether backoff can help.
  *
- * [messageRes] and [messageArgs] name what the user should be told without saying it in any
+ * [reason] and [messageArgs] name what the user should be told without saying it in any
  * particular language. This layer has no Context by design — that is what keeps its tests plain
  * JUnit — so the ViewModel resolves them. The inherited [message] stays English for logs and
  * stack traces, and is never shown.
  */
 class ApkDownloadException(
     message: String,
-    @StringRes val messageRes: Int,
+    val reason: ApkDownloadFailureReason,
     val messageArgs: List<String> = emptyList(),
     val retryable: Boolean,
     val sourceId: String? = null,
@@ -120,10 +159,10 @@ internal object ApkDownloadHttpErrors {
             }
             return ApkDownloadException(
                 message = "${source.id} rate limited: HTTP $code, retryAt=$retryAt",
-                messageRes = if (minutes != null) {
-                    R.string.prepare_apk_error_rate_limited_wait
+                reason = if (minutes != null) {
+                    ApkDownloadFailureReason.RateLimitedWithWait
                 } else {
-                    R.string.prepare_apk_error_rate_limited
+                    ApkDownloadFailureReason.RateLimited
                 },
                 messageArgs = listOfNotNull(source.displayName, minutes?.toString()),
                 retryable = false,
@@ -136,10 +175,10 @@ internal object ApkDownloadHttpErrors {
         val retryable = code == 408 || code == 425 || code >= 500
         return ApkDownloadException(
             message = "${source.id} failed: HTTP $code $responseMessage",
-            messageRes = if (code == 404) {
-                R.string.prepare_apk_error_no_universal
+            reason = if (code == 404) {
+                ApkDownloadFailureReason.NoUniversalApk
             } else {
-                R.string.prepare_apk_error_http
+                ApkDownloadFailureReason.HttpFailure
             },
             messageArgs = if (code == 404) {
                 listOf(source.displayName)

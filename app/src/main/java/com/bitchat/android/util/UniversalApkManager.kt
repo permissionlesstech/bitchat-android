@@ -4,8 +4,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
-import androidx.annotation.StringRes
-import com.bitchat.android.R
 import com.bitchat.android.BuildConfig
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.OkHttpProvider
@@ -168,7 +166,7 @@ class UniversalApkManager(
             Log.e(TAG, error)
             throw ApkDownloadException(
                 message = error,
-                messageRes = R.string.prepare_apk_error_storage_needed,
+                reason = ApkDownloadFailureReason.InsufficientStorage,
                 messageArgs = listOf(requiredMB.toString(), availableMB.toString()),
                 retryable = false
             )
@@ -187,7 +185,7 @@ class UniversalApkManager(
             return@withContext Result.failure(
                 ApkDownloadException(
                     message = "No APK download sources are configured.",
-                    messageRes = R.string.prepare_apk_error_no_sources,
+                    reason = ApkDownloadFailureReason.NoSources,
                     retryable = false
                 )
             )
@@ -199,7 +197,7 @@ class UniversalApkManager(
                 return@withContext Result.failure(
                     ApkDownloadException(
                         message = "Tor is still connecting.",
-                        messageRes = R.string.prepare_apk_error_tor_connecting,
+                        reason = ApkDownloadFailureReason.TorConnecting,
                         retryable = true
                     )
                 )
@@ -341,7 +339,7 @@ class UniversalApkManager(
         throw lastFailure
             ?: ApkDownloadException(
                 message = "${source.id} has no usable APK URL.",
-                messageRes = R.string.prepare_apk_error_no_url,
+                reason = ApkDownloadFailureReason.NoUsableUrl,
                 messageArgs = listOf(source.displayName),
                 retryable = false
             )
@@ -409,7 +407,7 @@ class UniversalApkManager(
                         ApkDownloadException(
                             message = "${source.id} could not be reached" +
                                 (e.message?.let { ": $it" } ?: "."),
-                            messageRes = R.string.prepare_apk_error_unreachable,
+                            reason = ApkDownloadFailureReason.Unreachable,
                             messageArgs = listOf(source.displayName),
                             retryable = true,
                             sourceId = source.id,
@@ -424,7 +422,7 @@ class UniversalApkManager(
                             if (!response.request.url.isHttps) {
                                 throw ApkDownloadException(
                                     message = "${source.id} redirected to an insecure URL.",
-                                    messageRes = R.string.prepare_apk_error_insecure_redirect,
+                                    reason = ApkDownloadFailureReason.InsecureRedirect,
                                     messageArgs = listOf(source.displayName),
                                     retryable = false,
                                     sourceId = source.id
@@ -441,7 +439,7 @@ class UniversalApkManager(
                                 clearPartialDownload()
                                 throw ApkDownloadException(
                                     message = "${source.id} rejected the saved download position.",
-                                    messageRes = R.string.prepare_apk_error_resume_rejected,
+                                    reason = ApkDownloadFailureReason.ResumeRejected,
                                     messageArgs = listOf(source.displayName),
                                     retryable = true,
                                     sourceId = source.id,
@@ -536,7 +534,7 @@ class UniversalApkManager(
                                 if (tempFile.length() > expectedSize) clearPartialDownload()
                                 throw ApkDownloadException(
                                     message = "${source.id} download ended before all bytes arrived.",
-                                    messageRes = R.string.prepare_apk_error_incomplete,
+                                    reason = ApkDownloadFailureReason.Incomplete,
                                     messageArgs = listOf(source.displayName),
                                     retryable = true,
                                     sourceId = source.id
@@ -562,7 +560,7 @@ class UniversalApkManager(
         progressFile.delete()
         return ApkDownloadException(
             message = "${source.id} returned an invalid resume response.",
-            messageRes = R.string.prepare_apk_error_invalid_resume,
+            reason = ApkDownloadFailureReason.InvalidResume,
             messageArgs = listOf(source.displayName),
             retryable = true,
             sourceId = source.id
@@ -574,7 +572,7 @@ class UniversalApkManager(
             clearPartialDownload()
             throw ApkDownloadException(
                 message = "APK from ${source.id} is not signed by a trusted BitChat release key.",
-                messageRes = R.string.prepare_apk_error_untrusted_key,
+                reason = ApkDownloadFailureReason.UntrustedKey,
                 messageArgs = listOf(source.displayName),
                 retryable = false,
                 sourceId = source.id
@@ -584,7 +582,7 @@ class UniversalApkManager(
             clearPartialDownload()
             throw ApkDownloadException(
                 message = "${source.id} returned an architecture-specific APK.",
-                messageRes = R.string.prepare_apk_error_not_universal,
+                reason = ApkDownloadFailureReason.NotUniversal,
                 messageArgs = listOf(source.displayName),
                 retryable = false,
                 sourceId = source.id
@@ -594,20 +592,23 @@ class UniversalApkManager(
 
     private fun downloadedVersionName(apkFile: File): String {
         val packageInfo = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
-            ?: invalidDownloadedApk(R.string.prepare_apk_error_apk_unreadable, "unreadable APK")
+            ?: invalidDownloadedApk(ApkDownloadFailureReason.ApkUnreadable, "unreadable APK")
         if (packageInfo.packageName != context.packageName) {
-            invalidDownloadedApk(R.string.prepare_apk_error_not_bitchat, "wrong package")
+            invalidDownloadedApk(ApkDownloadFailureReason.NotBitchat, "wrong package")
         }
         return packageInfo.versionName
             ?.takeIf { it.isNotBlank() }
-            ?: invalidDownloadedApk(R.string.prepare_apk_error_no_version, "no version name")
+            ?: invalidDownloadedApk(ApkDownloadFailureReason.NoVersion, "no version name")
     }
 
-    private fun invalidDownloadedApk(@StringRes messageRes: Int, logReason: String): Nothing {
+    private fun invalidDownloadedApk(
+        reason: ApkDownloadFailureReason,
+        logReason: String
+    ): Nothing {
         clearPartialDownload()
         throw ApkDownloadException(
             message = "Downloaded APK rejected: $logReason",
-            messageRes = messageRes,
+            reason = reason,
             retryable = false
         )
     }
@@ -616,7 +617,7 @@ class UniversalApkManager(
         if (this is ApkDownloadException) return this
         return ApkDownloadException(
             message = "${source.id} download failed" + (message?.let { ": $it" } ?: "."),
-            messageRes = R.string.prepare_apk_error_source_failed,
+            reason = ApkDownloadFailureReason.SourceFailed,
             messageArgs = listOf(source.displayName),
             retryable = this is IOException,
             sourceId = source.id,
@@ -631,7 +632,7 @@ class UniversalApkManager(
         if (failures.isEmpty()) {
             return ApkDownloadException(
                 message = "APK download failed with no recorded source failure.",
-                messageRes = R.string.prepare_apk_error_generic,
+                reason = ApkDownloadFailureReason.Generic,
                 retryable = false
             )
         }
@@ -640,7 +641,7 @@ class UniversalApkManager(
         return ApkDownloadException(
             message = "All configured APK sources failed: " +
                 failures.joinToString(" • ") { it.message ?: "Unknown error" },
-            messageRes = R.string.prepare_apk_error_all_sources,
+            reason = ApkDownloadFailureReason.AllSourcesFailed,
             retryable = failures.any { it.retryable },
             cause = failures.last()
         )
