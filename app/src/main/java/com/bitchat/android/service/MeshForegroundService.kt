@@ -97,14 +97,16 @@ class MeshForegroundService : Service() {
     private var isInForeground: Boolean = false
     private var isShuttingDown: Boolean = false
     private var lastNotifiedPeerCount: Int? = null
-    private val locationTelemetryManager by lazy { LocationTelemetryManager(applicationContext, scope) }
+    private lateinit var locationTelemetryManager: LocationTelemetryManager
 
 
     override fun onCreate() {
         super.onCreate()
         notificationManager = NotificationManagerCompat.from(this)
         peerAvailabilityNotifier = PeerAvailabilityNotifier(applicationContext)
+        locationTelemetryManager = LocationTelemetryManager(applicationContext, scope)
         createChannel()
+
 
         // Ensure mesh service exists in holder (create if needed)
         val existing = MeshServiceHolder.meshService
@@ -153,7 +155,7 @@ class MeshForegroundService : Service() {
 
                 try { unifiedMeshService?.stopServices() ?: meshService?.stopServices() } catch (_: Exception) { }
                 try { MeshServiceHolder.clear() } catch (_: Exception) { }
-                try { stopForeground(true) } catch (_: Exception) { }
+                stopForegroundCompat(removeNotification = true)
                 clearMeshNotifications()
                 isInForeground = false
                 stopSelf()
@@ -164,7 +166,7 @@ class MeshForegroundService : Service() {
                 locationTelemetryManager.stop()
                 updateJob?.cancel()
                 updateJob = null
-                try { stopForeground(true) } catch (_: Exception) { }
+                stopForegroundCompat(removeNotification = true)
                 clearMeshNotifications()
                 isInForeground = false
                 // Fully stop all background activity, stop Tor (without changing setting), then kill the app
@@ -173,7 +175,7 @@ class MeshForegroundService : Service() {
                     mesh = unifiedMeshService,
                     notificationManager = notificationManager,
                     stopForeground = {
-                        try { stopForeground(true) } catch (_: Exception) { }
+                        stopForegroundCompat(removeNotification = true)
                         isInForeground = false
                     },
                     stopService = { stopSelf() }
@@ -243,7 +245,7 @@ class MeshForegroundService : Service() {
             }
         } else if (force) {
             // If disabled and forced, make sure to remove any prior foreground state
-            try { stopForeground(false) } catch (_: Exception) { }
+            stopForegroundCompat(removeNotification = false)
             clearMeshNotifications()
             isInForeground = false
             lastNotifiedPeerCount = null
@@ -371,10 +373,22 @@ class MeshForegroundService : Service() {
         try { serviceJob.cancel() } catch (_: Exception) { }
         // Best-effort ensure we are not marked foreground
         if (isInForeground) {
-            try { stopForeground(true) } catch (_: Exception) { }
+            stopForegroundCompat(removeNotification = true)
             isInForeground = false
         }
         super.onDestroy()
+    }
+
+    private fun stopForegroundCompat(removeNotification: Boolean) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                val flags = if (removeNotification) STOP_FOREGROUND_REMOVE else 0
+                stopForeground(flags)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(removeNotification)
+            }
+        } catch (_: Exception) { }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
