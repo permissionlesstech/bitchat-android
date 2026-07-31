@@ -1,9 +1,15 @@
 package com.bitchat.android.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.NoEncryption
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Warning as OutlinedWarning
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,13 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Verified
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.outlined.NoEncryption
-import androidx.compose.material.icons.outlined.Sync
-import androidx.compose.material.icons.outlined.Warning as OutlinedWarning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -39,15 +38,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
+import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.services.ContactDirectory
 
 private data class SecurityStatusInfo(
     val text: String,
@@ -69,9 +70,9 @@ fun SecurityVerificationSheet(
     val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
     val peerSessionStates by viewModel.peerSessionStates.collectAsStateWithLifecycle()
 
-    val isDark = isSystemInDarkTheme()
-    val accent = if (isDark) Color.Green else Color(0xFF008000)
-    val boxColor = if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.06f)
+    val colorScheme = MaterialTheme.colorScheme
+    val accent = colorScheme.primary
+    val boxColor = colorScheme.surfaceVariant
     val peerHexRegex = remember { Regex("^[0-9a-fA-F]{16}$") }
 
     BitchatBottomSheet(
@@ -92,7 +93,7 @@ fun SecurityVerificationSheet(
             if (peerID == null) {
                 Text(
                     text = stringResource(R.string.fingerprint_no_peer),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BitchatFontFamily),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
             } else {
@@ -100,7 +101,12 @@ fun SecurityVerificationSheet(
                 val displayName = viewModel.resolvePeerDisplayNameForFingerprint(selectedPeerID)
                 val fingerprint = viewModel.getPeerFingerprintForDisplay(selectedPeerID)
                 val isVerified = fingerprint != null && verifiedFingerprints.contains(fingerprint)
-                val sessionState = peerSessionStates[selectedPeerID]
+                val activeMeshPeerID = ContactDirectory.resolve(selectedPeerID).meshPeerID
+                val sessionState = resolveConversationSessionState(
+                    conversationID = selectedPeerID,
+                    activeMeshPeerID = activeMeshPeerID,
+                    peerSessionStates = peerSessionStates
+                )
                 val statusInfo = buildStatusInfo(
                     isVerified = isVerified,
                     sessionState = sessionState,
@@ -155,13 +161,14 @@ private fun SecurityVerificationHeader(
         Text(
             text = stringResource(R.string.security_verification_title),
             style = MaterialTheme.typography.titleSmall.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold
             ),
             color = accent
         )
         Spacer(modifier = Modifier.weight(1f))
-        CloseButton(onClick = onClose)
+        val dismiss = LocalSheetDismiss.current
+        CloseButton(onClick = { dismiss?.invoke() ?: onClose() })
     }
 }
 
@@ -219,7 +226,7 @@ private fun SecurityStatusCard(
             Text(
                 text = displayName,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontWeight = FontWeight.Bold
                 ),
                 color = accent
@@ -227,7 +234,7 @@ private fun SecurityStatusCard(
             Text(
                 text = statusInfo.text,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = BitchatFontFamily
                 ),
                 color = accent.copy(alpha = 0.8f)
             )
@@ -257,7 +264,7 @@ private fun SecurityVerificationActions(
         ) {
             Text(
                 text = stringResource(R.string.fingerprint_start_handshake),
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp
             )
         }
@@ -273,7 +280,7 @@ private fun SecurityVerificationActions(
         Text(
             text = stringResource(R.string.fingerprint_verified_message),
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace
+                fontFamily = BitchatFontFamily
             ),
             color = accent.copy(alpha = 0.7f),
             modifier = Modifier.fillMaxWidth(),
@@ -289,7 +296,7 @@ private fun SecurityVerificationActions(
         ) {
             Text(
                 text = stringResource(R.string.verify_remove),
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp
             )
         }
@@ -303,7 +310,7 @@ private fun SecurityVerificationActions(
         Text(
             text = stringResource(R.string.fingerprint_not_verified_message_fmt, displayName),
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace
+                fontFamily = BitchatFontFamily
             ),
             color = accent.copy(alpha = 0.7f),
             modifier = Modifier.fillMaxWidth(),
@@ -320,7 +327,7 @@ private fun SecurityVerificationActions(
             ) {
                 Text(
                     text = stringResource(R.string.fingerprint_mark_verified),
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 12.sp
                 )
             }
@@ -349,7 +356,7 @@ private fun VerificationStatusRow(
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold
             ),
             color = textTint
@@ -375,7 +382,7 @@ private fun FingerprintBlock(
         Text(
             text = title,
             style = MaterialTheme.typography.labelSmall.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold
             ),
             color = accent.copy(alpha = 0.8f)
@@ -385,7 +392,7 @@ private fun FingerprintBlock(
                 Text(
                     text = formatFingerprint(fingerprint),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         fontSize = 14.sp
                     ),
                     color = accent,
@@ -417,7 +424,7 @@ private fun FingerprintBlock(
         } else {
             Text(
                 text = stringResource(R.string.fingerprint_pending),
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BitchatFontFamily),
                 color = Color(0xFFFF9500),
                 modifier = Modifier.padding(16.dp)
             )

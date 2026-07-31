@@ -1,9 +1,5 @@
 package com.bitchat.android.onboarding
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.LocationOn
@@ -13,17 +9,21 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 
 /**
@@ -68,7 +68,7 @@ fun PermissionExplanationScreen(
                     Text(
                         text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.headlineLarge.copy(
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 32.sp
                         ),
@@ -79,7 +79,7 @@ fun PermissionExplanationScreen(
                 Text(
                     text = stringResource(R.string.about_tagline),
                     fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     color = colorScheme.onBackground.copy(alpha = 0.7f)
                 )
             }
@@ -117,7 +117,7 @@ fun PermissionExplanationScreen(
                             Text(
                                 text = stringResource(R.string.privacy_bullets),
                                 style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = BitchatFontFamily,
                                 color = colorScheme.onBackground.copy(alpha = 0.8f)
                             )
                         }
@@ -164,7 +164,7 @@ fun PermissionExplanationScreen(
                 Text(
                     text = stringResource(R.string.grant_permissions),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         fontWeight = FontWeight.Bold
                     ),
                     modifier = Modifier.padding(vertical = 4.dp)

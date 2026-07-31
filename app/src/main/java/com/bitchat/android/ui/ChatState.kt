@@ -94,6 +94,10 @@ class ChatState(
     // Favorites
     private val _favoritePeers = MutableStateFlow<Set<String>>(emptySet())
     val favoritePeers: StateFlow<Set<String>> = _favoritePeers.asStateFlow()
+
+    // Fingerprints of peers who favorited us (drives "favorited you" UI celebrations)
+    private val _peerFavoritedUs = MutableStateFlow<Set<String>>(emptySet())
+    val peerFavoritedUs: StateFlow<Set<String>> = _peerFavoritedUs.asStateFlow()
     
     // Noise session states for peers (for reactive UI updates)
     private val _peerSessionStates = MutableStateFlow<Map<String, String>>(emptyMap())
@@ -174,6 +178,7 @@ class ChatState(
     fun getSelectedPrivateChatPeerValue() = _selectedPrivateChatPeer.value
     fun getUnreadPrivateMessagesValue() = _unreadPrivateMessages.value
     fun getJoinedChannelsValue() = _joinedChannels.value
+    fun getPeerFavoritedUsValue() = _peerFavoritedUs.value
     fun getCurrentChannelValue() = _currentChannel.value
     fun getChannelMessagesValue() = _channelMessages.value
     fun getUnreadChannelMessagesValue() = _unreadChannelMessages.value
@@ -211,6 +216,7 @@ class ChatState(
 
     fun setNickname(nickname: String) {
         _nickname.value = nickname
+        com.bitchat.android.services.AppStateStore.setNickname(nickname)
     }
     
     fun setIsConnected(connected: Boolean) {
@@ -223,6 +229,7 @@ class ChatState(
     
     fun setSelectedPrivateChatPeer(peerID: String?) {
         _selectedPrivateChatPeer.value = peerID
+        com.bitchat.android.services.AppStateStore.setSelectedPrivateChatPeer(peerID)
     }
     
     fun setUnreadPrivateMessages(unread: Set<String>) {
@@ -284,6 +291,10 @@ class ChatState(
         _favoritePeers.value = favorites
         
         Log.d("ChatState", "StateFlow value after set: ${_favoritePeers.value}")
+    }
+
+    fun setPeerFavoritedUs(fingerprints: Set<String>) {
+        _peerFavoritedUs.value = fingerprints
     }
     
     fun setPeerSessionStates(states: Map<String, String>) {

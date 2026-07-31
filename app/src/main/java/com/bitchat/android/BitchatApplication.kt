@@ -13,6 +13,9 @@ class BitchatApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Start the single process-wide power policy before transport components are constructed.
+        com.bitchat.android.mesh.PowerManager.getInstance(this).start()
+
         // Initialize Tor first so any early network goes over Tor
         try {
             val torProvider = ArtiTorManager.getInstance()
@@ -28,6 +31,13 @@ class BitchatApplication : Application() {
         // Initialize favorites persistence early so MessageRouter/NostrTransport can use it on startup
         try {
             com.bitchat.android.favorites.FavoritesPersistenceService.initialize(this)
+        } catch (_: Exception) { }
+
+        // Restore private conversations before background transports can deliver new messages.
+        // AppStateStore merges any in-flight arrivals by message ID, so startup cannot replace
+        // newer transport state with an older database snapshot.
+        try {
+            com.bitchat.android.services.AppStateStore.initializeConversationPersistence(this)
         } catch (_: Exception) { }
 
         // Warm up Nostr identity to ensure npub is available for favorite notifications
@@ -52,6 +62,10 @@ class BitchatApplication : Application() {
             com.bitchat.android.nostr.GeohashAliasRegistry.initialize(this)
             com.bitchat.android.nostr.GeohashConversationRegistry.initialize(this)
         } catch (_: Exception) { }
+
+        // Own relay connectivity, selected-channel subscriptions, and presence scheduling at the
+        // process level so closing the Activity does not disconnect Nostr.
+        try { com.bitchat.android.nostr.NostrBackgroundRuntime.initialize(this) } catch (_: Exception) { }
 
         // Initialize mesh service preferences
         try { com.bitchat.android.service.MeshServicePreferences.init(this) } catch (_: Exception) { }

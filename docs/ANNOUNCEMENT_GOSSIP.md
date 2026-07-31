@@ -8,7 +8,10 @@ Status: optional and backward-compatible.
 
 - Outer packet: BitChat binary packet with `type = 0x01` (ANNOUNCE). Header is unchanged.
 - Payload: A sequence of TLVs. Unknown TLVs MUST be ignored for forward compatibility.
-- Signature: The packet MAY be signed using the Ed25519 public key carried in TLV `0x03`. The gossip TLV (if present) is part of the payload and therefore covered by the signature.
+- Signature: The packet is signed using the Ed25519 public key carried in TLV
+  `0x03`. The gossip and capability TLVs are part of the payload and therefore
+  covered by the signature. Current clients require a valid signature before
+  applying identity or capability state.
 
 ## TLV Format
 
@@ -23,6 +26,12 @@ Existing TLVs (unchanged):
 - `0x01` NICKNAME: UTF‑8 string (≤ 255 bytes)
 - `0x02` NOISE_PUBLIC_KEY: Noise static public key bytes (typically 32 bytes for X25519)
 - `0x03` SIGNING_PUBLIC_KEY: Ed25519 public key bytes (typically 32 bytes)
+
+Other optional extension:
+
+- `0x05` CAPABILITIES: Minimal little-endian feature bitfield. Bit 8 advertises
+  authenticated Noise private media (`PRIVATE_MEDIA_V1`); its exact value is
+  `00 01`. An empty value is valid and means no advertised capabilities.
 
 New TLV (optional):
 
@@ -44,7 +53,9 @@ This matches the on‑wire 8‑byte `senderID`/`recipientID` encoding used in th
 - Optionally append TLV `0x04` with up to 10 unique, directly connected peer IDs.
   - Remove duplicates before encoding.
   - Order is arbitrary and not semantically significant.
-- Sign the ANNOUNCE packet so the gossip TLV is covered (recommended):
+- Current capable senders also include TLV `0x05` with private-media bit 8 set
+  in every broadcast and peer-directed announcement.
+- Sign the ANNOUNCE packet so all extension TLVs are covered:
   - Signature algorithm: Ed25519 using the key in TLV `0x03`.
   - Signature input: the binary packet encoding with the signature field omitted and the TTL normalized to `0`. This allows TTL to change during relays without invalidating the signature.
 - The payload may be compressed per the base protocol; the gossip TLV is encoded prior to optional compression.
@@ -53,6 +64,11 @@ This matches the on‑wire 8‑byte `senderID`/`recipientID` encoding used in th
 
 - Decompress payload if the packet’s compression flag is set, then parse TLVs in order.
 - Parse TLVs `0x01`..`0x03` as usual; ignore any unknown TLVs.
+- Parse TLV `0x05`, when present, as a little-endian bitfield. Absence and an
+  explicitly empty value remain valid legacy capability states. A
+  security-sensitive bit is trusted only after the signed announcement key is
+  bound to the matching remote static key from a live Noise handshake; see
+  `PRIVATE_MEDIA_V1.md`.
 - If a `0x04` TLV is present:
   - Interpret the value as `N = length / 8` peer IDs (ignore trailing non‑aligned bytes).
   - Each 8‑byte chunk is decoded back to a 16‑hex‑char peer ID string (lowercase).
@@ -76,8 +92,8 @@ ANNOUNCE payload TLVs (concatenated):
 - `02 [len=32] [32 bytes X25519 pubkey]`
 - `03 [len=32] [32 bytes Ed25519 pubkey]`
 - `04 [len=8*M] [peerID1(8) || peerID2(8) || ... || peerIDM(8)]` (optional)
+- `05 02 00 01` (optional private-media-v1 capability)
 
 Where each `peerIDk(8)` is the 8‑byte binary form of the peer ID as specified above.
 
 That’s the entire change; the outer packet header, message type, and relay/TTL behavior are unchanged.
-

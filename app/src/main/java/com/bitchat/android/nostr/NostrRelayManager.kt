@@ -1,16 +1,19 @@
 package com.bitchat.android.nostr
 
 import android.util.Log
-import com.google.gson.Gson
+import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import com.google.gson.JsonArray
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.google.gson.JsonParser
 import kotlinx.coroutines.*
 import okhttp3.*
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.min
 import kotlin.math.pow
 
@@ -25,11 +28,15 @@ class NostrRelayManager private constructor() {
         val shared = NostrRelayManager()
         
         private const val TAG = "NostrRelayManager"
+        private const val MAX_QUEUED_EVENTS = 500
+        const val OWNER_LEGACY = "legacy"
+        const val OWNER_BACKGROUND = "background"
         
         /**
          * Get instance for Android compatibility (context-aware calls)
          */
         fun getInstance(context: android.content.Context): NostrRelayManager {
+            shared.appContext = context.applicationContext
             return shared
         }
 
@@ -82,6 +89,8 @@ class NostrRelayManager private constructor() {
     // Internal state
     private val relaysList = mutableListOf<Relay>()
     private val connections = ConcurrentHashMap<String, WebSocket>()
+    private val reconnectJobs = ConcurrentHashMap<String, Job>()
+    private val desiredConnected = AtomicBoolean(false)
     private val subscriptions = ConcurrentHashMap<String, Set<String>>() // relay URL -> subscription IDs
     private val messageHandlers = ConcurrentHashMap<String, (NostrEvent) -> Unit>()
     
@@ -97,22 +106,25 @@ class NostrRelayManager private constructor() {
         val handler: (NostrEvent) -> Unit,
         val targetRelayUrls: Set<String>? = null, // null means all relays
         val createdAt: Long = System.currentTimeMillis(),
-        val originGeohash: String? = null // used for logging and grouping
+        val originGeohash: String? = null,
+        val owner: String = OWNER_LEGACY,
+        val liveLocationToken: Long? = null
     )
     
     // Event deduplication system
     private val eventDeduplicator = NostrEventDeduplicator.getInstance()
     
-    // Message queue for reliability
-    private val messageQueue = mutableListOf<Pair<NostrEvent, List<String>>>()
-    private val messageQueueLock = Any()
+    // Bounded per-relay delivery queue for reconnect reliability.
+    private val messageQueue = NostrPendingEventQueue(MAX_QUEUED_EVENTS)
     
     // Coroutine scope for background operations
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     // Subscription validation timer
     private var subscriptionValidationJob: Job? = null
-    private val SUBSCRIPTION_VALIDATION_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.SUBSCRIPTION_VALIDATION_INTERVAL_MS // 30 seconds
+    private val powerManager: com.bitchat.android.mesh.PowerManager?
+        get() = appContext?.let { com.bitchat.android.mesh.PowerManager.getInstance(it) }
+    @Volatile private var appContext: android.content.Context? = null
     
     // OkHttp client for WebSocket connections (via provider to honor Tor)
     private val httpClient: OkHttpClient
@@ -122,27 +134,49 @@ class NostrRelayManager private constructor() {
     
     // Per-geohash relay selection
     private val geohashToRelays = ConcurrentHashMap<String, Set<String>>() // geohash -> relay URLs
+    private val liveGeohashTokens = ConcurrentHashMap<String, Long>()
+    private val liveLocationRelayTokens = ConcurrentHashMap<String, Long>()
+    private val nonLiveRelayUrls = ConcurrentHashMap.newKeySet<String>()
+    private val liveLocationConnectionJobs = ConcurrentHashMap.newKeySet<Job>()
 
     // --- Public API for geohash-specific operation ---
 
     /**
      * Compute and connect to relays for a given geohash (nearest + optional defaults), cache the mapping.
      */
-    fun ensureGeohashRelaysConnected(geohash: String, nRelays: Int = 5, includeDefaults: Boolean = false) {
+    fun ensureGeohashRelaysConnected(
+        geohash: String,
+        nRelays: Int = 5,
+        includeDefaults: Boolean = false,
+        liveLocationToken: Long? = null
+    ) {
+        if (!isNetworkActionAllowed(liveLocationToken)) return
         try {
             val nearest = RelayDirectory.closestRelaysForGeohash(geohash, nRelays)
             val selected = if (includeDefaults) {
                 (nearest + Companion.defaultRelays()).toSet()
             } else nearest.toSet()
             if (selected.isEmpty()) {
-                Log.w(TAG, "No relays selected for geohash=$geohash")
+                Log.w(TAG, "No relays selected for a geohash")
                 return
             }
-            geohashToRelays[geohash] = selected
-            Log.i(TAG, "🌐 Geohash $geohash using ${selected.size} relays: ${selected.joinToString()}")
-            ensureConnectionsFor(selected)
+            runNetworkAction(liveLocationToken) {
+                geohashToRelays[geohash] = selected
+                if (liveLocationToken == null) {
+                    liveGeohashTokens.remove(geohash)
+                    nonLiveRelayUrls.addAll(selected)
+                } else {
+                    liveGeohashTokens[geohash] = liveLocationToken
+                    selected.forEach { relayUrl ->
+                        if (relayUrl !in nonLiveRelayUrls) {
+                            liveLocationRelayTokens[relayUrl] = liveLocationToken
+                        }
+                    }
+                }
+                ensureConnectionsFor(selected, liveLocationToken)
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to ensure relays for $geohash: ${e.message}")
+            Log.e(TAG, "Failed to ensure geohash relays")
         }
     }
 
@@ -162,20 +196,30 @@ class NostrRelayManager private constructor() {
         id: String = generateSubscriptionId(),
         handler: (NostrEvent) -> Unit,
         includeDefaults: Boolean = false,
-        nRelays: Int = 5
+        nRelays: Int = 5,
+        owner: String = OWNER_LEGACY,
+        liveLocationToken: Long? = null
     ): String {
-        ensureGeohashRelaysConnected(geohash, nRelays, includeDefaults)
+        if (!isNetworkActionAllowed(liveLocationToken)) return id
+        ensureGeohashRelaysConnected(
+            geohash,
+            nRelays,
+            includeDefaults,
+            liveLocationToken
+        )
+        if (!isNetworkActionAllowed(liveLocationToken)) return id
         val relayUrls = getRelaysForGeohash(geohash)
-        Log.d(TAG, "📡 Subscribing id=$id for geohash=$geohash on ${relayUrls.size} relays")
         return subscribe(
             filter = filter,
             id = id,
             handler = handler,
-            targetRelayUrls = relayUrls
-        ).also {
-            // update origin geohash for this subscription
-            activeSubscriptions[it]?.let { sub ->
-                activeSubscriptions[it] = sub.copy(originGeohash = geohash)
+            targetRelayUrls = relayUrls,
+            owner = owner,
+            liveLocationToken = liveLocationToken
+        ).also { subscriptionId ->
+            activeSubscriptions[subscriptionId]?.let { subscription ->
+                activeSubscriptions[subscriptionId] =
+                    subscription.copy(originGeohash = geohash)
             }
         }
     }
@@ -183,21 +227,121 @@ class NostrRelayManager private constructor() {
     /**
      * Send an event specifically to a geohash's relays (+ optional defaults).
      */
-    fun sendEventToGeohash(event: NostrEvent, geohash: String, includeDefaults: Boolean = false, nRelays: Int = 5) {
-        ensureGeohashRelaysConnected(geohash, nRelays, includeDefaults)
+    fun sendEventToGeohash(
+        event: NostrEvent,
+        geohash: String,
+        includeDefaults: Boolean = false,
+        nRelays: Int = 5,
+        liveLocationToken: Long? = null
+    ) {
+        if (!isNetworkActionAllowed(liveLocationToken)) return
+        ensureGeohashRelaysConnected(
+            geohash,
+            nRelays,
+            includeDefaults,
+            liveLocationToken
+        )
+        if (!isNetworkActionAllowed(liveLocationToken)) return
         val relayUrls = getRelaysForGeohash(geohash)
         if (relayUrls.isEmpty()) {
-            Log.w(TAG, "No target relays to send event for geohash=$geohash; falling back to defaults")
-            sendEvent(event, Companion.defaultRelays())
+            Log.w(TAG, "No target relays for geohash event; falling back to defaults")
+            sendEvent(event, Companion.defaultRelays(), liveLocationToken)
             return
         }
-        Log.v(TAG, "📤 Sending event kind=${event.kind} to ${relayUrls.size} relays for geohash=$geohash")
-        sendEvent(event, relayUrls)
+        sendEvent(event, relayUrls, liveLocationToken)
     }
 
     // --- Internal helpers ---
 
-    private fun ensureConnectionsFor(relayUrls: Set<String>) {
+    private fun isNetworkActionAllowed(liveLocationToken: Long?): Boolean =
+        liveLocationToken == null || LiveLocationPrivacyGate.accepts(liveLocationToken)
+
+    private fun runNetworkAction(
+        liveLocationToken: Long?,
+        action: () -> Unit
+    ): Boolean = if (liveLocationToken == null) {
+        action()
+        true
+    } else {
+        LiveLocationPrivacyGate.runIfAllowed(liveLocationToken, action)
+    }
+
+    /**
+     * Privacy teardown is allowed to bypass an already-revoked token solely to stop
+     * server-side delivery. Live subscription IDs are opaque, so CLOSE carries no
+     * geohash. If a CLOSE cannot be queued, fail closed by dropping that socket.
+     */
+    private fun closeSubscriptionsOnConnectedRelays(subscriptionIds: Set<String>) {
+        if (subscriptionIds.isEmpty()) return
+
+        val closeTargets = NostrLiveSubscriptionPrivacy.closeTargets(
+            liveSubscriptionIds = subscriptionIds,
+            subscriptionsByRelay = subscriptions,
+        )
+        closeTargets.forEach { (relayUrl, relaySubscriptionIds) ->
+            val webSocket = connections[relayUrl] ?: return@forEach
+            for (subscriptionId in relaySubscriptionIds) {
+                val request = NostrRequest.Close(subscriptionId)
+                val message = gson.toJson(request, NostrRequest::class.java)
+                val closeQueued = runCatching { webSocket.send(message) }
+                    .getOrDefault(false)
+                if (!closeQueued) {
+                    connections.remove(relayUrl, webSocket)
+                    subscriptions.remove(relayUrl)
+                    webSocket.cancel()
+                    updateRelayStatus(
+                        relayUrl,
+                        isConnected = false,
+                        error = IllegalStateException("Failed to close revoked subscription")
+                    )
+                    if (desiredConnected.get() && relayUrl in nonLiveRelayUrls) {
+                        scope.launch { connectToRelay(relayUrl, liveLocationToken = null) }
+                    }
+                    break
+                }
+            }
+        }
+    }
+
+    private fun revokeLiveLocationAccess() {
+        liveLocationConnectionJobs.forEach(Job::cancel)
+        liveLocationConnectionJobs.clear()
+
+        val liveSubscriptionIds = activeSubscriptions.values
+            .filter { it.liveLocationToken != null }
+            .mapTo(mutableSetOf()) { it.id }
+        closeSubscriptionsOnConnectedRelays(liveSubscriptionIds)
+        liveSubscriptionIds.forEach { id ->
+            activeSubscriptions.remove(id)
+            messageHandlers.remove(id)
+        }
+        subscriptions.replaceAll { _, ids -> ids - liveSubscriptionIds }
+
+        messageQueue.removeLiveLocationEvents()
+
+        liveGeohashTokens.keys.forEach(geohashToRelays::remove)
+        liveGeohashTokens.clear()
+
+        val liveOnlyRelayUrls = liveLocationRelayTokens.keys
+            .filterNotTo(mutableSetOf()) { it in nonLiveRelayUrls }
+        liveOnlyRelayUrls.forEach { relayUrl ->
+            connections.remove(relayUrl)?.cancel()
+            subscriptions.remove(relayUrl)
+            reconnectJobs.remove(relayUrl)?.cancel()
+        }
+        synchronized(relaysList) {
+            relaysList.removeAll { it.url in liveOnlyRelayUrls }
+        }
+        liveLocationRelayTokens.clear()
+        updateRelaysList()
+        updateConnectionStatus()
+    }
+
+    private fun ensureConnectionsFor(
+        relayUrls: Set<String>,
+        liveLocationToken: Long? = null
+    ) {
+        if (!isNetworkActionAllowed(liveLocationToken)) return
         // Ensure relays are tracked for UI/status
         relayUrls.forEach { url ->
             if (relaysList.none { it.url == url }) {
@@ -206,14 +350,25 @@ class NostrRelayManager private constructor() {
         }
         updateRelaysList()
 
-        scope.launch {
+        if (!desiredConnected.get()) return
+        val job = scope.launch {
+            if (!desiredConnected.get() ||
+                !isNetworkActionAllowed(liveLocationToken)
+            ) return@launch
             relayUrls.forEach { relayUrl ->
                 launch {
-                    if (!connections.containsKey(relayUrl)) {
-                        connectToRelay(relayUrl)
+                    if (desiredConnected.get() &&
+                        !connections.containsKey(relayUrl) &&
+                        isNetworkActionAllowed(liveLocationToken)
+                    ) {
+                        connectToRelay(relayUrl, liveLocationToken)
                     }
                 }
             }
+        }
+        if (liveLocationToken != null) {
+            liveLocationConnectionJobs.add(job)
+            job.invokeOnCompletion { liveLocationConnectionJobs.remove(job) }
         }
     }
 
@@ -227,9 +382,10 @@ class NostrRelayManager private constructor() {
                 "wss://nostr21.com"
             )
             relaysList.addAll(defaultRelayUrls.map { Relay(it) })
+            nonLiveRelayUrls.addAll(defaultRelayUrls)
             _relays.value = relaysList.toList()
             updateConnectionStatus()
-            Log.d(TAG, "✅ NostrRelayManager initialized with ${relaysList.size} default relays")
+            LiveLocationPrivacyGate.addRevocationListener(::revokeLiveLocationAccess)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NostrRelayManager: ${e.message}", e)
             // Initialize with empty list as fallback
@@ -242,12 +398,16 @@ class NostrRelayManager private constructor() {
      * Connect to all configured relays
      */
     fun connect() {
-        Log.d(TAG, "🌐 Connecting to ${relaysList.size} Nostr relays")
-        
+        desiredConnected.set(true)
+        Log.i(TAG, "Connecting to ${relaysList.size} Nostr relays")
         scope.launch {
             relaysList.forEach { relay ->
                 launch {
-                    connectToRelay(relay.url)
+                    val liveToken = liveLocationRelayTokens[relay.url]
+                        ?.takeIf { relay.url !in nonLiveRelayUrls }
+                    if (liveToken == null || LiveLocationPrivacyGate.accepts(liveToken)) {
+                        connectToRelay(relay.url, liveToken)
+                    }
                 }
             }
         }
@@ -260,42 +420,64 @@ class NostrRelayManager private constructor() {
      * Disconnect from all relays
      */
     fun disconnect() {
-        Log.d(TAG, "Disconnecting from all relays")
-        
+        Log.i(TAG, "Disconnecting from all Nostr relays")
+        desiredConnected.set(false)
+
         // Stop subscription validation
         stopSubscriptionValidation()
-        
-        connections.values.forEach { webSocket ->
+        reconnectJobs.values.forEach(Job::cancel)
+        reconnectJobs.clear()
+        liveLocationConnectionJobs.forEach(Job::cancel)
+        liveLocationConnectionJobs.clear()
+
+        val sockets = connections.values.toList()
+        connections.clear()
+        sockets.forEach { webSocket ->
             webSocket.close(1000, "Manual disconnect")
         }
-        connections.clear()
-        
-        // Clear subscriptions
+
+        // Preserve logical subscriptions for controlled resets, but forget per-socket state.
         subscriptions.clear()
-        
+        relaysList.forEach {
+            it.isConnected = false
+            it.nextReconnectTime = null
+        }
+        updateRelaysList()
         updateConnectionStatus()
     }
     
     /**
      * Send an event to specified relays (or all if none specified)
      */
-    fun sendEvent(event: NostrEvent, relayUrls: List<String>? = null) {
-        val targetRelays = relayUrls ?: relaysList.map { it.url }
-        
-        // Add to queue for reliability
-        synchronized(messageQueueLock) {
-            messageQueue.add(Pair(event, targetRelays))
-        }
-        
-        // Attempt immediate send
-        scope.launch {
-            targetRelays.forEach { relayUrl ->
-                val webSocket = connections[relayUrl]
-                if (webSocket != null) {
-                    sendToRelay(event, webSocket, relayUrl)
+    fun sendEvent(
+        event: NostrEvent,
+        relayUrls: List<String>? = null,
+        liveLocationToken: Long? = null
+    ) {
+        val targetRelays = (relayUrls ?: relaysList.map { it.url })
+            .filter { it.isNotBlank() }
+            .distinct()
+        if (targetRelays.isEmpty()) return
+
+        val queued = runNetworkAction(liveLocationToken) {
+            val queueId = messageQueue.enqueue(
+                event = event,
+                relayUrls = targetRelays,
+                liveLocationToken = liveLocationToken
+            ) ?: return@runNetworkAction
+            scope.launch {
+                if (!isNetworkActionAllowed(liveLocationToken)) return@launch
+                targetRelays.forEach { relayUrl ->
+                    val webSocket = connections[relayUrl]
+                    if (webSocket != null) {
+                        if (sendToRelay(event, webSocket, relayUrl, liveLocationToken)) {
+                            messageQueue.markDelivered(queueId, relayUrl)
+                        }
+                    }
                 }
             }
         }
+        if (!queued) return
     }
     
     /**
@@ -306,23 +488,24 @@ class NostrRelayManager private constructor() {
         filter: NostrFilter,
         id: String = generateSubscriptionId(),
         handler: (NostrEvent) -> Unit,
-        targetRelayUrls: List<String>? = null
+        targetRelayUrls: List<String>? = null,
+        owner: String = OWNER_LEGACY,
+        liveLocationToken: Long? = null
     ): String {
-        // Store subscription info for persistent tracking
         val subscriptionInfo = SubscriptionInfo(
             id = id,
             filter = filter,
             handler = handler,
-            targetRelayUrls = targetRelayUrls?.toSet()
+            targetRelayUrls = targetRelayUrls?.toSet(),
+            owner = owner,
+            liveLocationToken = liveLocationToken
         )
         
-        activeSubscriptions[id] = subscriptionInfo
-        messageHandlers[id] = handler
-        
-        Log.d(TAG, "📡 Subscribing to Nostr filter id=$id ${filter.getDebugDescription()}")
-        
-        // Send subscription to appropriate relays
-        sendSubscriptionToRelays(subscriptionInfo)
+        runNetworkAction(liveLocationToken) {
+            activeSubscriptions[id] = subscriptionInfo
+            messageHandlers[id] = handler
+            sendSubscriptionToRelays(subscriptionInfo)
+        }
         
         return id
     }
@@ -331,37 +514,36 @@ class NostrRelayManager private constructor() {
      * Send a subscription to the appropriate relays
      */
     private fun sendSubscriptionToRelays(subscriptionInfo: SubscriptionInfo) {
+        if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) return
         val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
         val message = gson.toJson(request, NostrRequest::class.java)
-        
-        // DEBUG: Log the actual serialized message format
-        Log.v(TAG, "🔍 DEBUG: Serialized subscription message: $message")
-        
+
         scope.launch {
+            if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) return@launch
             val targetRelays = subscriptionInfo.targetRelayUrls?.toList() ?: connections.keys.toList()
             
             targetRelays.forEach { relayUrl ->
                 val webSocket = connections[relayUrl]
                 if (webSocket != null) {
                     try {
-                        val success = webSocket.send(message)
-                        if (success) {
-                            // Track subscription for this relay
-                            val currentSubs = subscriptions[relayUrl] ?: emptySet()
-                            subscriptions[relayUrl] = currentSubs + subscriptionInfo.id
-                            
-                            Log.v(TAG, "✅ Subscription '${subscriptionInfo.id}' sent to relay: $relayUrl")
-                        } else {
-                            Log.w(TAG, "❌ Failed to send subscription to $relayUrl: WebSocket send failed")
+                        var success = false
+                        runNetworkAction(subscriptionInfo.liveLocationToken) {
+                            success = webSocket.send(message)
+                            if (success) {
+                                val currentSubs = subscriptions[relayUrl] ?: emptySet()
+                                subscriptions[relayUrl] =
+                                    currentSubs + subscriptionInfo.id
+                            }
+                        }
+                        if (!success) {
+                            Log.w(TAG, "Failed to send subscription: WebSocket send failed")
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "❌ Failed to send subscription to $relayUrl: ${e.message}")
+                        Log.e(TAG, "Failed to send subscription")
                     }
-                } else {
-                    Log.v(TAG, "⏳ Relay $relayUrl not connected, subscription will be sent on reconnection")
                 }
             }
-            
+
             if (connections.isEmpty()) {
                 Log.w(TAG, "⚠️ No relay connections available for subscription, will retry on reconnection")
             }
@@ -377,29 +559,47 @@ class NostrRelayManager private constructor() {
         messageHandlers.remove(id)
         
         if (subscriptionInfo == null) {
-            Log.w(TAG, "⚠️ Attempted to unsubscribe from unknown subscription: $id")
             return
         }
-        
-        Log.d(TAG, "🚫 Unsubscribing from subscription: $id")
-        
+
+        if (subscriptionInfo.liveLocationToken != null &&
+            !isNetworkActionAllowed(subscriptionInfo.liveLocationToken)
+        ) {
+            closeSubscriptionsOnConnectedRelays(setOf(id))
+            subscriptions.replaceAll { _, ids -> ids - id }
+            return
+        }
+
         val request = NostrRequest.Close(id)
         val message = gson.toJson(request, NostrRequest::class.java)
         
         scope.launch {
+            if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) {
+                closeSubscriptionsOnConnectedRelays(setOf(id))
+                subscriptions.replaceAll { _, ids -> ids - id }
+                return@launch
+            }
             connections.forEach { (relayUrl, webSocket) ->
                 val currentSubs = subscriptions[relayUrl]
                 if (currentSubs?.contains(id) == true) {
                     try {
-                        webSocket.send(message)
+                        runNetworkAction(subscriptionInfo.liveLocationToken) {
+                            webSocket.send(message)
+                        }
                         subscriptions[relayUrl] = currentSubs - id
-                        Log.v(TAG, "Unsubscribed '$id' from relay: $relayUrl")
                     } catch (e: Exception) {
-                        Log.e(TAG, "Failed to unsubscribe from $relayUrl: ${e.message}")
+                        Log.e(TAG, "Failed to unsubscribe from relay")
                     }
                 }
             }
         }
+    }
+
+    fun unsubscribeOwner(owner: String) {
+        activeSubscriptions.values
+            .filter { it.owner == owner }
+            .map { it.id }
+            .forEach(::unsubscribe)
     }
     
     /**
@@ -407,18 +607,22 @@ class NostrRelayManager private constructor() {
      */
     fun retryConnection(relayUrl: String) {
         val relay = relaysList.find { it.url == relayUrl } ?: return
+        desiredConnected.set(true)
+        val liveToken = liveLocationRelayTokens[relayUrl]
+            ?.takeIf { relayUrl !in nonLiveRelayUrls }
+        if (!isNetworkActionAllowed(liveToken)) return
         
         // Reset reconnection attempts
         relay.reconnectAttempts = 0
         relay.nextReconnectTime = null
         
         // Disconnect if connected
-        connections[relayUrl]?.close(1000, "Manual retry")
-        connections.remove(relayUrl)
+        reconnectJobs.remove(relayUrl)?.cancel()
+        connections.remove(relayUrl)?.close(1000, "Manual retry")
         
         // Attempt immediate reconnection
         scope.launch {
-            connectToRelay(relayUrl)
+            connectToRelay(relayUrl, liveToken)
         }
     }
     
@@ -427,6 +631,7 @@ class NostrRelayManager private constructor() {
      * This will automatically restore all subscriptions when reconnected
      */
     fun resetAllConnections() {
+        val shouldReconnect = desiredConnected.get()
         disconnect()
         
         // Reset all relay states
@@ -436,8 +641,8 @@ class NostrRelayManager private constructor() {
             relay.lastError = null
         }
         
-        // Reconnect - subscriptions will be automatically restored in onOpen
-        connect()
+        // Reconnect only when connectivity was desired before the controlled reset.
+        if (shouldReconnect) connect()
     }
     
     /**
@@ -445,8 +650,6 @@ class NostrRelayManager private constructor() {
      * Useful for ensuring subscription consistency after network issues
      */
     fun reestablishAllSubscriptions() {
-        Log.d(TAG, "🔄 Force re-establishing all ${activeSubscriptions.size} active subscriptions")
-        
         scope.launch {
             connections.forEach { (relayUrl, webSocket) ->
                 restoreSubscriptionsForRelay(relayUrl, webSocket)
@@ -469,13 +672,29 @@ class NostrRelayManager private constructor() {
             geohashToRelays.clear()
 
             // Clear any queued messages waiting to be sent
-            synchronized(messageQueueLock) {
-                messageQueue.clear()
-            }
+            messageQueue.clear()
 
-            Log.i(TAG, "🧹 Cleared all Nostr subscriptions and routing caches")
+            Log.i(TAG, "Cleared all Nostr subscriptions and routing caches")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear subscriptions: ${e.message}")
+        }
+    }
+
+    /**
+     * Clear all subscription tracking, deduplication cache, message queue, and connections for panic mode.
+     */
+    fun clearAllOnPanic() {
+        try {
+            val wasConnected = desiredConnected.get()
+            clearAllSubscriptions()
+            clearDeduplicationCache()
+            disconnect()
+            if (wasConnected) {
+                desiredConnected.set(true)
+            }
+            Log.w(TAG, "🚨 Cleared NostrRelayManager subscriptions, cache, and connections for panic mode")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear NostrRelayManager on panic: ${e.message}")
         }
     }
     
@@ -498,7 +717,6 @@ class NostrRelayManager private constructor() {
      */
     fun clearDeduplicationCache() {
         eventDeduplicator.clear()
-        Log.i(TAG, "🧹 Cleared event deduplication cache")
     }
     
     /**
@@ -564,36 +782,52 @@ class NostrRelayManager private constructor() {
         stopSubscriptionValidation() // Stop any existing validation
         
         subscriptionValidationJob = scope.launch {
-            while (isActive) {
-                delay(SUBSCRIPTION_VALIDATION_INTERVAL)
-                
-                try {
-                    val report = validateSubscriptionConsistency()
-                    if (!report.isConsistent && report.connectedRelayCount > 0) {
-                        Log.w(TAG, "⚠️ Subscription inconsistencies detected: ${report.inconsistencies}")
-                        
-                        // Auto-repair: re-establish subscriptions for relays with missing ones
-                        connections.forEach { (relayUrl, webSocket) ->
-                            val currentSubs = subscriptions[relayUrl] ?: emptySet()
-                            val expectedSubs = activeSubscriptions.keys.filter { subId ->
-                                val subInfo = activeSubscriptions[subId]
-                                subInfo?.targetRelayUrls == null || subInfo.targetRelayUrls.contains(relayUrl)
-                            }.toSet()
-                            
-                            val missingSubs = expectedSubs - currentSubs
-                            if (missingSubs.isNotEmpty()) {
-                                Log.i(TAG, "🔧 Auto-repairing ${missingSubs.size} missing subscriptions for $relayUrl")
-                                restoreSubscriptionsForRelay(relayUrl, webSocket)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error during subscription validation: ${e.message}")
+            val manager = powerManager
+            if (manager == null) {
+                runSubscriptionValidationLoop(
+                    com.bitchat.android.util.AppConstants.Nostr
+                        .SUBSCRIPTION_VALIDATION_INTERVAL_MS
+                )
+                return@launch
+            }
+
+            manager.profile
+                .map { it.nostr.subscriptionValidationMs }
+                .distinctUntilChanged()
+                .collectLatest(::runSubscriptionValidationLoop)
+        }
+    }
+
+    private suspend fun runSubscriptionValidationLoop(intervalMs: Long) {
+        while (currentCoroutineContext().isActive && desiredConnected.get()) {
+            delay(intervalMs)
+            if (!desiredConnected.get()) break
+            validateAndRepairSubscriptions()
+        }
+    }
+
+    private fun validateAndRepairSubscriptions() {
+        try {
+            val report = validateSubscriptionConsistency()
+            if (report.isConsistent || report.connectedRelayCount == 0) return
+
+            Log.w(TAG, "Nostr subscription inconsistencies detected")
+            connections.forEach { (relayUrl, webSocket) ->
+                val currentSubs = subscriptions[relayUrl] ?: emptySet()
+                val expectedSubs = activeSubscriptions.keys.filter { subId ->
+                    val subInfo = activeSubscriptions[subId]
+                    subInfo?.targetRelayUrls == null ||
+                        subInfo.targetRelayUrls.contains(relayUrl)
+                }.toSet()
+
+                if ((expectedSubs - currentSubs).isNotEmpty()) {
+                    Log.i(TAG, "Auto-repairing missing subscriptions")
+                    restoreSubscriptionsForRelay(relayUrl, webSocket)
                 }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during subscription validation: ${e.message}")
         }
-        
-        Log.d(TAG, "🔄 Started periodic subscription validation (${SUBSCRIPTION_VALIDATION_INTERVAL / 1000}s interval)")
     }
     
     /**
@@ -602,59 +836,87 @@ class NostrRelayManager private constructor() {
     private fun stopSubscriptionValidation() {
         subscriptionValidationJob?.cancel()
         subscriptionValidationJob = null
-        Log.v(TAG, "⏹️ Stopped subscription validation")
     }
     
     // MARK: - Private Methods
     
-    private suspend fun connectToRelay(urlString: String) {
+    private suspend fun connectToRelay(
+        urlString: String,
+        liveLocationToken: Long? = null
+    ) {
+        if (!desiredConnected.get()) return
+        val connectionToken = liveLocationToken
+            ?.takeIf { urlString !in nonLiveRelayUrls }
+        if (!isNetworkActionAllowed(connectionToken)) return
         // Skip if we already have a connection
         if (connections.containsKey(urlString)) {
             return
         }
-        
-        Log.v(TAG, "Attempting to connect to Nostr relay: $urlString")
-        
+
         try {
             val request = Request.Builder()
                 .url(urlString)
                 .build()
             
-            val webSocket = httpClient.newWebSocket(request, RelayWebSocketListener(urlString))
-            connections[urlString] = webSocket
+            val started = runNetworkAction(connectionToken) {
+                val webSocket = httpClient.newWebSocket(
+                    request,
+                    RelayWebSocketListener(urlString, connectionToken)
+                )
+                val existing = connections.putIfAbsent(urlString, webSocket)
+                when {
+                    existing != null -> webSocket.close(1000, "Duplicate connection")
+                    !desiredConnected.get() -> {
+                        connections.remove(urlString, webSocket)
+                        webSocket.close(1000, "Connection no longer desired")
+                    }
+                }
+            }
+            if (!started) return
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to create WebSocket connection to $urlString: ${e.message}")
-            handleDisconnection(urlString, e)
+            Log.e(TAG, "Failed to create WebSocket connection")
+            handleConnectionCreationFailure(urlString, e, connectionToken)
         }
     }
     
-    private fun sendToRelay(event: NostrEvent, webSocket: WebSocket, relayUrl: String) {
-        try {
+    private fun sendToRelay(
+        event: NostrEvent,
+        webSocket: WebSocket,
+        relayUrl: String,
+        liveLocationToken: Long? = null
+    ): Boolean {
+        if (!isNetworkActionAllowed(liveLocationToken)) return false
+        return try {
             val request = NostrRequest.Event(event)
             val message = gson.toJson(request, NostrRequest::class.java)
-            
-            Log.v(TAG, "📤 Sending Nostr event (kind: ${event.kind}) to relay: $relayUrl")
-            
-            val success = webSocket.send(message)
+
+            var success = false
+            runNetworkAction(liveLocationToken) {
+                success = webSocket.send(message)
+            }
             if (success) {
                 // Update relay stats
-                val relay = relaysList.find { it.url == relayUrl }
-                relay?.messagesSent = (relay?.messagesSent ?: 0) + 1
+                relaysList.find { it.url == relayUrl }?.let { relay ->
+                    relay.messagesSent += 1
+                }
                 updateRelaysList()
+                true
             } else {
-                Log.e(TAG, "❌ Failed to send event to $relayUrl: WebSocket send failed")
+                Log.e(TAG, "Failed to send event: WebSocket send failed")
+                false
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to send event to $relayUrl: ${e.message}")
+            Log.e(TAG, "Failed to send event")
+            false
         }
     }
-    
+
     private fun handleMessage(message: String, relayUrl: String) {
         try {
             val jsonElement = JsonParser.parseString(message)
             if (!jsonElement.isJsonArray) {
-                Log.w(TAG, "Received non-array message from $relayUrl")
+                Log.w(TAG, "Received non-array message from relay")
                 return
             }
             
@@ -663,81 +925,99 @@ class NostrRelayManager private constructor() {
             when (response) {
                 is NostrResponse.Event -> {
                     // Update relay stats
-                    val relay = relaysList.find { it.url == relayUrl }
-                    relay?.messagesReceived = (relay?.messagesReceived ?: 0) + 1
+                    relaysList.find { it.url == relayUrl }?.let { relay ->
+                        relay.messagesReceived += 1
+                    }
                     updateRelaysList()
                     
                     // CLIENT-SIDE FILTER ENFORCEMENT: Ensure this event matches the subscription's filter
-                    activeSubscriptions[response.subscriptionId]?.let { subInfo ->
+                    val subscriptionInfo = activeSubscriptions[response.subscriptionId]
+                        ?: return
+                    if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) return
+                    subscriptionInfo.let { subInfo ->
                         val matches = try { subInfo.filter.matches(response.event) } catch (e: Exception) { true }
                         if (!matches) {
-                            Log.v(TAG, "🚫 Dropping event ${response.event.id.take(16)}... not matching filter for sub=${response.subscriptionId}")
                             // Do NOT call deduplicator here to allow the correct subscription to process it later
                             return
                         }
                     }
-                    
+
                     // DEDUPLICATION: Check if we've already processed this event
-                    val wasProcessed = eventDeduplicator.processEvent(response.event) { event ->
-                        // Only log non-gift-wrap events to reduce noise
-                        if (event.kind != NostrKind.GIFT_WRAP) {
-                            val originGeo = activeSubscriptions[response.subscriptionId]?.originGeohash
-                            if (originGeo != null) {
-                                Log.v(TAG, "📥 Processing event (kind=${event.kind}) from relay=$relayUrl geo=$originGeo sub=${response.subscriptionId}")
-                            } else {
-                                Log.v(TAG, "📥 Processing event (kind=${event.kind}) from relay=$relayUrl sub=${response.subscriptionId}")
-                            }
-                        }
-                        
+                    eventDeduplicator.processEvent(response.event) { event ->
                         // Call handler for new events only
                         val handler = messageHandlers[response.subscriptionId]
                         if (handler != null) {
                             scope.launch(Dispatchers.Main) {
-                                handler(event)
+                                if (isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) {
+                                    handler(event)
+                                }
                             }
                         } else {
-                            Log.w(TAG, "⚠️ No handler for subscription ${response.subscriptionId}")
+                            Log.w(TAG, "⚠️ No handler for Nostr subscription")
                         }
                     }
-                    
-                    if (!wasProcessed) {
-                        //Log.v(TAG, "🔄 Duplicate event ${response.event.id.take(16)}... from relay: $relayUrl")
-                    }
+
                 }
-                
+
                 is NostrResponse.EndOfStoredEvents -> {
-                    Log.v(TAG, "End of stored events for subscription: ${response.subscriptionId}")
+                    // No action needed
                 }
-                
+
                 is NostrResponse.Ok -> {
                     val wasGiftWrap = pendingGiftWrapIDs.remove(response.eventId)
-                    if (response.accepted) {
-                        Log.d(TAG, "✅ Event accepted id=${response.eventId.take(16)}... by relay: $relayUrl")
-                    } else {
+                    if (!response.accepted) {
                         val level = if (wasGiftWrap) Log.WARN else Log.ERROR
-                        Log.println(level, TAG, "📮 Event ${response.eventId.take(16)}... rejected by relay: ${response.message ?: "no reason"}")
+                        Log.println(level, TAG, "Event rejected by relay: ${response.message ?: "no reason"}")
                     }
                 }
-                
+
                 is NostrResponse.Notice -> {
-                    Log.i(TAG, "📢 Notice from $relayUrl: ${response.message}")
+                    // No action needed
                 }
-                
+
                 is NostrResponse.Unknown -> {
-                    Log.v(TAG, "Unknown message type from $relayUrl: ${response.raw}")
+                    // No action needed
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse message from $relayUrl: ${e.message}")
+            Log.e(TAG, "Failed to parse relay message")
         }
     }
     
-    private fun handleDisconnection(relayUrl: String, error: Throwable) {
-        connections.remove(relayUrl)
-        // NOTE: Don't remove subscriptions here - keep them for restoration on reconnection
-        // subscriptions.remove(relayUrl)  // REMOVED - this was causing subscription loss
-        
+    private fun handleDisconnection(
+        relayUrl: String,
+        webSocket: WebSocket,
+        error: Throwable,
+        liveLocationToken: Long? = null
+    ) {
+        // Ignore callbacks from intentionally closed or replaced sockets. They must not remove a
+        // newer socket or schedule a reconnect after a controlled disconnect/privacy revocation.
+        if (!connections.remove(relayUrl, webSocket)) return
+        subscriptions.remove(relayUrl)
+        handleCurrentDisconnection(relayUrl, error, liveLocationToken)
+    }
+
+    private fun handleConnectionCreationFailure(
+        relayUrl: String,
+        error: Throwable,
+        liveLocationToken: Long?
+    ) {
+        if (!desiredConnected.get()) return
+        handleCurrentDisconnection(relayUrl, error, liveLocationToken)
+    }
+
+    private fun handleCurrentDisconnection(
+        relayUrl: String,
+        error: Throwable,
+        liveLocationToken: Long?
+    ) {
+        val connectionToken = liveLocationToken
+            ?.takeIf { relayUrl !in nonLiveRelayUrls }
+
         updateRelayStatus(relayUrl, false, error)
+        if (!desiredConnected.get() ||
+            !isNetworkActionAllowed(connectionToken)
+        ) return
         
         // Check if this is a DNS error
         val errorMessage = error.message?.lowercase() ?: ""
@@ -747,7 +1027,7 @@ class NostrRelayManager private constructor() {
             
             val relay = relaysList.find { it.url == relayUrl }
             if (relay?.lastError == null) {
-                Log.w(TAG, "Nostr relay DNS failure for $relayUrl - not retrying")
+                Log.w(TAG, "Nostr relay DNS failure; not retrying")
             }
             return
         }
@@ -758,7 +1038,7 @@ class NostrRelayManager private constructor() {
         
         // Stop attempting after max attempts
         if (relay.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-            Log.w(TAG, "Max reconnection attempts ($MAX_RECONNECT_ATTEMPTS) reached for $relayUrl")
+            Log.w(TAG, "Max Nostr relay reconnection attempts reached")
             return
         }
         
@@ -770,12 +1050,20 @@ class NostrRelayManager private constructor() {
         
         relay.nextReconnectTime = System.currentTimeMillis() + backoffInterval
         
-        Log.d(TAG, "Scheduling reconnection to $relayUrl in ${backoffInterval / 1000}s (attempt ${relay.reconnectAttempts})")
+        Log.d(TAG, "Scheduling Nostr relay reconnection")
         
-        // Schedule reconnection
-        scope.launch {
+        reconnectJobs.remove(relayUrl)?.cancel()
+        val reconnectJob = scope.launch {
             delay(backoffInterval)
-            connectToRelay(relayUrl)
+            if (desiredConnected.get() &&
+                isNetworkActionAllowed(connectionToken)
+            ) {
+                connectToRelay(relayUrl, connectionToken)
+            }
+        }
+        reconnectJobs[relayUrl] = reconnectJob
+        reconnectJob.invokeOnCompletion {
+            reconnectJobs.remove(relayUrl, reconnectJob)
         }
     }
     
@@ -807,7 +1095,7 @@ class NostrRelayManager private constructor() {
     }
     
     private fun generateSubscriptionId(): String {
-        return "sub-${System.currentTimeMillis()}-${(Math.random() * 1000).toInt()}"
+        return "sub-${UUID.randomUUID()}"
     }
     
     /**
@@ -816,33 +1104,34 @@ class NostrRelayManager private constructor() {
     private fun restoreSubscriptionsForRelay(relayUrl: String, webSocket: WebSocket) {
         val subscriptionsToRestore = activeSubscriptions.values.filter { subscriptionInfo ->
             // Include subscription if it targets all relays or specifically targets this relay
-            subscriptionInfo.targetRelayUrls == null || subscriptionInfo.targetRelayUrls.contains(relayUrl)
+            isNetworkActionAllowed(subscriptionInfo.liveLocationToken) &&
+                (subscriptionInfo.targetRelayUrls == null ||
+                    subscriptionInfo.targetRelayUrls.contains(relayUrl))
         }
         
         if (subscriptionsToRestore.isEmpty()) {
-            Log.v(TAG, "🔄 No subscriptions to restore for relay: $relayUrl")
             return
         }
-        
-        Log.d(TAG, "🔄 Restoring ${subscriptionsToRestore.size} subscriptions for relay: $relayUrl")
-        
+
         subscriptionsToRestore.forEach { subscriptionInfo ->
             try {
                 val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
                 val message = gson.toJson(request, NostrRequest::class.java)
-                
-                val success = webSocket.send(message)
-                if (success) {
-                    // Track subscription for this relay
-                    val currentSubs = subscriptions[relayUrl] ?: emptySet()
-                    subscriptions[relayUrl] = currentSubs + subscriptionInfo.id
-                    
-                    Log.v(TAG, "✅ Restored subscription '${subscriptionInfo.id}' to relay: $relayUrl")
-                } else {
-                    Log.w(TAG, "❌ Failed to restore subscription '${subscriptionInfo.id}' to $relayUrl: WebSocket send failed")
+
+                var success = false
+                runNetworkAction(subscriptionInfo.liveLocationToken) {
+                    success = webSocket.send(message)
+                    if (success) {
+                        val currentSubs = subscriptions[relayUrl] ?: emptySet()
+                        subscriptions[relayUrl] =
+                            currentSubs + subscriptionInfo.id
+                    }
+                }
+                if (!success) {
+                    Log.w(TAG, "Failed to restore subscription: WebSocket send failed")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Failed to restore subscription '${subscriptionInfo.id}' to $relayUrl: ${e.message}")
+                Log.e(TAG, "Failed to restore subscription")
             }
         }
     }
@@ -850,44 +1139,59 @@ class NostrRelayManager private constructor() {
     /**
      * WebSocket listener for relay connections
      */
-    private inner class RelayWebSocketListener(private val relayUrl: String) : WebSocketListener() {
+    private inner class RelayWebSocketListener(
+        private val relayUrl: String,
+        private val liveLocationToken: Long?
+    ) : WebSocketListener() {
         
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            Log.d(TAG, "✅ Connected to Nostr relay: $relayUrl")
+            if (!desiredConnected.get() ||
+                connections[relayUrl] !== webSocket ||
+                !isNetworkActionAllowed(liveLocationToken)
+            ) {
+                connections.remove(relayUrl, webSocket)
+                webSocket.close(1000, "Stale connection")
+                return
+            }
+            reconnectJobs.remove(relayUrl)?.cancel()
             updateRelayStatus(relayUrl, true)
             
             // Restore all active subscriptions for this relay
             restoreSubscriptionsForRelay(relayUrl, webSocket)
             
-            // Process any queued messages for this relay
-            synchronized(messageQueueLock) {
-                val iterator = messageQueue.iterator()
-                while (iterator.hasNext()) {
-                    val (event, targetRelays) = iterator.next()
-                    if (relayUrl in targetRelays) {
-                        sendToRelay(event, webSocket, relayUrl)
-                    }
+            // Process only events still pending for this relay, outside the queue lock.
+            val queuedForRelay = messageQueue.pendingForRelay(relayUrl)
+                .filter { isNetworkActionAllowed(it.liveLocationToken) }
+            queuedForRelay.forEach { delivery ->
+                if (sendToRelay(
+                        delivery.event,
+                        webSocket,
+                        relayUrl,
+                        delivery.liveLocationToken
+                    )
+                ) {
+                    messageQueue.markDelivered(delivery.queueId, relayUrl)
                 }
             }
         }
         
         override fun onMessage(webSocket: WebSocket, text: String) {
+            if (connections[relayUrl] !== webSocket) return
             handleMessage(text, relayUrl)
         }
         
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-            Log.d(TAG, "WebSocket closing for $relayUrl: $code $reason")
+            // Server-initiated close; onClosed will follow
         }
-        
+
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            Log.d(TAG, "WebSocket closed for $relayUrl: $code $reason")
             val error = Exception("WebSocket closed: $code $reason")
-            handleDisconnection(relayUrl, error)
+            handleDisconnection(relayUrl, webSocket, error, liveLocationToken)
         }
-        
+
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            Log.e(TAG, "❌ WebSocket failure for $relayUrl: ${t.message}")
-            handleDisconnection(relayUrl, t)
+            Log.e(TAG, "Nostr WebSocket failure")
+            handleDisconnection(relayUrl, webSocket, t, liveLocationToken)
         }
     }
 }

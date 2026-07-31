@@ -4,6 +4,7 @@ import android.util.Log
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.util.toHexString
+import kotlinx.coroutines.CancellationException
 import java.security.MessageDigest
 import java.util.Collections
 import java.util.LinkedHashMap
@@ -32,6 +33,14 @@ object TransportBridgeService {
         fun send(packet: RoutedPacket)
 
         /**
+         * Send a packet and report whether at least one concrete transport write was accepted.
+         *
+         * Receipt retries use this path so a registered-but-disconnected transport cannot be
+         * mistaken for a successful send.
+         */
+        suspend fun sendAndReport(packet: RoutedPacket): Boolean = false
+
+        /**
          * Send a packet to a specific peer via this transport (optional).
          */
         fun sendToPeer(peerID: String, packet: BitchatPacket) { }
@@ -44,6 +53,11 @@ object TransportBridgeService {
                 return size > MAX_SEEN_PACKETS
             }
         }
+    )
+    private data class PreparedForward(
+        val packet: BitchatPacket,
+        val seenKey: String,
+        val reservedAtMs: Long
     )
 
     /**
@@ -74,8 +88,17 @@ object TransportBridgeService {
     fun broadcast(sourceId: String, packet: RoutedPacket) {
         val targets = transports.filterKeys { it != sourceId }
         if (targets.isEmpty()) return
-        val forwardedPacket = prepareForwardedPacket("broadcast", packet.packet) ?: return
-        val forwarded = packet.copy(packet = forwardedPacket)
+        val prepared = prepareForwardedPacket("broadcast", packet.packet) ?: return
+        val forwardedPacket = prepared.packet
+        // Prepared private-media fragments must remain the admitted plan when
+        // crossing transports, but relay TTL still has to advance on every
+        // hop. TTL is excluded from the signature and does not affect size.
+        val forwarded = packet.copy(
+            packet = forwardedPacket,
+            preparedPackets = packet.preparedPackets?.map { prepared ->
+                prepared.copy(ttl = forwardedPacket.ttl)
+            }
+        )
 
         // Log.v(TAG, "Bridging packet type ${packet.packet.type} from $sourceId to ${targets.keys}")
         
@@ -89,12 +112,50 @@ object TransportBridgeService {
     }
 
     /**
+     * Broadcasts through every other active transport and reports whether any concrete write was
+     * accepted. Failed attempts release their duplicate-suppression reservation so a later retry
+     * can use a transport that reconnects during the retry window.
+     */
+    suspend fun broadcastAndReport(sourceId: String, packet: RoutedPacket): Boolean {
+        val targets = transports.filterKeys { it != sourceId }
+        if (targets.isEmpty()) return false
+        val kind = "broadcast"
+        val prepared = prepareForwardedPacket(kind, packet.packet) ?: return false
+        val forwardedPacket = prepared.packet
+        val forwarded = packet.copy(
+            packet = forwardedPacket,
+            preparedPackets = packet.preparedPackets?.map { prepared ->
+                prepared.copy(ttl = forwardedPacket.ttl)
+            }
+        )
+
+        var accepted = false
+        targets.forEach { (id, layer) ->
+            val targetAccepted = try {
+                layer.sendAndReport(forwarded)
+            } catch (e: CancellationException) {
+                releaseSeenPacket(prepared)
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to bridge packet to $id: ${e.message}")
+                false
+            }
+            accepted = targetAccepted || accepted
+        }
+        if (!accepted) {
+            releaseSeenPacket(prepared)
+        }
+        return accepted
+    }
+
+    /**
      * Send a packet to a specific peer across all other transports.
      */
     fun sendToPeer(sourceId: String, peerID: String, packet: BitchatPacket) {
         val targets = transports.filterKeys { it != sourceId }
         if (targets.isEmpty()) return
-        val forwardedPacket = prepareForwardedPacket("peer:$peerID", packet) ?: return
+        val forwardedPacket =
+            prepareForwardedPacket("peer:$peerID", packet)?.packet ?: return
 
         targets.forEach { (id, layer) ->
             try {
@@ -139,7 +200,7 @@ object TransportBridgeService {
         }
     }
 
-    private fun prepareForwardedPacket(kind: String, packet: BitchatPacket): BitchatPacket? {
+    private fun prepareForwardedPacket(kind: String, packet: BitchatPacket): PreparedForward? {
         if (packet.ttl == 0u.toUByte()) {
             Log.d(TAG, "Dropping bridged packet type ${packet.type}: TTL expired")
             return null
@@ -157,7 +218,19 @@ object TransportBridgeService {
             seenPackets[key] = now
         }
 
-        return packet.copy(ttl = (packet.ttl - 1u).toUByte())
+        return PreparedForward(
+            packet = packet.copy(ttl = (packet.ttl - 1u).toUByte()),
+            seenKey = key,
+            reservedAtMs = now
+        )
+    }
+
+    private fun releaseSeenPacket(prepared: PreparedForward) {
+        synchronized(seenPackets) {
+            if (seenPackets[prepared.seenKey] == prepared.reservedAtMs) {
+                seenPackets.remove(prepared.seenKey)
+            }
+        }
     }
 
     private fun pruneSeen(now: Long) {

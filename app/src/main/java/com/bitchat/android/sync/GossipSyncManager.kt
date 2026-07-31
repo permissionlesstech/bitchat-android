@@ -79,6 +79,15 @@ class GossipSyncManager(
         cleanupJob?.cancel(); cleanupJob = null
     }
 
+    @Synchronized
+    fun clear() {
+        synchronized(messages) {
+            messages.clear()
+        }
+        latestAnnouncementByPeer.clear()
+        Log.d(TAG, "Cleared all gossip sync messages and announcements")
+    }
+
     fun scheduleInitialSync(delayMs: Long = 5_000L) {
         scope.launch(Dispatchers.IO) {
             delay(delayMs)

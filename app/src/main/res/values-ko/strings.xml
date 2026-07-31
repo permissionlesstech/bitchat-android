@@ -46,7 +46,7 @@
     <string name="notification_summary_more">그리고 %1$d개 더</string>
     <string name="notification_messages_from_people">%2$d명에게서 %1$d개의 메시지</string>
     <string name="notification_more_conversations">그리고 %1$d개의 대화 더</string>
-    <string name="notification_active_peers_title">👥 근처 bitchatter!</string>
+    <string name="notification_active_peers_title">근처 bitchatter!</string>
     <string name="notification_active_peers_one">근처 1명</string>
     <string name="notification_active_peers_many">근처 %1$d명</string>
     <string name="notification_new_messages">새 메시지</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">북마크 추가</string>
 
     <!-- 채팅 헤더 &amp; 접근성 -->
-    <string name="chat_back">뒤로</string>
-    <string name="chat_channel_prefix">채널: %1$s</string>
-    <string name="chat_leave">나가기</string>
     <string name="cd_nostr_reachable">Nostr로 연결 가능</string>
     <string name="cd_unread_private_messages">읽지 않은 개인 메시지</string>
-    <string name="cd_toggle_bookmark">북마크 전환</string>
     <string name="cd_teleported">텔레포트됨</string>
-    <string name="cd_tor_status">Tor 상태</string>
+    <string name="cd_open_location_channels">위치 및 채널 설정 열기</string>
     <string name="cd_connected_peers">연결된 피어</string>
     <string name="cd_geohash_participants">geohash 참여자</string>
     <string name="cd_ready_for_handshake">핸드셰이크 준비됨</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">이미지 선택</string>
 
     <!-- 정보 시트 -->
-    <string name="about_tagline">종단간 암호화를 갖춘 탈중앙 메쉬 채팅</string>
     <string name="about_offline_mesh_title">오프라인 메쉬 채팅</string>
     <string name="about_offline_mesh_desc">인터넷이나 서버 없이 Bluetooth LE로 직접 소통합니다. 범위를 확장하기 위해 근처 기기를 통해 메시지가 중계됩니다.</string>
     <string name="about_online_geohash_title">온라인 geohash 채널</string>
     <string name="about_online_geohash_desc">geohash 기반 채널을 통해 주변 사람들과 연결하세요. 공용 인터넷 릴레이로 메쉬를 확장합니다.</string>
     <string name="about_e2e_title">종단간 암호화</string>
     <string name="about_e2e_desc">개인 메시지는 암호화됩니다. 채널 메시지는 공개입니다.</string>
-    <string name="about_appearance">모양</string>
     <string name="about_system">시스템</string>
     <string name="about_light">라이트</string>
     <string name="about_dark">다크</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Tor 상태: %1$s, 부트스트랩 %2$d%%</string>
     <string name="about_last">마지막: %1$s</string>
     <string name="about_emergency_title">긴급 데이터 삭제</string>
-    <string name="about_emergency_tip">팁: 저장된 모든 데이터(메시지, 키, 설정 포함)를 삭제하려면 앱 제목을 세 번 탭하세요.</string>
     <string name="about_debug_settings">디버그 설정</string>
     <string name="about_footer">오픈 소스 • 프라이버시 우선 • 탈중앙</string>
     <string name="close_plain">닫기</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">지도 열기</string>
     <string name="cd_remove_bookmark">북마크 제거</string>
     <string name="cd_teleport">텔레포트</string>
-    <string name="cd_selected">선택됨</string>
     <string name="cd_leave_channel">채널 나가기</string>
     <string name="cd_reachable_via_nostr">Nostr로 연결 가능</string>
     <string name="cd_offline_favorite">즐겨찾기 (오프라인)</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">권한</string>
     <string name="grant_permissions">권한 허용</string>
     <string name="location_tracking_warning">bitchat은 사용자의 위치를 추적하지 않습니다</string>
-    <string name="geohash_people_header">사람들</string>
     <string name="nobody_around">주변에 아무도 없음 …</string>
     <string name="you_suffix"> (나)</string>
     <string name="pan_zoom_instruction">geohash를 선택하려면 이동하고 확대/축소하세요</string>
     <string name="select">선택</string>
     <string name="type_a_message_placeholder">메시지 입력 …</string>
     <string name="mention">멘션</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">이미지</string>
@@ -307,11 +297,6 @@
     <!-- 음성 플레이어 접근성 -->
     <string name="cd_play_voice">재생</string>
     <string name="cd_pause_voice">일시정지</string>
-    <string name="cd_mining_pow">PoW 채굴</string>
-    <string name="cd_pow_enabled">PoW 사용</string>
-    <string name="cd_proof_of_work">작업증명</string>
-    <string name="pow_mining_ellipsis">채굴 중 …</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- 권한 설명 -->
     <string name="perm_nearby_devices_desc">블루투스를 통해 bitchat 사용자를 발견하는 데 필요</string>
@@ -400,4 +385,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">정보 열기</string>
+  <string name="nearby_notes_reveal">여기 남겨진 쪽지 확인</string>
+  <string name="nearby_notes_one">여기 남겨진 쪽지 1개 — 탭하여 읽기</string>
+  <string name="nearby_notes_many">여기 남겨진 쪽지 %d개 — 탭하여 읽기</string>
+    <string name="about_language">언어</string>
+    <string name="about_app_language">앱 언어</string>
+    <string name="about_system_default">시스템 기본값</string>
+    <string name="about_select_language">언어 선택</string>
 </resources>

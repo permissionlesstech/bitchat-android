@@ -46,7 +46,7 @@
     <string name="notification_summary_more">और %1$d</string>
     <string name="notification_messages_from_people">%2$d लोगों से %1$d संदेश</string>
     <string name="notification_more_conversations">और %1$d वार्तालाप</string>
-    <string name="notification_active_peers_title">👥 पास में उपयोगकर्ता!</string>
+    <string name="notification_active_peers_title">पास में उपयोगकर्ता!</string>
     <string name="notification_active_peers_one">पास में 1 व्यक्ति</string>
     <string name="notification_active_peers_many">पास में %1$d लोग</string>
     <string name="notification_new_messages">नए संदेश</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">बुकमार्क जोड़ें</string>
 
     <!-- चैट हेडर &amp; एक्सेसिबिलिटी -->
-    <string name="chat_back">वापस</string>
-    <string name="chat_channel_prefix">चैनल: %1$s</string>
-    <string name="chat_leave">छोड़ें</string>
     <string name="cd_nostr_reachable">Nostr के माध्यम से उपलब्ध</string>
     <string name="cd_unread_private_messages">अपठित निजी संदेश</string>
-    <string name="cd_toggle_bookmark">बुकमार्क टॉगल करें</string>
     <string name="cd_teleported">टेलीपोर्ट हुआ</string>
-    <string name="cd_tor_status">Tor स्थिति</string>
+    <string name="cd_open_location_channels">स्थान और चैनल सेटिंग खोलें</string>
     <string name="cd_connected_peers">कनेक्टेड पीयर्स</string>
     <string name="cd_geohash_participants">geohash प्रतिभागी</string>
     <string name="cd_ready_for_handshake">हैंडशेक के लिए तैयार</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">छवि चुनें</string>
 
     <!-- अबाउट शीट -->
-    <string name="about_tagline">विकेन्द्रीकृत मेष चैट • एंड‑टू‑एंड एन्क्रिप्शन</string>
     <string name="about_offline_mesh_title">ऑफ़लाइन मेष चैट</string>
     <string name="about_offline_mesh_desc">इंटरनेट या सर्वर के बिना Bluetooth LE के माध्यम से सीधे संवाद करें। संदेशों को पास के उपकरणों के माध्यम से रिले किया जाता है ताकि पहुँच बढ़े।</string>
     <string name="about_online_geohash_title">ऑनलाइन geohash चैनल</string>
     <string name="about_online_geohash_desc">geohash आधारित चैनलों के माध्यम से अपने आस‑पास के लोगों से जुड़ें। सार्वजनिक इंटरनेट रिले के माध्यम से मेष का विस्तार करें।</string>
     <string name="about_e2e_title">एंड‑टू‑एंड एन्क्रिप्शन</string>
     <string name="about_e2e_desc">निजी संदेश एन्क्रिप्टेड हैं। चैनल संदेश सार्वजनिक हैं।</string>
-    <string name="about_appearance">रूप</string>
     <string name="about_system">सिस्टम</string>
     <string name="about_light">लाइट</string>
     <string name="about_dark">डार्क</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Tor स्थिति: %1$s, बूटस्ट्रैप %2$d%%</string>
     <string name="about_last">अंतिम: %1$s</string>
     <string name="about_emergency_title">आपातकालीन डेटा मिटाना</string>
-    <string name="about_emergency_tip">संकेत: सभी सहेजे डेटा – संदेश, कुंजियाँ और सेटिंग्स सहित – मिटाने के लिए ऐप शीर्षक पर तीन बार टैप करें।</string>
     <string name="about_debug_settings">डिबग सेटिंग्स</string>
     <string name="about_footer">ओपन सोर्स • गोपनीयता पहले • विकेन्द्रीकृत</string>
     <string name="close_plain">बंद करें</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">मानचित्र खोलें</string>
     <string name="cd_remove_bookmark">बुकमार्क हटाएँ</string>
     <string name="cd_teleport">टेलीपोर्ट</string>
-    <string name="cd_selected">चयनित</string>
     <string name="cd_leave_channel">चैनल छोड़ें</string>
     <string name="cd_reachable_via_nostr">Nostr के माध्यम से उपलब्ध</string>
     <string name="cd_offline_favorite">पसंदीदा (ऑफ़लाइन)</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">अनुमतियाँ</string>
     <string name="grant_permissions">अनुमतियाँ दें</string>
     <string name="location_tracking_warning">bitchat आपकी लोकेशन ट्रैक नहीं करती</string>
-    <string name="geohash_people_header">लोग</string>
     <string name="nobody_around">आस‑पास कोई नहीं…</string>
     <string name="you_suffix"> (आप)</string>
     <string name="pan_zoom_instruction">geohash चुनने के लिए पैन/ज़ूम करें</string>
     <string name="select">चयन करें</string>
     <string name="type_a_message_placeholder">संदेश लिखें…</string>
     <string name="mention">उल्लेख</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">छवि</string>
@@ -307,11 +297,6 @@
     <!-- वॉइस प्लेयर एक्सेसिबिलिटी -->
     <string name="cd_play_voice">चलाएँ</string>
     <string name="cd_pause_voice">रोकें</string>
-    <string name="cd_mining_pow">PoW माइनिंग</string>
-    <string name="cd_pow_enabled">PoW सक्षम</string>
-    <string name="cd_proof_of_work">प्रूफ़ ऑफ़ वर्क</string>
-    <string name="pow_mining_ellipsis">माइनिंग…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- अनुमति विवरण -->
     <string name="perm_nearby_devices_desc">ब्लूटूथ के माध्यम से bitchat उपयोगकर्ताओं की खोज के लिए आवश्यक</string>
@@ -400,4 +385,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">परिचय खोलें</string>
+  <string name="nearby_notes_reveal">देखें कि यहाँ नोट छोड़े गए हैं या नहीं</string>
+  <string name="nearby_notes_one">यहाँ 1 नोट छोड़ा गया है — पढ़ने के लिए टैप करें</string>
+  <string name="nearby_notes_many">यहाँ %d नोट छोड़े गए हैं — पढ़ने के लिए टैप करें</string>
+    <string name="about_language">भाषा</string>
+    <string name="about_app_language">ऐप की भाषा</string>
+    <string name="about_system_default">सिस्टम डिफ़ॉल्ट</string>
+    <string name="about_select_language">भाषा चुनें</string>
 </resources>
