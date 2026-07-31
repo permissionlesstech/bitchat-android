@@ -47,11 +47,12 @@ class LocationTelemetryManager(
     }
 
     fun start() {
-        if (isStarted) return
         if (!hasLocationPermission()) {
-            Log.w(TAG, "Location permission missing; telemetry disabled")
+            Log.w(TAG, "Location permission missing or LiveLocationPrivacyGate disabled; telemetry paused")
+            isStarted = false
             return
         }
+        if (isStarted) return
         isStarted = true
         MeshServiceHolder.locationTelemetryManager = this
 
@@ -77,24 +78,29 @@ class LocationTelemetryManager(
     }
 
     fun setAppForegroundState(inForeground: Boolean) {
-        if (isForeground == inForeground) return
+        val stateChanged = isForeground != inForeground
         isForeground = inForeground
-        if (!isStarted) return
 
-        if (inForeground) {
-            Log.i(TAG, "⚡ Switching location provider to FOREGROUND high-accuracy mode (1.5s interval)")
-            locationProvider.updateLocationRequestParams(
-                callback = locationCallback,
-                intervalMs = FOREGROUND_INTERVAL_MS,
-                minDistanceMeters = FOREGROUND_MIN_DISTANCE_METERS
-            )
-        } else {
-            Log.i(TAG, "🔋 Switching location provider to BACKGROUND battery-saver mode (30s interval + 5m filter)")
-            locationProvider.updateLocationRequestParams(
-                callback = locationCallback,
-                intervalMs = BACKGROUND_INTERVAL_MS,
-                minDistanceMeters = BACKGROUND_MIN_DISTANCE_METERS
-            )
+        if (!isStarted || stateChanged) {
+            if (!isStarted) {
+                start()
+                if (!isStarted) return
+            }
+            if (inForeground) {
+                Log.i(TAG, "⚡ Switching location provider to FOREGROUND high-accuracy mode (1.5s interval)")
+                locationProvider.updateLocationRequestParams(
+                    callback = locationCallback,
+                    intervalMs = FOREGROUND_INTERVAL_MS,
+                    minDistanceMeters = FOREGROUND_MIN_DISTANCE_METERS
+                )
+            } else {
+                Log.i(TAG, "🔋 Switching location provider to BACKGROUND battery-saver mode (30s interval + 5m filter)")
+                locationProvider.updateLocationRequestParams(
+                    callback = locationCallback,
+                    intervalMs = BACKGROUND_INTERVAL_MS,
+                    minDistanceMeters = BACKGROUND_MIN_DISTANCE_METERS
+                )
+            }
         }
     }
 
@@ -112,7 +118,6 @@ class LocationTelemetryManager(
     }
 
     fun stop() {
-        if (!isStarted) return
         isStarted = false
         if (MeshServiceHolder.locationTelemetryManager === this) {
             MeshServiceHolder.locationTelemetryManager = null
@@ -123,7 +128,8 @@ class LocationTelemetryManager(
     }
 
     private fun hasLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+        val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        return hasPermission && com.bitchat.android.geohash.LiveLocationPrivacyGate.isEnabled
     }
 }

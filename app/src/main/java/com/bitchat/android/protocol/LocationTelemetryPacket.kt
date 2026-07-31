@@ -33,6 +33,7 @@ object LocationTelemetryPacket {
 
     fun buildPacket(
         myPeerID: String,
+        targetPeerID: String? = null,
         latitude: Double,
         longitude: Double,
         timestampMillis: Long = System.currentTimeMillis()
@@ -41,7 +42,7 @@ object LocationTelemetryPacket {
             version = 1u,
             type = MessageType.LOCATION.value,
             senderID = hexStringToByteArray(myPeerID),
-            recipientID = SpecialRecipients.BROADCAST,
+            recipientID = if (targetPeerID != null) hexStringToByteArray(targetPeerID) else SpecialRecipients.BROADCAST,
             timestamp = timestampMillis.toULong(),
             payload = encode(latitude, longitude, timestampMillis),
             signature = null,

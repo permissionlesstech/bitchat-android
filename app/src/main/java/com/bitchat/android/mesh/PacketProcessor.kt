@@ -193,19 +193,18 @@ class PacketProcessor(private val myPeerID: String) {
                 }
             }
             MessageType.LOCATION_VERIFY -> {
-                // Ignore location verification packets not addressed to me
-                if (!packetRelayManager.isPacketAddressedToMe(packet)) {
-                    Log.d(TAG, "🔒 Ignoring LOCATION_VERIFY packet addressed to recipient (not me)")
-                    return
-                }
-                val canonicalPeerID = peerID.lowercase()
-                try {
-                    val verify = com.bitchat.android.protocol.LocationVerifyPacket.decode(packet.payload)
-                    if (verify != null) {
-                        handleLocationVerifyAction(canonicalPeerID, verify.action)
+                if (packetRelayManager.isPacketAddressedToMe(packet)) {
+                    val canonicalPeerID = peerID.lowercase()
+                    try {
+                        val verify = com.bitchat.android.protocol.LocationVerifyPacket.decode(packet.payload)
+                        if (verify != null) {
+                            handleLocationVerifyAction(canonicalPeerID, verify.action)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to process LOCATION_VERIFY packet: ${e.message}", e)
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to process LOCATION_VERIFY packet: ${e.message}", e)
+                } else {
+                    Log.d(TAG, "🔒 LOCATION_VERIFY packet not for me; passing through to relay manager")
                 }
             }
 

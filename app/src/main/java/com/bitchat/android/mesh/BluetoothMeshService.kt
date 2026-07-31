@@ -930,22 +930,33 @@ class BluetoothMeshService(val context: Context) : TransportBridgeService.Transp
     }
 
     /**
-     * Broadcast a compact location telemetry packet.
+     * Send compact location telemetry packet only to mutually verified peers.
      */
     fun sendLocationTelemetry(location: Location) {
         serviceScope.launch {
             try {
-                val packet = LocationTelemetryPacket.buildPacket(
-                    myPeerID = myPeerID,
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    timestampMillis = location.time.takeIf { it > 0L } ?: System.currentTimeMillis()
-                )
-                broadcastRoutedPacket(RoutedPacket(packet))
-                Log.d(
-                    TAG,
-                    "📍 Sent location telemetry lat=${location.latitude}, lon=${location.longitude}, time=${packet.timestamp}"
-                )
+                val verifiedStore = com.bitchat.android.geohash.VerifiedLocationPeersStore.getInstance(context)
+                val verifiedPeers = verifiedStore.verifiedPeersFlow.value
+                if (verifiedPeers.isEmpty()) {
+                    Log.d(TAG, "📍 Skipping location telemetry: no verified peers authorized")
+                    return@launch
+                }
+                val timestampMs = location.time.takeIf { it > 0L } ?: System.currentTimeMillis()
+                for (peerID in verifiedPeers) {
+                    val packet = LocationTelemetryPacket.buildPacket(
+                        myPeerID = myPeerID,
+                        targetPeerID = peerID,
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        timestampMillis = timestampMs
+                    )
+                    val signed = signPacketBeforeBroadcast(packet)
+                    broadcastRoutedPacket(RoutedPacket(signed))
+                    Log.d(
+                        TAG,
+                        "📍 Sent verified location telemetry to $peerID lat=${location.latitude}, lon=${location.longitude}"
+                    )
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send location telemetry: ${e.message}", e)
             }

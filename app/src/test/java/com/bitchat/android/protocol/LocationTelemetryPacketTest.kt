@@ -29,5 +29,15 @@ class LocationTelemetryPacketTest {
         )
         assertEquals(MessageType.LOCATION.value, packet.type)
         assertEquals(20, packet.payload.size)
+
+        val directedPacket = LocationTelemetryPacket.buildPacket(
+            myPeerID = "1122334455667788",
+            targetPeerID = "aabbccddeeff0011",
+            latitude = 12.34567890123,
+            longitude = 98.76543210987,
+            timestampMillis = 1_709_600_000_000L
+        )
+        assertEquals(MessageType.LOCATION.value, directedPacket.type)
+        assertNotNull(directedPacket.recipientID)
     }
 }
