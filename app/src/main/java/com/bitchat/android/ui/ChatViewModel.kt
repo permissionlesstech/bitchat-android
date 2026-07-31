@@ -1341,7 +1341,11 @@ class ChatViewModel(
     fun updateCommandSuggestions(input: String) {
         commandProcessor.updateCommandSuggestions(input)
     }
-    
+
+    fun clearSuggestions() {
+        commandProcessor.clearSuggestions()
+    }
+
     fun selectCommandSuggestion(suggestion: CommandSuggestion): String {
         return commandProcessor.selectCommandSuggestion(suggestion)
     }
