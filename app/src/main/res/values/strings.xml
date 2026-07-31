@@ -540,6 +540,9 @@
   <string name="nobody_around">Nobody around…</string>
   <string name="you_suffix"> (you)</string>
   <string name="pan_zoom_instruction">Drag to spin · Pinch to zoom · Tap to focus</string>
+  <string name="globe_map_loading">Loading OpenStreetMap data…</string>
+  <string name="globe_map_load_error">Map data is temporarily unavailable</string>
+  <string name="openstreetmap_attribution">© OpenStreetMap contributors</string>
   <string name="select">Select</string>
   <string name="type_a_message_placeholder">Type a message…</string>
   <string name="mention_suggestion_at">@%1$s</string>

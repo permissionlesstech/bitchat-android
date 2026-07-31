@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -13,16 +14,19 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -34,20 +38,29 @@ import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.ui.globe.GlobeColors
+import com.bitchat.android.ui.globe.GlobeMapUiState
 import com.bitchat.android.ui.globe.GlobeState
+import com.bitchat.android.ui.globe.GlobeTileRequest
+import com.bitchat.android.ui.globe.GlobeTileSelector
+import com.bitchat.android.ui.globe.GlobeViewport
 import com.bitchat.android.ui.globe.GlobeView
-import com.bitchat.android.ui.globe.LandData
+import com.bitchat.android.ui.globe.StreamedGlobeRepository
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.BitchatTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 class GeohashPickerActivity : OrientationAwareActivity() {
 
     companion object {
         const val EXTRA_INITIAL_GEOHASH = "initial_geohash"
         const val EXTRA_RESULT_GEOHASH = "result_geohash"
+        private const val MAP_REQUEST_SETTLE_MS = 100L
+        private const val OPENSTREETMAP_COPYRIGHT_URL =
+            "https://www.openstreetmap.org/copyright"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,6 +102,7 @@ class GeohashPickerActivity : OrientationAwareActivity() {
         setContent {
             BitchatTheme {
                 val context = LocalContext.current
+                val uriHandler = LocalUriHandler.current
                 val scope = rememberCoroutineScope()
 
                 val globeState = remember {
@@ -104,14 +118,87 @@ class GeohashPickerActivity : OrientationAwareActivity() {
 
                 LaunchedEffect(globeState) { globeState.attach(scope) }
 
-                val land by produceState<List<LandData.Ring>?>(initialValue = null) {
-                    value = withContext(Dispatchers.IO) { LandData.load(context) }
+                val mapRepository = remember(context.applicationContext) {
+                    StreamedGlobeRepository(context.applicationContext)
                 }
-                val borders by produceState<List<LandData.Ring>>(initialValue = emptyList()) {
-                    value = withContext(Dispatchers.IO) { LandData.loadBorders(context) }
+                DisposableEffect(mapRepository) {
+                    onDispose { mapRepository.close() }
                 }
-                val cities by produceState<List<LandData.City>>(initialValue = emptyList()) {
-                    value = withContext(Dispatchers.IO) { LandData.loadCities(context) }
+                var mapUiState by remember { mutableStateOf(GlobeMapUiState()) }
+                var mapRetryNonce by remember { mutableIntStateOf(0) }
+
+                LaunchedEffect(globeState, mapRepository, mapRetryNonce) {
+                    if (mapUiState.data.oceanPolygons.isEmpty()) {
+                        mapUiState = mapUiState.copy(isLoading = true, hasError = false)
+                        try {
+                            val overview = mapRepository.load(
+                                GlobeTileRequest(detailZoom = 0, detailTiles = emptySet())
+                            )
+                            mapUiState = GlobeMapUiState(
+                                data = overview.data,
+                                isLoading = false,
+                                hasError = false
+                            )
+                        } catch (cancellation: CancellationException) {
+                            throw cancellation
+                        } catch (_: Exception) {
+                            mapUiState = mapUiState.copy(
+                                isLoading = false,
+                                hasError = true
+                            )
+                            return@LaunchedEffect
+                        }
+                    }
+
+                    snapshotFlow {
+                        if (globeState.isInMotion) {
+                            null
+                        } else {
+                            GlobeTileSelector.select(
+                                GlobeViewport(
+                                    centerLat = globeState.centerLat.toDouble(),
+                                    centerLon = globeState.centerLon.toDouble(),
+                                    globeRadiusPx = globeState.globeRadiusPx,
+                                    widthPx = globeState.viewportWidthPx,
+                                    heightPx = globeState.viewportHeightPx
+                                )
+                            )
+                        }
+                    }
+                        .distinctUntilChanged()
+                        .collectLatest { request ->
+                            // A null request is emitted as soon as motion begins. Keeping it
+                            // in the flow (instead of filtering it) immediately cancels any
+                            // obsolete HTTP/decode batch.
+                            if (request == null) {
+                                mapUiState = mapUiState.copy(isLoading = false)
+                                return@collectLatest
+                            }
+                            // Let fast drag/zoom changes settle before starting another batch.
+                            delay(MAP_REQUEST_SETTLE_MS)
+                            mapUiState = mapUiState.copy(isLoading = true, hasError = false)
+                            try {
+                                val result = mapRepository.load(request) { partial ->
+                                    mapUiState = GlobeMapUiState(
+                                        data = partial.data,
+                                        isLoading = true,
+                                        hasError = false
+                                    )
+                                }
+                                mapUiState = GlobeMapUiState(
+                                    data = result.data,
+                                    isLoading = false,
+                                    hasError = result.failedTileCount > 0
+                                )
+                            } catch (cancellation: CancellationException) {
+                                throw cancellation
+                            } catch (_: Exception) {
+                                mapUiState = mapUiState.copy(
+                                    isLoading = false,
+                                    hasError = true
+                                )
+                            }
+                        }
                 }
 
                 val colorScheme = MaterialTheme.colorScheme
@@ -158,18 +245,14 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                         .fillMaxSize()
                         .background(colorScheme.background)
                 ) {
-                    land?.let { rings ->
-                        GlobeView(
-                            state = globeState,
-                            colors = globeColors,
-                            land = rings,
-                            borders = borders,
-                            cities = cities,
-                            labelTypeface = labelTypeface,
-                            labelTypefaceBold = labelTypefaceBold,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                    GlobeView(
+                        state = globeState,
+                        colors = globeColors,
+                        mapData = mapUiState.data,
+                        labelTypeface = labelTypeface,
+                        labelTypefaceBold = labelTypefaceBold,
+                        modifier = Modifier.fillMaxSize()
+                    )
 
                     // Floating info pill
                     Surface(
@@ -193,6 +276,74 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                                 .padding(horizontal = 14.dp, vertical = 10.dp)
                         )
                     }
+
+                    if (
+                        (mapUiState.isLoading && !mapUiState.data.hasGeography) ||
+                        mapUiState.hasError
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .statusBarsPadding()
+                                .padding(top = 146.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(10.dp),
+                            tonalElevation = 2.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(
+                                    start = 10.dp,
+                                    end = if (mapUiState.hasError) 4.dp else 10.dp,
+                                    top = 6.dp,
+                                    bottom = 6.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (mapUiState.isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 1.5.dp
+                                    )
+                                }
+                                Text(
+                                    text = stringResource(
+                                        if (mapUiState.hasError) {
+                                            R.string.globe_map_load_error
+                                        } else {
+                                            R.string.globe_map_loading
+                                        }
+                                    ),
+                                    fontSize = 10.sp,
+                                    fontFamily = BitchatFontFamily,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (mapUiState.hasError) {
+                                    TextButton(onClick = { mapRetryNonce++ }) {
+                                        Text(
+                                            text = stringResource(R.string.retry),
+                                            fontSize = 10.sp,
+                                            fontFamily = BitchatFontFamily
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = stringResource(R.string.openstreetmap_attribution),
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .navigationBarsPadding()
+                            .clickable {
+                                uriHandler.openUri(OPENSTREETMAP_COPYRIGHT_URL)
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        fontSize = 9.sp,
+                        fontFamily = BitchatFontFamily,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
 
                     // Floating bottom controls
                     Column(
