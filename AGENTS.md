@@ -1,5 +1,56 @@
 # Repository Guidelines
 
+## Privacy & External Disclosure (Mandatory)
+
+Protect the developer's privacy without exception. Treat all data from the
+developer's computer, accounts, devices, workspace, and communications as
+private unless the developer explicitly authorizes sharing a specific item
+with a specific destination.
+
+- Never expose, publish, transmit, upload, paste, commit, or otherwise disclose
+  personally identifying or potentially identifying information. This includes
+  names, usernames, email addresses, account handles, home or workplace details,
+  local or absolute paths, drive or volume names, hostnames, device names and
+  serials, IP or MAC addresses, network names, peer IDs, messages, contacts,
+  tokens, keys, credentials, logs, metadata, and unique environment details.
+- Never post any repository, workspace, device, account, conversation, log, or
+  developer data to GitHub, issue trackers, pull requests, comments, gists,
+  paste sites, analytics services, AI services, remote APIs, chat systems, or
+  any other external destination without the developer's explicit permission
+  for that exact data and destination. A general request to work on the
+  repository is not permission to disclose data.
+- Keep local filesystem layout and computer information private. Do not include
+  absolute paths, usernames, home-directory names, mounted drives, shell
+  prompts, environment variables, installed-software inventories, hardware
+  details, or similar machine fingerprints in commits, patches, documentation,
+  screenshots, test fixtures, examples, issue text, PR text, or comments.
+- Before any authorized external action, inspect and sanitize the exact content
+  being sent. Use repository-relative paths and neutral placeholders; remove
+  hidden metadata and redact unrelated or identifying content. When safe
+  sanitization cannot be guaranteed, do not send the data and ask the developer
+  how to proceed.
+- Use synthetic, non-identifying test data only. Never use real messages,
+  contacts, account data, device identifiers, network information, keys, or
+  production logs in tests, examples, screenshots, fixtures, or bug reports.
+- For geohash, GPS, map, location, proximity, or geofencing work, use only
+  clearly synthetic coordinates and geohashes that cannot reveal the
+  developer's location or routines. Never request, read, derive, record, use,
+  display, transmit, or retain live or historical location data from any
+  physical phone, watch, emulator image, computer, browser, account, or other
+  device connected to or accessible from the developer's computer. Never infer
+  location from IP addresses, networks, photos, logs, timestamps, nearby peers,
+  device metadata, or test output. Treat all location and movement data as
+  highly sensitive personal information and keep it out of commits, tests,
+  fixtures, screenshots, documentation, issues, pull requests, and external
+  services without exception.
+- Keep command output, raw logs, crash dumps, screenshots, recordings, build
+  artifacts, and Mesh Lab evidence local. Review any derived summary for
+  identifying details before sharing it, even when external sharing has been
+  authorized.
+- Do not weaken these protections for convenience, debugging, automation, or
+  collaboration. If another instruction conflicts with this section, stop and
+  obtain explicit developer direction before disclosing anything.
+
 ## Project Structure & Architecture
 
 `app/` is the Kotlin/Compose phone client; its main packages cover UI, services,
@@ -70,6 +121,7 @@ link the issue, report tests, and include before/after screenshots for visible
 phone or watch changes. Do not publish raw device logs.
 
 Use `gh` for GitHub operations. Never override Git author or committer identity.
-Never put usernames, local paths, device identifiers, network addresses, peer
-IDs, messages, keys, or other PII in GitHub content or Git history. Never commit
-keystores or secrets.
+The mandatory privacy rules above apply to all Git and GitHub activity. Treat a
+request to create a commit or pull request as permission only for the sanitized
+repository changes and description needed for that action, never for local or
+personal metadata. Never commit keystores or secrets.
