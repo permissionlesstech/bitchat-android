@@ -42,6 +42,8 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.watch.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 /**
  * The shared chat body for global chat and DM threads, following the classic messenger
@@ -106,11 +108,19 @@ fun ChatScaffold(
     }
 
     // Stick to bottom: follow new messages while resting at the newest.
+    // Capture this when the message count changes, before the new layout can temporarily make
+    // canScrollForward true and report that the user is browsing history.
+    val followNewest = remember(messages.size) { atNewest }
     LaunchedEffect(columnState, messages.size) {
-        if (messages.isNotEmpty() && atNewest) {
-            // scrollBy to the end of the range: animateScrollToItem stops as soon as the
-            // item is partially visible, which left the last message cropped.
-            columnState.scroll { scrollBy(Float.MAX_VALUE) }
+        if (messages.isNotEmpty() && followNewest) {
+            scrollToNewestAfterItemsMeasured(
+                expectedItemCount = messages.size,
+                measuredItemCounts = snapshotFlow { columnState.layoutInfo.totalItemsCount }
+            ) {
+                // scrollBy to the end of the range: animateScrollToItem stops as soon as the
+                // item is partially visible, which left the last message cropped.
+                columnState.scroll { scrollBy(Float.MAX_VALUE) }
+            }
         }
     }
 
@@ -126,6 +136,15 @@ fun ChatScaffold(
         actionBar = actionBar,
         modifier = Modifier.fillMaxSize()
     )
+}
+
+internal suspend fun scrollToNewestAfterItemsMeasured(
+    expectedItemCount: Int,
+    measuredItemCounts: Flow<Int>,
+    scrollToEnd: suspend () -> Unit
+) {
+    measuredItemCounts.first { it >= expectedItemCount }
+    scrollToEnd()
 }
 
 @Composable
