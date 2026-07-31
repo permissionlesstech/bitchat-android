@@ -38,6 +38,7 @@ import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.ui.globe.GlobeColors
+import com.bitchat.android.ui.globe.GlobeMapPresentationState
 import com.bitchat.android.ui.globe.GlobeMapUiState
 import com.bitchat.android.ui.globe.GlobeState
 import com.bitchat.android.ui.globe.GlobeTileRequest
@@ -124,28 +125,29 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                 DisposableEffect(mapRepository) {
                     onDispose { mapRepository.close() }
                 }
-                var mapUiState by remember { mutableStateOf(GlobeMapUiState()) }
+                var mapPresentationState by remember {
+                    mutableStateOf(GlobeMapPresentationState())
+                }
                 var mapRetryNonce by remember { mutableIntStateOf(0) }
 
                 LaunchedEffect(globeState, mapRepository, mapRetryNonce) {
-                    if (mapUiState.data.oceanPolygons.isEmpty()) {
-                        mapUiState = mapUiState.copy(isLoading = true, hasError = false)
+                    if (mapPresentationState.uiState.data.oceanPolygons.isEmpty()) {
+                        mapPresentationState = mapPresentationState.startLoading()
                         try {
                             val overview = mapRepository.load(
                                 GlobeTileRequest(detailZoom = 0, detailTiles = emptySet())
                             )
-                            mapUiState = GlobeMapUiState(
-                                data = overview.data,
-                                isLoading = false,
-                                hasError = false
+                            mapPresentationState = mapPresentationState.copy(
+                                uiState = GlobeMapUiState(
+                                    data = overview.data,
+                                    isLoading = false,
+                                    hasError = false
+                                )
                             )
                         } catch (cancellation: CancellationException) {
                             throw cancellation
                         } catch (_: Exception) {
-                            mapUiState = mapUiState.copy(
-                                isLoading = false,
-                                hasError = true
-                            )
+                            mapPresentationState = mapPresentationState.showError()
                             return@LaunchedEffect
                         }
                     }
@@ -171,35 +173,29 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                             // in the flow (instead of filtering it) immediately cancels any
                             // obsolete HTTP/decode batch.
                             if (request == null) {
-                                mapUiState = mapUiState.copy(isLoading = false)
+                                mapPresentationState =
+                                    mapPresentationState.cancelLoading()
                                 return@collectLatest
                             }
                             // Let fast drag/zoom changes settle before starting another batch.
                             delay(MAP_REQUEST_SETTLE_MS)
-                            mapUiState = mapUiState.copy(isLoading = true, hasError = false)
+                            mapPresentationState = mapPresentationState.startLoading()
                             try {
                                 val result = mapRepository.load(request) { partial ->
-                                    mapUiState = GlobeMapUiState(
-                                        data = partial.data,
-                                        isLoading = true,
-                                        hasError = false
-                                    )
+                                    mapPresentationState =
+                                        mapPresentationState.showPartial(partial)
                                 }
-                                mapUiState = GlobeMapUiState(
-                                    data = result.data,
-                                    isLoading = false,
-                                    hasError = result.failedTileCount > 0
-                                )
+                                mapPresentationState =
+                                    mapPresentationState.showComplete(result)
                             } catch (cancellation: CancellationException) {
                                 throw cancellation
                             } catch (_: Exception) {
-                                mapUiState = mapUiState.copy(
-                                    isLoading = false,
-                                    hasError = true
-                                )
+                                mapPresentationState = mapPresentationState.showError()
                             }
                         }
                 }
+
+                val mapUiState = mapPresentationState.uiState
 
                 val colorScheme = MaterialTheme.colorScheme
                 val dark = colorScheme.background.luminance() < 0.5f

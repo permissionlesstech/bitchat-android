@@ -195,3 +195,61 @@ data class GlobeMapUiState(
     val isLoading: Boolean = false,
     val hasError: Boolean = false
 )
+
+/**
+ * Keeps progressive tile updates from replacing a complete map with a priority-only
+ * subset. The first request may still render progressively; after one full successful
+ * detail request, cancellation and tile failures retain that complete snapshot.
+ */
+internal data class GlobeMapPresentationState(
+    val uiState: GlobeMapUiState = GlobeMapUiState(),
+    val lastCompleteData: GlobeMapData? = null
+) {
+    fun startLoading(): GlobeMapPresentationState = copy(
+        uiState = uiState.copy(isLoading = true, hasError = false)
+    )
+
+    fun showPartial(result: GlobeMapLoadResult): GlobeMapPresentationState = copy(
+        uiState = GlobeMapUiState(
+            data = lastCompleteData ?: result.data,
+            isLoading = true,
+            hasError = false
+        )
+    )
+
+    fun showComplete(result: GlobeMapLoadResult): GlobeMapPresentationState {
+        val completedWithoutFailures = result.failedTileCount == 0
+        val displayedData = if (completedWithoutFailures) {
+            result.data
+        } else {
+            lastCompleteData ?: result.data
+        }
+        return copy(
+            uiState = GlobeMapUiState(
+                data = displayedData,
+                isLoading = false,
+                hasError = !completedWithoutFailures
+            ),
+            lastCompleteData = if (completedWithoutFailures) {
+                result.data
+            } else {
+                lastCompleteData
+            }
+        )
+    }
+
+    fun cancelLoading(): GlobeMapPresentationState = copy(
+        uiState = uiState.copy(
+            data = lastCompleteData ?: uiState.data,
+            isLoading = false
+        )
+    )
+
+    fun showError(): GlobeMapPresentationState = copy(
+        uiState = uiState.copy(
+            data = lastCompleteData ?: uiState.data,
+            isLoading = false,
+            hasError = true
+        )
+    )
+}
