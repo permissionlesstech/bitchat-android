@@ -515,9 +515,14 @@ fun RadarScreen(
             LocationChannelsSheet(
                 isPresented = showLocationChannelsSheet,
                 onDismiss = { showLocationChannelsSheet = false },
+                onLocationNotesClick = {
+                    showLocationChannelsSheet = false
+                    showLocationNotesSheet = true
+                },
                 viewModel = viewModel
             )
         }
+
         if (showMeshPeerListSheet) {
             MeshPeerListSheet(
                 isPresented = showMeshPeerListSheet,

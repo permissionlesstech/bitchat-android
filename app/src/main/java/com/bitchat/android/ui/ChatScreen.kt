@@ -443,6 +443,7 @@ fun ChatScreen(
             onSidebarToggle = { viewModel.showMeshPeerList() },
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() },
+            onLocationChannelsClick = { showLocationChannelsSheet = true },
             onLocationNotesClick = {
                 nearbyNotesController.reveal()
                 showLocationNotesSheet = true
@@ -450,6 +451,7 @@ fun ChatScreen(
             onTelemetryMapClick = { showTelemetryMapSheet = true },
             onSwitchToRadar = onSwitchToRadar
         )
+
 
 
         // Scroll-to-bottom floating button

@@ -128,7 +128,11 @@ tor-android-binary = { module = "org.torproject:tor-android-binary", version.ref
 
 
 
+# Google Play Services
+gms-location = { module = "com.google.android.gms:play-services-location", version.ref = "gms-location" }
+
 # WorkManager
+
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work-runtime" }
 
 # NanoHTTPD

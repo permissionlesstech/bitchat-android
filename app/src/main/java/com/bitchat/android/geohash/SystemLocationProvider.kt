@@ -203,9 +203,8 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
                         callback(location)
                     }
                 }
-
-                }
                 override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+
                 override fun onProviderEnabled(provider: String) {}
                 override fun onProviderDisabled(provider: String) {}
             }

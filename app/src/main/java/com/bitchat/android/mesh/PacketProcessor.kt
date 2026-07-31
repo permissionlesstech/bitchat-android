@@ -152,7 +152,10 @@ class PacketProcessor(private val myPeerID: String) {
                             timestampMs = if (telemetry.timestampSeconds > 0L) telemetry.timestampSeconds * 1000L else System.currentTimeMillis()
                         )
                         try {
-                            val myLoc = MeshServiceHolder.lastKnownLocation
+                            val holderClass = Class.forName("com.bitchat.android.service.MeshServiceHolder")
+                            val locField = holderClass.getDeclaredField("lastKnownLocation")
+                            val myLoc = locField.get(null) as? AndroidLocation
+
                             if (myLoc != null) {
                                 val results = FloatArray(3)
                                 AndroidLocation.distanceBetween(
@@ -180,12 +183,8 @@ class PacketProcessor(private val myPeerID: String) {
                                     TAG,
                                     "📏 Distance to ${formatPeerForLog(canonicalPeerID)} = ${distanceMeters} meters; 🧭 Bearing = ${"%.1f".format(bearingNorm)}° (${cardinal})"
                                 )
-                            } else {
-                                Log.d(TAG, "📏 My last known location unavailable; cannot compute distance")
                             }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Error computing distance to ${formatPeerForLog(canonicalPeerID)}: ${e.message}")
-                        }
+                        } catch (_: Exception) { }
                     } else {
                         Log.w(TAG, "Failed to decode location telemetry payload from ${formatPeerForLog(canonicalPeerID)}")
                     }
@@ -203,33 +202,13 @@ class PacketProcessor(private val myPeerID: String) {
                 try {
                     val verify = com.bitchat.android.protocol.LocationVerifyPacket.decode(packet.payload)
                     if (verify != null) {
-                        val serviceContext = com.bitchat.android.service.MeshServiceHolder.meshService?.context
-                        if (serviceContext != null) {
-                            val store = com.bitchat.android.geohash.VerifiedLocationPeersStore.getInstance(serviceContext)
-                            when (verify.action) {
-                                com.bitchat.android.protocol.LocationVerifyPacket.Action.REQUEST -> {
-                                    Log.i(TAG, "📩 Location verify REQUEST received from ${formatPeerForLog(canonicalPeerID)}")
-                                    AppStateStore.showIncomingVerifyRequest(canonicalPeerID)
-                                }
-                                com.bitchat.android.protocol.LocationVerifyPacket.Action.ACCEPT -> {
-                                    Log.i(TAG, "✅ Location verify ACCEPT received from ${formatPeerForLog(canonicalPeerID)}")
-                                    store.addVerifiedPeer(canonicalPeerID)
-                                    MeshServiceHolder.locationTelemetryManager?.broadcastCurrentLocationImmediately()
-                                        ?: MeshServiceHolder.lastKnownLocation?.let { loc ->
-                                            MeshServiceHolder.meshService?.sendLocationTelemetry(loc)
-                                        }
-                                }
-                                com.bitchat.android.protocol.LocationVerifyPacket.Action.REJECT -> {
-                                    Log.w(TAG, "❌ Location verify REJECT received from ${formatPeerForLog(canonicalPeerID)}")
-                                    store.recordRejection(canonicalPeerID)
-                                }
-                            }
-                        }
+                        handleLocationVerifyAction(canonicalPeerID, verify.action)
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to process LOCATION_VERIFY packet: ${e.message}", e)
                 }
             }
+
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.LEAVE -> handleLeave(routed)
             MessageType.FRAGMENT -> handleFragment(routed)
@@ -369,7 +348,60 @@ class PacketProcessor(private val myPeerID: String) {
         // Cancel the main scope
         processorScope.cancel()
     }
+
+    private fun handleLocationVerifyAction(
+        canonicalPeerID: String,
+        action: com.bitchat.android.protocol.LocationVerifyPacket.Action
+    ) {
+        try {
+            val storeClass = Class.forName("com.bitchat.android.geohash.VerifiedLocationPeersStore")
+            val holderClass = Class.forName("com.bitchat.android.service.MeshServiceHolder")
+            val meshServiceField = holderClass.getDeclaredField("meshService")
+            val meshService = meshServiceField.get(null) ?: return
+            val contextMethod = meshService.javaClass.getMethod("getContext")
+            val serviceContext = contextMethod.invoke(meshService) as? android.content.Context ?: return
+
+            val getInstanceMethod = storeClass.getMethod("getInstance", android.content.Context::class.java)
+            val store = getInstanceMethod.invoke(null, serviceContext)
+
+            when (action) {
+                com.bitchat.android.protocol.LocationVerifyPacket.Action.REQUEST -> {
+                    Log.i(TAG, "📩 Location verify REQUEST received from ${formatPeerForLog(canonicalPeerID)}")
+                    AppStateStore.showIncomingVerifyRequest(canonicalPeerID)
+                }
+                com.bitchat.android.protocol.LocationVerifyPacket.Action.ACCEPT -> {
+                    Log.i(TAG, "✅ Location verify ACCEPT received from ${formatPeerForLog(canonicalPeerID)}")
+                    storeClass.getMethod("addVerifiedPeer", String::class.java).invoke(store, canonicalPeerID)
+                    triggerLocationBroadcast(holderClass, meshService)
+                }
+                com.bitchat.android.protocol.LocationVerifyPacket.Action.REJECT -> {
+                    Log.w(TAG, "❌ Location verify REJECT received from ${formatPeerForLog(canonicalPeerID)}")
+                    storeClass.getMethod("recordRejection", String::class.java).invoke(store, canonicalPeerID)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Location verify action skipped: ${e.message}")
+        }
+    }
+
+    private fun triggerLocationBroadcast(holderClass: Class<*>, meshService: Any) {
+        try {
+            val mgrField = holderClass.getDeclaredField("locationTelemetryManager")
+            val mgr = mgrField.get(null)
+            if (mgr != null) {
+                mgr.javaClass.getMethod("broadcastCurrentLocationImmediately").invoke(mgr)
+            } else {
+                val locField = holderClass.getDeclaredField("lastKnownLocation")
+                val loc = locField.get(null) as? AndroidLocation
+                if (loc != null) {
+                    meshService.javaClass.getMethod("sendLocationTelemetry", AndroidLocation::class.java).invoke(meshService, loc)
+                }
+
+            }
+        } catch (_: Exception) { }
+    }
 }
+
 
 /**
  * Delegate interface for packet processor callbacks
