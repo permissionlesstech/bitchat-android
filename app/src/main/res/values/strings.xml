@@ -456,11 +456,17 @@
   <string name="fingerprint_pending">Handshake pending</string>
   <string name="fingerprint_no_peer">Open a private chat to view fingerprints</string>
   <string name="fingerprint_status_verified">Encrypted &amp; verified</string>
+  <string name="fingerprint_status_vouched" tools:ignore="MissingTranslation">Encrypted &amp; vouched</string>
   <string name="fingerprint_status_encrypted">Encrypted</string>
   <string name="fingerprint_status_handshaking">Handshaking</string>
   <string name="fingerprint_status_failed">Handshake failed</string>
   <string name="fingerprint_status_uninitialized">Not encrypted</string>
   <string name="fingerprint_verified_label">Verified</string>
+  <string name="fingerprint_vouched_label" tools:ignore="MissingTranslation">Vouched</string>
+  <plurals name="fingerprint_vouched_message" tools:ignore="MissingTranslation">
+    <item quantity="one">Vouched for by %1$d person you verified</item>
+    <item quantity="other">Vouched for by %1$d people you verified</item>
+  </plurals>
   <string name="fingerprint_verified_message">You have verified this person\'s identity.</string>
   <string name="fingerprint_not_verified_label">Not verified</string>
   <string name="fingerprint_not_verified_message_fmt">Compare these fingerprints with %1$s using a secure channel.</string>

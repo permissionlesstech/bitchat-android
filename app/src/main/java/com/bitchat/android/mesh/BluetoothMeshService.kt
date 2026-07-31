@@ -19,6 +19,7 @@ import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.service.TransportBridgeService
+import com.bitchat.android.identity.SecureIdentityStateManager
 import kotlinx.coroutines.*
 import java.util.*
 import kotlin.math.sign
@@ -52,6 +53,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     // My peer identification - derived from persisted Noise identity fingerprint (first 16 hex chars)
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
     private val peerManager = PeerManager()
+    private val identityState = SecureIdentityStateManager(context.applicationContext)
     private val fragmentManager = FragmentManager()
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val readReceiptRetrySender = RetryingControlPacketSender(serviceScope)
@@ -127,6 +129,20 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     // Coroutines
     // Tracks whether this instance has been terminated via stopServices()
     private var terminated = false
+    private val vouchCoordinator by lazy {
+        VouchCoordinator(
+            scope = serviceScope,
+            identity = identityState,
+            connectedPeerIDs = peerManager::getActivePeerIDs,
+            fingerprintForPeer = peerManager::getFingerprintForPeer,
+            peerInfo = peerManager::getPeerInfo,
+            signingKeyForFingerprint = ::signingKeyForFingerprint,
+            hasEstablishedSession = encryptionService::hasEstablishedSession,
+            sign = encryptionService::signData,
+            verify = encryptionService::verifyEd25519Signature,
+            send = ::sendVouchPayload
+        )
+    }
     
     init {
         Log.i(TAG, "Initializing BluetoothMeshService for peer=$myPeerID")
@@ -253,6 +269,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun onPeerListUpdated(peerIDs: List<String>) {
                 // Update process-wide state first
                 try { com.bitchat.android.services.AppStateStore.setTransportPeers("BLE", peerIDs) } catch (_: Exception) { }
+                vouchCoordinator.peersUpdated(peerIDs)
                 // Then notify UI delegate if attached
                 delegate?.didUpdatePeerList(peerIDs)
             }
@@ -284,6 +301,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     peerID,
                     authenticatedRemoteStaticKey,
                     authenticatedSessionToken
+                )
+                vouchCoordinator.peerAuthenticated(
+                    peerID,
+                    identityState.generateFingerprint(authenticatedRemoteStaticKey)
                 )
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
@@ -535,6 +556,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
                 delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
+            }
+
+            override fun onVouchPayloadReceived(peerID: String, payload: ByteArray) {
+                vouchCoordinator.handlePayload(peerID, payload)
             }
         }
         
@@ -895,6 +920,31 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         val signed = signPacketBeforeBroadcast(packet)
         if (signed.signature?.size != 64) return false
         broadcastRoutedPacket(RoutedPacket(signed))
+        return true
+    }
+
+    private fun signingKeyForFingerprint(fingerprint: String): ByteArray? {
+        identityState.getAuthenticatedSigningKey(fingerprint)?.let { return it }
+        return peerManager.getActivePeerIDs().firstNotNullOfOrNull { peerID ->
+            val peerFingerprint = peerManager.getFingerprintForPeer(peerID)
+            peerManager.getPeerInfo(peerID)?.signingPublicKey
+                ?.takeIf { peerFingerprint.equals(fingerprint, ignoreCase = true) }
+        }
+    }
+
+    private fun sendVouchPayload(peerID: String, payload: ByteArray): Boolean {
+        val plaintext = NoisePayload(NoisePayloadType.VOUCH, payload).encode()
+        val encrypted = securityManager.encryptForPeer(plaintext, peerID) ?: return false
+        val packet = BitchatPacket(
+            version = VouchCoordinator.NOISE_PACKET_VERSION,
+            type = MessageType.NOISE_ENCRYPTED.value,
+            senderID = hexStringToByteArray(myPeerID),
+            recipientID = hexStringToByteArray(peerID),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = encrypted,
+            ttl = MAX_TTL
+        )
+        broadcastRoutedPacket(RoutedPacket(signPacketBeforeBroadcast(packet)))
         return true
     }
 
