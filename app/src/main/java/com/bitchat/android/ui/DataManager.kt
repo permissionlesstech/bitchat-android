@@ -7,6 +7,8 @@ import com.bitchat.android.geohash.DEFAULT_LIVE_LOCATION_ENABLED
 import com.google.gson.Gson
 import kotlin.random.Random
 
+import java.util.concurrent.ConcurrentHashMap
+
 /**
  * Handles data persistence operations for the chat system
  */
@@ -19,11 +21,11 @@ class DataManager(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
     private val gson = Gson()
     
-    // Channel-related maps that need to persist state
-    private val _channelCreators = mutableMapOf<String, String>()
-    private val _favoritePeers = mutableSetOf<String>()
-    private val _blockedUsers = mutableSetOf<String>()
-    private val _channelMembers = mutableMapOf<String, MutableSet<String>>()
+    // Channel-related maps that need to persist state (thread-safe for concurrent access)
+    private val _channelCreators = ConcurrentHashMap<String, String>()
+    private val _favoritePeers = ConcurrentHashMap.newKeySet<String>()
+    private val _blockedUsers = ConcurrentHashMap.newKeySet<String>()
+    private val _channelMembers = ConcurrentHashMap<String, MutableSet<String>>()
     
     val channelCreators: Map<String, String> get() = _channelCreators
     val favoritePeers: Set<String> get() = _favoritePeers
@@ -159,41 +161,32 @@ class DataManager(private val context: Context) {
     fun loadFavorites() {
         val savedFavorites = prefs.getStringSet("favorites", emptySet()) ?: emptySet()
         _favoritePeers.addAll(savedFavorites)
-        Log.d(TAG, "Loaded ${savedFavorites.size} favorite users from storage: $savedFavorites")
+        Log.d(TAG, "Loaded ${savedFavorites.size} favorite users from storage")
     }
     
     fun saveFavorites() {
         prefs.edit().putStringSet("favorites", _favoritePeers).apply()
-        Log.d(TAG, "Saved ${_favoritePeers.size} favorite users to storage: $_favoritePeers")
+        Log.d(TAG, "Saved ${_favoritePeers.size} favorite users to storage")
     }
     
     fun addFavorite(fingerprint: String) {
         val wasAdded = _favoritePeers.add(fingerprint)
-        Log.d(TAG, "addFavorite: fingerprint=$fingerprint, wasAdded=$wasAdded")
+        Log.d(TAG, "addFavorite: wasAdded=$wasAdded")
         saveFavorites()
-        logAllFavorites()
     }
     
     fun removeFavorite(fingerprint: String) {
         val wasRemoved = _favoritePeers.remove(fingerprint)
-        Log.d(TAG, "removeFavorite: fingerprint=$fingerprint, wasRemoved=$wasRemoved")
+        Log.d(TAG, "removeFavorite: wasRemoved=$wasRemoved")
         saveFavorites()
-        logAllFavorites()
     }
     
     fun isFavorite(fingerprint: String): Boolean {
-        val result = _favoritePeers.contains(fingerprint)
-        Log.d(TAG, "isFavorite check: fingerprint=$fingerprint, result=$result")
-        return result
+        return _favoritePeers.contains(fingerprint)
     }
     
     fun logAllFavorites() {
-        Log.i(TAG, "=== ALL FAVORITE USERS ===")
         Log.i(TAG, "Total favorites: ${_favoritePeers.size}")
-        _favoritePeers.forEach { fingerprint ->
-            Log.i(TAG, "Favorite fingerprint: $fingerprint")
-        }
-        Log.i(TAG, "========================")
     }
     
     // MARK: - Blocked Users Management
@@ -226,7 +219,7 @@ class DataManager(private val context: Context) {
     
     // MARK: - Geohash Blocked Users Management
     
-    private val _geohashBlockedUsers = mutableSetOf<String>() // Set of nostr pubkey hex
+    private val _geohashBlockedUsers = ConcurrentHashMap.newKeySet<String>() // Set of nostr pubkey hex
     val geohashBlockedUsers: Set<String> get() = _geohashBlockedUsers.toSet()
     
     @Synchronized

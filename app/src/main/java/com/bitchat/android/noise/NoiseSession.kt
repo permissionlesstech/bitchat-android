@@ -46,7 +46,7 @@ class NoiseSession(
         /**
          * Check if nonce is valid for replay protection (matching iOS implementation)
          */
-        private fun isValidNonce(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Boolean {
+        internal fun isValidNonce(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Boolean {
             if (receivedNonce + REPLAY_WINDOW_SIZE <= highestReceivedNonce) {
                 return false  // Too old, outside window
             }
@@ -65,7 +65,7 @@ class NoiseSession(
         /**
          * Mark nonce as seen in replay window (matching iOS implementation)
          */
-        private fun markNonceAsSeen(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Pair<Long, ByteArray> {
+        internal fun markNonceAsSeen(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Pair<Long, ByteArray> {
             var newHighestReceivedNonce = highestReceivedNonce
             val newReplayWindow = replayWindow.copyOf()
             
@@ -76,16 +76,20 @@ class NoiseSession(
                     // Clear entire window - shift is too large
                     newReplayWindow.fill(0)
                 } else {
-                    // Shift window right by `shift` bits
+                    val byteShift = shift / 8
+                    val bitShift = shift % 8
+                    
+                    // Shift window left (to higher offset indices) by `shift` bits
                     for (i in (REPLAY_WINDOW_BYTES - 1) downTo 0) {
-                        val sourceByteIndex = i - shift / 8
+                        val src1 = i - byteShift
+                        val src2 = i - byteShift - 1
                         var newByte = 0
                         
-                        if (sourceByteIndex >= 0) {
-                            newByte = (newReplayWindow[sourceByteIndex].toInt() and 0xFF) ushr (shift % 8)
-                            if (sourceByteIndex > 0 && shift % 8 != 0) {
-                                newByte = newByte or ((newReplayWindow[sourceByteIndex - 1].toInt() and 0xFF) shl (8 - shift % 8))
-                            }
+                        if (src1 >= 0) {
+                            newByte = (replayWindow[src1].toInt() and 0xFF) shl bitShift
+                        }
+                        if (src2 >= 0 && bitShift != 0) {
+                            newByte = newByte or ((replayWindow[src2].toInt() and 0xFF) ushr (8 - bitShift))
                         }
                         
                         newReplayWindow[i] = (newByte and 0xFF).toByte()

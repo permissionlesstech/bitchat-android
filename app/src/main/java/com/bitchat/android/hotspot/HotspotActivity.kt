@@ -94,6 +94,12 @@ class HotspotActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing) {
+            viewModel.stopHotspot()
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
