@@ -418,6 +418,40 @@ fun AboutSheet(
                         }
                     }
 
+                    item(key = "chat_style") {
+                        Column {
+                            AboutSectionLabel(text = stringResource(R.string.about_section_chat_style))
+                            val chatUiMode by com.bitchat.android.ui.theme.ChatUiModeManager.modeFlow.collectAsState()
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AboutHorizontalPadding),
+                                color = colorScheme.surface,
+                                shape = AboutCardShape
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    ThemeChip(
+                                        label = stringResource(R.string.chat_ui_matrix),
+                                        selected = chatUiMode.isMatrix,
+                                        onClick = { com.bitchat.android.ui.theme.ChatUiModeManager.set(context, com.bitchat.android.ui.theme.ChatUiMode.Matrix) },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    ThemeChip(
+                                        label = stringResource(R.string.chat_ui_bubbles),
+                                        selected = chatUiMode.isBubbles,
+                                        onClick = { com.bitchat.android.ui.theme.ChatUiModeManager.set(context, com.bitchat.android.ui.theme.ChatUiMode.Bubbles) },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     item(key = "language") {
                         val selectedLanguageName = supportedLanguages
                             .firstOrNull { it.languageTag == selectedLanguageTag }

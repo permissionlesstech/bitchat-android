@@ -171,6 +171,7 @@
   <!-- About sheet: section labels -->
   <string name="about_section_about">About</string>
   <string name="about_section_theme">Theme</string>
+  <string name="about_section_chat_style">Chat style</string>
   <string name="about_section_settings">Settings</string>
 
   <!-- About sheet: feature list -->
@@ -196,6 +197,8 @@
   <string name="about_system">System</string>
   <string name="about_light">Light</string>
   <string name="about_dark">Dark</string>
+  <string name="chat_ui_matrix">Matrix</string>
+  <string name="chat_ui_bubbles">Bubbles</string>
   <string name="about_pow">Proof of Work</string>
   <string name="about_pow_off">PoW Off</string>
   <string name="about_pow_on">PoW On</string>
