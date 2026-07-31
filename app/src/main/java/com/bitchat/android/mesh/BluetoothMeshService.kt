@@ -1456,10 +1456,9 @@ class BluetoothMeshService(val context: Context) : TransportBridgeService.Transp
      * Get all peers with established encrypted sessions
      */
     fun getEncryptedPeers(): List<String> {
-        // SIMPLIFIED: Return empty list for now since we don't have direct access to sessionManager
-        // This method is not critical for the session retention fix
-        return emptyList()
+        return encryptionService.getEstablishedPeers()
     }
+
     
     /**
      * Get device address for a specific peer ID
