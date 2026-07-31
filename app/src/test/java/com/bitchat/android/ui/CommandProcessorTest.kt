@@ -161,4 +161,22 @@ class CommandProcessorTest() {
     )
     assertEquals(0, chatState.getMessagesValue().size)
   }
+
+  @Test
+  fun `join command leaves active geohash selection for mesh channel routing`() {
+    chatState.setSelectedLocationChannel(
+      ChannelID.Location(GeohashChannel(GeohashChannelLevel.REGION, "9q"))
+    )
+
+    commandProcessor.processCommand(
+      command = "/join backchannel",
+      meshService = meshService,
+      myPeerID = "peer-id",
+      onSendMessage = { _, _, _ -> },
+      viewModel = null
+    )
+
+    assertEquals("#backchannel", chatState.getCurrentChannelValue())
+    assertEquals(ChannelID.Mesh, chatState.selectedLocationChannel.value)
+  }
 }
