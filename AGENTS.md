@@ -1,79 +1,75 @@
-# Bitchat Android - Agent Guide
+# Repository Guidelines
 
-This document provides context, architectural insights, and development standards for AI agents working on the Bitchat Android codebase.
+## Project Structure & Architecture
 
-## 1. Project Overview
-**Bitchat** is a decentralized, off-grid communication application focused on privacy and censorship resistance. It utilizes mesh networking (primarily Bluetooth LE and Tor/Arti) to enable peer-to-peer messaging without centralized servers.
+`app/` is the Kotlin/Compose phone client; its main packages cover UI, services,
+BLE/Wi-Fi mesh, protocol, Noise/crypto, identity, Nostr, geohash, and media.
+`wear/` is the Wear OS client. Module resources live in `src/main/`
+and JVM tests in `src/test/`. Specifications are in `docs/`; tooling is in
+`tools/`.
 
-**Key Technologies:**
-- **Language:** Kotlin (JVM Target 1.8)
-- **UI Framework:** Jetpack Compose (Material 3)
-- **Asynchronous:** Kotlin Coroutines & Flow
-- **Networking:** Bluetooth Low Energy (BLE), Tor (Arti Rust bridge), OkHttp
-- **Architecture:** MVVM with Clean Architecture principles
-- **Build System:** Gradle (Kotlin DSL)
+`app/` is the source of truth for shared mesh/protocol code.
+`syncSharedAppSources` generates `wear/build/sharedSrc` from the include list
+in `wear/build.gradle.kts`. Extend that list; never copy shared
+Kotlin into `wear/src/` or edit generated `build/` content.
 
-## 2. Architecture & Directory Structure
-The application follows a clean architecture pattern, heavily modularized by feature within the `app` module.
+## Build, Test & Development Commands
 
-**Root Package:** `com.bitchat.android`
+Use JDK 21 and the Android SDK versions in `gradle/libs.versions.toml`.
 
-| Directory | Purpose |
-|-----------|---------|
-| `ui/` | **Presentation Layer**: Jetpack Compose screens, themes, and ViewModels. |
-| `service/` | **Core Service**: Contains `MeshForegroundService`, managing persistent background connectivity. |
-| `mesh/` | **Mesh Networking**: Logic for peer discovery, advertising, and message routing. |
-| `protocol/` | **Wire Protocol**: Definitions of messages exchanged between peers. |
-| `crypto/` | **Security**: Cryptographic primitives and key management. |
-| `noise/` | **Encryption**: Implementation of the Noise Protocol Framework for secure channels. |
-| `identity/` | **User Identity**: Management of user profiles and public/private keys. |
-| `features/` | **App Features**: Sub-modules for `voice`, `file`, and `media` handling. |
-| `nostr/` | **Relay Integration**: Logic for Nostr protocol integration and relay management. |
-| `geohash/` | **Location**: Utilities for location-based features and geohashing. |
-| `net/` | **Networking**: General network utilities and abstractions. |
+```sh
+./gradlew :app:assembleDebug :wear:assembleDebug
+./gradlew testDebugUnitTest lintDebug
+./gradlew connectedAndroidTest
+./gradlew clientRewriteContractTest
+tools/arti-build/verify-checksums.sh
+```
 
-## 3. Key Components
+CI runs `testDebugUnitTest lintDebug`; instrumented tests require a device.
+Follow `docs/reproducible-builds.md` and `docs/maintainer-release-guide.md` for
+dependency and release work.
 
-### UI Layer (Jetpack Compose)
-- **Activity**: Single-Activity architecture (`MainActivity.kt`).
-- **Navigation**: Jetpack Compose Navigation.
-- **State Management**: `ViewModel` exposing `StateFlow` to Composables.
-- **Theme**: Custom theme definitions in `ui/theme`.
+## Coding Style & Naming
 
-### Networking & Connectivity
-- **MeshForegroundService**: The critical component that keeps the mesh network alive. It manages the lifecycle of BLE scanning/advertising and other transport layers.
-- **BLE Stack**: Located in `mesh/` and `net/`, handles the intricacies of Android Bluetooth interactions.
-- **Tor/Arti**: Integrated via JNI (`jniLibs`) to provide anonymous internet routing where available.
+Use official Kotlin style with four-space indentation. Classes and Composables
+use `PascalCase`; functions and properties use `camelCase`; constants use
+`UPPER_SNAKE_CASE`. Hoist Compose state, expose immutable `StateFlow`, use
+structured coroutines and suspend I/O, and never block the main thread.
 
-## 4. Development Standards
+Protocol and security changes must remain fail-closed and cross-client
+compatible. Update the relevant specification and golden-vector tests.
 
-### Code Style
-- **Kotlin**: Adhere to official Kotlin coding conventions.
-- **Compose**: Use functional components. Hoist state to ViewModels where possible.
-- **Coroutines**: Use `suspend` functions for all I/O operations. strictly avoid blocking the main thread.
-- **Naming**: Clear, descriptive names. Follow standard Android naming patterns (e.g., `*ViewModel`, `*Repository`, `*Screen`).
+## Testing & Physical Mesh Lab
 
-### Testing
-- **Unit Tests**: Located in `app/src/test/`. Use for business logic, protocols, and utility testing.
-- **Instrumented Tests**: Located in `app/src/androidTest/`. Use for UI and permission integration testing.
-- **Device Mesh Tests (ADB test hooks)**: Two-physical-device scenarios driven over ADB, **kept separate from Gradle/CI** — run them manually when changing mesh/crypto/transfer code. A debug-only broadcast receiver (`app/src/debug/java/com/bitchat/android/testhook/`, never in release builds) exposes mesh operations (scan, connect, Noise handshake, DMs, broadcast, files, raw packet injection) via `am broadcast -a com.bitchat.droid.TEST_HOOK`; the host orchestrator is `tools/release_gate/mesh_lab.py`. Full guide: `docs/release-gate-runbook.md` appendix "mesh lab".
-  - Prereqs: `adb` on PATH, Python 3.10+, two devices with USB debugging, **both unlocked with screen on** (locked/dozing → POWER_SAVER → flaky timing).
-  - Setup: `./gradlew assembleDebug && python3 tools/release_gate/mesh_lab.py setup --serial-a <s1> --serial-b <s2> --apk app/build/outputs/apk/debug/app-arm64-v8a-debug.apk`
-  - Run: `python3 tools/release_gate/mesh_lab.py scenario all --serial-a <s1> --serial-b <s2> --out /tmp/meshlab-evidence`
-  - Scenarios: `dm`, `broadcast`, `file`, `file_oversize`, `file_private`, `raw`, `session_recovery`, `identity_reset`, `all`. Ad-hoc: `... cmd --serial <s> state`.
-- **Execution**:
-  - Unit: `./gradlew test`
-  - Instrumented: `./gradlew connectedAndroidTest`
+Tests use JUnit 4, Robolectric, Mockito, and coroutine test utilities. Name files
+`*Test.kt` by observable behavior. Avoid arbitrary sleeps, public
+relays, live user data, and nondeterministic completion. See
+`docs/testing-conventions.md`.
 
-## 5. Critical Constraints & Gotchas
-1.  **Permissions**: The app relies heavily on dangerous runtime permissions (Location, Bluetooth Scan/Connect/Advertise, Audio Recording). Always verify permission handling patterns in `MainActivity` or permission wrappers before adding new hardware features.
-2.  **Hardware Dependency**: Features like BLE are difficult to emulate. When writing code for these, focus on robust error handling and defensive programming as hardware behavior can be flaky.
-3.  **Background Limits**: Android enforces strict background execution limits. Network operations intended to persist must be tied to the `MeshForegroundService`.
+Changes affecting discovery, routing, transports, Noise/crypto, identity,
+foreground-service power, messaging, transfers, packets, or fragmentation
+require Mesh Lab validation on physical devices. Debug-only hooks live in
+`app/src/debug/` and `wear/src/debug/`; never move them into release sources.
 
-## 6. Common Tasks
-- **Build Debug APK**: `./gradlew assembleDebug`
-- **Lint Check**: `./gradlew lint`
-- **Clean Build**: `./gradlew clean`
+```sh
+python3 tools/release_gate/mesh_lab.py setup \
+  --serial-a <device-a> --serial-b <device-b> --apk <debug-apk>
+python3 tools/release_gate/mesh_lab.py scenario all \
+  --serial-a <device-a> --serial-b <device-b> --out /tmp/mesh-evidence
+```
 
----
-*Note: This file is intended to assist AI agents in navigating and modifying the codebase efficiently. Always verify context by reading the actual files before making changes.*
+For phone-to-watch interop, replace `--serial-b` with `--serial-watch` and add
+`--watch-apk`. Keep devices unlocked and awake. Follow the Mesh Lab appendix in
+`docs/release-gate-runbook.md`; raw evidence and logcat must remain local.
+
+## Commits, Pull Requests & Privacy
+
+Use short imperative subjects (`Fix stale peer lifecycle cleanup`) or scoped
+Conventional Commit subjects (`fix(wifi-aware): ...`). PRs must explain risk,
+link the issue, report tests, and include before/after screenshots for visible
+phone or watch changes. Do not publish raw device logs.
+
+Use `gh` for GitHub operations. Never override Git author or committer identity.
+Never put usernames, local paths, device identifiers, network addresses, peer
+IDs, messages, keys, or other PII in GitHub content or Git history. Never commit
+keystores or secrets.
