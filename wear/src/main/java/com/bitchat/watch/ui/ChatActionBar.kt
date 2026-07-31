@@ -54,7 +54,12 @@ import com.bitchat.watch.ui.theme.LocalBitchatPalette
  * level so [VoiceRecordOverlay] can render full-screen outside this slot.
  */
 @Composable
-fun ChatActionBar(onKeyboard: () -> Unit, voice: VoiceNoteController, modifier: Modifier = Modifier) {
+fun ChatActionBar(
+    onKeyboard: () -> Unit,
+    voice: VoiceNoteController,
+    busyTalker: String? = null,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val palette = LocalBitchatPalette.current
 
@@ -87,7 +92,11 @@ fun ChatActionBar(onKeyboard: () -> Unit, voice: VoiceNoteController, modifier: 
                 .size(38.dp)
                 .clip(CircleShape)
                 .background(
-                    if (voice.recording) MaterialTheme.colorScheme.primary else palette.inputButton
+                    when {
+                        voice.recording -> MaterialTheme.colorScheme.primary
+                        busyTalker != null -> androidx.compose.ui.graphics.Color(0xFFFFB300).copy(alpha = 0.28f)
+                        else -> palette.inputButton
+                    }
                 )
                 .pointerInput(Unit) {
                     detectTapGestures(
@@ -115,8 +124,11 @@ fun ChatActionBar(onKeyboard: () -> Unit, voice: VoiceNoteController, modifier: 
             Icon(
                 imageVector = Icons.Filled.Mic,
                 contentDescription = "push to talk",
-                tint = if (voice.recording) MaterialTheme.colorScheme.onPrimary
-                else MaterialTheme.colorScheme.primary,
+                tint = when {
+                    voice.recording -> MaterialTheme.colorScheme.onPrimary
+                    busyTalker != null -> androidx.compose.ui.graphics.Color(0xFFFFB300)
+                    else -> MaterialTheme.colorScheme.primary
+                },
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -226,7 +238,7 @@ fun VoiceRecordOverlay(
                     .height(44.dp)
             )
             Text(
-                text = "%d:%02d".format(
+                text = (if (voice.isLive) "LIVE · " else "") + "%d:%02d".format(
                     voice.elapsedMs / 1000 / 60,
                     voice.elapsedMs / 1000 % 60
                 ) + " / 0:10",

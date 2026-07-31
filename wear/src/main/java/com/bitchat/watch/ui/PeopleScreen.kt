@@ -13,6 +13,10 @@ import androidx.compose.material.icons.filled.Verified
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -38,6 +42,7 @@ import com.bitchat.watch.ui.theme.colorForPeer
 
 @Composable
 fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
+    val context = LocalContext.current
     val peers by AppStateStore.peers.collectAsState()
     val unread by WearChatState.unreadDms.collectAsState()
     val mesh = WearMeshService.peek()
@@ -45,6 +50,9 @@ fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
     val palette = LocalBitchatPalette.current
     val nicknames = mesh?.getPeerNicknames() ?: emptyMap()
     val identityRevision by WearPeerIdentityState.revision.collectAsState()
+    var liveVoiceEnabled by remember {
+        mutableStateOf(com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context))
+    }
 
     // Peers with unread messages float to the top so they are easy to see and reach.
     val sortedPeers = androidx.compose.runtime.remember(
@@ -91,6 +99,29 @@ fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
                     nickname = mesh?.nickname ?: "me",
                     onClick = onEditNickname
                 )
+            }
+            item(key = "live_voice") {
+                Card(
+                    onClick = {
+                        liveVoiceEnabled = !liveVoiceEnabled
+                        com.bitchat.android.features.voice.LiveVoicePreferences.setEnabled(
+                            context,
+                            liveVoiceEnabled
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = if (liveVoiceEnabled) "Live push-to-talk: on" else "Live push-to-talk: off",
+                        style = ChatVisualTokens.SenderStyle,
+                        color = if (liveVoiceEnabled) MaterialTheme.colorScheme.primary else palette.textTertiary
+                    )
+                    Text(
+                        text = "Tap to toggle; a voice note is still sent on release",
+                        style = ChatVisualTokens.SystemActionStyle,
+                        color = palette.textTertiary
+                    )
+                }
             }
             items(sortedPeers, key = { it }) { peerID ->
                 val nick = nicknames[peerID] ?: peerID.take(8)

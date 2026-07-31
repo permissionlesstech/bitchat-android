@@ -21,6 +21,7 @@ enum class NoisePayloadType(val value: UByte) {
     PRIVATE_MESSAGE(0x01u),     // Private chat message with TLV encoding
     READ_RECEIPT(0x02u),        // Message was read
     DELIVERED(0x03u),           // Message was delivered
+    VOICE_FRAME(0x08u),         // Ephemeral live push-to-talk frame
     VERIFY_CHALLENGE(0x10u),    // Verification challenge
     VERIFY_RESPONSE(0x11u),     // Verification response
     FILE_TRANSFER(0x20u),

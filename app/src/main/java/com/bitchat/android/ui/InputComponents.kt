@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.toSize
 import kotlin.math.roundToInt
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.R
+import com.bitchat.android.features.voice.VoiceRecorder
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -317,6 +318,8 @@ fun MessageInput(
     nickname: String,
     showMediaButtons: Boolean,
     mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
+    recorderFactory: ((String?, String?) -> VoiceRecorder)? = null,
+    activePublicTalker: String? = null,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
@@ -325,6 +328,7 @@ fun MessageInput(
     val hasText = value.text.isNotBlank()
     val focusRequester = remember { FocusRequester() }
     var isRecording by remember { mutableStateOf(false) }
+    var isLiveRecording by remember { mutableStateOf(false) }
     var elapsedMs by remember { mutableStateOf(0L) }
     var amplitude by remember { mutableStateOf(0) }
     val cashuToken = remember(value.text) {
@@ -484,7 +488,9 @@ fun MessageInput(
                 )
                 if (placeholderAlpha > 0f) {
                     Text(
-                        text = stringResource(R.string.type_a_message_placeholder),
+                        text = if (
+                            selectedPrivatePeer == null && currentChannel == null && activePublicTalker != null
+                        ) "$activePublicTalker is live" else stringResource(R.string.type_a_message_placeholder),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = BitchatFontFamily
                         ),
@@ -518,7 +524,8 @@ fun MessageInput(
                         // scrolls off the left edge while live data streams in from the right.
                         val secs = (elapsedMs / 1000).toInt()
                         Text(
-                            text = String.format("%02d:%02d", secs / 60, secs % 60),
+                            text = (if (isLiveRecording) "LIVE · " else "") +
+                                String.format("%02d:%02d", secs / 60, secs % 60),
                             fontFamily = BitchatFontFamily,
                             color = colorScheme.error,
                             fontSize = (BASE_FONT_SIZE - 4).sp
@@ -628,12 +635,18 @@ fun MessageInput(
 
                             VoiceRecordButton(
                                 isRecording = isRecording,
+                                recorderFactory = recorderFactory?.let { factory ->
+                                    { factory(latestSelectedPeer.value, latestChannel.value) }
+                                },
+                                courtesyActive = selectedPrivatePeer == null && currentChannel == null &&
+                                    activePublicTalker != null,
                                 shouldCancel = { pos ->
                                     cancelBounds?.inflate(cancelSlackPx)?.contains(pos) == true
                                 },
                                 onTrackFinger = { cancelFinger = it },
-                                onStart = {
+                                onStart = { live ->
                                     isRecording = true
+                                    isLiveRecording = live
                                     elapsedMs = 0L
                                     // Keep existing focus to avoid IME collapse, but do not
                                     // force-show the keyboard.
@@ -647,6 +660,7 @@ fun MessageInput(
                                 },
                                 onFinish = { path ->
                                     isRecording = false
+                                    isLiveRecording = false
                                     // Extract and cache the waveform from the actual audio file
                                     // so it matches the receiver's rendering.
                                     AudioWaveformExtractor.extractAsync(path, sampleCount = 120) { arr ->
@@ -667,6 +681,7 @@ fun MessageInput(
                                 // waveform over an empty field.
                                 onCancel = {
                                     isRecording = false
+                                    isLiveRecording = false
                                     amplitude = 0
                                     elapsedMs = 0L
                                 }

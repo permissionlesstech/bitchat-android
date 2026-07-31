@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,6 +25,7 @@ import com.bitchat.android.model.BitchatMessage
 import androidx.compose.material3.ColorScheme
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import java.text.SimpleDateFormat
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun AudioMessageItem(
@@ -38,6 +41,10 @@ fun AudioMessageItem(
     showSender: Boolean = true
 ) {
     val palette = LocalBitchatPalette.current
+    val context = LocalContext.current
+    val liveMessageIDs by com.bitchat.android.features.voice.LiveVoiceManager
+        .getInstance(context).liveMessageIDs.collectAsState()
+    val isLive = message.id in liveMessageIDs
     val path = message.content.trim()
     // Derive sending progress if applicable
     val (overrideProgress, overrideColor) = when (val st = message.deliveryStatus) {
@@ -78,6 +85,14 @@ fun AudioMessageItem(
         )
 
         Row(verticalAlignment = Alignment.CenterVertically) {
+            if (isLive) {
+                androidx.compose.material3.Text(
+                    text = "LIVE",
+                    color = Color(0xFFFFB300),
+                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
             VoiceNotePlayer(
                 path = path,
                 progressOverride = overrideProgress,

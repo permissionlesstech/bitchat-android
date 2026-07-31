@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Warning
@@ -482,6 +483,9 @@ fun AboutSheet(
                         val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
                         val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
                         var backgroundEnabled by remember { mutableStateOf(com.bitchat.android.service.MeshServicePreferences.isBackgroundEnabled(true)) }
+                        var liveVoiceEnabled by remember {
+                            mutableStateOf(com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context))
+                        }
                         val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
                         val torProvider = remember { ArtiTorManager.getInstance() }
                         val torStatus by torProvider.statusFlow.collectAsState()
@@ -511,6 +515,23 @@ fun AboutSheet(
                                             } else {
                                                 com.bitchat.android.service.MeshForegroundService.start(context)
                                             }
+                                        }
+                                    )
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 54.dp),
+                                        thickness = 1.dp,
+                                        color = colorScheme.outlineVariant
+                                    )
+
+                                    SettingsToggleRow(
+                                        icon = Icons.Filled.Mic,
+                                        title = "Live push-to-talk",
+                                        subtitle = "Play voice bursts live on the mesh; voice notes are always sent on release",
+                                        checked = liveVoiceEnabled,
+                                        onCheckedChange = { enabled ->
+                                            liveVoiceEnabled = enabled
+                                            com.bitchat.android.features.voice.LiveVoicePreferences.setEnabled(context, enabled)
                                         }
                                     )
 

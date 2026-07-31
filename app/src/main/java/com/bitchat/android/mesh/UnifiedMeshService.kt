@@ -167,6 +167,23 @@ class UnifiedMeshService(
         }
     }
 
+    override fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
+        if (recipientPeerID == null) {
+            when {
+                isBleEnabled() -> bluetooth.sendVoiceFrame(null, payload)
+                else -> wifiService()?.sendVoiceFrame(null, payload)
+            }
+            return
+        }
+        when {
+            isBleReady(recipientPeerID) -> bluetooth.sendVoiceFrame(recipientPeerID, payload)
+            isWifiReady(recipientPeerID) -> wifiService()?.sendVoiceFrame(recipientPeerID, payload)
+            isBleConnected(recipientPeerID) || (isBleEnabled() && !isWifiConnected(recipientPeerID)) ->
+                bluetooth.sendVoiceFrame(recipientPeerID, payload)
+            else -> wifiService()?.sendVoiceFrame(recipientPeerID, payload)
+        }
+    }
+
     override fun prepareFilePrivate(
         recipientPeerID: String,
         file: BitchatFilePacket,

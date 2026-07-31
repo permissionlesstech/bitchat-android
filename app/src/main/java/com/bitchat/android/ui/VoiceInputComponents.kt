@@ -62,6 +62,8 @@ private const val ReleaseTailMs = 500L
 @Composable
 fun VoiceRecordButton(
     modifier: Modifier = Modifier,
+    recorderFactory: (() -> VoiceRecorder)? = null,
+    courtesyActive: Boolean = false,
     /**
      * Recording state as the composer sees it. Drives the active tint so the button and the
      * pill's border change together instead of one lagging the other.
@@ -79,7 +81,7 @@ fun VoiceRecordButton(
      * cancel target); null once the gesture ends.
      */
     onTrackFinger: (Offset?) -> Unit = {},
-    onStart: () -> Unit,
+    onStart: (isLive: Boolean) -> Unit,
     onAmplitude: (amplitude: Int, elapsedMs: Long) -> Unit,
     onFinish: (filePath: String) -> Unit,
     /**
@@ -109,6 +111,7 @@ fun VoiceRecordButton(
     val latestOnCancel = rememberUpdatedState(onCancel)
     val latestShouldCancel = rememberUpdatedState(shouldCancel)
     val latestOnTrackFinger = rememberUpdatedState(onTrackFinger)
+    val latestRecorderFactory = rememberUpdatedState(recorderFactory)
 
     // Set when this instance was composed, so presses inherited from whatever occupied this spot
     // beforehand can be rejected.
@@ -130,7 +133,7 @@ fun VoiceRecordButton(
             ampJob = null
             if (isCapturing) {
                 isCapturing = false
-                runCatching { recorder?.stop() }
+                runCatching { recorder?.stop(canceled = true) }
                 recorder = null
                 recordedFilePath = null
                 latestOnTrackFinger.value(null)
@@ -141,8 +144,11 @@ fun VoiceRecordButton(
 
     // Same disc, same sizing and the same press feedback as the camera and send buttons.
     ComposerActionSurface(
-        isActive = isRecording || isCapturing,
+        isActive = isRecording || isCapturing || courtesyActive,
         isPressed = isCapturing,
+        activeColor = if (courtesyActive && !isRecording && !isCapturing) {
+            androidx.compose.ui.graphics.Color(0xFFFFB300)
+        } else androidx.compose.ui.graphics.Color.Unspecified,
         modifier = modifier
             .onGloballyPositioned { buttonCoords = it }
             .pointerInput(Unit) {
@@ -169,12 +175,12 @@ fun VoiceRecordButton(
                     }
                     if (releasedEarly != null || stolenDuringArm) return@awaitEachGesture
 
-                    val rec = VoiceRecorder(context)
+                    val rec = latestRecorderFactory.value?.invoke() ?: VoiceRecorder(context)
                     val startedFile = rec.start()
                     if (startedFile == null) {
                         // Recorder refused to start; make sure the caller does not sit in a
                         // recording state that never began.
-                        runCatching { rec.stop() }
+                        runCatching { rec.stop(canceled = true) }
                         latestOnCancel.value()
                         return@awaitEachGesture
                     }
@@ -183,7 +189,7 @@ fun VoiceRecordButton(
                     recordedFilePath = startedFile.absolutePath
                     recordingStart = System.currentTimeMillis()
                     isCapturing = true
-                    latestOnStart.value()
+                    latestOnStart.value(rec.isLive)
                     buzz()
 
                     ampJob?.cancel()
@@ -198,7 +204,7 @@ fun VoiceRecordButton(
                                 val file = recorder?.stop()
                                 isCapturing = false
                                 recorder = null
-                                val path = file?.absolutePath ?: recordedFilePath
+                                val path = file?.absolutePath ?: recordedFilePath?.takeIf { File(it).isFile }
                                 recordedFilePath = null
                                 latestOnTrackFinger.value(null)
                                 buzz()
@@ -237,10 +243,10 @@ fun VoiceRecordButton(
                         withTimeoutOrNull(ReleaseTailMs) { awaitPointerEvent() }
                     }
                     if (isCapturing) {
-                        val file = recorder?.stop()
+                        val file = recorder?.stop(canceled = cancel)
                         isCapturing = false
                         recorder = null
-                        val path = file?.absolutePath ?: recordedFilePath
+                        val path = file?.absolutePath ?: recordedFilePath?.takeIf { File(it).isFile }
                         recordedFilePath = null
                         if (cancel) {
                             path?.let { runCatching { File(it).delete() } }
