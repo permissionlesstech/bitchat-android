@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -124,8 +126,12 @@ fun FullScreenImageViewer(path: String, onClose: () -> Unit) {
  * duration/progress. Playback via MediaPlayer.
  */
 @Composable
-fun VoiceNoteItem(path: String) {
+fun VoiceNoteItem(path: String, messageID: String? = null) {
     val palette = LocalBitchatPalette.current
+    val context = LocalContext.current
+    val liveIDs by com.bitchat.android.features.voice.LiveVoiceManager
+        .getInstance(context).liveMessageIDs.collectAsState()
+    val isLive = messageID != null && messageID in liveIDs
     var samples by remember { mutableStateOf(VoiceWaveformCache.get(path)) }
     var playing by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
@@ -175,6 +181,14 @@ fun VoiceNoteItem(path: String) {
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (isLive) {
+            Text(
+                text = "LIVE",
+                color = Color(0xFFFFB300),
+                style = ChatVisualTokens.SystemActionStyle,
+                modifier = Modifier.padding(end = 4.dp)
+            )
+        }
         Box(
             modifier = Modifier
                 .size(26.dp)

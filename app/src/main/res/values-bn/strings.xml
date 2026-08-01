@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Nostr এর মাধ্যমে পৌঁছানো যায়</string>
     <string name="cd_unread_private_messages">অপঠিত ব্যক্তিগত বার্তা</string>
     <string name="cd_teleported">টেলিপোর্ট করা হয়েছে</string>
-    <string name="cd_tor_status">Tor অবস্থা</string>
+    <string name="cd_open_location_channels">অবস্থান ও চ্যানেল সেটিংস খুলুন</string>
     <string name="cd_connected_peers">সংযুক্ত পিয়ার</string>
     <string name="cd_geohash_participants">জিওহ্যাশ অংশগ্রহণকারী</string>
     <string name="cd_ready_for_handshake">হ্যান্ডশেকের জন্য প্রস্তুত</string>

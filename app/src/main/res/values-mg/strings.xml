@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
     <string name="cd_unread_private_messages">Hafatra manokana tsy voavaky</string>
     <string name="cd_teleported">Nafindra toerana</string>
-    <string name="cd_tor_status">Toe-javatra Tor</string>
+    <string name="cd_open_location_channels">Sokafy ny fikirana toerana sy fantsona</string>
     <string name="cd_connected_peers">Mpiara-miasa mifandray</string>
     <string name="cd_geohash_participants">Mpandray anjara Geohash</string>
     <string name="cd_ready_for_handshake">Vonona ho amin\'ny fifampiraharahana</string>

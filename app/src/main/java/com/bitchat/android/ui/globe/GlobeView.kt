@@ -10,6 +10,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
@@ -17,18 +18,24 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -58,6 +65,83 @@ data class GlobeColors(
 )
 
 private class Star(val x: Float, val y: Float, val radius: Float, val alpha: Float)
+
+internal data class GlobeFrameDetail(
+    val graticuleStepDegrees: Double,
+    val landPointStride: Int,
+    val showBorders: Boolean,
+    val cityMaxRank: Int?,
+    val showCityLabels: Boolean,
+    val showGeohashGrid: Boolean,
+    val showNeighborCells: Boolean
+)
+
+internal enum class GlobeMotionDetail {
+    FULL,
+    BALANCED,
+    FAST
+}
+
+internal fun globeFrameDetail(motionDetail: GlobeMotionDetail): GlobeFrameDetail =
+    when (motionDetail) {
+        GlobeMotionDetail.FULL -> GlobeFrameDetail(
+            graticuleStepDegrees = 4.0,
+            landPointStride = 1,
+            showBorders = true,
+            cityMaxRank = null,
+            showCityLabels = true,
+            showGeohashGrid = true,
+            showNeighborCells = true
+        )
+        GlobeMotionDetail.BALANCED -> GlobeFrameDetail(
+            graticuleStepDegrees = 8.0,
+            landPointStride = 2,
+            showBorders = true,
+            cityMaxRank = 1,
+            showCityLabels = false,
+            showGeohashGrid = true,
+            showNeighborCells = false
+        )
+        GlobeMotionDetail.FAST -> GlobeFrameDetail(
+            graticuleStepDegrees = 10.0,
+            landPointStride = 2,
+            showBorders = false,
+            cityMaxRank = -1,
+            showCityLabels = false,
+            showGeohashGrid = false,
+            showNeighborCells = false
+        )
+    }
+
+/**
+ * Adjusts moving-frame detail from measured frame cadence. Hysteresis keeps the renderer
+ * from oscillating between levels when timings sit near a boundary.
+ */
+internal fun nextGlobeMotionDetail(
+    current: GlobeMotionDetail,
+    averageFrameMillis: Float
+): GlobeMotionDetail {
+    if (!averageFrameMillis.isFinite()) return GlobeMotionDetail.FAST
+    return when (current) {
+        GlobeMotionDetail.FULL -> when {
+            averageFrameMillis > SEVERELY_SLOW_FRAME_MILLIS -> GlobeMotionDetail.FAST
+            averageFrameMillis > SLOW_FRAME_MILLIS -> GlobeMotionDetail.BALANCED
+            else -> GlobeMotionDetail.FULL
+        }
+        GlobeMotionDetail.BALANCED -> when {
+            averageFrameMillis > VERY_SLOW_FRAME_MILLIS -> GlobeMotionDetail.FAST
+            averageFrameMillis < SMOOTH_FRAME_MILLIS -> GlobeMotionDetail.FULL
+            else -> GlobeMotionDetail.BALANCED
+        }
+        GlobeMotionDetail.FAST -> {
+            if (averageFrameMillis < RECOVERING_FRAME_MILLIS) {
+                GlobeMotionDetail.BALANCED
+            } else {
+                GlobeMotionDetail.FAST
+            }
+        }
+    }
+}
 
 @Composable
 fun GlobeView(
@@ -117,6 +201,7 @@ fun GlobeView(
         snapshotFlow { state.selectedGeohash }
             .drop(1)
             .collect {
+                @Suppress("DEPRECATION")
                 view.performHapticFeedback(
                     HapticFeedbackConstants.KEYBOARD_TAP,
                     HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
@@ -124,11 +209,55 @@ fun GlobeView(
             }
     }
 
+    var motionDetail by remember(state) { mutableStateOf(GlobeMotionDetail.BALANCED) }
+    LaunchedEffect(state, state.isInMotion) {
+        if (!state.isInMotion) {
+            motionDetail = GlobeMotionDetail.FULL
+            return@LaunchedEffect
+        }
+
+        // Balanced is a safe first frame; measured cadence then moves detail up or down.
+        motionDetail = GlobeMotionDetail.BALANCED
+        var previousFrameNanos = withFrameNanos { it }
+        var sampledFrameMillis = 0f
+        var sampledFrameCount = 0
+        while (state.isInMotion) {
+            val frameNanos = withFrameNanos { it }
+            val frameMillis = ((frameNanos - previousFrameNanos) / 1_000_000f)
+                .coerceIn(1f, MAX_SAMPLED_FRAME_MILLIS)
+            previousFrameNanos = frameNanos
+            sampledFrameMillis += frameMillis
+            sampledFrameCount++
+
+            if (sampledFrameCount >= FRAME_SAMPLE_COUNT) {
+                motionDetail = nextGlobeMotionDetail(
+                    current = motionDetail,
+                    averageFrameMillis = sampledFrameMillis / sampledFrameCount
+                )
+                sampledFrameMillis = 0f
+                sampledFrameCount = 0
+            }
+        }
+    }
+
     val labelTextSize = with(density) { 12.5.sp.toPx() }
     val labelTextSizeSmall = with(density) { 10.sp.toPx() }
 
-    Canvas(
-        modifier = modifier
+    Box(modifier = modifier) {
+        // Static background lives in its own layer and is not invalidated by globe movement.
+        Canvas(modifier = Modifier.matchParentSize()) {
+            stars.forEach { star ->
+                drawCircle(
+                    color = colors.star.copy(alpha = star.alpha),
+                    radius = star.radius * density.density,
+                    center = Offset(star.x * size.width, star.y * size.height)
+                )
+            }
+        }
+
+        Canvas(
+            modifier = Modifier
+            .matchParentSize()
             .onSizeChanged { size: IntSize ->
                 val minDim = min(size.width, size.height).toFloat()
                 state.setViewport(minDim * 0.44f, minDim)
@@ -142,40 +271,45 @@ fun GlobeView(
                     state.isInteracting = true
                     val downTime = SystemClock.uptimeMillis()
                     val downPos = down.position
-                    var maxPointers = 1
                     var moved = Offset.Zero
-                    val panTimes = ArrayDeque<Long>()
-                    val panVec = ArrayDeque<Offset>()
+                    var dragStarted = false
+                    var hadMultiplePointers = false
+                    val velocityTracker = VelocityTracker()
+                    velocityTracker.addPosition(down.uptimeMillis, down.position)
 
                     while (true) {
                         val event = awaitPointerEvent()
                         val pressed = event.changes.filter { it.pressed }
                         if (pressed.isEmpty()) break
-                        maxPointers = maxOf(maxPointers, pressed.size)
+                        if (pressed.size > 1) {
+                            hadMultiplePointers = true
+                            velocityTracker.resetTracking()
+                        }
 
                         val pan = event.calculatePan()
                         val zoomChange = event.calculateZoom()
 
                         if (pan != Offset.Zero) {
-                            state.rotateBy(pan.x, pan.y)
                             moved += pan
-                            val now = SystemClock.uptimeMillis()
-                            panTimes.addLast(now)
-                            panVec.addLast(pan)
-                            while (panTimes.isNotEmpty() && now - panTimes.first() > 120) {
-                                panTimes.removeFirst()
-                                panVec.removeFirst()
+                            if (!dragStarted && moved.getDistance() >= viewConfiguration.touchSlop) {
+                                dragStarted = true
                             }
+                            if (dragStarted) state.rotateBy(pan.x, pan.y)
                         }
                         if (zoomChange != 1f) {
                             state.zoomBy(zoomChange)
+                        }
+                        if (!hadMultiplePointers && pressed.size == 1) {
+                            val change = pressed[0]
+                            velocityTracker.addPosition(change.uptimeMillis, change.position)
                         }
                         event.changes.forEach { if (it.positionChanged()) it.consume() }
                     }
 
                     state.isInteracting = false
                     val upTime = SystemClock.uptimeMillis()
-                    val isTap = maxPointers == 1 &&
+                    val isTap = !hadMultiplePointers &&
+                        !dragStarted &&
                         upTime - downTime < 400 &&
                         moved.getDistance() < viewConfiguration.touchSlop
 
@@ -205,15 +339,13 @@ fun GlobeView(
                                 }
                             }
                         }
-                    } else if (panVec.isNotEmpty()) {
-                        var sx = 0f; var sy = 0f
-                        panVec.forEach { sx += it.x; sy += it.y }
-                        val windowMs = (SystemClock.uptimeMillis() - panTimes.first()).coerceAtLeast(1)
-                        state.fling(sx / windowMs, sy / windowMs)
+                    } else if (dragStarted && !hadMultiplePointers) {
+                        val velocity = velocityTracker.calculateVelocity()
+                        state.fling(velocity.x, velocity.y)
                     }
                 }
             }
-    ) {
+        ) {
         val cx = size.width / 2f
         val cy = size.height / 2f
         val baseR = state.baseRadiusPx
@@ -221,15 +353,7 @@ fun GlobeView(
         val r = state.globeRadiusPx
         val cLat = state.centerLat.toDouble()
         val cLon = state.centerLon.toDouble()
-
-        // Starfield
-        stars.forEach { s ->
-            drawCircle(
-                color = colors.star.copy(alpha = s.alpha),
-                radius = s.radius * density.density,
-                center = Offset(s.x * size.width, s.y * size.height)
-            )
-        }
+        val preparedProjector = GlobeMath.PreparedProjector(cLat, cLon)
 
         // Atmosphere glow
         drawCircle(
@@ -259,17 +383,44 @@ fun GlobeView(
 
         val clip = ClipRect(-size.width, -size.height, size.width * 2f, size.height * 2f)
 
-        // Graticule
-        drawGraticule(cx, cy, r, cLat, cLon, colors.graticule, clip)
+        val frameDetail = globeFrameDetail(
+            if (state.isInMotion) motionDetail else GlobeMotionDetail.FULL
+        )
 
-        // Landmasses
+        // Graticule
+        drawGraticule(
+            cx, cy, r, cLat, cLon, colors.graticule, clip,
+            step = frameDetail.graticuleStepDegrees
+        )
+
+        // Fill every landmass first. Coastlines are drawn in a separate final pass so a
+        // large continent fill can never cover an island outline drawn earlier.
+        val coastlineRuns = ArrayList<List<MutableList<Pair<Float, Float>>>>(land.size)
         for (ring in land) {
-            drawLandRing(ring, scratch, cx, cy, r, cLat, cLon, colors, clip)
+            val runs = drawLandFill(
+                ring = ring,
+                scratch = scratch,
+                projector = preparedProjector,
+                cx = cx,
+                cy = cy,
+                r = r,
+                colors = colors,
+                clip = clip,
+                pointStride = if (ring.size >= 64) frameDetail.landPointStride else 1,
+                centerLat = cLat,
+                centerLon = cLon
+            )
+            if (runs != null) coastlineRuns.add(runs)
+        }
+        for (runs in coastlineRuns) {
+            strokeRuns(runs, cx, cy, r, colors.coastline, 1.4f, clip)
         }
 
-        // Country borders
-        for (line in borders) {
-            drawBorderLine(line, borderScratch, cx, cy, r, cLat, cLon, colors, clip)
+        // Country borders are restored when interaction settles.
+        if (frameDetail.showBorders) {
+            for (line in borders) {
+                drawBorderLine(line, borderScratch, preparedProjector, cx, cy, r, colors, clip)
+            }
         }
 
         // Sphere shading: dark limb + night side for 3D depth
@@ -297,45 +448,70 @@ fun GlobeView(
             center = Offset(cx, cy)
         )
 
-        // Cities (dots + names) over the shaded sphere
-        drawCities(
-            cities, state, cx, cy, r, cLat, cLon, colors,
-            labelPaint, haloPaint, labelTypeface, labelTextSizeSmall, density.density
-        )
-
-        // Geohash cells
-        if (state.selectedGeohash.isNotEmpty()) {
-            drawGeohashGrid(state, cx, cy, r, cLat, cLon, colors, clip)
-        }
-
-        // Labels
-        if (state.selectedGeohash.isNotEmpty()) {
-            drawGeohashLabels(
-                state, cx, cy, r, cLat, cLon, colors,
-                labelPaint, haloPaint, labelTypeface, labelTypefaceBold,
-                labelTextSize, labelTextSizeSmall
+        // Cities are detail-only; omitting them while moving keeps touch latency predictable.
+        val cityMaxRank = frameDetail.cityMaxRank
+        if (cityMaxRank == null || cityMaxRank >= 0) {
+            drawCities(
+                cities, state, preparedProjector, cx, cy, r, colors,
+                labelPaint, haloPaint, labelTypeface, labelTextSizeSmall, density.density,
+                maxRankOverride = cityMaxRank,
+                showLabels = frameDetail.showCityLabels
             )
         }
 
-        // Center crosshair
-        val crossAlpha = if (state.isInteracting) 0.9f else pulse
-        val crossColor = colors.accent.copy(alpha = crossAlpha)
-        val gap = 5 * density.density
-        val len = 9 * density.density
-        val strokeW = 1.6f * density.density
-        drawLine(crossColor, Offset(cx - gap - len, cy), Offset(cx - gap, cy), strokeW)
-        drawLine(crossColor, Offset(cx + gap, cy), Offset(cx + gap + len, cy), strokeW)
-        drawLine(crossColor, Offset(cx, cy - gap - len), Offset(cx, cy - gap), strokeW)
-        drawLine(crossColor, Offset(cx, cy + gap), Offset(cx, cy + gap + len), strokeW)
-        drawCircle(crossColor, radius = 1.8f * density.density, center = Offset(cx, cy))
+        // Detailed cells and labels settle into place after the gesture ends.
+        if (frameDetail.showGeohashGrid && state.selectedGeohash.isNotEmpty()) {
+            drawGeohashGrid(
+                state, cx, cy, r, cLat, cLon, colors, clip,
+                includeNeighbors = frameDetail.showNeighborCells
+            )
+            drawGeohashLabels(
+                state, cx, cy, r, cLat, cLon, colors,
+                labelPaint, haloPaint, labelTypeface, labelTypefaceBold,
+                labelTextSize, labelTextSizeSmall,
+                includeNeighbors = frameDetail.showNeighborCells
+            )
+        }
+
+        }
+
+        // Keep this animation isolated so its pulse does not redraw the globe geometry.
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val cx = size.width / 2f
+            val cy = size.height / 2f
+            val crossAlpha = if (state.isInMotion) 0.9f else pulse
+            val crossColor = colors.accent.copy(alpha = crossAlpha)
+            val gap = 5 * density.density
+            val len = 9 * density.density
+            val strokeW = 1.6f * density.density
+            drawLine(crossColor, Offset(cx - gap - len, cy), Offset(cx - gap, cy), strokeW)
+            drawLine(crossColor, Offset(cx + gap, cy), Offset(cx + gap + len, cy), strokeW)
+            drawLine(crossColor, Offset(cx, cy - gap - len), Offset(cx, cy - gap), strokeW)
+            drawLine(crossColor, Offset(cx, cy + gap), Offset(cx, cy + gap + len), strokeW)
+            drawCircle(crossColor, radius = 1.8f * density.density, center = Offset(cx, cy))
+        }
     }
 }
 
+private const val FRAME_SAMPLE_COUNT = 8
+private const val MAX_SAMPLED_FRAME_MILLIS = 50f
+private const val SMOOTH_FRAME_MILLIS = 18.5f
+private const val SLOW_FRAME_MILLIS = 22f
+private const val RECOVERING_FRAME_MILLIS = 22f
+private const val VERY_SLOW_FRAME_MILLIS = 29f
+private const val SEVERELY_SLOW_FRAME_MILLIS = 34f
+
 private fun DrawScope.drawGraticule(
-    cx: Float, cy: Float, r: Float, cLat: Double, cLon: Double, color: Color, clip: ClipRect
+    cx: Float,
+    cy: Float,
+    r: Float,
+    cLat: Double,
+    cLon: Double,
+    color: Color,
+    clip: ClipRect,
+    step: Double
 ) {
     val path = Path()
-    val step = 4.0
     fun strokeSegment(x0: Float, y0: Float, x1: Float, y1: Float) {
         val seg = clipSegment(x0, y0, x1, y1, clip) ?: return
         path.moveTo(seg.first.first, seg.first.second)
@@ -376,7 +552,7 @@ private fun DrawScope.drawGraticule(
     drawPath(path, color, style = Stroke(width = 1f))
 }
 
-private data class DiscPt(val x: Float, val y: Float, val front: Boolean)
+internal data class DiscPt(val x: Float, val y: Float, val front: Boolean)
 
 private fun limbPoint(behind: DiscPt, front: DiscPt): Pair<Float, Float> {
     var lo = 0f; var hi = 1f
@@ -395,7 +571,10 @@ private fun limbPoint(behind: DiscPt, front: DiscPt): Pair<Float, Float> {
  * padded with the horizon intersection point so they can be closed along the horizon.
  * Pass [closed] = false for open polylines (border lines).
  */
-private fun buildFrontRuns(pts: List<DiscPt>, closed: Boolean = true): List<MutableList<Pair<Float, Float>>> {
+internal fun buildFrontRuns(
+    pts: List<DiscPt>,
+    closed: Boolean = true
+): List<MutableList<Pair<Float, Float>>> {
     if (pts.isEmpty()) return emptyList()
     val n = pts.size
     val runs = mutableListOf<MutableList<Pair<Float, Float>>>()
@@ -432,6 +611,12 @@ private fun buildFrontRuns(pts: List<DiscPt>, closed: Boolean = true): List<Muta
         if (closed && runs.isNotEmpty() && pts[0].front && pts[n - 1].front) {
             runs[0] = (run + runs[0]).toMutableList()
         } else {
+            // A fully front-facing ring has no limb transition to terminate its run.
+            // Close it explicitly; cell boundary sampling intentionally omits the
+            // duplicated final corner.
+            if (closed && runs.isEmpty() && pts[0].front && pts[n - 1].front) {
+                run.add(run.first())
+            }
             runs.add(run)
         }
     }
@@ -564,20 +749,118 @@ private fun DrawScope.fillPolygonClipped(
     pts: List<DiscPt>,
     cx: Float, cy: Float, r: Float,
     color: Color,
-    clip: ClipRect
+    clip: ClipRect,
+    invertFill: Boolean = false,
+    preparedPolygon: List<Pair<Float, Float>>? = null
 ) {
     if (pts.none { it.front }) return
-    val poly = buildFillPolygon(pts, cx, cy, r)
+    val poly = preparedPolygon ?: buildFillPolygon(pts, cx, cy, r)
     if (poly.size < 3) return
     val clipped = clipPolygon(poly, clip)
     if (clipped.size < 3) return
     val path = Path()
+    if (invertFill) {
+        // Orthographic projection can choose the wrong side of the horizon closure for
+        // very large rings. Even-odd filling with the globe disc flips that one ring.
+        path.fillType = PathFillType.EvenOdd
+        path.addOval(Rect(cx - r, cy - r, cx + r, cy + r))
+    }
     path.moveTo(clipped[0].first, clipped[0].second)
     for (k in 1 until clipped.size) {
         path.lineTo(clipped[k].first, clipped[k].second)
     }
     path.close()
     drawPath(path, color)
+}
+
+internal fun projectedFillNeedsInversion(
+    polygon: List<Pair<Float, Float>>,
+    ring: LandData.Ring,
+    cx: Float,
+    cy: Float,
+    r: Float,
+    centerLat: Double,
+    centerLon: Double
+): Boolean {
+    // A single center-point check is ambiguous for a large polygon and caused an
+    // occasional whole-disc fill. Compare several visible points with the original
+    // geographic ring, and invert only when the opposite fill wins clearly.
+    val samples = arrayOf(
+        0f to 0f,
+        -0.5f to 0f,
+        0.5f to 0f,
+        0f to -0.5f,
+        0f to 0.5f,
+        -0.35f to -0.35f,
+        0.35f to -0.35f,
+        -0.35f to 0.35f,
+        0.35f to 0.35f
+    )
+    var normalErrors = 0
+    var invertedErrors = 0
+    for ((nx, ny) in samples) {
+        val location = GlobeMath.unproject(
+            x = nx.toDouble(),
+            y = ny.toDouble(),
+            centerLatDeg = centerLat,
+            centerLonDeg = centerLon
+        ) ?: continue
+        val geographicInside = ringContainsLocation(ring, location.first, location.second)
+        val projectedInside = polygonContains(polygon, cx + nx * r, cy + ny * r)
+        if (projectedInside != geographicInside) normalErrors++
+        if (!projectedInside != geographicInside) invertedErrors++
+    }
+    return invertedErrors < normalErrors
+}
+
+internal fun polygonContains(
+    polygon: List<Pair<Float, Float>>,
+    x: Float,
+    y: Float
+): Boolean {
+    if (polygon.size < 3) return false
+    var inside = false
+    var previous = polygon.last()
+    for (current in polygon) {
+        val crossesRay = (current.second > y) != (previous.second > y)
+        if (crossesRay) {
+            val intersectionX = (previous.first - current.first) *
+                (y - current.second) / (previous.second - current.second) +
+                current.first
+            if (x < intersectionX) inside = !inside
+        }
+        previous = current
+    }
+    return inside
+}
+
+internal fun ringContainsLocation(
+    ring: LandData.Ring,
+    latitude: Double,
+    longitude: Double
+): Boolean {
+    if (ring.size < 3) return false
+
+    fun relativeLongitude(value: Float): Double =
+        GlobeMath.normalizeLon(value.toDouble() - longitude)
+
+    var inside = false
+    var previousIndex = ring.size - 1
+    for (index in 0 until ring.size) {
+        val currentLat = ring.coords[index * 2].toDouble()
+        val currentLon = relativeLongitude(ring.coords[index * 2 + 1])
+        val previousLat = ring.coords[previousIndex * 2].toDouble()
+        val previousLon = relativeLongitude(ring.coords[previousIndex * 2 + 1])
+        val crossesRay = (currentLat > latitude) != (previousLat > latitude)
+        if (crossesRay) {
+            val intersectionLon = (previousLon - currentLon) *
+                (latitude - currentLat) / (previousLat - currentLat) +
+                currentLon
+            if (0.0 < intersectionLon) inside = !inside
+        }
+        previousIndex = index
+    }
+    return inside
 }
 
 private fun DrawScope.strokeRuns(
@@ -606,8 +889,8 @@ private fun DrawScope.strokeRuns(
 private fun DrawScope.drawBorderLine(
     line: LandData.Ring,
     scratch: FloatArray,
+    projector: GlobeMath.PreparedProjector,
     cx: Float, cy: Float, r: Float,
-    cLat: Double, cLon: Double,
     colors: GlobeColors,
     clip: ClipRect
 ) {
@@ -618,12 +901,13 @@ private fun DrawScope.drawBorderLine(
     val pts = ArrayList<DiscPt>(n)
     var i = 0
     while (i < n) {
-        val lat = line.coords[i * 2].toDouble()
-        val lon = line.coords[i * 2 + 1].toDouble()
-        val p = GlobeMath.projectRaw(lat, lon, cLat, cLon)
-        val front = p.cosC > 0.005f
-        pts.add(DiscPt(p.x, p.y, front))
-        if (p.cosC >= 0f) anyFront = true
+        projector.project(line.projectionTerms, i * 4, scratch, i * 3)
+        val x = scratch[i * 3]
+        val y = scratch[i * 3 + 1]
+        val cosC = scratch[i * 3 + 2]
+        val front = cosC > 0.005f
+        pts.add(DiscPt(x, y, front))
+        if (cosC >= 0f) anyFront = true
         i++
     }
     if (!anyFront) return
@@ -635,18 +919,21 @@ private fun DrawScope.drawBorderLine(
 private fun DrawScope.drawCities(
     cities: List<LandData.City>,
     state: GlobeState,
+    projector: GlobeMath.PreparedProjector,
     cx: Float, cy: Float, r: Float,
-    cLat: Double, cLon: Double,
     colors: GlobeColors,
     labelPaint: Paint,
     haloPaint: Paint,
     typeface: Typeface?,
     textSize: Float,
-    density: Float
+    density: Float,
+    maxRankOverride: Int?,
+    showLabels: Boolean
 ) {
     if (cities.isEmpty()) return
+    val projection = FloatArray(3)
     val zoom = state.zoom
-    val maxRank = when {
+    val maxRank = maxRankOverride ?: when {
         zoom < 2f -> 1
         zoom < 8f -> 3
         zoom < 40f -> 4
@@ -655,20 +942,21 @@ private fun DrawScope.drawCities(
     val canvas = drawContext.canvas.nativeCanvas
     for (city in cities) {
         if (city.rank > maxRank) continue
-        val p = GlobeMath.project(city.lat.toDouble(), city.lon.toDouble(), cLat, cLon) ?: continue
-        if (p.cosC < 0.03f) continue
-        val sx = cx + p.x * r
-        val sy = cy + p.y * r
+        projector.project(city.projectionTerms, 0, projection, 0)
+        val cosC = projection[2]
+        if (cosC < 0.03f) continue
+        val sx = cx + projection[0] * r
+        val sy = cy + projection[1] * r
         if (sx < -50 || sx > size.width + 50 || sy < -50 || sy > size.height + 50) continue
 
-        val alpha = p.cosC.coerceIn(0.25f, 1f)
+        val alpha = cosC.coerceIn(0.25f, 1f)
         val important = city.capital || city.megacity
         val dotRadius = (if (important) 2.6f else 1.8f) * density
         val dotColor = if (city.capital) colors.accent.copy(alpha = alpha)
             else colors.label.copy(alpha = alpha * 0.85f)
         drawCircle(dotColor, radius = dotRadius, center = Offset(sx, sy))
 
-        if (zoom >= 6f || (important && zoom >= 2.5f)) {
+        if (showLabels && (zoom >= 6f || (important && zoom >= 2.5f))) {
             labelPaint.textSize = textSize
             labelPaint.typeface = typeface
             labelPaint.textAlign = Paint.Align.LEFT
@@ -694,30 +982,34 @@ private fun DrawScope.drawCities(
     haloPaint.textAlign = Paint.Align.CENTER
 }
 
-private fun DrawScope.drawLandRing(
+private fun DrawScope.drawLandFill(
     ring: LandData.Ring,
     scratch: FloatArray,
+    projector: GlobeMath.PreparedProjector,
     cx: Float, cy: Float, r: Float,
-    cLat: Double, cLon: Double,
     colors: GlobeColors,
-    clip: ClipRect
-) {
-    val n = ring.size
-    if (n < 3 || n * 3 > scratch.size) return
+    clip: ClipRect,
+    pointStride: Int,
+    centerLat: Double,
+    centerLon: Double
+): List<MutableList<Pair<Float, Float>>>? {
+    val n = ((ring.size - 1) / pointStride) + 1
+    if (n < 3 || n * 3 > scratch.size) return null
 
     var anyFront = false
+    var anyBack = false
     var i = 0
     while (i < n) {
-        val lat = ring.coords[i * 2].toDouble()
-        val lon = ring.coords[i * 2 + 1].toDouble()
-        val p = GlobeMath.projectRaw(lat, lon, cLat, cLon)
-        scratch[i * 3] = p.x
-        scratch[i * 3 + 1] = p.y
-        scratch[i * 3 + 2] = p.cosC
-        if (p.cosC >= 0f) anyFront = true
+        val sourceIndex = (i * pointStride).coerceAtMost(ring.size - 1)
+        projector.project(ring.projectionTerms, sourceIndex * 4, scratch, i * 3)
+        if (scratch[i * 3 + 2] >= 0f) {
+            anyFront = true
+        } else {
+            anyBack = true
+        }
         i++
     }
-    if (!anyFront) return
+    if (!anyFront) return null
 
     val pts = ArrayList<DiscPt>(n)
     i = 0
@@ -726,8 +1018,26 @@ private fun DrawScope.drawLandRing(
         i++
     }
     val runs = buildFrontRuns(pts)
-    fillPolygonClipped(pts, cx, cy, r, colors.land, clip)
-    strokeRuns(runs, cx, cy, r, colors.coastline, 1.4f, clip)
+    val polygon = buildFillPolygon(pts, cx, cy, r)
+    fillPolygonClipped(
+        pts = pts,
+        cx = cx,
+        cy = cy,
+        r = r,
+        color = colors.land,
+        clip = clip,
+        invertFill = anyBack && projectedFillNeedsInversion(
+                polygon = polygon,
+                ring = ring,
+                cx = cx,
+                cy = cy,
+                r = r,
+                centerLat = centerLat,
+                centerLon = centerLon
+            ),
+        preparedPolygon = polygon
+    )
+    return runs
 }
 
 private fun DrawScope.drawGeohashGrid(
@@ -735,11 +1045,12 @@ private fun DrawScope.drawGeohashGrid(
     cx: Float, cy: Float, r: Float,
     cLat: Double, cLon: Double,
     colors: GlobeColors,
-    clip: ClipRect
+    clip: ClipRect,
+    includeNeighbors: Boolean
 ) {
     val selected = state.selectedGeohash
     val cells = linkedSetOf(selected)
-    cells.addAll(Geohash.neighborsSamePrecision(selected))
+    if (includeNeighbors) cells.addAll(Geohash.neighborsSamePrecision(selected))
 
     for (cell in cells) {
         val isSelected = cell == selected
@@ -782,11 +1093,15 @@ private fun DrawScope.drawGeohashGrid(
         val runs = buildFrontRuns(discPts)
 
         if (isSelected) {
-            fillPolygonClipped(discPts, cx, cy, r, colors.accent.copy(alpha = 0.20f), clip)
+            fillPolygonClipped(
+                discPts, cx, cy, r, colors.accent.copy(alpha = 0.20f), clip
+            )
             strokeRuns(runs, cx, cy, r, colors.accent.copy(alpha = 0.35f), 7f, clip)
             strokeRuns(runs, cx, cy, r, colors.accent, 3.2f, clip)
         } else {
-            fillPolygonClipped(discPts, cx, cy, r, colors.grid.copy(alpha = 0.05f), clip)
+            fillPolygonClipped(
+                discPts, cx, cy, r, colors.grid.copy(alpha = 0.05f), clip
+            )
             strokeRuns(runs, cx, cy, r, colors.grid, 1.6f, clip)
         }
     }
@@ -802,11 +1117,12 @@ private fun DrawScope.drawGeohashLabels(
     labelTypeface: Typeface?,
     labelTypefaceBold: Typeface?,
     selectedSize: Float,
-    neighborSize: Float
+    neighborSize: Float,
+    includeNeighbors: Boolean
 ) {
     val selected = state.selectedGeohash
     val cells = linkedSetOf(selected)
-    cells.addAll(Geohash.neighborsSamePrecision(selected))
+    if (includeNeighbors) cells.addAll(Geohash.neighborsSamePrecision(selected))
     val canvas = drawContext.canvas.nativeCanvas
 
     for (cell in cells) {

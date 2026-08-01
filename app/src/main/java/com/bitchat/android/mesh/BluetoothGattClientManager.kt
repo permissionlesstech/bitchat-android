@@ -616,6 +616,16 @@ class BluetoothGattClientManager(
                     Log.d(TAG, "Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")
                 }
             }
+
+            override fun onCharacteristicWrite(
+                gatt: BluetoothGatt,
+                characteristic: BluetoothGattCharacteristic,
+                status: Int
+            ) {
+                if (characteristic.uuid == AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID) {
+                    delegate?.onGattClientWriteComplete(gatt.device.address, linkID, status)
+                }
+            }
             
             override fun onReadRemoteRssi(gatt: BluetoothGatt, rssi: Int, status: Int) {
                 val deviceAddress = gatt.device.address

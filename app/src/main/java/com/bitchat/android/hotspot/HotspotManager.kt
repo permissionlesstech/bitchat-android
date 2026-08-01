@@ -63,6 +63,27 @@ class HotspotManager(private val context: Context) {
     private var hasNotifiedStarted = false // Track if we've notified the callback
     private var isReceiverRegistered = false // Track receiver registration to prevent leaks
 
+    // Set once our own createGroup command is accepted, and re-checked against every
+    // group snapshot afterwards. stopHotspot() only calls removeGroup() when this is
+    // true: removal is device-scoped, so issuing it when the group on the framework
+    // is not ours could only tear down another app's session (Cast, Android Auto,
+    // Quick Share).
+    private var createdGroup = false
+
+    // Framework-reported name of the group this session hosts, once known. Null while
+    // the group is still forming, when a null snapshot carries no information.
+    private var hostedGroupName: String? = null
+
+    // Name of the foreign group the user explicitly agreed to disconnect, or null.
+    // Consent is per-group: a group with a different name asks again.
+    private var confirmedReplacementName: String? = null
+
+    // stopHotspot() can be reached again while its group query/removal is still in
+    // flight. Later callers wait for that same teardown instead of releasing the
+    // Wi-Fi Aware lease early.
+    private var teardownInProgress = false
+    private val teardownCallbacks = mutableListOf<() -> Unit>()
+
     // Saved credentials for reconnection
     private var savedSsid: String? = null
     private var savedPassword: String? = null
@@ -103,8 +124,13 @@ class HotspotManager(private val context: Context) {
 
     /**
      * Start the Wi-Fi P2P hotspot.
+     *
+     * @param confirmedReplacementName name of the foreign Wi-Fi Direct group the
+     *   user has confirmed may be disconnected, as previously reported through
+     *   [HotspotCallback.onExistingGroupConflict]. When null (or when the group
+     *   present no longer matches), a foreign group is reported instead of touched.
      */
-    fun startHotspot(callback: HotspotCallback) {
+    fun startHotspot(callback: HotspotCallback, confirmedReplacementName: String? = null) {
         if (isStarting) {
             Log.w(TAG, "Hotspot already starting")
             return
@@ -129,6 +155,7 @@ class HotspotManager(private val context: Context) {
         }
 
         this.callback = callback
+        this.confirmedReplacementName = confirmedReplacementName
         isStarting = true
 
         Log.d(TAG, "Starting Wi-Fi P2P hotspot")
@@ -162,9 +189,19 @@ class HotspotManager(private val context: Context) {
 
     /**
      * Stop the hotspot.
+     *
+     * @param onTeardownComplete invoked once the framework has acknowledged the
+     *   removal of our group (or immediately when this session created none). Lets
+     *   the caller hold the Wi-Fi Aware radio back until the P2P group is gone.
      */
-    fun stopHotspot() {
+    fun stopHotspot(onTeardownComplete: (() -> Unit)? = null) {
         Log.d(TAG, "Stopping hotspot")
+
+        onTeardownComplete?.let(teardownCallbacks::add)
+        if (teardownInProgress) {
+            Log.d(TAG, "Teardown already in progress; chaining completion")
+            return
+        }
 
         isStarting = false
         hasNotifiedStarted = false
@@ -177,19 +214,28 @@ class HotspotManager(private val context: Context) {
         val staleChannel = channel
         channel = null
 
-        if (staleChannel != null) {
-            wifiP2pManager?.removeGroup(staleChannel, object : ActionListener {
-                override fun onSuccess() {
-                    Log.d(TAG, "Group removed successfully")
-                    // Nothing of ours is left for a later run to clean up.
-                    ownedGroupName = null
-                    closeChannel(staleChannel)
-                }
-                override fun onFailure(reason: Int) {
-                    Log.w(TAG, "Failed to remove group: $reason")
-                    closeChannel(staleChannel)
-                }
-            })
+        val hadOwnGroup = createdGroup
+        val expectedGroupName = hostedGroupName ?: if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        ) {
+            savedSsid
+        } else {
+            null
+        }
+        createdGroup = false
+        hostedGroupName = null
+
+        var teardownAction: (() -> Unit)? = null
+        if (staleChannel != null && hadOwnGroup) {
+            teardownInProgress = true
+            teardownAction = {
+                removeOwnGroupIfStillPresent(staleChannel, expectedGroupName)
+            }
+        } else if (staleChannel != null) {
+            // This session created nothing, so there is nothing of ours to remove.
+            // removeGroup() here is exactly the bug this change fixes: device-scoped
+            // removal would disconnect whatever group another app has running.
+            closeChannel(staleChannel)
         }
 
         // Release locks
@@ -209,6 +255,84 @@ class HotspotManager(private val context: Context) {
 
         currentGroup = null
         callback = null
+
+        if (teardownAction != null) {
+            teardownAction.invoke()
+        } else {
+            finishTeardown()
+        }
+    }
+
+    /**
+     * Re-check the device-scoped group immediately before removing it. The last poll
+     * is only a snapshot: our group may have disappeared and another app may have
+     * claimed Wi-Fi Direct before stop was requested.
+     */
+    @SuppressLint("MissingPermission")
+    private fun removeOwnGroupIfStillPresent(ch: Channel, expectedGroupName: String?) {
+        val manager = wifiP2pManager ?: run {
+            closeChannel(ch)
+            finishTeardown()
+            return
+        }
+
+        try {
+            manager.requestGroupInfo(ch) { group ->
+                val stillOurs = HotspotStartupPolicy.isExpectedHostedGroup(
+                    existingGroupName = group?.networkName,
+                    isGroupOwner = group?.isGroupOwner == true,
+                    expectedGroupName = expectedGroupName
+                )
+                if (!stillOurs) {
+                    Log.i(
+                        TAG,
+                        "Current group '${group?.networkName}' is not ours " +
+                            "('$expectedGroupName'); leaving it alone"
+                    )
+                    closeChannel(ch)
+                    finishTeardown()
+                    return@requestGroupInfo
+                }
+
+                try {
+                    manager.removeGroup(ch, object : ActionListener {
+                        override fun onSuccess() {
+                            Log.d(TAG, "Group removed successfully")
+                            clearOwnedGroupNameIfMatches(expectedGroupName)
+                            closeChannel(ch)
+                            finishTeardown()
+                        }
+
+                        override fun onFailure(reason: Int) {
+                            Log.w(TAG, "Failed to remove group: $reason")
+                            closeChannel(ch)
+                            finishTeardown()
+                        }
+                    })
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Wi-Fi permission was revoked while removing the group", e)
+                    closeChannel(ch)
+                    finishTeardown()
+                }
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Wi-Fi permission was revoked while confirming group ownership", e)
+            closeChannel(ch)
+            finishTeardown()
+        }
+    }
+
+    private fun clearOwnedGroupNameIfMatches(removedGroupName: String?) {
+        if (HotspotStartupPolicy.shouldClearOwnedGroupName(ownedGroupName, removedGroupName)) {
+            ownedGroupName = null
+        }
+    }
+
+    private fun finishTeardown() {
+        teardownInProgress = false
+        val callbacks = teardownCallbacks.toList()
+        teardownCallbacks.clear()
+        callbacks.forEach { it.invoke() }
     }
 
     /**
@@ -305,7 +429,8 @@ class HotspotManager(private val context: Context) {
                 val action = HotspotStartupPolicy.startAction(
                     p2pState = lastP2pState,
                     existingGroupName = existingGroup?.networkName,
-                    ownedGroupName = ownedGroupName
+                    ownedGroupName = ownedGroupName,
+                    confirmedGroupName = confirmedReplacementName
                 )
 
                 when (action) {
@@ -313,7 +438,19 @@ class HotspotManager(private val context: Context) {
                         Log.w(TAG, "Not attempting group creation: ${action.message}")
                         failStartup(action.message)
                     }
-                    HotspotStartupPolicy.StartAction.Create -> createGroup(attempt)
+                    HotspotStartupPolicy.StartAction.ConfirmReplaceExisting -> {
+                        val name = existingGroup?.networkName
+                        if (name == null) {
+                            // Unreachable while the policy requires a name, but there
+                            // is nothing safe to bind consent to without one.
+                            failStartup(HotspotStartupPolicy.P2P_BUSY_MESSAGE)
+                        } else {
+                            Log.i(TAG, "Existing group '$name' is not ours; asking the user")
+                            reportExistingGroupConflict(name)
+                        }
+                    }
+                    HotspotStartupPolicy.StartAction.Create ->
+                        createGroup(attempt, oldGroupCleared = true)
                     HotspotStartupPolicy.StartAction.RemoveStaleGroupThenCreate -> {
                         Log.w(TAG, "Removing stale group '${existingGroup?.networkName}' before creating")
                         removeStaleGroup(ch, attempt)
@@ -327,33 +464,46 @@ class HotspotManager(private val context: Context) {
     }
 
     private fun removeStaleGroup(ch: Channel, attempt: Int) {
-        wifiP2pManager?.removeGroup(ch, object : ActionListener {
-            override fun onSuccess() {
-                if (channel !== ch) return
-                Log.d(TAG, "Stale group removed")
-                createGroup(attempt)
-            }
-            override fun onFailure(reason: Int) {
-                if (channel !== ch) return
-                // Creation may still succeed, and a BUSY reply here backs off as usual.
-                Log.w(TAG, "Failed to remove stale group: $reason; attempting creation anyway")
-                createGroup(attempt)
-            }
-        })
+        try {
+            wifiP2pManager?.removeGroup(ch, object : ActionListener {
+                override fun onSuccess() {
+                    if (channel !== ch) return
+                    Log.d(TAG, "Stale group removed")
+                    createGroup(attempt, oldGroupCleared = true)
+                }
+                override fun onFailure(reason: Int) {
+                    if (channel !== ch) return
+                    // Creation may still succeed, and a BUSY reply here backs off as usual.
+                    Log.w(TAG, "Failed to remove stale group: $reason; attempting creation anyway")
+                    createGroup(attempt, oldGroupCleared = false)
+                }
+            })
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Wi-Fi permission was revoked while removing the existing group", e)
+            failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
+        }
     }
 
     /**
      * Create Wi-Fi P2P group.
+     *
+     * @param oldGroupCleared false when a previous group may still exist (its removal
+     *   just failed). The ownership marker keeps the OLD group's name in that case:
+     *   overwriting it early would make a BUSY retry classify our own stale group as
+     *   foreign and raise a spurious consent dialog. On success the group-info poll
+     *   records the authoritative name anyway.
      */
     @SuppressLint("MissingPermission")
-    private fun createGroup(attempt: Int) {
+    private fun createGroup(attempt: Int, oldGroupCleared: Boolean) {
         val ch = channel ?: return
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 // Record before the call: if the process dies between creation and the
                 // first group info, the next run still knows this orphan is ours.
-                ownedGroupName = savedSsid
+                if (oldGroupCleared) {
+                    ownedGroupName = savedSsid
+                }
 
                 // Android 10+: Custom SSID and password
                 val config = WifiP2pConfig.Builder()
@@ -376,11 +526,18 @@ class HotspotManager(private val context: Context) {
     private fun groupActionListener(attempt: Int, requestChannel: Channel) = object : ActionListener {
         override fun onSuccess() {
             if (channel !== requestChannel) {
+                // Ours by construction: this listener only observes our own createGroup.
                 Log.w(TAG, "Removing group created after hotspot was stopped")
-                wifiP2pManager?.removeGroup(requestChannel, null)
+                try {
+                    wifiP2pManager?.removeGroup(requestChannel, null)
+                } catch (e: SecurityException) {
+                    // The orphan stays; the next start recognises it via ownedGroupName.
+                    Log.e(TAG, "Could not remove the late group; permission was revoked", e)
+                }
                 return
             }
             Log.d(TAG, "P2P group created successfully")
+            createdGroup = true
             isStarting = false
             // Don't call onHotspotStarted() yet - wait for group info
             startGroupInfoPolling()
@@ -435,6 +592,17 @@ class HotspotManager(private val context: Context) {
     }
 
     /**
+     * A group belonging to another app is up. Stop cleanly — with [createdGroup]
+     * false the stop path leaves that group untouched — and let the UI ask whether
+     * starting the hotspot may disconnect it.
+     */
+    private fun reportExistingGroupConflict(groupName: String) {
+        val cb = callback
+        stopHotspot()
+        cb?.onExistingGroupConflict(groupName)
+    }
+
+    /**
      * Start polling for group info to track connected clients.
      */
     private fun startGroupInfoPolling() {
@@ -472,35 +640,115 @@ class HotspotManager(private val context: Context) {
 
         try {
             wifiP2pManager?.requestGroupInfo(ch) { group ->
-                if (group != null) {
-                    currentGroup = group
+                // A reply arriving after the hotspot stopped must not revive any
+                // state the stop just cleared.
+                if (channel !== ch) return@requestGroupInfo
 
-                    // Update saved credentials if using system-generated ones
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                        savedSsid = group.networkName
-                        savedPassword = group.passphrase
-                    }
+                reconcileGroupOwnership(group)
 
-                    // Authoritative name straight from the framework
-                    group.networkName?.let { ownedGroupName = it }
-
-                    // Notify callback on FIRST successful group info retrieval
-                    if (!hasNotifiedStarted) {
-                        hasNotifiedStarted = true
-                        Log.d(TAG, "Group info received, notifying callback")
-                        callback?.onHotspotStarted()
-                    } else {
-                        // Subsequent updates
-                        callback?.onConnectionInfoUpdated(getConnectionInfo())
-                    }
-                } else {
+                if (group == null) {
                     Log.w(TAG, "requestGroupInfo returned null group")
+                    return@requestGroupInfo
+                }
+
+                if (!isOurHostedGroup(group)) {
+                    // Someone else's group is on the radio. Reading anything from it
+                    // — its name, its credentials, its client count — would report
+                    // another app's session as our hotspot, and recording its name
+                    // would let the next start remove it without asking.
+                    Log.w(
+                        TAG,
+                        "Observed group '${group.networkName}' is not the one we created"
+                    )
+                    return@requestGroupInfo
+                }
+
+                currentGroup = group
+
+                // Update saved credentials if using system-generated ones
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    savedSsid = group.networkName
+                    savedPassword = group.passphrase
+                }
+
+                // Authoritative name straight from the framework, for the group we
+                // just confirmed is ours.
+                group.networkName?.let {
+                    hostedGroupName = it
+                    ownedGroupName = it
+                }
+
+                // Notify callback on FIRST successful group info retrieval
+                if (!hasNotifiedStarted) {
+                    hasNotifiedStarted = true
+                    Log.d(TAG, "Group info received, notifying callback")
+                    callback?.onHotspotStarted()
+                } else {
+                    // Subsequent updates
+                    callback?.onConnectionInfoUpdated(getConnectionInfo())
                 }
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Wi-Fi permission was revoked while reading group info", e)
             failStartup("A required Wi-Fi or local network permission was revoked. Grant it and try again.")
         }
+    }
+
+    /**
+     * Is this snapshot the group this session created?
+     *
+     * `isGroupOwner` cannot answer that on its own: it reports that *this device*
+     * hosts the group, which is equally true of an autonomous group another app
+     * created here. Above Q we chose the network name, so it identifies our group
+     * exactly. Below Q the framework names it, and the first snapshot after our own
+     * createGroup succeeded is the only evidence available — after that the name is
+     * fixed, and a group answering to a different one is not ours.
+     */
+    private fun isOurHostedGroup(group: WifiP2pGroup): Boolean {
+        if (!group.isGroupOwner) return false
+        val name = group.networkName ?: return false
+
+        hostedGroupName?.let { return name == it }
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            name == savedSsid
+        } else {
+            true
+        }
+    }
+
+    /**
+     * Keep [createdGroup] honest about what is actually on the framework.
+     *
+     * Our group can disappear without us — Wi-Fi toggled, another app issuing its own
+     * device-scoped removeGroup(), a driver reset — and another app can then create
+     * one in its place. Believing the group present is still ours would make stop
+     * remove that replacement, the exact disruption consent exists to prevent.
+     *
+     * Reconciled only once the framework has named our group: before that a null
+     * snapshot means the group is still forming, not that it is gone. Losing the flag
+     * to a transient null is safe in a way that keeping it is not — the group we
+     * created is then left behind, and the next start recognises it by name and
+     * removes it silently.
+     */
+    private fun reconcileGroupOwnership(group: WifiP2pGroup?) {
+        val expectedName = hostedGroupName ?: if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        ) {
+            savedSsid
+        } else {
+            null
+        } ?: return
+
+        // A null snapshot is normal before the configured group appears. A non-null
+        // group with a different name is positive evidence that ours was replaced.
+        if (hostedGroupName == null && group == null) return
+
+        val stillOurs = group != null && isOurHostedGroup(group)
+        if (createdGroup && !stillOurs) {
+            Log.w(TAG, "Group '$expectedName' is no longer ours; leaving what is present alone")
+        }
+        createdGroup = stillOurs
     }
 
     /**
@@ -618,6 +866,14 @@ class HotspotManager(private val context: Context) {
     interface HotspotCallback {
         fun onHotspotStarted()
         fun onConnectionInfoUpdated(info: ConnectionInfo?)
+
+        /**
+         * A Wi-Fi Direct group belonging to another app is active and the caller has
+         * not confirmed replacing it. Ask the user, then retry with this name as
+         * `confirmedReplacementName` if they accept. Nothing was disturbed.
+         */
+        fun onExistingGroupConflict(groupName: String)
+
         fun onError(message: String)
     }
 }

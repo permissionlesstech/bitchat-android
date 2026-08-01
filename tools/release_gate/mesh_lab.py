@@ -532,6 +532,96 @@ def scenario_broadcast(a: Device, b: Device) -> dict:
     return {"send": send_result, "recv": recv_result}
 
 
+def _ptt_one_way(
+    sender: Device,
+    receiver: Device,
+    sender_id: str,
+    receiver_id: str,
+    scope: str,
+) -> dict:
+    # Long enough to expose sustained GATT/codec backpressure while remaining a quick gate.
+    send_args: dict[str, object] = {"duration_ms": 3_000}
+    if scope == "dm":
+        send_args["peer"] = receiver_id
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        recv = pool.submit(
+            receiver.cmd_ok,
+            "ptt_recv",
+            240_000,
+            peer=sender_id,
+            scope="public" if scope == "public" else "dm",
+        )
+        time.sleep(2)
+        send = pool.submit(sender.cmd_ok, "ptt_send", 240_000, **send_args)
+        recv_result, send_result = recv.result(), send.result()
+    if not recv_result.get("live_observed") or recv_result.get("frames", 0) <= 0:
+        raise MeshLabError(f"live {scope} burst was not assembled before fallback: {recv_result}")
+    if recv_result.get("burst_id") != send_result.get("burst_id"):
+        raise MeshLabError(
+            f"live {scope} burst/final-note identity mismatch: send={send_result} recv={recv_result}"
+        )
+    encoded = int(send_result.get("encoded_frames", 0))
+    queued = int(send_result.get("queued_pcm_frames", 0))
+    sent_packets = int(send_result.get("data_packets", 0))
+    received_packets = int(recv_result.get("data_packets", 0))
+    expected_packets = int(recv_result.get("expected_packets", 0))
+    missing_packets = int(recv_result.get("missing_packets", -1))
+    received_frames = int(recv_result.get("frames", 0))
+    if int(send_result.get("dropped_oversize_frames", -1)) != 0:
+        raise MeshLabError(f"live {scope} encoder produced an unsent AAC frame: {send_result}")
+    # AAC encoders may emit up to two priming access units in addition to one unit per PCM block.
+    if queued <= 0 or encoded < queued or encoded > queued + 2 or sent_packets != encoded:
+        raise MeshLabError(f"live {scope} encoder/packetizer continuity failed: {send_result}")
+    outbound_packets = int(send_result.get("outbound_packets", 0))
+    delivered_packets = int(send_result.get("delivered_packets", -1))
+    if outbound_packets != delivered_packets or outbound_packets != sent_packets + 2:
+        raise MeshLabError(f"live {scope} network dispatch did not drain in order: {send_result}")
+    minimum_realtime_pcm_frames = int(3_000 / 64) - 2
+    if queued < minimum_realtime_pcm_frames:
+        raise MeshLabError(f"live {scope} capture fell behind real time: {send_result}")
+    if missing_packets != 0:
+        raise MeshLabError(f"live {scope} burst contained sequence gaps: {recv_result}")
+    if not (received_packets == expected_packets == sent_packets and received_frames == encoded):
+        raise MeshLabError(
+            f"live {scope} frame counts differ across the physical link: "
+            f"send={send_result} recv={recv_result}"
+        )
+    decoded_samples = int(recv_result.get("decoded_samples", 0))
+    if decoded_samples < max(1, received_frames - 2) * 1_024:
+        raise MeshLabError(f"live {scope} decoded PCM is truncated: {recv_result}")
+    rms = float(recv_result.get("rms", 0.0))
+    silent_fraction = float(recv_result.get("silent_block_fraction", 1.0))
+    longest_silent_run = int(recv_result.get("longest_silent_block_run", 999))
+    crossings_per_second = float(recv_result.get("zero_crossings_per_second", 0.0))
+    if rms < 0.05 or silent_fraction > 0.10 or longest_silent_run > 2:
+        raise MeshLabError(f"live {scope} decoded tone is silent or broken up: {recv_result}")
+    if not 650.0 <= crossings_per_second <= 1_150.0:
+        raise MeshLabError(f"live {scope} decoded tone continuity is distorted: {recv_result}")
+    return {"send": send_result, "recv": recv_result}
+
+
+def scenario_ptt_dm(a: Device, b: Device) -> dict:
+    """Gap-free Noise-encrypted PTT tone plus finalized note in both directions."""
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+    a.cmd_ok("handshake", timeout_ms=60_000, peer=id_b)
+    b.cmd_ok("handshake", timeout_ms=60_000, peer=id_a)
+    return {
+        "a_to_b": _ptt_one_way(a, b, id_a, id_b, "dm"),
+        "b_to_a": _ptt_one_way(b, a, id_b, id_a, "dm"),
+    }
+
+
+def scenario_ptt_broadcast(a: Device, b: Device) -> dict:
+    """Gap-free signed public PTT tone plus finalized note in both directions."""
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+    return {
+        "a_to_b": _ptt_one_way(a, b, id_a, id_b, "public"),
+        "b_to_a": _ptt_one_way(b, a, id_b, id_a, "public"),
+    }
+
+
 def scenario_file(
     a: Device,
     b: Device,
@@ -779,6 +869,8 @@ SCENARIOS = {
     "dm": scenario_dm,
     "favorite_verification": scenario_favorite_verification,
     "broadcast": scenario_broadcast,
+    "ptt_dm": scenario_ptt_dm,
+    "ptt_broadcast": scenario_ptt_broadcast,
     # Broadcast transfers are receiver-capped at 256 fragments (~120 KB); only
     # the small fixture is end-to-end receivable.
     "file": lambda a, b: scenario_file(
@@ -807,6 +899,8 @@ WATCH_SCENARIOS = [
     "dm",
     "favorite_verification",
     "broadcast",
+    "ptt_dm",
+    "ptt_broadcast",
     "raw",
     "file",
     "file_private",

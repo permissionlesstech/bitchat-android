@@ -137,6 +137,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(applicationContext)
+            .setAppForeground(true)
         WearChatState.setAppInForeground(true)
         WearChatState.openDmPeer?.let { peerID ->
             WearChatState.openDm(peerID)
@@ -146,6 +148,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(applicationContext)
+            .setAppForeground(false)
         WearChatState.setAppInForeground(false)
         super.onPause()
     }

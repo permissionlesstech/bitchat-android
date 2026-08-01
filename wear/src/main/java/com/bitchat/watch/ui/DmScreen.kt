@@ -60,9 +60,20 @@ fun DmScreen(
     val myPeerID = mesh?.myPeerID ?: ""
     val palette = LocalBitchatPalette.current
     var viewerPath by remember { mutableStateOf<String?>(null) }
-    val voice = rememberVoiceNoteController { path ->
-        mesh?.let { sendVoiceNote(it, peerID, path) }
+    val liveVoiceManager = remember(context) {
+        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
     }
+    val voice = rememberVoiceNoteController(
+        recorderFactory = {
+            val target = if (
+                mesh != null && mesh.hasEstablishedSession(peerID) &&
+                com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context)
+            ) com.bitchat.android.features.voice.LiveVoiceTarget { payload ->
+                mesh.sendVoiceFrame(peerID, payload)
+            } else null
+            com.bitchat.android.features.voice.VoiceRecorder(context, target)
+        }
+    ) { path -> mesh?.let { sendVoiceNote(it, peerID, path) } }
 
     val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
     val identityRevision by WearPeerIdentityState.revision.collectAsState()
@@ -74,9 +85,13 @@ fun DmScreen(
     }
 
     DisposableEffect(peerID) {
+        liveVoiceManager.showDirectMessage(peerID)
         WearChatState.openDm(peerID)
         WearNotificationCoordinator.getInstance(context).clearConversation(peerID)
-        onDispose { WearChatState.closeDm() }
+        onDispose {
+            WearChatState.closeDm()
+            liveVoiceManager.clearVisibleConversation()
+        }
     }
 
     LaunchedEffect(peerID) {

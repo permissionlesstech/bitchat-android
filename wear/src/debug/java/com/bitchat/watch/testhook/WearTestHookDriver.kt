@@ -4,6 +4,13 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.features.voice.LiveVoiceEvent
+import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.features.voice.LiveVoicePreferences
+import com.bitchat.android.features.voice.LiveVoiceScope
+import com.bitchat.android.features.voice.LiveVoiceTarget
+import com.bitchat.android.features.voice.LiveVoiceCapture
+import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.service.TransportBridgeService
@@ -64,6 +71,8 @@ object WearTestHookDriver {
             "verification_status" -> verificationStatus(context, intent.requiredString("peer"))
             "raw_send" -> rawSend(context, intent)
             "file_recv" -> fileRecv(context, intent)
+            "ptt_recv" -> pttRecv(context, intent)
+            "ptt_send" -> pttSend(context, intent)
             "state" -> state(context)
             "clear_results" -> clearResults(context)
             else -> err(cmd, "unknown command: $cmd")
@@ -378,6 +387,104 @@ object WearTestHookDriver {
             delay(250)
         }
         return err("file_recv", "timeout after ${timeoutMs}ms")
+    }
+
+    private suspend fun pttRecv(context: Context, intent: Intent): JSONObject {
+        val timeoutMs = intent.getLongExtra("timeout_ms", 180_000L)
+        val fromPeer = intent.getStringExtra("peer")
+        val expectedScope = if (intent.getStringExtra("scope") == "public") {
+            LiveVoiceScope.PUBLIC_MESH
+        } else {
+            LiveVoiceScope.DIRECT_MESSAGE
+        }
+        LiveVoicePreferences.setEnabled(context, true)
+        var finished: LiveVoiceEvent.Finished? = null
+        var liveSnapshot: File? = null
+        val absorbed = withTimeoutOrNull(timeoutMs) {
+            LiveVoiceManager.getInstance(context).events.first { event ->
+                val matches = event.scope == expectedScope &&
+                    (fromPeer == null || event.peerID == fromPeer)
+                if (matches && event is LiveVoiceEvent.Finished) {
+                    finished = event
+                    liveSnapshot = runCatching {
+                        File(context.cacheDir, "testhook/ptt-${event.burstID}.aac").also { snapshot ->
+                            snapshot.parentFile?.mkdirs()
+                            File(event.path).copyTo(snapshot, overwrite = true)
+                        }
+                    }.getOrNull()
+                }
+                matches && event is LiveVoiceEvent.Absorbed
+            } as LiveVoiceEvent.Absorbed
+        } ?: return err("ptt_recv", "timeout waiting for live burst and finalized note")
+        val analysis = liveSnapshot?.let { snapshot ->
+            try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    PttTestAudioAnalyzer.analyze(snapshot)
+                }
+            } finally {
+                snapshot.delete()
+            }
+        } ?: return err("ptt_recv", "live AAC snapshot was unavailable")
+        return ok("ptt_recv")
+            .put("live_observed", finished != null)
+            .put("scope", if (expectedScope == LiveVoiceScope.PUBLIC_MESH) "public" else "dm")
+            .put("from", absorbed.peerID)
+            .put("burst_id", absorbed.burstID)
+            .put("frames", finished?.frames ?: 0)
+            .put("data_packets", finished?.dataPackets ?: 0)
+            .put("bytes", finished?.bytes ?: 0)
+            .put("expected_packets", finished?.expectedPackets ?: 0)
+            .put("missing_packets", finished?.missingPackets ?: 0)
+            .put("decoded_samples", analysis.decodedSamples)
+            .put("rms", analysis.rms)
+            .put("silent_block_fraction", analysis.silentBlockFraction)
+            .put("longest_silent_block_run", analysis.longestSilentBlockRun)
+            .put("zero_crossings_per_second", analysis.zeroCrossingsPerSecond)
+    }
+
+    private suspend fun pttSend(context: Context, intent: Intent): JSONObject {
+        val peerID = intent.getStringExtra("peer")
+        val durationMs = intent.getIntExtra("duration_ms", 1_500).toLong().coerceIn(700L, 10_000L)
+        val mesh = mesh(context)
+        LiveVoicePreferences.setEnabled(context, true)
+        if (peerID != null && !mesh.hasEstablishedSession(peerID)) {
+            val handshake = handshake(context, peerID, intent)
+            if (handshake.optString("status") != "ok") return handshake.put("cmd", "ptt_send")
+        }
+        val recorder = LiveVoiceCapture(
+            File(context.filesDir, "voicenotes/outgoing"),
+            LiveVoiceTarget { payload -> mesh.sendVoiceFrame(peerID, payload) },
+            syntheticPcm = true
+        )
+        val pendingFile = recorder.start() ?: return err("ptt_send", "live codec failed to start")
+        delay(durationMs)
+        val finalFile = recorder.stop(canceled = false)
+            ?: return err("ptt_send", "capture did not produce a finalized note")
+        val captureStats = recorder.stats()
+        if (finalFile != pendingFile || !finalFile.isFile) {
+            return err("ptt_send", "finalized note is unavailable")
+        }
+        val content = finalFile.readBytes()
+        val packet = BitchatFilePacket(
+            fileName = finalFile.name,
+            fileSize = content.size.toLong(),
+            mimeType = "audio/mp4",
+            content = content
+        )
+        if (peerID == null) mesh.sendFileBroadcast(packet)
+        else mesh.sendFilePrivateEncrypted(peerID, packet)
+        return ok("ptt_send")
+            .put("live", true)
+            .put("scope", if (peerID == null) "public" else "dm")
+            .put("duration_ms", durationMs)
+            .put("burst_id", LiveVoiceManager.burstIDFromVoiceFileName(finalFile.name))
+            .put("bytes", content.size)
+            .put("queued_pcm_frames", captureStats.queuedPcmFrames)
+            .put("encoded_frames", captureStats.encodedFrames)
+            .put("data_packets", captureStats.dataPackets)
+            .put("dropped_oversize_frames", captureStats.droppedOversizeFrames)
+            .put("outbound_packets", captureStats.outboundPackets)
+            .put("delivered_packets", captureStats.deliveredPackets)
     }
 
     // MARK: - State

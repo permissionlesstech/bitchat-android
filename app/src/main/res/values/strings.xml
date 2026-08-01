@@ -123,7 +123,7 @@
   <string name="you">You</string>
   <string name="cd_location_notes">Location notes</string>
   <string name="cd_teleported">Teleported</string>
-  <string name="cd_tor_status">Tor status</string>
+  <string name="cd_open_location_channels">Open location and channel settings</string>
   <string name="cd_connected_peers">Connected peers</string>
   <string name="cd_geohash_participants">Geohash participants</string>
   <string name="cd_ready_for_handshake">Ready for handshake</string>
@@ -275,6 +275,9 @@
   <string name="hotspot_share_via_subtitle">Create Wi-Fi hotspot to share offline</string>
   <string name="hotspot_share_other">Share via Quick Share</string>
   <string name="hotspot_share_other_subtitle">Use standard Android sharing</string>
+  <string name="hotspot_disconnect_title">Disconnect current Wi-Fi Direct connection?</string>
+  <string name="hotspot_disconnect_message">Starting the hotspot will disconnect the current Wi-Fi Direct connection. This may interrupt Cast, Android Auto, Quick Share, or another nearby connection.</string>
+  <string name="hotspot_disconnect_confirm">Disconnect and start</string>
 
   <!-- APK Installation -->
   <string name="install_bitchat_title">Install Received APK</string>

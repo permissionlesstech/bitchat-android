@@ -373,6 +373,10 @@ class WearMeshService private constructor(private val context: Context) {
         meshCore.sendFileBroadcast(file)
     }
 
+    fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
+        meshCore.sendVoiceFrame(recipientPeerID, payload)
+    }
+
     /**
      * Noise-encrypted private file transfer with session/prep retry (mirrors the phone's
      * dispatchFileSend): ensures an established session, then retries transient

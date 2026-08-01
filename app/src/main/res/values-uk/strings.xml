@@ -105,7 +105,7 @@
     <string name="cd_unread_private_messages">Непрочитані приватні повідомлення</string>
     <string name="cd_location_notes">Нотатки про місце</string>
     <string name="cd_teleported">Телепортовано</string>
-    <string name="cd_tor_status">Статус Tor</string>
+    <string name="cd_open_location_channels">Відкрити налаштування розташування та каналів</string>
     <string name="cd_connected_peers">Підключені піри</string>
     <string name="cd_geohash_participants">Учасники геохешу</string>
     <string name="cd_ready_for_handshake">Готовий до рукостискання</string>

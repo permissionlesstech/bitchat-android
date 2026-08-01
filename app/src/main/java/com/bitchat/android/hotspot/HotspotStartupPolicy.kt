@@ -19,8 +19,6 @@ internal object HotspotStartupPolicy {
     const val SSID_PREFIX = "DIRECT-BC-" // BC for BitChat
 
     const val P2P_UNSUPPORTED_MESSAGE = "Wi-Fi Direct is not supported on this device."
-    const val FOREIGN_GROUP_MESSAGE =
-        "Another app is using Wi-Fi Direct. Close it and try again."
     const val P2P_BUSY_MESSAGE = "Wi-Fi Direct is busy. Please try again in a moment."
     const val GENERIC_FAILURE_MESSAGE = "Failed to start the hotspot. Please try again."
 
@@ -32,6 +30,10 @@ internal object HotspotStartupPolicy {
     sealed interface StartAction {
         data object Create : StartAction
         data object RemoveStaleGroupThenCreate : StartAction
+
+        /** A group we cannot show is ours is up; ask the user before disturbing it. */
+        data object ConfirmReplaceExisting : StartAction
+
         data class Fail(val message: String) : StartAction
     }
 
@@ -42,29 +44,55 @@ internal object HotspotStartupPolicy {
      * hosting leaves an orphan behind. The framework rejects createGroup with BUSY
      * while any group exists, and no amount of retrying clears it.
      *
-     * Wi-Fi Direct is shared with Cast, Android Auto and Quick Share, so only groups
-     * we can show are ours get torn down.
+     * Wi-Fi Direct is shared with Cast, Android Auto and Quick Share. A group we can
+     * show is ours is removed silently; anything else needs the user's explicit
+     * go-ahead before it is touched. Consent is bound to the group it was given
+     * for: a group with any other name — one that appeared after the dialog, or
+     * mid-retry — asks again instead of riding on stale approval.
      *
      * @param existingGroupName network name of the group already present, or null
      * @param ownedGroupName last group name this app recorded creating, or null
+     * @param confirmedGroupName group the user agreed to disconnect, or null
      */
     fun startAction(
         p2pState: Int?,
         existingGroupName: String?,
-        ownedGroupName: String?
+        ownedGroupName: String?,
+        confirmedGroupName: String?
     ): StartAction = when {
         p2pState == WifiP2pManager.WIFI_P2P_STATE_DISABLED -> StartAction.Fail(P2P_DISABLED_MESSAGE)
         existingGroupName == null -> StartAction.Create
         isOurs(existingGroupName, ownedGroupName) -> StartAction.RemoveStaleGroupThenCreate
-        else -> StartAction.Fail(FOREIGN_GROUP_MESSAGE)
+        existingGroupName == confirmedGroupName -> StartAction.RemoveStaleGroupThenCreate
+        else -> StartAction.ConfirmReplaceExisting
     }
 
     /**
-     * Primary signal is the name we recorded creating. The SSID prefix is only a
-     * fallback, covering orphans left by builds that predate that record.
+     * Only the exact name this device recorded creating counts as ours. A prefix
+     * match is not ownership: this device can be connected to another phone's
+     * bitchat group — same prefix, their suffix — and silently removing it would
+     * disconnect that session. An orphan predating the record simply goes through
+     * the confirmation dialog once.
      */
     private fun isOurs(existingGroupName: String, ownedGroupName: String?): Boolean =
-        existingGroupName == ownedGroupName || existingGroupName.startsWith(SSID_PREFIX)
+        ownedGroupName != null && existingGroupName == ownedGroupName
+
+    /** Only an exact owner-role name match authorizes device-scoped removal. */
+    fun isExpectedHostedGroup(
+        existingGroupName: String?,
+        isGroupOwner: Boolean,
+        expectedGroupName: String?
+    ): Boolean =
+        isGroupOwner &&
+            expectedGroupName != null &&
+            existingGroupName == expectedGroupName
+
+    /** A stale teardown must not erase the ownership marker of a newer session. */
+    fun shouldClearOwnedGroupName(
+        storedGroupName: String?,
+        removedGroupName: String?
+    ): Boolean =
+        removedGroupName != null && storedGroupName == removedGroupName
 
     /**
      * @param reason a [WifiP2pManager] failure reason from `ActionListener.onFailure`

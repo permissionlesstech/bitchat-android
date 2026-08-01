@@ -40,6 +40,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,6 +83,28 @@ private val HeaderTextSize = 17.sp
 
 /** Minimum tap target for every interactive element in the header. */
 private val HeaderTapTarget = 44.dp
+
+internal enum class HeaderCrowdingMode {
+    Full,
+    HideJoinedChannelCount,
+    IconOnlyLocationChannel,
+}
+
+internal fun headerCrowdingMode(availableWidth: Dp): HeaderCrowdingMode = when {
+    availableWidth < 360.dp -> HeaderCrowdingMode.IconOnlyLocationChannel
+    availableWidth < 400.dp -> HeaderCrowdingMode.HideJoinedChannelCount
+    else -> HeaderCrowdingMode.Full
+}
+
+internal fun locationChannelContentDescription(
+    actionDescription: String,
+    channelLabel: String,
+    showLabel: Boolean,
+): String = if (showLabel) {
+    actionDescription
+} else {
+    "$channelLabel. $actionDescription"
+}
 
 /** Corner radius for the header's tappable label+icon clusters. */
 private val HeaderClusterShape = RoundedCornerShape(8.dp)
@@ -531,6 +554,7 @@ fun NicknameEditor(
                 }
             ),
             modifier = Modifier
+                .weight(1f)
                 .widthIn(max = 150.dp)
                 .horizontalScroll(scrollState)
         )
@@ -546,7 +570,8 @@ fun PeerCounter(
     selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
     geohashPeople: List<GeoPerson>,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showJoinedChannelCount: Boolean = true
 ) {
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
@@ -603,7 +628,7 @@ fun PeerCounter(
             fontWeight = FontWeight.Medium
         )
 
-        if (joinedChannels.isNotEmpty()) {
+        if (showJoinedChannelCount && joinedChannels.isNotEmpty()) {
             AnimatedCount(
                 count = joinedChannels.size,
                 prefix = stringResource(R.string.channel_count_prefix),
@@ -703,22 +728,17 @@ private fun MainHeader(
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(ChatHeaderHeight)
-            .padding(start = HeaderInsetStart, end = HeaderInsetEnd),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // MARK: - Identity cluster.
-        //
-        // Weighted so it yields space to the status cluster rather than pushing it off screen.
-        // Compose measures unweighted children first, so the icons on the right always get the
-        // width they need and a long nickname simply scrolls within what is left.
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val crowdingMode = headerCrowdingMode(maxWidth)
+
         Row(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(ChatHeaderHeight)
+                .padding(start = HeaderInsetStart, end = HeaderInsetEnd),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Keep the brand and trailing actions fixed. Only the nickname yields under pressure.
             BitChatBrandButton(
                 onClick = onTitleClick,
                 onTripleClick = onTripleTitleClick,
@@ -726,11 +746,13 @@ private fun MainHeader(
                 modifier = Modifier.size(HeaderTapTarget),
             )
 
-            // Nudge toward the brand glyph: the 44.dp tap target leaves more optical gap than
-            // spacing between the mark and the path label.
+            // Nudge toward the brand glyph: the 44.dp tap target leaves more optical gap than the
+            // spacing between the mark and path label.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.offset(x = (-6).dp)
+                modifier = Modifier
+                    .weight(1f)
+                    .offset(x = (-6).dp)
             ) {
                 Text(
                     text = "/",
@@ -744,66 +766,58 @@ private fun MainHeader(
 
                 NicknameEditor(
                     value = nickname,
-                    onValueChange = onNicknameChange
+                    onValueChange = onNicknameChange,
+                    modifier = Modifier.weight(1f)
                 )
             }
-        }
 
-        // MARK: - Status cluster.
-        //
-        // Order, left to right: unread DMs, notes, channel, people.
-        // Tor health is read from the location channel / notes icon colour rather than a
-        // dedicated status dot.
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            // Tight, because every child below is its own >=44.dp tap target.
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            // Unread private messages badge (click to open most recent DM)
-            if (hasUnreadPrivateMessages.isNotEmpty()) {
-                HeaderIconButton(
-                    onClick = { viewModel.openLatestUnreadPrivateChat() },
-                    contentDescription = stringResource(R.string.cd_unread_private_messages)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_spec_envelope),
-                        contentDescription = stringResource(R.string.cd_unread_private_messages),
-                        modifier = Modifier.size(HeaderIconSize),
-                        tint = palette.accentOrange
-                    )
-                }
-            }
-
-            // Location notes + channel badge: one tight unit so the document glyph and the
-            // bluetooth/globe glyph sit at the same visual pitch as other header pairings.
+            // Order, left to right: unread DMs, notes, channel, people. This cluster is measured
+            // before the weighted nickname, so actions cannot be pushed off-screen by identity.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(0.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                LocationNotesButton(
-                    viewModel = viewModel,
-                    onClick = onLocationNotesClick
-                )
+                if (hasUnreadPrivateMessages.isNotEmpty()) {
+                    HeaderIconButton(
+                        onClick = { viewModel.openLatestUnreadPrivateChat() },
+                        contentDescription = stringResource(R.string.cd_unread_private_messages)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_spec_envelope),
+                            contentDescription = stringResource(R.string.cd_unread_private_messages),
+                            modifier = Modifier.size(HeaderIconSize),
+                            tint = palette.accentOrange
+                        )
+                    }
+                }
 
-                // Bookmarking lives in the Location Channels sheet, one tap away via the channel
-                // button. Duplicating it here bought a shortcut for a rare action at the cost
-                // of a slot in the app's most crowded row.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    LocationNotesButton(
+                        viewModel = viewModel,
+                        onClick = onLocationNotesClick
+                    )
 
-                LocationChannelsButton(
-                    viewModel = viewModel,
-                    onClick = onLocationChannelsClick
+                    LocationChannelsButton(
+                        viewModel = viewModel,
+                        onClick = onLocationChannelsClick,
+                        showLabel = crowdingMode != HeaderCrowdingMode.IconOnlyLocationChannel
+                    )
+                }
+
+                PeerCounter(
+                    connectedPeers = connectedPeers.filter { it != viewModel.myPeerID },
+                    joinedChannels = joinedChannels,
+                    hasUnreadChannels = hasUnreadChannels,
+                    isConnected = isConnected,
+                    selectedLocationChannel = selectedLocationChannel,
+                    geohashPeople = geohashPeople,
+                    onClick = onSidebarClick,
+                    showJoinedChannelCount = crowdingMode == HeaderCrowdingMode.Full
                 )
             }
-
-            PeerCounter(
-                connectedPeers = connectedPeers.filter { it != viewModel.myPeerID },
-                joinedChannels = joinedChannels,
-                hasUnreadChannels = hasUnreadChannels,
-                isConnected = isConnected,
-                selectedLocationChannel = selectedLocationChannel,
-                geohashPeople = geohashPeople,
-                onClick = onSidebarClick
-            )
         }
     }
 }
@@ -818,7 +832,8 @@ private fun MainHeader(
 @Composable
 private fun LocationChannelsButton(
     viewModel: ChatViewModel,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showLabel: Boolean
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -845,35 +860,44 @@ private fun LocationChannelsButton(
     } else {
         R.drawable.ic_spec_range
     }
+    val actionDescription = stringResource(R.string.cd_open_location_channels)
+    val contentDescription = locationChannelContentDescription(
+        actionDescription = actionDescription,
+        channelLabel = badgeText,
+        showLabel = showLabel
+    )
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = if (showLabel) Arrangement.spacedBy(6.dp) else Arrangement.Center,
         modifier = Modifier
             .clip(HeaderClusterShape)
             .pressScaleClickable(
                 onClick = onClick,
-                onClickLabel = stringResource(R.string.location_channels_title)
+                onClickLabel = actionDescription
             )
             .height(HeaderTapTarget)
-            // No start padding: the notes icon is paired directly to the left; keep end
-            // padding so the gap to PeerCounter matches other cluster separations.
-            .padding(start = 0.dp, end = 6.dp)
+            .widthIn(min = HeaderTapTarget)
+            .padding(end = if (showLabel) 6.dp else 0.dp)
     ) {
         TorAwareHeaderIcon(
             painter = painterResource(badgeIconRes),
             tint = torVisual.tint,
             isProgress = torVisual.isProgress,
-            contentDescription = stringResource(R.string.cd_tor_status)
+            contentDescription = contentDescription
         )
 
-        Text(
-            text = badgeText,
-            style = MaterialTheme.typography.bodyMedium,
-            fontSize = HeaderTextSize,
-            fontWeight = FontWeight.Medium,
-            color = channelColor,
-            maxLines = 1
-        )
+        if (showLabel) {
+            Text(
+                text = badgeText,
+                style = MaterialTheme.typography.bodyMedium,
+                fontSize = HeaderTextSize,
+                fontWeight = FontWeight.Medium,
+                color = channelColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 88.dp)
+            )
+        }
     }
 }

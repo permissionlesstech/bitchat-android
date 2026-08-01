@@ -10,6 +10,8 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.sync.PacketIdUtil
 import com.bitchat.android.util.toHexString
+import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.features.voice.LiveVoiceScope
 import kotlinx.coroutines.*
 import java.util.*
 
@@ -140,13 +142,25 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                             senderPeerID = peerID
                         )
 
-                        delegate?.onMessageReceived(message)
+                        if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                            delegate?.onMessageReceived(message)
+                        }
 
                         // Send delivery ACK with generated message ID
                         sendDeliveryAck(uniqueMsgId, peerID)
                     } else {
                         Log.w(TAG, "Failed to decode encrypted file transfer from $peerID")
                     }
+                }
+
+                com.bitchat.android.model.NoisePayloadType.VOICE_FRAME -> {
+                    return LiveVoiceManager.getInstance(appContext).handleFrame(
+                        peerID = peerID,
+                        nickname = delegate?.getPeerNickname(peerID) ?: peerID,
+                        scope = LiveVoiceScope.DIRECT_MESSAGE,
+                        payload = noisePayload.data,
+                        timestampMs = packet.timestamp.toLong()
+                    )
                 }
 
                 com.bitchat.android.model.NoisePayloadType.PEER_STATE -> {
@@ -411,6 +425,27 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         }
         // Message relay is now handled by centralized PacketRelayManager
     }
+
+    /** Validate and ingest an ephemeral public push-to-talk frame. */
+    fun handlePublicVoiceFrame(routed: RoutedPacket): Boolean {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: return false
+        if (peerID == myPeerID) return true
+        val recipient = packet.recipientID
+        if (recipient != null && !recipient.contentEquals(delegate?.getBroadcastRecipient())) return false
+        if (packet.timestamp > Long.MAX_VALUE.toULong()) return false
+        val ageMs = System.currentTimeMillis() - packet.timestamp.toLong()
+        if (ageMs !in -30_000L..30_000L) return false
+        val peerInfo = delegate?.getPeerInfo(peerID)
+        if (peerInfo == null || !peerInfo.isVerifiedNickname) return false
+        return LiveVoiceManager.getInstance(appContext).handleFrame(
+            peerID = peerID,
+            nickname = delegate?.getPeerNickname(peerID) ?: peerID,
+            scope = LiveVoiceScope.PUBLIC_MESH,
+            payload = packet.payload,
+            timestampMs = packet.timestamp.toLong()
+        )
+    }
     
     /**
      * Handle broadcast message with verification enforcement
@@ -441,7 +476,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong())
                 )
-                delegate?.onMessageReceived(message)
+                if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                    delegate?.onMessageReceived(message)
+                }
                 return
             } else if (isFileTransfer) {
                 Log.w(TAG, "FILE_TRANSFER decode failed (broadcast) from ${peerID.take(8)}")
@@ -501,7 +538,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     recipientNickname = delegate?.getMyNickname()
                 )
                 Log.d(TAG, "📄 Saved incoming file to $savedPath")
-                delegate?.onMessageReceived(message)
+                if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                    delegate?.onMessageReceived(message)
+                }
                 return
             } else if (isFileTransfer) {
                 Log.w(TAG, "⚠️ FILE_TRANSFER decode failed (private) from ${peerID.take(8)} payloadSize=${packet.payload.size}")

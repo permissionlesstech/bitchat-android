@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Dapat dijangkau melalui Nostr</string>
     <string name="cd_unread_private_messages">Pesan pribadi yang belum dibaca</string>
     <string name="cd_teleported">Diteleportasi</string>
-    <string name="cd_tor_status">Status Tor</string>
+    <string name="cd_open_location_channels">Buka pengaturan lokasi dan channel</string>
     <string name="cd_connected_peers">Peer yang terhubung</string>
     <string name="cd_geohash_participants">Peserta geohash</string>
     <string name="cd_ready_for_handshake">Siap untuk handshake</string>

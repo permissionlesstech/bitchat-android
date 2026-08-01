@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">可通过 Nostr 联系</string>
     <string name="cd_unread_private_messages">未读私信</string>
     <string name="cd_teleported">已传送</string>
-    <string name="cd_tor_status">Tor 状态</string>
+    <string name="cd_open_location_channels">打开位置和频道设置</string>
     <string name="cd_connected_peers">已连接节点</string>
     <string name="cd_geohash_participants">Geohash 参与者</string>
     <string name="cd_ready_for_handshake">准备握手</string>

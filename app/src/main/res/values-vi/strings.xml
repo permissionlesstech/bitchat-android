@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Có thể tiếp cận qua Nostr</string>
     <string name="cd_unread_private_messages">Tin nhắn riêng chưa đọc</string>
     <string name="cd_teleported">Đã dịch chuyển</string>
-    <string name="cd_tor_status">Trạng thái Tor</string>
+    <string name="cd_open_location_channels">Mở cài đặt vị trí và kênh</string>
     <string name="cd_connected_peers">Peers đã kết nối</string>
     <string name="cd_geohash_participants">Người tham gia geohash</string>
     <string name="cd_ready_for_handshake">Sẵn sàng cho handshake</string>

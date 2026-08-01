@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Maabot sa Nostr</string>
     <string name="cd_unread_private_messages">Hindi nabasang pribadong mensahe</string>
     <string name="cd_teleported">Naiteleport</string>
-    <string name="cd_tor_status">Katayuan ng Tor</string>
+    <string name="cd_open_location_channels">Buksan ang mga setting ng lokasyon at channel</string>
     <string name="cd_connected_peers">Nakakonektang peers</string>
     <string name="cd_geohash_participants">Mga kalahok sa geohash</string>
     <string name="cd_ready_for_handshake">Handa para sa handshake</string>

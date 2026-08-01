@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Accesible vía Nostr</string>
     <string name="cd_unread_private_messages">Mensajes privados sin leer</string>
     <string name="cd_teleported">Teletransportado</string>
-    <string name="cd_tor_status">Estado de Tor</string>
+    <string name="cd_open_location_channels">Abrir ajustes de ubicación y canales</string>
     <string name="cd_connected_peers">Pares conectados</string>
     <string name="cd_geohash_participants">Participantes geohash</string>
     <string name="cd_ready_for_handshake">Listo para handshake</string>
