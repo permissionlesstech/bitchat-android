@@ -61,6 +61,9 @@ internal object ChatVisualTokens {
     /** Author-colour hairline around a bubble; stronger than the fill so the shape reads. */
     const val BubbleBorderAlpha: Float = 0.38f
 
+    /** End inset reserving room for the delivery checks parked at a bubble's bottom-end corner. */
+    val BubbleStatusInset: Dp = 18.dp
+
     const val SenderSuffixAlpha: Float = 0.60f
     const val HighlightAlpha: Float = 0.20f
     const val MutedTextAlpha: Float = 0.50f

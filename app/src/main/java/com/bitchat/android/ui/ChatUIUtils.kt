@@ -194,42 +194,6 @@ private fun appendMutedTimestamp(
 }
 
 /**
- * Per-check colours for the inline delivery marker trailing the timestamp inside a bubble.
- *
- * Both checks always render — grey until an acknowledgement turns them on — so a status change
- * recolours in place and can never reflow the message text.
- */
-data class MessageStatusGlyph(
-    val firstColor: Color,
-    val secondColor: Color,
-)
-
-private fun appendStatusGlyph(
-    builder: AnnotatedString.Builder,
-    glyph: MessageStatusGlyph,
-) {
-    builder.append(" ")
-    builder.pushStyle(
-        SpanStyle(
-            color = glyph.firstColor,
-            fontSize = ChatVisualTokens.SystemTimeFontSize,
-            fontWeight = FontWeight.Normal,
-        )
-    )
-    builder.append("✓")
-    builder.pop()
-    builder.pushStyle(
-        SpanStyle(
-            color = glyph.secondColor,
-            fontSize = ChatVisualTokens.SystemTimeFontSize,
-            fontWeight = FontWeight.Normal,
-        )
-    )
-    builder.append("✓")
-    builder.pop()
-}
-
-/**
  * Build the message body: neutral text with mention/URL/geohash accents, followed by an inline
  * trailing timestamp.
  *
@@ -244,8 +208,7 @@ fun formatTextMessageBody(
     linkColor: Color,
     mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     timeFormatter: SimpleDateFormat = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()),
-    includeTimestamp: Boolean = true,
-    statusGlyph: MessageStatusGlyph? = null
+    includeTimestamp: Boolean = true
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
 
@@ -261,9 +224,6 @@ fun formatTextMessageBody(
 
     if (includeTimestamp) {
         appendBodyTimestamp(builder, message, palette, timeFormatter)
-    }
-    if (statusGlyph != null) {
-        appendStatusGlyph(builder, statusGlyph)
     }
     return builder.toAnnotatedString()
 }

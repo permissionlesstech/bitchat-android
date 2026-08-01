@@ -760,30 +760,6 @@ internal fun TextMessageLayout(
         onMessageLongPress?.invoke(message)
     }
 
-    // Bubble mode pulls the delivery marker into the bubble, trailing the timestamp. Both
-    // checks render from the start — grey until an acknowledgement turns them green — so a
-    // status change recolours in place and never reflows the text. The colour transition is
-    // animated, which reads as the checks lighting up rather than popping in.
-    val checkTargets = deliveryCheckColors(
-        status = if (bubbles && isSelf && message.isPrivate) message.deliveryStatus else null,
-        colorScheme = colorScheme,
-    )
-    val firstCheck by animateColorAsState(
-        targetValue = checkTargets.first,
-        animationSpec = tween(BitchatMotion.QUICK_MS),
-        label = "firstCheckColor",
-    )
-    val secondCheck by animateColorAsState(
-        targetValue = checkTargets.second,
-        animationSpec = tween(BitchatMotion.QUICK_MS),
-        label = "secondCheckColor",
-    )
-    val statusGlyph = if (bubbles && isSelf && message.isPrivate && message.deliveryStatus != null) {
-        MessageStatusGlyph(firstColor = firstCheck, secondColor = secondCheck)
-    } else {
-        null
-    }
-
     // The timestamp trails the body rather than occupying its own column, so a short message
     // no longer reserves a full-width row for eight grey characters.
     val bodyText = remember(
@@ -793,8 +769,7 @@ internal fun TextMessageLayout(
         colorScheme.onSurface,
         colorScheme.secondary,
         mentionPeerIdentities,
-        timeFormatter,
-        statusGlyph
+        timeFormatter
     ) {
         formatTextMessageBody(
             message = displayMessage,
@@ -804,7 +779,6 @@ internal fun TextMessageLayout(
             linkColor = colorScheme.secondary,
             mentionPeerIdentities = mentionPeerIdentities,
             timeFormatter = timeFormatter,
-            statusGlyph = statusGlyph,
         )
     }
 
@@ -966,32 +940,52 @@ private fun BubbleTextMessageLayout(
                         )
                     }
 
-                    AnnotatedClickableText(
-                        text = bodyText,
-                        annotationTags = listOf("geohash_click", "url_click"),
-                        onAnnotationClick = { tag, item ->
-                            when (tag) {
-                                "geohash_click" -> {
-                                    navigateToGeohash(context, item)
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    true
-                                }
+                    Box {
+                        AnnotatedClickableText(
+                            text = bodyText,
+                            annotationTags = listOf("geohash_click", "url_click"),
+                            onAnnotationClick = { tag, item ->
+                                when (tag) {
+                                    "geohash_click" -> {
+                                        navigateToGeohash(context, item)
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        true
+                                    }
 
-                                "url_click" -> {
-                                    openMessageUrl(context, item)
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    true
-                                }
+                                    "url_click" -> {
+                                        openMessageUrl(context, item)
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        true
+                                    }
 
-                                else -> false
+                                    else -> false
+                                }
+                            },
+                            onLongPress = onLongPress,
+                            // Keep the last line clear of the checks parked at the bubble's corner.
+                            modifier = Modifier.padding(
+                                end = if (isSelf && message.isPrivate && message.deliveryStatus != null) {
+                                    ChatVisualTokens.BubbleStatusInset
+                                } else {
+                                    0.dp
+                                }
+                            ),
+                            fontFamily = BitchatFontFamily,
+                            softWrap = true,
+                            overflow = TextOverflow.Visible,
+                            style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+                        )
+
+                        // Delivery checks anchor the bubble's bottom-end corner, like classic
+                        // messengers, instead of trailing the timestamp mid-line.
+                        if (isSelf && message.isPrivate) {
+                            message.deliveryStatus?.let { status ->
+                                Box(modifier = Modifier.align(Alignment.BottomEnd)) {
+                                    DeliveryStatusIcon(status = status)
+                                }
                             }
-                        },
-                        onLongPress = onLongPress,
-                        fontFamily = BitchatFontFamily,
-                        softWrap = true,
-                        overflow = TextOverflow.Visible,
-                        style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
-                    )
+                        }
+                    }
                 }
             }
         }
