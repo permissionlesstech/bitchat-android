@@ -506,6 +506,7 @@ fun MessageItem(
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
             showSender = showSender,
+            bubbles = bubbles,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
@@ -524,6 +525,7 @@ fun MessageItem(
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
             showSender = showSender,
+            bubbles = bubbles,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
@@ -544,7 +546,15 @@ fun MessageItem(
             }
             else -> null to null
         }
-        Column(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = modifier.fillMaxWidth(),
+            // Bubble mode aligns self-authored file rows to the end side, mirroring text bubbles.
+            horizontalAlignment = if (bubbles && message.isFromSelf(currentUserNickname, meshService.myPeerID)) {
+                Alignment.End
+            } else {
+                Alignment.Start
+            },
+        ) {
             // Header: nickname + timestamp line above the file, identical styling to text messages
             val headerText = formatMessageHeaderAnnotatedString(
                 message = message,
@@ -590,7 +600,14 @@ fun MessageItem(
                 null
             }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = if (bubbles && message.isFromSelf(currentUserNickname, meshService.myPeerID)) {
+                    Arrangement.End
+                } else {
+                    Arrangement.Start
+                }
+            ) {
                 Box {
                     if (packet != null) {
                         if (overrideProgress != null) {
