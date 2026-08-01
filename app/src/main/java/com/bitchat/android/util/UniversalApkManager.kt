@@ -9,6 +9,7 @@ import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.OkHttpProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.Call
@@ -216,6 +217,12 @@ class UniversalApkManager(
 
                     phaseCallback?.invoke(ApkDownloader.DownloadPhase.VerifyingSignature)
                     validateDownloadedApk(tempFile, source)
+
+                    // Everything from here to the metadata write is plain blocking code, so a
+                    // cancellation arriving during the (slow) signature check would otherwise go
+                    // unobserved and commit the APK anyway. The verified temp file survives for
+                    // resume; only the promotion is abandoned.
+                    ensureActive()
 
                     val version = downloadedVersionName(tempFile)
                     val safeVersion = version.replace(Regex("[^A-Za-z0-9._-]"), "_")
