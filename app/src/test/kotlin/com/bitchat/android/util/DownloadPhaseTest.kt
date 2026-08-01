@@ -44,6 +44,18 @@ class DownloadPhaseTest {
     }
 
     @Test
+    fun `a queued retry is not reported as a connectivity wait`() {
+        // WorkManager returns a retry to ENQUEUED for the backoff even while the device is online,
+        // so attempt count is the only thing separating the two waits.
+        assertEquals(
+            ApkDownloader.DownloadPhase.AwaitingConnectivity,
+            queuedPhase(runAttemptCount = 0)
+        )
+        assertEquals(ApkDownloader.DownloadPhase.Retrying, queuedPhase(runAttemptCount = 1))
+        assertEquals(ApkDownloader.DownloadPhase.Retrying, queuedPhase(runAttemptCount = 2))
+    }
+
+    @Test
     fun `only the transfer claims measurable progress`() {
         assertTrue(ApkDownloader.DownloadPhase.Transferring.hasMeasurableProgress)
 

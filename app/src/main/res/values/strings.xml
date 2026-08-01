@@ -252,6 +252,7 @@
   <string name="prepare_apk_status_downloading">Downloading… %1$d%%</string>
   <!-- Stages of preparing the APK. Only the transfer has a meaningful percentage. -->
   <string name="prepare_apk_phase_awaiting_connectivity">Waiting for network…</string>
+  <string name="prepare_apk_phase_retrying">Retrying…</string>
   <string name="prepare_apk_phase_selecting_source">Selecting download source…</string>
   <string name="prepare_apk_phase_awaiting_route">Waiting for Tor…</string>
   <string name="prepare_apk_phase_transferring">Downloading…</string>

@@ -58,11 +58,13 @@ class WorkManagerApkDownloader(context: Context) : ApkDownloader {
         return when (workInfo.state) {
             WorkInfo.State.ENQUEUED,
             WorkInfo.State.BLOCKED -> {
-                // Waiting for constraints (network). Show existing partial progress if any.
+                // ENQUEUED covers two different waits. A non-zero attempt count means the work
+                // already ran and failed, so this is the retry backoff rather than a missing
+                // network — saying "waiting for network" there would be false while online.
                 val partial = apkManager.getPartialDownloadProgress()
                 ApkDownloader.DownloadState.Downloading(
                     partial ?: 0,
-                    ApkDownloader.DownloadPhase.AwaitingConnectivity
+                    queuedPhase(workInfo.runAttemptCount)
                 )
             }
             WorkInfo.State.RUNNING -> {

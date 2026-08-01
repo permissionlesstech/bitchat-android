@@ -54,6 +54,13 @@ interface ApkDownloader {
      */
     enum class DownloadPhase {
         AwaitingConnectivity,
+        /**
+         * Waiting out the backoff before another attempt. Distinct from
+         * [AwaitingConnectivity] because WorkManager parks a retry in ENQUEUED
+         * whether or not the device is online, and claiming a network wait there
+         * would be false on a connected device.
+         */
+        Retrying,
         SelectingSource,
         AwaitingNetworkRoute,
         Transferring,
@@ -74,10 +81,26 @@ interface ApkDownloader {
     }
 }
 
+/**
+ * What a queued work record is actually waiting for.
+ *
+ * WorkManager parks both cases in ENQUEUED, so the state alone cannot tell them apart. A non-zero
+ * [runAttemptCount] means the work already ran and failed, which makes this the retry backoff
+ * rather than an unmet network constraint.
+ */
+internal fun queuedPhase(runAttemptCount: Int): ApkDownloader.DownloadPhase =
+    if (runAttemptCount > 0) {
+        ApkDownloader.DownloadPhase.Retrying
+    } else {
+        ApkDownloader.DownloadPhase.AwaitingConnectivity
+    }
+
 /** Shared by the notification and the About sheet so both name a phase identically. */
 internal fun downloadPhaseLabel(phase: ApkDownloader.DownloadPhase): Int = when (phase) {
     ApkDownloader.DownloadPhase.AwaitingConnectivity ->
         com.bitchat.android.R.string.prepare_apk_phase_awaiting_connectivity
+    ApkDownloader.DownloadPhase.Retrying ->
+        com.bitchat.android.R.string.prepare_apk_phase_retrying
     ApkDownloader.DownloadPhase.SelectingSource ->
         com.bitchat.android.R.string.prepare_apk_phase_selecting_source
     ApkDownloader.DownloadPhase.AwaitingNetworkRoute ->
