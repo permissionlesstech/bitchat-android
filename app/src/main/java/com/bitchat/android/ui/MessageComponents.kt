@@ -763,9 +763,8 @@ internal fun TextMessageLayout(
     }
 
     // The timestamp trails the body rather than occupying its own column, so a short message
-    // no longer reserves a full-width row for eight grey characters. Self bubbles trail a
-    // timestamp + checks cluster inline instead: it rides the last text line when there is
-    // room and only wraps when there isn't, so bubbles keep hugging their content.
+    // no longer reserves a full-width row for eight grey characters. Self bubbles leave the
+    // timestamp to their meta cluster (see BubbleTextMessageLayout).
     val bodyText = remember(
         displayMessage,
         currentUserNickname,
@@ -789,48 +788,19 @@ internal fun TextMessageLayout(
         )
     }
 
-    // Self-bubble meta cluster: timestamp plus the constant-width delivery checks, appended as
-    // text spans so the whole thing flows with the body. Check colours tween grey -> green as
-    // acknowledgements arrive; nothing in the transcript reflows.
-    val checkTargets = deliveryCheckColors(
-        status = if (bubbles && isSelf && message.isPrivate) message.deliveryStatus else null,
-        colorScheme = colorScheme,
-    )
-    val firstCheck by animateColorAsState(
-        targetValue = checkTargets.first,
-        animationSpec = tween(BitchatMotion.QUICK_MS),
-        label = "firstCheckColor",
-    )
-    val secondCheck by animateColorAsState(
-        targetValue = checkTargets.second,
-        animationSpec = tween(BitchatMotion.QUICK_MS),
-        label = "secondCheckColor",
-    )
-    val bubbleBodyText = remember(bodyText, message, timeFormatter, bubbles, isSelf, firstCheck, secondCheck) {
+    // Self bubbles reserve a run of no-break spaces after the body, sized to the meta cluster
+    // the bubble overlays there (timestamp plus delivery checks). A zero-width word joiner
+    // caps the run so the line's trailing whitespace is not trimmed away. The run rides the
+    // last text line when there is room and wraps only when there isn't, so the overlay can
+    // park flush-right on the last line without ever overlapping text or forcing the bubble
+    // wider than its content.
+    val bubbleBodyText = remember(bodyText, message, bubbles, isSelf) {
         if (!bubbles || !isSelf) return@remember bodyText
+        val reserveChars = if (message.isPrivate && message.deliveryStatus != null) 7 else 5
         androidx.compose.ui.text.buildAnnotatedString {
             append(bodyText)
-            append("  ")
-            append(formatTextMessageMetadata(message, timeFormatter))
-            if (message.isPrivate && message.deliveryStatus != null) {
-                append(" ")
-                pushStyle(
-                    androidx.compose.ui.text.SpanStyle(
-                        color = firstCheck,
-                        fontSize = ChatVisualTokens.SystemTimeFontSize,
-                    )
-                )
-                append("✓")
-                pop()
-                pushStyle(
-                    androidx.compose.ui.text.SpanStyle(
-                        color = secondCheck,
-                        fontSize = ChatVisualTokens.SystemTimeFontSize,
-                    )
-                )
-                append("✓")
-                pop()
-            }
+            append(" ".repeat(reserveChars))
+            append("⁠")
         }
     }
 
@@ -841,6 +811,7 @@ internal fun TextMessageLayout(
             bodyText = bubbleBodyText,
             isSelf = isSelf,
             showSender = showSender,
+            timeFormatter = timeFormatter,
             onNicknameClick = onNicknameClick,
             onLongPress = handleLongPress,
             modifier = modifier,
@@ -922,6 +893,7 @@ private fun BubbleTextMessageLayout(
     bodyText: AnnotatedString,
     isSelf: Boolean,
     showSender: Boolean,
+    timeFormatter: SimpleDateFormat,
     onNicknameClick: ((String) -> Unit)?,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
@@ -992,32 +964,56 @@ private fun BubbleTextMessageLayout(
                         )
                     }
 
-                    AnnotatedClickableText(
-                        text = bodyText,
-                        annotationTags = listOf("geohash_click", "url_click"),
-                        onAnnotationClick = { tag, item ->
-                            when (tag) {
-                                "geohash_click" -> {
-                                    navigateToGeohash(context, item)
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    true
-                                }
+                    Box {
+                        AnnotatedClickableText(
+                            text = bodyText,
+                            annotationTags = listOf("geohash_click", "url_click"),
+                            onAnnotationClick = { tag, item ->
+                                when (tag) {
+                                    "geohash_click" -> {
+                                        navigateToGeohash(context, item)
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        true
+                                    }
 
-                                "url_click" -> {
-                                    openMessageUrl(context, item)
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    true
-                                }
+                                    "url_click" -> {
+                                        openMessageUrl(context, item)
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        true
+                                    }
 
-                                else -> false
+                                    else -> false
+                                }
+                            },
+                            onLongPress = onLongPress,
+                            fontFamily = BitchatFontFamily,
+                            softWrap = true,
+                            overflow = TextOverflow.Visible,
+                            style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+                        )
+
+                        // Meta cluster overlay, flush with the bubble's end edge on the body's
+                        // last line: timestamp, then the delivery checks at a fixed gap for own
+                        // private messages. The body reserved invisible space for it, so the
+                        // cluster never collides with text and never adds a line unnecessarily.
+                        if (isSelf) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.align(Alignment.BottomEnd),
+                            ) {
+                                Text(
+                                    text = formatTextMessageMetadata(message, timeFormatter),
+                                    fontFamily = BitchatFontFamily,
+                                )
+                                if (message.isPrivate) {
+                                    message.deliveryStatus?.let { status ->
+                                        Spacer(Modifier.width(4.dp))
+                                        DeliveryStatusIcon(status = status)
+                                    }
+                                }
                             }
-                        },
-                        onLongPress = onLongPress,
-                        fontFamily = BitchatFontFamily,
-                        softWrap = true,
-                        overflow = TextOverflow.Visible,
-                        style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
-                    )
+                        }
+                    }
                 }
             }
         }
