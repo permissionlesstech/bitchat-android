@@ -30,10 +30,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -761,7 +763,8 @@ internal fun TextMessageLayout(
     }
 
     // The timestamp trails the body rather than occupying its own column, so a short message
-    // no longer reserves a full-width row for eight grey characters.
+    // no longer reserves a full-width row for eight grey characters. Bubbles instead park it
+    // in the bubble's bottom meta row, right-aligned next to the delivery checks.
     val bodyText = remember(
         displayMessage,
         currentUserNickname,
@@ -769,7 +772,8 @@ internal fun TextMessageLayout(
         colorScheme.onSurface,
         colorScheme.secondary,
         mentionPeerIdentities,
-        timeFormatter
+        timeFormatter,
+        bubbles
     ) {
         formatTextMessageBody(
             message = displayMessage,
@@ -779,6 +783,7 @@ internal fun TextMessageLayout(
             linkColor = colorScheme.secondary,
             mentionPeerIdentities = mentionPeerIdentities,
             timeFormatter = timeFormatter,
+            includeTimestamp = !bubbles,
         )
     }
 
@@ -789,6 +794,7 @@ internal fun TextMessageLayout(
             bodyText = bodyText,
             isSelf = isSelf,
             showSender = showSender,
+            timeFormatter = timeFormatter,
             onNicknameClick = onNicknameClick,
             onLongPress = handleLongPress,
             modifier = modifier,
@@ -870,6 +876,7 @@ private fun BubbleTextMessageLayout(
     bodyText: AnnotatedString,
     isSelf: Boolean,
     showSender: Boolean,
+    timeFormatter: SimpleDateFormat,
     onNicknameClick: ((String) -> Unit)?,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
@@ -940,49 +947,48 @@ private fun BubbleTextMessageLayout(
                         )
                     }
 
-                    Box {
-                        AnnotatedClickableText(
-                            text = bodyText,
-                            annotationTags = listOf("geohash_click", "url_click"),
-                            onAnnotationClick = { tag, item ->
-                                when (tag) {
-                                    "geohash_click" -> {
-                                        navigateToGeohash(context, item)
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        true
-                                    }
-
-                                    "url_click" -> {
-                                        openMessageUrl(context, item)
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        true
-                                    }
-
-                                    else -> false
+                    AnnotatedClickableText(
+                        text = bodyText,
+                        annotationTags = listOf("geohash_click", "url_click"),
+                        onAnnotationClick = { tag, item ->
+                            when (tag) {
+                                "geohash_click" -> {
+                                    navigateToGeohash(context, item)
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    true
                                 }
-                            },
-                            onLongPress = onLongPress,
-                            // Keep the last line clear of the checks parked at the bubble's corner.
-                            modifier = Modifier.padding(
-                                end = if (isSelf && message.isPrivate && message.deliveryStatus != null) {
-                                    ChatVisualTokens.BubbleStatusInset
-                                } else {
-                                    0.dp
+
+                                "url_click" -> {
+                                    openMessageUrl(context, item)
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    true
                                 }
-                            ),
+
+                                else -> false
+                            }
+                        },
+                        onLongPress = onLongPress,
+                        fontFamily = BitchatFontFamily,
+                        softWrap = true,
+                        overflow = TextOverflow.Visible,
+                        style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+                    )
+
+                    // Bottom meta row, right-aligned like classic messengers: timestamp, then
+                    // the delivery checks at a fixed gap when this is an own private message.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = formatTextMessageMetadata(message, timeFormatter),
                             fontFamily = BitchatFontFamily,
-                            softWrap = true,
-                            overflow = TextOverflow.Visible,
-                            style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
                         )
-
-                        // Delivery checks anchor the bubble's bottom-end corner, like classic
-                        // messengers, instead of trailing the timestamp mid-line.
                         if (isSelf && message.isPrivate) {
                             message.deliveryStatus?.let { status ->
-                                Box(modifier = Modifier.align(Alignment.BottomEnd)) {
-                                    DeliveryStatusIcon(status = status)
-                                }
+                                Spacer(Modifier.width(ChatVisualTokens.BubbleStatusSpacing))
+                                DeliveryStatusIcon(status = status)
                             }
                         }
                     }
