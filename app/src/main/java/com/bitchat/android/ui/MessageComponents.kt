@@ -458,8 +458,11 @@ fun MessageItem(
             }
         }
 
-        // Bubble mode: a small end-aligned marker beneath the bubble, clear of the tail.
-        if (bubbles && message.isPrivate && message.sender == currentUserNickname) {
+        // Bubble mode: text messages carry the marker inline, trailing the timestamp. Media
+        // rows have no inline text, so their marker stays beneath the end-aligned card.
+        if (bubbles && message.type != BitchatMessageType.Message &&
+            message.isPrivate && message.sender == currentUserNickname
+        ) {
             message.deliveryStatus?.let { status ->
                 Box(
                     modifier = Modifier
@@ -752,6 +755,37 @@ internal fun TextMessageLayout(
             palette = palette,
         )
     }
+    val isSelf = message.isFromSelf(currentUserNickname, myPeerId)
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val handleLongPress: () -> Unit = {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        onMessageLongPress?.invoke(message)
+    }
+
+    // Bubble mode pulls the delivery marker into the bubble, trailing the timestamp, so the
+    // whole message reads as one unit. Same glyph mapping as the standalone marker.
+    val statusGlyph = if (bubbles && isSelf && message.isPrivate) {
+        message.deliveryStatus?.let { status ->
+            when (status) {
+                is DeliveryStatus.Sending ->
+                    MessageStatusGlyph(stringResource(R.string.status_sending), colorScheme.primary.copy(alpha = 0.6f), bold = false)
+                is DeliveryStatus.Sent ->
+                    MessageStatusGlyph(stringResource(R.string.status_pending), colorScheme.primary.copy(alpha = 0.6f), bold = false)
+                is DeliveryStatus.Delivered ->
+                    MessageStatusGlyph(stringResource(R.string.status_sent), colorScheme.primary.copy(alpha = 0.8f), bold = false)
+                is DeliveryStatus.Read ->
+                    MessageStatusGlyph(stringResource(R.string.status_delivered), colorScheme.secondary, bold = true)
+                is DeliveryStatus.Failed ->
+                    MessageStatusGlyph(stringResource(R.string.status_failed), colorScheme.error, bold = false)
+                is DeliveryStatus.PartiallyDelivered ->
+                    MessageStatusGlyph(stringResource(R.string.status_sent), colorScheme.primary.copy(alpha = 0.6f), bold = false)
+            }
+        }
+    } else {
+        null
+    }
+
     // The timestamp trails the body rather than occupying its own column, so a short message
     // no longer reserves a full-width row for eight grey characters.
     val bodyText = remember(
@@ -761,7 +795,8 @@ internal fun TextMessageLayout(
         colorScheme.onSurface,
         colorScheme.secondary,
         mentionPeerIdentities,
-        timeFormatter
+        timeFormatter,
+        statusGlyph
     ) {
         formatTextMessageBody(
             message = displayMessage,
@@ -771,14 +806,8 @@ internal fun TextMessageLayout(
             linkColor = colorScheme.secondary,
             mentionPeerIdentities = mentionPeerIdentities,
             timeFormatter = timeFormatter,
+            statusGlyph = statusGlyph,
         )
-    }
-    val isSelf = message.isFromSelf(currentUserNickname, myPeerId)
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
-    val handleLongPress: () -> Unit = {
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        onMessageLongPress?.invoke(message)
     }
 
     if (bubbles) {
@@ -891,37 +920,8 @@ private fun BubbleTextMessageLayout(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(MessageGrouping.SENDER_TO_BODY_SPACING),
         horizontalAlignment = if (isSelf) Alignment.End else Alignment.Start,
     ) {
-        if (showSender) {
-            AnnotatedClickableText(
-                text = senderText,
-                annotationTags = listOf("nickname_click"),
-                onAnnotationClick = { tag, item ->
-                    if (tag == "nickname_click" && !isSelf && onNicknameClick != null) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onNicknameClick.invoke(item)
-                        true
-                    } else {
-                        false
-                    }
-                },
-                onLongPress = onLongPress,
-                modifier = Modifier
-                    .padding(
-                        top = MessageGrouping.SENDER_TOP_PADDING,
-                        // Nudge the label off the bubble's rounded edge so it lines up with the text.
-                        start = if (isSelf) 0.dp else ChatVisualTokens.BubblePaddingHorizontal,
-                        end = if (isSelf) ChatVisualTokens.BubblePaddingHorizontal else 0.dp,
-                    ),
-                fontFamily = BitchatFontFamily,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-                style = MessageSenderTextStyle,
-            )
-        }
-
         // Cap the bubble at a fraction of the row so long messages wrap instead of touching the
         // opposite edge, while short ones hug their content.
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -944,32 +944,57 @@ private fun BubbleTextMessageLayout(
                         vertical = ChatVisualTokens.BubblePaddingVertical,
                     )
             ) {
-                AnnotatedClickableText(
-                    text = bodyText,
-                    annotationTags = listOf("geohash_click", "url_click"),
-                    onAnnotationClick = { tag, item ->
-                        when (tag) {
-                            "geohash_click" -> {
-                                navigateToGeohash(context, item)
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                true
-                            }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    // The sender's name heads the first bubble of their run, like classic group
+                    // messengers, instead of floating above it. Continuation bubbles skip it.
+                    if (showSender) {
+                        AnnotatedClickableText(
+                            text = senderText,
+                            annotationTags = listOf("nickname_click"),
+                            onAnnotationClick = { tag, item ->
+                                if (tag == "nickname_click" && !isSelf && onNicknameClick != null) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onNicknameClick.invoke(item)
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                            onLongPress = onLongPress,
+                            fontFamily = BitchatFontFamily,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MessageSenderTextStyle,
+                        )
+                    }
 
-                            "url_click" -> {
-                                openMessageUrl(context, item)
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                true
-                            }
+                    AnnotatedClickableText(
+                        text = bodyText,
+                        annotationTags = listOf("geohash_click", "url_click"),
+                        onAnnotationClick = { tag, item ->
+                            when (tag) {
+                                "geohash_click" -> {
+                                    navigateToGeohash(context, item)
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    true
+                                }
 
-                            else -> false
-                        }
-                    },
-                    onLongPress = onLongPress,
-                    fontFamily = BitchatFontFamily,
-                    softWrap = true,
-                    overflow = TextOverflow.Visible,
-                    style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
-                )
+                                "url_click" -> {
+                                    openMessageUrl(context, item)
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    true
+                                }
+
+                                else -> false
+                            }
+                        },
+                        onLongPress = onLongPress,
+                        fontFamily = BitchatFontFamily,
+                        softWrap = true,
+                        overflow = TextOverflow.Visible,
+                        style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+                    )
+                }
             }
         }
     }

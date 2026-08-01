@@ -53,11 +53,14 @@ fun getRSSIColor(rssi: Int): Color {
     }
 }
 
+/** Thin space (U+2009) separating a display name from its `#abcd` disambiguation suffix. */
+internal const val SUFFIX_THIN_SPACE = " "
+
 /**
  * Build the sender label shown above the first message of a group.
  *
- * Renders `@name` plus a dimmed `#abcd` suffix. The name carries a `nickname_click`
- * annotation for everyone except yourself.
+ * Renders `@name` plus a dimmed `#abcd` suffix, separated by a thin space. The name carries
+ * a `nickname_click` annotation for everyone except yourself.
  */
 fun formatTextMessageSender(
     message: BitchatMessage,
@@ -97,6 +100,7 @@ fun formatTextMessageSender(
     builder.pop()
 
     if (suffix.isNotEmpty()) {
+        builder.append(SUFFIX_THIN_SPACE)
         builder.pushStyle(
             SpanStyle(
                 color = senderColor.copy(alpha = SUFFIX_ALPHA),
@@ -190,6 +194,32 @@ private fun appendMutedTimestamp(
 }
 
 /**
+ * A delivery-status glyph rendered inline, trailing the timestamp inside a bubble.
+ *
+ * Mirrors the mapping used by the standalone delivery marker so the two never disagree.
+ */
+data class MessageStatusGlyph(
+    val text: String,
+    val color: Color,
+    val bold: Boolean,
+)
+
+private fun appendStatusGlyph(
+    builder: AnnotatedString.Builder,
+    glyph: MessageStatusGlyph,
+) {
+    builder.pushStyle(
+        SpanStyle(
+            color = glyph.color,
+            fontSize = ChatVisualTokens.SystemTimeFontSize,
+            fontWeight = if (glyph.bold) FontWeight.Bold else FontWeight.Normal,
+        )
+    )
+    builder.append(" ${glyph.text}")
+    builder.pop()
+}
+
+/**
  * Build the message body: neutral text with mention/URL/geohash accents, followed by an inline
  * trailing timestamp.
  *
@@ -204,7 +234,8 @@ fun formatTextMessageBody(
     linkColor: Color,
     mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     timeFormatter: SimpleDateFormat = SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()),
-    includeTimestamp: Boolean = true
+    includeTimestamp: Boolean = true,
+    statusGlyph: MessageStatusGlyph? = null
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
 
@@ -220,6 +251,9 @@ fun formatTextMessageBody(
 
     if (includeTimestamp) {
         appendBodyTimestamp(builder, message, palette, timeFormatter)
+    }
+    if (statusGlyph != null) {
+        appendStatusGlyph(builder, statusGlyph)
     }
     return builder.toAnnotatedString()
 }
@@ -304,6 +338,7 @@ fun formatMessageHeaderAnnotatedString(
         builder.pop()
 
         if (suffix.isNotEmpty()) {
+            builder.append(SUFFIX_THIN_SPACE)
             builder.pushStyle(
                 SpanStyle(
                     color = baseColor.copy(alpha = SUFFIX_ALPHA),
