@@ -401,6 +401,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     if (accepted) {
                         messageText = TextFieldValue("")
                         viewModel.setConversationDraft(selectedPrivatePeer, "")
+                        // Clearing the field in code does not run onMessageTextChange,
+                        // so the popups have to be dismissed here.
+                        viewModel.clearSuggestions()
                         forceScrollToBottom = !forceScrollToBottom
                     }
                 }

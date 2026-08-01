@@ -465,6 +465,18 @@ class CommandProcessor(
         messageManager.addMessage(systemMessage)
     }
     
+    /**
+     * Dismiss the command and mention popups. The composer clears its field in code
+     * after a send, which does not run onValueChange, so the popups need an explicit
+     * clear.
+     */
+    fun clearSuggestions() {
+        state.setShowCommandSuggestions(false)
+        state.setCommandSuggestions(emptyList())
+        state.setShowMentionSuggestions(false)
+        state.setMentionSuggestions(emptyList())
+    }
+
     // MARK: - Command Autocomplete
 
     fun updateCommandSuggestions(input: String) {
