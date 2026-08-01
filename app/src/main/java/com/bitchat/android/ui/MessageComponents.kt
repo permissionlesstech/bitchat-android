@@ -960,8 +960,9 @@ private fun BubbleTextMessageLayout(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     // The sender's name heads the first bubble of their run, like classic group
-                    // messengers, instead of floating above it. Continuation bubbles skip it.
-                    if (showSender) {
+                    // messengers, instead of floating above it. Own bubbles never show a name —
+                    // the end side is attribution enough. Continuation bubbles skip it too.
+                    if (showSender && !isSelf) {
                         AnnotatedClickableText(
                             text = senderText,
                             annotationTags = listOf("nickname_click"),
