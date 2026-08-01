@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Verified
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +26,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
 import androidx.wear.compose.foundation.rotary.rotaryScrollable
 import androidx.compose.ui.text.font.FontWeight
@@ -54,7 +57,7 @@ fun DmScreen(
     onOpenTextInput: () -> Unit
 ) {
     val context = LocalContext.current
-    val privateMessages by AppStateStore.privateMessages.collectAsState()
+    val privateMessages by AppStateStore.privateMessages.collectAsStateWithLifecycle()
     val messages = privateMessages[peerID] ?: emptyList()
     val mesh = WearMeshService.peek()
     val myPeerID = mesh?.myPeerID ?: ""
@@ -76,7 +79,8 @@ fun DmScreen(
     ) { path -> mesh?.let { sendVoiceNote(it, peerID, path) } }
 
     val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
-    val identityRevision by WearPeerIdentityState.revision.collectAsState()
+    val identityRevision by WearPeerIdentityState.revision.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
     val identity = remember(peerID, identityRevision) {
         WearPeerIdentityState.snapshot(peerID, mesh)
     }
@@ -94,13 +98,15 @@ fun DmScreen(
         }
     }
 
-    LaunchedEffect(peerID) {
+    LaunchedEffect(peerID, lifecycleOwner) {
         if (mesh?.hasEstablishedSession(peerID) != true) {
             try { mesh?.initiateNoiseHandshake(peerID) } catch (_: Exception) { }
         }
-        while (true) {
-            sessionEstablished = mesh?.hasEstablishedSession(peerID) == true
-            kotlinx.coroutines.delay(2_000)
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                sessionEstablished = mesh?.hasEstablishedSession(peerID) == true
+                kotlinx.coroutines.delay(5_000)
+            }
         }
     }
 
