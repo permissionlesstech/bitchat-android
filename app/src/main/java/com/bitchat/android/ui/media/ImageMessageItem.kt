@@ -2,9 +2,11 @@ package com.bitchat.android.ui.media
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -28,7 +30,6 @@ import com.bitchat.android.model.BitchatMessageType
 import androidx.compose.material3.ColorScheme
 import com.bitchat.android.core.ui.component.text.AnnotatedClickableText
 import com.bitchat.android.ui.theme.LocalBitchatPalette
-import com.bitchat.android.ui.isFromSelf
 import java.text.SimpleDateFormat
 
 @Composable
@@ -49,17 +50,53 @@ fun ImageMessageItem(
 ) {
     val palette = LocalBitchatPalette.current
     val path = message.content.trim()
-    // Bubble mode aligns self-authored media to the end side, mirroring text bubbles; the
-    // corner on the speaker's side is tightened into the same subtle tail.
-    val isSelfInBubbles = bubbles && message.isFromSelf(currentUserNickname, meshService.myPeerID)
-    val imageShape = when {
-        !bubbles -> androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
-        isSelfInBubbles -> androidx.compose.foundation.shape.RoundedCornerShape(10.dp, 10.dp, 3.dp, 10.dp)
-        else -> androidx.compose.foundation.shape.RoundedCornerShape(10.dp, 10.dp, 10.dp, 3.dp)
+    // Bubble mode wraps the image in the same tinted shell as text bubbles; Matrix mode keeps
+    // the flat header-plus-card layout.
+    val bubblesMode = bubbles
+    val imageShape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+
+    val context = LocalContext.current
+    val bmp = remember(path) { try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null } }
+
+    // Collect all image paths from messages for swipe navigation
+    val imagePaths = remember(messages) {
+        messages.filter { it.type == BitchatMessageType.Image }
+            .map { it.content.trim() }
     }
+    val haptic = LocalHapticFeedback.current
+
+    if (bubblesMode) {
+        MediaBubbleShell(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            myPeerID = meshService.myPeerID,
+            showSender = showSender,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onLongPress = { onMessageLongPress?.invoke(message) },
+            modifier = modifier,
+        ) {
+            ImageMessageCard(
+                message = message,
+                currentUserNickname = currentUserNickname,
+                path = path,
+                bmp = bmp,
+                imagePaths = imagePaths,
+                imageShape = imageShape,
+                onImageClick = onImageClick,
+                onCancelTransfer = onCancelTransfer,
+                onLongPress = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onMessageLongPress?.invoke(message)
+                },
+            )
+        }
+        return
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = if (isSelfInBubbles) Alignment.End else Alignment.Start,
+        horizontalAlignment = Alignment.Start,
     ) {
         val headerText = com.bitchat.android.ui.formatMessageHeaderAnnotatedString(
             message = message,
@@ -70,7 +107,6 @@ fun ImageMessageItem(
             timeFormatter = timeFormatter,
             includeSender = showSender
         )
-        val haptic = LocalHapticFeedback.current
         AnnotatedClickableText(
             text = headerText,
             annotationTags = listOf("nickname_click"),
@@ -88,78 +124,93 @@ fun ImageMessageItem(
             color = colorScheme.onSurface,
         )
 
-        val context = LocalContext.current
-        val bmp = remember(path) { try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null } }
-
-        // Collect all image paths from messages for swipe navigation
-        val imagePaths = remember(messages) {
-            messages.filter { it.type == BitchatMessageType.Image }
-                .map { it.content.trim() }
-        }
-
         if (bmp != null) {
-            val img = bmp.asImageBitmap()
-            val aspect = (bmp.width.toFloat() / bmp.height.toFloat()).takeIf { it.isFinite() && it > 0 } ?: 1f
-            val progressFraction: Float? = when (val st = message.deliveryStatus) {
-                is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> if (st.total > 0) st.reached.toFloat() / st.total.toFloat() else 0f
-                else -> null
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = if (isSelfInBubbles) Arrangement.End else Arrangement.Start
-            ) {
-                Box {
-                    if (progressFraction != null && progressFraction < 1f && message.sender == currentUserNickname) {
-                        // Cyberpunk block-reveal while sending
-                        BlockRevealImage(
-                            bitmap = img,
-                            progress = progressFraction,
-                            blocksX = 24,
-                            blocksY = 16,
-                            modifier = Modifier
-                                .widthIn(max = 300.dp)
-                                .aspectRatio(aspect)
-                                .clip(imageShape)
-                                .clickable {
-                                    val currentIndex = imagePaths.indexOf(path)
-                                    onImageClick?.invoke(path, imagePaths, currentIndex)
-                                }
-                        )
-                    } else {
-                        // Fully revealed image
-                        Image(
-                            bitmap = img,
-                            contentDescription = stringResource(com.bitchat.android.R.string.cd_image),
-                            modifier = Modifier
-                                .widthIn(max = 300.dp)
-                                .aspectRatio(aspect)
-                                .clip(imageShape)
-                                .clickable {
-                                    val currentIndex = imagePaths.indexOf(path)
-                                    onImageClick?.invoke(path, imagePaths, currentIndex)
-                                },
-                            contentScale = ContentScale.Fit
-                        )
-                    }
-                    // Cancel button overlay during sending
-                    val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered)
-                    if (showCancel) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(4.dp)
-                                .size(22.dp)
-                                .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
-                                .clickable { onCancelTransfer?.invoke(message) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(com.bitchat.android.R.string.cd_cancel), tint = Color.White, modifier = Modifier.size(14.dp))
-                        }
-                    }
-                }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                ImageMessageCard(
+                    message = message,
+                    currentUserNickname = currentUserNickname,
+                    path = path,
+                    bmp = bmp,
+                    imagePaths = imagePaths,
+                    imageShape = imageShape,
+                    onImageClick = onImageClick,
+                    onCancelTransfer = onCancelTransfer,
+                    onLongPress = null,
+                )
             }
         } else {
             Text(text = stringResource(com.bitchat.android.R.string.image_unavailable), fontFamily = BitchatFontFamily, color = Color.Gray)
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ImageMessageCard(
+    message: BitchatMessage,
+    currentUserNickname: String,
+    path: String,
+    bmp: android.graphics.Bitmap?,
+    imagePaths: List<String>,
+    imageShape: androidx.compose.foundation.shape.RoundedCornerShape,
+    onImageClick: ((String, List<String>, Int) -> Unit)?,
+    onCancelTransfer: ((BitchatMessage) -> Unit)?,
+    onLongPress: (() -> Unit)?,
+) {
+    if (bmp == null) {
+        Text(text = stringResource(com.bitchat.android.R.string.image_unavailable), fontFamily = BitchatFontFamily, color = Color.Gray)
+        return
+    }
+    val img = bmp.asImageBitmap()
+    val aspect = (bmp.width.toFloat() / bmp.height.toFloat()).takeIf { it.isFinite() && it > 0 } ?: 1f
+    val progressFraction: Float? = when (val st = message.deliveryStatus) {
+        is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> if (st.total > 0) st.reached.toFloat() / st.total.toFloat() else 0f
+        else -> null
+    }
+    Box {
+        val imageModifier = Modifier
+            .widthIn(max = 300.dp)
+            .aspectRatio(aspect)
+            .clip(imageShape)
+            .combinedClickable(
+                onClick = {
+                    val currentIndex = imagePaths.indexOf(path)
+                    onImageClick?.invoke(path, imagePaths, currentIndex)
+                },
+                onLongClick = { onLongPress?.invoke() },
+            )
+        if (progressFraction != null && progressFraction < 1f && message.sender == currentUserNickname) {
+            // Cyberpunk block-reveal while sending
+            BlockRevealImage(
+                bitmap = img,
+                progress = progressFraction,
+                blocksX = 24,
+                blocksY = 16,
+                modifier = imageModifier
+            )
+        } else {
+            // Fully revealed image
+            Image(
+                bitmap = img,
+                contentDescription = stringResource(com.bitchat.android.R.string.cd_image),
+                modifier = imageModifier,
+                contentScale = ContentScale.Fit
+            )
+        }
+        // Cancel button overlay during sending
+        val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered)
+        if (showCancel) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(22.dp)
+                    .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
+                    .clickable { onCancelTransfer?.invoke(message) },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(com.bitchat.android.R.string.cd_cancel), tint = Color.White, modifier = Modifier.size(14.dp))
+            }
         }
     }
 }
