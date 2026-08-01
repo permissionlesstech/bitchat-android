@@ -37,6 +37,19 @@ internal object ChatVisualTokens {
     val SenderTopPadding: Dp = 8.dp
     val SenderToBodySpacing: Dp = 4.dp
 
+    // MARK: - Bubble geometry
+    /** Rounded corner used on the three "free" corners of a message bubble. */
+    val BubbleCornerRadius: Dp = 16.dp
+    /** Tightened corner on the speaker's side, giving the bubble a subtle tail. */
+    val BubbleTailRadius: Dp = 4.dp
+    /** Horizontal / vertical padding inside a bubble, around the text. */
+    val BubblePaddingHorizontal: Dp = 12.dp
+    val BubblePaddingVertical: Dp = 8.dp
+    /** A bubble never grows past this fraction of the list width, so long lines still wrap. */
+    const val BubbleMaxWidthFraction: Float = 0.82f
+    /** Background tint alpha for a received (non-self) bubble sitting on the chat surface. */
+    const val BubbleSurfaceAlpha: Float = 0.65f
+
     const val SenderSuffixAlpha: Float = 0.60f
     const val HighlightAlpha: Float = 0.20f
     const val MutedTextAlpha: Float = 0.50f
