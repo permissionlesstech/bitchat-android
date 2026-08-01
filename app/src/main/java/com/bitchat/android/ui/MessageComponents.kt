@@ -763,8 +763,9 @@ internal fun TextMessageLayout(
     }
 
     // The timestamp trails the body rather than occupying its own column, so a short message
-    // no longer reserves a full-width row for eight grey characters. Bubbles instead park it
-    // in the bubble's bottom meta row, right-aligned next to the delivery checks.
+    // no longer reserves a full-width row for eight grey characters. Self bubbles trail a
+    // timestamp + checks cluster inline instead: it rides the last text line when there is
+    // room and only wraps when there isn't, so bubbles keep hugging their content.
     val bodyText = remember(
         displayMessage,
         currentUserNickname,
@@ -773,7 +774,8 @@ internal fun TextMessageLayout(
         colorScheme.secondary,
         mentionPeerIdentities,
         timeFormatter,
-        bubbles
+        bubbles,
+        isSelf
     ) {
         formatTextMessageBody(
             message = displayMessage,
@@ -783,18 +785,62 @@ internal fun TextMessageLayout(
             linkColor = colorScheme.secondary,
             mentionPeerIdentities = mentionPeerIdentities,
             timeFormatter = timeFormatter,
-            includeTimestamp = !bubbles,
+            includeTimestamp = !bubbles || !isSelf,
         )
+    }
+
+    // Self-bubble meta cluster: timestamp plus the constant-width delivery checks, appended as
+    // text spans so the whole thing flows with the body. Check colours tween grey -> green as
+    // acknowledgements arrive; nothing in the transcript reflows.
+    val checkTargets = deliveryCheckColors(
+        status = if (bubbles && isSelf && message.isPrivate) message.deliveryStatus else null,
+        colorScheme = colorScheme,
+    )
+    val firstCheck by animateColorAsState(
+        targetValue = checkTargets.first,
+        animationSpec = tween(BitchatMotion.QUICK_MS),
+        label = "firstCheckColor",
+    )
+    val secondCheck by animateColorAsState(
+        targetValue = checkTargets.second,
+        animationSpec = tween(BitchatMotion.QUICK_MS),
+        label = "secondCheckColor",
+    )
+    val bubbleBodyText = remember(bodyText, message, timeFormatter, bubbles, isSelf, firstCheck, secondCheck) {
+        if (!bubbles || !isSelf) return@remember bodyText
+        androidx.compose.ui.text.buildAnnotatedString {
+            append(bodyText)
+            append("  ")
+            append(formatTextMessageMetadata(message, timeFormatter))
+            if (message.isPrivate && message.deliveryStatus != null) {
+                append(" ")
+                pushStyle(
+                    androidx.compose.ui.text.SpanStyle(
+                        color = firstCheck,
+                        fontSize = ChatVisualTokens.SystemTimeFontSize,
+                    )
+                )
+                append("✓")
+                pop()
+                pushStyle(
+                    androidx.compose.ui.text.SpanStyle(
+                        color = secondCheck,
+                        fontSize = ChatVisualTokens.SystemTimeFontSize,
+                    )
+                )
+                append("✓")
+                pop()
+            }
+        }
     }
 
     if (bubbles) {
         BubbleTextMessageLayout(
             message = message,
             senderText = senderText,
-            bodyText = bodyText,
+            bodyText = bubbleBodyText,
             isSelf = isSelf,
             showSender = showSender,
-            timeFormatter = timeFormatter,
             onNicknameClick = onNicknameClick,
             onLongPress = handleLongPress,
             modifier = modifier,
@@ -876,7 +922,6 @@ private fun BubbleTextMessageLayout(
     bodyText: AnnotatedString,
     isSelf: Boolean,
     showSender: Boolean,
-    timeFormatter: SimpleDateFormat,
     onNicknameClick: ((String) -> Unit)?,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
@@ -973,25 +1018,6 @@ private fun BubbleTextMessageLayout(
                         overflow = TextOverflow.Visible,
                         style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
                     )
-
-                    // Bottom meta row, right-aligned like classic messengers: timestamp, then
-                    // the delivery checks at a fixed gap when this is an own private message.
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = formatTextMessageMetadata(message, timeFormatter),
-                            fontFamily = BitchatFontFamily,
-                        )
-                        if (isSelf && message.isPrivate) {
-                            message.deliveryStatus?.let { status ->
-                                Spacer(Modifier.width(ChatVisualTokens.BubbleStatusSpacing))
-                                DeliveryStatusIcon(status = status)
-                            }
-                        }
-                    }
                 }
             }
         }

@@ -61,9 +61,6 @@ internal object ChatVisualTokens {
     /** Author-colour hairline around a bubble; stronger than the fill so the shape reads. */
     const val BubbleBorderAlpha: Float = 0.38f
 
-    /** Fixed gap between the timestamp and the delivery checks in a bubble's meta row. */
-    val BubbleStatusSpacing: Dp = 4.dp
-
     const val SenderSuffixAlpha: Float = 0.60f
     const val HighlightAlpha: Float = 0.20f
     const val MutedTextAlpha: Float = 0.50f
