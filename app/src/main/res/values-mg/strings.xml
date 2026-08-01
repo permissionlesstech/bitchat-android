@@ -302,12 +302,6 @@
     <string name="media_type_file">Rakitra</string>
 
     <!-- Famantarana toe-javatra hafatra -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- Mpanampy lahatsoratra fampandrenesana -->
     <string name="notification_sent_image">📷 nandefasa sary</string>

@@ -8,7 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FiniteAnimationSpec
@@ -16,9 +16,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -763,25 +760,26 @@ internal fun TextMessageLayout(
         onMessageLongPress?.invoke(message)
     }
 
-    // Bubble mode pulls the delivery marker into the bubble, trailing the timestamp, so the
-    // whole message reads as one unit. Same glyph mapping as the standalone marker.
-    val statusGlyph = if (bubbles && isSelf && message.isPrivate) {
-        message.deliveryStatus?.let { status ->
-            when (status) {
-                is DeliveryStatus.Sending ->
-                    MessageStatusGlyph(stringResource(R.string.status_sending), colorScheme.primary.copy(alpha = 0.6f), bold = false)
-                is DeliveryStatus.Sent ->
-                    MessageStatusGlyph(stringResource(R.string.status_pending), colorScheme.primary.copy(alpha = 0.6f), bold = false)
-                is DeliveryStatus.Delivered ->
-                    MessageStatusGlyph(stringResource(R.string.status_sent), colorScheme.primary.copy(alpha = 0.8f), bold = false)
-                is DeliveryStatus.Read ->
-                    MessageStatusGlyph(stringResource(R.string.status_delivered), colorScheme.secondary, bold = true)
-                is DeliveryStatus.Failed ->
-                    MessageStatusGlyph(stringResource(R.string.status_failed), colorScheme.error, bold = false)
-                is DeliveryStatus.PartiallyDelivered ->
-                    MessageStatusGlyph(stringResource(R.string.status_sent), colorScheme.primary.copy(alpha = 0.6f), bold = false)
-            }
-        }
+    // Bubble mode pulls the delivery marker into the bubble, trailing the timestamp. Both
+    // checks render from the start — grey until an acknowledgement turns them green — so a
+    // status change recolours in place and never reflows the text. The colour transition is
+    // animated, which reads as the checks lighting up rather than popping in.
+    val checkTargets = deliveryCheckColors(
+        status = if (bubbles && isSelf && message.isPrivate) message.deliveryStatus else null,
+        colorScheme = colorScheme,
+    )
+    val firstCheck by animateColorAsState(
+        targetValue = checkTargets.first,
+        animationSpec = tween(BitchatMotion.QUICK_MS),
+        label = "firstCheckColor",
+    )
+    val secondCheck by animateColorAsState(
+        targetValue = checkTargets.second,
+        animationSpec = tween(BitchatMotion.QUICK_MS),
+        label = "secondCheckColor",
+    )
+    val statusGlyph = if (bubbles && isSelf && message.isPrivate && message.deliveryStatus != null) {
+        MessageStatusGlyph(firstColor = firstCheck, secondColor = secondCheck)
     } else {
         null
     }
@@ -1145,43 +1143,77 @@ private fun redeemCashu(context: Context, token: String, preferWallet: Boolean) 
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(web))) }
 }
 
+/**
+ * Per-check target colours for the delivery marker.
+ *
+ * Both checks always render — grey (disabled) until an acknowledgement turns them on — so a
+ * status change recolours in place and never reflows text around it. Read receipts use the
+ * app's primary green rather than a separate accent. [status] == null yields the all-grey
+ * baseline used while a message is still being sent.
+ */
+private fun deliveryCheckColors(status: DeliveryStatus?, colorScheme: ColorScheme): Pair<Color, Color> {
+    val grey = colorScheme.onSurface.copy(alpha = 0.35f)
+    val green = colorScheme.primary
+    return when (status) {
+        is DeliveryStatus.Read -> green to green
+        is DeliveryStatus.Delivered -> green to grey
+        is DeliveryStatus.PartiallyDelivered -> green to grey
+        is DeliveryStatus.Failed -> colorScheme.error to colorScheme.error
+        else -> grey to grey
+    }
+}
+
+/** Acknowledgement progress ordering, used to fire the pop only when the state advances. */
+private fun deliveryCheckRank(status: DeliveryStatus): Int = when (status) {
+    is DeliveryStatus.Read -> 3
+    is DeliveryStatus.Delivered -> 2
+    is DeliveryStatus.PartiallyDelivered -> 2
+    is DeliveryStatus.Failed -> 1
+    else -> 0
+}
+
 @Composable
 fun DeliveryStatusIcon(status: DeliveryStatus) {
     val colorScheme = MaterialTheme.colorScheme
+    val (firstTarget, secondTarget) = deliveryCheckColors(status, colorScheme)
+    val first by animateColorAsState(
+        targetValue = firstTarget,
+        animationSpec = tween(BitchatMotion.QUICK_MS),
+        label = "firstCheckColor",
+    )
+    val second by animateColorAsState(
+        targetValue = secondTarget,
+        animationSpec = tween(BitchatMotion.QUICK_MS),
+        label = "secondCheckColor",
+    )
 
-    // Status advances on its own as acks come back, so a hard glyph swap reads as a flicker.
-    // Keyed on the status *type* rather than the instance, because Delivered/Read carry a
-    // timestamp that would otherwise retrigger the transition on every identical update.
-    AnimatedContent(
-        targetState = status::class,
-        transitionSpec = {
-            fadeIn(tween(BitchatMotion.STANDARD_MS)) togetherWith
-                fadeOut(tween(BitchatMotion.QUICK_MS))
-        },
-        label = "deliveryStatus"
-    ) { statusClass ->
-        val (text, color, weight) = when (statusClass) {
-            DeliveryStatus.Sending::class ->
-                Triple(R.string.status_sending, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
-            // Subtle hollow marker for Sent; a single check is reserved for Delivered (iOS parity).
-            DeliveryStatus.Sent::class ->
-                Triple(R.string.status_pending, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
-            DeliveryStatus.Delivered::class ->
-                Triple(R.string.status_sent, colorScheme.primary.copy(alpha = 0.8f), FontWeight.Normal)
-            DeliveryStatus.Read::class ->
-                Triple(R.string.status_delivered, colorScheme.secondary, FontWeight.Bold)
-            DeliveryStatus.Failed::class ->
-                Triple(R.string.status_failed, colorScheme.error, FontWeight.Normal)
-            // A single subdued check, without the numeric label.
-            else ->
-                Triple(R.string.status_sent, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
+    // Snappy micro pop when the state advances to (more) acknowledged. Keyed on the rank, not
+    // the instance, because Delivered/Read carry timestamps that would retrigger it otherwise.
+    val scale = remember { Animatable(1f) }
+    LaunchedEffect(deliveryCheckRank(status)) {
+        if (deliveryCheckRank(status) >= 2) {
+            scale.snapTo(1.3f)
+            scale.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 900f))
         }
-
-        Text(
-            text = stringResource(text),
-            fontSize = 10.sp,
-            color = color,
-            fontWeight = weight
-        )
     }
+
+    val text = remember(first, second) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = first))
+            append("✓")
+            pop()
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = second))
+            append("✓")
+            pop()
+        }
+    }
+    Text(
+        text = text,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Normal,
+        modifier = Modifier.graphicsLayer {
+            scaleX = scale.value
+            scaleY = scale.value
+        }
+    )
 }

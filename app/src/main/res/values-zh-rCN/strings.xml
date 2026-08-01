@@ -347,12 +347,6 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">图片</string>
   <string name="media_type_file">文件</string>
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
   <string name="notification_sent_image">📷 发送了一张图片</string>
   <string name="notification_sent_voice">🎤 发送了一条语音消息</string>
   <string name="notification_sent_file">📎 发送了一个文件</string>

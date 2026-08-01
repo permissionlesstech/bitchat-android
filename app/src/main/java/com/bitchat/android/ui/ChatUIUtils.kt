@@ -194,28 +194,38 @@ private fun appendMutedTimestamp(
 }
 
 /**
- * A delivery-status glyph rendered inline, trailing the timestamp inside a bubble.
+ * Per-check colours for the inline delivery marker trailing the timestamp inside a bubble.
  *
- * Mirrors the mapping used by the standalone delivery marker so the two never disagree.
+ * Both checks always render — grey until an acknowledgement turns them on — so a status change
+ * recolours in place and can never reflow the message text.
  */
 data class MessageStatusGlyph(
-    val text: String,
-    val color: Color,
-    val bold: Boolean,
+    val firstColor: Color,
+    val secondColor: Color,
 )
 
 private fun appendStatusGlyph(
     builder: AnnotatedString.Builder,
     glyph: MessageStatusGlyph,
 ) {
+    builder.append(" ")
     builder.pushStyle(
         SpanStyle(
-            color = glyph.color,
+            color = glyph.firstColor,
             fontSize = ChatVisualTokens.SystemTimeFontSize,
-            fontWeight = if (glyph.bold) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = FontWeight.Normal,
         )
     )
-    builder.append(" ${glyph.text}")
+    builder.append("✓")
+    builder.pop()
+    builder.pushStyle(
+        SpanStyle(
+            color = glyph.secondColor,
+            fontSize = ChatVisualTokens.SystemTimeFontSize,
+            fontWeight = FontWeight.Normal,
+        )
+    )
+    builder.append("✓")
     builder.pop()
 }
 

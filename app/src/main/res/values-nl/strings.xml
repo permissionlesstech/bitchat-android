@@ -339,12 +339,6 @@
     <string name="debug_question_mark">?</string>
 
     <!-- Berichtstatus-pictogrammen -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- Meldingsbestand-emojis -->
     <string name="notification_file_pdf">📄</string>

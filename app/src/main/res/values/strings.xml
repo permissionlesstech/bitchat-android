@@ -559,14 +559,6 @@
   <string name="media_type_image">Image</string>
   <string name="media_type_file">File</string>
 
-  <!-- Message status icons -->
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
-
   <!-- Notification text helpers -->
   <string name="notification_sent_image">📷 sent an image</string>
   <string name="notification_sent_voice">🎤 sent a voice message</string>

@@ -338,12 +338,6 @@
     <string name="warning_emoji">⚠️</string>
 
     <!-- Icone stato messaggio -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- Helper file notifiche -->
     <string name="notification_file_pdf">📄</string>
