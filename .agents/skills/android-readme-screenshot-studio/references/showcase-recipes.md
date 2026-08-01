@@ -222,6 +222,12 @@ Reject the capture when:
 Capture the full physical screen first. Determine the status-bar and
 navigation-bar insets from the current profile, then crop those insets only.
 
+Treat the navigation inset as an inspection region, not an automatic crop
+amount. Bitchat uses edge-to-edge layout, so the composer's border, globe-button
+corners, or their shadows may occupy part of that region. Use accessibility
+bounds plus full-size pixel inspection to place the crop below every app
+control and above the system gesture affordance.
+
 Treat previously observed crop offsets as local evidence, not as a universal
 rule or repository documentation. Re-measure when the profile changes.
 
@@ -244,6 +250,7 @@ Every paired README image should:
 - [ ] Waveforms were extracted from real speech audio and look distinct.
 - [ ] Final reaction is visible above the composer.
 - [ ] Header peer count and nickname are synthetic and intentional.
+- [ ] The complete composer border and bottom padding are visible.
 
 ### Globe
 
@@ -252,6 +259,7 @@ Every paired README image should:
 - [ ] Whole Earth and grid are visible.
 - [ ] Selected cell and crosshair are legible.
 - [ ] Hint and precision controls are unobstructed.
+- [ ] Every action-button corner and shadow is fully visible.
 
 ### Repository
 

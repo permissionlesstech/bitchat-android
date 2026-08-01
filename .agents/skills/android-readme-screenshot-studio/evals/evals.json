@@ -40,6 +40,20 @@
         "Uses the PR merge-base and paired before/after capture workflow.",
         "Publishes only the requested PR comment rather than opening an unrelated screenshot PR."
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "The bottom of one or both README showcase screenshots is cropped. Correct the images without changing their content, update the screenshot skill so this does not recur, and open a new PR.",
+      "expected_output": "The agent inspects both merged assets at full size, identifies every affected screen, recaptures from the real app with the existing deterministic fixtures, and treats the navigation inset as an inspection region rather than an automatic crop. The final crop preserves complete app controls while excluding the system gesture affordance, keeps the pair matched, adds a reusable edge-to-edge guardrail to the skill, validates and visually inspects both images, and opens a sanitized PR.",
+      "files": [],
+      "expectations": [
+        "Inspects both screenshots and corrects every affected asset rather than assuming only one is cropped.",
+        "Recaptures the real app with the established deterministic synthetic content instead of padding or compositing the merged PNGs.",
+        "Uses accessibility bounds and full-size pixel inspection to place the bottom crop after complete app controls and before system gesture chrome.",
+        "Verifies the entire chat composer border and bottom padding plus every globe action-button corner and shadow are visible.",
+        "Keeps paired screenshots at identical dimensions and passes the screenshot validator and clean debug build.",
+        "Updates the skill with a general edge-to-edge crop rule and publishes no device or machine identifiers."
+      ]
     }
   ]
 }

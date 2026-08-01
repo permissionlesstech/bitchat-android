@@ -152,6 +152,10 @@ animations, incomplete placement, or media that has not finished decoding.
 Crop only Android system chrome. Preserve Bitchat's app header, translucent
 overlap, content, and composer. Derive the crop from the observed status and
 navigation insets; do not blindly reuse pixel offsets from a different profile.
+Because the app renders edge-to-edge, app controls may extend into the reported
+navigation inset. Place the bottom crop after the final control outline and
+shadow but before the system gesture affordance; removing the entire inset can
+clip the app itself.
 Keep every final README screenshot in a matched portrait size.
 
 Use image inspection after the crop. File dimensions and a successful ADB
