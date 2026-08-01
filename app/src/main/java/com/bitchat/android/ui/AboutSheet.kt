@@ -383,6 +383,7 @@ fun AboutSheet(
                         Column {
                             AboutSectionLabel(text = stringResource(R.string.about_section_theme))
                             val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
+                            val chatUiMode by com.bitchat.android.ui.theme.ChatUiModeManager.modeFlow.collectAsState()
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -390,30 +391,52 @@ fun AboutSheet(
                                 color = colorScheme.surface,
                                 shape = AboutCardShape
                             ) {
-                                Row(
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_system),
-                                        selected = themePref.isSystem,
-                                        onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_light),
-                                        selected = themePref.isLight,
-                                        onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_dark),
-                                        selected = themePref.isDark,
-                                        onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        ThemeChip(
+                                            label = stringResource(R.string.about_system),
+                                            selected = themePref.isSystem,
+                                            onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ThemeChip(
+                                            label = stringResource(R.string.about_light),
+                                            selected = themePref.isLight,
+                                            onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ThemeChip(
+                                            label = stringResource(R.string.about_dark),
+                                            selected = themePref.isDark,
+                                            onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        ThemeChip(
+                                            label = stringResource(R.string.chat_ui_bubbles),
+                                            selected = chatUiMode.isBubbles,
+                                            onClick = { com.bitchat.android.ui.theme.ChatUiModeManager.set(context, com.bitchat.android.ui.theme.ChatUiMode.Bubbles) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ThemeChip(
+                                            label = stringResource(R.string.chat_ui_matrix),
+                                            selected = chatUiMode.isMatrix,
+                                            onClick = { com.bitchat.android.ui.theme.ChatUiModeManager.set(context, com.bitchat.android.ui.theme.ChatUiMode.Matrix) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                 }
                             }
                         }

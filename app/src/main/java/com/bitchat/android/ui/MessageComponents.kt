@@ -8,7 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FiniteAnimationSpec
@@ -16,9 +16,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,15 +24,19 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -49,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,16 +63,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BitchatFontFamily
@@ -83,10 +90,12 @@ import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.ui.media.FileMessageItem
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.ChatUiModeManager
 import com.bitchat.android.ui.theme.ChatVisualTokens
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.ui.theme.MessageBodyTextStyle
 import com.bitchat.android.ui.theme.MessageSenderTextStyle
+import com.bitchat.android.ui.theme.colorForPeer
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -223,6 +232,10 @@ fun MessagesList(
         mentionPeerIdentities ?: buildMentionPeerIdentityMap(messages)
     }
 
+    // Collected once here so individual rows never subscribe to the preference flow; a mode
+    // switch simply recomposes the list against the new layout.
+    val bubbles by ChatUiModeManager.modeFlow.collectAsState()
+
     // A fresh scroll position per conversation. Sharing one state meant a switch inherited the
     // previous channel's offset and then had to correct itself, which is what the jump was.
     //
@@ -352,6 +365,7 @@ fun MessagesList(
                 meshService = meshService,
                 mentionPeerIdentities = resolvedMentionPeerIdentities,
                 showSender = !isGrouped,
+                bubbles = bubbles.isBubbles,
                 topSpacing = MessageGrouping.topSpacingFor(
                     isGrouped = isGrouped,
                     isFirstInList = originalIndex == 0
@@ -385,6 +399,7 @@ fun MessageItem(
     messages: List<BitchatMessage> = emptyList(),
     mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     showSender: Boolean = true,
+    bubbles: Boolean = false,
     topSpacing: Dp = 0.dp,
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
@@ -407,8 +422,9 @@ fun MessageItem(
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.Top
             ) {
-                // Provide a small end padding for own private messages so overlay doesn't cover text
-                val endPad = if (message.isPrivate && message.sender == currentUserNickname) 16.dp else 0.dp
+                // Provide a small end padding for own private messages so overlay doesn't cover text.
+                // Bubble mode draws the status beneath the bubble instead, so no inset is needed.
+                val endPad = if (!bubbles && message.isPrivate && message.sender == currentUserNickname) 16.dp else 0.dp
                 // Create a custom layout that combines selectable text with clickable nickname areas
                 MessageTextWithClickableNicknames(
                     message = message,
@@ -419,6 +435,7 @@ fun MessageItem(
                     colorScheme = colorScheme,
                     timeFormatter = timeFormatter,
                     showSender = showSender,
+                    bubbles = bubbles,
                     onNicknameClick = onNicknameClick,
                     onMessageLongPress = onMessageLongPress,
                     onCancelTransfer = onCancelTransfer,
@@ -429,8 +446,9 @@ fun MessageItem(
                 )
             }
 
-            // Delivery status for private messages (overlay, non-displacing)
-            if (message.isPrivate && message.sender == currentUserNickname) {
+            // Delivery status for private messages (overlay, non-displacing). Bubble mode aligns
+            // own messages to the end edge where this overlay lives, so it renders below instead.
+            if (!bubbles && message.isPrivate && message.sender == currentUserNickname) {
                 message.deliveryStatus?.let { status ->
                     Box(
                         modifier = Modifier
@@ -442,7 +460,24 @@ fun MessageItem(
                 }
             }
         }
-        
+
+        // Bubble mode: text messages carry the marker inline, trailing the timestamp. Media
+        // rows have no inline text, so their marker stays beneath the end-aligned card.
+        if (bubbles && message.type != BitchatMessageType.Message &&
+            message.isPrivate && message.sender == currentUserNickname
+        ) {
+            message.deliveryStatus?.let { status ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp, end = 4.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    DeliveryStatusIcon(status = status)
+                }
+            }
+        }
+
         // Link previews removed; links are now highlighted inline and clickable within the message text
     }
 }
@@ -458,6 +493,7 @@ fun MessageItem(
         colorScheme: ColorScheme,
         timeFormatter: SimpleDateFormat,
         showSender: Boolean,
+        bubbles: Boolean = false,
         onNicknameClick: ((String) -> Unit)?,
         onMessageLongPress: ((BitchatMessage) -> Unit)?,
         onCancelTransfer: ((BitchatMessage) -> Unit)?,
@@ -476,6 +512,7 @@ fun MessageItem(
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
             showSender = showSender,
+            bubbles = bubbles,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
@@ -494,6 +531,7 @@ fun MessageItem(
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
             showSender = showSender,
+            bubbles = bubbles,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
@@ -514,7 +552,15 @@ fun MessageItem(
             }
             else -> null to null
         }
-        Column(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = modifier.fillMaxWidth(),
+            // Bubble mode aligns self-authored file rows to the end side, mirroring text bubbles.
+            horizontalAlignment = if (bubbles && message.isFromSelf(currentUserNickname, meshService.myPeerID)) {
+                Alignment.End
+            } else {
+                Alignment.Start
+            },
+        ) {
             // Header: nickname + timestamp line above the file, identical styling to text messages
             val headerText = formatMessageHeaderAnnotatedString(
                 message = message,
@@ -560,7 +606,14 @@ fun MessageItem(
                 null
             }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = if (bubbles && message.isFromSelf(currentUserNickname, meshService.myPeerID)) {
+                    Arrangement.End
+                } else {
+                    Arrangement.Start
+                }
+            ) {
                 Box {
                     if (packet != null) {
                         if (overrideProgress != null) {
@@ -624,6 +677,7 @@ fun MessageItem(
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
+            bubbles = bubbles,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             modifier = modifier
@@ -668,6 +722,7 @@ fun MessageItem(
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
             showSender = showSender,
+            bubbles = bubbles,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             modifier = modifier,
@@ -687,6 +742,7 @@ internal fun TextMessageLayout(
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier,
     showSender: Boolean = true,
+    bubbles: Boolean = false,
     bodyContent: String = message.content,
 ) {
     val palette = LocalBitchatPalette.current
@@ -702,8 +758,17 @@ internal fun TextMessageLayout(
             palette = palette,
         )
     }
+    val isSelf = message.isFromSelf(currentUserNickname, myPeerId)
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val handleLongPress: () -> Unit = {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        onMessageLongPress?.invoke(message)
+    }
+
     // The timestamp trails the body rather than occupying its own column, so a short message
-    // no longer reserves a full-width row for eight grey characters.
+    // no longer reserves a full-width row for eight grey characters. Self bubbles leave the
+    // timestamp to their meta cluster (see BubbleTextMessageLayout).
     val bodyText = remember(
         displayMessage,
         currentUserNickname,
@@ -711,7 +776,9 @@ internal fun TextMessageLayout(
         colorScheme.onSurface,
         colorScheme.secondary,
         mentionPeerIdentities,
-        timeFormatter
+        timeFormatter,
+        bubbles,
+        isSelf
     ) {
         formatTextMessageBody(
             message = displayMessage,
@@ -721,14 +788,23 @@ internal fun TextMessageLayout(
             linkColor = colorScheme.secondary,
             mentionPeerIdentities = mentionPeerIdentities,
             timeFormatter = timeFormatter,
+            includeTimestamp = !bubbles || !isSelf,
         )
     }
-    val isSelf = message.isFromSelf(currentUserNickname, myPeerId)
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
-    val handleLongPress: () -> Unit = {
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        onMessageLongPress?.invoke(message)
+
+    if (bubbles) {
+        BubbleTextMessageLayout(
+            message = message,
+            senderText = senderText,
+            bodyText = bodyText,
+            isSelf = isSelf,
+            showSender = showSender,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onLongPress = handleLongPress,
+            modifier = modifier,
+        )
+        return
     }
 
     Column(
@@ -788,6 +864,199 @@ internal fun TextMessageLayout(
     }
 }
 
+/**
+ * Classic messenger rendering of a text message: a rounded bubble that hugs its content, own
+ * messages on the right and everyone else on the left, with the corner on the speaker's side
+ * tightened into a subtle tail.
+ *
+ * The bubble is washed with the author's stable peer colour — the same identity-derived colour
+ * the `@name` label and mention chips already use — so the speaker stays identifiable at a
+ * glance without touching any surface, background, or theme colour. Body text keeps the
+ * standard `onSurface` tone; only the bubble shell carries the identity.
+ */
+@Composable
+private fun BubbleTextMessageLayout(
+    message: BitchatMessage,
+    senderText: AnnotatedString,
+    bodyText: AnnotatedString,
+    isSelf: Boolean,
+    showSender: Boolean,
+    timeFormatter: SimpleDateFormat,
+    onNicknameClick: ((String) -> Unit)?,
+    onLongPress: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalBitchatPalette.current
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+
+    val authorColor = remember(message, isSelf, palette) {
+        if (isSelf) palette.accentOrange else colorForPeer(peerIdentityForMessage(message), palette)
+    }
+
+    val corner = ChatVisualTokens.BubbleCornerRadius
+    val tail = ChatVisualTokens.BubbleTailRadius
+    val bubbleShape = if (isSelf) {
+        RoundedCornerShape(topStart = corner, topEnd = corner, bottomEnd = tail, bottomStart = corner)
+    } else {
+        RoundedCornerShape(topStart = corner, topEnd = corner, bottomEnd = corner, bottomStart = tail)
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = if (isSelf) Alignment.End else Alignment.Start,
+    ) {
+        // Cap the bubble at a fraction of the row so long messages wrap instead of touching the
+        // opposite edge, while short ones hug their content.
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val maxBubbleWidth = maxWidth * ChatVisualTokens.BubbleMaxWidthFraction
+            val density = LocalDensity.current
+            val textCapPx = with(density) {
+                (maxBubbleWidth - ChatVisualTokens.BubblePaddingHorizontal * 2 - 2.dp).toPx()
+            }
+            var bodyLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+            var clusterSize by remember { mutableStateOf(IntSize.Zero) }
+
+            // The meta cluster (timestamp, then delivery checks for own private messages) rides
+            // flush-right on the body's last line when that line has room for it, and drops
+            // below the text only when it does not. Placement is computed from the laid-out
+            // text, so wrapping is never influenced by the cluster: no early wraps, no slack
+            // carved out of the first lines, no minimum bubble width.
+            val metaGapPx = with(density) { 8.dp.toPx() }
+            val metaPlan = remember(bodyLayout, clusterSize, textCapPx) {
+                val layout = bodyLayout ?: return@remember null
+                if (layout.lineCount == 0 || clusterSize.width <= 0) return@remember null
+                val lastLineRight = layout.getLineRight(layout.lineCount - 1)
+                if (lastLineRight + metaGapPx + clusterSize.width <= textCapPx) {
+                    BubbleMetaPlan(
+                        widthPx = maxOf(layout.size.width.toFloat(), lastLineRight + metaGapPx + clusterSize.width),
+                        reserveOwnLine = false,
+                    )
+                } else {
+                    BubbleMetaPlan(
+                        widthPx = maxOf(layout.size.width.toFloat(), clusterSize.width.toFloat()),
+                        reserveOwnLine = true,
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(if (isSelf) Alignment.CenterEnd else Alignment.CenterStart)
+                    .widthIn(max = maxBubbleWidth)
+                    .border(
+                        width = 1.dp,
+                        color = authorColor.copy(alpha = ChatVisualTokens.BubbleBorderAlpha),
+                        shape = bubbleShape
+                    )
+                    .background(
+                        color = authorColor.copy(alpha = ChatVisualTokens.BubbleBackgroundAlpha),
+                        shape = bubbleShape
+                    )
+                    .padding(
+                        horizontal = ChatVisualTokens.BubblePaddingHorizontal,
+                        vertical = ChatVisualTokens.BubblePaddingVertical,
+                    )
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    // The sender's name heads the first bubble of their run, like classic group
+                    // messengers, instead of floating above it. Own bubbles never show a name —
+                    // the end side is attribution enough. Continuation bubbles skip it too.
+                    if (showSender && !isSelf) {
+                        AnnotatedClickableText(
+                            text = senderText,
+                            annotationTags = listOf("nickname_click"),
+                            onAnnotationClick = { tag, item ->
+                                if (tag == "nickname_click" && !isSelf && onNicknameClick != null) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onNicknameClick.invoke(item)
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                            onLongPress = onLongPress,
+                            fontFamily = BitchatFontFamily,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MessageSenderTextStyle,
+                        )
+                    }
+
+                    Box(
+                        modifier = if (isSelf && metaPlan != null) {
+                            Modifier.width(with(density) { metaPlan!!.widthPx.toDp() })
+                        } else {
+                            Modifier
+                        }
+                    ) {
+                        AnnotatedClickableText(
+                            text = bodyText,
+                            annotationTags = listOf("geohash_click", "url_click"),
+                            onAnnotationClick = { tag, item ->
+                                when (tag) {
+                                    "geohash_click" -> {
+                                        navigateToGeohash(context, item)
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        true
+                                    }
+
+                                    "url_click" -> {
+                                        openMessageUrl(context, item)
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        true
+                                    }
+
+                                    else -> false
+                                }
+                            },
+                            onLongPress = onLongPress,
+                            modifier = Modifier.padding(
+                                bottom = if (metaPlan?.reserveOwnLine == true) {
+                                    with(density) { clusterSize.height.toDp() }
+                                } else {
+                                    0.dp
+                                }
+                            ),
+                            fontFamily = BitchatFontFamily,
+                            softWrap = true,
+                            overflow = TextOverflow.Visible,
+                            style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+                            onTextLayout = { bodyLayout = it },
+                        )
+
+                        if (isSelf) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .onSizeChanged { clusterSize = it }
+                                    .graphicsLayer { alpha = if (metaPlan != null) 1f else 0f },
+                            ) {
+                                Text(
+                                    text = formatTextMessageMetadata(message, timeFormatter),
+                                    fontFamily = BitchatFontFamily,
+                                )
+                                if (message.isPrivate) {
+                                    message.deliveryStatus?.let { status ->
+                                        Spacer(Modifier.width(4.dp))
+                                        DeliveryStatusIcon(status = status)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class BubbleMetaPlan(
+    val widthPx: Float,
+    val reserveOwnLine: Boolean,
+)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CashuMessageContent(
@@ -797,6 +1066,7 @@ private fun CashuMessageContent(
     meshService: MeshService,
     colorScheme: ColorScheme,
     timeFormatter: SimpleDateFormat,
+    bubbles: Boolean = false,
     onNicknameClick: ((String) -> Unit)?,
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier
@@ -816,6 +1086,7 @@ private fun CashuMessageContent(
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
+            bubbles = bubbles,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             bodyContent = remainingText,
@@ -931,43 +1202,77 @@ private fun redeemCashu(context: Context, token: String, preferWallet: Boolean) 
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(web))) }
 }
 
+/**
+ * Per-check target colours for the delivery marker.
+ *
+ * Both checks always render — grey (disabled) until an acknowledgement turns them on — so a
+ * status change recolours in place and never reflows text around it. Read receipts use the
+ * app's primary green rather than a separate accent. [status] == null yields the all-grey
+ * baseline used while a message is still being sent.
+ */
+private fun deliveryCheckColors(status: DeliveryStatus?, colorScheme: ColorScheme): Pair<Color, Color> {
+    val grey = colorScheme.onSurface.copy(alpha = 0.35f)
+    val green = colorScheme.primary
+    return when (status) {
+        is DeliveryStatus.Read -> green to green
+        is DeliveryStatus.Delivered -> green to grey
+        is DeliveryStatus.PartiallyDelivered -> green to grey
+        is DeliveryStatus.Failed -> colorScheme.error to colorScheme.error
+        else -> grey to grey
+    }
+}
+
+/** Acknowledgement progress ordering, used to fire the pop only when the state advances. */
+private fun deliveryCheckRank(status: DeliveryStatus): Int = when (status) {
+    is DeliveryStatus.Read -> 3
+    is DeliveryStatus.Delivered -> 2
+    is DeliveryStatus.PartiallyDelivered -> 2
+    is DeliveryStatus.Failed -> 1
+    else -> 0
+}
+
 @Composable
 fun DeliveryStatusIcon(status: DeliveryStatus) {
     val colorScheme = MaterialTheme.colorScheme
+    val (firstTarget, secondTarget) = deliveryCheckColors(status, colorScheme)
+    val first by animateColorAsState(
+        targetValue = firstTarget,
+        animationSpec = tween(BitchatMotion.QUICK_MS),
+        label = "firstCheckColor",
+    )
+    val second by animateColorAsState(
+        targetValue = secondTarget,
+        animationSpec = tween(BitchatMotion.QUICK_MS),
+        label = "secondCheckColor",
+    )
 
-    // Status advances on its own as acks come back, so a hard glyph swap reads as a flicker.
-    // Keyed on the status *type* rather than the instance, because Delivered/Read carry a
-    // timestamp that would otherwise retrigger the transition on every identical update.
-    AnimatedContent(
-        targetState = status::class,
-        transitionSpec = {
-            fadeIn(tween(BitchatMotion.STANDARD_MS)) togetherWith
-                fadeOut(tween(BitchatMotion.QUICK_MS))
-        },
-        label = "deliveryStatus"
-    ) { statusClass ->
-        val (text, color, weight) = when (statusClass) {
-            DeliveryStatus.Sending::class ->
-                Triple(R.string.status_sending, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
-            // Subtle hollow marker for Sent; a single check is reserved for Delivered (iOS parity).
-            DeliveryStatus.Sent::class ->
-                Triple(R.string.status_pending, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
-            DeliveryStatus.Delivered::class ->
-                Triple(R.string.status_sent, colorScheme.primary.copy(alpha = 0.8f), FontWeight.Normal)
-            DeliveryStatus.Read::class ->
-                Triple(R.string.status_delivered, colorScheme.secondary, FontWeight.Bold)
-            DeliveryStatus.Failed::class ->
-                Triple(R.string.status_failed, colorScheme.error, FontWeight.Normal)
-            // A single subdued check, without the numeric label.
-            else ->
-                Triple(R.string.status_sent, colorScheme.primary.copy(alpha = 0.6f), FontWeight.Normal)
+    // Snappy micro pop when the state advances to (more) acknowledged. Keyed on the rank, not
+    // the instance, because Delivered/Read carry timestamps that would retrigger it otherwise.
+    val scale = remember { Animatable(1f) }
+    LaunchedEffect(deliveryCheckRank(status)) {
+        if (deliveryCheckRank(status) >= 2) {
+            scale.snapTo(1.3f)
+            scale.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 900f))
         }
-
-        Text(
-            text = stringResource(text),
-            fontSize = 10.sp,
-            color = color,
-            fontWeight = weight
-        )
     }
+
+    val text = remember(first, second) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = first))
+            append("✓")
+            pop()
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = second))
+            append("✓")
+            pop()
+        }
+    }
+    Text(
+        text = text,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Normal,
+        modifier = Modifier.graphicsLayer {
+            scaleX = scale.value
+            scaleY = scale.value
+        }
+    )
 }

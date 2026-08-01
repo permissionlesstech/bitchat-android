@@ -196,6 +196,8 @@
   <string name="about_system">System</string>
   <string name="about_light">Light</string>
   <string name="about_dark">Dark</string>
+  <string name="chat_ui_matrix">Matrix</string>
+  <string name="chat_ui_bubbles">Bubbles</string>
   <string name="about_pow">Proof of Work</string>
   <string name="about_pow_off">PoW Off</string>
   <string name="about_pow_on">PoW On</string>
@@ -555,14 +557,6 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">Image</string>
   <string name="media_type_file">File</string>
-
-  <!-- Message status icons -->
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
 
   <!-- Notification text helpers -->
   <string name="notification_sent_image">📷 sent an image</string>

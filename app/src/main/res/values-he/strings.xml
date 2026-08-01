@@ -349,12 +349,6 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">תמונה</string>
   <string name="media_type_file">קובץ</string>
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
   <string name="notification_sent_image">📷 שלח/ה תמונה</string>
   <string name="notification_sent_voice">🎤 שלח/ה הודעה קולית</string>
   <string name="notification_sent_file">📎 שלח/ה קובץ</string>

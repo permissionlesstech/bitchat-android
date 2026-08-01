@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun VoiceNotePlayer(
     path: String,
+    modifier: Modifier = Modifier,
     progressOverride: Float? = null,
     progressColor: Color? = null
 ) {
@@ -86,7 +87,7 @@ fun VoiceNotePlayer(
     DisposableEffect(Unit) { onDispose { try { player.release() } catch (_: Exception) {} } }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {

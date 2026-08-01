@@ -293,12 +293,6 @@
     <string name="media_type_file">File</string>
 
     <!-- Mga status ng mensahe -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- Tulong na text sa abiso -->
     <string name="notification_sent_image">📷 nagpadala ng larawan</string>

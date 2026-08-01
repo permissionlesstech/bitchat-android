@@ -24,6 +24,7 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import androidx.compose.material3.ColorScheme
 import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.isFromSelf
 import java.text.SimpleDateFormat
 import androidx.compose.ui.platform.LocalContext
 
@@ -38,7 +39,8 @@ fun AudioMessageItem(
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     onCancelTransfer: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier,
-    showSender: Boolean = true
+    showSender: Boolean = true,
+    bubbles: Boolean = false
 ) {
     val palette = LocalBitchatPalette.current
     val context = LocalContext.current
@@ -46,6 +48,8 @@ fun AudioMessageItem(
         .getInstance(context).liveMessageIDs.collectAsState()
     val isLive = message.id in liveMessageIDs
     val path = message.content.trim()
+    // Bubble mode aligns self-authored voice notes to the end side, mirroring text bubbles.
+    val isSelfInBubbles = bubbles && message.isFromSelf(currentUserNickname, meshService.myPeerID)
     // Derive sending progress if applicable
     val (overrideProgress, overrideColor) = when (val st = message.deliveryStatus) {
         is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {
@@ -55,7 +59,10 @@ fun AudioMessageItem(
         }
         else -> null to null
     }
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = if (isSelfInBubbles) Alignment.End else Alignment.Start,
+    ) {
         // Header: nickname + timestamp line above the audio note, identical styling to text messages
         val headerText = com.bitchat.android.ui.formatMessageHeaderAnnotatedString(
             message = message,
@@ -96,7 +103,10 @@ fun AudioMessageItem(
             VoiceNotePlayer(
                 path = path,
                 progressOverride = overrideProgress,
-                progressColor = overrideColor
+                progressColor = overrideColor,
+                // Self voice notes hug the end side like other self content instead of
+                // spanning the full row.
+                modifier = if (isSelfInBubbles) Modifier.widthIn(max = 300.dp) else Modifier
             )
             val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered)
             if (showCancel) {
