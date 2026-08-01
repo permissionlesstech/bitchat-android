@@ -63,17 +63,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BitchatFontFamily
@@ -788,27 +792,11 @@ internal fun TextMessageLayout(
         )
     }
 
-    // Self bubbles reserve a run of no-break spaces after the body, sized to the meta cluster
-    // the bubble overlays there (timestamp plus delivery checks). A zero-width word joiner
-    // caps the run so the line's trailing whitespace is not trimmed away. The run rides the
-    // last text line when there is room and wraps only when there isn't, so the overlay can
-    // park flush-right on the last line without ever overlapping text or forcing the bubble
-    // wider than its content.
-    val bubbleBodyText = remember(bodyText, message, bubbles, isSelf) {
-        if (!bubbles || !isSelf) return@remember bodyText
-        val reserveChars = if (message.isPrivate && message.deliveryStatus != null) 7 else 5
-        androidx.compose.ui.text.buildAnnotatedString {
-            append(bodyText)
-            append(" ".repeat(reserveChars))
-            append("⁠")
-        }
-    }
-
     if (bubbles) {
         BubbleTextMessageLayout(
             message = message,
             senderText = senderText,
-            bodyText = bubbleBodyText,
+            bodyText = bodyText,
             isSelf = isSelf,
             showSender = showSender,
             timeFormatter = timeFormatter,
@@ -922,6 +910,36 @@ private fun BubbleTextMessageLayout(
         // opposite edge, while short ones hug their content.
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val maxBubbleWidth = maxWidth * ChatVisualTokens.BubbleMaxWidthFraction
+            val density = LocalDensity.current
+            val textCapPx = with(density) {
+                (maxBubbleWidth - ChatVisualTokens.BubblePaddingHorizontal * 2 - 2.dp).toPx()
+            }
+            var bodyLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+            var clusterSize by remember { mutableStateOf(IntSize.Zero) }
+
+            // The meta cluster (timestamp, then delivery checks for own private messages) rides
+            // flush-right on the body's last line when that line has room for it, and drops
+            // below the text only when it does not. Placement is computed from the laid-out
+            // text, so wrapping is never influenced by the cluster: no early wraps, no slack
+            // carved out of the first lines, no minimum bubble width.
+            val metaGapPx = with(density) { 8.dp.toPx() }
+            val metaPlan = remember(bodyLayout, clusterSize, textCapPx) {
+                val layout = bodyLayout ?: return@remember null
+                if (layout.lineCount == 0 || clusterSize.width <= 0) return@remember null
+                val lastLineRight = layout.getLineRight(layout.lineCount - 1)
+                if (lastLineRight + metaGapPx + clusterSize.width <= textCapPx) {
+                    BubbleMetaPlan(
+                        widthPx = maxOf(layout.size.width.toFloat(), lastLineRight + metaGapPx + clusterSize.width),
+                        reserveOwnLine = false,
+                    )
+                } else {
+                    BubbleMetaPlan(
+                        widthPx = maxOf(layout.size.width.toFloat(), clusterSize.width.toFloat()),
+                        reserveOwnLine = true,
+                    )
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .align(if (isSelf) Alignment.CenterEnd else Alignment.CenterStart)
@@ -964,7 +982,13 @@ private fun BubbleTextMessageLayout(
                         )
                     }
 
-                    Box {
+                    Box(
+                        modifier = if (isSelf && metaPlan != null) {
+                            Modifier.width(with(density) { metaPlan!!.widthPx.toDp() })
+                        } else {
+                            Modifier
+                        }
+                    ) {
                         AnnotatedClickableText(
                             text = bodyText,
                             annotationTags = listOf("geohash_click", "url_click"),
@@ -986,20 +1010,27 @@ private fun BubbleTextMessageLayout(
                                 }
                             },
                             onLongPress = onLongPress,
+                            modifier = Modifier.padding(
+                                bottom = if (metaPlan?.reserveOwnLine == true) {
+                                    with(density) { clusterSize.height.toDp() }
+                                } else {
+                                    0.dp
+                                }
+                            ),
                             fontFamily = BitchatFontFamily,
                             softWrap = true,
                             overflow = TextOverflow.Visible,
                             style = MessageBodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+                            onTextLayout = { bodyLayout = it },
                         )
 
-                        // Meta cluster overlay, flush with the bubble's end edge on the body's
-                        // last line: timestamp, then the delivery checks at a fixed gap for own
-                        // private messages. The body reserved invisible space for it, so the
-                        // cluster never collides with text and never adds a line unnecessarily.
                         if (isSelf) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.align(Alignment.BottomEnd),
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .onSizeChanged { clusterSize = it }
+                                    .graphicsLayer { alpha = if (metaPlan != null) 1f else 0f },
                             ) {
                                 Text(
                                     text = formatTextMessageMetadata(message, timeFormatter),
@@ -1019,6 +1050,11 @@ private fun BubbleTextMessageLayout(
         }
     }
 }
+
+private data class BubbleMetaPlan(
+    val widthPx: Float,
+    val reserveOwnLine: Boolean,
+)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
