@@ -3,12 +3,14 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Refresh the Bitchat README with two polished screenshots from the latest main UI: a populated mesh chat and the geohash globe centered on the Middle East without zooming. Use a large high-resolution Pixel, open a PR, and merge it after checks pass.",
-      "expected_output": "The agent works in a fresh latest-main worktree, captures the real app on a verified large Pixel profile, uses deterministic synthetic state, centers the globe without changing whole-Earth scale, removes capture hooks, validates the assets, opens a PR, waits for checks, and merges only because the prompt explicitly authorizes it.",
+      "prompt": "Refresh the Bitchat README with two polished screenshots from the latest main UI: a populated mesh chat and the geohash globe centered on the Middle East without zooming. Use a large high-resolution Android emulator, open a PR, and merge it after checks pass.",
+      "expected_output": "The agent works in a fresh latest-main worktree, tries the documented current-pair fast path before rediscovering the fixture, captures the real app on a verified large portrait emulator profile, uses deterministic synthetic state, centers the globe without changing whole-Earth scale, removes capture hooks, validates the assets, opens a PR, waits for checks, and merges only because the prompt explicitly authorizes it.",
       "files": [],
       "expectations": [
         "Uses a fresh worktree rooted at current origin/main and leaves the original checkout untouched.",
-        "Captures from the real Android UI on a verified high-resolution large Pixel profile.",
+        "Captures from the real Android UI on a verified high-resolution portrait emulator profile.",
+        "Uses the verified nine-row chat fixture and synthetic thky globe seed as fast starting points when the current UI still matches, while visually validating the result.",
+        "Waits for fixture completion and quiet UI time, and invalidates the media path cache when replacing image bytes at the same destination.",
         "Keeps the requested Middle East focus while preserving whole-Earth zoom.",
         "Removes temporary fixtures and passes a clean debug build before committing.",
         "Uses gh for the authorized PR and merge without publishing machine identifiers."
