@@ -620,7 +620,18 @@ fun AboutSheet(
                                     val apkViewModel: ApkDownloadViewModel = viewModel()
                                     val apkUiState by apkViewModel.state.collectAsStateWithLifecycle()
                                     val apkStatus = apkUiState.apkStatus
+                                    val releaseStatus = apkUiState.releaseStatus
                                     val downloadProgress = apkUiState.downloadProgress
+                                    val shareableApk = when (apkStatus) {
+                                        is ApkPreparationStatus.Ready -> apkStatus
+                                        is ApkPreparationStatus.Downloading ->
+                                            apkStatus.shareableFallback
+                                        else -> null
+                                    }
+                                    val availableUpdate = (releaseStatus as? ApkReleaseStatus.Known)
+                                        ?.takeIf { it.isNewerThanSharedApk }
+                                    val downloadRetryBlocked = apkUiState.downloadRetryAtMillis
+                                        ?.let { it > System.currentTimeMillis() } == true
 
                                     // Handle one-shot effects (navigation, toasts, share intents)
                                     LaunchedEffect(Unit) {
@@ -659,7 +670,11 @@ fun AboutSheet(
                                             // does, so the row can never look tappable and do
                                             // nothing.
                                             .clickable(
-                                                enabled = prepareRowTapAction(apkStatus) != null
+                                                enabled = prepareRowTapAction(
+                                                    apkStatus,
+                                                    releaseStatus,
+                                                    apkUiState.downloadRetryAtMillis
+                                                ) != null
                                             ) {
                                                 apkViewModel.onEvent(ApkUiEvent.PrepareRowClicked)
                                             }
@@ -667,7 +682,7 @@ fun AboutSheet(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            imageVector = if (apkStatus is ApkPreparationStatus.Ready) {
+                                            imageVector = if (shareableApk != null) {
                                                 Icons.Default.Share
                                             } else {
                                                 Icons.Default.CloudDownload
@@ -683,16 +698,53 @@ fun AboutSheet(
                                             modifier = Modifier.weight(1f),
                                             verticalArrangement = Arrangement.spacedBy(2.dp)
                                         ) {
-                                            Text(
-                                                text = if (apkStatus is ApkPreparationStatus.Ready) {
-                                                    stringResource(R.string.prepare_apk_ready_title)
-                                                } else {
-                                                    stringResource(R.string.prepare_apk_title)
-                                                },
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Medium,
-                                                color = colorScheme.onSurface
-                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = if (shareableApk != null) {
+                                                        stringResource(R.string.prepare_apk_ready_title)
+                                                    } else {
+                                                        stringResource(R.string.prepare_apk_title)
+                                                    },
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = colorScheme.onSurface
+                                                )
+                                                if (availableUpdate != null) {
+                                                    TooltipBox(
+                                                        positionProvider = TooltipDefaults
+                                                            .rememberTooltipPositionProvider(),
+                                                        tooltip = {
+                                                            PlainTooltip {
+                                                                Text(
+                                                                    stringResource(
+                                                                        R.string.prepare_apk_update_available,
+                                                                        availableUpdate.version
+                                                                    )
+                                                                )
+                                                            }
+                                                        },
+                                                        state = rememberTooltipState()
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Warning,
+                                                            contentDescription = stringResource(
+                                                                R.string.prepare_apk_update_warning
+                                                            ),
+                                                            tint = colorScheme.tertiary,
+                                                            modifier = Modifier
+                                                                .padding(start = 6.dp)
+                                                                .size(18.dp)
+                                                                .clickable(
+                                                                    enabled = !downloadRetryBlocked
+                                                                ) {
+                                                                    apkViewModel.onEvent(
+                                                                        ApkUiEvent.DownloadUniversalClicked
+                                                                    )
+                                                                }
+                                                        )
+                                                    }
+                                                }
+                                            }
                                             Text(
                                                 text = when (val status = apkStatus) {
                                                     is ApkPreparationStatus.Loading -> stringResource(R.string.checking)
@@ -764,7 +816,10 @@ fun AboutSheet(
                                                     }
                                                 )
                                             is ApkPreparationStatus.Ready -> {
-                                                if (apkStatus.variant == ShareableApkVariant.ARM64) {
+                                                if (
+                                                    apkStatus.source ==
+                                                    UniversalApkManager.ApkSource.INSTALLED
+                                                ) {
                                                     ApkPrepareRowIconButton(
                                                         icon = Icons.Default.CloudDownload,
                                                         description = stringResource(
@@ -775,6 +830,7 @@ fun AboutSheet(
                                                                 ApkUiEvent.DownloadUniversalClicked
                                                             )
                                                         },
+                                                        enabled = !downloadRetryBlocked,
                                                         tint = colorScheme.primary
                                                     )
                                                 } else if (
@@ -807,6 +863,11 @@ fun AboutSheet(
                                                             ApkUiEvent.PrepareRowClicked
                                                         )
                                                     },
+                                                    enabled = prepareRowTapAction(
+                                                        apkStatus,
+                                                        releaseStatus,
+                                                        apkUiState.downloadRetryAtMillis
+                                                    ) != null,
                                                     tint = colorScheme.primary
                                                 )
                                             else -> {}
@@ -820,16 +881,28 @@ fun AboutSheet(
                                             title = {
                                                 Text(
                                                     text = stringResource(
-                                                        R.string.prepare_apk_dialog_title
+                                                        if (availableUpdate != null) {
+                                                            R.string.prepare_apk_update_dialog_title
+                                                        } else {
+                                                            R.string.prepare_apk_dialog_title
+                                                        }
                                                     ),
                                                     style = MaterialTheme.typography.titleLarge
                                                 )
                                             },
                                             text = {
                                                 Text(
-                                                    text = stringResource(
-                                                        R.string.prepare_apk_dialog_message_unknown_size
-                                                    ),
+                                                    text = if (availableUpdate != null) {
+                                                        stringResource(
+                                                            R.string.prepare_apk_update_dialog_message,
+                                                            availableUpdate.version,
+                                                            availableUpdate.sizeMB
+                                                        )
+                                                    } else {
+                                                        stringResource(
+                                                            R.string.prepare_apk_dialog_message_unknown_size
+                                                        )
+                                                    },
                                                     style = MaterialTheme.typography.bodyMedium
                                                 )
                                             },
@@ -875,7 +948,11 @@ fun AboutSheet(
                                                         containerColor = colorScheme.error
                                                     )
                                                 ) {
-                                                    Text("Delete")
+                                                    Text(
+                                                        stringResource(
+                                                            R.string.prepare_apk_button_delete
+                                                        )
+                                                    )
                                                 }
                                             },
                                             dismissButton = {
@@ -887,8 +964,9 @@ fun AboutSheet(
                                         )
                                     }
 
-                                    // Show sharing rows only when APK is ready
-                                    val canShareAPK = apkStatus is ApkPreparationStatus.Ready
+                                    // A GitHub update is optional. Keep sharing visible while the
+                                    // replacement downloads or while metadata refreshes.
+                                    val canShareAPK = shareableApk != null
 
                                     AnimatedVisibility(
                                         visible = canShareAPK,

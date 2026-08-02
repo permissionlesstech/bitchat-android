@@ -246,6 +246,8 @@
   <string name="prepare_apk_source_installed">Sharing source: this installed APK</string>
   <string name="prepare_apk_source_installed_arm64">Sharing source: this installed APK • ARM64 devices only</string>
   <string name="prepare_apk_source_downloaded">Sharing source: verified downloaded universal APK</string>
+  <string name="prepare_apk_update_available">Version %1$s is available. You can keep sharing this APK or download the update.</string>
+  <string name="prepare_apk_update_warning">New version available</string>
   <!-- Now the accessibility label and tooltip for an icon-only button, not a visible label. -->
   <string name="prepare_apk_get_universal">Download universal APK</string>
   <string name="prepare_apk_retry">Retry download</string>
@@ -262,7 +264,9 @@
   <string name="prepare_apk_button_delete">Delete</string>
   <string name="prepare_apk_info">Version %1$s • %2$d MB</string>
   <string name="prepare_apk_dialog_title">Download Universal APK?</string>
+  <string name="prepare_apk_update_dialog_title">Download Newer Universal APK?</string>
   <string name="prepare_apk_dialog_message_unknown_size">This will download a verified universal APK from a configured source. You only need to do this once.</string>
+  <string name="prepare_apk_update_dialog_message">Version %1$s is available from GitHub (%2$d MB). Your current APK remains shareable during the download.</string>
   <string name="prepare_apk_dialog_confirm">Download</string>
   <string name="prepare_apk_downloading_title">Downloading Universal APK</string>
   <string name="prepare_apk_downloading_message">Downloading %1$d MB…</string>

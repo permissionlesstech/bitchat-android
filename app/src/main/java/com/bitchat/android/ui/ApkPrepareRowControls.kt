@@ -4,10 +4,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
@@ -26,10 +25,9 @@ import androidx.compose.ui.unit.dp
  * This sits under the row's subtitle so the trailing slot is free to hold a single control. Which
  * of the three renderings applies is decided entirely by [status]; the caller does not choose.
  *
- * The wave is not decoration. A moving wave means bytes are moving, so a stalled download draws a
- * flat line at the fraction it reached rather than a bar indistinguishable from a live one.
+ * Determinate transfer/resume progress and indeterminate non-transfer phases use the stable
+ * Material 3 progress API. The expressive wavy variant can be introduced independently later.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ApkDownloadProgressBar(
     status: ApkPreparationStatus,
@@ -46,19 +44,17 @@ internal fun ApkDownloadProgressBar(
         status is ApkPreparationStatus.Downloading &&
             status.phase.hasMeasurableProgress &&
             progressPercent > 0 ->
-            LinearWavyProgressIndicator(
+            LinearProgressIndicator(
                 progress = { progressPercent.asProgressFraction() },
                 modifier = barModifier
             )
 
         status is ApkPreparationStatus.Downloading ->
-            LinearWavyProgressIndicator(modifier = barModifier)
+            LinearProgressIndicator(modifier = barModifier)
 
-        // Flat: how far it got, and that it is not getting further on its own.
         status is ApkPreparationStatus.Resumable ->
-            LinearWavyProgressIndicator(
+            LinearProgressIndicator(
                 progress = { status.progressPercent.asProgressFraction() },
-                amplitude = { 0f },
                 modifier = barModifier
             )
     }
@@ -84,22 +80,24 @@ internal fun ApkPrepareRowIconButton(
     description: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
     TooltipBox(
-        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
         tooltip = { PlainTooltip { Text(description) } },
         state = rememberTooltipState(),
         modifier = modifier
     ) {
         IconButton(
             onClick = onClick,
+            enabled = enabled,
             modifier = Modifier.size(48.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = description,
-                tint = tint,
+                tint = if (enabled) tint else tint.copy(alpha = 0.38f),
                 modifier = Modifier.size(20.dp)
             )
         }

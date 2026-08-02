@@ -2,6 +2,8 @@ package com.bitchat.android.util
 
 import androidx.annotation.StringRes
 import com.bitchat.android.R
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.time.Instant
 import java.time.ZonedDateTime
@@ -243,6 +245,14 @@ internal data class ContentRange(
     val endInclusive: Long,
     val total: Long?
 )
+
+/**
+ * Makes a response body safe to append after resume metadata is updated.
+ * A full 200 replacement must discard bytes from the release that supplied the Range request.
+ */
+internal fun prepareApkTempFileForResponse(tempFile: File, appendResponse: Boolean) {
+    if (!appendResponse) FileOutputStream(tempFile, false).use { }
+}
 
 internal fun parseContentRange(value: String?): ContentRange? {
     if (value == null) return null

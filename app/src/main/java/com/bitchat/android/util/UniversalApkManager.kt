@@ -56,14 +56,19 @@ class UniversalApkManager(
 
     private val metadataFile: File get() = File(cacheDir, METADATA_FILE_NAME)
     private val progressFile: File get() = File(cacheDir, PROGRESS_FILE_NAME)
+    private val rateLimits = ApkRateLimitStore(context)
 
-    // Download client: inherits Tor proxy settings but with no call timeout
-    // for large file downloads that can take minutes
-    private val downloadClient
-        get() = OkHttpProvider.httpClient().newBuilder()
-            .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
+    // Download client: inherits the current client's actual route but has no call timeout for
+    // large files that can take minutes. Keep the route attached for route-specific cooldowns.
+    private fun downloadClient(): OkHttpProvider.RoutedClient {
+        val routed = OkHttpProvider.routedHttpClient()
+        return routed.copy(
+            client = routed.client.newBuilder()
+                .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+        )
+    }
 
     /**
      * Get information about the cached sharing APK, if it exists.
@@ -228,6 +233,9 @@ class UniversalApkManager(
                     val safeVersion = version.replace(Regex("[^A-Za-z0-9._-]"), "_")
                     val finalFileName = "$APK_FILE_PREFIX$safeVersion.apk"
                     val finalFile = File(cacheDir, finalFileName)
+                    // Package parsing above is blocking. A cancellation arriving while it runs
+                    // must not promote the verified temporary file into the shareable slot.
+                    ensureActive()
                     replaceFileSafely(tempFile, finalFile)
                     progressFile.delete()
 
@@ -360,6 +368,13 @@ class UniversalApkManager(
         resume: ResumeInfo?,
         progressCallback: ((Int) -> Unit)?
     ) {
+        val routedClient = downloadClient()
+        val rateLimitScope = "apk_asset_${source.id}"
+        val now = System.currentTimeMillis()
+        rateLimits.retryAtMillis(rateLimitScope, routedClient.route, now)?.let { deadline ->
+            throw rateLimits.blockedException(source, deadline, now)
+        }
+
         val request = Request.Builder()
             // Always start from the configured source endpoint. If a release changed,
             // If-Range makes the server return 200 and we overwrite the partial.
@@ -374,8 +389,10 @@ class UniversalApkManager(
             .build()
 
         downloadToTempFile(
-            call = downloadClient.newCall(request),
+            call = routedClient.client.newCall(request),
             source = source,
+            rateLimitScope = rateLimitScope,
+            route = routedClient.route,
             endpointUrl = endpointUrl,
             tempFile = tempFile,
             existingBytes = existingBytes,
@@ -391,6 +408,8 @@ class UniversalApkManager(
     private suspend fun downloadToTempFile(
         call: Call,
         source: ApkDownloadSource,
+        rateLimitScope: String,
+        route: OkHttpProvider.Route,
         endpointUrl: String,
         tempFile: File,
         existingBytes: Long,
@@ -454,7 +473,7 @@ class UniversalApkManager(
                                 )
                             }
                             if (!response.isSuccessful) {
-                                throw ApkDownloadHttpErrors.fromResponse(
+                                val failure = ApkDownloadHttpErrors.fromResponse(
                                     source = source,
                                     code = response.code,
                                     responseMessage = response.message,
@@ -463,7 +482,22 @@ class UniversalApkManager(
                                     rateLimitResetEpochSeconds =
                                         response.header("X-RateLimit-Reset")
                                 )
+                                if (failure.reason == ApkDownloadFailureReason.RateLimited ||
+                                    failure.reason == ApkDownloadFailureReason.RateLimitedWithWait
+                                ) {
+                                    val now = System.currentTimeMillis()
+                                    val deadline = rateLimits.recordRateLimit(
+                                        rateLimitScope,
+                                        route,
+                                        failure.retryAtMillis,
+                                        now
+                                    )
+                                    throw rateLimits.blockedException(source, deadline, now)
+                                }
+                                throw failure
                             }
+
+                            rateLimits.clear(rateLimitScope, route)
 
                             val body = response.body
                             val range = if (response.code == 206) {
@@ -491,6 +525,12 @@ class UniversalApkManager(
                             val validator = response.header("ETag")
                                 ?: response.header("Last-Modified")
                                 ?: previousResume?.validator?.takeIf { append }
+
+                            // A server may ignore Range and return a replacement 200 response.
+                            // Remove the old bytes before recording the new validator. If the
+                            // process dies at any later point, old and new release bytes cannot be
+                            // combined on the next resume.
+                            prepareApkTempFileForResponse(tempFile, append)
                             if (validator != null) {
                                 saveResumeInfo(
                                     ResumeInfo(
@@ -511,7 +551,9 @@ class UniversalApkManager(
                             }
 
                             body.byteStream().use { input ->
-                                FileOutputStream(tempFile, append).use { output ->
+                                // Non-resume responses were already truncated above; always append
+                                // after resume metadata is safely committed.
+                                FileOutputStream(tempFile, true).use { output ->
                                     val buffer = ByteArray(BUFFER_SIZE)
                                     var bytesRead: Int
                                     var totalBytesRead = resumedBytes

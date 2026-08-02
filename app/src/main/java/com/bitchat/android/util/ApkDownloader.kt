@@ -42,7 +42,8 @@ interface ApkDownloader {
         data class Failed(
             val reason: ApkDownloadFailureReason,
             val messageArgs: List<String>,
-            val resumablePercent: Int?
+            val resumablePercent: Int?,
+            val retryAtMillis: Long? = null
         ) : DownloadState()
     }
 

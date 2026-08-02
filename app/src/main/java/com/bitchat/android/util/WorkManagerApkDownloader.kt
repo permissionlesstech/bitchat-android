@@ -92,7 +92,11 @@ class WorkManagerApkDownloader(context: Context) : ApkDownloader {
                 ApkDownloader.DownloadState.Failed(
                     reason = reason,
                     messageArgs = args,
-                    resumablePercent = if (resumable >= 0) resumable else null
+                    resumablePercent = if (resumable >= 0) resumable else null,
+                    retryAtMillis = workInfo.outputData.getLong(
+                        ApkDownloadWorker.KEY_RETRY_AT,
+                        0L
+                    ).takeIf { it > 0L }
                 )
             }
             WorkInfo.State.CANCELLED -> {

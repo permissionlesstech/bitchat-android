@@ -34,11 +34,34 @@ class PrepareRowTapActionTest {
     }
 
     @Test
-    fun `nothing left to fetch means the row is inert`() {
-        assertNull(prepareRowTapAction(ready(ShareableApkVariant.UNIVERSAL)))
+    fun `a standalone installed universal apk can optionally be replaced from github`() {
+        assertEquals(
+            PrepareRowTapAction.OpenPrepareDialog,
+            prepareRowTapAction(ready(ShareableApkVariant.UNIVERSAL))
+        )
+    }
+
+    @Test
+    fun `a current downloaded universal apk leaves the row inert`() {
         assertNull(
             prepareRowTapAction(
                 ready(ShareableApkVariant.UNIVERSAL, UniversalApkManager.ApkSource.DOWNLOADED)
+            )
+        )
+    }
+
+    @Test
+    fun `a stale downloaded apk opens the update dialog without blocking sharing`() {
+        assertEquals(
+            PrepareRowTapAction.OpenPrepareDialog,
+            prepareRowTapAction(
+                ready(ShareableApkVariant.UNIVERSAL, UniversalApkManager.ApkSource.DOWNLOADED),
+                ApkReleaseStatus.Known(
+                    version = "1.7.6",
+                    sizeMB = 24,
+                    isNewerThanSharedApk = true,
+                    fromStaleCache = false
+                )
             )
         )
     }
@@ -71,5 +94,35 @@ class PrepareRowTapActionTest {
             assertNull(prepareRowTapAction(ApkPreparationStatus.Downloading(phase)))
         }
         assertNull(prepareRowTapAction(ApkPreparationStatus.Loading))
+    }
+
+    @Test
+    fun `a persisted rate limit disables manual retry until its deadline`() {
+        val retryAt = 50_000L
+        assertNull(
+            prepareRowTapAction(
+                ApkPreparationStatus.Error("Rate limited", retryAtMillis = retryAt),
+                nowMillis = retryAt - 1
+            )
+        )
+        assertEquals(
+            PrepareRowTapAction.StartDownload,
+            prepareRowTapAction(
+                ApkPreparationStatus.Error("Rate limited", retryAtMillis = retryAt),
+                nowMillis = retryAt
+            )
+        )
+    }
+
+    @Test
+    fun `rate limit also disables optional update while an apk remains shareable`() {
+        val retryAt = 50_000L
+        assertNull(
+            prepareRowTapAction(
+                ready(ShareableApkVariant.UNIVERSAL),
+                downloadRetryAtMillis = retryAt,
+                nowMillis = retryAt - 1
+            )
+        )
     }
 }

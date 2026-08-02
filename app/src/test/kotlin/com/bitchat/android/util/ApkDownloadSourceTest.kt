@@ -4,10 +4,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import java.io.IOException
 
 class ApkDownloadSourceTest {
+
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
 
     private val source = ApkDownloadSource(
         id = "mirror-one",
@@ -118,6 +123,28 @@ class ApkDownloadSourceTest {
         assertNull(parseContentRange("bytes nope"))
         assertNull(parseContentRange("bytes 20-10/100"))
         assertNull(parseContentRange("bytes 90-100/100"))
+    }
+
+    @Test
+    fun `a full response discards bytes from the release that was being resumed`() {
+        val tempFile = temporaryFolder.newFile("download-temp.apk")
+        tempFile.writeBytes("old-release-prefix".toByteArray())
+
+        prepareApkTempFileForResponse(tempFile, appendResponse = false)
+        tempFile.appendBytes("new-release".toByteArray())
+
+        assertEquals("new-release", tempFile.readText())
+    }
+
+    @Test
+    fun `a valid partial response keeps resumable bytes`() {
+        val tempFile = temporaryFolder.newFile("download-temp.apk")
+        tempFile.writeBytes("first-".toByteArray())
+
+        prepareApkTempFileForResponse(tempFile, appendResponse = true)
+        tempFile.appendBytes("second".toByteArray())
+
+        assertEquals("first-second", tempFile.readText())
     }
 
     @Test
