@@ -964,9 +964,12 @@ SCENARIOS = {
     "identity_reset": scenario_identity_reset,
 }
 
+WATCH_ONLY_SCENARIOS = frozenset({"watch_power"})
+PHONE_SCENARIOS = tuple(name for name in SCENARIOS if name not in WATCH_ONLY_SCENARIOS)
+
 # Scenarios supported when device B is a watch (file scenarios are receive-only: phone sends,
 # the watch must receive with matching digests).
-WATCH_SCENARIOS = [
+WATCH_SCENARIOS = (
     "dm",
     "favorite_verification",
     "broadcast",
@@ -978,14 +981,14 @@ WATCH_SCENARIOS = [
     "file_private",
     "session_recovery",
     "identity_reset",
-]
+)
 
 
 def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:
     started = time.time()
     evidence: dict[str, object] = {"scenario": name, "devices": [a.alias, b.alias]}
     try:
-        supported = WATCH_SCENARIOS if isinstance(b, WatchDevice) else list(SCENARIOS)
+        supported = WATCH_SCENARIOS if isinstance(b, WatchDevice) else PHONE_SCENARIOS
         if name == "all":
             results = {}
             failures = []
