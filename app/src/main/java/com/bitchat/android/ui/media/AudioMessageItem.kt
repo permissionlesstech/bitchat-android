@@ -24,7 +24,6 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import androidx.compose.material3.ColorScheme
 import com.bitchat.android.ui.theme.LocalBitchatPalette
-import com.bitchat.android.ui.isFromSelf
 import java.text.SimpleDateFormat
 import androidx.compose.ui.platform.LocalContext
 
@@ -48,8 +47,6 @@ fun AudioMessageItem(
         .getInstance(context).liveMessageIDs.collectAsState()
     val isLive = message.id in liveMessageIDs
     val path = message.content.trim()
-    // Bubble mode aligns self-authored voice notes to the end side, mirroring text bubbles.
-    val isSelfInBubbles = bubbles && message.isFromSelf(currentUserNickname, meshService.myPeerID)
     // Derive sending progress if applicable
     val (overrideProgress, overrideColor) = when (val st = message.deliveryStatus) {
         is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {
@@ -59,9 +56,55 @@ fun AudioMessageItem(
         }
         else -> null to null
     }
+    // Bubble mode wraps the voice note in the same tinted shell as text bubbles; Matrix mode
+    // keeps the flat header-plus-player layout.
+    if (bubbles) {
+        MediaBubbleShell(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            myPeerID = meshService.myPeerID,
+            showSender = showSender,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onLongPress = { onMessageLongPress?.invoke(message) },
+            modifier = modifier,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isLive) {
+                    androidx.compose.material3.Text(
+                        text = "LIVE",
+                        color = Color(0xFFFFB300),
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                }
+                VoiceNotePlayer(
+                    path = path,
+                    progressOverride = overrideProgress,
+                    progressColor = overrideColor,
+                    modifier = Modifier.widthIn(max = 260.dp)
+                )
+                val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered)
+                if (showCancel) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
+                            .clickable { onCancelTransfer?.invoke(message) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(R.string.cd_cancel), tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+        return
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = if (isSelfInBubbles) Alignment.End else Alignment.Start,
+        horizontalAlignment = Alignment.Start,
     ) {
         // Header: nickname + timestamp line above the audio note, identical styling to text messages
         val headerText = com.bitchat.android.ui.formatMessageHeaderAnnotatedString(
@@ -104,9 +147,6 @@ fun AudioMessageItem(
                 path = path,
                 progressOverride = overrideProgress,
                 progressColor = overrideColor,
-                // Self voice notes hug the end side like other self content instead of
-                // spanning the full row.
-                modifier = if (isSelfInBubbles) Modifier.widthIn(max = 300.dp) else Modifier
             )
             val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered)
             if (showCancel) {

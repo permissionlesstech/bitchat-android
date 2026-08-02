@@ -461,9 +461,9 @@ fun MessageItem(
             }
         }
 
-        // Bubble mode: text messages carry the marker inline, trailing the timestamp. Media
-        // rows have no inline text, so their marker stays beneath the end-aligned card.
-        if (bubbles && message.type != BitchatMessageType.Message &&
+        // Bubble mode: text and media bubbles carry the marker inline, trailing the timestamp.
+        // File rows have no bubble shell, so their marker stays beneath the end-aligned row.
+        if (bubbles && message.type == BitchatMessageType.File &&
             message.isPrivate && message.sender == currentUserNickname
         ) {
             message.deliveryStatus?.let { status ->
