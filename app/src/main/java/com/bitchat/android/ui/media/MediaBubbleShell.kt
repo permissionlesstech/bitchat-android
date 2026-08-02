@@ -1,7 +1,9 @@
 package com.bitchat.android.ui.media
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,8 +41,11 @@ import java.text.SimpleDateFormat
  * mirroring the text-bubble treatment: the author's identity colour washes the fill and
  * hairline, the speaker-side corner tightens into a tail, the sender's name heads the first
  * bubble of a run, and the timestamp (plus delivery ticks for own private messages) rides
- * flush-right beneath the media.
+ * flush-right beneath the media. The shell itself is long-clickable so media bubbles always
+ * open the message action sheet even when no sender label is shown and the media consumes
+ * touches (voice-note player controls).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MediaBubbleShell(
     message: BitchatMessage,
@@ -83,6 +88,14 @@ fun MediaBubbleShell(
                 .background(
                     color = authorColor.copy(alpha = ChatVisualTokens.BubbleBackgroundAlpha),
                     shape = bubbleShape
+                )
+                .combinedClickable(
+                    enabled = onLongPress != null,
+                    onClick = {},
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLongPress?.invoke()
+                    },
                 )
                 .padding(
                     horizontal = ChatVisualTokens.BubblePaddingHorizontal,
