@@ -294,12 +294,6 @@
     <string name="media_type_file">Fichier</string>
 
     <!-- Statuts de message -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- Aide de texte de notification -->
     <string name="notification_sent_image">📷 a envoyé une image</string>

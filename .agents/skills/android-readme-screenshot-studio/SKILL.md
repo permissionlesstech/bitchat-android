@@ -1,6 +1,6 @@
 ---
 name: android-readme-screenshot-studio
-description: Create or refresh polished, high-resolution screenshots of the Bitchat Android app for README and repository showcase use. Use this skill whenever a user asks for README screenshots, app-store-like repository images, a populated mesh-chat showcase, voice-note or media conversation captures, a geohash globe image, higher-resolution Pixel captures, or a PR that adds or replaces documentation screenshots. It owns the complete workflow from latest-main isolation and deterministic synthetic fixtures through real app rendering, visual inspection, system-chrome cropping, README asset updates, clean builds, and an optional PR. Do not use it for before/after UI regression evidence, which belongs to android-ui-visual-review, or for physical mesh behavior, which belongs to mesh-lab.
+description: Create or refresh polished, high-resolution screenshots of the Bitchat Android app for README and repository showcase use. Use this skill whenever a user asks for README screenshots, app-store-like repository images, a populated mesh-chat showcase, voice-note or media conversation captures, a geohash globe image, higher-resolution Android emulator captures, or a PR that adds or replaces documentation screenshots. It owns the complete workflow from latest-main isolation and deterministic synthetic fixtures through real app rendering, visual inspection, system-chrome cropping, README asset updates, clean builds, and an optional PR. Do not use it for before/after UI regression evidence, which belongs to android-ui-visual-review, or for physical mesh behavior, which belongs to mesh-lab.
 compatibility: Requires git, gh, the Android SDK and emulator, adb, Java/Gradle, Python 3, and image inspection support. FFmpeg is useful for capture-only media preparation.
 ---
 
@@ -34,7 +34,11 @@ capture-only unless they request a committed asset.
 
 Read [references/showcase-recipes.md](references/showcase-recipes.md) for every
 run. It contains the concrete mesh-chat and globe recipes, framing guidance,
-and the final acceptance checklist.
+the verified current-pair fast path, and the final acceptance checklist. When
+the request matches the existing README pair and the production UI has not
+materially changed, try that fast path first and then validate every visible
+result. Fall back to tracing the current implementation when an entry point,
+state model, or composition has changed.
 
 When a populated screen requires a debug fixture, also read
 [../android-ui-visual-review/references/fixture-recipes.md](../android-ui-visual-review/references/fixture-recipes.md).
@@ -62,7 +66,7 @@ Before building, write a compact local matrix containing:
 - surface and navigation path;
 - chronological fixture contents;
 - expected visible top and bottom rows;
-- Pixel profile, physical resolution, logical width, theme, and locale;
+- emulator profile class, portrait orientation, theme, and locale;
 - crop policy and final asset dimensions;
 - existing asset path and README reference;
 - behaviors the static screenshot does not prove.
@@ -71,19 +75,13 @@ Use the current production UI and latest `main` interaction model. Trace the
 screen entry point and state source before adding a fixture. A beautiful capture
 of a stale or fake UI is not acceptable.
 
-## Use a high-resolution Pixel canvas
+## Use a high-resolution Android canvas
 
-Prefer the newest stable Android runtime installed locally and a large Pixel Pro
-profile. For the current README style, target at least:
-
-- a 448 dp logical width;
-- 1344 px physical width;
-- a native portrait height near 2992 px;
-- 480 dpi or the profile's native density.
-
-Pixel 9 Pro XL at 1344×2992 and 480 dpi is a known-good baseline, not a
-hard-coded requirement. A newer stable large Pixel profile is acceptable when
-its guest properties are verified.
+Prefer the newest stable Android runtime installed locally and a large,
+high-density portrait emulator profile. Reuse a previously validated capture
+profile when it remains available, but verify the guest properties and keep
+the resulting profile facts in the local capture contract rather than the
+repository or GitHub text.
 
 After boot, record the guest values with an explicit emulator selector:
 
@@ -127,7 +125,10 @@ envelopes look plausibly different between notes.
 
 For image attachments, use a rights-safe existing asset or an explicitly
 approved synthetic source. Keep fixture media outside production source sets
-and remove every capture-only hook before committing.
+and remove every capture-only hook before committing. Compose image rows may
+remember a decoded bitmap by file path. After replacing the bytes at an
+unchanged path, relaunch the app or use a new destination path before judging
+the revised crop.
 
 ## Capture from the real app
 
@@ -144,9 +145,17 @@ Inspect the full screenshot immediately. Check message count and order,
 nickname ownership, peer count, waveform variety, image visibility, globe
 center, grid precision, clipping, and composer placement.
 
+Inject a complete timeline in one operation and allow at least two seconds of
+quiet UI time after the fixture reports success. This avoids capturing entry
+animations, incomplete placement, or media that has not finished decoding.
+
 Crop only Android system chrome. Preserve Bitchat's app header, translucent
 overlap, content, and composer. Derive the crop from the observed status and
 navigation insets; do not blindly reuse pixel offsets from a different profile.
+Because the app renders edge-to-edge, app controls may extend into the reported
+navigation inset. Place the bottom crop after the final control outline and
+shadow but before the system gesture affordance; removing the entire inset can
+clip the app itself.
 Keep every final README screenshot in a matched portrait size.
 
 Use image inspection after the crop. File dimensions and a successful ADB
@@ -222,8 +231,10 @@ GitHub writes require user authorization. When authorized:
 2. Commit without overriding author or committer identity.
 3. Push the `codex/` branch.
 4. Use `gh pr create` or update the existing PR.
-5. Describe the exact capture sequence, Pixel/runtime facts, synthetic fixture
-   disclosure, validation commands, and limitations.
+5. Describe the exact capture sequence, synthetic fixture disclosure,
+   repository-safe validation commands, and limitations. Keep emulator,
+   runtime, hardware, and local-environment facts out of GitHub text whenever
+   repository privacy rules classify them as machine identifiers.
 6. Verify the PR head and checks with `gh pr view` and `gh pr checks`.
 7. Merge only when the user explicitly requested it and required checks allow
    it. Prefer the repository's normal merge strategy and use `gh`.

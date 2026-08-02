@@ -347,12 +347,6 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Obraz</string>
     <string name="media_type_file">Plik</string>
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
     <string name="notification_sent_image">📷 wysłał(a) obraz</string>
     <string name="notification_sent_voice">🎤 wysłał(a) wiadomość głosową</string>
     <string name="notification_sent_file">📎 wysłał(a) plik</string>

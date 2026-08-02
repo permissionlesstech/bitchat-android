@@ -341,12 +341,6 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Зображення</string>
     <string name="media_type_file">Файл</string>
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
     <string name="notification_sent_image">📷 надіслав(-ла) зображення</string>
     <string name="notification_sent_voice">🎤 надіслав(-ла) голосове повідомлення</string>
     <string name="notification_sent_file">📎 надіслав(-ла) файл</string>

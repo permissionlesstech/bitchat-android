@@ -4,6 +4,99 @@ Use these recipes as composition guidance, then adapt them to the user's exact
 request and the current UI. The requested chronology and framing always win over
 the examples.
 
+## Verified current-pair fast path
+
+Use this baseline first when refreshing the existing README mesh-chat and
+geohash-globe pair without a material production UI change. It records a
+known-good capture, not a permanent UI contract: verify entry points, visible
+state, insets, and output dimensions on every run.
+
+### One-pass app preparation
+
+Build and install the ABI-matching debug APK. A generic `app-debug.apk` may not
+exist when the project emits ABI splits, so resolve the installed emulator ABI
+and select the matching output before searching for alternate build tasks.
+
+Use normal onboarding or a temporary debug preparation command to:
+
+- mark onboarding complete;
+- set the synthetic nickname `trailhead`;
+- select the production `ChatUiMode.Bubbles` presentation;
+- grant only the runtime permissions needed to reach the surface; and
+- keep BLE and Wi-Fi Aware debug transport disabled during deterministic
+  rendering.
+
+Launch the target Activity before injecting process-local state. A preparation
+command may use the existing `PermissionManager` and `AppStateStore` APIs, but
+must remain capture-only and be removed before the clean build.
+
+### Exact chat fixture used for the current pair
+
+Clear the in-memory showcase state, add four synthetic peers, and use the real
+local mesh peer ID only to mark self-authored rows. Use `solace` for the remote
+sender and insert these nine rows at one-minute intervals in one operation:
+
+| Order | Sender | Content |
+|---|---|---|
+| 1 | `trailhead` | mountain image |
+| 2 | `solace` | `That view is unreal.` |
+| 3 | `trailhead` | `Worth the climb.` |
+| 4 | `solace` | `How's the signal up there?` |
+| 5 | `trailhead` | `Still holding strong.` |
+| 6 | `trailhead` | voice note |
+| 7 | `solace` | voice note |
+| 8 | `trailhead` | voice note |
+| 9 | `solace` | `👍` |
+
+A fixed epoch such as `1767258000000` keeps ordering stable. The displayed
+clock text is locale- and time-zone-dependent, so validate consistency rather
+than promising a specific rendered hour.
+
+Reuse the existing rights-safe mountain subject when the brief has not changed.
+A near-square source crop around 840×800 produced enough image height while
+leaving the reaction above the composer. If the crop changes, relaunch the app
+or change the cache destination path; the image row can retain the previous
+bitmap when the path is reused.
+
+Generate three local, rights-safe speech clips with visibly different cadence,
+then transcode them to the app's normal M4A/AAC path. This known-good synthetic
+set used roughly 170, 220, and 145 words per minute:
+
+1. `The trail is clear. I can hear you.`
+2. `Copy that. Sending one back now.`
+3. `Perfect. The mesh is still holding strong.`
+
+Run each file through `AudioWaveformExtractor` and cache its 120-bin result via
+`VoiceWaveformCache`. Wait for the fixture's structured success result, then
+allow at least two additional seconds for Compose placement and media decoding
+before capture.
+
+### Exact globe path used for the current pair
+
+Start the production, non-exported `GeohashPickerActivity` through a temporary
+in-app debug command. Seed it with the explicitly synthetic geohash `thky`,
+wait about three seconds for the camera to settle, then invoke the production
+minus control three times with about one second between changes. The verified
+result was precision 1 with label `#t`, the whole Earth visible, and the Arabian
+Peninsula/Persian Gulf region beneath the center crosshair.
+
+Treat `thky` as a fast starting point, not a substitute for inspection. Reject
+the result if geography, camera distance, grid, label, or controls differ from
+the brief. Never source the seed from device location, IP-derived location, or
+account data.
+
+### Capture and crop baseline
+
+Capture the full screen only after the UI has been still for at least two
+seconds. Re-observe the status and navigation insets, then remove only those
+bands while preserving all app UI. Reuse prior offsets only when the local
+profile and measured insets still match.
+
+Keep both outputs at identical dimensions. Run the screenshot validator and
+inspect both images at full size. Keep raw captures, generated audio, fixture
+media, profile facts, and device output local; only the final PNG assets belong
+in the repository.
+
 ## Mesh-chat showcase
 
 ### Visual goal
@@ -129,9 +222,14 @@ Reject the capture when:
 Capture the full physical screen first. Determine the status-bar and
 navigation-bar insets from the current profile, then crop those insets only.
 
-For a Pixel 9 Pro XL profile at 1344×2992, a 1344×2780 final image was a
-known-good result in one verified run. Treat those numbers as evidence, not as a
-universal crop rule.
+Treat the navigation inset as an inspection region, not an automatic crop
+amount. Bitchat uses edge-to-edge layout, so the composer's border, globe-button
+corners, or their shadows may occupy part of that region. Use accessibility
+bounds plus full-size pixel inspection to place the crop below every app
+control and above the system gesture affordance.
+
+Treat previously observed crop offsets as local evidence, not as a universal
+rule or repository documentation. Re-measure when the profile changes.
 
 Every paired README image should:
 
@@ -152,6 +250,7 @@ Every paired README image should:
 - [ ] Waveforms were extracted from real speech audio and look distinct.
 - [ ] Final reaction is visible above the composer.
 - [ ] Header peer count and nickname are synthetic and intentional.
+- [ ] The complete composer border and bottom padding are visible.
 
 ### Globe
 
@@ -160,6 +259,7 @@ Every paired README image should:
 - [ ] Whole Earth and grid are visible.
 - [ ] Selected cell and crosshair are legible.
 - [ ] Hint and precision controls are unobstructed.
+- [ ] Every action-button corner and shadow is fully visible.
 
 ### Repository
 
@@ -169,4 +269,3 @@ Every paired README image should:
 - [ ] Screenshot validator passes.
 - [ ] PR text contains no machine or personal identifiers.
 - [ ] Static-capture limitations are disclosed.
-
