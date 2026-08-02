@@ -107,16 +107,13 @@ class BluetoothGattClientManager(
     private var scanWatchdogJob: Job? = null
     private var scanDutyCycleJob: Job? = null
     
-    // RSSI monitoring state
-    private var rssiMonitoringJob: Job? = null
     private var connectionPriorityRestoreJob: Job? = null
     private val powerCounterLock = Any()
     private var scanStarts = 0L
     private var scanResults = 0L
     private var scanActiveMs = 0L
     private var scanStartedAt = 0L
-    private var rssiReads = 0L
-    
+
     // State management
     private var isActive = false
     
@@ -170,7 +167,6 @@ class BluetoothGattClientManager(
         if (!isActive) {
             // Idempotent stop
             stopScanning()
-            stopRSSIMonitoring()
             return
         }
 
@@ -186,7 +182,6 @@ class BluetoothGattClientManager(
             } catch (_: Exception) { }
             
             stopScanning()
-            stopRSSIMonitoring()
             Log.i(TAG, "GATT client manager stopped")
         }
     }
@@ -202,45 +197,6 @@ class BluetoothGattClientManager(
         } else {
             stopScanning()
         }
-    }
-    
-    /**
-     * Start periodic RSSI monitoring for all client connections
-     */
-    private fun startRSSIMonitoring() {
-        if (!runtimePolicy.shouldPollRssi(powerManager.profile.value)) {
-            stopRSSIMonitoring()
-            return
-        }
-        rssiMonitoringJob?.cancel()
-        rssiMonitoringJob = connectionScope.launch {
-            while (isActive) {
-                try {
-                    // Request RSSI from all client connections
-                    val connectedDevices = connectionTracker.getConnectedDevices()
-                    connectedDevices.values.filter { it.isClient && it.gatt != null }.forEach { deviceConn ->
-                        try {
-                            synchronized(powerCounterLock) { rssiReads++ }
-                            deviceConn.gatt?.readRemoteRssi()
-                        } catch (e: Exception) {
-                            Log.d(TAG, "Failed to request RSSI from ${deviceConn.device.address}: ${e.message}")
-                        }
-                    }
-                    delay(powerManager.profile.value.ble.rssiPollIntervalMs)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error in RSSI monitoring: ${e.message}")
-                    delay(powerManager.profile.value.ble.rssiPollIntervalMs)
-                }
-            }
-        }
-    }
-    
-    /**
-     * Stop RSSI monitoring
-     */
-    private fun stopRSSIMonitoring() {
-        rssiMonitoringJob?.cancel()
-        rssiMonitoringJob = null
     }
     
     /**
@@ -674,17 +630,6 @@ class BluetoothGattClientManager(
                 }
             }
             
-            override fun onReadRemoteRssi(gatt: BluetoothGatt, rssi: Int, status: Int) {
-                val deviceAddress = gatt.device.address
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    // Update the connection tracker with new RSSI value
-                    connectionTracker.updateDeviceConnectionIfCurrent(deviceAddress, linkID) {
-                        it.copy(rssi = rssi)
-                    }
-                } else {
-                    Log.d(TAG, "Failed to read RSSI for $deviceAddress, status: $status")
-                }
-            }
         }
         
         try {
@@ -720,11 +665,6 @@ class BluetoothGattClientManager(
      * Apply the current process-wide profile without ever disabling background discovery.
      */
     fun applyPowerProfile(profile: PowerManager.RuntimePerformanceProfile) {
-        if (runtimePolicy.shouldPollRssi(profile)) {
-            if (rssiMonitoringJob?.isActive != true) startRSSIMonitoring()
-        } else {
-            stopRSSIMonitoring()
-        }
         connectionTracker.getConnectedDevices().values
             .filter { it.isClient }
             .mapNotNull { it.gatt }
@@ -819,7 +759,9 @@ class BluetoothGattClientManager(
                 scanStarts = scanStarts,
                 scanResults = scanResults,
                 scanActiveMs = scanActiveMs + activeMs,
-                rssiReads = rssiReads
+                // Current main never polls GATT RSSI. Keep the zero-valued counter in the local
+                // debug snapshot so Mesh Lab can guard against accidentally reintroducing it.
+                rssiReads = 0L
             )
         }
 }

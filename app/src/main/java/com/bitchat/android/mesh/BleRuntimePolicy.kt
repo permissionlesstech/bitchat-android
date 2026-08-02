@@ -21,8 +21,6 @@ interface BleRuntimePolicy {
         activeConnections: Int
     ): Boolean
 
-    fun shouldPollRssi(profile: PowerManager.RuntimePerformanceProfile): Boolean
-
     /** Return an Android BluetoothGatt connection-priority constant, or null to leave it alone. */
     fun gattConnectionPriority(profile: PowerManager.RuntimePerformanceProfile): Int?
 
@@ -69,8 +67,6 @@ object DefaultBleRuntimePolicy : BleRuntimePolicy {
         profile: PowerManager.RuntimePerformanceProfile,
         activeConnections: Int
     ): Boolean = true
-
-    override fun shouldPollRssi(profile: PowerManager.RuntimePerformanceProfile): Boolean = true
 
     override fun gattConnectionPriority(profile: PowerManager.RuntimePerformanceProfile): Int? = null
 }

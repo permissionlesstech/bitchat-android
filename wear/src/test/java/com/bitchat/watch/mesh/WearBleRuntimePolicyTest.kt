@@ -66,12 +66,6 @@ class WearBleRuntimePolicyTest {
     }
 
     @Test
-    fun `RSSI polling is disabled only in the background`() {
-        assertFalse(WearBleRuntimePolicy.shouldPollRssi(profile(background = true)))
-        assertTrue(WearBleRuntimePolicy.shouldPollRssi(profile(background = false)))
-    }
-
-    @Test
     fun `bulk transfers temporarily request high connection priority`() {
         assertEquals(
             BluetoothGatt.CONNECTION_PRIORITY_HIGH,

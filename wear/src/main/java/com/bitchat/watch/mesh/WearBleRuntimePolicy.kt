@@ -68,9 +68,6 @@ object WearBleRuntimePolicy : BleRuntimePolicy {
         activeConnections: Int
     ): Boolean = activeConnections < MAX_CONNECTIONS
 
-    override fun shouldPollRssi(profile: PowerManager.RuntimePerformanceProfile): Boolean =
-        !profile.isBackground
-
     override fun gattConnectionPriority(profile: PowerManager.RuntimePerformanceProfile): Int =
         if (profile.isBackground) {
             BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER
