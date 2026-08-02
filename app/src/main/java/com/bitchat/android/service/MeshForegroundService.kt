@@ -101,7 +101,16 @@ class MeshForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         notificationManager = NotificationManagerCompat.from(this)
-        peerAvailabilityNotifier = PeerAvailabilityNotifier(applicationContext)
+        peerAvailabilityNotifier = PeerAvailabilityNotifier(
+            context = applicationContext,
+            scope = scope,
+            isAppCurrentlyInBackground = {
+                !ProcessLifecycleOwner.get()
+                    .lifecycle
+                    .currentState
+                    .isAtLeast(Lifecycle.State.STARTED)
+            }
+        )
         createChannel()
 
         // Ensure mesh service exists in holder (create if needed)
