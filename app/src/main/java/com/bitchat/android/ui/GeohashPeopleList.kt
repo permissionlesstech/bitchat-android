@@ -1,39 +1,34 @@
 package com.bitchat.android.ui
 
-import android.util.Log
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.filled.Email
+import android.util.Log
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bitchat.android.ui.theme.BASE_FONT_SIZE
-import java.util.*
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.ui.theme.BitchatFontFamily
+import com.bitchat.android.ui.theme.colorForPeer
 import com.bitchat.android.R
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import java.util.*
 
 /**
- * GeohashPeopleList - iOS-compatible component for displaying geohash participants
- * Shows peers discovered through Nostr ephemeral events instead of Bluetooth peers
+ * Geohash people list — card groups matching location / settings sheet rows.
  */
 
-/**
- * GeoPerson data class - matches iOS GeoPerson structure exactly
- */
 data class GeoPerson(
     val id: String,           // pubkey hex (lowercased) - matches iOS
-    val displayName: String,  // nickname with #suffix - matches iOS  
+    val displayName: String,  // nickname with #suffix - matches iOS
     val lastSeen: Date        // activity timestamp - matches iOS
 )
 
@@ -41,117 +36,235 @@ data class GeoPerson(
 fun GeohashPeopleList(
     viewModel: ChatViewModel,
     onTapPerson: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    excludedIdentityAliases: Set<String> = emptySet()
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    
-    // Observe geohash people from ChatViewModel
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val isTeleported by viewModel.isTeleported.collectAsStateWithLifecycle()
+    val teleportedGeo by viewModel.teleportedGeo.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
-    
-    Column {
-        // Header matching iOS style
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.LocationOn,
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-                tint = colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = stringResource(R.string.geohash_people_header),
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                ),
-                color = colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-        }
-        
-        if (geohashPeople.isEmpty()) {
-            // Empty state - matches iOS "nobody around..."
-            Text(
-                text = stringResource(R.string.nobody_around),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = BASE_FONT_SIZE.sp
-                ),
-                color = colorScheme.onSurface.copy(alpha = 0.5f),
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
-            )
-        } else {
-            // Get current geohash identity for "me" detection
-            val myHex = remember(selectedLocationChannel) {
-                when (val channel = selectedLocationChannel) {
-                    is com.bitchat.android.geohash.ChannelID.Location -> {
-                        try {
-                            val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
-                                forGeohash = channel.channel.geohash,
-                                context = viewModel.getApplication()
-                            )
-                            identity.publicKeyHex.lowercase()
-                        } catch (e: Exception) {
-                            Log.e("GeohashPeopleList", "Failed to derive identity: ${e.message}")
-                            null
-                        }
-                    }
-                    else -> null
-                }
-            }
-            
-            // Sort people: me first, then by lastSeen (matches iOS exactly)
-            val orderedPeople = remember(geohashPeople, myHex) {
-                geohashPeople.sortedWith { a, b ->
-                    when {
-                        myHex != null && a.id == myHex && b.id != myHex -> -1
-                        myHex != null && b.id == myHex && a.id != myHex -> 1
-                        else -> b.lastSeen.compareTo(a.lastSeen) // Most recent first
-                    }
-                }
-            }
 
-            // Compute base name collisions to decide whether to show hash suffix
-            val baseNameCounts = remember(geohashPeople) {
-                val counts = mutableMapOf<String, Int>()
-                geohashPeople.forEach { person ->
-                    val (b, _) = com.bitchat.android.ui.splitSuffix(person.displayName)
-                    counts[b] = (counts[b] ?: 0) + 1
+    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
+    val myHex = remember(selectedLocationChannel) {
+        when (val channel = selectedLocationChannel) {
+            is com.bitchat.android.geohash.ChannelID.Location -> {
+                try {
+                    val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
+                        forGeohash = channel.channel.geohash,
+                        context = viewModel.getApplication()
+                    )
+                    identity.publicKeyHex.lowercase(Locale.ROOT)
+                } catch (e: Exception) {
+                    Log.e("GeohashPeopleList", "Failed to derive identity: ${e.message}")
+                    null
                 }
-                counts
             }
-            
-            val firstID = orderedPeople.firstOrNull()?.id
-            
-            orderedPeople.forEach { person ->
+            else -> null
+        }
+    }
+    val peopleIncludingSelf = remember(geohashPeople, myHex, nickname) {
+        if (myHex != null && geohashPeople.none { it.id.equals(myHex, ignoreCase = true) }) {
+            listOf(
+                GeoPerson(
+                    id = myHex,
+                    displayName = nickname.ifBlank { "anon" },
+                    lastSeen = Date(0)
+                )
+            ) + geohashPeople
+        } else {
+            geohashPeople
+        }
+    }
+    val visiblePeople = remember(peopleIncludingSelf, excludedIdentityAliases) {
+        peopleIncludingSelf.filterNot { person ->
+            val alias = "nostr_${person.id.take(16)}".lowercase()
+            alias in excludedIdentityAliases
+        }
+    }
+    val sections = remember(visiblePeople, myHex, isTeleported, teleportedGeo) {
+        sectionGeohashPeople(
+            people = visiblePeople,
+            myId = myHex,
+            selfIsTeleported = isTeleported,
+            teleportedIds = teleportedGeo
+        )
+    }
+    val displayedPeople = remember(sections) {
+        sections.onLocation + sections.teleportedIn
+    }
+    val teleportedPersonIds = remember(sections.teleportedIn) {
+        sections.teleportedIn.mapTo(mutableSetOf()) { it.id.lowercase(Locale.ROOT) }
+    }
+    val duplicateBaseNames = remember(displayedPeople) {
+        duplicateGeohashBaseNames(displayedPeople)
+    }
+
+    Column(modifier = modifier) {
+        SheetIconSectionHeader(
+            iconRes = R.drawable.ic_spec_people,
+            title = stringResource(R.string.people_count_title, displayedPeople.size)
+        )
+
+        if (displayedPeople.isEmpty()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AboutHorizontalPadding)
+                    .padding(top = 10.dp),
+                color = colorScheme.surface,
+                shape = AboutCardShape
+            ) {
+                Text(
+                    text = stringResource(R.string.nobody_around),
+                    fontFamily = BitchatFontFamily,
+                    fontSize = 12.sp,
+                    color = palette.textTertiary,
+                    modifier = Modifier.padding(
+                        horizontal = SheetRowHorizontal,
+                        vertical = SheetRowVertical
+                    )
+                )
+            }
+        } else {
+            @Composable
+            fun personRow(person: GeoPerson) {
+                val isMe = myHex != null && person.id.equals(myHex, ignoreCase = true)
+                val personIsTeleported = if (isMe) {
+                    isTeleported
+                } else {
+                    person.id.lowercase(Locale.ROOT) in teleportedPersonIds
+                }
                 GeohashPersonItem(
                     person = person,
-                    isFirst = person.id == firstID,
-                    isMe = myHex != null && person.id == myHex,
+                    isMe = isMe,
                     hasUnreadDM = unreadPrivateMessages.contains("nostr_${person.id.take(16)}"),
-                    isTeleported = person.id != myHex && viewModel.isPersonTeleported(person.id),
-                    isMyTeleported = person.id == myHex && isTeleported,
-                    nickname = nickname,
-                    colorScheme = colorScheme,
+                    isTeleported = personIsTeleported,
                     viewModel = viewModel,
-                    showHashSuffix = (baseNameCounts[com.bitchat.android.ui.splitSuffix(person.displayName).first] ?: 0) > 1,
+                    showHashSuffix = splitSuffix(person.displayName)
+                        .first
+                        .lowercase(Locale.ROOT) in duplicateBaseNames,
                     onTap = {
-                        if (person.id != myHex) {
-                            // TODO: Re-enable when NIP-17 geohash DM issues are fixed
-                            // Start geohash DM (iOS-compatible)
+                        if (!isMe) {
                             viewModel.startGeohashDM(person.id)
                             onTapPerson()
                         }
                     }
                 )
+            }
+
+            if (sections.onLocation.isNotEmpty()) {
+                AboutSectionLabel(text = stringResource(R.string.section_on_location))
+                PeopleCard(
+                    people = sections.onLocation,
+                    row = { personRow(it) }
+                )
+            }
+
+            if (sections.teleportedIn.isNotEmpty()) {
+                AboutSectionLabel(text = stringResource(R.string.section_teleported_in))
+                PeopleCard(
+                    people = sections.teleportedIn,
+                    row = { personRow(it) }
+                )
+            }
+        }
+    }
+}
+
+internal data class GeohashPeopleSections(
+    val onLocation: List<GeoPerson>,
+    val teleportedIn: List<GeoPerson>
+)
+
+/**
+ * Names that require a short identity suffix, calculated across both people sections.
+ *
+ * Matching is case-insensitive to mirror geohash chat's nickname collision handling.
+ */
+internal fun duplicateGeohashBaseNames(people: List<GeoPerson>): Set<String> =
+    people
+        .groupingBy { splitSuffix(it.displayName).first.lowercase(Locale.ROOT) }
+        .eachCount()
+        .filterValues { it > 1 }
+        .keys
+
+/**
+ * The same `#abcd` disambiguator used by geohash chat.
+ *
+ * Presence rows normally carry only a base nickname, so derive the suffix from the full Nostr
+ * public key when a collision exists. Preserve an already-announced suffix for compatibility.
+ */
+internal fun geohashIdentitySuffix(person: GeoPerson, showHashSuffix: Boolean): String {
+    if (!showHashSuffix) return ""
+    val announcedSuffix = splitSuffix(person.displayName).second
+    return announcedSuffix.ifEmpty { "#${person.id.takeLast(4)}" }
+}
+
+internal fun disambiguatedGeohashDisplayName(
+    person: GeoPerson,
+    duplicateBaseNames: Set<String>,
+): String {
+    val baseName = splitSuffix(person.displayName).first
+    val showSuffix = baseName.lowercase(Locale.ROOT) in duplicateBaseNames
+    return baseName + geohashIdentitySuffix(person, showSuffix)
+}
+
+/**
+ * Split announced identities by how they entered this geohash. Bare `anon` heartbeat identities
+ * are omitted, while announced names such as `anon1234` remain ordinary participants. Self is
+ * retained even before a nickname announcement and is always first in the matching section.
+ */
+internal fun sectionGeohashPeople(
+    people: List<GeoPerson>,
+    myId: String?,
+    selfIsTeleported: Boolean,
+    teleportedIds: Set<String>
+): GeohashPeopleSections {
+    val normalizedMyId = myId?.lowercase(Locale.ROOT)
+    val normalizedTeleportedIds = teleportedIds
+        .mapTo(mutableSetOf()) { it.lowercase(Locale.ROOT) }
+    fun isSelf(person: GeoPerson): Boolean =
+        normalizedMyId != null && person.id.lowercase(Locale.ROOT) == normalizedMyId
+    fun isTeleported(person: GeoPerson): Boolean =
+        if (isSelf(person)) selfIsTeleported
+        else person.id.lowercase(Locale.ROOT) in normalizedTeleportedIds
+
+    val displayedPeople = people.filter { person ->
+        isSelf(person) || !isUnannouncedNickname(person.displayName)
+    }
+    val ordered = displayedPeople.sortedWith(
+        compareByDescending<GeoPerson>(::isSelf)
+            .thenByDescending { it.lastSeen }
+    )
+    return GeohashPeopleSections(
+        onLocation = ordered.filterNot(::isTeleported),
+        teleportedIn = ordered.filter(::isTeleported)
+    )
+}
+
+/** One uncapped card of people. The enclosing sheet owns scrolling. */
+@Composable
+private fun PeopleCard(
+    people: List<GeoPerson>,
+    row: @Composable (GeoPerson) -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = AboutHorizontalPadding)
+            .padding(top = 10.dp),
+        color = colorScheme.surface,
+        shape = AboutCardShape
+    ) {
+        AnimatedRowColumn(items = people, key = { it.id }) { index, person ->
+            Column {
+                if (index > 0) SheetCardDivider()
+                row(person)
             }
         }
     }
@@ -160,113 +273,98 @@ fun GeohashPeopleList(
 @Composable
 private fun GeohashPersonItem(
     person: GeoPerson,
-    isFirst: Boolean,
     isMe: Boolean,
     hasUnreadDM: Boolean,
     isTeleported: Boolean,
-    isMyTeleported: Boolean,
-    nickname: String,
-    colorScheme: ColorScheme,
     viewModel: ChatViewModel,
     showHashSuffix: Boolean,
     onTap: () -> Unit
 ) {
+    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
+
+    val statusIconRes =
+        if (isTeleported) R.drawable.ic_spec_teleport
+        else R.drawable.ic_spec_on_location_person
+
+    val (baseNameRaw, _) = splitSuffix(person.displayName)
+    val baseName = truncateNickname(baseNameRaw)
+    val suffix = geohashIdentitySuffix(person, showHashSuffix)
+    val assignedColor = colorForPeer(
+        viewModel.peerIdentityForNostrPubkey(person.id),
+        palette
+    )
+    val baseColor = if (isMe) palette.accentOrange else assignedColor
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onTap() }
-            .padding(horizontal = 24.dp, vertical = 4.dp)
-            .padding(top = if (isFirst) 10.dp else 0.dp),
+            .clickable(onClick = onTap)
+            .padding(horizontal = SheetRowHorizontal, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon logic matching iOS exactly
-        if (hasUnreadDM) {
-            // Unread DM indicator (orange envelope)
-            Icon(
-                imageVector = Icons.Filled.Email,
-                contentDescription = stringResource(R.string.cd_unread_message),
-                modifier = Modifier.size(12.dp),
-                tint = Color(0xFFFF9500) // iOS orange
-            )
-        } else {
-            // Face icon with teleportation state
-            val (iconName, iconColor) = when {
-                isMe && isMyTeleported -> "face.dashed" to Color(0xFFFF9500) // Orange for teleported me
-                isTeleported -> "face.dashed" to colorScheme.onSurface // Regular color for teleported others
-                isMe -> "face.smiling" to Color(0xFFFF9500) // Orange for me
-                else -> "face.smiling" to colorScheme.onSurface // Regular color for others
+        PeerAvatar(
+            name = baseNameRaw,
+            color = baseColor,
+            badge = {
+                Icon(
+                    painter = painterResource(statusIconRes),
+                    contentDescription = if (isTeleported) {
+                        stringResource(R.string.cd_teleported)
+                    } else {
+                        stringResource(R.string.section_on_location)
+                    },
+                    modifier = Modifier.size(13.dp),
+                    tint = if (isTeleported) palette.accentPurple else colorScheme.primary
+                )
             }
-            
-            // Use appropriate Material icon (closest match to iOS SF Symbols)
-            val icon = when (iconName) {
-                "face.dashed" -> Icons.Outlined.Explore
-                else -> Icons.Outlined.LocationOn
-            }
-            
-            Icon(
-                imageVector = icon,
-                contentDescription = if (isTeleported || isMyTeleported) "Teleported user" else "User",
-                modifier = Modifier.size(12.dp),
-                tint = iconColor.copy(alpha = if (iconName == "face.dashed") 0.6f else 1.0f) // Make dashed faces slightly transparent
-            )
-        }
-        
-        Spacer(modifier = Modifier.width(8.dp))
-        
-        // Display name with suffix handling
-        val (baseNameRaw, suffixRaw) = com.bitchat.android.ui.splitSuffix(person.displayName)
-        val baseName = truncateNickname(baseNameRaw)
-        val suffix = if (showHashSuffix) suffixRaw else ""
-        
-        // Get consistent peer color (matches iOS color assignment exactly)
-        val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-        val assignedColor = viewModel.colorForNostrPubkey(person.id, isDark)
-        val baseColor = if (isMe) Color(0xFFFF9500) else assignedColor
-        
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
         Row(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Base name with peer-specific color
             Text(
                 text = baseName,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = BASE_FONT_SIZE.sp,
-                    fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
-                ),
+                fontFamily = BitchatFontFamily,
+                fontSize = 14.sp,
+                fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
                 color = baseColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            
-            // Suffix (collision-resistant #abcd) in lighter shade
+
             if (suffix.isNotEmpty()) {
                 Text(
                     text = suffix,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = BASE_FONT_SIZE.sp
-                    ),
-                    color = baseColor.copy(alpha = 0.6f)
+                    fontFamily = BitchatFontFamily,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = baseColor.copy(alpha = SUFFIX_ALPHA)
                 )
             }
-            
-            // "You" indicator for current user
+
             if (isMe) {
                 Text(
                     text = stringResource(R.string.you_suffix),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = BASE_FONT_SIZE.sp
-                    ),
+                    fontFamily = BitchatFontFamily,
+                    fontSize = 14.sp,
                     color = baseColor
                 )
             }
         }
-        
-        Spacer(modifier = Modifier.width(8.dp))
+
+        if (hasUnreadDM) {
+            Icon(
+                imageVector = Icons.Filled.Email,
+                contentDescription = stringResource(R.string.cd_unread_message),
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(18.dp),
+                tint = palette.accentOrange
+            )
+        }
     }
 }
-
-

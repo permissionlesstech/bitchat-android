@@ -13,6 +13,8 @@ interface MeshDelegate {
     fun didReceiveReadReceipt(messageID: String, recipientPeerID: String)
     fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long) {}
     fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {}
+    /** Current Noise generation either proved peer state or exhausted its 5-second watchdog. */
+    fun didResolvePrivateMediaPolicy(peerID: String) {}
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
     fun getNickname(): String?
     fun isFavorite(peerID: String): Boolean

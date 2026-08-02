@@ -116,15 +116,11 @@
     <string name="cd_add_favorite">Dodaj do ulubionych</string>
     <string name="cd_remove_favorite">Usuń z ulubionych</string>
     <string name="cd_add_bookmark">Dodaj zakładkę</string>
-    <string name="chat_back">wstecz</string>
-    <string name="chat_channel_prefix">kanał: %1$s</string>
-    <string name="chat_leave">opuść</string>
     <string name="cd_nostr_reachable">Dostępny przez Nostr</string>
     <string name="cd_unread_private_messages">Nieprzeczytane wiadomości prywatne</string>
-    <string name="cd_toggle_bookmark">Przełącz zakładkę</string>
     <string name="cd_location_notes">Notatki lokalizacji</string>
     <string name="cd_teleported">Teleportowany</string>
-    <string name="cd_tor_status">Status Tor</string>
+    <string name="cd_open_location_channels">Otwórz ustawienia lokalizacji i kanałów</string>
     <string name="cd_connected_peers">Połączeni użytkownicy</string>
     <string name="cd_geohash_participants">Uczestnicy geohash</string>
     <string name="cd_ready_for_handshake">Gotowy do uzgadniania</string>
@@ -151,7 +147,6 @@
     <string name="about_online_geohash_desc">Łącz się z ludźmi w Twojej okolicy za pomocą kanałów opartych na geohash. Rozszerz sieć mesh, korzystając z publicznych przekaźników internetowych.</string>
     <string name="about_e2e_title">Szyfrowanie end-to-end</string>
     <string name="about_e2e_desc">Wiadomości prywatne są szyfrowane. Wiadomości na kanałach są publiczne.</string>
-    <string name="about_appearance">wygląd</string>
     <string name="about_system">systemowy</string>
     <string name="about_light">jasny</string>
     <string name="about_dark">ciemny</string>
@@ -175,7 +170,6 @@
     <string name="about_tor_status">Status tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Ostatnio: %1$s</string>
     <string name="about_emergency_title">Awaryjne usuwanie danych</string>
-    <string name="about_emergency_tip">Wskazówka: Stuknij trzykrotnie w tytuł aplikacji, aby awaryjnie usunąć wszystkie zapisane dane, w tym wiadomości, klucze i ustawienia.</string>
     <string name="about_debug_settings">Ustawienia debugowania</string>
     <string name="about_footer">Open Source • Prywatność przede wszystkim • Zdecentralizowane</string>
     <string name="close_plain">Zamknij</string>
@@ -194,7 +188,6 @@
     <string name="cd_open_map">Otwórz mapę</string>
     <string name="cd_remove_bookmark">Usuń zakładkę</string>
     <string name="cd_teleport">Teleportuj</string>
-    <string name="cd_selected">Wybrano</string>
     <string name="notification_action_quit_bitchat">Zamknij bitchat</string>
     <string name="about_background_title">działaj w tle</string>
     <string name="about_background_desc">utrzymuj sieć mesh aktywną po zamknięciu aplikacji (usługa pierwszoplanowa)</string>
@@ -211,11 +204,6 @@
     <string name="cd_link">Link</string>
     <string name="cd_record_voice">Nagraj notatkę głosową</string>
     <string name="cd_pick_media">Wybierz multimedia</string>
-    <string name="cd_mining_pow">Kopanie PoW</string>
-    <string name="cd_pow_enabled">PoW włączone</string>
-    <string name="cd_proof_of_work">Dowód pracy</string>
-    <string name="pow_mining_ellipsis">kopanie...</string>
-    <string name="pow_label_format">pow: %1$d bitów</string>
     <string name="cd_offline_mesh_chat">Czat mesh offline</string>
     <string name="cd_online_geohash_channels">Kanały geohash online</string>
     <string name="cd_end_to_end_encryption">Szyfrowanie end-to-end</string>
@@ -340,9 +328,7 @@
     <string name="grant_permissions">Przyznaj uprawnienia</string>
     <string name="location_tracking_warning">bitchat NIE śledzi Twojej lokalizacji</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">OSOBY</string>
     <string name="nobody_around">nikogo w pobliżu...</string>
     <string name="you_suffix"> (ty)</string>
     <string name="pan_zoom_instruction">przesuwaj i powiększaj, aby wybrać geohash</string>
@@ -351,7 +337,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">wzmianka</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -362,12 +347,6 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Obraz</string>
     <string name="media_type_file">Plik</string>
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
     <string name="notification_sent_image">📷 wysłał(a) obraz</string>
     <string name="notification_sent_voice">🎤 wysłał(a) wiadomość głosową</string>
     <string name="notification_sent_file">📎 wysłał(a) plik</string>
@@ -415,4 +394,8 @@
         <item quantity="many">%1$d osób</item>
         <item quantity="other">%1$d osoby</item>
     </plurals>
+    <string name="about_language">Język</string>
+    <string name="about_app_language">Język aplikacji</string>
+    <string name="about_system_default">Domyślny systemu</string>
+    <string name="about_select_language">Wybierz język</string>
 </resources>

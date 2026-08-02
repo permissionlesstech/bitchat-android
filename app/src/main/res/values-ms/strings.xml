@@ -72,15 +72,11 @@
   <string name="cd_add_bookmark">Tambah penanda buku</string>
 
   <!-- Chat header &amp; accessibility -->
-  <string name="chat_back">kembali</string>
-  <string name="chat_channel_prefix">saluran: %1$s</string>
-  <string name="chat_leave">keluar</string>
   <string name="cd_nostr_reachable">Boleh dihubungi melalui Nostr</string>
   <string name="cd_unread_private_messages">Mesej peribadi belum dibaca</string>
-  <string name="cd_toggle_bookmark">Togol penanda buku</string>
   <string name="cd_location_notes">Nota lokasi</string>
   <string name="cd_teleported">Diteleport</string>
-  <string name="cd_tor_status">Status Tor</string>
+  <string name="cd_open_location_channels">Buka tetapan lokasi dan saluran</string>
   <string name="cd_connected_peers">Rakan disambungkan</string>
   <string name="cd_geohash_participants">Peserta geohash</string>
   <string name="cd_ready_for_handshake">Sedia untuk berjabat tangan</string>
@@ -111,7 +107,6 @@
   <string name="about_online_geohash_desc">Berhubung dengan orang di kawasan anda menggunakan saluran berasaskan geohash. Melanjutkan mesh menggunakan geganti internet awam.</string>
   <string name="about_e2e_title">Penyulitan Hujung-ke-Hujung</string>
   <string name="about_e2e_desc">Mesej peribadi disulitkan. Mesej saluran adalah awam.</string>
-  <string name="about_appearance">penampilan</string>
   <string name="about_system">sistem</string>
   <string name="about_light">cerah</string>
   <string name="about_dark">gelap</string>
@@ -135,7 +130,6 @@
   <string name="about_tor_status">Status tor: %1$s, but-mula %2$d%%</string>
   <string name="about_last">Terakhir: %1$s</string>
   <string name="about_emergency_title">Pemadaman Data Kecemasan</string>
-  <string name="about_emergency_tip">Petua: Ketik tiga kali pada tajuk apl untuk memadam kecemasan semua data yang disimpan termasuk mesej, kunci, dan tetapan.</string>
   <string name="about_debug_settings">Tetapan Nyahpepijat</string>
   <string name="about_footer">Sumber Terbuka • Privasi Diutamakan • Terdesentralisasi</string>
   <string name="close_plain">Tutup</string>
@@ -156,7 +150,6 @@
   <string name="cd_open_map">Buka peta</string>
   <string name="cd_remove_bookmark">Alih keluar penanda buku</string>
   <string name="cd_teleport">Teleport</string>
-  <string name="cd_selected">Dipilih</string>
   <string name="notification_action_quit_bitchat">Keluar bitchat</string>
   <string name="about_background_title">jalankan di latar belakang</string>
   <string name="about_background_desc">kekalkan mesh aktif apabila apl ditutup (perkhidmatan latar depan)</string>
@@ -173,11 +166,6 @@
   <string name="cd_link">Pautan</string>
   <string name="cd_record_voice">Rakam nota suara</string>
   <string name="cd_pick_media">Pilih media</string>
-  <string name="cd_mining_pow">Melombong PoW</string>
-  <string name="cd_pow_enabled">PoW Diaktifkan</string>
-  <string name="cd_proof_of_work">Bukti Kerja</string>
-  <string name="pow_mining_ellipsis">melombong...</string>
-  <string name="pow_label_format">pow: %1$dbit</string>
   <string name="cd_offline_mesh_chat">Sembang Mesh Luar Talian</string>
   <string name="cd_online_geohash_channels">Saluran Geohash Dalam Talian</string>
   <string name="cd_end_to_end_encryption">Penyulitan Hujung-ke-Hujung</string>
@@ -365,9 +353,7 @@
   <string name="grant_permissions">Berikan Kebenaran</string>
   <string name="location_tracking_warning">bitchat TIDAK menjejaki lokasi anda</string>
   <string name="at_symbol">@</string>
-  <string name="app_brand">bitchat/</string>
   <string name="channel_count_prefix"> · ⧉ </string>
-  <string name="geohash_people_header">ORANG</string>
   <string name="nobody_around">tiada sesiapa berdekatan...</string>
   <string name="you_suffix"> (anda)</string>
   <string name="pan_zoom_instruction">gerak dan zum untuk memilih geohash</string>
@@ -376,7 +362,6 @@
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">sebutan</string>
   <string name="image_counter">%1$d / %2$d</string>
-  <string name="pow_time_estimate">(~%1$s)</string>
   <string name="at_nickname">@%1$s</string>
   <string name="version_prefix">v%1$s</string>
   <string name="hash_symbol">#</string>
@@ -389,12 +374,6 @@
   <string name="media_type_file">Fail</string>
 
   <!-- Message status icons -->
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
 
   <!-- Notification text helpers -->
   <string name="notification_sent_image">📷 menghantar imej</string>
@@ -450,4 +429,8 @@
   </plurals>
 
     <string name="bluetooth_recommended">Bluetooth Disyorkan</string>
+    <string name="about_language">Bahasa</string>
+    <string name="about_app_language">Bahasa aplikasi</string>
+    <string name="about_system_default">Lalai sistem</string>
+    <string name="about_select_language">Pilih bahasa</string>
 </resources>

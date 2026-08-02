@@ -1,17 +1,24 @@
 package com.bitchat.android.mesh
 
 import android.util.Log
+import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
-import com.bitchat.android.model.IdentityAnnouncement
+import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.sync.PacketIdUtil
 import com.bitchat.android.util.toHexString
+import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.features.voice.LiveVoiceScope
 import kotlinx.coroutines.*
 import java.util.*
-import kotlin.random.Random
+
+sealed class AnnounceHandlingResult {
+    data class Accepted(val isFirst: Boolean) : AnnounceHandlingResult()
+    object Rejected : AnnounceHandlingResult()
+}
 
 /**
  * Handles processing of different message types
@@ -22,73 +29,76 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     companion object {
         private const val TAG = "MessageHandler"
         private const val ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS = 10 * 60 * 1000L
+        private const val MAX_CONSECUTIVE_DECRYPT_FAILURES = 3
     }
-    
+
     // Delegate for callbacks
     var delegate: MessageHandlerDelegate? = null
-    
+
     // Reference to PacketProcessor for recursive packet handling
     var packetProcessor: PacketProcessor? = null
-    
+
     // Coroutines
     private val handlerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
+
+    // Consecutive decrypt failures per peer; only signature-verified packets reach this path,
+    // so repeated failures mean the established session is stale (peer re-handshaked elsewhere).
+    private val consecutiveDecryptFailures = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
     /**
      * Handle Noise encrypted transport message - SIMPLIFIED iOS-compatible version
      * Uses NoisePayloadType system exactly like iOS SimplifiedBluetoothService
+     *
+     * Returns false when the payload could not be decrypted, so callers can treat the
+     * packet as not liveness-proving (no lastSeen refresh, no relay).
      */
-    suspend fun handleNoiseEncrypted(routed: RoutedPacket) {
+    suspend fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
-        
-        Log.d(TAG, "Processing Noise encrypted message from $peerID (${packet.payload.size} bytes)")
-        
+
         // Skip our own messages
-        if (peerID == myPeerID) return
-        
+        if (peerID == myPeerID) return true
+
         // Check if this message is for us
         val recipientID = packet.recipientID?.toHexString()
         if (recipientID != myPeerID) {
-            Log.d(TAG, "🔐 Encrypted message not for me (for $recipientID, I am $myPeerID)")
-            return
+            return true
         }
-        
+
         try {
             // Decrypt the message using the Noise service
-            val decryptedData = delegate?.decryptFromPeer(packet.payload, peerID)
-            if (decryptedData == null) {
+            val decryption = delegate?.decryptFromPeer(packet.payload, peerID)
+            if (decryption == null) {
                 Log.w(TAG, "Failed to decrypt Noise message from $peerID - may need handshake")
-                return
+                registerDecryptFailure(peerID)
+                return false
             }
-            
+            consecutiveDecryptFailures.remove(peerID)
+            val decryptedData = decryption.plaintext
+
             if (decryptedData.isEmpty()) {
                 Log.w(TAG, "Decrypted data is empty from $peerID")
-                return
+                return true
             }
-            
-            // NEW: Use NoisePayload system exactly like iOS
+
             val noisePayload = com.bitchat.android.model.NoisePayload.decode(decryptedData)
             if (noisePayload == null) {
                 Log.w(TAG, "Failed to parse NoisePayload from $peerID")
-                return
+                return true
             }
-            
-            Log.d(TAG, "🔓 Decrypted NoisePayload type ${noisePayload.type} from $peerID")
             
             when (noisePayload.type) {
                 com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE -> {
                     // Decode TLV private message exactly like iOS
                     val privateMessage = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data)
                     if (privateMessage != null) {
-                        Log.d(TAG, "🔓 Decrypted TLV PM from $peerID: ${privateMessage.content.take(30)}...")
-
                         // Handle favorite/unfavorite notifications embedded as PMs
                         val pmContent = privateMessage.content
-                        if (pmContent.startsWith("[FAVORITED]") || pmContent.startsWith("[UNFAVORITED]")) {
+                        if (FavoriteControlMessage.parse(pmContent) != null) {
                             handleFavoriteNotificationFromMesh(pmContent, peerID)
                             // Acknowledge delivery for UX parity
                             sendDeliveryAck(privateMessage.messageID, peerID)
-                            return
+                            return true
                         }
                         
                         // Create BitchatMessage - preserve source packet timestamp
@@ -102,7 +112,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                             isPrivate = true,
                             recipientNickname = delegate?.getMyNickname(),
                             senderPeerID = peerID,
-                            mentions = null // TODO: Parse mentions if needed
+                            mentions = null
                         )
                         
                         // Notify delegate
@@ -117,7 +127,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     // Handle encrypted file transfer; generate unique message ID
                     val file = com.bitchat.android.model.BitchatFilePacket.decode(noisePayload.data)
                     if (file != null) {
-                        Log.d(TAG, "🔓 Decrypted encrypted file from $peerID: name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}'")
+                        Log.d(TAG, "Encrypted file from $peerID: ${file.fileSize} bytes")
                         val uniqueMsgId = java.util.UUID.randomUUID().toString().uppercase()
                         val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
                         val message = BitchatMessage(
@@ -132,20 +142,44 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                             senderPeerID = peerID
                         )
 
-                        Log.d(TAG, "📄 Saved encrypted incoming file to $savedPath (msgId=$uniqueMsgId)")
-                        delegate?.onMessageReceived(message)
+                        if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                            delegate?.onMessageReceived(message)
+                        }
 
                         // Send delivery ACK with generated message ID
                         sendDeliveryAck(uniqueMsgId, peerID)
                     } else {
-                        Log.w(TAG, "⚠️ Failed to decode encrypted file transfer from $peerID")
+                        Log.w(TAG, "Failed to decode encrypted file transfer from $peerID")
+                    }
+                }
+
+                com.bitchat.android.model.NoisePayloadType.VOICE_FRAME -> {
+                    return LiveVoiceManager.getInstance(appContext).handleFrame(
+                        peerID = peerID,
+                        nickname = delegate?.getPeerNickname(peerID) ?: peerID,
+                        scope = LiveVoiceScope.DIRECT_MESSAGE,
+                        payload = noisePayload.data,
+                        timestampMs = packet.timestamp.toLong()
+                    )
+                }
+
+                com.bitchat.android.model.NoisePayloadType.PEER_STATE -> {
+                    val authenticatedState = AuthenticatedPeerState.decode(noisePayload.data)
+                    if (authenticatedState == null) {
+                        Log.w(TAG, "Dropping malformed authenticated peer state from ${peerID.take(8)}")
+                    } else {
+                        delegate?.onAuthenticatedPeerStateReceived(
+                            peerID,
+                            authenticatedState,
+                            decryption.authenticatedSession
+                        )
                     }
                 }
                 
                 com.bitchat.android.model.NoisePayloadType.DELIVERED -> {
                     // Handle delivery ACK exactly like iOS
                     val messageID = String(noisePayload.data, Charsets.UTF_8)
-                    Log.d(TAG, "📬 Delivery ACK received from $peerID for message $messageID")
+                    Log.d(TAG, "Delivery ACK from $peerID for $messageID")
                     
                     // Simplified: Call delegate with messageID and peerID directly
                     delegate?.onDeliveryAckReceived(messageID, peerID)
@@ -154,23 +188,46 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 com.bitchat.android.model.NoisePayloadType.READ_RECEIPT -> {
                     // Handle read receipt exactly like iOS
                     val messageID = String(noisePayload.data, Charsets.UTF_8)
-                    Log.d(TAG, "👁️ Read receipt received from $peerID for message $messageID")
+                    Log.d(TAG, "Read receipt from $peerID for $messageID")
                     
                     // Simplified: Call delegate with messageID and peerID directly
                     delegate?.onReadReceiptReceived(messageID, peerID)
                 }
                 com.bitchat.android.model.NoisePayloadType.VERIFY_CHALLENGE -> {
-                    Log.d(TAG, "🔐 Verify challenge received from $peerID (${noisePayload.data.size} bytes)")
                     delegate?.onVerifyChallengeReceived(peerID, noisePayload.data, packet.timestamp.toLong())
                 }
                 com.bitchat.android.model.NoisePayloadType.VERIFY_RESPONSE -> {
-                    Log.d(TAG, "🔐 Verify response received from $peerID (${noisePayload.data.size} bytes)")
                     delegate?.onVerifyResponseReceived(peerID, noisePayload.data, packet.timestamp.toLong())
                 }
             }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing Noise encrypted message from $peerID: ${e.message}")
+        }
+        return true
+    }
+
+    /**
+     * Count consecutive decrypt failures from a signature-verified peer that we still hold an
+     * established session for. After repeated failures the session is stale (the peer completed
+     * a new handshake elsewhere), so destroy it and start a fresh handshake; the peer's side
+     * will finish via the responder-candidate path and evict its own stale session.
+     */
+    private fun registerDecryptFailure(peerID: String) {
+        if (peerID == "unknown" || peerID == myPeerID) return
+        if (delegate?.hasNoiseSession(peerID) != true) return
+        val failures = (consecutiveDecryptFailures[peerID] ?: 0) + 1
+        if (failures >= MAX_CONSECUTIVE_DECRYPT_FAILURES) {
+            consecutiveDecryptFailures.remove(peerID)
+            Log.w(TAG, "Noise session with $peerID stale after $failures decrypt failures; resetting and re-handshaking")
+            try { delegate?.removeNoiseSession(peerID) } catch (e: Exception) {
+                Log.w(TAG, "Failed to reset Noise session for $peerID: ${e.message}")
+            }
+            try { delegate?.initiateNoiseHandshake(peerID) } catch (e: Exception) {
+                Log.w(TAG, "Failed to re-initiate handshake with $peerID: ${e.message}")
+            }
+        } else {
+            consecutiveDecryptFailures[peerID] = failures
         }
     }
     
@@ -205,7 +262,6 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 )
             
             delegate?.sendPacket(packet)
-            Log.d(TAG, "📤 Sent delivery ACK to $senderPeerID for message $messageID")
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send delivery ACK to $senderPeerID: ${e.message}")
@@ -216,10 +272,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
      * Handle announce message with TLV decoding and signature verification - exactly like iOS
      */
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+        return (handleAnnounceWithResult(routed) as? AnnounceHandlingResult.Accepted)?.isFirst ?: false
+    }
+
+    suspend fun handleAnnounceWithResult(routed: RoutedPacket): AnnounceHandlingResult {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
 
-        if (peerID == myPeerID) return false
+        if (peerID == myPeerID) return AnnounceHandlingResult.Rejected
 
         // Peers use wall-clock packet timestamps; tolerate moderate device clock skew
         // during identity learning, or later signed messages cannot be verified.
@@ -227,47 +287,51 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val clockSkewMs = kotlin.math.abs(now - packet.timestamp.toLong())
         if (clockSkewMs > ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS) {
             Log.w(TAG, "Ignoring ANNOUNCE from ${peerID.take(8)} with excessive clock skew (${clockSkewMs}ms > ${ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS}ms)")
-            return false
-        } else if (clockSkewMs > com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS) {
-            Log.w(TAG, "Accepting ANNOUNCE from ${peerID.take(8)} within clock skew tolerance (${clockSkewMs}ms)")
+            return AnnounceHandlingResult.Rejected
         }
         
-        // Try to decode as iOS-compatible IdentityAnnouncement with TLV format
-        val announcement = IdentityAnnouncement.decode(packet.payload)
+        val announcement = AnnouncementIdentityValidator.verify(packet, peerID) { signature, data, key ->
+            delegate?.verifyEd25519Signature(signature, data, key) ?: false
+        }
         if (announcement == null) {
-            Log.w(TAG, "Failed to decode announce from $peerID as iOS-compatible TLV format")
-            return false
+            Log.w(TAG, "Rejecting malformed, unbound, or invalidly signed ANNOUNCE from ${peerID.take(8)}")
+            return AnnounceHandlingResult.Rejected
         }
-        
-        // Verify packet signature using the announced signing public key
-        var verified = false
-        if (packet.signature != null) {
-            // Verify that the packet was signed by the signing private key corresponding to the announced signing public key
-            verified = delegate?.verifyEd25519Signature(packet.signature!!, packet.toBinaryDataForSigning()!!, announcement.signingPublicKey) ?: false
-            if (!verified) {
-                Log.w(TAG, "⚠️ Signature verification for announce failed ${peerID.take(8)}")
-            }
+
+        val persistedSigningKey = delegate?.getAuthenticatedSigningKey(announcement.noisePublicKey)
+        if (persistedSigningKey != null &&
+            !persistedSigningKey.contentEquals(announcement.signingPublicKey)
+        ) {
+            Log.w(TAG, "Rejecting ANNOUNCE Ed key that conflicts with authenticated peer state")
+            return AnnounceHandlingResult.Rejected
         }
+
+        var verified = true
 
         // Check for existing peer with different noise public key
         // If existing peer has a different noise public key, do not consider this verified
         val existingPeer = delegate?.getPeerInfo(peerID)
         
         if (existingPeer != null && existingPeer.noisePublicKey != null && !existingPeer.noisePublicKey!!.contentEquals(announcement.noisePublicKey)) {
-            Log.w(TAG, "⚠️ Announce key mismatch for ${peerID.take(8)}... — keeping unverified")
+            Log.w(TAG, "Announce key mismatch for ${peerID.take(8)} - keeping unverified")
+            verified = false
+        }
+
+        if (
+            existingPeer?.signingPublicKey != null &&
+            !existingPeer.signingPublicKey!!.contentEquals(announcement.signingPublicKey)
+        ) {
+            Log.w(
+                TAG,
+                "Rejecting signing-key replacement for ${peerID.take(8)} without authenticated peer-state proof"
+            )
             verified = false
         }
 
         // Require verified announce; ignore otherwise (no backward compatibility)
         if (!verified) {
-            Log.w(TAG, "❌ Ignoring unverified announce from ${peerID.take(8)}...")
-            return false
+            return AnnounceHandlingResult.Rejected
         }
-        
-        // Successfully decoded TLV format exactly like iOS
-        Log.d(TAG, "✅ Verified announce from $peerID: nickname=${announcement.nickname}, " +
-                "noisePublicKey=${announcement.noisePublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., " +
-                "signingPublicKey=${announcement.signingPublicKey.joinToString("") { "%02x".format(it) }.take(16)}...")
         
         // Extract nickname and public keys from TLV data
         val nickname = announcement.nickname
@@ -275,22 +339,15 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val signingPublicKey = announcement.signingPublicKey
         
         // Update peer info with verification status through new method
-        val isFirstAnnounce = delegate?.updatePeerInfo(
+        val isFirstAnnounce = delegate?.updatePeerInfoFromVerifiedAnnouncement(
             peerID = peerID,
             nickname = nickname,
             noisePublicKey = noisePublicKey,
             signingPublicKey = signingPublicKey,
-            isVerified = true
+            isVerified = true,
+            capabilities = announcement.capabilities
         ) ?: false
 
-        // Update peer ID binding with noise public key for identity management
-        delegate?.updatePeerIDBinding(
-            newPeerID = peerID,
-            nickname = nickname,
-            publicKey = noisePublicKey,
-            previousPeerID = null
-        )
-        
         // Update mesh graph from gossip neighbors (only if TLV present)
         try {
             val neighborsOrNull = com.bitchat.android.services.meshgraph.GossipTLV.decodeNeighborsFromAnnouncementPayload(packet.payload)
@@ -298,8 +355,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 .updateFromAnnouncement(peerID, nickname, neighborsOrNull, packet.timestamp)
         } catch (_: Exception) { }
 
-        Log.d(TAG, "✅ Processed verified TLV announce: stored identity for $peerID")
-        return isFirstAnnounce
+        Log.d(TAG, "Verified announce from $peerID (${announcement.nickname})")
+        return AnnounceHandlingResult.Accepted(isFirstAnnounce)
     }
     
     /**
@@ -310,15 +367,12 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
         
-        Log.d(TAG, "Processing Noise handshake from $peerID (${packet.payload.size} bytes)")
-        
         // Skip our own handshake messages
         if (peerID == myPeerID) return
         
         // Check if handshake is addressed to us
         val recipientID = packet.recipientID?.toHexString()
         if (recipientID != myPeerID) {
-            Log.d(TAG, "Handshake not for me (for $recipientID, I am $myPeerID)")
             return
         }
         
@@ -327,8 +381,6 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             val response = delegate?.processNoiseHandshakeMessage(packet.payload, peerID)
             
             if (response != null) {
-                Log.d(TAG, "Generated handshake response for $peerID (${response.size} bytes)")
-                
                 // Send response using same packet type (simplified iOS approach)
                 val responsePacket = BitchatPacket(
                     version = 1u,
@@ -342,13 +394,6 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 )
                 
                 delegate?.sendPacket(responsePacket)
-                Log.d(TAG, "📤 Sent handshake response to $peerID")
-            }
-            
-            // Check if session is now established
-            val hasSession = delegate?.hasNoiseSession(peerID) ?: false
-            if (hasSession) {
-                Log.d(TAG, "✅ Noise session established with $peerID")
             }
             
         } catch (e: Exception) {
@@ -380,6 +425,27 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         }
         // Message relay is now handled by centralized PacketRelayManager
     }
+
+    /** Validate and ingest an ephemeral public push-to-talk frame. */
+    fun handlePublicVoiceFrame(routed: RoutedPacket): Boolean {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: return false
+        if (peerID == myPeerID) return true
+        val recipient = packet.recipientID
+        if (recipient != null && !recipient.contentEquals(delegate?.getBroadcastRecipient())) return false
+        if (packet.timestamp > Long.MAX_VALUE.toULong()) return false
+        val ageMs = System.currentTimeMillis() - packet.timestamp.toLong()
+        if (ageMs !in -30_000L..30_000L) return false
+        val peerInfo = delegate?.getPeerInfo(peerID)
+        if (peerInfo == null || !peerInfo.isVerifiedNickname) return false
+        return LiveVoiceManager.getInstance(appContext).handleFrame(
+            peerID = peerID,
+            nickname = delegate?.getPeerNickname(peerID) ?: peerID,
+            scope = LiveVoiceScope.PUBLIC_MESH,
+            payload = packet.payload,
+            timestampMs = packet.timestamp.toLong()
+        )
+    }
     
     /**
      * Handle broadcast message with verification enforcement
@@ -391,7 +457,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         // Enforce: only accept public messages from verified peers we know
         val peerInfo = delegate?.getPeerInfo(peerID)
         if (peerInfo == null || !peerInfo.isVerifiedNickname) {
-            Log.w(TAG, "🚫 Dropping public message from unverified or unknown peer ${peerID.take(8)}...")
+            Log.w(TAG, "Dropping public message from unverified peer ${peerID.take(8)}")
             return
         }
         
@@ -400,9 +466,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             val isFileTransfer = com.bitchat.android.protocol.MessageType.fromValue(packet.type) == com.bitchat.android.protocol.MessageType.FILE_TRANSFER
             val file = com.bitchat.android.model.BitchatFilePacket.decode(packet.payload)
             if (file != null) {
-                if (isFileTransfer) {
-                    Log.d(TAG, "📥 FILE_TRANSFER decode success (broadcast): name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}', from=${peerID.take(8)}")
-                }
+
                 val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
                 val message = BitchatMessage(
                     id = PacketIdUtil.computeIdHex(packet).uppercase(),
@@ -412,11 +476,12 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong())
                 )
-                Log.d(TAG, "📄 Saved incoming file to $savedPath")
-                delegate?.onMessageReceived(message)
+                if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                    delegate?.onMessageReceived(message)
+                }
                 return
             } else if (isFileTransfer) {
-                Log.w(TAG, "⚠️ FILE_TRANSFER decode failed (broadcast) from ${peerID.take(8)} payloadSize=${packet.payload.size}")
+                Log.w(TAG, "FILE_TRANSFER decode failed (broadcast) from ${peerID.take(8)}")
             }
 
             // Fallback: plain text
@@ -438,19 +503,29 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
      */
     private suspend fun handlePrivateMessage(packet: BitchatPacket, peerID: String) {
         try {
-            // Verify signature if present
-            if (packet.signature != null && !delegate?.verifySignature(packet, peerID)!!) {
+            val isFileTransfer = com.bitchat.android.protocol.MessageType.fromValue(packet.type) ==
+                com.bitchat.android.protocol.MessageType.FILE_TRANSFER
+            val signatureIsValid = packet.signature != null &&
+                delegate?.verifySignature(packet, peerID) == true
+
+            // Migration fallback is visible to relays, so sender authenticity
+            // is mandatory. Never accept an unsigned directed raw file.
+            if (isFileTransfer && !signatureIsValid) {
+                Log.w(TAG, "Unsigned or invalid signed private file from $peerID")
+                return
+            }
+
+            // Preserve prior behavior for other directed packet types: verify
+            // a signature whenever one is present.
+            if (!isFileTransfer && packet.signature != null && !signatureIsValid) {
                 Log.w(TAG, "Invalid signature for private message from $peerID")
                 return
             }
 
             // Try file packet first (voice, image, etc.) and log outcome for FILE_TRANSFER
-            val isFileTransfer = com.bitchat.android.protocol.MessageType.fromValue(packet.type) == com.bitchat.android.protocol.MessageType.FILE_TRANSFER
             val file = com.bitchat.android.model.BitchatFilePacket.decode(packet.payload)
             if (file != null) {
-                if (isFileTransfer) {
-                    Log.d(TAG, "📥 FILE_TRANSFER decode success (private): name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}', from=${peerID.take(8)}")
-                }
+
                 val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
                 val message = BitchatMessage(
                     id = java.util.UUID.randomUUID().toString().uppercase(),
@@ -463,7 +538,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     recipientNickname = delegate?.getMyNickname()
                 )
                 Log.d(TAG, "📄 Saved incoming file to $savedPath")
-                delegate?.onMessageReceived(message)
+                if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                    delegate?.onMessageReceived(message)
+                }
                 return
             } else if (isFileTransfer) {
                 Log.w(TAG, "⚠️ FILE_TRANSFER decode failed (private) from ${peerID.take(8)} payloadSize=${packet.payload.size}")
@@ -549,24 +626,19 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
      */
     private fun handleFavoriteNotificationFromMesh(content: String, fromPeerID: String) {
         try {
-            val isFavorite = content.startsWith("[FAVORITED]")
-            val npub = content.substringAfter(":", "").trim().takeIf { it.startsWith("npub1") }
+            val control = FavoriteControlMessage.parse(content) ?: return
 
-            // Update mutual favorite status in persistence
-            // Resolve full Noise key if available via delegate peer info
             val peerInfo = delegate?.getPeerInfo(fromPeerID)
             val noiseKey = peerInfo?.noisePublicKey
             if (noiseKey != null) {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, isFavorite)
-                if (npub != null) {
-                    // Index by noise key and current mesh peerID for fast Nostr routing
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, npub)
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(fromPeerID, npub)
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, control.isFavorite)
+                if (control.npub != null) {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, control.npub)
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(fromPeerID, control.npub)
                 }
 
-                // Determine iOS-style guidance text
                 val rel = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
-                val guidance = if (isFavorite) {
+                val guidance = if (control.isFavorite) {
                     if (rel?.isFavorite == true) {
                         " — mutual! You can continue DMs via Nostr when out of mesh."
                     } else {
@@ -576,15 +648,32 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     ". DMs over Nostr will pause unless you both favorite again."
                 }
 
-                // Emit system message via delegate callback
-                val action = if (isFavorite) "favorited" else "unfavorited"
+                val action = if (control.isFavorite) "favorited" else "unfavorited"
+                val notice = "${peerInfo.nickname} $action you$guidance"
                 val sys = com.bitchat.android.model.BitchatMessage(
                     sender = "system",
-                    content = "${peerInfo.nickname} $action you$guidance",
+                    content = notice,
                     timestamp = java.util.Date(),
                     isRelay = false
                 )
                 delegate?.onMessageReceived(sys)
+
+                // Mirror the notice into the private conversation so it's visible while chatting
+                try {
+                    val conversationID = com.bitchat.android.services.ContactDirectory
+                        .canonicalConversationId(fromPeerID)
+                    val sysPrivate = com.bitchat.android.model.BitchatMessage(
+                        sender = "system",
+                        content = notice,
+                        timestamp = java.util.Date(),
+                        isRelay = false,
+                        isPrivate = true,
+                        senderPeerID = conversationID
+                    )
+                    delegate?.onMessageReceived(sysPrivate)
+                } catch (_: Exception) {
+                    // Best-effort; public notice already delivered
+                }
             }
         } catch (_: Exception) {
             // Best-effort; ignore errors
@@ -604,7 +693,14 @@ interface MessageHandlerDelegate {
     fun getNetworkSize(): Int
     fun getMyNickname(): String?
     fun getPeerInfo(peerID: String): PeerInfo?
-    fun updatePeerInfo(peerID: String, nickname: String, noisePublicKey: ByteArray, signingPublicKey: ByteArray, isVerified: Boolean): Boolean
+    fun updatePeerInfoFromVerifiedAnnouncement(
+        peerID: String,
+        nickname: String,
+        noisePublicKey: ByteArray,
+        signingPublicKey: ByteArray,
+        isVerified: Boolean,
+        capabilities: com.bitchat.android.model.PeerCapabilities? = null
+    ): Boolean
     
     // Packet operations
     fun sendPacket(packet: BitchatPacket)
@@ -614,15 +710,23 @@ interface MessageHandlerDelegate {
     // Cryptographic operations
     fun verifySignature(packet: BitchatPacket, peerID: String): Boolean
     fun encryptForPeer(data: ByteArray, recipientPeerID: String): ByteArray?
-    fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray?
+    fun decryptFromPeer(
+        encryptedData: ByteArray,
+        senderPeerID: String
+    ): com.bitchat.android.noise.NoiseDecryptionResult?
     fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean
+    fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? = null
     
     // Noise protocol operations
     fun hasNoiseSession(peerID: String): Boolean
     fun initiateNoiseHandshake(peerID: String)
+    fun removeNoiseSession(peerID: String) {}
     fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray?
-    fun updatePeerIDBinding(newPeerID: String, nickname: String,
-                           publicKey: ByteArray, previousPeerID: String?)
+    fun onAuthenticatedPeerStateReceived(
+        peerID: String,
+        state: AuthenticatedPeerState,
+        authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+    ) {}
     
     // Message operations
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?

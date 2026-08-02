@@ -8,28 +8,25 @@ object ConversationAliasResolver {
         selectedPeerID: String,
         connectedPeers: List<String>,
         meshNoiseKeyForPeer: (String) -> ByteArray?,
-        meshHasPeer: (String) -> Boolean,
         nostrPubHexForAlias: (String) -> String?,
         findNoiseKeyForNostr: (String) -> ByteArray?
     ): String {
         var peer = selectedPeerID
         try {
-            if (peer.startsWith("nostr_")) {
+            if (ContactIdentityResolver.isNostrAlias(peer)) {
                 val pubHex = nostrPubHexForAlias(peer)
                 if (pubHex != null) {
                     val noiseKey = findNoiseKeyForNostr(pubHex)
                     if (noiseKey != null) {
-                        val noiseHex = noiseKey.joinToString("") { b -> "%02x".format(b) }
-                        // Prefer a connected mesh peer that matches this noise key
+                        val noiseHex = ContactIdentityResolver.noiseKeyHex(noiseKey)
                         val meshPeer = connectedPeers.firstOrNull { pid ->
                             meshNoiseKeyForPeer(pid)?.contentEquals(noiseKey) == true
                         }
                         peer = meshPeer ?: noiseHex
                     }
                 }
-            } else if (peer.length == 64 && peer.matches(Regex("^[0-9a-fA-F]+$"))) {
-                // Peer is full noise key hex: upgrade to active mesh peer if available
-                val noiseKey = peer.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            } else if (ContactIdentityResolver.isNoiseKeyHex(peer)) {
+                val noiseKey = ContactIdentityResolver.bytesFromHex(peer) ?: return peer
                 val meshPeer = connectedPeers.firstOrNull { pid ->
                     meshNoiseKeyForPeer(pid)?.contentEquals(noiseKey) == true
                 }
@@ -38,7 +35,7 @@ object ConversationAliasResolver {
                 }
             }
         } catch (_: Exception) { /* no-op */ }
-        return peer
+        return ContactDirectory.canonicalConversationId(peer)
     }
 
     fun unifyChatsIntoPeer(
@@ -47,11 +44,17 @@ object ConversationAliasResolver {
         keysToMerge: List<String>
     ) {
         if (keysToMerge.isEmpty()) return
+        val targetConversationID = ContactDirectory.canonicalConversationId(targetPeerID)
+        val mergeKeys = (keysToMerge + targetPeerID)
+            .flatMap { ContactDirectory.aliasesForConversation(it) }
+            .distinct()
+        AppStateStore.unifyPrivateChatsIntoPeer(targetConversationID, mergeKeys)
+
         val currentChats = state.getPrivateChatsValue().toMutableMap()
-        val targetList = currentChats[targetPeerID]?.toMutableList() ?: mutableListOf()
+        val targetList = currentChats[targetConversationID]?.toMutableList() ?: mutableListOf()
         var didMerge = false
-        keysToMerge.distinct().forEach { key ->
-            if (key == targetPeerID) return@forEach
+        mergeKeys.forEach { key ->
+            if (key == targetConversationID) return@forEach
             val list = currentChats[key]
             if (!list.isNullOrEmpty()) {
                 targetList.addAll(list)
@@ -60,27 +63,27 @@ object ConversationAliasResolver {
             }
         }
         if (didMerge) {
-            // Preserve arrival order; do not sort by timestamp
-            currentChats[targetPeerID] = targetList
-            state.setPrivateChats(currentChats)
+            currentChats[targetConversationID] = targetList
+                .distinctBy { it.id }
+            state.setPrivateChats(ContactDirectory.canonicalizePrivateChats(currentChats))
 
             // Move unread flags
             val unread = state.getUnreadPrivateMessagesValue().toMutableSet()
             var hadUnread = false
-            keysToMerge.forEach { key -> if (unread.remove(key)) hadUnread = true }
-            if (hadUnread) unread.add(targetPeerID)
+            mergeKeys.forEach { key -> if (unread.remove(key)) hadUnread = true }
+            if (hadUnread) unread.add(targetConversationID)
             state.setUnreadPrivateMessages(unread)
 
             // Switch selection if currently viewing an alias that got merged
             val selected = state.getSelectedPrivateChatPeerValue()
-            if (selected != null && keysToMerge.contains(selected)) {
-                state.setSelectedPrivateChatPeer(targetPeerID)
+            if (selected != null && mergeKeys.contains(selected)) {
+                state.setSelectedPrivateChatPeer(targetConversationID)
             }
             
             // Switch sheet peer if currently viewing an alias that got merged
             val sheetPeer = state.getPrivateChatSheetPeerValue()
-            if (sheetPeer != null && keysToMerge.contains(sheetPeer)) {
-                state.setPrivateChatSheetPeer(targetPeerID)
+            if (sheetPeer != null && mergeKeys.contains(sheetPeer)) {
+                state.setPrivateChatSheetPeer(targetConversationID)
             }
         }
     }

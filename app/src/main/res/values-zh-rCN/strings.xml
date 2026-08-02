@@ -117,15 +117,10 @@
   <string name="cd_add_favorite">添加到收藏</string>
   <string name="cd_remove_favorite">从收藏中移除</string>
   <string name="cd_add_bookmark">添加书签</string>
-  <string name="chat_back">返回</string>
-  <string name="chat_channel_prefix">频道：%1$s</string>
-  <string name="chat_leave">离开</string>
   <string name="cd_nostr_reachable">可通过 Nostr 联系</string>
   <string name="cd_unread_private_messages">未读私信</string>
-  <string name="cd_toggle_bookmark">切换书签</string>
   <string name="cd_location_notes">位置笔记</string>
   <string name="cd_teleported">已传送</string>
-  <string name="cd_tor_status">Tor 状态</string>
   <string name="cd_connected_peers">已连接的节点</string>
   <string name="cd_geohash_participants">Geohash 参与者</string>
   <string name="cd_ready_for_handshake">准备握手</string>
@@ -152,7 +147,6 @@
   <string name="about_online_geohash_desc">使用基于 Geohash 的频道与你所在地区的人联系。通过公共互联网中继扩展 Mesh 网络。</string>
   <string name="about_e2e_title">端到端加密</string>
   <string name="about_e2e_desc">私信是加密的。频道消息是公开的。</string>
-  <string name="about_appearance">外观</string>
   <string name="about_system">跟随系统</string>
   <string name="about_light">浅色</string>
   <string name="about_dark">深色</string>
@@ -176,7 +170,6 @@
   <string name="about_tor_status">Tor 状态：%1$s，引导进度 %2$d%%</string>
   <string name="about_last">最近一次：%1$s</string>
   <string name="about_emergency_title">紧急数据删除</string>
-  <string name="about_emergency_tip">提示：连续点击应用标题三次可紧急删除所有已存储的数据，包括消息、密钥和设置。</string>
   <string name="about_debug_settings">调试设置</string>
   <string name="about_footer">开源 • 隐私优先 • 去中心化</string>
   <string name="close_plain">关闭</string>
@@ -195,7 +188,6 @@
   <string name="cd_open_map">打开地图</string>
   <string name="cd_remove_bookmark">移除书签</string>
   <string name="cd_teleport">传送</string>
-  <string name="cd_selected">已选中</string>
   <string name="notification_action_quit_bitchat">退出 bitchat</string>
   <string name="about_background_title">后台运行</string>
   <string name="about_background_desc">应用关闭时保持 Mesh 处于活动状态（前台服务）</string>
@@ -212,11 +204,6 @@
   <string name="cd_link">链接</string>
   <string name="cd_record_voice">录制语音消息</string>
   <string name="cd_pick_media">选择媒体</string>
-  <string name="cd_mining_pow">正在计算工作量证明</string>
-  <string name="cd_pow_enabled">工作量证明已启用</string>
-  <string name="cd_proof_of_work">工作量证明</string>
-  <string name="pow_mining_ellipsis">计算中…</string>
-  <string name="pow_label_format">工作量证明：%1$d 位</string>
   <string name="cd_offline_mesh_chat">离线 Mesh 聊天</string>
   <string name="cd_online_geohash_channels">在线 Geohash 频道</string>
   <string name="cd_end_to_end_encryption">端到端加密</string>
@@ -341,9 +328,7 @@
   <string name="grant_permissions">授予权限</string>
   <string name="location_tracking_warning">bitchat 不会追踪你的位置</string>
   <string name="at_symbol">@</string>
-  <string name="app_brand">bitchat/</string>
   <string name="channel_count_prefix"> · ⧉ </string>
-  <string name="geohash_people_header">人员</string>
   <string name="nobody_around">附近没有人…</string>
   <string name="you_suffix"> (你)</string>
   <string name="pan_zoom_instruction">拖动并缩放以选择一个 geohash</string>
@@ -352,7 +337,6 @@
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">提及</string>
   <string name="image_counter">%1$d / %2$d</string>
-  <string name="pow_time_estimate">（约 %1$s）</string>
   <string name="at_nickname">@%1$s</string>
   <string name="version_prefix">v%1$s</string>
   <string name="hash_symbol">#</string>
@@ -363,12 +347,6 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">图片</string>
   <string name="media_type_file">文件</string>
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
   <string name="notification_sent_image">📷 发送了一张图片</string>
   <string name="notification_sent_voice">🎤 发送了一条语音消息</string>
   <string name="notification_sent_file">📎 发送了一个文件</string>
@@ -406,4 +384,8 @@
   <plurals name="people_count">
     <item quantity="other">%1$d 人</item>
   </plurals>
+    <string name="about_language">语言</string>
+    <string name="about_app_language">应用语言</string>
+    <string name="about_system_default">跟随系统</string>
+    <string name="about_select_language">选择语言</string>
 </resources>

@@ -46,7 +46,7 @@
     <string name="notification_summary_more">以及另外 %1$d 条</string>
     <string name="notification_messages_from_people">来自 %2$d 位的 %1$d 条消息</string>
     <string name="notification_more_conversations">以及另外 %1$d 个会话</string>
-    <string name="notification_active_peers_title">👥 附近的 bitchatter！</string>
+    <string name="notification_active_peers_title">附近的 bitchatter！</string>
     <string name="notification_active_peers_one">附近 1 人</string>
     <string name="notification_active_peers_many">附近 %1$d 人</string>
     <string name="notification_new_messages">新消息</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">添加书签</string>
 
     <!-- 聊天头部 / 可访问性 -->
-    <string name="chat_back">返回</string>
-    <string name="chat_channel_prefix">频道：%1$s</string>
-    <string name="chat_leave">离开</string>
     <string name="cd_nostr_reachable">可通过 Nostr 联系</string>
     <string name="cd_unread_private_messages">未读私信</string>
-    <string name="cd_toggle_bookmark">切换书签</string>
     <string name="cd_teleported">已传送</string>
-    <string name="cd_tor_status">Tor 状态</string>
+    <string name="cd_open_location_channels">打开位置和频道设置</string>
     <string name="cd_connected_peers">已连接节点</string>
     <string name="cd_geohash_participants">Geohash 参与者</string>
     <string name="cd_ready_for_handshake">准备握手</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">选择图片</string>
 
     <!-- 关于 -->
-    <string name="about_tagline">去中心化 mesh 消息，端到端加密</string>
     <string name="about_offline_mesh_title">离线 Mesh 聊天</string>
     <string name="about_offline_mesh_desc">无需网络或服务器，通过 Bluetooth LE 直接通信。利用附近设备中继消息以扩展范围。</string>
     <string name="about_online_geohash_title">在线 Geohash 频道</string>
     <string name="about_online_geohash_desc">使用基于 geohash 的频道与附近的人交流。通过公共互联网中继扩展 mesh。</string>
     <string name="about_e2e_title">端到端加密</string>
     <string name="about_e2e_desc">私信加密；频道消息为公开。</string>
-    <string name="about_appearance">外观</string>
     <string name="about_system">系统</string>
     <string name="about_light">浅色</string>
     <string name="about_dark">深色</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Tor 状态：%1$s，引导 %2$d%%</string>
     <string name="about_last">最近：%1$s</string>
     <string name="about_emergency_title">紧急数据删除</string>
-    <string name="about_emergency_tip">提示：三击应用标题以删除所有数据，包括消息、密钥和设置。</string>
     <string name="about_debug_settings">调试设置</string>
     <string name="about_footer">Open Source • Privacy First • 去中心化</string>
     <string name="close_plain">关闭</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">打开地图</string>
     <string name="cd_remove_bookmark">移除书签</string>
     <string name="cd_teleport">传送</string>
-    <string name="cd_selected">已选择</string>
     <string name="cd_leave_channel">离开频道</string>
     <string name="cd_reachable_via_nostr">可通过 Nostr 联系</string>
     <string name="cd_offline_favorite">收藏（离线）</string>
@@ -280,9 +272,7 @@
     <string name="grant_permissions">授予权限</string>
     <string name="location_tracking_warning">bitchat 不会跟踪你的位置</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">成员</string>
     <string name="nobody_around">附近无人…</string>
     <string name="you_suffix"> (你)</string>
     <string name="pan_zoom_instruction">拖动/缩放以选择 geohash</string>
@@ -291,7 +281,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">提及</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -304,12 +293,6 @@
     <string name="media_type_file">文件</string>
 
     <!-- 消息状态 -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- 通知文本辅助 -->
     <string name="notification_sent_image">📷 发送了图片</string>
@@ -413,4 +396,12 @@
   <string name="verify_success_title">已验证</string>
   <string name="verify_success_body">你已验证 %1$s</string>
   <string name="verify_success_system_message">已验证 %1$s</string>
+    <string name="cd_open_about">打开“关于”</string>
+  <string name="nearby_notes_reveal">查看这里留下的留言</string>
+  <string name="nearby_notes_one">这里留有 1 条留言 — 点按阅读</string>
+  <string name="nearby_notes_many">这里留有 %d 条留言 — 点按阅读</string>
+    <string name="about_language">语言</string>
+    <string name="about_app_language">应用语言</string>
+    <string name="about_system_default">跟随系统</string>
+    <string name="about_select_language">选择语言</string>
 </resources>

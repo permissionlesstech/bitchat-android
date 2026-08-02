@@ -19,6 +19,8 @@ class PermissionManager(private val context: Context) {
         private const val TAG = "PermissionManager"
         private const val PREFS_NAME = "bitchat_permissions"
         private const val KEY_FIRST_TIME_COMPLETE = "first_time_onboarding_complete"
+        private const val KEY_OPTIONAL_PERMISSION_REQUESTED_PREFIX =
+            "optional_permission_requested_"
     }
 
     private val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -37,6 +39,26 @@ class PermissionManager(private val context: Context) {
         } catch (_: Exception) {
             false
         }
+    }
+
+    /**
+     * Runtime permissions for the Wi‑Fi Aware transport, version-gated because neither exists
+     * at minSdk 26 — requesting an unknown permission comes back permanently denied.
+     *
+     * ACCESS_LOCAL_NETWORK is defensive: Android 17 gates local network access, and the
+     * transport reaches peers over link-local IPv6 sockets. It is granted separately from
+     * NEARBY_WIFI_DEVICES but shares its permission group, so the two prompt only once.
+     */
+    fun wifiAwarePermissions(): List<String> {
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
+        // API 37 == Android 17; no named VERSION_CODES constant is available yet.
+        if (Build.VERSION.SDK_INT >= 37) {
+            permissions.add(Manifest.permission.ACCESS_LOCAL_NETWORK)
+        }
+        return permissions
     }
 
     /**
@@ -87,7 +109,7 @@ class PermissionManager(private val context: Context) {
 
         // Wi‑Fi Aware: Android 13+ requires NEARBY_WIFI_DEVICES runtime permission
         if (shouldRequireWifiAwarePermission()) {
-            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+            permissions.addAll(wifiAwarePermissions())
         }
 
         // Notification permission intentionally excluded to keep it optional
@@ -127,6 +149,32 @@ class PermissionManager(private val context: Context) {
             optional.add(Manifest.permission.POST_NOTIFICATIONS)
         }
         return optional
+    }
+
+    /**
+     * Optional permissions are prompted once. A denial must not trap returning users in
+     * onboarding, while users upgrading to a notification-permission Android version
+     * should still receive one contextual request.
+     */
+    fun getUnrequestedOptionalPermissions(): List<String> {
+        return getOptionalPermissions().filter { permission ->
+            !isPermissionGranted(permission) &&
+                !sharedPrefs.getBoolean(optionalPermissionRequestKey(permission), false)
+        }
+    }
+
+    fun markOptionalPermissionsRequested(permissions: Collection<String>) {
+        if (permissions.isEmpty()) return
+
+        sharedPrefs.edit().apply {
+            permissions.forEach { permission ->
+                putBoolean(optionalPermissionRequestKey(permission), true)
+            }
+        }.apply()
+    }
+
+    private fun optionalPermissionRequestKey(permission: String): String {
+        return KEY_OPTIONAL_PERMISSION_REQUESTED_PREFIX + permission
     }
 
     /**
@@ -232,7 +280,7 @@ class PermissionManager(private val context: Context) {
 
         // Wi‑Fi Aware category (Android 13+)
         if (shouldRequireWifiAwarePermission()) {
-            val wifiAwarePermissions = listOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+            val wifiAwarePermissions = wifiAwarePermissions()
             categories.add(
                 PermissionCategory(
                     type = PermissionType.WIFI_AWARE,

@@ -1,0 +1,32 @@
+{
+  "target": "PR #000 or branch-name",
+  "before_sha": "40-character merge-base SHA",
+  "after_sha": "40-character target SHA",
+  "environment": {
+    "android_release": "stable release number",
+    "android_sdk": "API number",
+    "security_patch": "YYYY-MM-DD",
+    "resolution_px": "1080x1920",
+    "default_density_dpi": 420
+  },
+  "captures": [
+    {
+      "id": "surface-state-411dp-light",
+      "surface": "Human-readable surface",
+      "state": "Synthetic fixture and navigation state",
+      "expected_change": "Specific visual hypothesis",
+      "before": "before-surface-state-411dp-light.png",
+      "after": "after-surface-state-411dp-light.png"
+    }
+  ],
+  "extras": [
+    {
+      "id": "after-expanded-menu",
+      "role": "after-detail",
+      "file": "after-expanded-menu.png"
+    }
+  ],
+  "limitations": [
+    "Static screenshots do not prove hardware behavior."
+  ]
+}

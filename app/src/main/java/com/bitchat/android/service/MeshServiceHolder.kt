@@ -136,6 +136,7 @@ object MeshServiceHolder {
     @Synchronized
     fun clear() {
         android.util.Log.d(TAG, "Clearing BluetoothMeshService from holder")
+        try { sharedGossipSyncManager?.clear() } catch (_: Exception) { }
         try { sharedGossipSyncManager?.stop() } catch (_: Exception) { }
         sharedGossipSyncManager = null
         activeGossipOwners.clear()

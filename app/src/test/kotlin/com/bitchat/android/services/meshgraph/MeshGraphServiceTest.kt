@@ -123,4 +123,19 @@ class MeshGraphServiceTest {
         assertFalse(snapshot.edges.isEmpty())
         assertNotNull(snapshot.edges.find { (it.a == "PeerA" && it.b == "PeerB") || (it.a == "PeerB" && it.b == "PeerA") })
     }
+
+    @Test
+    fun removePeer_RemovesInboundAndOutboundGraphReferences() {
+        service.updateFromAnnouncement("PeerA", "Alice", listOf("PeerB"), 100UL)
+        service.updateFromAnnouncement("PeerB", "Bob", listOf("PeerA", "PeerC"), 100UL)
+        service.updateFromAnnouncement("PeerC", "Carol", listOf("PeerB"), 100UL)
+
+        service.removePeer("PeerB")
+
+        val snapshot = service.graphState.value
+        assertFalse(snapshot.nodes.any { it.peerID == "PeerB" })
+        assertFalse(snapshot.edges.any { it.a == "PeerB" || it.b == "PeerB" })
+        assertTrue(snapshot.nodes.any { it.peerID == "PeerA" })
+        assertTrue(snapshot.nodes.any { it.peerID == "PeerC" })
+    }
 }

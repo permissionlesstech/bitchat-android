@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="mesh_channel_name">Mesh network</string>
+    <string name="mesh_channel_description">Keeps the Bluetooth mesh running in the background</string>
+    <string name="mesh_notification_no_peers">Mesh running</string>
+    <plurals name="mesh_notification_text">
+        <item quantity="one">%1$d peer</item>
+        <item quantity="other">%1$d peers</item>
+    </plurals>
+    <string name="message_channel_name">Direct messages</string>
+    <string name="message_channel_description">Encrypted direct-message alerts</string>
+    <string name="notification_new_private_message">New encrypted message</string>
+    <string name="notification_private_message_hidden">Unlock to view the message</string>
+    <plurals name="notification_private_message_summary">
+        <item quantity="one">%1$d new message</item>
+        <item quantity="other">%1$d new messages</item>
+    </plurals>
+</resources>

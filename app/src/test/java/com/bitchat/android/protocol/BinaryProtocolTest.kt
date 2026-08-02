@@ -1,5 +1,6 @@
 package com.bitchat.android.protocol
 
+import com.bitchat.android.model.BitchatFilePacket
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
@@ -7,9 +8,11 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.Random
+import java.util.zip.Deflater
 
 class BinaryProtocolTest {
 
@@ -987,6 +990,315 @@ class BinaryProtocolTest {
         assertNull("v2 compression bomb (ratio > 50,000:1) must be rejected", result)
     }
 
+    @Test
+    fun `v2 expanded payload at exact maximum passes bound without allocating output`() {
+        val max = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
+        val raw = compressedPacket(
+            version = 2u,
+            originalSize = max,
+            compressedData = ByteArray(256) { it.toByte() }
+        )
+        var calls = 0
+
+        val result = BinaryProtocol.decodeForTesting(raw) { _, requestedSize ->
+            calls += 1
+            assertEquals(max, requestedSize)
+            null // Prove the boundary reached this seam without allocating a 10 MiB result.
+        }
+
+        assertNull("The test decompressor deliberately returns no payload", result)
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun `v2 expanded payload above maximum never reaches decompressor`() {
+        val max = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
+        val raw = compressedPacket(
+            version = 2u,
+            originalSize = max + 1,
+            compressedData = ByteArray(256) { it.toByte() }
+        )
+        var calls = 0
+
+        val result = BinaryProtocol.decodeForTesting(raw) { _, _ ->
+            calls += 1
+            byteArrayOf(0x42)
+        }
+
+        assertNull("An oversized expansion must be rejected before inflation", result)
+        assertEquals("The decompressor must not be invoked", 0, calls)
+    }
+
+    @Test
+    fun `v2 negative expanded payload never reaches decompressor`() {
+        val raw = compressedPacket(
+            version = 2u,
+            originalSize = -1,
+            compressedData = byteArrayOf(0x03)
+        )
+        var calls = 0
+
+        val result = BinaryProtocol.decodeForTesting(raw) { _, _ ->
+            calls += 1
+            byteArrayOf(0x42)
+        }
+
+        assertNull("A negative expansion must be rejected before inflation", result)
+        assertEquals("The decompressor must not be invoked", 0, calls)
+    }
+
+    @Test
+    fun `zero expanded payload never reaches decompressor`() {
+        val raw = compressedPacket(
+            version = 2u,
+            originalSize = 0,
+            compressedData = rawDeflate(ByteArray(0))
+        )
+        var calls = 0
+
+        val result = BinaryProtocol.decodeForTesting(raw) { _, _ ->
+            calls += 1
+            ByteArray(0)
+        }
+
+        assertNull("Compressed zero-length payloads are non-canonical and must be rejected", result)
+        assertEquals("The decompressor must not be invoked", 0, calls)
+    }
+
+    @Test
+    fun `empty compressed body never reaches decompressor`() {
+        val raw = compressedPacket(
+            version = 2u,
+            originalSize = 128,
+            compressedData = ByteArray(0)
+        )
+        var calls = 0
+
+        val result = BinaryProtocol.decodeForTesting(raw) { _, _ ->
+            calls += 1
+            ByteArray(128)
+        }
+
+        assertNull("A compressed payload must contain deflate bytes", result)
+        assertEquals("The decompressor must not be invoked", 0, calls)
+    }
+
+    @Test
+    fun `v1 unsigned maximum expanded size reaches decompressor`() {
+        val originalSize = 0xFFFF
+        val raw = compressedPacket(
+            version = 1u,
+            originalSize = originalSize,
+            compressedData = byteArrayOf(0x01, 0x02)
+        )
+        var calls = 0
+
+        val result = BinaryProtocol.decodeForTesting(raw) { _, requestedSize ->
+            calls += 1
+            assertEquals(originalSize, requestedSize)
+            null
+        }
+
+        assertNull("The test decompressor deliberately returns no payload", result)
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun `compression utility rejects invalid expansion sizes directly`() {
+        val max = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
+
+        assertNull(CompressionUtil.decompress(ByteArray(0), 1))
+        assertNull(CompressionUtil.decompress(rawDeflate(ByteArray(0)), 0))
+        assertNull(CompressionUtil.decompress(byteArrayOf(0x03), -1))
+        assertNull(CompressionUtil.decompress(byteArrayOf(0x03), max + 1))
+    }
+
+    @Test
+    fun `raw deflate expands only when size and stream completion are exact`() {
+        val payload = ByteArray(4_096) { index -> (index % 17).toByte() }
+        val compressed = rawDeflate(payload)
+
+        val decoded = BinaryProtocol.decode(
+            compressedPacket(version = 2u, originalSize = payload.size, compressedData = compressed)
+        )
+
+        assertNotNull(decoded)
+        assertArrayEquals(payload, decoded!!.payload)
+    }
+
+    @Test
+    fun `zlib wrapped payload remains compatible when size and stream completion are exact`() {
+        val payload = ByteArray(4_096) { index -> (index % 23).toByte() }
+        val compressed = zlibDeflate(payload)
+
+        val decoded = BinaryProtocol.decode(
+            compressedPacket(version = 2u, originalSize = payload.size, compressedData = compressed)
+        )
+
+        assertNotNull(decoded)
+        assertArrayEquals(payload, decoded!!.payload)
+    }
+
+    @Test
+    fun `raw deflate with zlib-looking prefix falls back after non-exact zlib parse`() {
+        val payload = ByteArray(29) { index -> (index + 1).toByte() }
+        val compressed = byteArrayOf(
+            0x08, // non-final raw stored block; also zlib CMF
+            0x1d, 0x00, // LEN = 29; 0x08 0x1d passes the RFC 1950 header check
+            0xe2.toByte(), 0xff.toByte() // one's complement of LEN
+        ) + payload + byteArrayOf(0x03, 0x00) // final empty fixed-Huffman block
+
+        assertArrayEquals(payload, CompressionUtil.decompress(compressed, payload.size))
+    }
+
+    @Test
+    fun `under-declared zlib expansion is rejected by fallback`() {
+        val payload = ByteArray(4_096) { 0x51 }
+        val compressed = zlibDeflate(payload)
+
+        val decoded = BinaryProtocol.decode(
+            compressedPacket(version = 2u, originalSize = 128, compressedData = compressed)
+        )
+
+        assertNull("Zlib fallback must reject output beyond the declaration", decoded)
+    }
+
+    @Test
+    fun `over-declared zlib expansion is rejected by fallback`() {
+        val payload = ByteArray(128) { 0x52 }
+        val compressed = zlibDeflate(payload)
+
+        val decoded = BinaryProtocol.decode(
+            compressedPacket(version = 2u, originalSize = 256, compressedData = compressed)
+        )
+
+        assertNull("Zlib fallback must reject output shorter than the declaration", decoded)
+    }
+
+    @Test
+    fun `truncated zlib stream is rejected by fallback`() {
+        val payload = ByteArray(4_096) { index -> (index % 29).toByte() }
+        val compressed = zlibDeflate(payload)
+        val truncated = compressed.copyOf(compressed.size - 1)
+
+        val decoded = BinaryProtocol.decode(
+            compressedPacket(version = 2u, originalSize = payload.size, compressedData = truncated)
+        )
+
+        assertNull("Zlib fallback must require the stream end marker and checksum", decoded)
+    }
+
+    @Test
+    fun `zlib stream with trailing bytes is rejected by fallback`() {
+        val payload = ByteArray(4_096) { index -> (index % 13).toByte() }
+        val compressedWithTrailingByte = zlibDeflate(payload) + byteArrayOf(0x00)
+
+        val decoded = BinaryProtocol.decode(
+            compressedPacket(
+                version = 2u,
+                originalSize = payload.size,
+                compressedData = compressedWithTrailingByte
+            )
+        )
+
+        assertNull("Zlib fallback must consume the complete input and nothing more", decoded)
+    }
+
+    @Test
+    fun `under-declared raw expansion is rejected even when output buffer fills`() {
+        val payload = ByteArray(4_096) { 0x41 }
+        val compressed = rawDeflate(payload)
+
+        val decoded = BinaryProtocol.decode(
+            compressedPacket(version = 2u, originalSize = 128, compressedData = compressed)
+        )
+
+        assertNull("Inflater must be finished, not merely fill the declared buffer", decoded)
+    }
+
+    @Test
+    fun `over-declared raw expansion is rejected instead of returning a prefix`() {
+        val payload = ByteArray(128) { 0x42 }
+        val compressed = rawDeflate(payload)
+
+        val decoded = BinaryProtocol.decode(
+            compressedPacket(version = 2u, originalSize = 256, compressedData = compressed)
+        )
+
+        assertNull("The expanded byte count must equal the declaration", decoded)
+    }
+
+    @Test
+    fun `truncated raw stream is rejected even if all declared bytes were emitted`() {
+        val payload = ByteArray(4_096) { index -> (index % 31).toByte() }
+        val compressed = rawDeflate(payload)
+        val truncated = compressed.copyOf(compressed.size - 1)
+
+        val decoded = BinaryProtocol.decode(
+            compressedPacket(version = 2u, originalSize = payload.size, compressedData = truncated)
+        )
+
+        assertNull("A stream without its end marker must not be accepted", decoded)
+    }
+
+    @Test
+    fun `raw stream with trailing bytes is rejected`() {
+        val payload = ByteArray(4_096) { index -> (index % 19).toByte() }
+        val compressedWithTrailingByte = rawDeflate(payload) + byteArrayOf(0x00)
+
+        val decoded = BinaryProtocol.decode(
+            compressedPacket(
+                version = 2u,
+                originalSize = payload.size,
+                compressedData = compressedWithTrailingByte
+            )
+        )
+
+        assertNull("Trailing bytes after a complete stream must not be accepted", decoded)
+    }
+
+    @Test
+    fun `decoder rejects a decompressor result shorter than its declaration`() {
+        val raw = compressedPacket(
+            version = 2u,
+            originalSize = 128,
+            compressedData = ByteArray(16) { it.toByte() }
+        )
+
+        val decoded = BinaryProtocol.decodeForTesting(raw) { _, _ -> byteArrayOf(0x01) }
+
+        assertNull("BinaryProtocol must independently enforce the declared expanded size", decoded)
+    }
+
+    @Test
+    fun `new sender refuses legacy 11 MiB public file transfer before transmission`() {
+        val content = ByteArray(11 * 1024 * 1024) { 0x41 }
+        val filePayload = BitchatFilePacket(
+            fileName = "legacy-11m.bin",
+            fileSize = content.size.toLong(),
+            mimeType = "application/octet-stream",
+            content = content
+        ).encode()
+        assertNotNull(filePayload)
+
+        val encoded = BinaryProtocol.encode(
+            BitchatPacket(
+                version = 2u,
+                type = MessageType.FILE_TRANSFER.value,
+                senderID = hexToBytes(senderHex),
+                recipientID = SpecialRecipients.BROADCAST,
+                timestamp = fixedTimestamp,
+                payload = filePayload!!,
+                ttl = 5u
+            ),
+            padding = false
+        )
+        assertNull(
+            "Sender and receiver must enforce the same expanded-payload ceiling",
+            encoded
+        )
+    }
+
     /**
      * Compression bomb is rejected
      *
@@ -1161,6 +1473,59 @@ class BinaryProtocolTest {
             result[i] = hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
         }
         return result
+    }
+
+    private fun compressedPacket(
+        version: UByte,
+        originalSize: Int,
+        compressedData: ByteArray,
+        type: UByte = MessageType.MESSAGE.value
+    ): ByteArray {
+        val originalSizeFieldBytes = if (version >= 2u.toUByte()) 4 else 2
+        val payloadLength = originalSizeFieldBytes + compressedData.size
+        val headerSize = if (version >= 2u.toUByte()) 16 else 14
+        val buffer = ByteBuffer.allocate(headerSize + 8 + payloadLength).apply {
+            order(ByteOrder.BIG_ENDIAN)
+            put(version.toByte())
+            put(type.toByte())
+            put(5.toByte())
+            putLong(fixedTimestamp.toLong())
+            put(BinaryProtocol.Flags.IS_COMPRESSED.toByte())
+            if (version >= 2u.toUByte()) {
+                putInt(payloadLength)
+            } else {
+                putShort(payloadLength.toShort())
+            }
+            put(hexToBytes(senderHex))
+            if (version >= 2u.toUByte()) {
+                putInt(originalSize)
+            } else {
+                putShort(originalSize.toShort())
+            }
+            put(compressedData)
+        }
+        return buffer.array()
+    }
+
+    private fun rawDeflate(data: ByteArray): ByteArray = deflate(data, nowrap = true)
+
+    private fun zlibDeflate(data: ByteArray): ByteArray = deflate(data, nowrap = false)
+
+    private fun deflate(data: ByteArray, nowrap: Boolean): ByteArray {
+        val deflater = Deflater(Deflater.DEFAULT_COMPRESSION, nowrap)
+        return try {
+            deflater.setInput(data)
+            deflater.finish()
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(1_024)
+            while (!deflater.finished()) {
+                val count = deflater.deflate(buffer)
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        } finally {
+            deflater.end()
+        }
     }
 
     private fun makePacket(

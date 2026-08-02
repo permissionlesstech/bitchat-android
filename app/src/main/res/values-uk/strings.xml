@@ -101,15 +101,11 @@
     <string name="cd_add_favorite">Додати в обране</string>
     <string name="cd_remove_favorite">Прибрати з обраного</string>
     <string name="cd_add_bookmark">Додати закладку</string>
-    <string name="chat_back">назад</string>
-    <string name="chat_channel_prefix">канал: %1$s</string>
-    <string name="chat_leave">вийти</string>
     <string name="cd_nostr_reachable">Доступний через Nostr</string>
     <string name="cd_unread_private_messages">Непрочитані приватні повідомлення</string>
-    <string name="cd_toggle_bookmark">Перемкнути закладку</string>
     <string name="cd_location_notes">Нотатки про місце</string>
     <string name="cd_teleported">Телепортовано</string>
-    <string name="cd_tor_status">Статус Tor</string>
+    <string name="cd_open_location_channels">Відкрити налаштування розташування та каналів</string>
     <string name="cd_connected_peers">Підключені піри</string>
     <string name="cd_geohash_participants">Учасники геохешу</string>
     <string name="cd_ready_for_handshake">Готовий до рукостискання</string>
@@ -136,7 +132,6 @@
     <string name="about_online_geohash_desc">Спілкуйтеся з людьми у вашому районі за допомогою каналів на основі геохешу. Розширюйте mesh-мережу за допомогою публічних інтернет-ретрансляторів.</string>
     <string name="about_e2e_title">Наскрізне шифрування</string>
     <string name="about_e2e_desc">Приватні повідомлення шифруються. Повідомлення в каналах є публічними.</string>
-    <string name="about_appearance">вигляд</string>
     <string name="about_system">системний</string>
     <string name="about_light">світлий</string>
     <string name="about_dark">темний</string>
@@ -160,7 +155,6 @@
     <string name="about_tor_status">статус tor: %1$s, завантаження %2$d%%</string>
     <string name="about_last">Востаннє: %1$s</string>
     <string name="about_emergency_title">Екстрене видалення даних</string>
-    <string name="about_emergency_tip">Порада: потрійно натисніть на назву додатка, щоб екстрено видалити всі збережені дані, включно з повідомленнями, ключами та налаштуваннями.</string>
     <string name="about_debug_settings">Налаштування для розробників</string>
     <string name="about_footer">Відкритий код • Приватність понад усе • Децентралізовано</string>
     <string name="close_plain">Закрити</string>
@@ -179,7 +173,6 @@
     <string name="cd_open_map">Відкрити карту</string>
     <string name="cd_remove_bookmark">Прибрати закладку</string>
     <string name="cd_teleport">Телепортуватися</string>
-    <string name="cd_selected">Вибрано</string>
     <string name="notification_action_quit_bitchat">Закрити bitchat</string>
     <string name="about_background_title">працювати у фоновому режимі</string>
     <string name="about_background_desc">підтримувати mesh активним, коли додаток закрито (фонова служба)</string>
@@ -196,11 +189,6 @@
     <string name="cd_link">Посилання</string>
     <string name="cd_record_voice">Записати голосове повідомлення</string>
     <string name="cd_pick_media">Вибрати медіа</string>
-    <string name="cd_mining_pow">Обчислення PoW</string>
-    <string name="cd_pow_enabled">PoW увімкнено</string>
-    <string name="cd_proof_of_work">Підтвердження роботи</string>
-    <string name="pow_mining_ellipsis">обчислення...</string>
-    <string name="pow_label_format">pow: %1$d біт</string>
     <string name="cd_offline_mesh_chat">Офлайн Mesh-чат</string>
     <string name="cd_online_geohash_channels">Онлайн-канали за геохешем</string>
     <string name="cd_end_to_end_encryption">Наскрізне шифрування</string>
@@ -334,9 +322,7 @@
     <string name="grant_permissions">Надати дозволи</string>
     <string name="location_tracking_warning">bitchat НЕ відстежує вашу локацію</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">ЛЮДИ</string>
     <string name="nobody_around">нікого немає поруч...</string>
     <string name="you_suffix"> (ви)</string>
     <string name="pan_zoom_instruction">панорамуйте та масштабуйте, щоб вибрати геохеш</string>
@@ -345,7 +331,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">згадка</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -356,12 +341,6 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Зображення</string>
     <string name="media_type_file">Файл</string>
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
     <string name="notification_sent_image">📷 надіслав(-ла) зображення</string>
     <string name="notification_sent_voice">🎤 надіслав(-ла) голосове повідомлення</string>
     <string name="notification_sent_file">📎 надіслав(-ла) файл</string>
@@ -417,4 +396,8 @@
         <item quantity="many">%1$d людей</item>
         <item quantity="other">%1$d людини</item>
     </plurals>
+    <string name="about_language">Мова</string>
+    <string name="about_app_language">Мова застосунку</string>
+    <string name="about_system_default">Системна мова</string>
+    <string name="about_select_language">Вибрати мову</string>
 </resources>

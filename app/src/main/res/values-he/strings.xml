@@ -118,15 +118,11 @@
   <string name="cd_add_favorite">הוסף למועדפים</string>
   <string name="cd_remove_favorite">הסר מהמועדפים</string>
   <string name="cd_add_bookmark">הוסף סימנייה</string>
-  <string name="chat_back">חזרה</string>
-  <string name="chat_channel_prefix">ערוץ: %1$s</string>
-  <string name="chat_leave">עזוב</string>
   <string name="cd_nostr_reachable">נגיש דרך Nostr</string>
   <string name="cd_unread_private_messages">הודעות פרטיות שלא נקראו</string>
-  <string name="cd_toggle_bookmark">הפעל/כבה סימנייה</string>
   <string name="cd_location_notes">הערות מיקום</string>
   <string name="cd_teleported">טלפורט</string>
-  <string name="cd_tor_status">סטטוס Tor</string>
+  <string name="cd_open_location_channels">פתיחת הגדרות מיקום וערוצים</string>
   <string name="cd_connected_peers">עמיתים מחוברים</string>
   <string name="cd_geohash_participants">משתתפי geohash</string>
   <string name="cd_ready_for_handshake">מוכן ללחיצת יד</string>
@@ -153,7 +149,6 @@
   <string name="about_online_geohash_desc">התחבר לאנשים באזורך באמצעות ערוצים מבוססי geohash. הרחב את רשת ה-Mesh באמצעות ממסרי אינטרנט ציבוריים.</string>
   <string name="about_e2e_title">הצפנה מקצה לקצה</string>
   <string name="about_e2e_desc">הודעות פרטיות מוצפנות. הודעות בערוצים הן ציבוריות.</string>
-  <string name="about_appearance">מראה</string>
   <string name="about_system">מערכת</string>
   <string name="about_light">בהיר</string>
   <string name="about_dark">כהה</string>
@@ -177,7 +172,6 @@
   <string name="about_tor_status">סטטוס Tor: %1$s, אתחול %2$d%%</string>
   <string name="about_last">אחרון: %1$s</string>
   <string name="about_emergency_title">מחיקת נתונים חירומית</string>
-  <string name="about_emergency_tip">טיפ: הקש שלוש פעמים על כותרת האפליקציה כדי למחוק בחירום את כל הנתונים השמורים, כולל הודעות, מפתחות והגדרות.</string>
   <string name="about_debug_settings">הגדרות דיבוג</string>
   <string name="about_footer">קוד פתוח • פרטיות תחילה • מבוזר</string>
   <string name="close_plain">סגור</string>
@@ -196,7 +190,6 @@
   <string name="cd_open_map">פתח מפה</string>
   <string name="cd_remove_bookmark">הסר סימנייה</string>
   <string name="cd_teleport">טלפורט</string>
-  <string name="cd_selected">נבחר</string>
   <string name="notification_action_quit_bitchat">צא מ-bitchat</string>
   <string name="about_background_title">הפעל ברקע</string>
   <string name="about_background_desc">שמור על רשת ה-Mesh פעילה כאשר האפליקציה סגורה (שירות חזית)</string>
@@ -213,11 +206,6 @@
   <string name="cd_link">קישור</string>
   <string name="cd_record_voice">הקלט הודעה קולית</string>
   <string name="cd_pick_media">בחר מדיה</string>
-  <string name="cd_mining_pow">כורה הוכחת עבודה</string>
-  <string name="cd_pow_enabled">הוכחת עבודה מופעלת</string>
-  <string name="cd_proof_of_work">הוכחת עבודה</string>
-  <string name="pow_mining_ellipsis">כורה...</string>
-  <string name="pow_label_format">הוכחת עבודה: %1$d סיביות</string>
   <string name="cd_offline_mesh_chat">צ׳אט Mesh לא מקוון</string>
   <string name="cd_online_geohash_channels">ערוצי geohash מקוונים</string>
   <string name="cd_end_to_end_encryption">הצפנה מקצה לקצה</string>
@@ -342,9 +330,7 @@
   <string name="grant_permissions">הענק הרשאות</string>
   <string name="location_tracking_warning">bitchat לא עוקב אחר המיקום שלך</string>
   <string name="at_symbol">@</string>
-  <string name="app_brand">bitchat/</string>
   <string name="channel_count_prefix"> · ⧉ </string>
-  <string name="geohash_people_header">אנשים</string>
   <string name="nobody_around">אין אף אחד בסביבה...</string>
   <string name="you_suffix"> (אתה)</string>
   <string name="pan_zoom_instruction">הזז ושנה תצוגה כדי לבחור geohash</string>
@@ -353,7 +339,6 @@
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">אזכור</string>
   <string name="image_counter">%1$d / %2$d</string>
-  <string name="pow_time_estimate">(~%1$s)</string>
   <string name="at_nickname">@%1$s</string>
   <string name="version_prefix">v%1$s</string>
   <string name="hash_symbol">#</string>
@@ -364,12 +349,6 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">תמונה</string>
   <string name="media_type_file">קובץ</string>
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
   <string name="notification_sent_image">📷 שלח/ה תמונה</string>
   <string name="notification_sent_voice">🎤 שלח/ה הודעה קולית</string>
   <string name="notification_sent_file">📎 שלח/ה קובץ</string>
@@ -409,4 +388,8 @@
     <item quantity="one">איש אחד</item>
     <item quantity="other">%1$d אנשים</item>
   </plurals>
+    <string name="about_language">שפה</string>
+    <string name="about_app_language">שפת האפליקציה</string>
+    <string name="about_system_default">ברירת המחדל של המערכת</string>
+    <string name="about_select_language">בחירת שפה</string>
 </resources>

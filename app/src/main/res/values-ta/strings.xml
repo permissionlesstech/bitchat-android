@@ -108,15 +108,11 @@
   <string name="cd_add_favorite">பிடித்தவைகளில் சேர்</string>
   <string name="cd_remove_favorite">பிடித்தவைகளிலிருந்து அகற்று</string>
   <string name="cd_add_bookmark">புக்மார்க் சேர்</string>
-  <string name="chat_back">பின்</string>
-  <string name="chat_channel_prefix">சேனல்: %1$s</string>
-  <string name="chat_leave">வெளியேறு</string>
   <string name="cd_nostr_reachable">Nostr அணுகக்கூடியது</string>
   <string name="cd_unread_private_messages">படிக்காத தனிப்பட்ட செய்திகள்</string>
-  <string name="cd_toggle_bookmark">புக்மார்க்கை மாற்று</string>
   <string name="cd_location_notes">இருப்பிட குறிப்புகள்</string>
   <string name="cd_teleported">டெலிபோர்ட் செய்யப்பட்டது</string>
-  <string name="cd_tor_status">Tor நிலை</string>
+  <string name="cd_open_location_channels">இருப்பிடம் மற்றும் சேனல் அமைப்புகளைத் திற</string>
   <string name="cd_connected_peers">இணைக்கப்பட்ட பியர்ஸ்</string>
   <string name="cd_geohash_participants">ஜியோஹாஷ் பங்கேற்பாளர்கள்</string>
   <string name="cd_ready_for_handshake">ஹேண்ட்ஷேக்கிற்கு தயார்</string>
@@ -143,7 +139,6 @@
   <string name="about_online_geohash_desc">ஜியோஹாஷ் அடிப்படையிலான சேனல்களைப் பயன்படுத்தி உங்கள் பகுதியிலுள்ள மக்களுடன் இணையுங்கள். பொது இணைய ரிலேகளைப் பயன்படுத்தி மெஷை நீட்டிக்கவும்.</string>
   <string name="about_e2e_title">எண்ட்-டு-எண்ட் என்க்ரிப்ஷன்</string>
   <string name="about_e2e_desc">தனிப்பட்ட செய்திகள் என்க்ரிப்ட் செய்யப்பட்டவை. சேனல் செய்திகள் பொதுவானவை.</string>
-  <string name="about_appearance">தோற்றம்</string>
   <string name="about_system">சிஸ்டம்</string>
   <string name="about_light">ஒளி</string>
   <string name="about_dark">இருள்</string>
@@ -167,7 +162,6 @@
   <string name="about_tor_status">tor நிலை: %1$s, பூட்ஸ்ட்ராப் %2$d%%</string>
   <string name="about_last">கடைசி: %1$s</string>
   <string name="about_emergency_title">அவசர தரவு நீக்கம்</string>
-  <string name="about_emergency_tip">குறிப்பு: செய்திகள், விசைகள் மற்றும் அமைப்புகள் உட்பட சேமிக்கப்பட்ட அனைத்து தரவையும் அவசரமாக நீக்க ஆப் தலைப்பை மூன்று முறை கிளிக் செய்யவும்.</string>
   <string name="about_debug_settings">பிழைதிருத்த அமைப்புகள்</string>
   <string name="about_footer">ஓபன் சோர்ஸ் • தனியுரிமை முதலில் • பரவலாக்கப்பட்டது</string>
   <string name="close_plain">மூடு</string>
@@ -186,7 +180,6 @@
   <string name="cd_open_map">வரைபடத்தைத் திற</string>
   <string name="cd_remove_bookmark">புக்மார்க்கை அகற்று</string>
   <string name="cd_teleport">டெலிபோர்ட்</string>
-  <string name="cd_selected">தேர்ந்தெடுக்கப்பட்டது</string>
   <string name="notification_action_quit_bitchat">bitchat ஐ வெளியேறு</string>
   <string name="about_background_title">பின்னணியில் இயக்கு</string>
   <string name="about_background_desc">ஆப் மூடப்பட்டாலும் மெஷை செயலில் வைத்திரு (முன்னணி சேவை)</string>
@@ -203,11 +196,6 @@
   <string name="cd_link">இணைப்பு</string>
   <string name="cd_record_voice">குரல் குறிப்பை பதிவு செய்</string>
   <string name="cd_pick_media">மீடியாவைத் தேர்ந்தெடு</string>
-  <string name="cd_mining_pow">PoW மைனிங்</string>
-  <string name="cd_pow_enabled">PoW இயக்கப்பட்டது</string>
-  <string name="cd_proof_of_work">ப்ரூஃப் ஆஃப் வொர்க்</string>
-  <string name="pow_mining_ellipsis">மைனிங்…</string>
-  <string name="pow_label_format">pow: %1$dbit</string>
   <string name="cd_offline_mesh_chat">ஆஃப்லைன் மெஷ் அரட்டை</string>
   <string name="cd_online_geohash_channels">ஆன்லைன் ஜியோஹாஷ் சேனல்கள்</string>
   <string name="cd_end_to_end_encryption">எண்ட்-டு-எண்ட் என்க்ரிப்ஷன்</string>
@@ -345,9 +333,7 @@
   <string name="grant_permissions">அனுமதிகளை வழங்கு</string>
   <string name="location_tracking_warning">bitchat உங்கள் இருப்பிடத்தை கண்காணிக்காது</string>
   <string name="at_symbol">@</string>
-  <string name="app_brand">bitchat/</string>
   <string name="channel_count_prefix"> · ⧉ </string>
-  <string name="geohash_people_header">நபர்கள்</string>
   <string name="nobody_around">யாரும் அருகில் இல்லை…</string>
   <string name="you_suffix"> (நீங்கள்)</string>
   <string name="pan_zoom_instruction">ஜியோஹாஷைத் தேர்ந்தெடுக்க பான் செய்து ஜூம் செய்யவும்</string>
@@ -356,7 +342,6 @@
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">குறிப்பிடு</string>
   <string name="image_counter">%1$d / %2$d</string>
-  <string name="pow_time_estimate">(~%1$s)</string>
   <string name="at_nickname">@%1$s</string>
   <string name="version_prefix">v%1$s</string>
   <string name="hash_symbol">#</string>
@@ -367,12 +352,6 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">படம்</string>
   <string name="media_type_file">கோப்பு</string>
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
   <string name="notification_sent_image">📷 ஒரு படத்தை அனுப்பியது</string>
   <string name="notification_sent_voice">🎤 ஒரு குரல் செய்தியை அனுப்பியது</string>
   <string name="notification_sent_file">📎 ஒரு கோப்பை அனுப்பியது</string>
@@ -407,4 +386,8 @@
   <string name="join">சேர்</string>
   <string name="cancel">ரத்து செய்</string>
   <string name="tor_not_available_in_this_build">இந்த பதிப்பில் Tor கிடைக்கவில்லை</string>
+    <string name="about_language">மொழி</string>
+    <string name="about_app_language">பயன்பாட்டு மொழி</string>
+    <string name="about_system_default">கணினி இயல்புநிலை</string>
+    <string name="about_select_language">மொழியைத் தேர்ந்தெடுக்கவும்</string>
 </resources>
