@@ -10,7 +10,17 @@ import java.util.concurrent.atomic.AtomicReference
  * Centralized OkHttp provider to ensure all network traffic honors Tor settings.
  */
 object OkHttpProvider {
-    private val httpClientRef = AtomicReference<OkHttpClient?>(null)
+    enum class Route {
+        DIRECT,
+        TOR
+    }
+
+    data class RoutedClient(
+        val client: OkHttpClient,
+        val route: Route
+    )
+
+    private val httpClientRef = AtomicReference<RoutedClient?>(null)
     private val wsClientRef = AtomicReference<OkHttpClient?>(null)
 
     fun reset() {
@@ -18,20 +28,30 @@ object OkHttpProvider {
         wsClientRef.set(null)
     }
 
-    fun httpClient(): OkHttpClient {
+    fun httpClient(): OkHttpClient = routedHttpClient().client
+
+    /**
+     * Returns the client and the route it was actually built with as one snapshot.
+     *
+     * The selected Tor mode can change while an existing client is still cached. Consumers that
+     * key cooldowns by network identity must use this value rather than re-reading the preference.
+     */
+    fun routedHttpClient(): RoutedClient {
         httpClientRef.get()?.let { return it }
-        val client = baseBuilderForCurrentProxy()
+        val (builder, route) = baseBuilderForCurrentProxy()
+        val client = builder
             .callTimeout(15, TimeUnit.SECONDS)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .build()
-        httpClientRef.set(client)
-        return client
+        val routedClient = RoutedClient(client, route)
+        httpClientRef.set(routedClient)
+        return routedClient
     }
 
     fun webSocketClient(): OkHttpClient {
         wsClientRef.get()?.let { return it }
-        val client = baseBuilderForCurrentProxy()
+        val client = baseBuilderForCurrentProxy().first
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(0, TimeUnit.SECONDS)
             .writeTimeout(10, TimeUnit.SECONDS)
@@ -40,7 +60,7 @@ object OkHttpProvider {
         return client
     }
 
-    private fun baseBuilderForCurrentProxy(): OkHttpClient.Builder {
+    private fun baseBuilderForCurrentProxy(): Pair<OkHttpClient.Builder, Route> {
         val builder = OkHttpClient.Builder()
         val torProvider = ArtiTorManager.getInstance()
         val socks: InetSocketAddress? = torProvider.currentSocksAddress()
@@ -50,6 +70,6 @@ object OkHttpProvider {
             val proxy = Proxy(Proxy.Type.SOCKS, socks)
             builder.proxy(proxy)
         }
-        return builder
+        return builder to if (socks == null) Route.DIRECT else Route.TOR
     }
 }

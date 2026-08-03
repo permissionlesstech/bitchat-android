@@ -121,6 +121,7 @@ nordic-ble = { module = "no.nordicsemi.android:ble", version.ref = "nordic-ble" 
 
 # WebSocket
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3", version.ref = "okhttp" }
 tor-android-binary = { module = "org.torproject:tor-android-binary", version.ref = "tor-android-binary" }
 
 # Tor (embed) intentionally not pinned yet; add once repo is chosen
@@ -192,7 +193,8 @@ testing = [
     "mockito-kotlin",
     "mockito-core",
     "roboelectric",
-    "kotlinx-coroutines-test"
+    "kotlinx-coroutines-test",
+    "okhttp-mockwebserver"
 ]
 
 compose-testing = [
