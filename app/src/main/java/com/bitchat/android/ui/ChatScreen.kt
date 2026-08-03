@@ -100,11 +100,14 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var isScrolledUp by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedPrivatePeer) {
-        messageText = TextFieldValue(
-            selectedPrivatePeer
-                ?.let(viewModel::conversationDraft)
-                .orEmpty()
-        )
+        val draft = selectedPrivatePeer
+            ?.let(viewModel::conversationDraft)
+            .orEmpty()
+        messageText = TextFieldValue(draft)
+        // Setting the field in code does not run onMessageTextChange, so the
+        // popups have to be re-synced with the restored draft here.
+        viewModel.updateCommandSuggestions(draft)
+        viewModel.updateMentionSuggestions(draft)
     }
 
     // Show password dialog when needed
@@ -342,6 +345,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         text = newText,
                         selection = TextRange(newText.length)
                     )
+                    // Setting the field in code does not run onMessageTextChange, so
+                    // the popups have to be re-synced with the new text here. The
+                    // inserted mention ends with a space, which hides an open popup.
+                    viewModel.updateCommandSuggestions(newText)
+                    viewModel.updateMentionSuggestions(newText)
                 },
                 onMessageLongPress = { message ->
                     // Message long press - open user action sheet with message context
