@@ -140,7 +140,17 @@ class ChatViewModel(
     private val conversationListPreferences =
         com.bitchat.android.services.ConversationListPreferences.getInstance(getApplication())
     private val messageManager = MessageManager(state)
-    private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
+    private val channelManager = ChannelManager(
+        state,
+        messageManager,
+        dataManager,
+        viewModelScope,
+        onSwitchToMeshLocation = {
+            com.bitchat.android.geohash.LocationChannelManager
+                .getInstance(getApplication())
+                .select(com.bitchat.android.geohash.ChannelID.Mesh)
+        }
+    )
 
     // Create Noise session delegate for clean dependency injection
     private val noiseSessionDelegate = object : NoiseSessionDelegate {

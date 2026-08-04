@@ -164,6 +164,23 @@ class CommandProcessorTest() {
   }
 
   @Test
+  fun `join command leaves active geohash selection for mesh channel routing`() {
+    chatState.setSelectedLocationChannel(
+      ChannelID.Location(GeohashChannel(GeohashChannelLevel.REGION, "9q"))
+    )
+
+    commandProcessor.processCommand(
+      command = "/join backchannel",
+      meshService = meshService,
+      myPeerID = "peer-id",
+      onSendMessage = { _, _, _ -> },
+      viewModel = null
+    )
+
+    assertEquals("#backchannel", chatState.getCurrentChannelValue())
+    assertEquals(ChannelID.Mesh, chatState.selectedLocationChannel.value)
+
+  @Test
   fun `clearSuggestions hides the command suggestion popup`() {
     // Typing "/" opens the command popup.
     commandProcessor.updateCommandSuggestions("/")
@@ -187,5 +204,6 @@ class CommandProcessorTest() {
     commandProcessor.clearSuggestions()
     assertFalse(chatState.getShowMentionSuggestionsValue())
     assertTrue(chatState.getMentionSuggestionsValue().isEmpty())
+
   }
 }
