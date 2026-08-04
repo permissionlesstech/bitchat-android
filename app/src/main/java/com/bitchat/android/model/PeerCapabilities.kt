@@ -32,8 +32,11 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         /** Noise-encrypted private BitchatFilePacket using payload type 0x20. */
         val PRIVATE_MEDIA = PeerCapabilities(1L shl 8)
 
+        /** Parses rotating peer-ID announces. Emission is gated by a later rollout phase. */
+        val PEER_ID_ROTATION = PeerCapabilities(1L shl 14)
+
         /** Capabilities implemented by this Android build. */
-        val LOCAL_SUPPORTED = PRIVATE_MEDIA
+        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or PEER_ID_ROTATION.rawValue)
 
         /**
          * Decode the low 64 bits and ignore any future extension bytes, which
