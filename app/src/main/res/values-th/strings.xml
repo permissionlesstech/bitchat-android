@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">ติดต่อได้ผ่าน Nostr</string>
     <string name="cd_unread_private_messages">ข้อความส่วนตัวยังไม่ได้อ่าน</string>
     <string name="cd_teleported">เทเลพอร์ตแล้ว</string>
-    <string name="cd_tor_status">สถานะ Tor</string>
+    <string name="cd_open_location_channels">เปิดการตั้งค่าตำแหน่งและช่อง</string>
     <string name="cd_connected_peers">เพียร์ที่เชื่อมต่อ</string>
     <string name="cd_geohash_participants">ผู้เข้าร่วม geohash</string>
     <string name="cd_ready_for_handshake">พร้อมสำหรับการจับมือ</string>

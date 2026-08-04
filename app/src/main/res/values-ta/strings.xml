@@ -112,7 +112,7 @@
   <string name="cd_unread_private_messages">படிக்காத தனிப்பட்ட செய்திகள்</string>
   <string name="cd_location_notes">இருப்பிட குறிப்புகள்</string>
   <string name="cd_teleported">டெலிபோர்ட் செய்யப்பட்டது</string>
-  <string name="cd_tor_status">Tor நிலை</string>
+  <string name="cd_open_location_channels">இருப்பிடம் மற்றும் சேனல் அமைப்புகளைத் திற</string>
   <string name="cd_connected_peers">இணைக்கப்பட்ட பியர்ஸ்</string>
   <string name="cd_geohash_participants">ஜியோஹாஷ் பங்கேற்பாளர்கள்</string>
   <string name="cd_ready_for_handshake">ஹேண்ட்ஷேக்கிற்கு தயார்</string>
@@ -352,12 +352,6 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">படம்</string>
   <string name="media_type_file">கோப்பு</string>
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
   <string name="notification_sent_image">📷 ஒரு படத்தை அனுப்பியது</string>
   <string name="notification_sent_voice">🎤 ஒரு குரல் செய்தியை அனுப்பியது</string>
   <string name="notification_sent_file">📎 ஒரு கோப்பை அனுப்பியது</string>

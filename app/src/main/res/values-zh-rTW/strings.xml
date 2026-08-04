@@ -121,7 +121,6 @@
   <string name="cd_unread_private_messages">未讀私訊</string>
   <string name="cd_location_notes">位置筆記</string>
   <string name="cd_teleported">已傳送</string>
-  <string name="cd_tor_status">Tor 狀態</string>
   <string name="cd_connected_peers">已連線的節點</string>
   <string name="cd_geohash_participants">地理雜湊參與者</string>
   <string name="cd_ready_for_handshake">準備好進行握手</string>
@@ -348,12 +347,6 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">圖片</string>
   <string name="media_type_file">檔案</string>
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
   <string name="notification_sent_image">📷 傳送了一張圖片</string>
   <string name="notification_sent_voice">🎤 傳送了一則語音訊息</string>
   <string name="notification_sent_file">📎 傳送了一個檔案</string>

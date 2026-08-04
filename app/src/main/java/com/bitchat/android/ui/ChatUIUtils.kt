@@ -53,11 +53,14 @@ fun getRSSIColor(rssi: Int): Color {
     }
 }
 
+/** Thin space (U+2009) separating a display name from its `#abcd` disambiguation suffix. */
+internal const val SUFFIX_THIN_SPACE = " "
+
 /**
  * Build the sender label shown above the first message of a group.
  *
- * Renders `@name` plus a dimmed `#abcd` suffix. The name carries a `nickname_click`
- * annotation for everyone except yourself.
+ * Renders `@name` plus a dimmed `#abcd` suffix, separated by a thin space. The name carries
+ * a `nickname_click` annotation for everyone except yourself.
  */
 fun formatTextMessageSender(
     message: BitchatMessage,
@@ -97,6 +100,7 @@ fun formatTextMessageSender(
     builder.pop()
 
     if (suffix.isNotEmpty()) {
+        builder.append(SUFFIX_THIN_SPACE)
         builder.pushStyle(
             SpanStyle(
                 color = senderColor.copy(alpha = SUFFIX_ALPHA),
@@ -304,6 +308,7 @@ fun formatMessageHeaderAnnotatedString(
         builder.pop()
 
         if (suffix.isNotEmpty()) {
+            builder.append(SUFFIX_THIN_SPACE)
             builder.pushStyle(
                 SpanStyle(
                     color = baseColor.copy(alpha = SUFFIX_ALPHA),

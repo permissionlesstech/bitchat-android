@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
 import androidx.wear.compose.foundation.rotary.rotaryScrollable
@@ -59,14 +60,33 @@ import java.util.Locale
 
 @Composable
 fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
+    val context = LocalContext.current
     val messages by AppStateStore.publicMessages.collectAsState()
     val peers by AppStateStore.peers.collectAsState()
     val unreadDms by WearChatState.unreadDms.collectAsState()
     val mesh = WearMeshService.peek()
     val myPeerID = mesh?.myPeerID ?: ""
     var viewerPath by remember { mutableStateOf<String?>(null) }
-    val voice = rememberVoiceNoteController { path ->
-        mesh?.let { sendVoiceNote(it, null, path) }
+    val liveVoiceManager = remember(context) {
+        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
+    }
+    val busyTalker by liveVoiceManager.activePublicTalker.collectAsState()
+    val voice = rememberVoiceNoteController(
+        recorderFactory = {
+            val target = if (
+                mesh != null &&
+                com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context) &&
+                mesh.getPeerNicknames().isNotEmpty()
+            ) com.bitchat.android.features.voice.LiveVoiceTarget { payload ->
+                mesh.sendVoiceFrame(null, payload)
+            } else null
+            com.bitchat.android.features.voice.VoiceRecorder(context, target)
+        }
+    ) { path -> mesh?.let { sendVoiceNote(it, null, path) } }
+
+    androidx.compose.runtime.DisposableEffect(liveVoiceManager) {
+        liveVoiceManager.showPublicMesh()
+        onDispose { liveVoiceManager.clearVisibleConversation() }
     }
 
     ChatScaffold(
@@ -84,7 +104,7 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
             )
         },
         actionBar = {
-            ChatActionBar(onKeyboard = onOpenTextInput, voice = voice)
+            ChatActionBar(onKeyboard = onOpenTextInput, voice = voice, busyTalker = busyTalker)
         }
     )
 
@@ -230,7 +250,10 @@ fun MessageItem(
                 path = message.content.trim(),
                 onOpen = onOpenImage
             )
-            BitchatMessageType.Audio -> VoiceNoteItem(path = message.content.trim())
+            BitchatMessageType.Audio -> VoiceNoteItem(
+                path = message.content.trim(),
+                messageID = message.id
+            )
             BitchatMessageType.File -> {
                 val path = message.content.trim()
                 val file = remember(path) { File(path) }

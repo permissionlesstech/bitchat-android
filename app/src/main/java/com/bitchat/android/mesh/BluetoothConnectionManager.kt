@@ -68,7 +68,16 @@ class BluetoothConnectionManager(
         }
 
         override fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?, peerID: String?) {
+            packetBroadcaster.onLinkDisconnected(device.address, linkID)
             delegate?.onDeviceDisconnected(device, linkID, peerID)
+        }
+
+        override fun onGattClientWriteComplete(deviceAddress: String, linkID: String, status: Int) {
+            packetBroadcaster.onGattClientWriteComplete(deviceAddress, linkID, status)
+        }
+
+        override fun onGattServerNotificationComplete(deviceAddress: String, linkID: String?, status: Int) {
+            packetBroadcaster.onGattServerNotificationComplete(deviceAddress, linkID, status)
         }
         
         override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
@@ -485,4 +494,6 @@ interface BluetoothConnectionManagerDelegate {
     fun onDeviceConnected(device: BluetoothDevice)
     fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?, peerID: String?)
     fun onRSSIUpdated(deviceAddress: String, rssi: Int)
+    fun onGattClientWriteComplete(deviceAddress: String, linkID: String, status: Int) = Unit
+    fun onGattServerNotificationComplete(deviceAddress: String, linkID: String?, status: Int) = Unit
 }

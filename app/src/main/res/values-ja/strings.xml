@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Nostr 経由で到達可能</string>
     <string name="cd_unread_private_messages">未読のプライベートメッセージ</string>
     <string name="cd_teleported">テレポート済み</string>
-    <string name="cd_tor_status">Tor ステータス</string>
+    <string name="cd_open_location_channels">位置情報とチャンネルの設定を開く</string>
     <string name="cd_connected_peers">接続中のピア</string>
     <string name="cd_geohash_participants">Geohash 参加者</string>
     <string name="cd_ready_for_handshake">ハンドシェイク準備完了</string>

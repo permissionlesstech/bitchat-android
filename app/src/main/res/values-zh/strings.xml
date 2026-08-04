@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">可通过 Nostr 联系</string>
     <string name="cd_unread_private_messages">未读私信</string>
     <string name="cd_teleported">已传送</string>
-    <string name="cd_tor_status">Tor 状态</string>
+    <string name="cd_open_location_channels">打开位置和频道设置</string>
     <string name="cd_connected_peers">已连接节点</string>
     <string name="cd_geohash_participants">Geohash 参与者</string>
     <string name="cd_ready_for_handshake">准备握手</string>
@@ -293,12 +293,6 @@
     <string name="media_type_file">文件</string>
 
     <!-- 消息状态 -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- 通知文本辅助 -->
     <string name="notification_sent_image">📷 发送了图片</string>

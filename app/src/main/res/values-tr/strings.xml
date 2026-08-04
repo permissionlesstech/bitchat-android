@@ -66,7 +66,7 @@
     <string name="cd_nostr_reachable">Nostr üzerinden ulaşılabilir</string>
     <string name="cd_unread_private_messages">Okunmamış özel mesaj</string>
     <string name="cd_teleported">Teleport edildi</string>
-    <string name="cd_tor_status">Tor durumu</string>
+    <string name="cd_open_location_channels">Konum ve kanal ayarlarını aç</string>
     <string name="cd_connected_peers">Bağlı eşler</string>
     <string name="cd_geohash_participants">Geohash katılımcıları</string>
     <string name="cd_ready_for_handshake">El sıkışmaya hazır</string>
@@ -275,13 +275,6 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Görsel</string>
     <string name="media_type_file">Dosya</string>
-
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <string name="notification_sent_image">📷 görsel gönderdi</string>
     <string name="notification_sent_voice">🎤 sesli mesaj gönderdi</string>

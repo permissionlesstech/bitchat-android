@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Nostr के माध्यम से उपलब्ध</string>
     <string name="cd_unread_private_messages">अपठित निजी संदेश</string>
     <string name="cd_teleported">टेलीपोर्ट हुआ</string>
-    <string name="cd_tor_status">Tor स्थिति</string>
+    <string name="cd_open_location_channels">स्थान और चैनल सेटिंग खोलें</string>
     <string name="cd_connected_peers">कनेक्टेड पीयर्स</string>
     <string name="cd_geohash_participants">geohash प्रतिभागी</string>
     <string name="cd_ready_for_handshake">हैंडशेक के लिए तैयार</string>

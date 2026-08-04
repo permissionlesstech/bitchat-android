@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Warning
@@ -382,6 +383,7 @@ fun AboutSheet(
                         Column {
                             AboutSectionLabel(text = stringResource(R.string.about_section_theme))
                             val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
+                            val chatUiMode by com.bitchat.android.ui.theme.ChatUiModeManager.modeFlow.collectAsState()
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -389,30 +391,52 @@ fun AboutSheet(
                                 color = colorScheme.surface,
                                 shape = AboutCardShape
                             ) {
-                                Row(
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_system),
-                                        selected = themePref.isSystem,
-                                        onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_light),
-                                        selected = themePref.isLight,
-                                        onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_dark),
-                                        selected = themePref.isDark,
-                                        onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        ThemeChip(
+                                            label = stringResource(R.string.about_system),
+                                            selected = themePref.isSystem,
+                                            onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ThemeChip(
+                                            label = stringResource(R.string.about_light),
+                                            selected = themePref.isLight,
+                                            onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ThemeChip(
+                                            label = stringResource(R.string.about_dark),
+                                            selected = themePref.isDark,
+                                            onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        ThemeChip(
+                                            label = stringResource(R.string.chat_ui_bubbles),
+                                            selected = chatUiMode.isBubbles,
+                                            onClick = { com.bitchat.android.ui.theme.ChatUiModeManager.set(context, com.bitchat.android.ui.theme.ChatUiMode.Bubbles) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ThemeChip(
+                                            label = stringResource(R.string.chat_ui_matrix),
+                                            selected = chatUiMode.isMatrix,
+                                            onClick = { com.bitchat.android.ui.theme.ChatUiModeManager.set(context, com.bitchat.android.ui.theme.ChatUiMode.Matrix) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -482,6 +506,9 @@ fun AboutSheet(
                         val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
                         val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
                         var backgroundEnabled by remember { mutableStateOf(com.bitchat.android.service.MeshServicePreferences.isBackgroundEnabled(true)) }
+                        var liveVoiceEnabled by remember {
+                            mutableStateOf(com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context))
+                        }
                         val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
                         val torProvider = remember { ArtiTorManager.getInstance() }
                         val torStatus by torProvider.statusFlow.collectAsState()
@@ -511,6 +538,23 @@ fun AboutSheet(
                                             } else {
                                                 com.bitchat.android.service.MeshForegroundService.start(context)
                                             }
+                                        }
+                                    )
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 54.dp),
+                                        thickness = 1.dp,
+                                        color = colorScheme.outlineVariant
+                                    )
+
+                                    SettingsToggleRow(
+                                        icon = Icons.Filled.Mic,
+                                        title = "Live push-to-talk",
+                                        subtitle = "Play voice bursts live on the mesh; voice notes are always sent on release",
+                                        checked = liveVoiceEnabled,
+                                        onCheckedChange = { enabled ->
+                                            liveVoiceEnabled = enabled
+                                            com.bitchat.android.features.voice.LiveVoicePreferences.setEnabled(context, enabled)
                                         }
                                     )
 

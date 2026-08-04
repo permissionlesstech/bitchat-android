@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -12,7 +13,9 @@ import com.bitchat.android.geohash.Geohash
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.withFrameNanos
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.pow
 
 /**
@@ -20,6 +23,7 @@ import kotlin.math.pow
  * and the current selection. All mutation funnels through this class so rendering,
  * gestures and buttons stay in sync.
  */
+@Stable
 class GlobeState(
     targetLat: Double,
     targetLon: Double,
@@ -38,12 +42,15 @@ class GlobeState(
         private set
     var isInteracting by mutableStateOf(false)
         internal set
+    var isAnimating by mutableStateOf(false)
+        private set
 
     internal var baseRadiusPx by mutableFloatStateOf(0f)
     internal var screenMinPx by mutableFloatStateOf(0f)
 
     private var scope: CoroutineScope? = null
     private var animJob: Job? = null
+    private var animationGeneration = 0
 
     /** Pending cinematic intro target (lat, lon, precision); consumed when played. */
     var introTarget: Triple<Double, Double, Int>? = null
@@ -108,20 +115,29 @@ class GlobeState(
         val dLon = GlobeMath.normalizeLon(lon - startLon)
         val startZoom = zoom
         val endZoom = (targetZoom ?: zoom).coerceIn(GlobeMath.MIN_ZOOM, GlobeMath.MAX_ZOOM)
+        val generation = ++animationGeneration
+        isAnimating = true
         animJob = s.launch {
-            val anim = Animatable(0f)
-            anim.animateTo(1f, tween(durationMs, easing = FastOutSlowInEasing)) {
-                val t = value
-                centerLat = (startLat + (lat.toFloat() - startLat) * t).coerceIn(MIN_LAT, MAX_LAT)
-                centerLon = GlobeMath.normalizeLon(startLon + dLon * t).toFloat()
-                // exponential interpolation feels natural for zoom
-                zoom = startZoom * (endZoom / startZoom).pow(t)
-                if (targetPrecision != null) {
-                    precision = targetPrecision.coerceIn(1, GlobeMath.MAX_PRECISION)
-                } else {
-                    syncPrecisionFromZoom()
+            try {
+                val anim = Animatable(0f)
+                anim.animateTo(1f, tween(durationMs, easing = FastOutSlowInEasing)) {
+                    val t = value
+                    centerLat = (startLat + (lat.toFloat() - startLat) * t).coerceIn(MIN_LAT, MAX_LAT)
+                    centerLon = GlobeMath.normalizeLon(startLon + dLon * t).toFloat()
+                    // exponential interpolation feels natural for zoom
+                    zoom = startZoom * (endZoom / startZoom).pow(t)
+                    if (targetPrecision != null) {
+                        precision = targetPrecision.coerceIn(1, GlobeMath.MAX_PRECISION)
+                    } else {
+                        syncPrecisionFromZoom()
+                    }
+                    syncSelection()
                 }
-                syncSelection()
+            } finally {
+                if (animationGeneration == generation) {
+                    isAnimating = false
+                    animJob = null
+                }
             }
         }
     }
@@ -144,37 +160,64 @@ class GlobeState(
         animateTo(targetLat, targetLon, targetZoom, targetPrecision, durationMs = 1400)
     }
 
-    /** Inertial spin after a fling. Velocities are in px/ms. */
+    /** Inertial spin after a fling. Velocities are in px/second. */
     fun fling(velocityX: Float, velocityY: Float) {
         val s = scope ?: return
-        if (abs(velocityX) < 0.05f && abs(velocityY) < 0.05f) return
+        var initialVx = velocityX.coerceIn(-MAX_FLING_PX_PER_SECOND, MAX_FLING_PX_PER_SECOND)
+        var initialVy = velocityY.coerceIn(-MAX_FLING_PX_PER_SECOND, MAX_FLING_PX_PER_SECOND)
+        if (abs(initialVx) < MIN_FLING_PX_PER_SECOND) initialVx = 0f
+        if (abs(initialVy) < MIN_FLING_PX_PER_SECOND) initialVy = 0f
+        if (initialVx == 0f && initialVy == 0f) return
         animJob?.cancel()
+        val generation = ++animationGeneration
+        isAnimating = true
         animJob = s.launch {
-            var vx = velocityX
-            var vy = velocityY
-            var lastTime = System.nanoTime()
-            while (abs(vx) > 0.02f || abs(vy) > 0.02f) {
-                val now = System.nanoTime()
-                val dtMs = ((now - lastTime) / 1_000_000f).coerceAtMost(50f)
-                lastTime = now
-                rotateBy(vx * dtMs, vy * dtMs)
-                val decay = 0.94f.pow(dtMs / 16f)
-                vx *= decay
-                vy *= decay
-                kotlinx.coroutines.delay(16)
+            try {
+                var vx = initialVx
+                var vy = initialVy
+                var lastFrameNanos = withFrameNanos { it }
+                while (abs(vx) >= MIN_FLING_PX_PER_SECOND || abs(vy) >= MIN_FLING_PX_PER_SECOND) {
+                    val frameNanos = withFrameNanos { it }
+                    val dtSeconds = ((frameNanos - lastFrameNanos) / 1_000_000_000f)
+                        .coerceIn(0f, MAX_FRAME_DELTA_SECONDS)
+                    lastFrameNanos = frameNanos
+                    val maxStep = globeRadiusPx * MAX_FLING_RADIUS_FRACTION_PER_FRAME
+                    rotateBy(
+                        (vx * dtSeconds).coerceIn(-maxStep, maxStep),
+                        (vy * dtSeconds).coerceIn(-maxStep, maxStep)
+                    )
+                    val decay = exp(-FLING_FRICTION_PER_SECOND * dtSeconds)
+                    vx *= decay
+                    vy *= decay
+                }
+            } finally {
+                if (animationGeneration == generation) {
+                    isAnimating = false
+                    animJob = null
+                }
             }
         }
     }
 
     fun cancelAnimations() {
+        animationGeneration++
         animJob?.cancel()
+        animJob = null
+        isAnimating = false
     }
+
+    val isInMotion: Boolean get() = isInteracting || isAnimating
 
     private companion object {
         // Close to the projection limit so polar geohash cells remain selectable;
         // clamping tighter would make syncSelection() encode the wrong cell.
         const val MIN_LAT = -89f
         const val MAX_LAT = 89f
+        const val MIN_FLING_PX_PER_SECOND = 90f
+        const val MAX_FLING_PX_PER_SECOND = 3_200f
+        const val MAX_FRAME_DELTA_SECONDS = 1f / 30f
+        const val MAX_FLING_RADIUS_FRACTION_PER_FRAME = 0.12f
+        const val FLING_FRICTION_PER_SECOND = 4.2f
     }
 
     private fun syncSelection() {
