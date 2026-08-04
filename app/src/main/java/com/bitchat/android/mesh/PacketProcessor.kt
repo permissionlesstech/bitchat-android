@@ -4,6 +4,7 @@ import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.model.AnnounceV2
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
@@ -134,6 +135,12 @@ class PacketProcessor(private val myPeerID: String) {
         // Handle public packet types (no address check needed)
         when (messageType) {
             MessageType.ANNOUNCE -> validPacket = handleAnnounce(routed)
+            MessageType.ANNOUNCE_V2 -> {
+                // Phase 1 is deliberately parse-only. An unsigned v2 announce must not
+                // establish liveness, enter the people list, or be gossip-relayed.
+                AnnounceV2.decode(packet.payload)
+                validPacket = false
+            }
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.VOICE_FRAME -> validPacket = delegate?.handleVoiceFrame(routed) ?: false
