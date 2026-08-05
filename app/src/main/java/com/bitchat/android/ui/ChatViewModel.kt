@@ -857,6 +857,8 @@ class ChatViewModel(
             ?.let(conversationListPreferences.drafts.value::get)
             .orEmpty()
 
+    internal val conversationDrafts = conversationListPreferences.drafts
+
     internal fun setConversationDraft(conversationID: String?, text: String) {
         if (conversationID.isNullOrBlank()) return
         conversationListPreferences.setDraft(conversationID, text)
