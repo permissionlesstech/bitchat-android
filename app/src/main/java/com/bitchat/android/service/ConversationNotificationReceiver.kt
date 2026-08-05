@@ -8,8 +8,10 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ConversationListPreferences
 import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.ui.NotificationManager
+import com.bitchat.android.util.TrackingUrlDetector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,6 +42,20 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                             ?.trim()
                             ?.takeIf(String::isNotEmpty)
                             ?: return@launch
+                        if (TrackingUrlDetector.containsTrackingUrl(reply)) {
+                            ConversationListPreferences.getInstance(context).appendDraft(
+                                conversationID,
+                                reply,
+                            )
+                            NotificationManager.showTrackingReplyWarning(
+                                context = context.applicationContext,
+                                conversationID = conversationID,
+                                senderNickname = intent.getStringExtra(
+                                    NotificationManager.EXTRA_SENDER_NICKNAME,
+                                ).orEmpty(),
+                            )
+                            return@launch
+                        }
                         // A notification can outlive the process/service that posted it. Promote
                         // the mesh runtime before dispatch so Android keeps the transport alive
                         // after this short-lived receiver finishes.

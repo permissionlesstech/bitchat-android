@@ -16,6 +16,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -47,6 +48,7 @@ import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
 import com.bitchat.android.ui.media.FullScreenImageViewer
 import com.bitchat.android.ui.theme.BitchatMotion
+import com.bitchat.android.util.TrackingUrlDetector
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -395,9 +397,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
             viewModel.updateCommandSuggestions(newText.text)
             viewModel.updateMentionSuggestions(newText.text)
         },
-        onSend = {
-            if (messageText.text.trim().isNotEmpty()) {
-                viewModel.sendMessage(messageText.text.trim()) { accepted ->
+        onSend = { submittedText ->
+            if (submittedText.trim().isNotEmpty()) {
+                viewModel.sendMessage(submittedText.trim()) { accepted ->
                     if (accepted) {
                         messageText = TextFieldValue("")
                         viewModel.setConversationDraft(selectedPrivatePeer, "")
@@ -628,7 +630,7 @@ private fun NearbyNotesStrip(
 fun ChatInputSection(
     messageText: TextFieldValue,
     onMessageTextChange: (TextFieldValue) -> Unit,
-    onSend: () -> Unit,
+    onSend: (String) -> Unit,
     onSendVoiceNote: (String?, String?, String) -> Unit,
     onSendImageNote: (String?, String?, String) -> Unit,
     onSendFileNote: (String?, String?, String) -> Unit,
@@ -648,9 +650,17 @@ fun ChatInputSection(
     modifier: Modifier = Modifier
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    var pendingTrackedText by rememberSaveable { mutableStateOf<String?>(null) }
     val activePublicTalker by remember(context) {
         com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context).activePublicTalker
     }.collectAsState()
+    val requestSend = {
+        if (TrackingUrlDetector.containsTrackingUrl(messageText.text)) {
+            pendingTrackedText = messageText.text
+        } else {
+            onSend(messageText.text)
+        }
+    }
     Column(
         // Flat, slightly translucent screen background — the same treatment as the top bar, so the
         // two bars are visibly the same kind of surface. No gradient: a soft ramp here just looked
@@ -718,7 +728,7 @@ fun ChatInputSection(
         MessageInput(
             value = messageText,
             onValueChange = onMessageTextChange,
-            onSend = onSend,
+            onSend = requestSend,
             onSendVoiceNote = onSendVoiceNote,
             onSendImageNote = onSendImageNote,
             onSendFileNote = onSendFileNote,
@@ -730,6 +740,17 @@ fun ChatInputSection(
             recorderFactory = recorderFactory,
             activePublicTalker = activePublicTalker,
             modifier = Modifier.fillMaxWidth()
+        )
+    }
+
+    pendingTrackedText?.let { submittedText ->
+        TrackingWarningDialog(
+            message = R.string.tracking_link_send_warning,
+            onConfirm = {
+                pendingTrackedText = null
+                onSend(submittedText)
+            },
+            onDismiss = { pendingTrackedText = null },
         )
     }
 }
