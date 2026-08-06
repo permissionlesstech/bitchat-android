@@ -276,13 +276,6 @@
     <string name="media_type_image">Görsel</string>
     <string name="media_type_file">Dosya</string>
 
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
-
     <string name="notification_sent_image">📷 görsel gönderdi</string>
     <string name="notification_sent_voice">🎤 sesli mesaj gönderdi</string>
     <string name="notification_sent_file">📎 dosya gönderdi</string>

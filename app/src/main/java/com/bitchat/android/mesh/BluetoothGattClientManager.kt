@@ -95,9 +95,6 @@ class BluetoothGattClientManager(
     private var scanWatchdogJob: Job? = null
     private var scanDutyCycleJob: Job? = null
     
-    // RSSI monitoring state
-    private var rssiMonitoringJob: Job? = null
-    
     // State management
     private var isActive = false
     
@@ -133,8 +130,6 @@ class BluetoothGattClientManager(
         
         connectionScope.launch {
             applyPowerProfile(powerManager.profile.value)
-            // Start RSSI monitoring
-            startRSSIMonitoring()
         }
         
         return true
@@ -151,7 +146,6 @@ class BluetoothGattClientManager(
         if (!isActive) {
             // Idempotent stop
             stopScanning()
-            stopRSSIMonitoring()
             return
         }
 
@@ -167,7 +161,6 @@ class BluetoothGattClientManager(
             } catch (_: Exception) { }
             
             stopScanning()
-            stopRSSIMonitoring()
             Log.i(TAG, "GATT client manager stopped")
         }
     }
@@ -183,40 +176,6 @@ class BluetoothGattClientManager(
         } else {
             stopScanning()
         }
-    }
-    
-    /**
-     * Start periodic RSSI monitoring for all client connections
-     */
-    private fun startRSSIMonitoring() {
-        rssiMonitoringJob?.cancel()
-        rssiMonitoringJob = connectionScope.launch {
-            while (isActive) {
-                try {
-                    // Request RSSI from all client connections
-                    val connectedDevices = connectionTracker.getConnectedDevices()
-                    connectedDevices.values.filter { it.isClient && it.gatt != null }.forEach { deviceConn ->
-                        try {
-                            deviceConn.gatt?.readRemoteRssi()
-                        } catch (e: Exception) {
-                            Log.d(TAG, "Failed to request RSSI from ${deviceConn.device.address}: ${e.message}")
-                        }
-                    }
-                    delay(powerManager.profile.value.ble.rssiPollIntervalMs)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error in RSSI monitoring: ${e.message}")
-                    delay(powerManager.profile.value.ble.rssiPollIntervalMs)
-                }
-            }
-        }
-    }
-    
-    /**
-     * Stop RSSI monitoring
-     */
-    private fun stopRSSIMonitoring() {
-        rssiMonitoringJob?.cancel()
-        rssiMonitoringJob = null
     }
     
     /**
@@ -627,17 +586,6 @@ class BluetoothGattClientManager(
                 }
             }
             
-            override fun onReadRemoteRssi(gatt: BluetoothGatt, rssi: Int, status: Int) {
-                val deviceAddress = gatt.device.address
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    // Update the connection tracker with new RSSI value
-                    connectionTracker.updateDeviceConnectionIfCurrent(deviceAddress, linkID) {
-                        it.copy(rssi = rssi)
-                    }
-                } else {
-                    Log.d(TAG, "Failed to read RSSI for $deviceAddress, status: $status")
-                }
-            }
         }
         
         try {

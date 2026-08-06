@@ -8,6 +8,7 @@ import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -160,5 +161,31 @@ class CommandProcessorTest() {
       chatState.getChannelMessagesValue()["geo:$geohash"]?.single()?.content
     )
     assertEquals(0, chatState.getMessagesValue().size)
+  }
+
+  @Test
+  fun `clearSuggestions hides the command suggestion popup`() {
+    // Typing "/" opens the command popup.
+    commandProcessor.updateCommandSuggestions("/")
+    assertTrue(chatState.getShowCommandSuggestionsValue())
+
+    // The send handlers call this after clearing the field in code, which does
+    // not run the text-change handler that normally hides the popup.
+    commandProcessor.clearSuggestions()
+    assertFalse(chatState.getShowCommandSuggestionsValue())
+    assertTrue(chatState.getCommandSuggestionsValue().isEmpty())
+  }
+
+  @Test
+  fun `clearSuggestions hides the mention suggestion popup`() {
+    whenever(meshService.getPeerNicknames()).thenReturn(mapOf("peer-1" to "alice"))
+
+    // Typing "@a" opens the mention popup.
+    commandProcessor.updateMentionSuggestions("@a", meshService, viewModel = null)
+    assertTrue(chatState.getShowMentionSuggestionsValue())
+
+    commandProcessor.clearSuggestions()
+    assertFalse(chatState.getShowMentionSuggestionsValue())
+    assertTrue(chatState.getMentionSuggestionsValue().isEmpty())
   }
 }

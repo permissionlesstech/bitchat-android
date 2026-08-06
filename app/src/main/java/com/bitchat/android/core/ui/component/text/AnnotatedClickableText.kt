@@ -52,6 +52,7 @@ fun AnnotatedClickableText(
     softWrap: Boolean = true,
     overflow: TextOverflow = TextOverflow.Clip,
     style: TextStyle = LocalTextStyle.current,
+    onTextLayout: ((TextLayoutResult) -> Unit)? = null,
 ) {
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val currentOnAnnotationClick by rememberUpdatedState(onAnnotationClick)
@@ -91,6 +92,9 @@ fun AnnotatedClickableText(
         softWrap = softWrap,
         overflow = overflow,
         style = style,
-        onTextLayout = { layoutResult = it },
+        onTextLayout = { result ->
+            layoutResult = result
+            onTextLayout?.invoke(result)
+        },
     )
 }

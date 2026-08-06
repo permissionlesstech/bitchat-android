@@ -1849,7 +1849,9 @@ fun PrivateChatSheet(
                         onMessageTextChange = { newText ->
                             messageText = newText
                             viewModel.setConversationDraft(peerID, newText.text)
-                            viewModel.updateMentionSuggestions(newText.text)
+                            // Do not update the shared suggestion state here: this sheet
+                            // renders its own popups as hidden, so an update only leaves
+                            // a stale popup behind for the main composer.
                         },
                         onSend = {
                             if (messageText.text.trim().isNotEmpty()) {
