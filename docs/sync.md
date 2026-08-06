@@ -72,7 +72,7 @@ Sender behavior:
 Receiver behavior:
 - Decode the REQUEST_SYNC payload and reconstruct the sorted set of mapped values using the provided P, M, and bitstream.
 - For each locally stored public packet ID:
-  - Compute h64(ID) % M and check if it is in the reconstructed set; if NOT present, send the original packet back with `ttl=0` to the requester only.
+  - Compute h64(ID) % M and check if it is in the reconstructed set; if NOT present, send the original packet back with `ttl=0` and the RSR flag (`0x10` in the packet header) set, to the requester only.
   - For announcements, send only the latest announcement per (sender peerID).
   - For broadcast messages, send all missing ones.
 
@@ -83,7 +83,7 @@ Announcement retention and pruning (consensus):
 - LEAVE handling: upon receiving a LEAVE message from a peer, immediately remove that peer’s stored announcement from the sync candidate set.
 - Stale/offline peer handling: when a peer is considered stale/offline (e.g., last announcement older than 60 seconds), immediately remove that peer’s stored announcement from the sync candidate set.
 
-Important: original packets are sent unmodified to preserve original signatures (e.g., ANNOUNCE). They MUST NOT be relayed beyond immediate neighbors. Implementations SHOULD send these response packets with TTL=0 (local-only) and, when possible, route them only to the requesting peer without altering the original packet contents.
+Important: original packets are sent unmodified to preserve original signatures (e.g., ANNOUNCE), except for two header fields that are outside the signed bytes: TTL, and the RSR flag (`0x10`), which marks the packet as a solicited sync response so a receiver applying a timestamp freshness window can exempt it. They MUST NOT be relayed beyond immediate neighbors. Implementations SHOULD send these response packets with TTL=0 (local-only) and, when possible, route them only to the requesting peer.
 
 ## Scope and Types Included
 
@@ -122,6 +122,7 @@ Backed by `DebugPreferenceManager` getters and setters:
 ## Compatibility Notes
 
 - GCS hashing and TLV structures are fully specified above; other implementations should use the same hashing scheme and payload layout for interoperability.
+- Responses set the RSR flag (`0x10`) in the packet header. The flag is excluded from the signing preimage on both platforms, like TTL, so an archived packet can be marked when served without invalidating its signature.
 - REQUEST_SYNC and responses are local-only and MUST NOT be relayed. Implementations SHOULD use TTL=0 to prevent relaying. If an implementation requires TTL>0 for local delivery, it MUST still ensure that REQUEST_SYNC and responses are not relayed beyond direct neighbors (e.g., by special-casing these types in relay logic).
 
 ## Consensus vs. Configurable
