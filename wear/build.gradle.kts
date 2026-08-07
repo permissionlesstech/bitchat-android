@@ -98,6 +98,9 @@ val sharedSourceIncludes = listOf(
 )
 val sharedSourceExcludes = listOf(
     "com/bitchat/android/model/FileSharingManager.kt",
+    // The phone gate reads phone-only BuildConfig fields. Wear shares mesh consumers of the
+    // gate, but does not ship NDR, so it provides a same-FQN fail-closed implementation.
+    "com/bitchat/android/model/NdrFeatureGate.kt",
     // Legacy phone monolith and Wi-Fi Aware multiplexer; the watch composes its own service
     // (MeshCore-style) in M2 instead of reusing these.
     "com/bitchat/android/mesh/BluetoothMeshService.kt",
