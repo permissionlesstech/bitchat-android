@@ -38,6 +38,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ env.RELEASE_TAG }}
+          submodules: recursive
 
       - name: Verify workflow provenance ref
         run: |
@@ -51,6 +52,23 @@ jobs:
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-disabled: true
+
+      - name: Set up Rust 1.95.0
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - name: Set up Android NDK
+        run: sdkmanager "ndk;28.2.13676358"
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --version 4.1.2 --locked
+
+      - name: Build NDR FFI from pinned source
+        run: ./app/src/main/ndr-ffi/build-android.sh
+
+      - name: Verify generated NDR binding is current
+        run: git diff --exit-code -- app/src/main/java/uniffi/ndr_ffi/ndr_ffi.kt
 
       - name: Build canonical unsigned APKs and AAB
         run: tools/reproducible-builds/build-in-container.sh "$RUNNER_TEMP/release-${{ matrix.replica }}"

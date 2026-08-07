@@ -87,6 +87,7 @@ if ! [[ "$source_commit" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
   exit 1
 fi
 native_manifest_sha256="$(sha256sum "$PROJECT_ROOT/tools/arti-build/SHA256SUMS" | awk '{print $1}')"
+ndr_source_revision="$(tr -d '[:space:]' < "$PROJECT_ROOT/app/src/main/ndr-ffi/SOURCE_REVISION")"
 
 cat > "$OUTPUT_DIR/BUILDINFO.json" <<EOF
 {
@@ -97,7 +98,8 @@ cat > "$OUTPUT_DIR/BUILDINFO.json" <<EOF
   "gradleVersion": "$GRADLE_VERSION",
   "androidCompileSdk": "$ANDROID_COMPILE_SDK",
   "androidBuildToolsVersion": "$ANDROID_BUILD_TOOLS_VERSION",
-  "nativeManifestSha256": "$native_manifest_sha256"
+  "nativeManifestSha256": "$native_manifest_sha256",
+  "ndrSourceRevision": "$ndr_source_revision"
 }
 EOF
 

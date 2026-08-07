@@ -79,6 +79,8 @@ class NostrClient private constructor(private val context: Context) {
     fun shutdown() {
         Log.d(TAG, "Shutting down Nostr client")
         relayManager.disconnect()
+        currentIdentity = null
+        _currentNpub.value = null
         _isInitialized.value = false
     }
     
@@ -91,13 +93,22 @@ class NostrClient private constructor(private val context: Context) {
         onSuccess: (() -> Unit)? = null,
         onError: ((String) -> Unit)? = null
     ) {
-        val identity = currentIdentity
+        val accountGeneration = relayManager.captureAccountGeneration()
+        if (!relayManager.isAccountGenerationCurrent(accountGeneration)) {
+            onError?.invoke("Nostr account is resetting")
+            return
+        }
+        val identity = NostrIdentityBridge.getCurrentNostrIdentity(context)
         if (identity == null) {
             onError?.invoke("Nostr client not initialized")
             return
         }
         
         scope.launch {
+            if (!relayManager.isAccountGenerationCurrent(accountGeneration)) {
+                onError?.invoke("Nostr account changed before send")
+                return@launch
+            }
             try {
                 // Decode recipient npub to hex pubkey
                 val (hrp, pubkeyBytes) = Bech32.decode(recipientNpub)
@@ -116,9 +127,18 @@ class NostrClient private constructor(private val context: Context) {
                 )
                 
                 // Track and send all gift wraps
-                giftWraps.forEach { wrap ->
-                    NostrRelayManager.registerPendingGiftWrap(wrap.id)
-                    relayManager.sendEvent(wrap)
+                val admitted = giftWraps.all { wrap ->
+                    relayManager.registerPendingGiftWrap(
+                        wrap.id,
+                        accountGeneration
+                    ) && relayManager.sendEvent(
+                        event = wrap,
+                        expectedAccountGeneration = accountGeneration
+                    )
+                }
+                if (!admitted) {
+                    onError?.invoke("Nostr account changed before send")
+                    return@launch
                 }
                 
                 Log.i(TAG, "📤 Sent private message to ${recipientNpub.take(16)}...")
@@ -135,7 +155,9 @@ class NostrClient private constructor(private val context: Context) {
      * Subscribe to private messages for current identity
      */
     fun subscribeToPrivateMessages(handler: (content: String, senderNpub: String, timestamp: Int) -> Unit) {
-        val identity = currentIdentity
+        val accountGeneration = relayManager.captureAccountGeneration()
+        if (!relayManager.isAccountGenerationCurrent(accountGeneration)) return
+        val identity = NostrIdentityBridge.getCurrentNostrIdentity(context)
         if (identity == null) {
             Log.e(TAG, "Cannot subscribe to private messages: client not initialized")
             return
@@ -146,11 +168,18 @@ class NostrClient private constructor(private val context: Context) {
             since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
         )
         
-        relayManager.subscribe(filter, "private-messages", { giftWrap ->
-            scope.launch {
-                handlePrivateMessage(giftWrap, handler)
-            }
-        })
+        relayManager.subscribe(
+            filter = filter,
+            id = "private-messages",
+            handler = { giftWrap ->
+                scope.launch {
+                    if (relayManager.isAccountGenerationCurrent(accountGeneration)) {
+                        handlePrivateMessage(giftWrap, handler)
+                    }
+                }
+            },
+            expectedAccountGeneration = accountGeneration
+        )
         
         Log.i(TAG, "🔑 Subscribed to private messages for: ${identity.getShortNpub()}")
     }
@@ -165,7 +194,12 @@ class NostrClient private constructor(private val context: Context) {
         onSuccess: (() -> Unit)? = null,
         onError: ((String) -> Unit)? = null
     ) {
+        val accountGeneration = relayManager.captureAccountGeneration()
         scope.launch {
+            if (!relayManager.isAccountGenerationCurrent(accountGeneration)) {
+                onError?.invoke("Nostr account changed before send")
+                return@launch
+            }
             try {
                 // Derive geohash-specific identity
                 val geohashIdentity = NostrIdentityBridge.deriveIdentity(geohash, context)
@@ -178,7 +212,14 @@ class NostrClient private constructor(private val context: Context) {
                     nickname = nickname
                 )
                 
-                relayManager.sendEvent(event)
+                if (!relayManager.sendEvent(
+                        event = event,
+                        expectedAccountGeneration = accountGeneration
+                    )
+                ) {
+                    onError?.invoke("Nostr account changed before send")
+                    return@launch
+                }
                 
                 Log.i(TAG, "📤 Sent geohash message")
                 onSuccess?.invoke()
@@ -197,17 +238,26 @@ class NostrClient private constructor(private val context: Context) {
         geohash: String,
         handler: (content: String, senderPubkey: String, nickname: String?, timestamp: Int) -> Unit
     ) {
+        val accountGeneration = relayManager.captureAccountGeneration()
+        if (!relayManager.isAccountGenerationCurrent(accountGeneration)) return
         val filter = NostrFilter.geohashEphemeral(
             geohash = geohash,
             since = System.currentTimeMillis() - 3600000L, // Last hour
             limit = 200
         )
         
-        relayManager.subscribe(filter, "geohash-$geohash", { event ->
-            scope.launch {
-                handleGeohashMessage(event, handler)
-            }
-        })
+        relayManager.subscribe(
+            filter = filter,
+            id = "geohash-$geohash",
+            handler = { event ->
+                scope.launch {
+                    if (relayManager.isAccountGenerationCurrent(accountGeneration)) {
+                        handleGeohashMessage(event, handler)
+                    }
+                }
+            },
+            expectedAccountGeneration = accountGeneration
+        )
         
         Log.i(TAG, "🌍 Subscribed to geohash channel")
     }
@@ -223,7 +273,8 @@ class NostrClient private constructor(private val context: Context) {
     /**
      * Get current identity information
      */
-    fun getCurrentIdentity(): NostrIdentity? = currentIdentity
+    fun getCurrentIdentity(): NostrIdentity? =
+        NostrIdentityBridge.getCurrentNostrIdentity(context)
     
     /**
      * Get relay connection status
@@ -248,7 +299,8 @@ class NostrClient private constructor(private val context: Context) {
             return
         }
         
-        val identity = currentIdentity ?: return
+        val identity = NostrIdentityBridge.getCurrentNostrIdentity(context)
+            ?: return
         
         try {
             val decryptResult = NostrProtocol.decryptPrivateMessage(giftWrap, identity)

@@ -29,6 +29,14 @@ import kotlin.random.asKotlinRandom
 object NostrBackgroundRuntime {
     private const val TAG = "NostrBackground"
 
+    private data class ActiveAccount(val epoch: NostrAccountEpoch)
+
+    private data class GeohashDmSubscription(
+        val geohash: String,
+        val id: String,
+        val liveLocationToken: Long?
+    )
+
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val random = SecureRandom().asKotlinRandom()
     private val lock = Any()
@@ -37,6 +45,12 @@ object NostrBackgroundRuntime {
     @Volatile private var activeGeohash: String? = null
     @Volatile private var activeGeohashLiveToken: Long? = null
     @Volatile private var conversationGeohash: String? = null
+    private var activeGeohashSubscriptionsEnabled = false
+    private var activeAccount: ActiveAccount? = null
+    private var subscriptionRevision = 0L
+    private val installedGeohashDmSubscriptions =
+        mutableMapOf<String, GeohashDmSubscription>()
+    private val pendingGeohashDmSubscriptions = mutableSetOf<String>()
     private lateinit var application: Application
     private lateinit var subscriptions: NostrSubscriptionManager
     private lateinit var locationChannels: LocationChannelManager
@@ -57,51 +71,88 @@ object NostrBackgroundRuntime {
         }
 
         subscriptions.connect()
-        subscribeAccountDm()
+        synchronized(lock) {
+            configureAccountLocked()
+        }
         observeSelectedChannel()
         startPresenceScheduler()
     }
 
+    /**
+     * Cancel every account-bound receive before account storage or identity is
+     * cleared. The relay connection remains process-owned and can be reused
+     * after the caller completes its account reset.
+     */
+    fun invalidateAccount() {
+        synchronized(lock) {
+            if (!initialized) return
+            invalidateAccountLocked()
+        }
+    }
+
+    /**
+     * Atomically replace process-owned subscriptions for the current identity.
+     *
+     * Ordered unsubscribe/subscribe operations and captured account epochs
+     * avoid the former delay-based CLOSE/REQ race.
+     */
     fun resetSubscriptions() {
-        if (!initialized) return
-        subscriptions.unsubscribeAllOwned()
-        scope.launch {
-            // Let CLOSE frames be queued before replacing the deterministic IDs.
-            delay(100)
-            subscribeAccountDm()
-            activeGeohash?.let { geohash ->
-                subscribeSelectedGeohash(geohash, activeGeohashLiveToken)
-            }
+        synchronized(lock) {
+            if (!initialized) return
+            invalidateAccountLocked()
+            subscriptions.connect()
+            configureAccountLocked()
         }
     }
 
     fun ensureConversationDm(geohash: String) {
-        if (!initialized || geohash == conversationGeohash) return
-        val selectedLiveToken = activeGeohashLiveToken
-        val selectedChannelSubscriptionIsUsable =
-            geohash == activeGeohash &&
-                (selectedLiveToken == null ||
-                    LiveLocationPrivacyGate.accepts(selectedLiveToken))
-        if (selectedChannelSubscriptionIsUsable) return
-        conversationGeohash?.let { subscriptions.unsubscribe("geo-dm-conversation-$it") }
-        conversationGeohash = geohash
-        subscribeGeohashDm(
-            geohash = geohash,
-            subscriptionId = "geo-dm-conversation-$geohash",
-            liveLocationToken = null
-        )
+        synchronized(lock) {
+            if (!initialized) return
+            val selectedLiveToken = activeGeohashLiveToken
+            val selectedChannelSubscriptionIsUsable =
+                activeGeohashSubscriptionsEnabled &&
+                    geohash == activeGeohash &&
+                    (selectedLiveToken == null ||
+                        LiveLocationPrivacyGate.accepts(selectedLiveToken))
+            conversationGeohash =
+                if (selectedChannelSubscriptionIsUsable) null else geohash
+            rebuildGeohashDmSubscriptionsLocked()
+        }
     }
 
-    private fun subscribeAccountDm() {
+    internal fun currentAccountEpoch(): NostrAccountEpoch? =
+        synchronized(lock) { activeAccount?.epoch }
+
+    private fun configureAccountLocked() {
         val identity = NostrIdentityBridge.getCurrentNostrIdentity(application) ?: return
+        val epoch = eventProcessor.configureAccount(identity)
+        if (!NostrInboundAccountLifecycle.isCurrent(epoch)) return
+        activeAccount = ActiveAccount(epoch)
+
         subscriptions.subscribeGiftWraps(
             pubkey = identity.publicKeyHex,
             sinceMs = System.currentTimeMillis() - 172_800_000L,
             id = "chat-messages",
             handler = { event ->
-                eventProcessor.onAccountDm(event, identity)
+                eventProcessor.onAccountDm(event, identity, epoch)
             }
         )
+        activeGeohash
+            ?.takeIf { activeGeohashSubscriptionsEnabled }
+            ?.let { subscribeSelectedGeohashLocked(it, activeGeohashLiveToken) }
+        rebuildGeohashDmSubscriptionsLocked()
+    }
+
+    private fun invalidateAccountLocked() {
+        activeAccount = null
+        conversationGeohash = null
+        subscriptionRevision += 1
+        pendingGeohashDmSubscriptions.clear()
+        // Invalidate first so an in-flight async derivation cannot install a
+        // subscription after unsubscribeAllOwned().
+        eventProcessor.invalidateAccount()
+        subscriptions.unsubscribeAllOwned()
+        installedGeohashDmSubscriptions.clear()
     }
 
     private fun observeSelectedChannel() {
@@ -112,74 +163,169 @@ object NostrBackgroundRuntime {
                 val nextToken = locationChannel?.let {
                     locationChannels.liveLocationTokenForSelectedChannel(it.channel)
                 }
-                val previous = activeGeohash
-                if (previous == next && activeGeohashLiveToken == nextToken) {
-                    return@collectLatest
-                }
-
-                previous?.let {
-                    subscriptions.unsubscribe("geohash-$it")
-                    subscriptions.unsubscribe("geo-dm-$it")
-                }
-                activeGeohash = next
-                activeGeohashLiveToken = nextToken
-                if (conversationGeohash == next) {
-                    subscriptions.unsubscribe("geo-dm-conversation-$next")
-                    conversationGeohash = null
-                }
-                next?.let { geohash ->
-                    val isLiveDerived =
-                        locationChannels.isSelectedChannelLiveDerived(locationChannel.channel)
-                    if (!isLiveDerived || nextToken != null) {
-                        subscribeSelectedGeohash(geohash, nextToken)
+                synchronized(lock) {
+                    val previous = activeGeohash
+                    if (previous == next && activeGeohashLiveToken == nextToken) {
+                        return@synchronized
                     }
+
+                    previous?.let {
+                        subscriptions.unsubscribe("geohash-$it")
+                    }
+                    activeGeohash = next
+                    activeGeohashLiveToken = nextToken
+                    activeGeohashSubscriptionsEnabled =
+                        locationChannel == null ||
+                            !locationChannels
+                                .isSelectedChannelLiveDerived(locationChannel.channel) ||
+                            nextToken != null
+                    if (conversationGeohash == next) {
+                        conversationGeohash = null
+                    }
+                    next
+                        ?.takeIf { activeGeohashSubscriptionsEnabled }
+                        ?.let { geohash ->
+                            subscribeSelectedGeohashLocked(geohash, nextToken)
+                        }
+                    rebuildGeohashDmSubscriptionsLocked()
                 }
             }
         }
     }
 
-    private fun subscribeSelectedGeohash(
+    private fun subscribeSelectedGeohashLocked(
         geohash: String,
         liveLocationToken: Long?
     ) {
+        val account = activeAccount ?: return
         subscriptions.subscribeGeohashMessages(
             geohash = geohash,
             sinceMs = System.currentTimeMillis() - 3_600_000L,
             limit = 200,
             id = "geohash-$geohash",
-            handler = { event -> eventProcessor.onGeohashMessage(event, geohash) },
+            handler = { event ->
+                eventProcessor.onGeohashMessage(event, geohash, account.epoch)
+            },
             liveLocationToken = liveLocationToken
         )
-        subscribeGeohashDm(geohash, "geo-dm-$geohash", liveLocationToken)
     }
 
-    private fun subscribeGeohashDm(
-        geohash: String,
-        subscriptionId: String,
-        liveLocationToken: Long?
-    ) {
-        scope.launch {
-            val subscribe = {
-                val identity = NostrIdentityBridge.deriveIdentity(geohash, application)
-                subscriptions.subscribeGiftWraps(
-                    pubkey = identity.publicKeyHex,
-                    sinceMs = System.currentTimeMillis() - 172_800_000L,
-                    id = subscriptionId,
-                    handler = { event ->
-                        eventProcessor.onGeohashDm(event, geohash, identity)
-                    },
-                    liveLocationToken = liveLocationToken
-                )
-                GeohashAliasRegistry.put(
-                    "nostr_${identity.publicKeyHex.take(16)}",
-                    identity.publicKeyHex
+    private fun rebuildGeohashDmSubscriptionsLocked() {
+        val account = activeAccount
+        subscriptionRevision += 1
+        val revision = subscriptionRevision
+        pendingGeohashDmSubscriptions.clear()
+
+        val required = if (account == null) {
+            emptyMap()
+        } else {
+            requiredGeohashDmSubscriptionsLocked()
+        }
+        installedGeohashDmSubscriptions.keys
+            .filter { id -> installedGeohashDmSubscriptions[id] != required[id] }
+            .forEach { id ->
+                subscriptions.unsubscribe(id)
+                installedGeohashDmSubscriptions.remove(id)
+            }
+        if (account == null) return
+
+        required.values.forEach { request ->
+            if (installedGeohashDmSubscriptions[request.id] == request) return@forEach
+            pendingGeohashDmSubscriptions.add(request.id)
+            scheduleGeohashDmSubscriptionLocked(account, request, revision)
+        }
+    }
+
+    private fun requiredGeohashDmSubscriptionsLocked():
+        Map<String, GeohashDmSubscription> {
+        val required = linkedMapOf<String, GeohashDmSubscription>()
+        val selected = activeGeohash
+            ?.takeIf { activeGeohashSubscriptionsEnabled }
+            ?.let { geohash ->
+                GeohashDmSubscription(
+                    geohash = geohash,
+                    id = "geo-dm-$geohash",
+                    liveLocationToken = activeGeohashLiveToken
                 )
             }
+        if (selected != null) {
+            required[selected.id] = selected
+        }
 
-            if (liveLocationToken == null) {
-                subscribe()
-            } else {
-                LiveLocationPrivacyGate.runIfAllowed(liveLocationToken, subscribe)
+        val conversation = conversationGeohash
+        val selectedCoversConversation =
+            conversation != null &&
+                selected?.geohash == conversation &&
+                (selected.liveLocationToken == null ||
+                    LiveLocationPrivacyGate.accepts(selected.liveLocationToken))
+        if (conversation != null && !selectedCoversConversation) {
+            val request = GeohashDmSubscription(
+                geohash = conversation,
+                id = "geo-dm-conversation-$conversation",
+                liveLocationToken = null
+            )
+            required[request.id] = request
+        }
+        return required
+    }
+
+    private fun scheduleGeohashDmSubscriptionLocked(
+        account: ActiveAccount,
+        request: GeohashDmSubscription,
+        revision: Long
+    ) {
+        val accountContext =
+            NostrInboundAccountLifecycle.contextFor(account.epoch)
+                ?: return
+        accountContext.receiveScope.launch {
+            synchronized(lock) {
+                if (revision != subscriptionRevision ||
+                    activeAccount != account ||
+                    requiredGeohashDmSubscriptionsLocked()[request.id] != request
+                ) {
+                    return@synchronized
+                }
+                var didSubscribe = false
+                val installed =
+                    NostrInboundAccountLifecycle.runIfCurrent(account.epoch) {
+                        val subscribe = {
+                            val identity = NostrIdentityBridge.deriveIdentity(
+                                request.geohash,
+                                application
+                            )
+                            subscriptions.subscribeGiftWraps(
+                                pubkey = identity.publicKeyHex,
+                                sinceMs = System.currentTimeMillis() - 172_800_000L,
+                                id = request.id,
+                                handler = { event ->
+                                    eventProcessor.onGeohashDm(
+                                        event,
+                                        request.geohash,
+                                        identity,
+                                        account.epoch
+                                    )
+                                },
+                                liveLocationToken = request.liveLocationToken
+                            )
+                            didSubscribe = true
+                            GeohashAliasRegistry.put(
+                                "nostr_${identity.publicKeyHex.take(16)}",
+                                identity.publicKeyHex
+                            )
+                        }
+                        if (request.liveLocationToken == null) {
+                            subscribe()
+                        } else {
+                            LiveLocationPrivacyGate.runIfAllowed(
+                                request.liveLocationToken,
+                                subscribe
+                            )
+                        }
+                    }
+                pendingGeohashDmSubscriptions.remove(request.id)
+                if (installed && didSubscribe) {
+                    installedGeohashDmSubscriptions[request.id] = request
+                }
             }
         }
     }
@@ -216,32 +362,56 @@ object NostrBackgroundRuntime {
                     // Send every target in one wake window; do not spread the batch over seconds.
                     targets.forEach { geohash ->
                         try {
-                            val token = LiveLocationPrivacyGate.captureToken()
-                                ?: return@forEach
-                            if (geohash !in GeohashNostrPrivacyPolicy.livePresenceTargets(
-                                    availableChannels = locationChannels.availableChannels.value,
-                                    liveLocationEnabled = true
-                                )
-                            ) return@forEach
-
+                            val account =
+                                synchronized(lock) { activeAccount }
+                                    ?: return@forEach
+                            var token: Long? = null
                             var identity: NostrIdentity? = null
-                            LiveLocationPrivacyGate.runIfAllowed(token) {
-                                identity = NostrIdentityBridge.deriveIdentity(geohash, application)
-                            }
-                            val preparedIdentity = identity ?: return@forEach
-                            if (!LiveLocationPrivacyGate.accepts(token)) return@forEach
+                            val prepared =
+                                NostrInboundAccountLifecycle.runIfCurrent(
+                                    account.epoch
+                                ) mutation@{
+                                    val capturedToken =
+                                        LiveLocationPrivacyGate.captureToken()
+                                        ?: return@mutation
+                                    token = capturedToken
+                                    if (geohash !in
+                                        GeohashNostrPrivacyPolicy.livePresenceTargets(
+                                            availableChannels =
+                                                locationChannels.availableChannels.value,
+                                            liveLocationEnabled = true
+                                        )
+                                    ) return@mutation
+
+                                    LiveLocationPrivacyGate.runIfAllowed(capturedToken) {
+                                        identity = NostrIdentityBridge.deriveIdentity(
+                                            geohash,
+                                            application
+                                        )
+                                    }
+                                }
+                            val liveToken = token
+                            val preparedIdentity = identity
+                            if (!prepared ||
+                                liveToken == null ||
+                                preparedIdentity == null ||
+                                !LiveLocationPrivacyGate.accepts(liveToken)
+                            ) return@forEach
                             val event = NostrProtocol.createGeohashPresenceEvent(
                                 geohash,
                                 preparedIdentity
                             )
-                            LiveLocationPrivacyGate.runIfAllowed(token) {
-                                NostrRelayManager.getInstance(application).sendEventToGeohash(
-                                    event = event,
-                                    geohash = geohash,
-                                    includeDefaults = false,
-                                    nRelays = 5,
-                                    liveLocationToken = token
-                                )
+                            NostrInboundAccountLifecycle.runIfCurrent(account.epoch) {
+                                LiveLocationPrivacyGate.runIfAllowed(liveToken) {
+                                    NostrRelayManager.getInstance(application)
+                                        .sendEventToGeohash(
+                                            event = event,
+                                            geohash = geohash,
+                                            includeDefaults = false,
+                                            nRelays = 5,
+                                            liveLocationToken = liveToken
+                                        )
+                                }
                             }
                         } catch (e: CancellationException) {
                             throw e

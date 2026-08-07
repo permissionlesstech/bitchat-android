@@ -43,6 +43,35 @@ trap cleanup EXIT
 # nested bind mounts, which are not portable across Docker runtimes.
 git -C "$PROJECT_ROOT" archive --format=tar "$source_commit" |
   tar -xf - -C "$staging_root"
+
+# NDR native libraries are deliberately source-built and ignored by Git. Admit only the four
+# expected ABI outputs after the tracked Kotlin binding and pinned submodule have been verified.
+NDR_BINDING="app/src/main/java/uniffi/ndr_ffi/ndr_ffi.kt"
+NDR_SUBMODULE="vendor/nostr-double-ratchet"
+NDR_EXPECTED_REVISION="$(tr -d '[:space:]' < "$PROJECT_ROOT/app/src/main/ndr-ffi/SOURCE_REVISION")"
+NDR_ACTUAL_REVISION="$(git -C "$PROJECT_ROOT/$NDR_SUBMODULE" rev-parse HEAD)"
+if [ "$NDR_ACTUAL_REVISION" != "$NDR_EXPECTED_REVISION" ]; then
+  echo "error: NDR source revision does not match the pinned revision" >&2
+  exit 1
+fi
+if [ -n "$(git -C "$PROJECT_ROOT/$NDR_SUBMODULE" status --porcelain --untracked-files=all)" ]; then
+  echo "error: NDR source has local changes" >&2
+  exit 1
+fi
+if ! git -C "$PROJECT_ROOT" diff --quiet -- "$NDR_BINDING"; then
+  echo "error: generated NDR Kotlin binding is not current" >&2
+  exit 1
+fi
+for abi in arm64-v8a armeabi-v7a x86_64 x86; do
+  ndr_library="app/src/main/jniLibs/$abi/libndr_ffi.so"
+  if [ ! -f "$PROJECT_ROOT/$ndr_library" ]; then
+    echo "error: missing source-built NDR library for $abi" >&2
+    exit 1
+  fi
+  mkdir -p "$staging_root/app/src/main/jniLibs/$abi"
+  cp "$PROJECT_ROOT/$ndr_library" "$staging_root/$ndr_library"
+done
+
 cp "$CONTAINER_LOCAL_PROPERTIES" "$staging_root/local.properties"
 
 gradle_home="$PROJECT_ROOT/.reproducible-build/$GRADLE_HOME_NAME"

@@ -876,12 +876,13 @@ internal class ConversationDatabase(
         }
 
         if (!found) return
-        val mayReplace = when {
-            status is DeliveryStatus.Failed ->
-                existing !is DeliveryStatus.Delivered && existing !is DeliveryStatus.Read
-            existing is DeliveryStatus.Failed -> true
-            else -> statusPriority(status) >= statusPriority(existing)
-        }
+        val acceptsLocalFailure = status is DeliveryStatus.Failed &&
+            (existing == null ||
+                existing is DeliveryStatus.Sending ||
+                existing is DeliveryStatus.Failed)
+        val rejectsLateFailure = status is DeliveryStatus.Failed && !acceptsLocalFailure
+        val mayReplace = !rejectsLateFailure &&
+            (acceptsLocalFailure || statusPriority(status) >= statusPriority(existing))
         if (!mayReplace) return
         db.inTransaction {
             val current = rawQuery(

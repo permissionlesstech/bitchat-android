@@ -5,6 +5,7 @@ import android.util.Log
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.nostr.NostrSendAdmission
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.CoroutineScope
@@ -19,14 +20,39 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Routes messages between local mesh transports and Nostr, matching iOS behavior.
  */
-class MessageRouter private constructor(
+internal fun interface NostrPrivateMessageSender {
+    fun sendPrivateMessage(
+        content: String,
+        to: String,
+        recipientNickname: String,
+        messageID: String,
+        completion: (NostrSendAdmission) -> Unit
+    )
+}
+
+@JvmInline
+internal value class MessageRouterResetToken(val epoch: Long)
+
+class MessageRouter internal constructor(
     private val context: Context,
     private var mesh: MeshService,
-    private val nostr: NostrTransport
+    private val nostr: NostrTransport,
+    private val privateNostrSender: NostrPrivateMessageSender =
+        NostrPrivateMessageSender { content, to, recipientNickname, messageID, completion ->
+            nostr.sendPrivateMessage(
+                content = content,
+                to = to,
+                recipientNickname = recipientNickname,
+                messageID = messageID,
+                completion = completion
+            )
+        },
+    private val canSendViaNostrOverride: ((String) -> Boolean)? = null
 ) {
     enum class RouteResult {
         MESH,
         NOSTR,
+        NOSTR_PENDING,
         QUEUED,
         DROPPED
     }
@@ -41,6 +67,12 @@ class MessageRouter private constructor(
     private data class ConversationRetry(
         val handshakeAttempts: Int,
         val nextHandshakeAttemptAtMs: Long
+    )
+
+    private data class InFlightNostrAttempt(
+        val messageID: String,
+        val generation: Long,
+        val outboxEpoch: Long
     )
 
     companion object {
@@ -86,6 +118,13 @@ class MessageRouter private constructor(
     // Per-conversation handshake retry state for queued messages
     private val retryState = ConcurrentHashMap<String, ConversationRetry>()
 
+    // A Nostr/NDR ratchet send must have one owner. Only one queued message per
+    // conversation may cross the asynchronous transport boundary at a time.
+    private val inFlightNostrAttempts = mutableMapOf<String, InFlightNostrAttempt>()
+    private var nextNostrAttemptGeneration = 0L
+    private var outboxEpoch = 0L
+    private var accountResetBlocked = false
+
     private val schedulerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var schedulerJob: kotlinx.coroutines.Job? = null
 
@@ -94,6 +133,8 @@ class MessageRouter private constructor(
 
     // Called with the messageID of queued messages that expired or were evicted
     var onMessageExpired: ((String) -> Unit)? = null
+    var onMessageAdmitted: ((String) -> Unit)? = null
+    var onMessageFailed: ((String, String) -> Unit)? = null
 
     init {
         startOutboxScheduler()
@@ -116,7 +157,12 @@ class MessageRouter private constructor(
         }
     }
 
+    @Synchronized
     fun sendPrivate(content: String, toPeerID: String, recipientNickname: String, messageID: String): RouteResult {
+        if (accountResetBlocked) {
+            notifyFailed(messageID, "Account reset in progress")
+            return RouteResult.DROPPED
+        }
         val resolution = ContactDirectory.resolve(toPeerID)
         val conversationID = resolution.conversationID
         val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
@@ -140,18 +186,24 @@ class MessageRouter private constructor(
             return RouteResult.MESH
         } else if (canSendViaNostr(nostrTarget)) {
             Log.d(TAG, "Routing PM via Nostr to ${conversationID.take(32)}… msg_id=${messageID.take(8)}…")
-            nostr.sendPrivateMessage(content, nostrTarget, recipientNickname, messageID)
-            return RouteResult.NOSTR
+            enqueue(
+                conversationID,
+                QueuedMessage(content, recipientNickname, messageID, clock())
+            )
+            flushOutboxFor(conversationID)
+            return RouteResult.NOSTR_PENDING
         } else {
             Log.d(TAG, "Queued PM for ${conversationID} (no mesh, no Nostr mapping) msg_id=${messageID.take(8)}…")
             enqueue(conversationID, QueuedMessage(content, recipientNickname, messageID, clock()))
             Log.d(TAG, "Initiating noise handshake after queueing PM for ${conversationID.take(16)}…")
-            if (hasMesh) meshTarget?.let { kickHandshake(conversationID, it, immediate = true) }
+            if (hasMesh) kickHandshake(conversationID, meshTarget, immediate = true)
             return RouteResult.QUEUED
         }
     }
 
+    @Synchronized
     fun sendReadReceipt(receipt: ReadReceipt, toPeerID: String) {
+        if (accountResetBlocked) return
         val resolution = ContactDirectory.resolve(toPeerID)
         val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
         val nostrTarget = resolution.noiseKeyHex ?: toPeerID
@@ -164,7 +216,9 @@ class MessageRouter private constructor(
         }
     }
 
+    @Synchronized
     fun sendDeliveryAck(messageID: String, toPeerID: String) {
+        if (accountResetBlocked) return
         // Mesh delivery ACKs are sent by the receiver automatically.
         // Only route via Nostr when mesh path isn't available or when this is a geohash alias
         if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(toPeerID)) {
@@ -181,7 +235,9 @@ class MessageRouter private constructor(
         }
     }
 
+    @Synchronized
     fun sendFavoriteNotification(toPeerID: String, isFavorite: Boolean) {
+        if (accountResetBlocked) return
         val resolution = ContactDirectory.resolve(toPeerID)
         val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
         if (meshTarget != null && mesh.getPeerInfo(meshTarget)?.isConnected == true && mesh.hasEstablishedSession(meshTarget)) {
@@ -200,29 +256,177 @@ class MessageRouter private constructor(
     @Synchronized
     fun flushOutboxFor(peerID: String) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
-        val queued = outbox[conversationID] ?: outbox[peerID] ?: return
+        val queued = canonicalizeQueueKey(conversationID, peerID) ?: return
         if (queued.isEmpty()) return
+        if (findInFlightAttempt(conversationID, peerID, queued) != null) return
         Log.d(TAG, "Flushing outbox for ${conversationID.take(16)}… count=${queued.size}")
-        val iterator = queued.iterator()
-        while (iterator.hasNext()) {
-            val entry = iterator.next()
-            val resolution = ContactDirectory.resolve(conversationID)
-            val meshTarget = resolution.meshPeerID
-            val nostrTarget = resolution.noiseKeyHex ?: conversationID
-            if (meshTarget != null && isReady(mesh, meshTarget)) {
+        val resolution = ContactDirectory.resolve(conversationID)
+        val meshTarget = resolution.meshPeerID
+        val nostrTarget = resolution.noiseKeyHex ?: conversationID
+        if (meshTarget != null && isReady(mesh, meshTarget)) {
+            queued.forEach { entry ->
                 mesh.sendPrivateMessage(entry.content, meshTarget, entry.nickname, entry.messageID)
-                iterator.remove()
-            } else if (canSendViaNostr(nostrTarget)) {
-                nostr.sendPrivateMessage(entry.content, nostrTarget, entry.nickname, entry.messageID)
-                iterator.remove()
             }
+            queued.clear()
+        } else if (canSendViaNostr(nostrTarget)) {
+            startNostrAttempt(
+                conversationID = conversationID,
+                target = nostrTarget,
+                entry = queued.first()
+            )
+            return
         }
         if (queued.isEmpty()) {
-            outbox.remove(conversationID, queued)
-            outbox.remove(peerID, queued)
-            retryState.remove(conversationID)
-            retryState.remove(peerID)
+            removeEmptyQueue(conversationID, peerID, queued)
         }
+    }
+
+    @Synchronized
+    private fun startNostrAttempt(
+        conversationID: String,
+        target: String,
+        entry: QueuedMessage
+    ) {
+        val queued = outbox[conversationID] ?: return
+        if (findInFlightAttempt(conversationID, conversationID, queued) != null) return
+        val attempt = InFlightNostrAttempt(
+            messageID = entry.messageID,
+            generation = ++nextNostrAttemptGeneration,
+            outboxEpoch = outboxEpoch
+        )
+        inFlightNostrAttempts[conversationID] = attempt
+        privateNostrSender.sendPrivateMessage(
+            entry.content,
+            target,
+            entry.nickname,
+            entry.messageID
+        ) { admission ->
+            finishNostrAttempt(conversationID, attempt, admission)
+        }
+    }
+
+    @Synchronized
+    private fun finishNostrAttempt(
+        conversationID: String,
+        attempt: InFlightNostrAttempt,
+        admission: NostrSendAdmission
+    ) {
+        if (attempt.outboxEpoch != outboxEpoch) return
+        val attemptEntry = inFlightNostrAttempts.entries
+            .firstOrNull { it.value === attempt }
+            ?: return
+        inFlightNostrAttempts.remove(attemptEntry.key, attempt)
+        val queueKey = outbox.entries
+            .firstOrNull { (_, queue) ->
+                queue.any { it.messageID == attempt.messageID }
+            }
+            ?.key
+            ?: conversationID
+        val currentConversationID =
+            ContactDirectory.canonicalConversationId(queueKey)
+        if (queueKey != currentConversationID) {
+            canonicalizeQueueKey(currentConversationID, queueKey)
+        }
+
+        when (admission) {
+            NostrSendAdmission.ADMITTED -> {
+                removeQueuedMessage(currentConversationID, attempt.messageID)
+                notifyAdmitted(attempt.messageID)
+                flushOutboxFor(currentConversationID)
+            }
+
+            NostrSendAdmission.RETRYABLE -> Unit
+
+            NostrSendAdmission.TERMINAL_FAILED -> {
+                removeQueuedMessage(currentConversationID, attempt.messageID)
+                notifyFailed(attempt.messageID, "Message could not be sent")
+                flushOutboxFor(currentConversationID)
+            }
+        }
+    }
+
+    private fun removeQueuedMessage(conversationID: String, messageID: String) {
+        val queued = outbox[conversationID] ?: return
+        queued.removeAll { it.messageID == messageID }
+        if (queued.isEmpty()) {
+            removeEmptyQueue(conversationID, conversationID, queued)
+        }
+    }
+
+    private fun canonicalizeQueueKey(
+        conversationID: String,
+        peerID: String
+    ): MutableList<QueuedMessage>? {
+        val canonical = outbox[conversationID]
+        val alias = outbox[peerID]
+        val queue = when {
+            canonical == null && alias != null -> {
+                outbox[conversationID] = alias
+                if (peerID != conversationID) {
+                    outbox.remove(peerID, alias)
+                }
+                alias
+            }
+
+            canonical != null && alias != null && canonical !== alias -> {
+                canonical.addAll(alias)
+                canonical.sortBy(QueuedMessage::enqueuedAtMs)
+                outbox.remove(peerID, alias)
+                canonical
+            }
+
+            else -> canonical
+        }
+        if (queue != null) {
+            migrateInFlightOwnership(conversationID, peerID, queue)
+        }
+        return queue
+    }
+
+    private fun findInFlightAttempt(
+        conversationID: String,
+        peerID: String,
+        queue: List<QueuedMessage>
+    ): Map.Entry<String, InFlightNostrAttempt>? {
+        val queuedMessageIDs = queue.asSequence()
+            .map(QueuedMessage::messageID)
+            .toSet()
+        return inFlightNostrAttempts.entries.firstOrNull { (key, attempt) ->
+            key == conversationID ||
+                key == peerID ||
+                ContactDirectory.canonicalConversationId(key) == conversationID ||
+                attempt.messageID in queuedMessageIDs
+        }
+    }
+
+    private fun migrateInFlightOwnership(
+        conversationID: String,
+        peerID: String,
+        queue: List<QueuedMessage>
+    ) {
+        val matches = inFlightNostrAttempts.entries.filter { (key, attempt) ->
+            key == peerID ||
+                ContactDirectory.canonicalConversationId(key) == conversationID ||
+                queue.any { it.messageID == attempt.messageID }
+        }
+        if (matches.size != 1 || inFlightNostrAttempts.containsKey(conversationID)) {
+            return
+        }
+        val match = matches.single()
+        if (inFlightNostrAttempts.remove(match.key, match.value)) {
+            inFlightNostrAttempts[conversationID] = match.value
+        }
+    }
+
+    private fun removeEmptyQueue(
+        conversationID: String,
+        peerID: String,
+        queued: MutableList<QueuedMessage>
+    ) {
+        outbox.remove(conversationID, queued)
+        outbox.remove(peerID, queued)
+        retryState.remove(conversationID)
+        retryState.remove(peerID)
     }
 
     // Flush everything (rarely used)
@@ -233,9 +437,21 @@ class MessageRouter private constructor(
     @Synchronized
     private fun enqueue(conversationID: String, entry: QueuedMessage) {
         val queue = outbox.getOrPut(conversationID) { mutableListOf() }
+        if (queue.any { it.messageID == entry.messageID }) return
         queue.add(entry)
         while (queue.size > OUTBOX_MAX_PER_PEER) {
-            val evicted = queue.removeAt(0)
+            val inFlightMessageIDs = inFlightNostrAttempts
+                .filter { (key, attempt) ->
+                    key == conversationID ||
+                        ContactDirectory.canonicalConversationId(key) == conversationID ||
+                        queue.any { it.messageID == attempt.messageID }
+                }
+                .values
+                .mapTo(mutableSetOf(), InFlightNostrAttempt::messageID)
+            val evictionIndex =
+                queue.indexOfFirst { it.messageID !in inFlightMessageIDs }
+            if (evictionIndex < 0) break
+            val evicted = queue.removeAt(evictionIndex)
             Log.w(TAG, "Outbox full for ${conversationID.take(16)}…; evicting oldest msg_id=${evicted.messageID.take(8)}…")
             notifyExpired(evicted.messageID)
         }
@@ -243,6 +459,14 @@ class MessageRouter private constructor(
 
     private fun notifyExpired(messageID: String) {
         try { onMessageExpired?.invoke(messageID) } catch (_: Exception) { }
+    }
+
+    private fun notifyAdmitted(messageID: String) {
+        try { onMessageAdmitted?.invoke(messageID) } catch (_: Exception) { }
+    }
+
+    private fun notifyFailed(messageID: String, reason: String) {
+        try { onMessageFailed?.invoke(messageID, reason) } catch (_: Exception) { }
     }
 
     /**
@@ -291,6 +515,40 @@ class MessageRouter private constructor(
         schedulerJob = null
     }
 
+    /** Panic/reset must invalidate callbacks from the previous account and drop plaintext. */
+    @Synchronized
+    internal fun discardForAccountReset(): MessageRouterResetToken {
+        stopOutboxScheduler()
+        accountResetBlocked = true
+        outboxEpoch += 1
+        inFlightNostrAttempts.clear()
+        outbox.clear()
+        retryState.clear()
+        return MessageRouterResetToken(outboxEpoch)
+    }
+
+    @Synchronized
+    internal fun completeAccountReset(resetToken: MessageRouterResetToken): Boolean {
+        if (resetToken.epoch != outboxEpoch) return false
+        accountResetBlocked = false
+        startOutboxScheduler()
+        return true
+    }
+
+    @Synchronized
+    internal fun installReplacementMeshForAccountReset(replacement: MeshService) {
+        check(accountResetBlocked) {
+            "Replacement mesh may only be installed behind an account reset barrier"
+        }
+        mesh = replacement
+    }
+
+    internal val queuedMessageCount: Int
+        @Synchronized get() = outbox.values.sumOf { it.size }
+
+    internal val inFlightNostrAttemptCount: Int
+        @Synchronized get() = inFlightNostrAttempts.size
+
     internal val isSchedulerRunning: Boolean get() = schedulerJob?.isActive == true
 
     /**
@@ -325,10 +583,20 @@ class MessageRouter private constructor(
 
     private fun expireOldEntries(conversationID: String, nowMs: Long) {
         val queued = outbox[conversationID] ?: return
+        val inFlightMessageIDs = inFlightNostrAttempts
+            .filter { (key, attempt) ->
+                key == conversationID ||
+                    ContactDirectory.canonicalConversationId(key) == conversationID ||
+                    queued.any { it.messageID == attempt.messageID }
+            }
+            .values
+            .mapTo(mutableSetOf(), InFlightNostrAttempt::messageID)
         val iterator = queued.iterator()
         while (iterator.hasNext()) {
             val entry = iterator.next()
-            if (nowMs - entry.enqueuedAtMs > OUTBOX_MESSAGE_TTL_MS) {
+            if (entry.messageID !in inFlightMessageIDs &&
+                nowMs - entry.enqueuedAtMs > OUTBOX_MESSAGE_TTL_MS
+            ) {
                 Log.w(TAG, "Expiring queued PM for ${conversationID.take(16)}… msg_id=${entry.messageID.take(8)}…")
                 iterator.remove()
                 notifyExpired(entry.messageID)
@@ -341,6 +609,7 @@ class MessageRouter private constructor(
     }
 
     private fun canSendViaNostr(peerID: String): Boolean {
+        canSendViaNostrOverride?.let { return it(peerID) }
         return try {
             val resolution = ContactDirectory.resolve(peerID)
             if (resolution.isMutualFavorite && resolution.nostrPubkey != null) return true

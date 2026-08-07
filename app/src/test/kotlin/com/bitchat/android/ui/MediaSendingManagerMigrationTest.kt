@@ -446,6 +446,30 @@ class MediaSendingManagerMigrationTest {
     }
 
     @Test
+    fun `public transfer failure replaces the local sending seed`() {
+        manager.sendImageNote(null, null, file.absolutePath)
+
+        val fileEcho = state.getMessagesValue()
+            .single { it.type == BitchatMessageType.Image }
+        assertTrue(fileEcho.deliveryStatus is DeliveryStatus.Sending)
+
+        manager.updateTransferProgress("failed-transfer", fileEcho.id)
+        manager.handleTransferProgressEvent(
+            com.bitchat.android.mesh.TransferProgressEvent(
+                transferId = "failed-transfer",
+                sent = 0,
+                total = 100,
+                completed = true,
+                failed = true
+            )
+        )
+
+        val failedEcho = state.getMessagesValue()
+            .single { it.id == fileEcho.id }
+        assertTrue(failedEcho.deliveryStatus is DeliveryStatus.Failed)
+    }
+
+    @Test
     fun `cancelled consent cannot later send or echo`() {
         whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
             .thenReturn(PrivateMediaPreparation.RequiresLegacyConsent("relay-visible warning"))
