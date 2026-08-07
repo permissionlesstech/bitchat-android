@@ -46,7 +46,7 @@
     <string name="notification_summary_more">et %1$d de plus</string>
     <string name="notification_messages_from_people">%1$d messages de %2$d personnes</string>
     <string name="notification_more_conversations">et %1$d conversations de plus</string>
-    <string name="notification_active_peers_title">👥 bitchatters à proximité !</string>
+    <string name="notification_active_peers_title">bitchatters à proximité !</string>
     <string name="notification_active_peers_one">1 personne à proximité</string>
     <string name="notification_active_peers_many">%1$d personnes à proximité</string>
     <string name="notification_new_messages">Nouveaux messages</string>
@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Joignable via Nostr</string>
     <string name="cd_unread_private_messages">Messages privés non lus</string>
     <string name="cd_teleported">Téléporté</string>
-    <string name="cd_tor_status">Statut Tor</string>
+    <string name="cd_open_location_channels">Ouvrir les réglages de localisation et des canaux</string>
     <string name="cd_connected_peers">Pairs connectés</string>
     <string name="cd_geohash_participants">Participants geohash</string>
     <string name="cd_ready_for_handshake">Prêt pour l’échange de clés</string>
@@ -294,12 +294,6 @@
     <string name="media_type_file">Fichier</string>
 
     <!-- Statuts de message -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- Aide de texte de notification -->
     <string name="notification_sent_image">📷 a envoyé une image</string>
@@ -407,4 +401,8 @@
   <string name="nearby_notes_reveal">vérifier s\'il y a des notes laissées ici</string>
   <string name="nearby_notes_one">1 note laissée ici — appuyez pour lire</string>
   <string name="nearby_notes_many">%d notes laissées ici — appuyez pour lire</string>
+    <string name="about_language">Langue</string>
+    <string name="about_app_language">Langue de l’appli</string>
+    <string name="about_system_default">Langue du système</string>
+    <string name="about_select_language">Choisir la langue</string>
 </resources>

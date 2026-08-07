@@ -18,17 +18,38 @@ import java.util.Locale
  * Simple MediaRecorder wrapper that records to M4A (AAC) for wide compatibility.
  * The resulting file has MIME audio/mp4.
  */
-class VoiceRecorder(private val context: Context) {
+class VoiceRecorder(
+    private val context: Context,
+    private val liveTarget: LiveVoiceTarget? = null
+) {
     companion object { private const val TAG = "VoiceRecorder" }
 
     private var recorder: MediaRecorder? = null
+    private var liveCapture: LiveVoiceCapture? = null
     private val _amplitude = MutableStateFlow(0)
     val amplitude: StateFlow<Int> = _amplitude.asStateFlow()
 
     private var outFile: File? = null
 
+    val isLive: Boolean
+        get() = liveCapture != null
+
     fun start(): File? {
         stop() // ensure previous session closed
+        if (liveTarget != null) {
+            val directory = File(context.filesDir, "voicenotes/outgoing")
+            val capture = LiveVoiceCapture(directory, liveTarget)
+            val liveFile = capture.start()
+            if (liveFile != null) {
+                liveCapture = capture
+                outFile = liveFile
+                return liveFile
+            }
+        }
+        return startClassic()
+    }
+
+    private fun startClassic(): File? {
         return try {
             val dir = File(context.filesDir, "voicenotes/outgoing").apply { mkdirs() }
             val name = "voice_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".m4a"
@@ -56,13 +77,19 @@ class VoiceRecorder(private val context: Context) {
 
     fun pollAmplitude(): Int {
         return try {
-            val amp = recorder?.maxAmplitude ?: 0
+            val amp = liveCapture?.pollAmplitude() ?: recorder?.maxAmplitude ?: 0
             _amplitude.value = amp
             amp
         } catch (_: Exception) { 0 }
     }
 
-    fun stop(): File? {
+    fun stop(canceled: Boolean = false): File? {
+        liveCapture?.let { capture ->
+            val file = capture.stop(canceled)
+            liveCapture = null
+            outFile = null
+            return file
+        }
         try {
             recorder?.apply {
                 try { stop() } catch (_: Exception) {}
@@ -73,6 +100,10 @@ class VoiceRecorder(private val context: Context) {
         val f = outFile
         recorder = null
         outFile = null
+        if (canceled) {
+            f?.delete()
+            return null
+        }
         return f
     }
 }

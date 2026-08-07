@@ -437,18 +437,26 @@ class NostrDirectMessageHandler(
                 val isViewing = state.getSelectedPrivateChatPeerValue() == conversationID
                 val suppressUnread = seenStore.hasBeenReadLocally(pm.messageID)
 
-                var messageAccepted = false
-                withContext(Dispatchers.Main) {
-                    runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
-                        privateChatManager.handleIncomingPrivateMessage(
+                val messageAccepted = withContext(Dispatchers.Main) {
+                    if (!isAccountEpochCurrent(accountEpoch) || isExpired(expiresAtSeconds)) {
+                        false
+                    } else {
+                        privateChatManager.handleIncomingPrivateMessageDurably(
                             message = message,
                             suppressUnread = suppressUnread,
                             origin = PrivateMessageOrigin.NOSTR
                         )
-                        messageAccepted = true
                     }
                 }
-                if (!messageAccepted) return NdrDeliveryResult.REJECTED
+                if (!messageAccepted) {
+                    return if (com.bitchat.android.services.AppStateStore
+                            .hasSeenMessage(pm.messageID)
+                    ) {
+                        NdrDeliveryResult.DUPLICATE
+                    } else {
+                        NdrDeliveryResult.RETRY
+                    }
+                }
 
                 runCatching {
                     runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
@@ -518,65 +526,67 @@ class NostrDirectMessageHandler(
                 if (file != null) {
                     var savedPath: String? = null
                     var retained = false
-                    var message: BitchatMessage? = null
                     try {
                         if (ndrEventId != null &&
-                            state.getPrivateChatsValue()[conversationID]
-                                .orEmpty()
-                                .any { it.id.equals(ndrEventId, ignoreCase = true) }
+                            com.bitchat.android.services.AppStateStore
+                                .hasSeenMessage(ndrEventId)
                         ) {
                             return NdrDeliveryResult.DUPLICATE
                         }
-                        if (!runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
-                                val path =
-                                    com.bitchat.android.features.file.FileUtils.saveIncomingFile(
-                                        context = application,
-                                        file = file,
-                                        stableId = ndrEventId
-                                    )
-                                savedPath = path
-                                message = BitchatMessage(
-                                    id = ndrEventId
-                                        ?: java.util.UUID.randomUUID().toString().uppercase(),
-                                    sender = senderNickname,
-                                    content = path,
-                                    type =
-                                        com.bitchat.android.features.file.FileUtils
-                                            .messageTypeForMime(file.mimeType),
-                                    timestamp = timestamp,
-                                    isRelay = false,
-                                    isPrivate = true,
-                                    recipientNickname = state.getNicknameValue(),
-                                    senderPeerID = conversationID,
-                                    senderNostrPubkey = senderPubkey
-                                )
-                            }
-                        ) return NdrDeliveryResult.REJECTED
-                        if (isExpired(expiresAtSeconds)) {
+                        if (!isAccountEpochCurrent(accountEpoch) || isExpired(expiresAtSeconds)) {
                             return NdrDeliveryResult.REJECTED
                         }
-                        var consumed = false
-                        withContext(Dispatchers.Main) {
-                            runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
-                                message?.let {
-                                    privateChatManager.handleIncomingPrivateMessage(
-                                        message = it,
-                                        suppressUnread = false,
-                                        origin = PrivateMessageOrigin.NOSTR
-                                    )
-                                    consumed = true
-                                }
+
+                        val path = com.bitchat.android.features.file.FileUtils.saveIncomingFile(
+                            context = application,
+                            file = file,
+                            stableId = ndrEventId
+                        )
+                        savedPath = path
+                        val message = BitchatMessage(
+                            id = ndrEventId
+                                ?: java.util.UUID.randomUUID().toString().uppercase(),
+                            sender = senderNickname,
+                            content = path,
+                            type = com.bitchat.android.features.file.FileUtils
+                                .messageTypeForMime(file.mimeType),
+                            timestamp = timestamp,
+                            isRelay = false,
+                            isPrivate = true,
+                            recipientNickname = state.getNicknameValue(),
+                            senderPeerID = conversationID,
+                            senderNostrPubkey = senderPubkey
+                        )
+                        val admitted = withContext(Dispatchers.Main) {
+                            if (!isAccountEpochCurrent(accountEpoch) ||
+                                isExpired(expiresAtSeconds)
+                            ) {
+                                false
+                            } else {
+                                privateChatManager.handleIncomingPrivateMessageDurably(
+                                    message = message,
+                                    suppressUnread = false,
+                                    origin = PrivateMessageOrigin.NOSTR
+                                )
                             }
                         }
-                        retained = consumed
-                        if (consumed) {
-                            NdrDeliveryResult.CONSUMED
-                        } else {
-                            NdrDeliveryResult.REJECTED
+                        if (!admitted) {
+                            return if (com.bitchat.android.services.AppStateStore
+                                    .hasSeenMessage(message.id)
+                            ) {
+                                NdrDeliveryResult.DUPLICATE
+                            } else {
+                                NdrDeliveryResult.RETRY
+                            }
                         }
+                        retained = true
+                        NdrDeliveryResult.CONSUMED
                     } finally {
                         if (!retained) {
-                            savedPath?.let { java.io.File(it).delete() }
+                            savedPath?.let {
+                                com.bitchat.android.features.file.FileUtils
+                                    .deleteStoredMediaPaths(application, listOf(it))
+                            }
                         }
                     }
                 } else {
@@ -586,6 +596,7 @@ class NostrDirectMessageHandler(
             }
             NoisePayloadType.VERIFY_CHALLENGE,
             NoisePayloadType.VERIFY_RESPONSE,
+            NoisePayloadType.VOICE_FRAME,
             NoisePayloadType.PEER_STATE,
             NoisePayloadType.NDR_EVENT ->
                 NdrDeliveryResult.REJECTED // Transport controls never arrive inside relay DMs.
@@ -654,9 +665,7 @@ class NostrDirectMessageHandler(
             if (isExpired(expiresAtSeconds)) return NdrDeliveryResult.REJECTED
             val targetConversationID = ContactDirectory.canonicalConversationId(conversationID)
             if (ndrEventId != null &&
-                state.getPrivateChatsValue()[targetConversationID]
-                    .orEmpty()
-                    .any { it.id.equals(ndrEventId, ignoreCase = true) }
+                com.bitchat.android.services.AppStateStore.hasSeenMessage(ndrEventId)
             ) {
                 return NdrDeliveryResult.DUPLICATE
             }
@@ -706,30 +715,21 @@ class NostrDirectMessageHandler(
             ) return NdrDeliveryResult.REJECTED
 
             var consumed = false
-            var duplicate = false
+            val pendingMessage = systemMessage ?: return NdrDeliveryResult.REJECTED
             withContext(Dispatchers.Main) {
-                runIfAccountMutationCurrent(accountEpoch, expiresAtSeconds) {
-                    systemMessage?.let {
-                        if (state.getPrivateChatsValue()[targetConversationID]
-                                .orEmpty()
-                                .any { existing -> existing.id.equals(it.id, ignoreCase = true) }
-                        ) {
-                            duplicate = true
-                        } else {
-                            privateChatManager.handleIncomingPrivateMessage(
-                                message = it,
-                                suppressUnread = true,
-                                origin = PrivateMessageOrigin.NOSTR
-                            )
-                            consumed = true
-                        }
-                    }
+                if (isAccountEpochCurrent(accountEpoch) && !isExpired(expiresAtSeconds)) {
+                    consumed = privateChatManager.handleIncomingPrivateMessageDurably(
+                        message = pendingMessage,
+                        suppressUnread = true,
+                        origin = PrivateMessageOrigin.NOSTR
+                    )
                 }
             }
             when {
-                duplicate -> NdrDeliveryResult.DUPLICATE
                 consumed -> NdrDeliveryResult.CONSUMED
-                else -> NdrDeliveryResult.REJECTED
+                com.bitchat.android.services.AppStateStore
+                    .hasSeenMessage(pendingMessage.id) -> NdrDeliveryResult.DUPLICATE
+                else -> NdrDeliveryResult.RETRY
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to handle Nostr favorite notification: ${e.message}")

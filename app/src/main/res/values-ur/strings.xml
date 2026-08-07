@@ -46,7 +46,7 @@
     <string name="notification_summary_more">اور %1$d مزید</string>
     <string name="notification_messages_from_people">%2$d لوگوں سے %1$d پیغامات</string>
     <string name="notification_more_conversations">اور %1$d مزید گفتگو</string>
-    <string name="notification_active_peers_title">👥 قریب میں bitchatter!</string>
+    <string name="notification_active_peers_title">قریب میں bitchatter!</string>
     <string name="notification_active_peers_one">قریب میں 1 شخص</string>
     <string name="notification_active_peers_many">قریب میں %1$d لوگ</string>
     <string name="notification_new_messages">نئے پیغامات</string>
@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Nostr کے ذریعے رسائی</string>
     <string name="cd_unread_private_messages">غیر پڑھے ہوئے نجی پیغامات</string>
     <string name="cd_teleported">ٹیلی پورٹ</string>
-    <string name="cd_tor_status">Tor کی کیفیت</string>
+    <string name="cd_open_location_channels">مقام اور چینل کی ترتیبات کھولیں</string>
     <string name="cd_connected_peers">منسلک پیئرز</string>
     <string name="cd_geohash_participants">geohash شرکاء</string>
     <string name="cd_ready_for_handshake">ہینڈ شیک کے لیے تیار</string>
@@ -389,4 +389,8 @@
   <string name="nearby_notes_reveal">دیکھیں کہ یہاں نوٹ چھوڑے گئے ہیں یا نہیں</string>
   <string name="nearby_notes_one">یہاں 1 نوٹ چھوڑا گیا ہے — پڑھنے کے لیے تھپتھپائیں</string>
   <string name="nearby_notes_many">یہاں %d نوٹ چھوڑے گئے ہیں — پڑھنے کے لیے تھپتھپائیں</string>
+    <string name="about_language">زبان</string>
+    <string name="about_app_language">ایپ کی زبان</string>
+    <string name="about_system_default">سسٹم ڈیفالٹ</string>
+    <string name="about_select_language">زبان منتخب کریں</string>
 </resources>

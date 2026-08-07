@@ -3,6 +3,8 @@ package com.bitchat.android.nostr
 import android.os.Build
 import com.bitchat.android.model.NdrFeatureGate
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ConversationRepository
+import com.bitchat.android.services.InMemoryConversationStorageCipher
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
@@ -33,6 +35,7 @@ import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -43,6 +46,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 class NostrDirectMessageHandlerTest {
     private val gson = Gson()
     private lateinit var scope: CoroutineScope
+    private lateinit var conversationRepository: ConversationRepository
+    private lateinit var conversationDatabaseName: String
 
     @Before
     fun setUp() {
@@ -51,6 +56,14 @@ class NostrDirectMessageHandlerTest {
         NdrFeatureGate.setEnabledForTests(false)
         NostrInboundAccountLifecycle.invalidate()
         AppStateStore.clear()
+        conversationDatabaseName = "nostr-dm-${UUID.randomUUID()}.db"
+        conversationRepository = ConversationRepository(
+            context = RuntimeEnvironment.getApplication(),
+            dispatcher = Dispatchers.Unconfined,
+            databaseName = conversationDatabaseName,
+            storageCipher = InMemoryConversationStorageCipher()
+        )
+        AppStateStore.setConversationRepositoryForTest(conversationRepository)
     }
 
     @After
@@ -58,6 +71,10 @@ class NostrDirectMessageHandlerTest {
         NostrInboundAccountLifecycle.invalidate()
         NdrFeatureGate.setEnabledForTests(false)
         AppStateStore.clear()
+        AppStateStore.setConversationRepositoryForTest(null)
+        conversationRepository.closeForTest()
+        RuntimeEnvironment.getApplication()
+            .deleteDatabase(conversationDatabaseName)
         scope.cancel()
         Dispatchers.resetMain()
     }

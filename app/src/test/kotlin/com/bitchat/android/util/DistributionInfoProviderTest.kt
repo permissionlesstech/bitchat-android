@@ -1,6 +1,8 @@
 package com.bitchat.android.util
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -22,6 +24,10 @@ class DistributionInfoProviderTest {
         val apk = createApk("lib/arm64-v8a/libbitchat.so")
 
         assertFalse(DistributionInfoProvider.isUniversalApk(apk))
+        assertEquals(
+            ShareableApkVariant.ARM64,
+            DistributionInfoProvider.shareableApkVariant(apk)
+        )
     }
 
     @Test
@@ -34,6 +40,10 @@ class DistributionInfoProviderTest {
         )
 
         assertTrue(DistributionInfoProvider.isUniversalApk(apk))
+        assertEquals(
+            ShareableApkVariant.UNIVERSAL,
+            DistributionInfoProvider.shareableApkVariant(apk)
+        )
     }
 
     @Test
@@ -41,6 +51,17 @@ class DistributionInfoProviderTest {
         val apk = createApk("classes.dex")
 
         assertTrue(DistributionInfoProvider.isUniversalApk(apk))
+        assertEquals(
+            ShareableApkVariant.UNIVERSAL,
+            DistributionInfoProvider.shareableApkVariant(apk)
+        )
+    }
+
+    @Test
+    fun `other architecture-only APK is not offered for sharing`() {
+        val apk = createApk("lib/x86_64/libbitchat.so")
+
+        assertNull(DistributionInfoProvider.shareableApkVariant(apk))
     }
 
     private fun createApk(vararg entries: String): File {

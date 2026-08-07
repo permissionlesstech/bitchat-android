@@ -67,11 +67,20 @@ export NDK_HOME="${NDR_ANDROID_NDK}"
 # CI can explicitly set a working wrapper after invoking this script if desired.
 export RUSTC_WRAPPER=""
 
+NDR_CARGO_BIN_DIR="$(cd "$(dirname "$(command -v cargo)")" && pwd -P)"
+NDR_CARGO_HOME="${CARGO_HOME:-$(cd "${NDR_CARGO_BIN_DIR}/.." && pwd -P)}"
+NDR_RUSTFLAGS=(
+    "-C" "link-arg=-Wl,-z,max-page-size=16384"
+    "--remap-path-prefix=${REPO_ROOT}=/usr/src/bitchat-android"
+    "--remap-path-prefix=${NDR_CARGO_HOME}=/usr/local/cargo"
+)
+NDR_RUSTFLAGS_STRING="${NDR_RUSTFLAGS[*]}"
+
 mkdir -p "${BUILD_DIR}/jni" "${BUILD_DIR}/bindings"
 
 (
     cd "${CRATE_DIR}"
-    RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384" cargo ndk \
+    RUSTFLAGS="${NDR_RUSTFLAGS_STRING}" cargo ndk \
         -t arm64-v8a \
         -t armeabi-v7a \
         -t x86_64 \

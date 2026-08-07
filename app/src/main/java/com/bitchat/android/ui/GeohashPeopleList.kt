@@ -281,6 +281,7 @@ private fun GeohashPersonItem(
     onTap: () -> Unit
 ) {
     val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
 
     val statusIconRes =
         if (isTeleported) R.drawable.ic_spec_teleport
@@ -298,25 +299,14 @@ private fun GeohashPersonItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // Exact height, not padding: a row that sizes to its content makes the card change
-            // height whenever the list reorders.
-            .height(SheetRowHeight)
             .clickable(onClick = onTap)
-            .padding(horizontal = SheetRowHorizontal),
+            .padding(horizontal = SheetRowHorizontal, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(SheetRowLeadingSlot),
-            contentAlignment = Alignment.Center
-        ) {
-            if (hasUnreadDM) {
-                Icon(
-                    imageVector = Icons.Filled.Email,
-                    contentDescription = stringResource(R.string.cd_unread_message),
-                    modifier = Modifier.size(22.dp),
-                    tint = palette.accentOrange
-                )
-            } else {
+        PeerAvatar(
+            name = baseNameRaw,
+            color = baseColor,
+            badge = {
                 Icon(
                     painter = painterResource(statusIconRes),
                     contentDescription = if (isTeleported) {
@@ -324,13 +314,13 @@ private fun GeohashPersonItem(
                     } else {
                         stringResource(R.string.section_on_location)
                     },
-                    modifier = Modifier.size(22.dp),
-                    tint = baseColor
+                    modifier = Modifier.size(13.dp),
+                    tint = if (isTeleported) palette.accentPurple else colorScheme.primary
                 )
             }
-        }
+        )
 
-        Spacer(modifier = Modifier.width(SheetRowLeadingGutter))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Row(
             modifier = Modifier.weight(1f),
@@ -364,6 +354,17 @@ private fun GeohashPersonItem(
                     color = baseColor
                 )
             }
+        }
+
+        if (hasUnreadDM) {
+            Icon(
+                imageVector = Icons.Filled.Email,
+                contentDescription = stringResource(R.string.cd_unread_message),
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(18.dp),
+                tint = palette.accentOrange
+            )
         }
     }
 }

@@ -46,7 +46,7 @@
     <string name="notification_summary_more">და კიდევ %1$d</string>
     <string name="notification_messages_from_people">%2$d ადამიანიდან %1$d შეტყობინება</string>
     <string name="notification_more_conversations">და კიდევ %1$d საუბარი</string>
-    <string name="notification_active_peers_title">👥 bitchatter-ები ახლოს!</string>
+    <string name="notification_active_peers_title">bitchatter-ები ახლოს!</string>
     <string name="notification_active_peers_one">1 ადამიანი ახლოს</string>
     <string name="notification_active_peers_many">ახლოს %1$d ადამიანი</string>
     <string name="notification_new_messages">ახალი შეტყობინებები</string>
@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">მისაწვდომია Nostr-ით</string>
     <string name="cd_unread_private_messages">წაუკითხავი პირადი შეტყობინებები</string>
     <string name="cd_teleported">ტელეპორტირებული</string>
-    <string name="cd_tor_status">Tor-ის სტატუსი</string>
+    <string name="cd_open_location_channels">მდებარეობისა და არხების პარამეტრების გახსნა</string>
     <string name="cd_connected_peers">დაკავშირებული პირები</string>
     <string name="cd_geohash_participants">geohash მონაწილეები</string>
     <string name="cd_ready_for_handshake">მზადაა ხელის ჩამოსართმევად</string>
@@ -376,4 +376,8 @@
   <string name="nearby_notes_reveal">აქ დატოვებული ჩანაწერების შემოწმება</string>
   <string name="nearby_notes_one">აქ 1 ჩანაწერია დატოვებული — წასაკითხად შეეხეთ</string>
   <string name="nearby_notes_many">აქ %d ჩანაწერია დატოვებული — წასაკითხად შეეხეთ</string>
+    <string name="about_language">ენა</string>
+    <string name="about_app_language">აპის ენა</string>
+    <string name="about_system_default">სისტემის ნაგულისხმევი</string>
+    <string name="about_select_language">ენის არჩევა</string>
 </resources>

@@ -24,6 +24,13 @@
 -keep class com.sun.jna.** { *; }
 -dontwarn com.sun.jna.**
 
+# Room loads generated database implementations by name and invokes their no-argument
+# constructors reflectively. R8 full-mode can otherwise optimize away WorkDatabase_Impl's
+# constructor, causing AndroidX Startup to crash before Application.onCreate.
+-keepclassmembers class * extends androidx.room.RoomDatabase {
+    <init>();
+}
+
 # Keep Tor implementation (always included)
 -keep class com.bitchat.android.net.RealTorProvider { *; }
 

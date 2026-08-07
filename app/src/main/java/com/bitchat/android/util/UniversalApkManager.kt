@@ -24,7 +24,7 @@ import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 /**
- * Manages downloading, caching, and verifying the universal APK for offline sharing.
+ * Manages local and downloaded APK artifacts for offline sharing.
  */
 class UniversalApkManager(private val context: Context) {
 
@@ -54,7 +54,7 @@ class UniversalApkManager(private val context: Context) {
             .build()
 
     /**
-     * Get information about the cached universal APK, if it exists.
+     * Get information about the cached sharing APK, if it exists.
      */
     fun getCachedApkInfo(): ApkInfo? {
         return try {
@@ -81,6 +81,13 @@ class UniversalApkManager(private val context: Context) {
                 Log.w(TAG, "Metadata exists but APK file not found: ${apkFile.path}")
                 return null
             }
+            val variant = runCatching {
+                ShareableApkVariant.valueOf(json.optString("variant"))
+            }.getOrNull() ?: DistributionInfoProvider.shareableApkVariant(apkFile)
+            if (variant == null) {
+                Log.w(TAG, "Cached APK is not a supported sharing variant")
+                return null
+            }
 
             ApkInfo(
                 version = version,
@@ -88,7 +95,8 @@ class UniversalApkManager(private val context: Context) {
                 downloadDate = downloadDate,
                 size = size,
                 file = apkFile,
-                source = source
+                source = source,
+                variant = variant
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error reading cached APK info", e)
@@ -125,11 +133,10 @@ class UniversalApkManager(private val context: Context) {
      */
     suspend fun checkForUpdate(): UpdateStatus = withContext(Dispatchers.IO) {
         try {
-            // A genuinely universal standalone APK is already an installable
-            // sharing artifact. Architecture-specific standalone APKs and split
-            // installs still need the universal GitHub artifact.
+            // A supported standalone APK is already an installable sharing
+            // artifact. Split installs still need the universal GitHub artifact.
             val installedApkInfo = cacheInstalledApkIfPreferred()
-            if (installedApkInfo != null) {
+            if (installedApkInfo?.source == ApkSource.INSTALLED) {
                 return@withContext UpdateStatus.UpToDate(installedApkInfo.version)
             }
 
@@ -330,7 +337,8 @@ class UniversalApkManager(private val context: Context) {
                 checksum = release.universalApkSha256 ?: "",
                 size = finalFile.length(),
                 fileName = finalFileName,
-                source = ApkSource.GITHUB
+                source = ApkSource.GITHUB,
+                variant = ShareableApkVariant.UNIVERSAL
             )
             cleanupOldApks(except = finalFile)
 
@@ -467,9 +475,8 @@ class UniversalApkManager(private val context: Context) {
     }
 
     /**
-     * Cache the APK this process was installed from only when it is both
-     * standalone and universal. A base APK from a split install is incomplete,
-     * while an ABI-specific APK would unnecessarily limit recipients.
+     * Cache the APK this process was installed from when it is a standalone
+     * universal or ARM64 artifact. A base APK from a split install is incomplete.
      */
     private fun cacheInstalledApkIfPreferred(): ApkInfo? {
         return try {
@@ -482,14 +489,24 @@ class UniversalApkManager(private val context: Context) {
             if (!installedApk.isFile || installedApk.length() <= 0L) {
                 return null
             }
-            if (!DistributionInfoProvider.isUniversalApk(installedApk)) {
-                Log.d(TAG, "Installed APK is architecture-specific; using GitHub universal APK")
-                discardArchitectureLimitedInstalledCache()
+            val installedVariant = DistributionInfoProvider.shareableApkVariant(installedApk)
+            if (installedVariant == null) {
+                Log.d(TAG, "Installed APK is not a supported sharing variant")
                 return null
             }
 
             val installedVersion = installedVersionName()
             val cachedInfo = getCachedApkInfo()
+
+            // Downloading the universal release is an explicit compatibility
+            // choice. Keep it even when the running ARM64 build is newer; the
+            // user can delete it from the UI to return to the local artifact.
+            if (installedVariant == ShareableApkVariant.ARM64 &&
+                cachedInfo?.source == ApkSource.GITHUB &&
+                cachedInfo.variant == ShareableApkVariant.UNIVERSAL
+            ) {
+                return cachedInfo
+            }
 
             // Keep an already cached artifact if it is the same version or
             // newer. Otherwise prefer the running build so sharing cannot
@@ -502,7 +519,11 @@ class UniversalApkManager(private val context: Context) {
 
             checkDiskSpace(installedApk.length())
             val safeVersion = installedVersion.replace(Regex("[^A-Za-z0-9._-]"), "_")
-            val finalFileName = "$APK_FILE_PREFIX$safeVersion.apk"
+            val variantSuffix = when (installedVariant) {
+                ShareableApkVariant.UNIVERSAL -> ""
+                ShareableApkVariant.ARM64 -> "-arm64-v8a"
+            }
+            val finalFileName = "$APK_FILE_PREFIX$safeVersion$variantSuffix.apk"
             val finalFile = File(cacheDir, finalFileName)
             val pendingFile = File(cacheDir, "$finalFileName.new")
 
@@ -519,7 +540,8 @@ class UniversalApkManager(private val context: Context) {
                 checksum = checksum,
                 size = finalFile.length(),
                 fileName = finalFileName,
-                source = ApkSource.INSTALLED
+                source = ApkSource.INSTALLED,
+                variant = installedVariant
             )
             cleanupOldApks(except = finalFile)
 
@@ -529,19 +551,6 @@ class UniversalApkManager(private val context: Context) {
             Log.w(TAG, "Running APK cannot be used as a standalone sharing artifact", e)
             null
         }
-    }
-
-    private fun discardArchitectureLimitedInstalledCache() {
-        val cachedInfo = getCachedApkInfo() ?: return
-        if (cachedInfo.source != ApkSource.INSTALLED ||
-            DistributionInfoProvider.isUniversalApk(cachedInfo.file)
-        ) {
-            return
-        }
-
-        cachedInfo.file.delete()
-        metadataFile.delete()
-        Log.d(TAG, "Removed architecture-specific installed APK from universal sharing cache")
     }
 
     private fun installedVersionName(): String {
@@ -729,7 +738,8 @@ class UniversalApkManager(private val context: Context) {
         checksum: String,
         size: Long,
         fileName: String,
-        source: ApkSource
+        source: ApkSource,
+        variant: ShareableApkVariant
     ) {
         val json = JSONObject().apply {
             put("version", version)
@@ -738,6 +748,7 @@ class UniversalApkManager(private val context: Context) {
             put("size", size)
             put("fileName", fileName)
             put("source", source.name)
+            put("variant", variant.name)
         }
 
         val pendingMetadata = File(cacheDir, "$METADATA_FILE_NAME.new")
@@ -802,7 +813,8 @@ class UniversalApkManager(private val context: Context) {
         val downloadDate: Long,
         val size: Long,
         val file: File,
-        val source: ApkSource
+        val source: ApkSource,
+        val variant: ShareableApkVariant
     )
 
     enum class ApkSource {

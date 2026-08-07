@@ -1,6 +1,5 @@
 package com.bitchat.android.hotspot
 
-import android.Manifest
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Build
@@ -29,19 +28,19 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.R
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.util.UniversalApkManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
-import com.google.accompanist.permissions.shouldShowRationale
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import java.io.File
 
 /**
@@ -140,6 +139,12 @@ fun HotspotScreen(
                 is HotspotViewModel.HotspotState.Starting -> {
                     LoadingScreen()
                 }
+                is HotspotViewModel.HotspotState.ConfirmDisconnect -> {
+                    ExistingGroupConfirmation(
+                        onConfirm = viewModel::confirmDisconnectAndStart,
+                        onCancel = viewModel::cancelDisconnect
+                    )
+                }
                 is HotspotViewModel.HotspotState.Active -> {
                     ActiveHotspotScreen(state = currentState)
                 }
@@ -155,21 +160,35 @@ fun HotspotScreen(
     }
 }
 
+@Composable
+private fun ExistingGroupConfirmation(
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.hotspot_disconnect_title)) },
+        text = { Text(stringResource(R.string.hotspot_disconnect_message)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.hotspot_disconnect_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun IntroScreen(onStartHotspot: () -> Unit) {
-    // Determine which permission to request based on Android version
-    val requiredPermission = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> Manifest.permission.NEARBY_WIFI_DEVICES
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> Manifest.permission.ACCESS_FINE_LOCATION
-        else -> null // No runtime permission needed on Android < 10
-    }
-
-    val permissionState = requiredPermission?.let {
-        rememberPermissionState(it) { granted ->
-            if (granted) {
-                onStartHotspot()
-            }
+    val requiredPermissions = remember { HotspotPermissions.requiredForSdk() }
+    val permissionState = rememberMultiplePermissionsState(requiredPermissions) { results ->
+        if (requiredPermissions.all { results[it] == true }) {
+            onStartHotspot()
         }
     }
 
@@ -219,7 +238,7 @@ fun IntroScreen(onStartHotspot: () -> Unit) {
         }
 
         // Permission rationale (if needed)
-        if (permissionState != null && !permissionState.status.isGranted && permissionState.status.shouldShowRationale) {
+        if (!permissionState.allPermissionsGranted && permissionState.shouldShowRationale) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -237,10 +256,13 @@ fun IntroScreen(onStartHotspot: () -> Unit) {
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            "BitChat needs nearby devices permission to create a Wi-Fi hotspot for sharing the app offline."
-                        } else {
-                            "BitChat needs location permission to create a Wi-Fi hotspot. This is required by Android for Wi-Fi scanning, but no location data is collected."
+                        text = when {
+                            Build.VERSION.SDK_INT >= HotspotPermissions.ANDROID_17_API_LEVEL ->
+                                "BitChat needs nearby devices and local network access to create a Wi-Fi hotspot and serve the app to connected devices."
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+                                "BitChat needs nearby devices permission to create a Wi-Fi hotspot for sharing the app offline."
+                            else ->
+                                "BitChat needs location permission to create a Wi-Fi hotspot. This is required by Android for Wi-Fi scanning, but no location data is collected."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
@@ -278,12 +300,12 @@ fun IntroScreen(onStartHotspot: () -> Unit) {
         Button(
             onClick = {
                 // Check permission before starting hotspot
-                if (permissionState == null || permissionState.status.isGranted) {
+                if (permissionState.allPermissionsGranted) {
                     // No permission needed or already granted
                     onStartHotspot()
                 } else {
                     // Request permission (auto-start handled by onPermissionResult callback)
-                    permissionState.launchPermissionRequest()
+                    permissionState.launchMultiplePermissionRequest()
                 }
             },
             modifier = Modifier

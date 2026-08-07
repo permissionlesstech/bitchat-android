@@ -438,6 +438,8 @@ class MainActivity : OrientationAwareActivity() {
 
             if (permissionManager.isFirstTimeLaunch()) {
                 mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
+            } else if (permissionManager.getUnrequestedOptionalPermissions().isNotEmpty()) {
+                mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
             } else if (permissionManager.areRequiredPermissionsGranted()) {
                 if (permissionManager.needsBackgroundLocationPermission() &&
                     !permissionManager.isBackgroundLocationGranted() &&

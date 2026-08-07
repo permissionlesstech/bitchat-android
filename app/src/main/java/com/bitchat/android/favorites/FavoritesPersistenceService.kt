@@ -54,6 +54,25 @@ data class FavoriteRelationship(
     }
 }
 
+internal fun FavoriteRelationship?.withPeerFavoritedUs(
+    noisePublicKey: ByteArray,
+    theyFavoritedUs: Boolean,
+    now: Date = Date()
+): FavoriteRelationship {
+    return this?.copy(
+        theyFavoritedUs = theyFavoritedUs,
+        lastUpdated = now
+    ) ?: FavoriteRelationship(
+        peerNoisePublicKey = noisePublicKey,
+        peerNostrPublicKey = null,
+        peerNickname = "Unknown",
+        isFavorite = false,
+        theyFavoritedUs = theyFavoritedUs,
+        favoritedAt = now,
+        lastUpdated = now
+    )
+}
+
 interface FavoritesChangeListener {
     fun onFavoriteChanged(noiseKeyHex: String)
     fun onAllCleared()
@@ -239,6 +258,7 @@ class FavoritesPersistenceService private constructor(
             if (commitPeerIdIndexSnapshotLocked(snapshot)) {
                 peerIdIndex.clear()
                 peerIdIndex.putAll(snapshot)
+                notifyChanged(pid)
                 Log.d(TAG, "Indexed npub for peerID ${pid.take(8)}…")
             }
         } else {
@@ -323,17 +343,12 @@ class FavoritesPersistenceService private constructor(
             pendingNdrRebind?.noiseKeyHex == keyHex
         ) return
         val existing = favorites[keyHex]
+        val updated = existing.withPeerFavoritedUs(noisePublicKey, theyFavoritedUs)
 
-        if (existing != null) {
-            val updated = existing.copy(
-                theyFavoritedUs = theyFavoritedUs,
-                lastUpdated = Date()
-            )
-            if (!commitFavoriteUpdateLocked(keyHex, updated)) return
-            notifyChanged(keyHex)
+        if (!commitFavoriteUpdateLocked(keyHex, updated)) return
+        notifyChanged(keyHex)
 
-            Log.d(TAG, "Updated peer favorited us for ${keyHex.take(16)}...: $theyFavoritedUs")
-        }
+        Log.d(TAG, "Updated peer favorited us for ${keyHex.take(16)}...: $theyFavoritedUs")
     }
 
     @Synchronized

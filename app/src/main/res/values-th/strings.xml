@@ -46,7 +46,7 @@
     <string name="notification_summary_more">และอีก %1$d</string>
     <string name="notification_messages_from_people">ข้อความ %1$d จาก %2$d คน</string>
     <string name="notification_more_conversations">และการสนทนาอีก %1$d รายการ</string>
-    <string name="notification_active_peers_title">👥 มีผู้ใช้ใกล้คุณ!</string>
+    <string name="notification_active_peers_title">มีผู้ใช้ใกล้คุณ!</string>
     <string name="notification_active_peers_one">มี 1 คนใกล้คุณ</string>
     <string name="notification_active_peers_many">มี %1$d คนใกล้คุณ</string>
     <string name="notification_new_messages">ข้อความใหม่</string>
@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">ติดต่อได้ผ่าน Nostr</string>
     <string name="cd_unread_private_messages">ข้อความส่วนตัวยังไม่ได้อ่าน</string>
     <string name="cd_teleported">เทเลพอร์ตแล้ว</string>
-    <string name="cd_tor_status">สถานะ Tor</string>
+    <string name="cd_open_location_channels">เปิดการตั้งค่าตำแหน่งและช่อง</string>
     <string name="cd_connected_peers">เพียร์ที่เชื่อมต่อ</string>
     <string name="cd_geohash_participants">ผู้เข้าร่วม geohash</string>
     <string name="cd_ready_for_handshake">พร้อมสำหรับการจับมือ</string>
@@ -376,4 +376,8 @@
   <string name="nearby_notes_reveal">ดูว่ามีโน้ตทิ้งไว้ที่นี่หรือไม่</string>
   <string name="nearby_notes_one">มี 1 โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
   <string name="nearby_notes_many">มี %d โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
+    <string name="about_language">ภาษา</string>
+    <string name="about_app_language">ภาษาของแอป</string>
+    <string name="about_system_default">ค่าเริ่มต้นของระบบ</string>
+    <string name="about_select_language">เลือกภาษา</string>
 </resources>

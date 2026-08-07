@@ -17,7 +17,8 @@ enum class MessageType(val value: UByte) {
     NOISE_ENCRYPTED(0x11u),  // Noise encrypted transport message
     FRAGMENT(0x20u), // Fragmentation for large packets
     REQUEST_SYNC(0x21u), // GCS-based sync request
-    FILE_TRANSFER(0x22u); // New: File transfer packet (BLE voice notes, etc.)
+    FILE_TRANSFER(0x22u), // New: File transfer packet (BLE voice notes, etc.)
+    VOICE_FRAME(0x29u); // Ephemeral live push-to-talk frame; never added to gossip sync
 
     companion object {
         fun fromValue(value: UByte): MessageType? {

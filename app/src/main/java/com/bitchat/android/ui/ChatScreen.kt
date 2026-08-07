@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.os.Build
 import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
 
@@ -98,6 +99,14 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var forceScrollToBottom by remember { mutableStateOf(false) }
     var isScrolledUp by remember { mutableStateOf(false) }
 
+    LaunchedEffect(selectedPrivatePeer) {
+        messageText = TextFieldValue(
+            selectedPrivatePeer
+                ?.let(viewModel::conversationDraft)
+                .orEmpty()
+        )
+    }
+
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
         showPasswordDialog = showPasswordPrompt
@@ -111,6 +120,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val context = LocalContext.current
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     val nearbyNotesController = remember { NearbyNotesController.shared }
+    val liveVoiceManager = remember(context) {
+        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
+    }
     val nearbyNotesRevealed by nearbyNotesController.revealed.collectAsStateWithLifecycle()
     val locationPermissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
@@ -133,10 +145,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
         val observer = object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 nearbyNotesController.updateAppForeground(true)
+                liveVoiceManager.setAppForeground(true)
             }
 
             override fun onStop(owner: LifecycleOwner) {
                 nearbyNotesController.updateAppForeground(false)
+                liveVoiceManager.setAppForeground(false)
             }
         }
 
@@ -148,6 +162,16 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onDispose {
             lifecycle.removeObserver(observer)
             nearbyNotesController.updateAppForeground(false)
+            liveVoiceManager.setAppForeground(false)
+        }
+    }
+
+    LaunchedEffect(isMeshTimeline, privateChatSheetPeer, selectedPrivatePeer) {
+        when {
+            privateChatSheetPeer != null -> liveVoiceManager.showDirectMessage(privateChatSheetPeer!!)
+            selectedPrivatePeer != null -> liveVoiceManager.showDirectMessage(selectedPrivatePeer!!)
+            isMeshTimeline -> liveVoiceManager.showPublicMesh()
+            else -> liveVoiceManager.clearVisibleConversation()
         }
     }
 
@@ -251,8 +275,19 @@ fun ChatScreen(viewModel: ChatViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.ime) // This handles keyboard insets
-                .windowInsetsPadding(WindowInsets.navigationBars) // Add bottom padding when keyboard is not expanded
+                .then(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        // Android 11+: Handle both IME and navigation bar insets in Compose
+                        Modifier.windowInsetsPadding(
+                            WindowInsets.ime.union(WindowInsets.navigationBars)
+                        )
+                    } else {
+
+                        // Android 10 and below: Window is resized by the system (adjustResize),
+                        // so only account for the navigation bar.
+                        Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                    }
+                )
         ) {
           Box(modifier = Modifier.weight(1f)) {
             // Messages area - takes up available space, will compress when keyboard appears
@@ -356,14 +391,22 @@ fun ChatScreen(viewModel: ChatViewModel) {
         messageText = messageText,
         onMessageTextChange = { newText: TextFieldValue ->
             messageText = newText
+            viewModel.setConversationDraft(selectedPrivatePeer, newText.text)
             viewModel.updateCommandSuggestions(newText.text)
             viewModel.updateMentionSuggestions(newText.text)
         },
         onSend = {
             if (messageText.text.trim().isNotEmpty()) {
-                viewModel.sendMessage(messageText.text.trim())
-                messageText = TextFieldValue("")
-                forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
+                viewModel.sendMessage(messageText.text.trim()) { accepted ->
+                    if (accepted) {
+                        messageText = TextFieldValue("")
+                        viewModel.setConversationDraft(selectedPrivatePeer, "")
+                        // Clearing the field in code does not run onMessageTextChange,
+                        // so the popups have to be dismissed here.
+                        viewModel.clearSuggestions()
+                        forceScrollToBottom = !forceScrollToBottom
+                    }
+                }
             }
         },
         onSendVoiceNote = { peer, onionOrChannel, path ->
@@ -375,6 +418,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onSendFileNote = { peer, onionOrChannel, path ->
             viewModel.sendFileNote(peer, onionOrChannel, path)
         },
+        recorderFactory = viewModel::createVoiceRecorder,
         
         showCommandSuggestions = showCommandSuggestions,
         commandSuggestions = commandSuggestions,
@@ -492,6 +536,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onAppInfoDismiss = { viewModel.hideAppInfo() },
         showLocationChannelsSheet = showLocationChannelsSheet,
         onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
+        onLocationNotesFromChannelsClick = {
+            showLocationChannelsSheet = false
+            showLocationNotesSheet = true
+        },
         showLocationNotesSheet = showLocationNotesSheet,
         onLocationNotesSheetDismiss = { showLocationNotesSheet = false },
         showUserSheet = showUserSheet,
@@ -596,8 +644,13 @@ fun ChatInputSection(
     nickname: String,
     colorScheme: ColorScheme,
     showMediaButtons: Boolean,
+    recorderFactory: ((String?, String?) -> com.bitchat.android.features.voice.VoiceRecorder)? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activePublicTalker by remember(context) {
+        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context).activePublicTalker
+    }.collectAsState()
     Column(
         // Flat, slightly translucent screen background — the same treatment as the top bar, so the
         // two bars are visibly the same kind of surface. No gradient: a soft ramp here just looked
@@ -674,6 +727,8 @@ fun ChatInputSection(
             nickname = nickname,
             showMediaButtons = showMediaButtons,
             mentionPeerIdentities = mentionPeerIdentities,
+            recorderFactory = recorderFactory,
+            activePublicTalker = activePublicTalker,
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -769,6 +824,7 @@ private fun ChatDialogs(
     onAppInfoDismiss: () -> Unit,
     showLocationChannelsSheet: Boolean,
     onLocationChannelsSheetDismiss: () -> Unit,
+    onLocationNotesFromChannelsClick: () -> Unit,
     showLocationNotesSheet: Boolean,
     onLocationNotesSheetDismiss: () -> Unit,
     showUserSheet: Boolean,
@@ -815,6 +871,7 @@ private fun ChatDialogs(
         LocationChannelsSheet(
             isPresented = showLocationChannelsSheet,
             onDismiss = onLocationChannelsSheetDismiss,
+            onLocationNotesClick = onLocationNotesFromChannelsClick,
             viewModel = viewModel
         )
     }

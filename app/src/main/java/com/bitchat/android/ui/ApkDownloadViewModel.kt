@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.R
 import com.bitchat.android.util.ApkDownloader
+import com.bitchat.android.util.ShareableApkVariant
 import com.bitchat.android.util.UniversalApkManager
 import com.bitchat.android.util.WorkManagerApkDownloader
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +28,8 @@ sealed class ApkPreparationStatus {
     data class Ready(
         val version: String,
         val sizeMB: Int,
-        val source: UniversalApkManager.ApkSource
+        val source: UniversalApkManager.ApkSource,
+        val variant: ShareableApkVariant
     ) : ApkPreparationStatus()
     data class UpdateAvailable(
         val currentVersion: String,
@@ -52,6 +54,7 @@ data class ApkUiState(
 sealed class ApkUiEvent {
     object CheckStatus : ApkUiEvent()
     object PrepareRowClicked : ApkUiEvent()
+    object DownloadUniversalClicked : ApkUiEvent()
     object ConfirmDownload : ApkUiEvent()
     object DismissPrepareDialog : ApkUiEvent()
     object DeleteClicked : ApkUiEvent()
@@ -99,6 +102,7 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
         when (event) {
             is ApkUiEvent.CheckStatus -> checkStatus()
             is ApkUiEvent.PrepareRowClicked -> onPrepareRowClicked()
+            is ApkUiEvent.DownloadUniversalClicked -> onDownloadUniversalClicked()
             is ApkUiEvent.ConfirmDownload -> onConfirmDownload()
             is ApkUiEvent.DismissPrepareDialog -> _state.update { it.copy(showPrepareDialog = false) }
             is ApkUiEvent.DeleteClicked -> _state.update { it.copy(showDeleteDialog = true) }
@@ -129,6 +133,15 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
     private fun onConfirmDownload() {
         _state.update { it.copy(showPrepareDialog = false) }
         startDownload()
+    }
+
+    private fun onDownloadUniversalClicked() {
+        val status = _state.value.apkStatus
+        if (status is ApkPreparationStatus.Ready &&
+            status.variant == ShareableApkVariant.ARM64
+        ) {
+            _state.update { it.copy(showPrepareDialog = true) }
+        }
     }
 
     private fun onConfirmDelete() {
@@ -234,26 +247,47 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                         _state.update {
                             it.copy(
                                 apkStatus = ApkPreparationStatus.Ready(
-                                    version = downloadState.version,
-                                    sizeMB = downloadState.sizeMB,
-                                    source = info?.source ?: UniversalApkManager.ApkSource.GITHUB
+                                    version = info?.version ?: downloadState.version,
+                                    sizeMB = info?.let { cached ->
+                                        (cached.size / 1024 / 1024).toInt()
+                                    } ?: downloadState.sizeMB,
+                                    source = info?.source ?: UniversalApkManager.ApkSource.GITHUB,
+                                    variant = info?.variant ?: ShareableApkVariant.UNIVERSAL
                                 ),
                                 downloadProgress = 100
                             )
                         }
                     }
                     is ApkDownloader.DownloadState.Failed -> {
-                        _state.update {
-                            if (downloadState.resumablePercent != null) {
+                        val localArm64 = apkManager.getCachedApkInfo()
+                            ?.takeIf { it.variant == ShareableApkVariant.ARM64 }
+                        if (localArm64 != null) {
+                            _state.update {
                                 it.copy(
-                                    apkStatus = ApkPreparationStatus.Resumable(
-                                        progressPercent = downloadState.resumablePercent,
-                                        message = downloadState.message
-                                    ),
-                                    downloadProgress = downloadState.resumablePercent
+                                    apkStatus = ApkPreparationStatus.Ready(
+                                        version = localArm64.version,
+                                        sizeMB = (localArm64.size / 1024 / 1024).toInt(),
+                                        source = localArm64.source,
+                                        variant = localArm64.variant
+                                    )
                                 )
-                            } else {
-                                it.copy(apkStatus = ApkPreparationStatus.Error(downloadState.message))
+                            }
+                            _effect.send(ApkUiEffect.ShowToast(downloadState.message))
+                        } else {
+                            _state.update {
+                                if (downloadState.resumablePercent != null) {
+                                    it.copy(
+                                        apkStatus = ApkPreparationStatus.Resumable(
+                                            progressPercent = downloadState.resumablePercent,
+                                            message = downloadState.message
+                                        ),
+                                        downloadProgress = downloadState.resumablePercent
+                                    )
+                                } else {
+                                    it.copy(
+                                        apkStatus = ApkPreparationStatus.Error(downloadState.message)
+                                    )
+                                }
                             }
                         }
                     }
@@ -295,7 +329,8 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                         ApkPreparationStatus.Ready(
                             version = info.version,
                             sizeMB = (info.size / 1024 / 1024).toInt(),
-                            source = info.source
+                            source = info.source,
+                            variant = info.variant
                         )
                     } else {
                         ApkPreparationStatus.Error("Cached APK info not found")
@@ -316,7 +351,8 @@ class ApkDownloadViewModel(application: Application) : AndroidViewModel(applicat
                         ApkPreparationStatus.Ready(
                             version = info.version,
                             sizeMB = (info.size / 1024 / 1024).toInt(),
-                            source = info.source
+                            source = info.source,
+                            variant = info.variant
                         )
                     } else {
                         val partial = apkManager.getPartialDownloadProgress()

@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.view.HapticFeedbackConstants
 import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] TODO: Replace inline file attachment stub with FilePickerButton abstraction that dispatches via FileShareDispatcher
 
@@ -13,7 +14,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
@@ -43,6 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
@@ -57,9 +65,13 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
+import kotlin.math.roundToInt
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.R
+import com.bitchat.android.features.voice.VoiceRecorder
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -306,6 +318,8 @@ fun MessageInput(
     nickname: String,
     showMediaButtons: Boolean,
     mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
+    recorderFactory: ((String?, String?) -> VoiceRecorder)? = null,
+    activePublicTalker: String? = null,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
@@ -314,24 +328,75 @@ fun MessageInput(
     val hasText = value.text.isNotBlank()
     val focusRequester = remember { FocusRequester() }
     var isRecording by remember { mutableStateOf(false) }
+    var isLiveRecording by remember { mutableStateOf(false) }
     var elapsedMs by remember { mutableStateOf(0L) }
     var amplitude by remember { mutableStateOf(0) }
+    val cashuToken = remember(value.text) {
+        CashuTokenDecoder.bareToken(value.text)
+    }
 
-    // Recording is the one state worth shouting about, so it overrides focus.
+    // Slide-to-cancel: while recording, the mic button streams the finger position (root
+    // coords) up here; the cancel disc beside it reports its bounds. Approaching the disc
+    // makes it lean toward the finger and blush red; only entering it activates cancel.
+    var cancelBounds by remember { mutableStateOf<Rect?>(null) }
+    var cancelFinger by remember { mutableStateOf<Offset?>(null) }
+    val density = LocalDensity.current
+    val cancelSlackPx = with(density) { 8.dp.toPx() }
+    val cancelHover = cancelFinger != null &&
+        cancelBounds?.inflate(cancelSlackPx)?.contains(cancelFinger!!) == true
+    val cancelCenter = cancelBounds?.center
+    val cancelProximity: Float
+    val cancelPull: Offset
+    val trackedFinger = cancelFinger
+    if (trackedFinger != null && cancelCenter != null) {
+        val toFinger = trackedFinger - cancelCenter
+        val dist = toFinger.getDistance()
+        val outer = with(density) { 36.dp.toPx() }
+        val inner = with(density) { 18.dp.toPx() }
+        cancelProximity = ((outer - dist) / (outer - inner)).coerceIn(0f, 1f)
+        cancelPull = if (dist > 1f) {
+            toFinger * (cancelProximity * with(density) { 12.dp.toPx() } / dist)
+        } else Offset.Zero
+    } else {
+        cancelProximity = 0f
+        cancelPull = Offset.Zero
+    }
+    // A firm, physical click each time the finger enters or leaves the cancel target.
+    val view = LocalView.current
+    var cancelHoverHapticState by remember { mutableStateOf(false) }
+    LaunchedEffect(cancelHover, isRecording) {
+        if (!isRecording) {
+            cancelHoverHapticState = false
+        } else if (cancelHover != cancelHoverHapticState) {
+            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+            cancelHoverHapticState = cancelHover
+        }
+    }
+
+    // Recording is the one state worth shouting about, so it overrides focus. While recording
+    // the outline also firms up slightly in the same fast sweep — present, but muted.
     val borderColor by animateColorAsState(
         targetValue = when {
-            isRecording -> colorScheme.error.copy(alpha = 0.7f)
+            isRecording -> colorScheme.error.copy(alpha = 0.65f)
             isFocused.value -> palette.inputOutlineFocused
             else -> palette.inputOutline
         },
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "composerBorder"
     )
-    // A barely-there lift on focus. Enough to register, not enough to look like a different
-    // component. Slightly translucent so the messages scrolling underneath stay faintly visible.
+    val borderWidth by animateDpAsState(
+        targetValue = if (isRecording) 1.5.dp else 1.dp,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "composerBorderWidth"
+    )
+    // A barely-there lift on focus. While recording the pill turns into a neutral grey slab
+    // (NOT the brand-tinted elevation color) so it protrudes from the flat black chat.
     val containerColor by animateColorAsState(
-        targetValue = (if (isFocused.value) palette.inputSurfaceFocused else palette.inputSurface)
-            .copy(alpha = ComposerFillAlpha),
+        targetValue = when {
+            isRecording -> colorScheme.surfaceVariant.copy(alpha = 0.97f)
+            else -> (if (isFocused.value) palette.inputSurfaceFocused else palette.inputSurface)
+                .copy(alpha = ComposerFillAlpha)
+        },
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "composerContainer"
     )
@@ -351,7 +416,7 @@ fun MessageInput(
                     animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing)
                 )
                 .background(containerColor, ComposerShape)
-                .border(1.dp, borderColor, ComposerShape),
+                .border(borderWidth, borderColor, ComposerShape),
             verticalAlignment = Alignment.Bottom
         ) {
             Box(
@@ -367,16 +432,17 @@ fun MessageInput(
                     // user is composing rather than reading, and green-on-black is tiring to
                     // type into.
                     textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = colorScheme.onSurface,
+                        color = if (cashuToken == null) colorScheme.onSurface else Color.Transparent,
                         fontFamily = BitchatFontFamily
                     ),
                     cursorBrush = SolidColor(
-                        if (isRecording) Color.Transparent else colorScheme.onSurface
+                        if (isRecording || cashuToken != null) Color.Transparent else colorScheme.onSurface
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
                         if (hasText) onSend()
                     }),
+                    singleLine = cashuToken != null,
                     // Cap the growth so a pasted wall of text cannot swallow the message list.
                     maxLines = 6,
                     visualTransformation = remember(
@@ -405,6 +471,14 @@ fun MessageInput(
                         }
                 )
 
+                cashuToken?.let { token ->
+                    CashuPaymentChip(
+                        token = token,
+                        onClick = { focusRequester.requestFocus() },
+                        showActions = false,
+                    )
+                }
+
                 // Placeholder fades rather than blinking, which matters because it reappears
                 // every time a message is sent.
                 val placeholderAlpha by animateFloatAsState(
@@ -414,7 +488,9 @@ fun MessageInput(
                 )
                 if (placeholderAlpha > 0f) {
                     Text(
-                        text = stringResource(R.string.type_a_message_placeholder),
+                        text = if (
+                            selectedPrivatePeer == null && currentChannel == null && activePublicTalker != null
+                        ) "$activePublicTalker is live" else stringResource(R.string.type_a_message_placeholder),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = BitchatFontFamily
                         ),
@@ -436,24 +512,28 @@ fun MessageInput(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            // Same content height as the single-line text field, so the pill
+                            // (and the separator above it) does not change size when the
+                            // recording visualizer replaces the field.
+                            .height(22.dp)
                             .alpha(waveformAlpha),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        RealtimeScrollingWaveform(
-                            modifier = Modifier.weight(1f).height(22.dp),
-                            amplitudeNorm = normalizeAmplitudeSample(amplitude)
-                        )
-                        Spacer(Modifier.width(12.dp))
+                        // Timestamp on the left, clear of the thumb resting on the record
+                        // button; the waveform keeps the remaining width and its history
+                        // scrolls off the left edge while live data streams in from the right.
                         val secs = (elapsedMs / 1000).toInt()
-                        val maxSecs = 10 // 10 second max recording time
                         Text(
-                            text = String.format(
-                                "%02d:%02d / %02d:%02d",
-                                secs / 60, secs % 60, maxSecs / 60, maxSecs % 60
-                            ),
+                            text = (if (isLiveRecording) "LIVE · " else "") +
+                                String.format("%02d:%02d", secs / 60, secs % 60),
                             fontFamily = BitchatFontFamily,
                             color = colorScheme.error,
                             fontSize = (BASE_FONT_SIZE - 4).sp
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        RealtimeScrollingWaveform(
+                            modifier = Modifier.weight(1f).height(22.dp),
+                            amplitudeNorm = normalizeAmplitudeSample(amplitude)
                         )
                     }
                 }
@@ -528,10 +608,45 @@ fun MessageInput(
                                 )
                             }
 
+                            // The slide-to-cancel target sits well clear of the record
+                            // button (camera's slot plus a gap), rests as a cancel disc,
+                            // leans toward an approaching finger and snaps red on hover.
+                            AnimatedVisibility(
+                                visible = isRecording,
+                                enter = fadeIn(tween(BitchatMotion.STANDARD_MS)) +
+                                    expandHorizontally(
+                                        tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing)
+                                    ),
+                                exit = fadeOut(tween(BitchatMotion.QUICK_MS)) +
+                                    shrinkHorizontally(
+                                        tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing)
+                                    )
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    RecordingCancelButton(
+                                        hover = cancelHover,
+                                        proximity = cancelProximity,
+                                        pull = cancelPull,
+                                        onBounds = { cancelBounds = it }
+                                    )
+                                    Spacer(Modifier.width(24.dp))
+                                }
+                            }
+
                             VoiceRecordButton(
                                 isRecording = isRecording,
-                                onStart = {
+                                recorderFactory = recorderFactory?.let { factory ->
+                                    { factory(latestSelectedPeer.value, latestChannel.value) }
+                                },
+                                courtesyActive = selectedPrivatePeer == null && currentChannel == null &&
+                                    activePublicTalker != null,
+                                shouldCancel = { pos ->
+                                    cancelBounds?.inflate(cancelSlackPx)?.contains(pos) == true
+                                },
+                                onTrackFinger = { cancelFinger = it },
+                                onStart = { live ->
                                     isRecording = true
+                                    isLiveRecording = live
                                     elapsedMs = 0L
                                     // Keep existing focus to avoid IME collapse, but do not
                                     // force-show the keyboard.
@@ -545,6 +660,7 @@ fun MessageInput(
                                 },
                                 onFinish = { path ->
                                     isRecording = false
+                                    isLiveRecording = false
                                     // Extract and cache the waveform from the actual audio file
                                     // so it matches the receiver's rendering.
                                     AudioWaveformExtractor.extractAsync(path, sampleCount = 120) { arr ->
@@ -565,6 +681,7 @@ fun MessageInput(
                                 // waveform over an empty field.
                                 onCancel = {
                                     isRecording = false
+                                    isLiveRecording = false
                                     amplitude = 0
                                     elapsedMs = 0L
                                 }
@@ -581,6 +698,76 @@ fun MessageInput(
     }
 
     // Auto-stop handled inside VoiceRecordButton
+}
+
+/**
+ * Slide-to-cancel target shown beside the record button while capturing. It always shows the
+ * cancel glyph so the destination is unambiguous; as the finger approaches it leans toward
+ * it (magnetic pull) and blushes red, and on contact it blooms. Release there cancels;
+ * sliding back out returns to send mode. All motion is spring-driven so it stays fluid.
+ */
+@Composable
+private fun RecordingCancelButton(
+    hover: Boolean,
+    proximity: Float,
+    pull: Offset,
+    onBounds: (Rect) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
+
+    val pullAnim by animateOffsetAsState(
+        targetValue = pull,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "cancelPull"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (hover) 1.28f else 1f + 0.1f * proximity,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "cancelScale"
+    )
+    val container = androidx.compose.ui.graphics.lerp(
+        palette.inputButton,
+        colorScheme.error,
+        if (hover) 1f else proximity * 0.85f
+    )
+    val tint = androidx.compose.ui.graphics.lerp(
+        colorScheme.onSurfaceVariant,
+        colorScheme.onError,
+        if (hover) 1f else proximity * 0.6f
+    )
+
+    Box(
+        modifier = modifier
+            .onGloballyPositioned { coords ->
+                onBounds(Rect(coords.localToRoot(Offset.Zero), coords.size.toSize()))
+            }
+            .size(ComposerButtonSize),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(ComposerButtonDisc)
+                .scale(scale)
+                .offset { IntOffset(pullAnim.x.roundToInt(), pullAnim.y.roundToInt()) }
+                .background(container, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = "Cancel recording",
+                tint = tint,
+                modifier = Modifier.size(ComposerIconSize)
+            )
+        }
+    }
 }
 
 /**

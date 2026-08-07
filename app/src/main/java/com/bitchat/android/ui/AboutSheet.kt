@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -35,11 +36,14 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Info
@@ -52,6 +56,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,6 +76,7 @@ import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.util.ShareableApkVariant
 import com.bitchat.android.util.UniversalApkManager
 
 /**
@@ -118,6 +125,69 @@ private fun ThemeChip(
             )
         }
     }
+}
+
+@Composable
+private fun LanguageSettingsRow(
+    selectedLanguageName: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.about_app_language),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = selectedLanguageName,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+            imageVector = Icons.Filled.UnfoldMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+private fun LanguageMenuItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        onClick = onClick,
+        trailingIcon = {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        },
+    )
 }
 
 /**
@@ -259,6 +329,13 @@ fun AboutSheet(
     val colorScheme = MaterialTheme.colorScheme
     val palette = LocalBitchatPalette.current
     var selectedTab by remember { mutableStateOf(AboutTab.Info) }
+    val supportedLanguages = remember(context) {
+        LanguagePreferenceManager.supportedLanguages(context)
+    }
+    var selectedLanguageTag by remember {
+        mutableStateOf(LanguagePreferenceManager.currentLanguageTag())
+    }
+    var showLanguagePicker by remember { mutableStateOf(false) }
 
     if (isPresented) {
         BitchatBottomSheet(
@@ -306,6 +383,7 @@ fun AboutSheet(
                         Column {
                             AboutSectionLabel(text = stringResource(R.string.about_section_theme))
                             val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
+                            val chatUiMode by com.bitchat.android.ui.theme.ChatUiModeManager.modeFlow.collectAsState()
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -313,30 +391,110 @@ fun AboutSheet(
                                 color = colorScheme.surface,
                                 shape = AboutCardShape
                             ) {
-                                Row(
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_system),
-                                        selected = themePref.isSystem,
-                                        onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
-                                        modifier = Modifier.weight(1f)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        ThemeChip(
+                                            label = stringResource(R.string.about_system),
+                                            selected = themePref.isSystem,
+                                            onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ThemeChip(
+                                            label = stringResource(R.string.about_light),
+                                            selected = themePref.isLight,
+                                            onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ThemeChip(
+                                            label = stringResource(R.string.about_dark),
+                                            selected = themePref.isDark,
+                                            onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        ThemeChip(
+                                            label = stringResource(R.string.chat_ui_bubbles),
+                                            selected = chatUiMode.isBubbles,
+                                            onClick = { com.bitchat.android.ui.theme.ChatUiModeManager.set(context, com.bitchat.android.ui.theme.ChatUiMode.Bubbles) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        ThemeChip(
+                                            label = stringResource(R.string.chat_ui_matrix),
+                                            selected = chatUiMode.isMatrix,
+                                            onClick = { com.bitchat.android.ui.theme.ChatUiModeManager.set(context, com.bitchat.android.ui.theme.ChatUiMode.Matrix) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    item(key = "language") {
+                        val selectedLanguageName = supportedLanguages
+                            .firstOrNull { it.languageTag == selectedLanguageTag }
+                            ?.endonym
+                            ?: stringResource(R.string.about_system_default)
+
+                        Column {
+                            AboutSectionLabel(text = stringResource(R.string.about_language))
+                            BoxWithConstraints(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AboutHorizontalPadding),
+                            ) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = colorScheme.surface,
+                                    shape = AboutCardShape,
+                                ) {
+                                    LanguageSettingsRow(
+                                        selectedLanguageName = selectedLanguageName,
+                                        onClick = { showLanguagePicker = true },
                                     )
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_light),
-                                        selected = themePref.isLight,
-                                        onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
-                                        modifier = Modifier.weight(1f)
+                                }
+                                DropdownMenu(
+                                    expanded = showLanguagePicker,
+                                    onDismissRequest = { showLanguagePicker = false },
+                                    modifier = Modifier.width(maxWidth),
+                                ) {
+                                    LanguageMenuItem(
+                                        label = stringResource(R.string.about_system_default),
+                                        selected = selectedLanguageTag.isEmpty(),
+                                        onClick = {
+                                            showLanguagePicker = false
+                                            if (selectedLanguageTag.isNotEmpty()) {
+                                                selectedLanguageTag = ""
+                                                LanguagePreferenceManager.setLanguage("")
+                                            }
+                                        },
                                     )
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_dark),
-                                        selected = themePref.isDark,
-                                        onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    HorizontalDivider()
+                                    supportedLanguages.forEach { language ->
+                                        LanguageMenuItem(
+                                            label = language.endonym,
+                                            selected = selectedLanguageTag == language.languageTag,
+                                            onClick = {
+                                                showLanguagePicker = false
+                                                if (language.languageTag != selectedLanguageTag) {
+                                                    selectedLanguageTag = language.languageTag
+                                                    LanguagePreferenceManager.setLanguage(language.languageTag)
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -348,6 +506,9 @@ fun AboutSheet(
                         val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
                         val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
                         var backgroundEnabled by remember { mutableStateOf(com.bitchat.android.service.MeshServicePreferences.isBackgroundEnabled(true)) }
+                        var liveVoiceEnabled by remember {
+                            mutableStateOf(com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context))
+                        }
                         val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
                         val torProvider = remember { ArtiTorManager.getInstance() }
                         val torStatus by torProvider.statusFlow.collectAsState()
@@ -377,6 +538,23 @@ fun AboutSheet(
                                             } else {
                                                 com.bitchat.android.service.MeshForegroundService.start(context)
                                             }
+                                        }
+                                    )
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 54.dp),
+                                        thickness = 1.dp,
+                                        color = colorScheme.outlineVariant
+                                    )
+
+                                    SettingsToggleRow(
+                                        icon = Icons.Filled.Mic,
+                                        title = "Live push-to-talk",
+                                        subtitle = "Play voice bursts live on the mesh; voice notes are always sent on release",
+                                        checked = liveVoiceEnabled,
+                                        onCheckedChange = { enabled ->
+                                            liveVoiceEnabled = enabled
+                                            com.bitchat.android.features.voice.LiveVoicePreferences.setEnabled(context, enabled)
                                         }
                                     )
 
@@ -512,10 +690,13 @@ fun AboutSheet(
                                                     is ApkPreparationStatus.Loading -> stringResource(R.string.checking)
                                                     is ApkPreparationStatus.NotDownloaded -> stringResource(R.string.prepare_apk_status_not_downloaded)
                                                     is ApkPreparationStatus.Ready -> {
-                                                        val source = if (status.source == UniversalApkManager.ApkSource.INSTALLED) {
-                                                            stringResource(R.string.prepare_apk_source_installed)
-                                                        } else {
-                                                            stringResource(R.string.prepare_apk_source_github)
+                                                        val source = when {
+                                                            status.source == UniversalApkManager.ApkSource.GITHUB ->
+                                                                stringResource(R.string.prepare_apk_source_github)
+                                                            status.variant == ShareableApkVariant.ARM64 ->
+                                                                stringResource(R.string.prepare_apk_source_installed_arm64)
+                                                            else ->
+                                                                stringResource(R.string.prepare_apk_source_installed)
                                                         }
                                                         stringResource(R.string.prepare_apk_status_ready) +
                                                             " • ${status.version} • ${status.sizeMB} MB\n$source"
@@ -545,14 +726,36 @@ fun AboutSheet(
                                                 )
                                             }
                                             is ApkPreparationStatus.Ready -> {
-                                                if (apkStatus.source == UniversalApkManager.ApkSource.GITHUB) {
+                                                if (apkStatus.variant == ShareableApkVariant.ARM64) {
+                                                    TextButton(
+                                                        onClick = {
+                                                            apkViewModel.onEvent(
+                                                                ApkUiEvent.DownloadUniversalClicked
+                                                            )
+                                                        }
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.CloudDownload,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text(
+                                                            stringResource(
+                                                                R.string.prepare_apk_get_universal
+                                                            )
+                                                        )
+                                                    }
+                                                } else if (apkStatus.source == UniversalApkManager.ApkSource.GITHUB) {
                                                     androidx.compose.material3.IconButton(
                                                         onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
-                                                        modifier = Modifier.size(32.dp)
+                                                        modifier = Modifier.size(48.dp)
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Default.Delete,
-                                                            contentDescription = "Delete",
+                                                            contentDescription = stringResource(
+                                                                R.string.prepare_apk_delete_confirm
+                                                            ),
                                                             tint = colorScheme.error,
                                                             modifier = Modifier.size(20.dp)
                                                         )
@@ -562,11 +765,13 @@ fun AboutSheet(
                                             is ApkPreparationStatus.UpdateAvailable -> {
                                                 androidx.compose.material3.IconButton(
                                                     onClick = { apkViewModel.onEvent(ApkUiEvent.DeleteClicked) },
-                                                    modifier = Modifier.size(32.dp)
+                                                    modifier = Modifier.size(48.dp)
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Delete,
-                                                        contentDescription = "Delete",
+                                                        contentDescription = stringResource(
+                                                            R.string.prepare_apk_delete_confirm
+                                                        ),
                                                         tint = colorScheme.error,
                                                         modifier = Modifier.size(20.dp)
                                                     )

@@ -12,6 +12,19 @@ This is the Android implementation of bitchat, fully protocol-compatible with th
 
 [<img alt="Get it on Google Play" height="60" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"/>](https://play.google.com/store/apps/details?id=com.bitchat.droid)
 
+## See it in action
+
+<table>
+  <tr>
+    <th>Offline mesh conversation</th>
+    <th>Geohash globe picker</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/readme-mesh-chat.png" alt="Active four-peer Bitchat mesh conversation with an image, voice messages, and text messages" width="360"/></td>
+    <td><img src="docs/screenshots/readme-geohash-globe.png" alt="Bitchat geohash location picker showing the whole Earth and geohash grid" width="360"/></td>
+  </tr>
+</table>
+
 ## License
 
 This project is released into the public domain. See the [LICENSE](LICENSE.md) file for details.
@@ -69,6 +82,12 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 The app requests Bluetooth, location (required for BLE scanning), and notification permissions at runtime.
+
+Release APKs and the Android App Bundle can be rebuilt byte-for-byte in the
+pinned Linux container. Maintainers should follow the
+[Android release guide](docs/maintainer-release-guide.md). See
+[Reproducible builds](docs/reproducible-builds.md) for the build trust model
+and public GitHub/Google Play verification procedures.
 
 ## Testing
 

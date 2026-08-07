@@ -1255,6 +1255,24 @@ class NostrRelayManager internal constructor(
 
     private fun isCurrentAccountGeneration(generation: Long): Boolean =
         !accountResetBlocked && accountGeneration.get() == generation
+
+    /**
+     * Clear all subscription tracking, deduplication cache, message queue, and connections for panic mode.
+     */
+    fun clearAllOnPanic() {
+        try {
+            val wasConnected = desiredConnected.get()
+            clearAllSubscriptions()
+            clearDeduplicationCache()
+            disconnect()
+            if (wasConnected) {
+                desiredConnected.set(true)
+            }
+            Log.w(TAG, "🚨 Cleared NostrRelayManager subscriptions, cache, and connections for panic mode")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear NostrRelayManager on panic: ${e.message}")
+        }
+    }
     
     /**
      * Get detailed status for all relays

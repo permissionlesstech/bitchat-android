@@ -46,7 +46,7 @@
     <string name="notification_summary_more">und %1$d weitere</string>
     <string name="notification_messages_from_people">%1$d Nachrichten von %2$d Personen</string>
     <string name="notification_more_conversations">und %1$d weitere Unterhaltungen</string>
-    <string name="notification_active_peers_title">👥 bitchatter in der Nähe!</string>
+    <string name="notification_active_peers_title">bitchatter in der Nähe!</string>
     <string name="notification_active_peers_one">1 Person in der Nähe</string>
     <string name="notification_active_peers_many">%1$d Personen in der Nähe</string>
     <string name="notification_new_messages">Neue Nachrichten</string>
@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Über Nostr erreichbar</string>
     <string name="cd_unread_private_messages">Ungelesene private Nachrichten</string>
     <string name="cd_teleported">Teleportiert</string>
-    <string name="cd_tor_status">Tor‑Status</string>
+    <string name="cd_open_location_channels">Standort- und Kanaleinstellungen öffnen</string>
     <string name="cd_connected_peers">Verbundenen Peers</string>
     <string name="cd_geohash_participants">Geohash‑Teilnehmer</string>
     <string name="cd_ready_for_handshake">Bereit für Handshake</string>
@@ -390,4 +390,8 @@
   <string name="nearby_notes_reveal">nachsehen, ob hier notizen hinterlassen wurden</string>
   <string name="nearby_notes_one">1 notiz hier hinterlassen — tippen zum lesen</string>
   <string name="nearby_notes_many">%d notizen hier hinterlassen — tippen zum lesen</string>
+    <string name="about_language">Sprache</string>
+    <string name="about_app_language">App-Sprache</string>
+    <string name="about_system_default">Systemstandard</string>
+    <string name="about_select_language">Sprache auswählen</string>
 </resources>

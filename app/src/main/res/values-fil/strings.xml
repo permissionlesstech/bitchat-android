@@ -46,7 +46,7 @@
     <string name="notification_summary_more">at %1$d pa</string>
     <string name="notification_messages_from_people">%1$d mensahe mula sa %2$d tao</string>
     <string name="notification_more_conversations">at %1$d pang usapan</string>
-    <string name="notification_active_peers_title">👥 mga bitchatter na malapit!</string>
+    <string name="notification_active_peers_title">mga bitchatter na malapit!</string>
     <string name="notification_active_peers_one">1 tao sa paligid</string>
     <string name="notification_active_peers_many">%1$d tao sa paligid</string>
     <string name="notification_new_messages">Mga bagong mensahe</string>
@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Maabot sa Nostr</string>
     <string name="cd_unread_private_messages">Hindi nabasang pribadong mensahe</string>
     <string name="cd_teleported">Naiteleport</string>
-    <string name="cd_tor_status">Katayuan ng Tor</string>
+    <string name="cd_open_location_channels">Buksan ang mga setting ng lokasyon at channel</string>
     <string name="cd_connected_peers">Nakakonektang peers</string>
     <string name="cd_geohash_participants">Mga kalahok sa geohash</string>
     <string name="cd_ready_for_handshake">Handa para sa handshake</string>
@@ -293,12 +293,6 @@
     <string name="media_type_file">File</string>
 
     <!-- Mga status ng mensahe -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- Tulong na text sa abiso -->
     <string name="notification_sent_image">📷 nagpadala ng larawan</string>
@@ -393,4 +387,8 @@
   <string name="nearby_notes_reveal">tingnan kung may mga note na naiwan dito</string>
   <string name="nearby_notes_one">1 note ang naiwan dito — i-tap para basahin</string>
   <string name="nearby_notes_many">%d note ang naiwan dito — i-tap para basahin</string>
+    <string name="about_language">Wika</string>
+    <string name="about_app_language">Wika ng app</string>
+    <string name="about_system_default">Default ng system</string>
+    <string name="about_select_language">Pumili ng wika</string>
 </resources>

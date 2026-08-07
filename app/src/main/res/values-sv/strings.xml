@@ -40,7 +40,7 @@
     <string name="notification_summary_more">och %1$d till</string>
     <string name="notification_messages_from_people">%1$d meddelanden från %2$d personer</string>
     <string name="notification_more_conversations">och %1$d fler konversationer</string>
-    <string name="notification_active_peers_title">👥 bitchatter i närheten!</string>
+    <string name="notification_active_peers_title">bitchatter i närheten!</string>
     <string name="notification_active_peers_one">1 person i närheten</string>
     <string name="notification_active_peers_many">%1$d personer i närheten</string>
     <string name="notification_new_messages">Nya meddelanden</string>
@@ -66,7 +66,7 @@
     <string name="cd_nostr_reachable">Nås via Nostr</string>
     <string name="cd_unread_private_messages">Olästa privata meddelanden</string>
     <string name="cd_teleported">Teleporterad</string>
-    <string name="cd_tor_status">Tor‑status</string>
+    <string name="cd_open_location_channels">Öppna plats- och kanalinställningar</string>
     <string name="cd_connected_peers">Anslutna noder</string>
     <string name="cd_geohash_participants">Geohash‑deltagare</string>
     <string name="cd_ready_for_handshake">Redo för handshake</string>
@@ -276,13 +276,6 @@
     <string name="media_type_image">Bild</string>
     <string name="media_type_file">Fil</string>
 
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
-
     <string name="notification_sent_image">📷 skickade en bild</string>
     <string name="notification_sent_voice">🎤 skickade ett röstmeddelande</string>
     <string name="notification_sent_file">📎 skickade en fil</string>
@@ -381,4 +374,8 @@
   <string name="nearby_notes_reveal">kolla om anteckningar lämnats här</string>
   <string name="nearby_notes_one">1 anteckning lämnad här — tryck för att läsa</string>
   <string name="nearby_notes_many">%d anteckningar lämnade här — tryck för att läsa</string>
+    <string name="about_language">Språk</string>
+    <string name="about_app_language">Appspråk</string>
+    <string name="about_system_default">Systemstandard</string>
+    <string name="about_select_language">Välj språk</string>
 </resources>

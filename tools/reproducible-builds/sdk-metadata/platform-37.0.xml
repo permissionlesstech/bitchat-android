@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ns2:repository
+    xmlns:ns2="http://schemas.android.com/repository/android/common/02"
+    xmlns:ns6="http://schemas.android.com/sdk/android/repo/repository2/04">
+    <localPackage path="platforms;android-37.0" obsolete="false">
+        <type-details
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:type="ns6:platformDetailsType">
+            <api-level>37.0</api-level>
+            <codename></codename>
+            <extension-level>22</extension-level>
+            <base-extension>true</base-extension>
+            <layoutlib api="15"/>
+        </type-details>
+        <revision>
+            <major>2</major>
+        </revision>
+        <display-name>Android SDK Platform 37.0</display-name>
+    </localPackage>
+</ns2:repository>
