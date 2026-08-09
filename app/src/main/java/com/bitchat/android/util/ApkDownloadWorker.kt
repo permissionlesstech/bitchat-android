@@ -39,7 +39,6 @@ class ApkDownloadWorker(
         const val KEY_ERROR_REASON = "error_reason"
         const val KEY_ERROR_ARGS = "error_args"
         const val KEY_RESUMABLE_PERCENT = "resumable_percent"
-        const val KEY_RETRY_AT = "retry_at"
 
         private const val CHANNEL_ID = "apk_download"
         private const val NOTIFICATION_ID = 4201
@@ -121,7 +120,9 @@ class ApkDownloadWorker(
                     failure?.messageArgs.orEmpty().toTypedArray()
                 )
                 .putInt(KEY_RESUMABLE_PERCENT, partial ?: -1)
-                .apply { failure?.retryAtMillis?.let { putLong(KEY_RETRY_AT, it) } }
+                // No retry deadline is recorded: a rate-limit cooldown belongs to the route it was
+                // earned on, and ApkRateLimitStore already keeps it that way. A copy frozen here
+                // would outlive both the route and the cooldown.
                 .build()
             Result.failure(outputData)
         }

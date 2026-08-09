@@ -23,6 +23,12 @@ class GitHubReleaseClientTest {
     private var nowMillis = 1_700_000_000_000L
     private var route = OkHttpProvider.Route.DIRECT
 
+    /** How far the clock advances while awaitRoute() waits for Tor to finish bootstrapping. */
+    private var routeWaitMillis = 0L
+
+    /** How far the clock advances after the server responds but before the client observes it. */
+    private var responseWaitMillis = 0L
+
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
@@ -100,17 +106,100 @@ class GitHubReleaseClientTest {
         assertEquals(2, server.requestCount)
     }
 
+    /**
+     * A Tor cold start can hold the request for the full 60-second route timeout, which is longer
+     * than the relative delay GitHub asks for. The cooldown has to outlast the wait that preceded
+     * it, so it is anchored at the response rather than at the start of the attempt.
+     */
+    @Test
+    fun `a slow route wait does not shorten a relative retry-after cooldown`() = runTest {
+        routeWaitMillis = 90_000L
+        server.enqueue(
+            MockResponse.Builder()
+                .code(429)
+                .addHeader("Retry-After", "60")
+                .build()
+        )
+        val client = client()
+
+        assertTrue(client.latestRelease().isFailure)
+        routeWaitMillis = 0L
+        assertTrue(client.latestRelease().isFailure)
+
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a slow route wait does not shorten the header-less fallback cooldown`() = runTest {
+        routeWaitMillis = 90_000L
+        server.enqueue(MockResponse.Builder().code(429).build())
+        val client = client()
+
+        assertTrue(client.latestRelease().isFailure)
+        routeWaitMillis = 0L
+        assertTrue(client.latestRelease().isFailure)
+
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a slow response does not shorten a relative retry-after cooldown`() = runTest {
+        responseWaitMillis = 90_000L
+        server.enqueue(
+            MockResponse.Builder()
+                .code(429)
+                .addHeader("Retry-After", "60")
+                .build()
+        )
+        val client = client()
+
+        assertTrue(client.latestRelease().isFailure)
+        responseWaitMillis = 0L
+        assertTrue(client.latestRelease().isFailure)
+
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a cooldown that expires while the route becomes ready does not suppress the request`() =
+        runTest {
+            server.enqueue(
+                MockResponse.Builder()
+                    .code(429)
+                    .addHeader("Retry-After", "60")
+                    .build()
+            )
+            val client = client()
+
+            assertTrue(client.latestRelease().isFailure)
+
+            routeWaitMillis = 90_000L
+            server.enqueue(successResponse(etag = "release-after-cooldown"))
+            assertTrue(client.latestRelease().isSuccess)
+
+            assertEquals(2, server.requestCount)
+        }
+
     private fun client() = GitHubReleaseClient(
         context = context,
         apiUrl = server.url("/releases/latest").toString(),
         nowMillis = { nowMillis },
         routedClient = {
             OkHttpProvider.RoutedClient(
-                client = OkHttpClient.Builder().build(),
+                client = OkHttpClient.Builder()
+                    .addInterceptor { chain ->
+                        chain.proceed(chain.request()).also {
+                            nowMillis += responseWaitMillis
+                        }
+                    }
+                    .build(),
                 route = route
             )
         },
-        awaitRoute = { true }
+        awaitRoute = {
+            nowMillis += routeWaitMillis
+            true
+        }
     )
 
     private fun successResponse(etag: String): MockResponse = MockResponse.Builder()

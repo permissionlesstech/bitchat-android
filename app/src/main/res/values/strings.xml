@@ -274,10 +274,10 @@
   <string name="prepare_apk_error_network">Network error. Check your connection.</string>
   <string name="prepare_apk_error_storage">Not enough storage space.</string>
   <!--
-    Download failures. These are named in the util layer, which has no Context, and resolved by
-    the ViewModel. A short "min" unit keeps the wait quantity-neutral so no plural form is needed.
+    Download failures. These are named in the util layer, which has no Context, and resolved at
+    the presentation boundary: the row resolves its own status text, the ViewModel resolves the
+    toast shown when an APK is still shareable.
   -->
-  <string name="prepare_apk_error_rate_limited_wait">%1$s is temporarily rate limited. Try again in %2$s min.</string>
   <string name="prepare_apk_error_rate_limited">%1$s is temporarily rate limited. Try again later.</string>
   <string name="prepare_apk_error_no_universal">%1$s does not currently have a universal APK.</string>
   <string name="prepare_apk_error_http">%1$s download failed: HTTP %2$s %3$s</string>

@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.R
 import com.bitchat.android.util.ApkDownloader
 import com.bitchat.android.util.ShareableApkVariant
 import com.bitchat.android.util.UniversalApkManager
@@ -22,6 +23,10 @@ class PrepareRowTapActionTest {
         sizeMB = 12,
         source = source,
         variant = variant
+    )
+
+    private fun error() = ApkPreparationStatus.Error(
+        ApkFailureMessage(messageRes = R.string.prepare_apk_error_generic)
     )
 
     @Test
@@ -79,11 +84,16 @@ class PrepareRowTapActionTest {
         // The user already consented to the download; re-prompting would be noise.
         assertEquals(
             PrepareRowTapAction.StartDownload,
-            prepareRowTapAction(ApkPreparationStatus.Resumable(43, "Download interrupted"))
+            prepareRowTapAction(
+                ApkPreparationStatus.Resumable(
+                    43,
+                    ApkFailureMessage(R.string.prepare_apk_download_interrupted)
+                )
+            )
         )
         assertEquals(
             PrepareRowTapAction.StartDownload,
-            prepareRowTapAction(ApkPreparationStatus.Error("Network error"))
+            prepareRowTapAction(error())
         )
     }
 
@@ -96,33 +106,4 @@ class PrepareRowTapActionTest {
         assertNull(prepareRowTapAction(ApkPreparationStatus.Loading))
     }
 
-    @Test
-    fun `a persisted rate limit disables manual retry until its deadline`() {
-        val retryAt = 50_000L
-        assertNull(
-            prepareRowTapAction(
-                ApkPreparationStatus.Error("Rate limited", retryAtMillis = retryAt),
-                nowMillis = retryAt - 1
-            )
-        )
-        assertEquals(
-            PrepareRowTapAction.StartDownload,
-            prepareRowTapAction(
-                ApkPreparationStatus.Error("Rate limited", retryAtMillis = retryAt),
-                nowMillis = retryAt
-            )
-        )
-    }
-
-    @Test
-    fun `rate limit also disables optional update while an apk remains shareable`() {
-        val retryAt = 50_000L
-        assertNull(
-            prepareRowTapAction(
-                ready(ShareableApkVariant.UNIVERSAL),
-                downloadRetryAtMillis = retryAt,
-                nowMillis = retryAt - 1
-            )
-        )
-    }
 }

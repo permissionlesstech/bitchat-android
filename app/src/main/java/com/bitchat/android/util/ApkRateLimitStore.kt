@@ -3,7 +3,6 @@ package com.bitchat.android.util
 import android.content.Context
 import androidx.core.content.edit
 import com.bitchat.android.net.OkHttpProvider
-import kotlin.math.ceil
 
 /** Persistent, route-specific cooldowns for APK-related network requests. */
 internal class ApkRateLimitStore(context: Context) {
@@ -52,16 +51,12 @@ internal class ApkRateLimitStore(context: Context) {
 
     fun blockedException(
         source: ApkDownloadSource,
-        retryAtMillis: Long,
-        nowMillis: Long = System.currentTimeMillis()
+        retryAtMillis: Long
     ): ApkDownloadException {
-        val minutes = ceil(
-            (retryAtMillis - nowMillis).coerceAtLeast(1L) / 60_000.0
-        ).toLong()
         return ApkDownloadException(
             message = "${source.id} is in a persisted rate-limit cooldown until $retryAtMillis",
-            reason = ApkDownloadFailureReason.RateLimitedWithWait,
-            messageArgs = listOf(source.displayName, minutes.toString()),
+            reason = ApkDownloadFailureReason.RateLimited,
+            messageArgs = listOf(source.displayName),
             retryable = false,
             sourceId = source.id,
             retryAtMillis = retryAtMillis

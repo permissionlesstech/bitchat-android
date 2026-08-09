@@ -53,7 +53,7 @@ class ApkDownloadSourceTest {
     }
 
     @Test
-    fun `rate limit response gives the user the advertised retry time`() {
+    fun `rate limit response retains the server deadline without exposing a countdown`() {
         val failure = ApkDownloadHttpErrors.fromResponse(
             source = source,
             code = 429,
@@ -66,9 +66,8 @@ class ApkDownloadSourceTest {
 
         assertFalse(failure.retryable)
         assertEquals(now + 120_000L, failure.retryAtMillis)
-        // The wait is carried as an argument, not baked into an English sentence.
-        assertEquals(ApkDownloadFailureReason.RateLimitedWithWait, failure.reason)
-        assertEquals(listOf(source.displayName, "2"), failure.messageArgs)
+        assertEquals(ApkDownloadFailureReason.RateLimited, failure.reason)
+        assertEquals(listOf(source.displayName), failure.messageArgs)
     }
 
     @Test
@@ -99,7 +98,7 @@ class ApkDownloadSourceTest {
             permissionsFailure.messageArgs
         )
         assertEquals(now + 300_000L, quotaFailure.retryAtMillis)
-        assertEquals(ApkDownloadFailureReason.RateLimitedWithWait, quotaFailure.reason)
+        assertEquals(ApkDownloadFailureReason.RateLimited, quotaFailure.reason)
     }
 
     @Test

@@ -94,9 +94,16 @@ internal class GitHubReleaseClient(
             if (!awaitRoute()) return@withLock cached.orRouteFailure()
 
             val routeSnapshot = routedClient()
-            rateLimits.retryAtMillis(RATE_LIMIT_SCOPE, routeSnapshot.route, now)?.let { deadline ->
+            // Route readiness can take longer than a cooldown. Judge an existing deadline at the
+            // point where the request can actually start, not with the pre-wait cache timestamp.
+            val routeReadyNow = nowMillis()
+            rateLimits.retryAtMillis(
+                RATE_LIMIT_SCOPE,
+                routeSnapshot.route,
+                routeReadyNow
+            )?.let { deadline ->
                 return@withLock cached.orFailure(
-                    rateLimits.blockedException(SOURCE, deadline, now)
+                    rateLimits.blockedException(SOURCE, deadline)
                 )
             }
 
@@ -115,13 +122,17 @@ internal class GitHubReleaseClient(
 
             try {
                 client.newCall(request).awaitResponse().use { response ->
+                    // The route wait and the call itself can each take a minute, so `now` is too
+                    // old to interpret a relative Retry-After: anchoring the cooldown there can
+                    // date it into the past and let the very next check reach GitHub.
+                    val responseNow = nowMillis()
                     if (apiUrl.startsWith("https://") && !response.request.url.isHttps) {
                         return@withLock cached.orFailure(
                             IOException("GitHub redirected release metadata to an insecure URL")
                         )
                     }
                     if (response.code == 304 && cached != null) {
-                        val refreshed = cached.copy(fetchedAtMillis = now)
+                        val refreshed = cached.copy(fetchedAtMillis = responseNow)
                         writeCache(refreshed)
                         rateLimits.clear(RATE_LIMIT_SCOPE, routeSnapshot.route)
                         return@withLock Result.success(
@@ -136,19 +147,18 @@ internal class GitHubReleaseClient(
                             retryAfter = response.header("Retry-After"),
                             rateLimitRemaining = response.header("X-RateLimit-Remaining"),
                             rateLimitResetEpochSeconds = response.header("X-RateLimit-Reset"),
-                            nowMillis = now
+                            nowMillis = responseNow
                         )
                         val persistedFailure = if (
-                            failure.reason == ApkDownloadFailureReason.RateLimited ||
-                            failure.reason == ApkDownloadFailureReason.RateLimitedWithWait
+                            failure.reason == ApkDownloadFailureReason.RateLimited
                         ) {
                             val deadline = rateLimits.recordRateLimit(
                                 RATE_LIMIT_SCOPE,
                                 routeSnapshot.route,
                                 failure.retryAtMillis,
-                                now
+                                responseNow
                             )
-                            rateLimits.blockedException(SOURCE, deadline, now)
+                            rateLimits.blockedException(SOURCE, deadline)
                         } else {
                             failure
                         }
@@ -163,7 +173,7 @@ internal class GitHubReleaseClient(
                     val entry = CachedRelease(
                         release = release,
                         etag = response.header("ETag"),
-                        fetchedAtMillis = now
+                        fetchedAtMillis = responseNow
                     )
                     writeCache(entry)
                     rateLimits.clear(RATE_LIMIT_SCOPE, routeSnapshot.route)

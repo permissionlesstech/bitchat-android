@@ -1,7 +1,9 @@
 package com.bitchat.android.ui
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,7 +18,6 @@ import com.bitchat.android.util.WorkManagerApkDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,10 +44,31 @@ sealed class ApkPreparationStatus {
     ) : ApkPreparationStatus()
     data class Resumable(
         val progressPercent: Int,
-        val message: String,
-        val retryAtMillis: Long? = null
+        val failure: ApkFailureMessage
     ) : ApkPreparationStatus()
-    data class Error(val message: String, val retryAtMillis: Long? = null) : ApkPreparationStatus()
+    data class Error(val failure: ApkFailureMessage) : ApkPreparationStatus()
+}
+
+/** A localizable failure kept as data until the UI or a one-shot effect renders it. */
+data class ApkFailureMessage(
+    @StringRes val messageRes: Int,
+    val messageArgs: List<String> = emptyList()
+)
+
+/**
+ * Resolves a failure defensively. The reason and its arguments cross the WorkManager boundary
+ * independently, so an argument list that does not match the format string is possible; a row
+ * showing generic text beats one that throws while formatting.
+ */
+internal fun Context.resolveApkFailureMessage(failure: ApkFailureMessage): String {
+    return runCatching {
+        getString(
+            failure.messageRes,
+            *failure.messageArgs.toTypedArray()
+        )
+    }.getOrElse {
+        getString(R.string.prepare_apk_error_generic)
+    }
 }
 
 sealed class ApkReleaseStatus {
@@ -63,7 +85,6 @@ sealed class ApkReleaseStatus {
 data class ApkUiState(
     val apkStatus: ApkPreparationStatus = ApkPreparationStatus.Loading,
     val releaseStatus: ApkReleaseStatus = ApkReleaseStatus.Unknown,
-    val downloadRetryAtMillis: Long? = null,
     val downloadProgress: Int = 0,
     val showPrepareDialog: Boolean = false,
     val showDeleteDialog: Boolean = false,
@@ -105,19 +126,12 @@ internal enum class PrepareRowTapAction {
  */
 internal fun prepareRowTapAction(
     status: ApkPreparationStatus,
-    releaseStatus: ApkReleaseStatus = ApkReleaseStatus.Unknown,
-    downloadRetryAtMillis: Long? = null,
-    nowMillis: Long = System.currentTimeMillis()
+    releaseStatus: ApkReleaseStatus = ApkReleaseStatus.Unknown
 ): PrepareRowTapAction? = when {
-    downloadRetryAtMillis != null && downloadRetryAtMillis > nowMillis -> null
     status is ApkPreparationStatus.NotDownloaded -> PrepareRowTapAction.OpenPrepareDialog
     // Consent was already given for these; resuming straight away avoids a redundant prompt.
-    status is ApkPreparationStatus.Resumable &&
-        (status.retryAtMillis == null || status.retryAtMillis <= nowMillis) ->
-        PrepareRowTapAction.StartDownload
-    status is ApkPreparationStatus.Error &&
-        (status.retryAtMillis == null || status.retryAtMillis <= nowMillis) ->
-        PrepareRowTapAction.StartDownload
+    status is ApkPreparationStatus.Resumable -> PrepareRowTapAction.StartDownload
+    status is ApkPreparationStatus.Error -> PrepareRowTapAction.StartDownload
     status is ApkPreparationStatus.Ready &&
         (status.source == UniversalApkManager.ApkSource.INSTALLED ||
             (releaseStatus as? ApkReleaseStatus.Known)?.isNewerThanSharedApk == true) ->
@@ -162,7 +176,6 @@ class ApkDownloadViewModel internal constructor(
     val effect = _effect.receiveAsFlow()
 
     private var metadataRefreshJob: Job? = null
-    private var retryUnlockJob: Job? = null
 
     init {
         observeDownloader()
@@ -190,8 +203,7 @@ class ApkDownloadViewModel internal constructor(
         when (
             prepareRowTapAction(
                 _state.value.apkStatus,
-                _state.value.releaseStatus,
-                _state.value.downloadRetryAtMillis
+                _state.value.releaseStatus
             )
         ) {
             PrepareRowTapAction.OpenPrepareDialog ->
@@ -207,9 +219,6 @@ class ApkDownloadViewModel internal constructor(
     }
 
     private fun onDownloadUniversalClicked() {
-        if (_state.value.downloadRetryAtMillis?.let { it > System.currentTimeMillis() } == true) {
-            return
-        }
         val status = _state.value.apkStatus
         val hasUpdate = (_state.value.releaseStatus as? ApkReleaseStatus.Known)
             ?.isNewerThanSharedApk == true
@@ -283,14 +292,6 @@ class ApkDownloadViewModel internal constructor(
 
     private fun startDownload() {
         val current = _state.value.apkStatus
-        val stateRetryAt = _state.value.downloadRetryAtMillis
-        val retryAt = when (current) {
-            is ApkPreparationStatus.Resumable -> current.retryAtMillis
-            is ApkPreparationStatus.Error -> current.retryAtMillis
-            else -> null
-        }
-        if ((stateRetryAt ?: retryAt)?.let { it > System.currentTimeMillis() } == true) return
-
         val fallback = when (current) {
             is ApkPreparationStatus.Ready -> current
             is ApkPreparationStatus.Downloading -> current.shareableFallback
@@ -302,7 +303,6 @@ class ApkDownloadViewModel internal constructor(
                 apkStatus = ApkPreparationStatus.Downloading(
                     shareableFallback = fallback
                 ),
-                downloadRetryAtMillis = null,
                 downloadProgress = partial ?: 0
             )
         }
@@ -325,7 +325,10 @@ class ApkDownloadViewModel internal constructor(
                 if (current.apkStatus is ApkPreparationStatus.Downloading) {
                     current
                 } else {
-                    current.copy(apkStatus = resolvedStatus, downloadProgress = 0)
+                    current.copy(
+                        apkStatus = resolvedStatus,
+                        downloadProgress = 0
+                    )
                 }
             }
             // Local availability is resolved and published before this independent network task
@@ -406,12 +409,12 @@ class ApkDownloadViewModel internal constructor(
                             it.copy(
                                 apkStatus = ready,
                                 releaseStatus = releaseStatusFor(ready, it.releaseStatus),
-                                downloadRetryAtMillis = null,
                                 downloadProgress = 100
                             )
                         }
                     }
                     is ApkDownloader.DownloadState.Failed -> {
+                        val failure = downloadState.toFailureMessage()
                         val fallback = (_state.value.apkStatus as? ApkPreparationStatus.Downloading)
                             ?.shareableFallback
                             ?: apkManager.getCachedApkInfo()?.toReady()
@@ -420,36 +423,31 @@ class ApkDownloadViewModel internal constructor(
                                 it.copy(
                                     apkStatus = fallback,
                                     releaseStatus = releaseStatusFor(fallback, it.releaseStatus),
-                                    downloadRetryAtMillis = downloadState.retryAtMillis,
                                     downloadProgress = 0
                                 )
                             }
-                            _effect.send(ApkUiEffect.ShowToast(failureMessage(downloadState)))
+                            _effect.send(
+                                ApkUiEffect.ShowToast(
+                                    getApplication<Application>().resolveApkFailureMessage(
+                                        failure
+                                    )
+                                )
+                            )
                         } else {
-                            val message = failureMessage(downloadState)
                             _state.update {
                                 if (downloadState.resumablePercent != null) {
                                     it.copy(
                                         apkStatus = ApkPreparationStatus.Resumable(
                                             progressPercent = downloadState.resumablePercent,
-                                            message = message,
-                                            retryAtMillis = downloadState.retryAtMillis
+                                            failure = failure
                                         ),
-                                        downloadRetryAtMillis = downloadState.retryAtMillis,
                                         downloadProgress = downloadState.resumablePercent
                                     )
                                 } else {
-                                    it.copy(
-                                        apkStatus = ApkPreparationStatus.Error(
-                                            message,
-                                            downloadState.retryAtMillis
-                                        ),
-                                        downloadRetryAtMillis = downloadState.retryAtMillis
-                                    )
+                                    it.copy(apkStatus = ApkPreparationStatus.Error(failure))
                                 }
                             }
                         }
-                        scheduleRetryUnlock(downloadState.retryAtMillis)
                     }
                 }
             }
@@ -466,35 +464,10 @@ class ApkDownloadViewModel internal constructor(
         return getApplication<Application>().getString(resId)
     }
 
-    /**
-     * The single place a download failure turns into words. The downloader names the failure and
-     * this resolves it, so the message follows the device locale rather than the worker's.
-     */
-    private fun failureMessage(state: ApkDownloader.DownloadState.Failed): String =
-        runCatching {
-            getApplication<Application>().getString(
-                state.reason.messageRes,
-                *state.messageArgs.toTypedArray()
-            )
-        }.getOrElse {
-            getString(R.string.prepare_apk_error_generic)
-        }
-
-    private fun scheduleRetryUnlock(retryAtMillis: Long?) {
-        if (retryAtMillis == null) return
-        retryUnlockJob?.cancel()
-        retryUnlockJob = viewModelScope.launch {
-            delay((retryAtMillis - System.currentTimeMillis()).coerceAtLeast(0L))
-            _state.update {
-                val unlocked = when (val status = it.apkStatus) {
-                    is ApkPreparationStatus.Resumable -> status.copy(retryAtMillis = null)
-                    is ApkPreparationStatus.Error -> status.copy(retryAtMillis = null)
-                    else -> status
-                }
-                it.copy(apkStatus = unlocked, downloadRetryAtMillis = null)
-            }
-        }
-    }
+    private fun ApkDownloader.DownloadState.Failed.toFailureMessage() = ApkFailureMessage(
+        messageRes = reason.messageRes,
+        messageArgs = messageArgs
+    )
 
     private fun shareableReady(status: ApkPreparationStatus): ApkPreparationStatus.Ready? =
         when (status) {
@@ -527,7 +500,9 @@ class ApkDownloadViewModel internal constructor(
                 if (partial != null) {
                     ApkPreparationStatus.Resumable(
                         progressPercent = partial,
-                        message = getString(R.string.prepare_apk_download_interrupted)
+                        failure = ApkFailureMessage(
+                            messageRes = R.string.prepare_apk_download_interrupted
+                        )
                     )
                 } else {
                     ApkPreparationStatus.NotDownloaded
@@ -536,7 +511,9 @@ class ApkDownloadViewModel internal constructor(
         } catch (e: Exception) {
             // The exception text is English and often internal; log it, show a translated line.
             Log.e(TAG, "Error reading APK status", e)
-            ApkPreparationStatus.Error(getString(R.string.share_apk_error))
+            ApkPreparationStatus.Error(
+                ApkFailureMessage(messageRes = R.string.share_apk_error)
+            )
         }
     }
 }

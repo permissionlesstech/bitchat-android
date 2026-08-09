@@ -35,15 +35,13 @@ interface ApkDownloader {
         ) : DownloadState()
         data class Success(val version: String, val sizeMB: Int) : DownloadState()
         /**
-         * [reason] and [messageArgs] are resolved by the ViewModel, which has a Context.
-         * Carrying the reason rather than formatted text keeps the failure localizable all the
-         * way across the WorkManager boundary.
+         * [reason] and [messageArgs] stay structured until the presentation boundary. Carrying
+         * them instead of formatted text keeps the failure localizable across WorkManager.
          */
         data class Failed(
             val reason: ApkDownloadFailureReason,
             val messageArgs: List<String>,
-            val resumablePercent: Int?,
-            val retryAtMillis: Long? = null
+            val resumablePercent: Int?
         ) : DownloadState()
     }
 

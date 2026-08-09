@@ -630,8 +630,6 @@ fun AboutSheet(
                                     }
                                     val availableUpdate = (releaseStatus as? ApkReleaseStatus.Known)
                                         ?.takeIf { it.isNewerThanSharedApk }
-                                    val downloadRetryBlocked = apkUiState.downloadRetryAtMillis
-                                        ?.let { it > System.currentTimeMillis() } == true
 
                                     // Handle one-shot effects (navigation, toasts, share intents)
                                     LaunchedEffect(Unit) {
@@ -672,8 +670,7 @@ fun AboutSheet(
                                             .clickable(
                                                 enabled = prepareRowTapAction(
                                                     apkStatus,
-                                                    releaseStatus,
-                                                    apkUiState.downloadRetryAtMillis
+                                                    releaseStatus
                                                 ) != null
                                             ) {
                                                 apkViewModel.onEvent(ApkUiEvent.PrepareRowClicked)
@@ -734,9 +731,7 @@ fun AboutSheet(
                                                             modifier = Modifier
                                                                 .padding(start = 6.dp)
                                                                 .size(18.dp)
-                                                                .clickable(
-                                                                    enabled = !downloadRetryBlocked
-                                                                ) {
+                                                                .clickable {
                                                                     apkViewModel.onEvent(
                                                                         ApkUiEvent.DownloadUniversalClicked
                                                                     )
@@ -748,7 +743,10 @@ fun AboutSheet(
                                             Text(
                                                 text = when (val status = apkStatus) {
                                                     is ApkPreparationStatus.Loading -> stringResource(R.string.checking)
-                                                    is ApkPreparationStatus.NotDownloaded -> stringResource(R.string.prepare_apk_status_not_downloaded)
+                                                    is ApkPreparationStatus.NotDownloaded ->
+                                                        stringResource(
+                                                            R.string.prepare_apk_status_not_downloaded
+                                                        )
                                                     is ApkPreparationStatus.Ready -> {
                                                         val source = when {
                                                             status.source == UniversalApkManager.ApkSource.DOWNLOADED ->
@@ -777,10 +775,15 @@ fun AboutSheet(
                                                     is ApkPreparationStatus.Resumable ->
                                                         stringResource(
                                                             R.string.prepare_apk_status_resumable,
-                                                            status.message,
+                                                            context.resolveApkFailureMessage(
+                                                                status.failure
+                                                            ),
                                                             status.progressPercent
                                                         )
-                                                    is ApkPreparationStatus.Error -> status.message
+                                                    is ApkPreparationStatus.Error ->
+                                                        context.resolveApkFailureMessage(
+                                                            status.failure
+                                                        )
                                                 },
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = when (apkStatus) {
@@ -830,7 +833,6 @@ fun AboutSheet(
                                                                 ApkUiEvent.DownloadUniversalClicked
                                                             )
                                                         },
-                                                        enabled = !downloadRetryBlocked,
                                                         tint = colorScheme.primary
                                                     )
                                                 } else if (
@@ -863,11 +865,6 @@ fun AboutSheet(
                                                             ApkUiEvent.PrepareRowClicked
                                                         )
                                                     },
-                                                    enabled = prepareRowTapAction(
-                                                        apkStatus,
-                                                        releaseStatus,
-                                                        apkUiState.downloadRetryAtMillis
-                                                    ) != null,
                                                     tint = colorScheme.primary
                                                 )
                                             else -> {}

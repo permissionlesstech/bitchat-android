@@ -2,7 +2,9 @@ package com.bitchat.android.ui
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.R
 import com.bitchat.android.util.ApkDownloader
+import com.bitchat.android.util.ApkDownloadFailureReason
 import com.bitchat.android.util.GitHubReleaseClient
 import com.bitchat.android.util.LatestReleaseProvider
 import com.bitchat.android.util.ShareableApkVariant
@@ -10,9 +12,9 @@ import com.bitchat.android.util.UniversalApkManager
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -71,11 +73,12 @@ class ApkDownloadViewModelTest {
     fun `notification cancellation returning idle restores shareable fallback`() = runTest {
         val manager = managerWithLocalApk()
         val downloader = FakeDownloader()
-        val metadata = object : LatestReleaseProvider {
-            override suspend fun latestRelease(): Result<GitHubReleaseClient.ReleaseSnapshot> =
-                Result.failure(IllegalStateException("synthetic offline response"))
-        }
-        val viewModel = ApkDownloadViewModel(application, manager, downloader, metadata)
+        val viewModel = ApkDownloadViewModel(
+            application,
+            manager,
+            downloader,
+            offlineMetadata()
+        )
 
         viewModel.onEvent(ApkUiEvent.CheckStatus)
         val originalReady = awaitReady(viewModel)
@@ -87,8 +90,62 @@ class ApkDownloadViewModelTest {
         assertEquals(1, downloader.startCount)
 
         downloader.emit(ApkDownloader.DownloadState.Idle)
-        val restored = awaitReady(viewModel)
-        assertEquals(originalReady, restored)
+        assertEquals(originalReady, awaitReady(viewModel))
+    }
+
+    @Test
+    fun `rate limits remain stable failures without countdowns`() = runTest {
+        val manager = mock<UniversalApkManager>()
+        whenever(manager.getCachedApkInfo()).thenReturn(null)
+        val downloader = FakeDownloader()
+        val viewModel = ApkDownloadViewModel(
+            application,
+            manager,
+            downloader,
+            offlineMetadata()
+        )
+
+        downloader.emit(
+            ApkDownloader.DownloadState.Failed(
+                reason = ApkDownloadFailureReason.RateLimited,
+                messageArgs = listOf("GitHub Releases"),
+                resumablePercent = null
+            )
+        )
+
+        val failure = awaitError(viewModel).failure
+        assertEquals(R.string.prepare_apk_error_rate_limited, failure.messageRes)
+        assertEquals(listOf("GitHub Releases"), failure.messageArgs)
+    }
+
+    @Test
+    fun `non-rate failures keep their own message`() = runTest {
+        val manager = mock<UniversalApkManager>()
+        whenever(manager.getCachedApkInfo()).thenReturn(null)
+        val downloader = FakeDownloader()
+        val viewModel = ApkDownloadViewModel(
+            application,
+            manager,
+            downloader,
+            offlineMetadata()
+        )
+
+        downloader.emit(
+            ApkDownloader.DownloadState.Failed(
+                reason = ApkDownloadFailureReason.AllSourcesFailed,
+                messageArgs = emptyList(),
+                resumablePercent = null
+            )
+        )
+
+        val failure = awaitError(viewModel).failure
+        assertEquals(R.string.prepare_apk_error_all_sources, failure.messageRes)
+        assertEquals(emptyList<String>(), failure.messageArgs)
+    }
+
+    private fun offlineMetadata() = object : LatestReleaseProvider {
+        override suspend fun latestRelease(): Result<GitHubReleaseClient.ReleaseSnapshot> =
+            Result.failure(IllegalStateException("synthetic offline response"))
     }
 
     private suspend fun managerWithLocalApk(): UniversalApkManager {
@@ -112,7 +169,19 @@ class ApkDownloadViewModelTest {
         viewModel: ApkDownloadViewModel
     ): ApkPreparationStatus.Ready = withTimeout(5_000L) {
         while (true) {
-            (viewModel.state.value.apkStatus as? ApkPreparationStatus.Ready)?.let { return@withTimeout it }
+            (viewModel.state.value.apkStatus as? ApkPreparationStatus.Ready)
+                ?.let { return@withTimeout it }
+            delay(1L)
+        }
+        error("unreachable")
+    }
+
+    private suspend fun awaitError(
+        viewModel: ApkDownloadViewModel
+    ): ApkPreparationStatus.Error = withTimeout(5_000L) {
+        while (true) {
+            (viewModel.state.value.apkStatus as? ApkPreparationStatus.Error)
+                ?.let { return@withTimeout it }
             delay(1L)
         }
         error("unreachable")

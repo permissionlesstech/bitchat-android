@@ -8,7 +8,6 @@ import java.io.IOException
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import kotlin.math.ceil
 
 /**
  * A trusted location that serves the latest signed universal BitChat APK.
@@ -71,7 +70,6 @@ internal object DefaultApkDownloadSources {
 enum class ApkDownloadFailureReason(@StringRes val messageRes: Int) {
     Generic(R.string.prepare_apk_error_generic),
     Cancelled(R.string.prepare_apk_download_cancelled),
-    RateLimitedWithWait(R.string.prepare_apk_error_rate_limited_wait),
     RateLimited(R.string.prepare_apk_error_rate_limited),
     NoUniversalApk(R.string.prepare_apk_error_no_universal),
     HttpFailure(R.string.prepare_apk_error_http),
@@ -156,17 +154,10 @@ internal object ApkDownloadHttpErrors {
             (code == 403 && (rateLimitRemaining?.trim() == "0" || retryAt != null))
 
         if (rateLimited) {
-            val minutes = retryAt?.let { deadline ->
-                ceil((deadline - nowMillis).coerceAtLeast(1L) / 60_000.0).toLong()
-            }
             return ApkDownloadException(
                 message = "${source.id} rate limited: HTTP $code, retryAt=$retryAt",
-                reason = if (minutes != null) {
-                    ApkDownloadFailureReason.RateLimitedWithWait
-                } else {
-                    ApkDownloadFailureReason.RateLimited
-                },
-                messageArgs = listOfNotNull(source.displayName, minutes?.toString()),
+                reason = ApkDownloadFailureReason.RateLimited,
+                messageArgs = listOf(source.displayName),
                 retryable = false,
                 sourceId = source.id,
                 httpCode = code,

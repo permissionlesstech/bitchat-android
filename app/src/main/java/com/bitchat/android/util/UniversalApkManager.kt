@@ -372,7 +372,7 @@ class UniversalApkManager(
         val rateLimitScope = "apk_asset_${source.id}"
         val now = System.currentTimeMillis()
         rateLimits.retryAtMillis(rateLimitScope, routedClient.route, now)?.let { deadline ->
-            throw rateLimits.blockedException(source, deadline, now)
+            throw rateLimits.blockedException(source, deadline)
         }
 
         val request = Request.Builder()
@@ -482,9 +482,7 @@ class UniversalApkManager(
                                     rateLimitResetEpochSeconds =
                                         response.header("X-RateLimit-Reset")
                                 )
-                                if (failure.reason == ApkDownloadFailureReason.RateLimited ||
-                                    failure.reason == ApkDownloadFailureReason.RateLimitedWithWait
-                                ) {
+                                if (failure.reason == ApkDownloadFailureReason.RateLimited) {
                                     val now = System.currentTimeMillis()
                                     val deadline = rateLimits.recordRateLimit(
                                         rateLimitScope,
@@ -492,7 +490,7 @@ class UniversalApkManager(
                                         failure.retryAtMillis,
                                         now
                                     )
-                                    throw rateLimits.blockedException(source, deadline, now)
+                                    throw rateLimits.blockedException(source, deadline)
                                 }
                                 throw failure
                             }
