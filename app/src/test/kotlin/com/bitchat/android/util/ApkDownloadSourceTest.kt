@@ -102,6 +102,47 @@ class ApkDownloadSourceTest {
     }
 
     @Test
+    fun `a reset header alone does not make a 403 a rate limit`() {
+        // GitHub sends X-RateLimit-Reset on every response, so a permissions failure carries one
+        // while the quota is untouched. Reading it as a limit would park the route in a cooldown
+        // and serve stale metadata until a window the failure has nothing to do with.
+        val failure = ApkDownloadHttpErrors.fromResponse(
+            source = source,
+            code = 403,
+            responseMessage = "Forbidden",
+            retryAfter = null,
+            rateLimitRemaining = "4999",
+            rateLimitResetEpochSeconds = (now / 1000L + 1_800L).toString(),
+            nowMillis = now
+        )
+
+        assertEquals(ApkDownloadFailureReason.HttpFailure, failure.reason)
+        assertNull(failure.retryAtMillis)
+        assertEquals(
+            listOf(source.displayName, "403", "Forbidden"),
+            failure.messageArgs
+        )
+    }
+
+    @Test
+    fun `a secondary limit is still caught by its Retry-After`() {
+        // The quota is intact, so only Retry-After marks this one. It has to keep working, or
+        // tightening the reset-header case would blind the client to secondary limits.
+        val failure = ApkDownloadHttpErrors.fromResponse(
+            source = source,
+            code = 403,
+            responseMessage = "Forbidden",
+            retryAfter = "90",
+            rateLimitRemaining = "4999",
+            rateLimitResetEpochSeconds = (now / 1000L + 1_800L).toString(),
+            nowMillis = now
+        )
+
+        assertEquals(ApkDownloadFailureReason.RateLimited, failure.reason)
+        assertEquals(now + 90_000L, failure.retryAtMillis)
+    }
+
+    @Test
     fun `invalid or overflowing retry headers never crash error mapping`() {
         assertNull(
             ApkDownloadHttpErrors.retryAtMillis(

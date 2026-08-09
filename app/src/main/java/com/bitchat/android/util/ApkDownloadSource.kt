@@ -150,8 +150,17 @@ internal object ApkDownloadHttpErrors {
             rateLimitResetEpochSeconds = rateLimitResetEpochSeconds,
             nowMillis = nowMillis
         )
+        // X-RateLimit-Reset rides on every GitHub response, an ordinary 403 included, so it
+        // cannot tell an exhausted quota from a permissions failure. Only a spent quota or an
+        // explicit Retry-After says this request was the one that got limited. The reset header
+        // still supplies the deadline below, once being limited is established some other way.
+        val retryAfterMillis = retryAtMillis(
+            retryAfter = retryAfter,
+            rateLimitResetEpochSeconds = null,
+            nowMillis = nowMillis
+        )
         val rateLimited = code == 429 ||
-            (code == 403 && (rateLimitRemaining?.trim() == "0" || retryAt != null))
+            (code == 403 && (rateLimitRemaining?.trim() == "0" || retryAfterMillis != null))
 
         if (rateLimited) {
             return ApkDownloadException(
