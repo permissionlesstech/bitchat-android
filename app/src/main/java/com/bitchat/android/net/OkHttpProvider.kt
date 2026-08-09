@@ -22,10 +22,13 @@ object OkHttpProvider {
 
     private val httpClientRef = AtomicReference<RoutedClient?>(null)
     private val wsClientRef = AtomicReference<OkHttpClient?>(null)
+    private val clientLock = Any()
 
     fun reset() {
-        httpClientRef.set(null)
-        wsClientRef.set(null)
+        synchronized(clientLock) {
+            httpClientRef.set(null)
+            wsClientRef.set(null)
+        }
     }
 
     fun httpClient(): OkHttpClient = routedHttpClient().client
@@ -38,26 +41,29 @@ object OkHttpProvider {
      */
     fun routedHttpClient(): RoutedClient {
         httpClientRef.get()?.let { return it }
-        val (builder, route) = baseBuilderForCurrentProxy()
-        val client = builder
-            .callTimeout(15, TimeUnit.SECONDS)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .build()
-        val routedClient = RoutedClient(client, route)
-        httpClientRef.set(routedClient)
-        return routedClient
+        return synchronized(clientLock) {
+            httpClientRef.get() ?: run {
+                val (builder, route) = baseBuilderForCurrentProxy()
+                val client = builder
+                    .callTimeout(15, TimeUnit.SECONDS)
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(15, TimeUnit.SECONDS)
+                    .build()
+                RoutedClient(client, route).also(httpClientRef::set)
+            }
+        }
     }
 
     fun webSocketClient(): OkHttpClient {
         wsClientRef.get()?.let { return it }
-        val client = baseBuilderForCurrentProxy().first
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
-            .build()
-        wsClientRef.set(client)
-        return client
+        return synchronized(clientLock) {
+            wsClientRef.get() ?: baseBuilderForCurrentProxy().first
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(0, TimeUnit.SECONDS)
+                .writeTimeout(10, TimeUnit.SECONDS)
+                .build()
+                .also(wsClientRef::set)
+        }
     }
 
     private fun baseBuilderForCurrentProxy(): Pair<OkHttpClient.Builder, Route> {
