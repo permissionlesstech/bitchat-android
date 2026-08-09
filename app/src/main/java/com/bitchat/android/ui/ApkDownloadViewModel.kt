@@ -311,26 +311,38 @@ class ApkDownloadViewModel internal constructor(
 
     private fun checkStatus() {
         viewModelScope.launch {
-            // WorkManager is the source of truth for active work. A queued or
-            // newly started job legitimately has no partial file yet, so never
-            // infer that it is orphaned from cache contents.
-            if (_state.value.apkStatus is ApkPreparationStatus.Downloading) {
-                return@launch
-            }
-
             val resolvedStatus = resolveApkStatus()
             _state.update { current ->
-                // Re-check in case the user started a download while the local
-                // artifact was being inspected or copied.
-                if (current.apkStatus is ApkPreparationStatus.Downloading) {
-                    current
-                } else {
-                    current.copy(
+                // WorkManager is the source of truth for active work. A queued or newly started
+                // job legitimately has no partial file yet, so never infer that it is orphaned
+                // from cache contents, and never let a resolved status overwrite it - the user
+                // may have started a download while the local artifact was being inspected.
+                when (val active = current.apkStatus) {
+                    is ApkPreparationStatus.Downloading ->
+                        // Active work still adopts a local artifact it was created without. A
+                        // ViewModel restored onto a running download starts from Loading, so the
+                        // observer had no Ready to carry into shareableFallback, and an installed
+                        // APK - with both sharing actions - would stay hidden for the whole
+                        // transfer. Deciding here covers the observer arriving before this runs
+                        // and during the resolve above, which are different orderings.
+                        if (active.shareableFallback == null) {
+                            current.copy(
+                                apkStatus = active.copy(
+                                    shareableFallback = shareableReady(resolvedStatus)
+                                )
+                            )
+                        } else {
+                            current
+                        }
+                    else -> current.copy(
                         apkStatus = resolvedStatus,
                         downloadProgress = 0
                     )
                 }
             }
+            // Metadata is skipped while work is active, as it was before: an in-flight download
+            // has no use for a freshness check and the API budget is scarce.
+            if (_state.value.apkStatus is ApkPreparationStatus.Downloading) return@launch
             // Local availability is resolved and published before this independent network task
             // starts. Metadata can add a freshness warning, but can never hide sharing.
             refreshReleaseMetadata()

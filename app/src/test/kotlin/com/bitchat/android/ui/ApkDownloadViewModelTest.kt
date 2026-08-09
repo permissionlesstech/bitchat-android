@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -143,6 +144,72 @@ class ApkDownloadViewModelTest {
         assertEquals(emptyList<String>(), failure.messageArgs)
     }
 
+    @Test
+    fun `a download already running when the ViewModel starts still exposes the local apk`() =
+        runTest {
+            // Process death during a transfer leaves WorkManager running and the ViewModel fresh,
+            // so the observer builds Downloading out of Loading and has no Ready to carry. Without
+            // a fallback the row and both sharing actions vanish for the rest of the download.
+            val manager = managerWithLocalApk()
+            val downloader = FakeDownloader(
+                ApkDownloader.DownloadState.Downloading(
+                    progressPercent = 30,
+                    phase = ApkDownloader.DownloadPhase.Transferring
+                )
+            )
+
+            val viewModel = ApkDownloadViewModel(
+                application,
+                manager,
+                downloader,
+                offlineMetadata()
+            )
+
+            val restored = viewModel.state.value.apkStatus as ApkPreparationStatus.Downloading
+            assertNull(restored.shareableFallback)
+
+            viewModel.onEvent(ApkUiEvent.CheckStatus)
+
+            val adopted = awaitFallback(viewModel)
+            assertEquals("1.7.5", adopted.version)
+            assertEquals(UniversalApkManager.ApkSource.INSTALLED, adopted.source)
+        }
+
+    @Test
+    fun `adopting a local apk never displaces the fallback a download already carries`() = runTest {
+        val manager = managerWithLocalApk()
+        val downloader = FakeDownloader()
+        val viewModel = ApkDownloadViewModel(
+            application,
+            manager,
+            downloader,
+            offlineMetadata()
+        )
+
+        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        val originalReady = awaitReady(viewModel)
+        viewModel.onEvent(ApkUiEvent.PrepareRowClicked)
+        viewModel.onEvent(ApkUiEvent.ConfirmDownload)
+
+        viewModel.onEvent(ApkUiEvent.CheckStatus)
+
+        val downloading = viewModel.state.value.apkStatus as ApkPreparationStatus.Downloading
+        assertSame(originalReady, downloading.shareableFallback)
+    }
+
+
+    private suspend fun awaitFallback(
+        viewModel: ApkDownloadViewModel
+    ): ApkPreparationStatus.Ready = withTimeout(5_000L) {
+        while (true) {
+            (viewModel.state.value.apkStatus as? ApkPreparationStatus.Downloading)
+                ?.shareableFallback
+                ?.let { return@withTimeout it }
+            delay(1L)
+        }
+        error("unreachable")
+    }
+
     private fun offlineMetadata() = object : LatestReleaseProvider {
         override suspend fun latestRelease(): Result<GitHubReleaseClient.ReleaseSnapshot> =
             Result.failure(IllegalStateException("synthetic offline response"))
@@ -187,10 +254,10 @@ class ApkDownloadViewModelTest {
         error("unreachable")
     }
 
-    private class FakeDownloader : ApkDownloader {
-        private val mutableState = MutableStateFlow<ApkDownloader.DownloadState>(
-            ApkDownloader.DownloadState.Idle
-        )
+    private class FakeDownloader(
+        initial: ApkDownloader.DownloadState = ApkDownloader.DownloadState.Idle
+    ) : ApkDownloader {
+        private val mutableState = MutableStateFlow(initial)
         override val downloadState = mutableState.asStateFlow()
         var startCount = 0
 
