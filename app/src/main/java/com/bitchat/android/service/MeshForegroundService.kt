@@ -219,12 +219,6 @@ class MeshForegroundService : Service() {
     private fun ensureMeshStarted() {
         if (isShuttingDown) return
         try {
-            com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
-        } catch (e: Exception) {
-            android.util.Log.e("MeshForegroundService", "Failed to ensure Wi-Fi Aware transport: ${e.message}")
-        }
-
-        try {
             android.util.Log.d("MeshForegroundService", "Ensuring mesh service is started")
             val service = MeshServiceHolder.getUnifiedOrCreate(applicationContext)
             service.startServices()

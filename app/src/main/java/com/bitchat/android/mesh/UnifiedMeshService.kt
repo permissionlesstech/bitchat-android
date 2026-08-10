@@ -6,7 +6,6 @@ import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.noise.NoiseSession
-import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -60,9 +59,6 @@ class UnifiedMeshService(
         } else {
             try { bluetooth.setBleTransportEnabled(false) } catch (_: Exception) { }
         }
-        try { WifiAwareController.startIfPossible() } catch (e: Exception) {
-            Log.w(TAG, "Failed to start Wi-Fi Aware transport: ${e.message}")
-        }
         startAnnouncementScheduler()
         refreshDelegates()
     }
@@ -71,7 +67,6 @@ class UnifiedMeshService(
         announcementJob?.cancel()
         announcementJob = null
         try { bluetooth.stopServices() } catch (_: Exception) { }
-        try { WifiAwareController.stop() } catch (_: Exception) { }
     }
 
     private fun startAnnouncementScheduler() {
@@ -434,15 +429,7 @@ class UnifiedMeshService(
     }
 
     private fun wifiService(): MeshService? {
-        return try {
-            WifiAwareController.getService()?.also { service ->
-                if (delegate != null && service.delegate !== this) {
-                    service.delegate = this
-                }
-            }
-        } catch (_: Exception) {
-            null
-        }
+        return null
     }
 
     private fun isBleEnabled(): Boolean {

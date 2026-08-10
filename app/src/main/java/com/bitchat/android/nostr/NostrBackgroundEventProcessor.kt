@@ -52,15 +52,7 @@ internal class NostrBackgroundEventProcessor(
         dataManager = dataManager,
         addChannelMessage = AppStateStore::addChannelMessage
     )
-    private val directMessageHandler = NostrDirectMessageHandler(
-        application = application,
-        state = state,
-        privateChatManager = privateChatManager,
-        updateDeliveryStatus = ::updateDeliveryStatus,
-        scope = scope,
-        repo = geohashRepository,
-        dataManager = dataManager
-    )
+    // directMessageHandler removed for Phase 3
 
     init {
         // Keep the headless state aligned with messages sent or received through other transports.
@@ -78,7 +70,7 @@ internal class NostrBackgroundEventProcessor(
 
     fun onAccountDm(event: NostrEvent, identity: NostrIdentity) {
         refreshBlockLists()
-        directMessageHandler.onGiftWrap(event, "", identity)
+        // directMessageHandler removed for Phase 3
     }
 
     fun onGeohashMessage(event: NostrEvent, geohash: String) {
@@ -88,7 +80,7 @@ internal class NostrBackgroundEventProcessor(
 
     fun onGeohashDm(event: NostrEvent, geohash: String, identity: NostrIdentity) {
         refreshBlockLists()
-        directMessageHandler.onGiftWrap(event, geohash, identity)
+        // directMessageHandler removed for Phase 3
     }
 
     fun conversationGeohash(conversationKey: String): String? =

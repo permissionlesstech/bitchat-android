@@ -6,7 +6,6 @@ import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,8 +37,6 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     /** Group the pending confirmation is about; consent binds to this name only. */
     private var pendingGroupName: String? = null
 
-    /** Once-releasable radio claim owned by the current hotspot session. */
-    private var awareLease: WifiAwareController.HotspotLease? = null
     private val context = application.applicationContext
 
     /**
@@ -60,10 +57,6 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             try {
-                // Wi-Fi Aware holds a NAN interface that blocks the P2P one; release it
-                // first or every createGroup comes back BUSY. Restored when we stop.
-                awareLease = WifiAwareController.acquireHotspotLease()
-
                 // Start hotspot
                 val manager = HotspotManager(context)
                 hotspotManager = manager
@@ -192,31 +185,9 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         val manager = hotspotManager
         hotspotManager = null
 
-        // Nothing of ours to hand back. An earlier teardown may already have passed
-        // its once-releasable lease to the manager's completion callback.
-        val lease = awareLease ?: return
-        awareLease = null
-
-        if (manager == null) {
-            lease.close()
-            return
+        if (manager != null) {
+            manager.stopHotspot {}
         }
-
-        // Close the lease only when the manager has finished removing our group.
-        // Restoring Wi-Fi Aware earlier recreates the NAN/P2P radio contention the
-        // lease exists to prevent. The lease is idempotent, so a duplicate or late
-        // completion cannot release a newer session's claim.
-        manager.stopHotspot { lease.close() }
-
-        // A framework that never acknowledges the removal must not pin Wi-Fi Aware
-        // down for the life of the process. close() is idempotent and this lease
-        // belongs to this session alone, so whichever path runs second is a no-op.
-        // A plain handler rather than viewModelScope: onCleared() cancels the scope
-        // right when this teardown may be running.
-        Handler(Looper.getMainLooper()).postDelayed(
-            { lease.close() },
-            TEARDOWN_FALLBACK_MILLIS
-        )
     }
 
     /**

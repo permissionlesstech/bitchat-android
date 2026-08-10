@@ -623,13 +623,7 @@ class ChatViewModel(
         // Load verified fingerprints from secure storage
         verificationHandler.loadVerifiedFingerprints()
 
-
-        // Ensure NostrTransport knows our mesh peer ID for embedded packets
-        try {
-            val nostrTransport = com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
-            nostrTransport.senderPeerID = mesh.myPeerID
-        } catch (_: Exception) { }
-
+        // Verification keys loaded. Mesh initialized elsewhere.
         // Note: Mesh service is now started by MainActivity
 
         // BLE receives are inserted by MessageHandler path; no VoiceNoteBus for Tor in this branch.

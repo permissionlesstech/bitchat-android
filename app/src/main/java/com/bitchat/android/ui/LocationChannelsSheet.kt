@@ -74,7 +74,6 @@ import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
-import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -132,7 +131,6 @@ fun LocationChannelsSheet(
     val bookmarks by bookmarksStore.bookmarks.collectAsStateWithLifecycle()
     val bookmarkNames by bookmarksStore.bookmarkNames.collectAsStateWithLifecycle()
     val geohashParticipantCounts by viewModel.geohashParticipantCounts.collectAsStateWithLifecycle()
-    val wifiAwareEnabled by WifiAwareController.enabled.collectAsStateWithLifecycle()
 
     var customGeohash by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }
@@ -250,11 +248,7 @@ fun LocationChannelsSheet(
                                 ChannelOptionRow(
                                     title = meshTitleWithCount(viewModel),
                                     subtitle = stringResource(
-                                        if (wifiAwareEnabled) {
-                                            R.string.location_bluetooth_wifi_subtitle
-                                        } else {
-                                            R.string.location_bluetooth_subtitle
-                                        },
+                                        R.string.location_bluetooth_subtitle,
                                         meshRangeString()
                                     ),
                                     isSelected = selectedChannel is ChannelID.Mesh,
