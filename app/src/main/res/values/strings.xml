@@ -5,7 +5,7 @@
     <string name="cashu_copy_token">Copy token</string>
     <string name="cashu_redeem_wallet">Redeem in wallet</string>
     <string name="cashu_redeem_web">Redeem on web</string>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">Campus Festival Mesh Chat</string>
     <string name="permission_bluetooth_rationale">Bluetooth permission is required for peer-to-peer messaging without internet.</string>
     <string name="permission_location_rationale">Location permission is required to discover nearby devices via Bluetooth.</string>
     <string name="permission_notification_rationale">Notification permission is required to alert you of new messages.</string>
@@ -69,7 +69,7 @@
   <!-- Mesh Service Foreground Notification -->
   <string name="mesh_service_channel_name">Mesh Background Service</string>
   <string name="mesh_service_channel_desc">Keeps the Bluetooth mesh running in the background</string>
-    <string name="mesh_service_notification_content">Mesh running — %1$d peers</string>
+    <string name="mesh_service_notification_content">Mesh running — %1$d nearby devices detected</string>
 
   <!-- Favorites accessibility -->
   <string name="cd_add_favorite">Add to favorites</string>
@@ -124,7 +124,7 @@
   <string name="cd_location_notes">Location notes</string>
   <string name="cd_teleported">Teleported</string>
   <string name="cd_open_location_channels">Open location and channel settings</string>
-  <string name="cd_connected_peers">Connected peers</string>
+  <string name="cd_connected_peers">Connected nearby</string>
   <string name="cd_geohash_participants">Geohash participants</string>
   <string name="cd_ready_for_handshake">Ready for handshake</string>
   <string name="cd_handshake_in_progress">Handshake in progress</string>

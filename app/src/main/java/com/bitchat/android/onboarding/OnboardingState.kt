@@ -2,6 +2,7 @@ package com.bitchat.android.onboarding
 
 enum class OnboardingState {
     CHECKING,
+    NICKNAME_SETUP,
     BLUETOOTH_CHECK,
     LOCATION_CHECK,
     BATTERY_OPTIMIZATION_CHECK,

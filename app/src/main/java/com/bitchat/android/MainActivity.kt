@@ -35,6 +35,7 @@ import com.bitchat.android.onboarding.InitializingScreen
 import com.bitchat.android.onboarding.LocationCheckScreen
 import com.bitchat.android.onboarding.LocationStatus
 import com.bitchat.android.onboarding.LocationStatusManager
+import com.bitchat.android.onboarding.NicknameSetupScreen
 import com.bitchat.android.onboarding.OnboardingCoordinator
 import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.PermissionExplanationScreen
@@ -233,6 +234,18 @@ class MainActivity : OrientationAwareActivity() {
                 InitializingScreen(modifier)
             }
             
+            OnboardingState.NICKNAME_SETUP -> {
+                NicknameSetupScreen(
+                    modifier = modifier,
+                    onNicknameSaved = { nickname ->
+                        val dataManager = com.bitchat.android.ui.DataManager(context)
+                        dataManager.saveNickname(nickname)
+                        com.bitchat.android.services.AppStateStore.setNickname(nickname)
+                        checkBluetoothAndProceed()
+                    }
+                )
+            }
+            
             OnboardingState.BLUETOOTH_CHECK -> {
                 BluetoothCheckScreen(
                     modifier = modifier,
@@ -367,6 +380,12 @@ class MainActivity : OrientationAwareActivity() {
         lifecycleScope.launch {
             // Small delay to show the checking state
             delay(500)
+            
+            val dataManager = com.bitchat.android.ui.DataManager(this@MainActivity)
+            if (!dataManager.hasNickname()) {
+                mainViewModel.updateOnboardingState(OnboardingState.NICKNAME_SETUP)
+                return@launch
+            }
             
             // First check Bluetooth status (always required)
             checkBluetoothAndProceed()

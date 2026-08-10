@@ -32,6 +32,10 @@ class DataManager(private val context: Context) {
     
     // MARK: - Nickname Management
     
+    fun hasNickname(): Boolean {
+        return prefs.contains("nickname")
+    }
+    
     fun loadNickname(): String {
         val savedNickname = prefs.getString("nickname", null)
         return if (savedNickname != null) {

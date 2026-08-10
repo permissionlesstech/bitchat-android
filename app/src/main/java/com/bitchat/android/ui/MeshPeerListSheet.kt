@@ -351,27 +351,26 @@ fun MeshPeerListSheet(
                     }
 
                     // Channels section
-                    if (joinedChannels.isNotEmpty()) {
-                        item(key = "channels_section") {
-                            Column {
-                                SheetIconSectionHeader(
-                                    iconRes = R.drawable.ic_spec_chat_bubbles,
-                                    title = stringResource(R.string.channels),
-                                    modifier = Modifier.padding(
-                                        top = if (conversations.isNotEmpty()) 20.dp else 8.dp
-                                    )
+                    item(key = "channels_section") {
+                        Column {
+                            SheetIconSectionHeader(
+                                iconRes = R.drawable.ic_spec_chat_bubbles,
+                                title = stringResource(R.string.channels),
+                                modifier = Modifier.padding(
+                                    top = if (conversations.isNotEmpty()) 20.dp else 8.dp
                                 )
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = AboutHorizontalPadding)
-                                        .padding(top = 10.dp),
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = AboutCardShape
-                                ) {
-                                    Column {
-                                        joinedChannels.toList().forEachIndexed { index, channel ->
-                                            if (index > 0) SheetCardDivider()
+                            )
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AboutHorizontalPadding)
+                                    .padding(top = 10.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = AboutCardShape
+                            ) {
+                                Column {
+                                    com.bitchat.android.model.FestivalChannels.ALL_CHANNELS.forEachIndexed { index, channel ->
+                                        if (index > 0) SheetCardDivider()
                                             val isSelected = channel == currentChannel
                                             val unreadCount = unreadChannelMessages[channel] ?: 0
                                             ChannelRow(
@@ -380,21 +379,11 @@ fun MeshPeerListSheet(
                                                 unreadCount = unreadCount,
                                                 colorScheme = colorScheme,
                                                 onChannelClick = {
-                                                    if (channel.startsWith("@")) {
-                                                        val peerName = channel.removePrefix("@")
-                                                        val peerID =
-                                                            peerNicknames.entries.firstOrNull { it.value == peerName }?.key
-                                                        if (peerID != null) {
-                                                            viewModel.showPrivateChatSheet(peerID)
-                                                            onDismiss()
-                                                        }
-                                                    } else {
-                                                        viewModel.switchToChannel(channel)
-                                                        onDismiss()
-                                                    }
+                                                    viewModel.switchToChannel(channel)
+                                                    onDismiss()
                                                 },
                                                 onLeaveChannel = {
-                                                    viewModel.leaveChannel(channel)
+                                                    // Leaving fixed channels is not supported
                                                 },
                                             )
                                         }
@@ -402,7 +391,6 @@ fun MeshPeerListSheet(
                                 }
                             }
                         }
-                    }
 
                     // People / geohash participants
                     item(key = "people_section") {
@@ -413,10 +401,7 @@ fun MeshPeerListSheet(
                                     onTapPerson = onDismiss,
                                     excludedIdentityAliases = conversationIdentityAliases,
                                     modifier = Modifier.padding(
-                                        top = if (
-                                            joinedChannels.isNotEmpty() ||
-                                            conversations.isNotEmpty()
-                                        ) 20.dp else 8.dp
+                                        top = 20.dp
                                     )
                                 )
                             }
@@ -424,10 +409,7 @@ fun MeshPeerListSheet(
                             else -> {
                                 PeopleSection(
                                     modifier = Modifier.padding(
-                                        top = if (
-                                            joinedChannels.isNotEmpty() ||
-                                            conversations.isNotEmpty()
-                                        ) 20.dp else 8.dp
+                                        top = 20.dp
                                     ),
                                     connectedPeers = visibleConnectedPeers,
                                     peerNicknames = peerNicknames,
