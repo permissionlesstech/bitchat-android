@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%2$d 人からの %1$d 件のメッセージ</string>
     <string name="notification_more_conversations">ほか %1$d 会話</string>
     <string name="notification_active_peers_title">近くに bitchatter ！</string>
-    <string name="notification_active_peers_one">近くに 1 人</string>
-    <string name="notification_active_peers_many">近くに %1$d 人</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">近くに 1 人</item>
+        <item quantity="other">近くに %1$d 人</item>
+    </plurals>
     <string name="notification_new_messages">新着メッセージ</string>
     <string name="notification_new_location_messages">新しい位置情報メッセージ</string>
     <string name="notification_mentions_in">%1$s でのメンション</string>

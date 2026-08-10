@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%1$d hafatra avy amin\'ny olona %2$d</string>
     <string name="notification_more_conversations">ary %1$d resaka hafa</string>
     <string name="notification_active_peers_title">bitchatter akaiky!</string>
-    <string name="notification_active_peers_one">Olona 1 manodidina</string>
-    <string name="notification_active_peers_many">Olona %1$d manodidina</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">Olona 1 manodidina</item>
+        <item quantity="other">Olona %1$d manodidina</item>
+    </plurals>
     <string name="notification_new_messages">Hafatra vaovao</string>
     <string name="notification_new_location_messages">Hafatra Toerana Vaovao</string>
     <string name="notification_mentions_in">Voatonona ao amin\'ny %1$s</string>

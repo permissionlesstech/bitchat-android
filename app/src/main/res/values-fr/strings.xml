@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%1$d messages de %2$d personnes</string>
     <string name="notification_more_conversations">et %1$d conversations de plus</string>
     <string name="notification_active_peers_title">bitchatters à proximité !</string>
-    <string name="notification_active_peers_one">1 personne à proximité</string>
-    <string name="notification_active_peers_many">%1$d personnes à proximité</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">1 personne à proximité</item>
+        <item quantity="other">%1$d personnes à proximité</item>
+    </plurals>
     <string name="notification_new_messages">Nouveaux messages</string>
     <string name="notification_new_location_messages">Nouveaux messages de lieu</string>
     <string name="notification_mentions_in">Mentionné dans %1$s</string>

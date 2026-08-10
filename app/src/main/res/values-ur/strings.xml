@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%2$d لوگوں سے %1$d پیغامات</string>
     <string name="notification_more_conversations">اور %1$d مزید گفتگو</string>
     <string name="notification_active_peers_title">قریب میں bitchatter!</string>
-    <string name="notification_active_peers_one">قریب میں 1 شخص</string>
-    <string name="notification_active_peers_many">قریب میں %1$d لوگ</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">قریب میں 1 شخص</item>
+        <item quantity="other">قریب میں %1$d لوگ</item>
+    </plurals>
     <string name="notification_new_messages">نئے پیغامات</string>
     <string name="notification_new_location_messages">نئے مقام کے پیغامات</string>
     <string name="notification_mentions_in">%1$s میں ذکر</string>
