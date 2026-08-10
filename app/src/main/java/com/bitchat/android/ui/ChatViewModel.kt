@@ -233,6 +233,7 @@ class ChatViewModel(
     private val conversationPresencePeers = MutableStateFlow<List<String>>(emptyList())
     private val conversationPresenceRemovalJobs = mutableMapOf<String, Job>()
     private val conversationDirectoryRevision = MutableStateFlow(0L)
+    private val privateContactConversationIDs = MutableStateFlow<Set<String>>(emptySet())
     private var favoriteRelationshipListenerRegistered = false
     private val favoriteRelationshipChangeListener = object : FavoritesChangeListener {
         override fun onFavoriteChanged(noiseKeyHex: String) {
@@ -247,9 +248,24 @@ class ChatViewModel(
     private fun refreshConversationDirectoryState() {
         viewModelScope.launch {
             refreshPeerFavoritedUs()
+            refreshPrivateContactConversationState()
             conversationListPreferences.canonicalizeAliases()
             conversationDirectoryRevision.update { it + 1L }
         }
+    }
+
+    private fun refreshPrivateContactConversationState() {
+        val privateContacts = runCatching {
+            FavoritesPersistenceService.shared.getPrivateContacts()
+        }.getOrDefault(emptyList())
+        val ids = privateContacts
+            .mapNotNull { relationship ->
+                runCatching {
+                    ContactIdentityResolver.contactConversationIdForNoiseKey(relationship.peerNoisePublicKey)
+                }.getOrNull()
+            }
+            .toSet()
+        privateContactConversationIDs.value = ids
     }
 
     private val conversationLiveIdentityState = combine(
@@ -349,14 +365,17 @@ class ChatViewModel(
         baseConversations,
         conversationListPreferences.pinned,
         conversationListPreferences.muted,
-        conversationListPreferences.drafts
-    ) { summaries, pinned, muted, drafts ->
+        conversationListPreferences.drafts,
+        privateContactConversationIDs
+    ) { summaries, pinned, muted, drafts, privateContactKeys ->
         sortConversationSummaries(
             summaries.map { summary ->
                 val key = summary.conversationID.lowercase()
                 summary.copy(
                     isPinned = key in pinned,
                     isMuted = key in muted,
+                    isPrivateContact = key in privateContactKeys ||
+                        summary.identityAliases.any { it.lowercase() in privateContactKeys },
                     draft = drafts[key]
                 )
             }
@@ -1116,6 +1135,26 @@ class ChatViewModel(
         logCurrentFavoriteState()
     }
     
+    fun togglePrivateContact(conversationID: String) {
+        val resolution = ContactDirectory.resolve(conversationID)
+        val noiseKey = resolution.noisePublicKey
+        if (noiseKey == null) {
+            Log.w(TAG, "togglePrivateContact: no noise key for $conversationID")
+            return
+        }
+        val privateContacts = runCatching {
+            FavoritesPersistenceService.shared.getPrivateContacts()
+        }.getOrDefault(emptyList())
+        val isCurrentlyPrivate = privateContacts.any { relationship ->
+            relationship.peerNoisePublicKey.contentEquals(noiseKey)
+        }
+        FavoritesPersistenceService.shared.updatePrivateContactStatus(
+            noisePublicKey = noiseKey,
+            isPrivateContact = !isCurrentlyPrivate
+        )
+        refreshPrivateContactConversationState()
+    }
+
     private fun refreshPeerFavoritedUs() {
         try {
             val fingerprints = com.bitchat.android.favorites.FavoritesPersistenceService.shared
