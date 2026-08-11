@@ -19,8 +19,8 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         // Wear releases use a separate high range because Play requires every artifact in
         // one application ID to have a unique version code across all form factors.
-        versionCode = 1_000_000_001
-        versionName = "0.1.0"
+        versionCode = 1_000_000_002
+        versionName = "0.1.1"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -63,6 +63,13 @@ android {
         abortOnError = false
         checkReleaseBuilds = false
     }
+}
+
+composeCompiler {
+    // Kotlin 2.4.10's optional Compose group-key mapping depends on unspecified
+    // class-file iteration order. Keep the normal R8 mapping, but omit that
+    // augmentation until its producer is deterministic across clean builds.
+    includeComposeMappingFile.set(false)
 }
 
 // Shared bitchat protocol stack: compiled from :app sources in place (never moved/copied by hand).
