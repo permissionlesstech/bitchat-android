@@ -9,19 +9,27 @@ plugins {
 android {
     namespace = "com.bitchat.watch"
     compileSdk = libs.versions.compileSdk.get().toInt()
+    buildToolsVersion = libs.versions.buildTools.get()
 
     defaultConfig {
-        applicationId = "com.bitchat.watch"
+        applicationId = "com.bitchat.droid"
         minSdk = 33 // Wear OS 4 (Pixel Watch 1+): the S+ Bluetooth permissions the app
         // declares only exist from API 31, and API 30 would additionally require location
         // for BLE scan results, which the app deliberately refuses.
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
+        // Wear releases use a separate high range because Play requires every artifact in
+        // one application ID to have a unique version code across all form factors.
+        versionCode = 1_000_000_001
         versionName = "0.1.0"
 
         vectorDrawables {
             useSupportLibrary = true
         }
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     buildTypes {
@@ -32,9 +40,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Sign with the debug key so release builds can be installed over the
-            // debug app during development (same signature = seamless upgrade).
-            signingConfig = signingConfigs.getByName("debug")
+            vcsInfo {
+                include = false
+            }
         }
     }
 
@@ -158,6 +166,7 @@ tasks.matching { it.name.contains("UnitTest", ignoreCase = true) }.configureEach
 }
 
 kotlin {
+    jvmToolchain(21)
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_11)
     }
