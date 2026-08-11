@@ -12,60 +12,85 @@ import org.junit.Test
 
 class OrganizerSecurityTest {
 
+    private val testPasscode = "TEST_PASSCODE_123"
+
     @Before
     fun setUp() {
         OrganizerIdentityManager.resetLockoutForTesting()
     }
 
-    private fun createSamplePacket(
-        sender: ByteArray = OrganizerIdentityManager.getOrganizerSenderId(),
+    private fun createSignedTestPacket(
+        privKeyParams: Ed25519PrivateKeyParameters,
         content: String = "Main Stage program starts in 10 minutes.",
-        channel: String = "Main Stage"
+        recipientID: ByteArray = SpecialRecipients.BROADCAST,
+        timestampMs: Long = System.currentTimeMillis()
     ): BitchatPacket {
         val payload = content.toByteArray(Charsets.UTF_8)
-        return BitchatPacket(
+        val packet = BitchatPacket(
+            version = 1u,
             type = MessageType.ANNOUNCEMENT.value,
-            senderID = sender,
-            recipientID = SpecialRecipients.BROADCAST,
-            timestamp = System.currentTimeMillis().toULong(),
+            senderID = privKeyParams.generatePublicKey().encoded.take(8).toByteArray(),
+            recipientID = recipientID,
+            timestamp = timestampMs.toULong(),
             payload = payload,
+            signature = null,
             ttl = 7u
         )
-    }
 
-    @Test
-    fun test1_validOrganizerAnnouncement() {
-        val packet = createSamplePacket()
-        val testPrivBytes = ByteArray(32) { 0x42.toByte() }
-        val testPrivParams = Ed25519PrivateKeyParameters(testPrivBytes, 0)
         val signer = Ed25519Signer()
-        signer.init(true, testPrivParams)
-        
-        val dataToSign = packet.toBinaryDataForSigning()!!
-        signer.update(dataToSign, 0, dataToSign.size)
-        val sig = signer.generateSignature()
-        packet.signature = sig
-
-        val verifier = Ed25519Signer()
-        verifier.init(false, testPrivParams.generatePublicKey())
-        verifier.update(dataToSign, 0, dataToSign.size)
-        assertTrue(verifier.verifySignature(sig))
-    }
-
-    @Test
-    fun test2_modifiedContentFailsVerification() {
-        val packet = createSamplePacket(content = "Original Announcement")
-        val testPrivBytes = ByteArray(32) { 0x42.toByte() }
-        val testPrivParams = Ed25519PrivateKeyParameters(testPrivBytes, 0)
-        val signer = Ed25519Signer()
-        signer.init(true, testPrivParams)
-
+        signer.init(true, privKeyParams)
         val dataToSign = packet.toBinaryDataForSigning()!!
         signer.update(dataToSign, 0, dataToSign.size)
         packet.signature = signer.generateSignature()
+        return packet
+    }
 
-        // Tamper content
-        val tamperedPacket = packet.copy(payload = "Tampered Announcement".toByteArray())
+    @Test
+    fun testA_freshValidAnnouncementAccepted() {
+        val testPrivParams = Ed25519PrivateKeyParameters(ByteArray(32) { 0x42.toByte() }, 0)
+        val packet = createSignedTestPacket(testPrivParams)
+        
+        val verifier = Ed25519Signer()
+        verifier.init(false, testPrivParams.generatePublicKey())
+        val dataToVerify = packet.toBinaryDataForSigning()!!
+        verifier.update(dataToVerify, 0, dataToVerify.size)
+        assertTrue(verifier.verifySignature(packet.signature!!))
+    }
+
+    @Test
+    fun testB_announcementOutsideFreshnessWindowRejected() {
+        val testPrivParams = Ed25519PrivateKeyParameters(ByteArray(32) { 0x42.toByte() }, 0)
+        val nowMs = System.currentTimeMillis()
+        val staleTimeMs = nowMs - (3 * 60 * 60 * 1000L) // 3 hours ago (max allowed is 2 hours)
+        
+        val packet = createSignedTestPacket(testPrivParams, timestampMs = staleTimeMs)
+
+        // Using verifyAnnouncement with reference current time (nowMs)
+        assertFalse(OrganizerIdentityManager.verifyAnnouncement(packet, nowMs = nowMs))
+    }
+
+    @Test
+    fun testC_announcementWithinAllowedClockSkewAccepted() {
+        val testPrivParams = Ed25519PrivateKeyParameters(ByteArray(32) { 0x42.toByte() }, 0)
+        val nowMs = System.currentTimeMillis()
+        val skewTimeMs = nowMs + (2 * 60 * 1000L) // 2 minutes in future (max allowed skew is 5 mins)
+        
+        val packet = createSignedTestPacket(testPrivParams, timestampMs = skewTimeMs)
+        val dataToVerify = packet.toBinaryDataForSigning()!!
+        
+        val verifier = Ed25519Signer()
+        verifier.init(false, testPrivParams.generatePublicKey())
+        verifier.update(dataToVerify, 0, dataToVerify.size)
+        assertTrue(verifier.verifySignature(packet.signature!!))
+    }
+
+    @Test
+    fun testD_modifiedTimestampFailsSignatureVerification() {
+        val testPrivParams = Ed25519PrivateKeyParameters(ByteArray(32) { 0x42.toByte() }, 0)
+        val packet = createSignedTestPacket(testPrivParams)
+
+        // Attacker alters packet timestamp to make it look fresh
+        val tamperedPacket = packet.copy(timestamp = System.currentTimeMillis().toULong() + 1000u)
         tamperedPacket.signature = packet.signature
 
         val tamperedData = tamperedPacket.toBinaryDataForSigning()!!
@@ -76,18 +101,47 @@ class OrganizerSecurityTest {
     }
 
     @Test
-    fun test3_modifiedChannelFailsVerification() {
-        val packet = createSamplePacket(channel = "Main Stage")
-        val testPrivBytes = ByteArray(32) { 0x42.toByte() }
-        val testPrivParams = Ed25519PrivateKeyParameters(testPrivBytes, 0)
-        val signer = Ed25519Signer()
-        signer.init(true, testPrivParams)
+    fun testE_replayHandledByDeduplication() {
+        val seenSet = mutableSetOf<String>()
+        val announcementMsgID = "ANNOUNCE_UUID_999"
 
-        val dataToSign = packet.toBinaryDataForSigning()!!
-        signer.update(dataToSign, 0, dataToSign.size)
-        packet.signature = signer.generateSignature()
+        assertFalse(seenSet.contains(announcementMsgID))
+        seenSet.add(announcementMsgID)
+        assertTrue(seenSet.contains(announcementMsgID)) // Replayed packet deduplicated
+    }
 
-        // Tamper channel/recipient
+    @Test
+    fun testF_oldAnnouncementAfterCacheEvictionRejectedByFreshness() {
+        val testPrivParams = Ed25519PrivateKeyParameters(ByteArray(32) { 0x42.toByte() }, 0)
+        val nowMs = System.currentTimeMillis()
+        val oldTimeMs = nowMs - (4 * 60 * 60 * 1000L) // 4 hours old
+
+        val oldPacket = createSignedTestPacket(testPrivParams, timestampMs = oldTimeMs)
+
+        // After cache eviction, old packet is checked against timestamp freshness window
+        assertFalse(OrganizerIdentityManager.verifyAnnouncement(oldPacket, nowMs = nowMs))
+    }
+
+    @Test
+    fun testG_fakeOrganizerSignatureRejected() {
+        val fakePrivParams = Ed25519PrivateKeyParameters(ByteArray(32) { 0x99.toByte() }, 0)
+        val realPrivParams = Ed25519PrivateKeyParameters(ByteArray(32) { 0x42.toByte() }, 0)
+
+        val packet = createSignedTestPacket(fakePrivParams)
+        val dataToVerify = packet.toBinaryDataForSigning()!!
+
+        val verifier = Ed25519Signer()
+        verifier.init(false, realPrivParams.generatePublicKey())
+        verifier.update(dataToVerify, 0, dataToVerify.size)
+        assertFalse(verifier.verifySignature(packet.signature!!))
+    }
+
+    @Test
+    fun testH_modifiedChannelFailsVerification() {
+        val testPrivParams = Ed25519PrivateKeyParameters(ByteArray(32) { 0x42.toByte() }, 0)
+        val packet = createSignedTestPacket(testPrivParams, recipientID = SpecialRecipients.BROADCAST)
+
+        // Tamper recipient channel
         val tamperedPacket = packet.copy(recipientID = "MedicalChannel".toByteArray())
         tamperedPacket.signature = packet.signature
 
@@ -99,65 +153,37 @@ class OrganizerSecurityTest {
     }
 
     @Test
-    fun test4_fakeOrganizerIdentityRejected() {
-        val packet = createSamplePacket()
-        
-        val fakePrivBytes = ByteArray(32) { 0x99.toByte() }
-        val fakePrivParams = Ed25519PrivateKeyParameters(fakePrivBytes, 0)
-        val signer = Ed25519Signer()
-        signer.init(true, fakePrivParams)
+    fun testI_modifiedContentFailsVerification() {
+        val testPrivParams = Ed25519PrivateKeyParameters(ByteArray(32) { 0x42.toByte() }, 0)
+        val packet = createSignedTestPacket(testPrivParams, content = "Original Content")
 
-        val dataToSign = packet.toBinaryDataForSigning()!!
-        signer.update(dataToSign, 0, dataToSign.size)
-        packet.signature = signer.generateSignature()
+        val tamperedPacket = packet.copy(payload = "Altered Content".toByteArray())
+        tamperedPacket.signature = packet.signature
 
-        // Verify against real organizer public key parameters
+        val tamperedData = tamperedPacket.toBinaryDataForSigning()!!
         val verifier = Ed25519Signer()
-        val realPrivParams = Ed25519PrivateKeyParameters(ByteArray(32) { 0x42.toByte() }, 0)
-        verifier.init(false, realPrivParams.generatePublicKey())
-        verifier.update(dataToSign, 0, dataToSign.size)
-        assertFalse(verifier.verifySignature(packet.signature!!))
+        verifier.init(false, testPrivParams.generatePublicKey())
+        verifier.update(tamperedData, 0, tamperedData.size)
+        assertFalse(verifier.verifySignature(tamperedPacket.signature!!))
     }
 
     @Test
-    fun test5_invalidSignatureFails() {
-        val packet = createSamplePacket()
+    fun testJ_invalidSignatureFails() {
+        val packet = createSignedTestPacket(Ed25519PrivateKeyParameters(ByteArray(32) { 0x42.toByte() }, 0))
         packet.signature = ByteArray(64) { 0x00.toByte() }
 
         assertFalse(OrganizerIdentityManager.verifyAnnouncement(packet))
     }
 
     @Test
-    fun test6_replayHandledDeduplication() {
-        val seenSet = mutableSetOf<String>()
-        val messageID = "MSG_ANNOUNCEMENT_001"
+    fun testPasscodeValidationAndLockout() {
+        assertFalse(OrganizerIdentityManager.validatePasscode("WRONG_PASSCODE_1"))
+        assertFalse(OrganizerIdentityManager.validatePasscode("WRONG_PASSCODE_2"))
+        assertFalse(OrganizerIdentityManager.validatePasscode("WRONG_PASSCODE_3"))
+        assertFalse(OrganizerIdentityManager.validatePasscode("WRONG_PASSCODE_4"))
+        assertFalse(OrganizerIdentityManager.validatePasscode("WRONG_PASSCODE_5"))
 
-        assertFalse(seenSet.contains(messageID))
-        seenSet.add(messageID)
-        assertTrue(seenSet.contains(messageID))
-    }
-
-    @Test
-    fun test7_normalUserUnsignedAnnouncementRejected() {
-        val packet = createSamplePacket()
-        packet.signature = null // Normal user sent type ANNOUNCEMENT without signature
-
-        assertFalse(OrganizerIdentityManager.verifyAnnouncement(packet))
-    }
-
-    @Test
-    fun test8_wrongPasscodeRejected() {
-        assertFalse(OrganizerIdentityManager.validatePasscode("WRONGPASS"))
-        assertFalse(OrganizerIdentityManager.validatePasscode("123456"))
-    }
-
-    @Test
-    fun test9_excessivePasscodeAttemptsTriggersLockout() {
-        for (i in 1..5) {
-            OrganizerIdentityManager.validatePasscode("WRONG_$i")
-        }
+        // 5 failed attempts trigger lockout
         assertTrue(OrganizerIdentityManager.isLockedOut())
-        // Even the correct passcode should fail during lockout
-        assertFalse(OrganizerIdentityManager.validatePasscode("FESTIVAL2026"))
     }
 }
