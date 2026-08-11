@@ -43,9 +43,14 @@ class NostrProtocolTest {
     }
 
     @Test
-    fun createPrivateMessage_limitsEnvelopeTimestampsToIosLookback() {
+    fun createPrivateMessage_reservesSlackInsideIosLookback() {
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()
+
+        assertEquals(
+            IOS_DM_LOOKBACK_SECONDS - TIMESTAMP_SAFETY_SLACK_SECONDS,
+            NostrCrypto.NIP17_DEFAULT_MAX_PAST_SECONDS
+        )
 
         repeat(20) {
             val beforeCreation = (System.currentTimeMillis() / 1000).toInt()
@@ -74,8 +79,8 @@ class NostrProtocolTest {
         afterCreation: Int
     ) {
         assertTrue(
-            "$envelope timestamp must be no more than 24 hours old",
-            createdAt >= beforeCreation - IOS_DM_LOOKBACK_SECONDS
+            "$envelope timestamp must leave 15 minutes inside the iOS lookback",
+            createdAt >= beforeCreation - MAX_OUTBOUND_BACKDATE_SECONDS
         )
         assertTrue(
             "$envelope timestamp must not be in the future",
@@ -126,6 +131,9 @@ class NostrProtocolTest {
     }
 
     private companion object {
-        const val IOS_DM_LOOKBACK_SECONDS = 86400
+        const val IOS_DM_LOOKBACK_SECONDS = 86_400
+        const val TIMESTAMP_SAFETY_SLACK_SECONDS = 900
+        const val MAX_OUTBOUND_BACKDATE_SECONDS =
+            IOS_DM_LOOKBACK_SECONDS - TIMESTAMP_SAFETY_SLACK_SECONDS
     }
 }
