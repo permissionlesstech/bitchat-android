@@ -5,9 +5,11 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import com.bitchat.android.BuildConfig
+import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.OkHttpProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.Call
@@ -26,7 +28,15 @@ import java.security.MessageDigest
 /**
  * Manages local and downloaded APK artifacts for offline sharing.
  */
-class UniversalApkManager(private val context: Context) {
+class UniversalApkManager(
+    private val context: Context,
+    private val downloadSources: List<ApkDownloadSource> = DefaultApkDownloadSources.all
+) {
+    init {
+        require(downloadSources.map { it.id }.distinct().size == downloadSources.size) {
+            "APK download source ids must be unique"
+        }
+    }
 
     companion object {
         private const val TAG = "UniversalApk"
@@ -34,6 +44,8 @@ class UniversalApkManager(private val context: Context) {
         private const val METADATA_FILE_NAME = "universal_apk_info.json"
         private const val PROGRESS_FILE_NAME = "download_progress.json"
         private const val APK_FILE_PREFIX = "bitchat-universal-"
+        private const val TEMP_FILE_NAME = "download_temp.apk"
+        private const val ROUTE_READY_TIMEOUT_MILLIS = 60_000L
 
         // Download buffer size (128KB)
         private const val BUFFER_SIZE = 128 * 1024
@@ -44,14 +56,19 @@ class UniversalApkManager(private val context: Context) {
 
     private val metadataFile: File get() = File(cacheDir, METADATA_FILE_NAME)
     private val progressFile: File get() = File(cacheDir, PROGRESS_FILE_NAME)
+    private val rateLimits = ApkRateLimitStore(context)
 
-    // Download client: inherits Tor proxy settings but with no call timeout
-    // for large file downloads that can take minutes
-    private val downloadClient
-        get() = OkHttpProvider.httpClient().newBuilder()
-            .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
+    // Download client: inherits the current client's actual route but has no call timeout for
+    // large files that can take minutes. Keep the route attached for route-specific cooldowns.
+    private fun downloadClient(): OkHttpProvider.RoutedClient {
+        val routed = OkHttpProvider.routedHttpClient()
+        return routed.copy(
+            client = routed.client.newBuilder()
+                .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+        )
+    }
 
     /**
      * Get information about the cached sharing APK, if it exists.
@@ -64,13 +81,16 @@ class UniversalApkManager(private val context: Context) {
 
             val json = JSONObject(metadataFile.readText())
             val version = json.optString("version", "")
-            val checksum = json.optString("checksum", "")
             val downloadDate = json.optLong("downloadDate", 0L)
             val size = json.optLong("size", 0L)
             val fileName = json.optString("fileName", "")
-            val source = runCatching {
-                ApkSource.valueOf(json.optString("source", ApkSource.GITHUB.name))
-            }.getOrDefault(ApkSource.GITHUB)
+            val source = when (json.optString("source")) {
+                ApkSource.INSTALLED.name -> ApkSource.INSTALLED
+                // Migrate metadata written before downloads became mirror-agnostic.
+                else -> ApkSource.DOWNLOADED
+            }
+            val downloadSourceId = json.optString("downloadSourceId")
+                .takeIf { it.isNotBlank() }
 
             if (version.isBlank() || fileName.isBlank()) {
                 return null
@@ -91,12 +111,12 @@ class UniversalApkManager(private val context: Context) {
 
             ApkInfo(
                 version = version,
-                checksum = checksum,
                 downloadDate = downloadDate,
                 size = size,
                 file = apkFile,
                 source = source,
-                variant = variant
+                variant = variant,
+                downloadSourceId = downloadSourceId
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error reading cached APK info", e)
@@ -116,10 +136,10 @@ class UniversalApkManager(private val context: Context) {
      * Returns the progress percentage (0-100) or null if no partial download.
      */
     fun getPartialDownloadProgress(): Int? {
-        val tempFile = File(cacheDir, "download_temp.apk")
+        val tempFile = File(cacheDir, TEMP_FILE_NAME)
         val resumeInfo = loadResumeInfo()
         if (tempFile.exists() && resumeInfo != null) {
-            val expectedSize = resumeInfo.optLong("expectedSize", 0L)
+            val expectedSize = resumeInfo.expectedSize
             if (expectedSize > 0) {
                 return ((tempFile.length() * 100) / expectedSize).toInt().coerceIn(0, 99)
             }
@@ -128,58 +148,12 @@ class UniversalApkManager(private val context: Context) {
     }
 
     /**
-     * Check for updates from GitHub.
-     * @return UpdateStatus indicating if update is available, current version, etc.
+     * Prepare or read the best local sharing artifact. This never performs a
+     * network request, so opening the About sheet cannot consume API quota or
+     * wait for Tor.
      */
-    suspend fun checkForUpdate(): UpdateStatus = withContext(Dispatchers.IO) {
-        try {
-            // A supported standalone APK is already an installable sharing
-            // artifact. Split installs still need the universal GitHub artifact.
-            val installedApkInfo = cacheInstalledApkIfPreferred()
-            if (installedApkInfo?.source == ApkSource.INSTALLED) {
-                return@withContext UpdateStatus.UpToDate(installedApkInfo.version)
-            }
-
-            val cachedInfo = getCachedApkInfo()
-            val latestRelease = GitHubReleaseClient.fetchLatestRelease().getOrElse { error ->
-                return@withContext UpdateStatus.Error(
-                    error.message ?: "Failed to fetch latest release from GitHub"
-                )
-            }
-            // The GitHub release may briefly lag behind the installed version
-            // (upstream bumps versionName in main before tagging the release).
-            // An older release is still a genuine, signed, universal artifact —
-            // recipients with a newer install can't be downgraded by Android
-            // anyway — so share it rather than disabling the feature.
-            if (isOlderThanInstalledVersion(latestRelease.versionName)) {
-                Log.i(
-                    TAG,
-                    "GitHub universal APK ${latestRelease.versionName} is older than installed " +
-                        "app ${installedVersionName()}; sharing it until the matching release ships"
-                )
-            }
-
-            if (cachedInfo == null) {
-                // No cached APK
-                return@withContext UpdateStatus.NotDownloaded(latestRelease)
-            }
-
-            // Compare versions
-            val isNewer = GitHubReleaseClient.isNewerVersion(cachedInfo.version, latestRelease)
-
-            if (isNewer) {
-                UpdateStatus.UpdateAvailable(
-                    currentVersion = cachedInfo.version,
-                    latestRelease = latestRelease
-                )
-            } else {
-                UpdateStatus.UpToDate(cachedInfo.version)
-            }
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking for update", e)
-            UpdateStatus.Error(e.message ?: "Unknown error")
-        }
+    suspend fun prepareLocalApkInfo(): ApkInfo? = withContext(Dispatchers.IO) {
+        cacheInstalledApkIfPreferred() ?: getCachedApkInfo()
     }
 
     /**
@@ -196,248 +170,393 @@ class UniversalApkManager(private val context: Context) {
             val availableMB = availableSpace / 1024 / 1024
             val error = "Insufficient storage: need ${requiredMB}MB, have ${availableMB}MB"
             Log.e(TAG, error)
-            throw IOException(error)
+            throw ApkDownloadException(
+                message = error,
+                reason = ApkDownloadFailureReason.InsufficientStorage,
+                messageArgs = listOf(requiredMB.toString(), availableMB.toString()),
+                retryable = false
+            )
         }
     }
 
     /**
-     * Download the universal APK from GitHub with resume support.
-     * @param progressCallback Called with progress percentage (0-100)
-     * @return Result with File on success, or error message
+     * Download from the configured sources. Each source gets one attempt in this
+     * worker run; WorkManager owns retry/backoff across runs.
      */
     suspend fun downloadUniversalApk(
-        progressCallback: ((Int) -> Unit)? = null
+        progressCallback: ((Int) -> Unit)? = null,
+        phaseCallback: ((ApkDownloader.DownloadPhase) -> Unit)? = null
     ): Result<File> = withContext(Dispatchers.IO) {
-        try {
-            Log.d(TAG, "Starting universal APK download")
-
-            // Fetch latest release info
-            // Reuses the short-lived release metadata cache populated by the
-            // status check. If this worker is running after process death, the
-            // client performs a retried network fetch instead.
-            val release = GitHubReleaseClient.fetchLatestRelease().getOrElse { error ->
-                return@withContext Result.failure(error)
-            }
-
-            if (!GitHubReleaseClient.awaitSelectedNetworkRoute()) {
-                return@withContext Result.failure(
-                    IOException("Tor is still connecting. Try the download again when Tor is ready.")
+        if (downloadSources.isEmpty()) {
+            return@withContext Result.failure(
+                ApkDownloadException(
+                    message = "No APK download sources are configured.",
+                    reason = ApkDownloadFailureReason.NoSources,
+                    retryable = false
                 )
-            }
-
-            val url = release.universalApkUrl
-            val expectedSize = release.universalApkSize
-
-            Log.d(TAG, "Downloading from: $url")
-            Log.d(TAG, "Expected size: ${expectedSize / 1024 / 1024}MB")
-
-            val tempFile = File(cacheDir, "download_temp.apk")
-
-            // Check for resumable download
-            var existingBytes = 0L
-            if (tempFile.exists()) {
-                val resumeInfo = loadResumeInfo()
-                if (resumeInfo != null &&
-                    resumeInfo.optString("url") == url &&
-                    resumeInfo.optString("versionName") == release.versionName
-                ) {
-                    existingBytes = tempFile.length()
-                    Log.d(TAG, "Resuming download from $existingBytes bytes")
-                } else {
-                    Log.d(TAG, "Stale temp file found, starting fresh")
-                    tempFile.delete()
-                    progressFile.delete()
-                }
-            }
-
-            // Bytes already in the temp file have already consumed storage, so
-            // a resume only needs room for the remaining tail. Promotion is a
-            // rename and needs no extra space.
-            checkDiskSpace((expectedSize - existingBytes).coerceAtLeast(0))
-
-            // A temp file that already holds the full asset means the process
-            // died between download and verification. Requesting
-            // "Range: bytes=<size>-" for it would get HTTP 416 forever, so skip
-            // the network and let checksum/signature verification decide its fate.
-            if (expectedSize > 0 && existingBytes >= expectedSize) {
-                Log.d(TAG, "Temp file already complete ($existingBytes bytes), skipping to verification")
-            } else {
-                val requestBuilder = Request.Builder()
-                    .url(url)
-                    .addHeader("User-Agent", "BitChat-Android")
-
-                if (existingBytes > 0) {
-                    requestBuilder.addHeader("Range", "bytes=$existingBytes-")
-                    Log.d(TAG, "Added Range header: bytes=$existingBytes-")
-                }
-
-                val request = requestBuilder.build()
-                downloadToTempFile(
-                    call = downloadClient.newCall(request),
-                    tempFile = tempFile,
-                    url = url,
-                    expectedSize = expectedSize,
-                    versionName = release.versionName,
-                    existingBytes = existingBytes,
-                    progressCallback = progressCallback
-                )
-            }
-
-            // Verify checksum if available
-            if (release.universalApkSha256 != null) {
-                Log.d(TAG, "Verifying checksum...")
-                val isValid = verifyChecksum(tempFile, release.universalApkSha256)
-                if (!isValid) {
-                    tempFile.delete()
-                    progressFile.delete()
-                    return@withContext Result.failure(
-                        Exception("Checksum verification failed. Downloaded file may be corrupted.")
-                    )
-                }
-                Log.d(TAG, "Checksum verified successfully")
-            } else {
-                Log.w(TAG, "No checksum available for verification")
-            }
-
-            // Verify the downloaded APK against trusted signing certificates.
-            Log.d(TAG, "Verifying APK signature...")
-            if (!verifyApkSignature(tempFile)) {
-                tempFile.delete()
-                progressFile.delete()
-                return@withContext Result.failure(
-                    Exception("APK signature verification failed. The downloaded APK is not signed by a trusted BitChat release key.")
-                )
-            }
-            Log.d(TAG, "Signature verified successfully")
-
-            if (!DistributionInfoProvider.isUniversalApk(tempFile)) {
-                tempFile.delete()
-                progressFile.delete()
-                return@withContext Result.failure(
-                    Exception(
-                        "GitHub asset is architecture-specific, not universal. " +
-                            "Release packaging must be corrected."
-                    )
-                )
-            }
-
-            // Move to final location without deleting the currently usable APK
-            // first. Old versions are removed only after the replacement and
-            // metadata have both been committed.
-            val finalFileName = "$APK_FILE_PREFIX${release.versionName}.apk"
-            val finalFile = File(cacheDir, finalFileName)
-            replaceFileSafely(tempFile, finalFile)
-
-            // Clean up resume metadata on success
-            progressFile.delete()
-
-            // Save metadata
-            saveMetadata(
-                version = release.versionName,
-                checksum = release.universalApkSha256 ?: "",
-                size = finalFile.length(),
-                fileName = finalFileName,
-                source = ApkSource.GITHUB,
-                variant = ShareableApkVariant.UNIVERSAL
             )
-            cleanupOldApks(except = finalFile)
+        }
 
-            Log.d(TAG, "Universal APK downloaded successfully: ${finalFile.path}")
-            Result.success(finalFile)
+        try {
+            phaseCallback?.invoke(ApkDownloader.DownloadPhase.AwaitingNetworkRoute)
+            if (!ArtiTorManager.getInstance().awaitSelectedRoute(ROUTE_READY_TIMEOUT_MILLIS)) {
+                return@withContext Result.failure(
+                    ApkDownloadException(
+                        message = "Tor is still connecting.",
+                        reason = ApkDownloadFailureReason.TorConnecting,
+                        retryable = true
+                    )
+                )
+            }
 
+            val failures = mutableListOf<ApkDownloadException>()
+            val sources = sourcesWithResumeFirst()
+            for ((index, source) in sources.withIndex()) {
+                phaseCallback?.invoke(ApkDownloader.DownloadPhase.SelectingSource)
+                if (index > 0) clearPartialDownload()
+
+                try {
+                    Log.d(TAG, "Downloading universal APK from ${source.displayName}")
+                    phaseCallback?.invoke(ApkDownloader.DownloadPhase.Transferring)
+                    val tempFile = downloadFromSource(source, progressCallback)
+
+                    phaseCallback?.invoke(ApkDownloader.DownloadPhase.VerifyingSignature)
+                    validateDownloadedApk(tempFile, source)
+
+                    // Everything from here to the metadata write is plain blocking code, so a
+                    // cancellation arriving during the (slow) signature check would otherwise go
+                    // unobserved and commit the APK anyway. The verified temp file survives for
+                    // resume; only the promotion is abandoned.
+                    ensureActive()
+
+                    val version = downloadedVersionName(tempFile)
+                    val safeVersion = version.replace(Regex("[^A-Za-z0-9._-]"), "_")
+                    val finalFileName = "$APK_FILE_PREFIX$safeVersion.apk"
+                    val finalFile = File(cacheDir, finalFileName)
+                    // Package parsing above is blocking. A cancellation arriving while it runs
+                    // must not promote the verified temporary file into the shareable slot.
+                    ensureActive()
+                    replaceFileSafely(tempFile, finalFile)
+                    progressFile.delete()
+
+                    saveMetadata(
+                        version = version,
+                        size = finalFile.length(),
+                        fileName = finalFileName,
+                        source = ApkSource.DOWNLOADED,
+                        variant = ShareableApkVariant.UNIVERSAL,
+                        downloadSourceId = source.id
+                    )
+                    cleanupOldApks(except = finalFile)
+                    Log.d(TAG, "Universal APK downloaded successfully from ${source.displayName}")
+                    return@withContext Result.success(finalFile)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    val failure = e.asDownloadException(source)
+                    failures += failure
+                    Log.w(TAG, "${source.displayName} download failed", failure)
+                    if (index < sources.lastIndex) {
+                        Log.i(TAG, "Trying the next configured APK source")
+                    }
+                }
+            }
+
+            Result.failure(combineSourceFailures(failures))
         } catch (e: CancellationException) {
             throw e
-        } catch (e: IOException) {
-            Log.e(TAG, "Network error downloading APK", e)
-            Result.failure(e)
         } catch (e: Exception) {
             Log.e(TAG, "Error downloading APK", e)
             Result.failure(e)
         }
     }
 
+    private fun sourcesWithResumeFirst(): List<ApkDownloadSource> {
+        val tempFile = File(cacheDir, TEMP_FILE_NAME)
+        val resume = loadResumeInfo()
+        if (!tempFile.exists() || resume == null) return downloadSources
+
+        val resumedSource = downloadSources.firstOrNull { it.id == resume.sourceId }
+        if (resumedSource == null) {
+            clearPartialDownload()
+            return downloadSources
+        }
+        return listOf(resumedSource) + downloadSources.filterNot { it.id == resumedSource.id }
+    }
+
+    private suspend fun downloadFromSource(
+        source: ApkDownloadSource,
+        progressCallback: ((Int) -> Unit)?
+    ): File {
+        val tempFile = File(cacheDir, TEMP_FILE_NAME)
+        var resume = loadResumeInfo()
+        if (resume?.sourceId != source.id) {
+            clearPartialDownload()
+            resume = null
+        }
+
+        var existingBytes = if (resume != null && tempFile.exists()) tempFile.length() else 0L
+        if (resume != null && resume.expectedSize > 0L && existingBytes == resume.expectedSize) {
+            Log.d(TAG, "Partial file is complete; continuing with APK verification")
+            return tempFile
+        }
+        if (resume != null && resume.expectedSize > 0L && existingBytes > resume.expectedSize) {
+            clearPartialDownload()
+            resume = null
+            existingBytes = 0L
+        }
+
+        val resumeUrl = resume?.endpointUrl?.takeIf { it in source.latestApkUrls }
+        if (resume != null && resumeUrl == null) {
+            clearPartialDownload()
+            resume = null
+            existingBytes = 0L
+        }
+
+        val endpoints = listOfNotNull(resumeUrl) +
+            source.latestApkUrls.filterNot { it == resumeUrl }
+        var lastFailure: ApkDownloadException? = null
+        for ((index, endpointUrl) in endpoints.withIndex()) {
+            if (index > 0) {
+                clearPartialDownload()
+                resume = null
+                existingBytes = 0L
+            }
+
+            // A Range request is only safe with a validator. Without If-Range, a
+            // newly published release could be appended to bytes from the old one.
+            if (existingBytes > 0L && resume?.validator == null) {
+                clearPartialDownload()
+                resume = null
+                existingBytes = 0L
+            }
+
+            try {
+                executeDownloadRequest(
+                    source = source,
+                    endpointUrl = endpointUrl,
+                    tempFile = tempFile,
+                    existingBytes = existingBytes,
+                    resume = resume,
+                    progressCallback = progressCallback
+                )
+                return tempFile
+            } catch (e: ApkDownloadException) {
+                lastFailure = e
+                val assetNameFallback = shouldTryNextSourceUrl(
+                    error = e,
+                    hasMoreUrls = index < endpoints.lastIndex
+                )
+                if (!assetNameFallback) throw e
+                Log.i(TAG, "APK filename not found; trying ${source.displayName}'s fallback URL")
+            }
+        }
+        throw lastFailure
+            ?: ApkDownloadException(
+                message = "${source.id} has no usable APK URL.",
+                reason = ApkDownloadFailureReason.NoUsableUrl,
+                messageArgs = listOf(source.displayName),
+                retryable = false
+            )
+    }
+
+    private suspend fun executeDownloadRequest(
+        source: ApkDownloadSource,
+        endpointUrl: String,
+        tempFile: File,
+        existingBytes: Long,
+        resume: ResumeInfo?,
+        progressCallback: ((Int) -> Unit)?
+    ) {
+        val routedClient = downloadClient()
+        val rateLimitScope = "apk_asset_${source.id}"
+        val now = System.currentTimeMillis()
+        rateLimits.retryAtMillis(rateLimitScope, routedClient.route, now)?.let { deadline ->
+            throw rateLimits.blockedException(source, deadline)
+        }
+
+        val request = Request.Builder()
+            // Always start from the configured source endpoint. If a release changed,
+            // If-Range makes the server return 200 and we overwrite the partial.
+            .url(endpointUrl)
+            .addHeader("User-Agent", "BitChat-Android")
+            .apply {
+                if (existingBytes > 0L) {
+                    addHeader("Range", "bytes=$existingBytes-")
+                    resume?.validator?.let { addHeader("If-Range", it) }
+                }
+            }
+            .build()
+
+        downloadToTempFile(
+            call = routedClient.client.newCall(request),
+            source = source,
+            rateLimitScope = rateLimitScope,
+            route = routedClient.route,
+            endpointUrl = endpointUrl,
+            tempFile = tempFile,
+            existingBytes = existingBytes,
+            previousResume = resume,
+            progressCallback = progressCallback
+        )
+    }
+
     /**
-     * Streams an HTTP response into [tempFile] while keeping the coroutine
-     * suspended for the lifetime of the response body. Cancelling the worker
-     * therefore cancels the OkHttp call and promptly unblocks a pending read.
+     * Streams an HTTP response into [tempFile]. Cancellation cancels the OkHttp
+     * call, and resume metadata is committed before bytes are appended.
      */
     private suspend fun downloadToTempFile(
         call: Call,
+        source: ApkDownloadSource,
+        rateLimitScope: String,
+        route: OkHttpProvider.Route,
+        endpointUrl: String,
         tempFile: File,
-        url: String,
-        expectedSize: Long,
-        versionName: String,
         existingBytes: Long,
+        previousResume: ResumeInfo?,
         progressCallback: ((Int) -> Unit)?
     ) = suspendCancellableCoroutine { continuation ->
         fun completeSuccessfully() {
-            continuation.resumeWith(Result.success(Unit))
+            if (continuation.isActive) continuation.resumeWith(Result.success(Unit))
         }
 
         fun completeWithError(error: Throwable) {
-            continuation.resumeWith(Result.failure(error))
+            if (continuation.isActive) continuation.resumeWith(Result.failure(error))
         }
 
-        continuation.invokeOnCancellation {
-            call.cancel()
-        }
+        continuation.invokeOnCancellation { call.cancel() }
 
         try {
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
-                    completeWithError(e)
+                    completeWithError(
+                        ApkDownloadException(
+                            message = "${source.id} could not be reached" +
+                                (e.message?.let { ": $it" } ?: "."),
+                            reason = ApkDownloadFailureReason.Unreachable,
+                            messageArgs = listOf(source.displayName),
+                            retryable = true,
+                            sourceId = source.id,
+                            cause = e
+                        )
+                    )
                 }
 
                 override fun onResponse(call: Call, response: Response) {
                     try {
                         response.use {
+                            if (!response.request.url.isHttps) {
+                                throw ApkDownloadException(
+                                    message = "${source.id} redirected to an insecure URL.",
+                                    reason = ApkDownloadFailureReason.InsecureRedirect,
+                                    messageArgs = listOf(source.displayName),
+                                    retryable = false,
+                                    sourceId = source.id
+                                )
+                            }
                             if (response.code == 416) {
-                                // Our offset is no longer valid for this asset; discard
-                                // the partial state so the retry starts from scratch.
-                                Log.w(TAG, "Server rejected resume range, restarting download")
-                                tempFile.delete()
-                                progressFile.delete()
-                                throw IOException(
-                                    "Resume rejected by server. Download will restart."
+                                val total = parseUnsatisfiedContentRangeTotal(
+                                    response.header("Content-Range")
+                                )
+                                if (total != null && total == existingBytes && tempFile.length() == total) {
+                                    completeSuccessfully()
+                                    return
+                                }
+                                clearPartialDownload()
+                                throw ApkDownloadException(
+                                    message = "${source.id} rejected the saved download position.",
+                                    reason = ApkDownloadFailureReason.ResumeRejected,
+                                    messageArgs = listOf(source.displayName),
+                                    retryable = true,
+                                    sourceId = source.id,
+                                    httpCode = response.code
                                 )
                             }
-                            if (!response.isSuccessful && response.code != 206) {
-                                throw IOException(
-                                    "Download failed: ${response.code} ${response.message}"
+                            if (!response.isSuccessful) {
+                                val failure = ApkDownloadHttpErrors.fromResponse(
+                                    source = source,
+                                    code = response.code,
+                                    responseMessage = response.message,
+                                    retryAfter = response.header("Retry-After"),
+                                    rateLimitRemaining = response.header("X-RateLimit-Remaining"),
+                                    rateLimitResetEpochSeconds =
+                                        response.header("X-RateLimit-Reset")
                                 )
+                                if (failure.reason == ApkDownloadFailureReason.RateLimited) {
+                                    val now = System.currentTimeMillis()
+                                    val deadline = rateLimits.recordRateLimit(
+                                        rateLimitScope,
+                                        route,
+                                        failure.retryAtMillis,
+                                        now
+                                    )
+                                    throw rateLimits.blockedException(source, deadline)
+                                }
+                                throw failure
                             }
+
+                            rateLimits.clear(rateLimitScope, route)
 
                             val body = response.body
-                                ?: throw IOException("Empty response body")
-
-                            // Handle resume: 206 = partial content (append), 200 = full
-                            // content (overwrite).
-                            val append = response.code == 206
-                            val resumedBytes = if (!append && existingBytes > 0) {
-                                Log.d(
-                                    TAG,
-                                    "Server didn't honor Range request, starting from scratch"
-                                )
-                                0L
+                            val range = if (response.code == 206) {
+                                parseContentRange(response.header("Content-Range"))
+                                    ?: throw invalidResumeResponse(source, tempFile)
                             } else {
-                                existingBytes
+                                null
+                            }
+                            if (range != null && range.start != existingBytes) {
+                                throw invalidResumeResponse(source, tempFile)
                             }
 
-                            saveResumeInfo(url, expectedSize, versionName)
+                            val append = range != null
+                            val resumedBytes = if (append) existingBytes else 0L
+                            val expectedSize = range?.total
+                                ?: body.contentLength().takeIf { it >= 0L }?.let { length ->
+                                    resumedBytes + length
+                                }
+                                ?: previousResume?.expectedSize?.takeIf { append }
+                                ?: 0L
+                            if (expectedSize > 0L) {
+                                checkDiskSpace((expectedSize - resumedBytes).coerceAtLeast(0L))
+                            }
 
-                            if (resumedBytes > 0 && expectedSize > 0) {
-                                val initialProgress =
-                                    ((resumedBytes * 100) / expectedSize).toInt()
-                                progressCallback?.invoke(initialProgress)
+                            val validator = response.header("ETag")
+                                ?: response.header("Last-Modified")
+                                ?: previousResume?.validator?.takeIf { append }
+
+                            // A server may ignore Range and return a replacement 200 response.
+                            // Remove the old bytes before recording the new validator. If the
+                            // process dies at any later point, old and new release bytes cannot be
+                            // combined on the next resume.
+                            prepareApkTempFileForResponse(tempFile, append)
+                            if (validator != null) {
+                                saveResumeInfo(
+                                    ResumeInfo(
+                                        sourceId = source.id,
+                                        endpointUrl = endpointUrl,
+                                        expectedSize = expectedSize,
+                                        validator = validator
+                                    )
+                                )
+                            } else {
+                                progressFile.delete()
+                            }
+
+                            if (resumedBytes > 0L && expectedSize > 0L) {
+                                progressCallback?.invoke(
+                                    ((resumedBytes * 100L) / expectedSize).toInt()
+                                )
                             }
 
                             body.byteStream().use { input ->
-                                FileOutputStream(tempFile, append).use { output ->
+                                // Non-resume responses were already truncated above; always append
+                                // after resume metadata is safely committed.
+                                FileOutputStream(tempFile, true).use { output ->
                                     val buffer = ByteArray(BUFFER_SIZE)
                                     var bytesRead: Int
                                     var totalBytesRead = resumedBytes
-                                    var lastProgress = if (expectedSize > 0) {
-                                        ((resumedBytes * 100) / expectedSize).toInt()
+                                    var lastProgress = if (expectedSize > 0L) {
+                                        ((resumedBytes * 100L) / expectedSize).toInt()
                                     } else {
                                         0
                                     }
@@ -445,22 +564,28 @@ class UniversalApkManager(private val context: Context) {
                                     while (input.read(buffer).also { bytesRead = it } != -1) {
                                         output.write(buffer, 0, bytesRead)
                                         totalBytesRead += bytesRead
-
-                                        if (expectedSize > 0) {
-                                            val progress =
-                                                ((totalBytesRead * 100) / expectedSize).toInt()
+                                        if (expectedSize > 0L) {
+                                            val progress = (
+                                                (totalBytesRead * 100L) / expectedSize
+                                                ).toInt().coerceIn(0, 100)
                                             if (progress != lastProgress) {
                                                 lastProgress = progress
                                                 progressCallback?.invoke(progress)
                                             }
                                         }
                                     }
-
-                                    Log.d(
-                                        TAG,
-                                        "Download complete: ${totalBytesRead / 1024 / 1024}MB"
-                                    )
                                 }
+                            }
+
+                            if (expectedSize > 0L && tempFile.length() != expectedSize) {
+                                if (tempFile.length() > expectedSize) clearPartialDownload()
+                                throw ApkDownloadException(
+                                    message = "${source.id} download ended before all bytes arrived.",
+                                    reason = ApkDownloadFailureReason.Incomplete,
+                                    messageArgs = listOf(source.displayName),
+                                    retryable = true,
+                                    sourceId = source.id
+                                )
                             }
                         }
                         completeSuccessfully()
@@ -472,6 +597,106 @@ class UniversalApkManager(private val context: Context) {
         } catch (e: Exception) {
             completeWithError(e)
         }
+    }
+
+    private fun invalidResumeResponse(
+        source: ApkDownloadSource,
+        tempFile: File
+    ): ApkDownloadException {
+        tempFile.delete()
+        progressFile.delete()
+        return ApkDownloadException(
+            message = "${source.id} returned an invalid resume response.",
+            reason = ApkDownloadFailureReason.InvalidResume,
+            messageArgs = listOf(source.displayName),
+            retryable = true,
+            sourceId = source.id
+        )
+    }
+
+    private fun validateDownloadedApk(tempFile: File, source: ApkDownloadSource) {
+        if (!verifyApkSignature(tempFile)) {
+            clearPartialDownload()
+            throw ApkDownloadException(
+                message = "APK from ${source.id} is not signed by a trusted BitChat release key.",
+                reason = ApkDownloadFailureReason.UntrustedKey,
+                messageArgs = listOf(source.displayName),
+                retryable = false,
+                sourceId = source.id
+            )
+        }
+        if (!DistributionInfoProvider.isUniversalApk(tempFile)) {
+            clearPartialDownload()
+            throw ApkDownloadException(
+                message = "${source.id} returned an architecture-specific APK.",
+                reason = ApkDownloadFailureReason.NotUniversal,
+                messageArgs = listOf(source.displayName),
+                retryable = false,
+                sourceId = source.id
+            )
+        }
+    }
+
+    private fun downloadedVersionName(apkFile: File): String {
+        val packageInfo = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+            ?: invalidDownloadedApk(ApkDownloadFailureReason.ApkUnreadable, "unreadable APK")
+        if (packageInfo.packageName != context.packageName) {
+            invalidDownloadedApk(ApkDownloadFailureReason.NotBitchat, "wrong package")
+        }
+        return packageInfo.versionName
+            ?.takeIf { it.isNotBlank() }
+            ?: invalidDownloadedApk(ApkDownloadFailureReason.NoVersion, "no version name")
+    }
+
+    private fun invalidDownloadedApk(
+        reason: ApkDownloadFailureReason,
+        logReason: String
+    ): Nothing {
+        clearPartialDownload()
+        throw ApkDownloadException(
+            message = "Downloaded APK rejected: $logReason",
+            reason = reason,
+            retryable = false
+        )
+    }
+
+    private fun Exception.asDownloadException(source: ApkDownloadSource): ApkDownloadException {
+        if (this is ApkDownloadException) return this
+        return ApkDownloadException(
+            message = "${source.id} download failed" + (message?.let { ": $it" } ?: "."),
+            reason = ApkDownloadFailureReason.SourceFailed,
+            messageArgs = listOf(source.displayName),
+            retryable = this is IOException,
+            sourceId = source.id,
+            cause = this
+        )
+    }
+
+    private fun combineSourceFailures(
+        failures: List<ApkDownloadException>
+    ): ApkDownloadException {
+        if (failures.size == 1) return failures.single()
+        if (failures.isEmpty()) {
+            return ApkDownloadException(
+                message = "APK download failed with no recorded source failure.",
+                reason = ApkDownloadFailureReason.Generic,
+                retryable = false
+            )
+        }
+        // The per-source detail stays in the log line. Concatenating each source's sentence would
+        // mean re-assembling localized text here, where there is no Context to resolve it with.
+        return ApkDownloadException(
+            message = "All configured APK sources failed: " +
+                failures.joinToString(" • ") { it.message ?: "Unknown error" },
+            reason = ApkDownloadFailureReason.AllSourcesFailed,
+            retryable = failures.any { it.retryable },
+            cause = failures.last()
+        )
+    }
+
+    private fun clearPartialDownload() {
+        File(cacheDir, TEMP_FILE_NAME).delete()
+        progressFile.delete()
     }
 
     /**
@@ -502,7 +727,7 @@ class UniversalApkManager(private val context: Context) {
             // choice. Keep it even when the running ARM64 build is newer; the
             // user can delete it from the UI to return to the local artifact.
             if (installedVariant == ShareableApkVariant.ARM64 &&
-                cachedInfo?.source == ApkSource.GITHUB &&
+                cachedInfo?.source == ApkSource.DOWNLOADED &&
                 cachedInfo.variant == ShareableApkVariant.UNIVERSAL
             ) {
                 return cachedInfo
@@ -510,9 +735,9 @@ class UniversalApkManager(private val context: Context) {
 
             // Keep an already cached artifact if it is the same version or
             // newer. Otherwise prefer the running build so sharing cannot
-            // silently downgrade recipients to an older GitHub release.
+            // silently downgrade recipients to an older downloadable release.
             if (cachedInfo != null &&
-                !GitHubReleaseClient.isNewerVersion(cachedInfo.version, installedVersion)
+                !AppVersion.isNewer(cachedInfo.version, installedVersion)
             ) {
                 return cachedInfo
             }
@@ -534,14 +759,13 @@ class UniversalApkManager(private val context: Context) {
             }
             replaceFileSafely(pendingFile, finalFile)
 
-            val checksum = calculateChecksum(finalFile)
             saveMetadata(
                 version = installedVersion,
-                checksum = checksum,
                 size = finalFile.length(),
                 fileName = finalFileName,
                 source = ApkSource.INSTALLED,
-                variant = installedVariant
+                variant = installedVariant,
+                downloadSourceId = null
             )
             cleanupOldApks(except = finalFile)
 
@@ -561,15 +785,10 @@ class UniversalApkManager(private val context: Context) {
             ?: BuildConfig.VERSION_NAME
     }
 
-    private fun isOlderThanInstalledVersion(candidateVersion: String): Boolean {
-        return GitHubReleaseClient.isNewerVersion(candidateVersion, installedVersionName())
-    }
-
     /**
      * Verify the downloaded APK against either the running app's signing lineage
-     * or the pinned GitHub release certificate. The latter supports Play installs
-     * when GitHub distribution uses a separate, explicitly trusted release key.
-     * Debug builds without a configured pin accept any signed (never unsigned) APK.
+     * or the pinned release certificate. The latter supports Play installs when
+     * downloadable artifacts use a separate, explicitly trusted release key.
      */
     private fun verifyApkSignature(apkFile: File): Boolean {
         return try {
@@ -587,6 +806,8 @@ class UniversalApkManager(private val context: Context) {
             val ownCerts = signatureDigests(
                 context.packageManager.getPackageInfo(context.packageName, signingFlags())
             )
+            // Every mirror must serve the same official release-signed APK.
+            // The BuildConfig field keeps its historical name for configuration compatibility.
             val pinnedReleaseCert = normalizeCertificateDigest(
                 BuildConfig.GITHUB_RELEASE_CERT_SHA256
             )
@@ -595,7 +816,7 @@ class UniversalApkManager(private val context: Context) {
             // Debug builds may use a different local signing key, but still
             // require the downloaded artifact itself to be signed. Production
             // builds must match either this installation's signing lineage or
-            // the explicitly pinned GitHub release certificate.
+            // the explicitly pinned release certificate.
             if (BuildConfig.DEBUG && pinnedReleaseCert == null) {
                 Log.w(TAG, "Debug build has no pinned release certificate; accepting signed APK")
                 return true
@@ -657,39 +878,6 @@ class UniversalApkManager(private val context: Context) {
     }
 
     /**
-     * Verify the SHA256 checksum of a file.
-     */
-    suspend fun verifyChecksum(file: File, expectedSha256: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val checksum = calculateChecksum(file)
-            val matches = checksum.equals(expectedSha256, ignoreCase = true)
-
-            if (!matches) {
-                Log.e(TAG, "Checksum mismatch!")
-                Log.e(TAG, "Expected: $expectedSha256")
-                Log.e(TAG, "Actual:   $checksum")
-            }
-
-            matches
-        } catch (e: Exception) {
-            Log.e(TAG, "Error verifying checksum", e)
-            false
-        }
-    }
-
-    private fun calculateChecksum(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input ->
-            val buffer = ByteArray(BUFFER_SIZE)
-            var bytesRead: Int
-            while (input.read(buffer).also { bytesRead = it } != -1) {
-                digest.update(buffer, 0, bytesRead)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it) }
-    }
-
-    /**
      * Delete the cached universal APK.
      */
     fun deleteCachedApk(): Boolean {
@@ -735,20 +923,20 @@ class UniversalApkManager(private val context: Context) {
      */
     private fun saveMetadata(
         version: String,
-        checksum: String,
         size: Long,
         fileName: String,
         source: ApkSource,
-        variant: ShareableApkVariant
+        variant: ShareableApkVariant,
+        downloadSourceId: String?
     ) {
         val json = JSONObject().apply {
             put("version", version)
-            put("checksum", checksum)
             put("downloadDate", System.currentTimeMillis())
             put("size", size)
             put("fileName", fileName)
             put("source", source.name)
             put("variant", variant.name)
+            downloadSourceId?.let { put("downloadSourceId", it) }
         }
 
         val pendingMetadata = File(cacheDir, "$METADATA_FILE_NAME.new")
@@ -757,12 +945,13 @@ class UniversalApkManager(private val context: Context) {
         Log.d(TAG, "Saved metadata: $version")
     }
 
-    private fun saveResumeInfo(url: String, expectedSize: Long, versionName: String) {
+    private fun saveResumeInfo(info: ResumeInfo) {
         try {
             val json = JSONObject().apply {
-                put("url", url)
-                put("expectedSize", expectedSize)
-                put("versionName", versionName)
+                put("sourceId", info.sourceId)
+                put("endpointUrl", info.endpointUrl)
+                put("expectedSize", info.expectedSize)
+                info.validator?.let { put("validator", it) }
             }
             progressFile.writeText(json.toString())
         } catch (e: Exception) {
@@ -770,16 +959,32 @@ class UniversalApkManager(private val context: Context) {
         }
     }
 
-    private fun loadResumeInfo(): JSONObject? {
+    private fun loadResumeInfo(): ResumeInfo? {
         return try {
-            if (progressFile.exists()) {
-                JSONObject(progressFile.readText())
-            } else null
+            if (!progressFile.exists()) return null
+            val json = JSONObject(progressFile.readText())
+            val endpointUrl = json.optString("endpointUrl")
+                .ifBlank { json.optString("url") }
+            if (endpointUrl.isBlank()) return null
+            ResumeInfo(
+                sourceId = json.optString("sourceId")
+                    .ifBlank { DefaultApkDownloadSources.GITHUB_ID },
+                endpointUrl = endpointUrl,
+                expectedSize = json.optLong("expectedSize", 0L),
+                validator = json.optString("validator").takeIf { it.isNotBlank() }
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Error loading resume info", e)
             null
         }
     }
+
+    private data class ResumeInfo(
+        val sourceId: String,
+        val endpointUrl: String,
+        val expectedSize: Long,
+        val validator: String?
+    )
 
     /**
      * Commit [source] to [target] without removing a valid target first.
@@ -809,29 +1014,16 @@ class UniversalApkManager(private val context: Context) {
      */
     data class ApkInfo(
         val version: String,
-        val checksum: String,
         val downloadDate: Long,
         val size: Long,
         val file: File,
         val source: ApkSource,
-        val variant: ShareableApkVariant
+        val variant: ShareableApkVariant,
+        val downloadSourceId: String?
     )
 
     enum class ApkSource {
         INSTALLED,
-        GITHUB
-    }
-
-    /**
-     * Update check status.
-     */
-    sealed class UpdateStatus {
-        data class NotDownloaded(val latestRelease: GitHubReleaseClient.Release) : UpdateStatus()
-        data class UpToDate(val currentVersion: String) : UpdateStatus()
-        data class UpdateAvailable(
-            val currentVersion: String,
-            val latestRelease: GitHubReleaseClient.Release
-        ) : UpdateStatus()
-        data class Error(val message: String) : UpdateStatus()
+        DOWNLOADED
     }
 }
