@@ -22,7 +22,7 @@ import java.math.BigInteger
  */
 object NostrCrypto {
 
-    internal const val NIP17_DEFAULT_MAX_PAST_SECONDS = 85_500
+    internal const val NIP17_DEFAULT_MAX_PAST_SECONDS = 79_200
 
     private val secureRandom = SecureRandom()
     // NIP-44 v2 only
@@ -319,7 +319,7 @@ object NostrCrypto {
     }
     
     /**
-     * Random timestamp in the past, defaulting to 23h45m to leave slack inside iOS's 24h lookback.
+     * Random timestamp in the past, defaulting to 22 hours to leave 2 hours of slack inside iOS's 24-hour lookback.
      */
     fun randomizeTimestampUpToPast(maxPastSeconds: Int = NIP17_DEFAULT_MAX_PAST_SECONDS): Int {
         val now = (System.currentTimeMillis() / 1000).toInt()

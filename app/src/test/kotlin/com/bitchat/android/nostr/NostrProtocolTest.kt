@@ -79,7 +79,7 @@ class NostrProtocolTest {
         afterCreation: Int
     ) {
         assertTrue(
-            "$envelope timestamp must leave 15 minutes inside the iOS lookback",
+            "$envelope timestamp must leave 2 hours inside the iOS lookback",
             createdAt >= beforeCreation - MAX_OUTBOUND_BACKDATE_SECONDS
         )
         assertTrue(
@@ -132,7 +132,7 @@ class NostrProtocolTest {
 
     private companion object {
         const val IOS_DM_LOOKBACK_SECONDS = 86_400
-        const val TIMESTAMP_SAFETY_SLACK_SECONDS = 900
+        const val TIMESTAMP_SAFETY_SLACK_SECONDS = 7_200
         const val MAX_OUTBOUND_BACKDATE_SECONDS =
             IOS_DM_LOOKBACK_SECONDS - TIMESTAMP_SAFETY_SLACK_SECONDS
     }
