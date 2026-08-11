@@ -31,10 +31,12 @@ GitHub/Google Play publication checklist.
 
 The build uses a clean source tree, an isolated Gradle user home, UTC, a stable
 locale, `SOURCE_DATE_EPOCH` from the Git commit, no Gradle build or configuration
-cache, fresh tasks, and a non-incremental in-process Kotlin compiler. Native
-builds remap source paths and release validation rejects host paths in packaged
-libraries. The container overlays a canonical `local.properties`, so an ignored
-Android Studio file cannot redirect Gradle to a host-specific SDK.
+cache, fresh tasks, a non-incremental in-process Kotlin compiler, and R8's
+deterministic-debugging mode. The R8 mode uses one compiler thread and disables
+randomized input shuffling so the ProGuard map embedded in each AAB is stable.
+Native builds remap source paths and release validation rejects host paths in
+packaged libraries. The container overlays a canonical `local.properties`, so
+an ignored Android Studio file cannot redirect Gradle to a host-specific SDK.
 
 AGP's embedded VCS record is disabled because its Git discovery depends on the
 host checkout layout. The canonical `BUILDINFO.json` and GitHub provenance
@@ -54,8 +56,10 @@ The authoritative pins are:
 
 ## Reproduce a release locally
 
-Requirements are Git, Docker with Linux/amd64 support, and enough free space for
-the Android and Gradle images and dependencies.
+Requirements are Git, Docker with Linux/amd64 support, more than 8 GiB of memory
+available to the Docker VM (16 GiB recommended), and enough free space for the
+Android and Gradle images and dependencies. R8's single-threaded deterministic
+mode can exceed an 8 GiB Docker memory limit while optimizing the phone app.
 
 ```bash
 git clone https://github.com/permissionlesstech/bitchat-android.git

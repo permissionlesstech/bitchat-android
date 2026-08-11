@@ -42,6 +42,9 @@ if ! [[ "$SOURCE_DATE_EPOCH" =~ ^[0-9]+$ ]]; then
 fi
 
 gradle_args=(
+  # R8 otherwise randomizes input traversal and uses multiple compiler threads.
+  # The optimized DEX can still match while its embedded ProGuard map differs.
+  -Dcom.android.tools.r8.deterministicdebugging=1
   -Pkotlin.compiler.execution.strategy=in-process
   -Pkotlin.incremental=false
   --no-build-cache
