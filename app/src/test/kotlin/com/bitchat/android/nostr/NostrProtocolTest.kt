@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import com.google.gson.Gson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NostrProtocolTest {
@@ -39,6 +40,47 @@ class NostrProtocolTest {
         val decrypted = NostrProtocol.decryptPrivateMessage(giftWrap, recipient)
 
         assertNull(decrypted)
+    }
+
+    @Test
+    fun createPrivateMessage_limitsEnvelopeTimestampsToIosLookback() {
+        val sender = NostrIdentity.generate()
+        val recipient = NostrIdentity.generate()
+
+        repeat(20) {
+            val beforeCreation = (System.currentTimeMillis() / 1000).toInt()
+            val giftWrap = NostrProtocol.createPrivateMessage(
+                content = "bitchat1:test",
+                recipientPubkey = recipient.publicKeyHex,
+                senderIdentity = sender
+            ).single()
+            val afterCreation = (System.currentTimeMillis() / 1000).toInt()
+            val sealJson = NostrCrypto.decryptNIP44(
+                ciphertext = giftWrap.content,
+                senderPublicKeyHex = giftWrap.pubkey,
+                recipientPrivateKeyHex = recipient.privateKeyHex
+            )
+            val seal = gson.fromJson(sealJson, NostrEvent::class.java)
+
+            assertTimestampWithinIosLookback("gift wrap", giftWrap.createdAt, beforeCreation, afterCreation)
+            assertTimestampWithinIosLookback("seal", seal.createdAt, beforeCreation, afterCreation)
+        }
+    }
+
+    private fun assertTimestampWithinIosLookback(
+        envelope: String,
+        createdAt: Int,
+        beforeCreation: Int,
+        afterCreation: Int
+    ) {
+        assertTrue(
+            "$envelope timestamp must be no more than 24 hours old",
+            createdAt >= beforeCreation - IOS_DM_LOOKBACK_SECONDS
+        )
+        assertTrue(
+            "$envelope timestamp must not be in the future",
+            createdAt <= afterCreation
+        )
     }
 
     private fun forgedGiftWrap(
@@ -81,5 +123,9 @@ class NostrProtocolTest {
             tags = listOf(listOf("p", recipient.publicKeyHex)),
             content = giftWrapContent
         ).sign(wrapPrivateKey)
+    }
+
+    private companion object {
+        const val IOS_DM_LOOKBACK_SECONDS = 86400
     }
 }

@@ -317,9 +317,9 @@ object NostrCrypto {
     }
     
     /**
-     * Random timestamp up to maxPastSeconds in the past (default 2 days)
+     * Random timestamp up to maxPastSeconds in the past (default 24 hours for iOS compatibility)
      */
-    fun randomizeTimestampUpToPast(maxPastSeconds: Int = 172800): Int {
+    fun randomizeTimestampUpToPast(maxPastSeconds: Int = 86400): Int {
         val now = (System.currentTimeMillis() / 1000).toInt()
         val offset = if (maxPastSeconds > 0) secureRandom.nextInt(maxPastSeconds + 1) else 0
         return now - offset

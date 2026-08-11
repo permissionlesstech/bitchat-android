@@ -17,7 +17,7 @@ The remaining implementation work and milestone progress are tracked in
 | Inner payloads | Noise type bytes, private-message TLVs, peer-state TLVs, file-transfer TLVs, live-voice bursts, fragment header, sync request TLVs | `ClientRewriteWireContractTest`, `AuthenticatedPeerStateTest`, `PrivateMediaTransferPreparerTest`, `VoiceBurstPacketTest`, `FragmentManagerTest` |
 | Identity/security | Announcement extensions, capability bitfield endianness, Noise static-key binding, handshake identity binding, signatures | `IdentityAnnouncementTest`, `NoiseSessionManagerIdentityBindingTest`, `ClientRewritePrimitiveContractTest` |
 | Sync/routing | Stable packet IDs, GCS bitstream, replay collapse, TTL handling, relay choice, confirmed graph edges | `ClientRewritePrimitiveContractTest`, `GCSFilterTest`, `PacketRelayManagerTest`, `MeshGraphServiceTest`, `TransportBridgeServiceTest` |
-| Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
+| Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals, 24-hour outbound envelope randomization | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
 | Application state | Peer unions, canonical private conversations, chronological history, delivery/read behavior, media migration policy | `AppStateStoreTest`, `PrivateChatManagerTest`, `MediaSendingManagerMigrationTest` |
 
 ## Golden-vector policy
@@ -30,6 +30,11 @@ together.
 Round-trip tests remain useful but are not sufficient on their own: an encoder
 and decoder can share the same defect. Each critical wire format therefore has
 at least one literal vector.
+
+NIP-17 receivers must use a lookback at least as long as the maximum timestamp
+randomization used by senders. Android caps outbound seal and gift-wrap
+randomization at 24 hours for iOS interoperability while retaining its 48-hour
+receive lookback.
 
 ## Rewrite acceptance gate
 

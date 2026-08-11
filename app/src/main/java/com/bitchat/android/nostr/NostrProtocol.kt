@@ -37,7 +37,7 @@ object NostrProtocol {
         val rumorId = rumorBase.computeEventIdHex()
         val rumor = rumorBase.copy(id = rumorId)
         
-        // 2. Seal the rumor (kind 13) signed by sender, timestamp randomized up to 2 days
+        // 2. Seal the rumor (kind 13) signed by sender, timestamp randomized within iOS's 24h lookback
         val sealedEvent = createSeal(
             rumor = rumor,
             recipientPubkey = recipientPubkey,
