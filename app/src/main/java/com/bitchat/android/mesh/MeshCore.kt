@@ -487,6 +487,13 @@ class MeshCore(
                 } catch (_: Exception) { }
             }
 
+            override fun handleAnnouncement(routed: RoutedPacket) {
+                scope.launch { messageHandler.handleAnnouncement(routed) }
+                try {
+                    gossipSyncManager.onPublicPacketSeen(routed.packet)
+                } catch (_: Exception) { }
+            }
+
             override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
                 messageHandler.handlePublicVoiceFrame(routed)
 
@@ -546,6 +553,30 @@ class MeshCore(
             val signedPacket = signPacketBeforeBroadcast(packet)
             dispatchGlobal(RoutedPacket(signedPacket))
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+        }
+    }
+
+    fun sendAnnouncement(message: com.bitchat.android.model.BitchatMessage) {
+        scope.launch {
+            val payload = message.toBinaryPayload() ?: return@launch
+            val packet = BitchatPacket(
+                version = 1u,
+                type = MessageType.ANNOUNCEMENT.value,
+                senderID = com.bitchat.android.organizer.OrganizerIdentityManager.getOrganizerSenderId(),
+                recipientID = SpecialRecipients.BROADCAST,
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = payload,
+                signature = null,
+                ttl = maxTtl
+            )
+            
+            // Sign the packet with the Organizer Private Key instead of the device's default key
+            if (com.bitchat.android.organizer.OrganizerIdentityManager.signAnnouncement(packet)) {
+                dispatchGlobal(RoutedPacket(packet))
+                try { gossipSyncManager.onPublicPacketSeen(packet) } catch (_: Exception) { }
+            } else {
+                android.util.Log.e("MeshCore", "Failed to sign announcement packet. Not sending.")
+            }
         }
     }
 

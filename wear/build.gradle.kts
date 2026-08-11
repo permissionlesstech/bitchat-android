@@ -70,6 +70,7 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/noise/**",
     "com/bitchat/android/crypto/**",
     "com/bitchat/android/identity/**",
+    "com/bitchat/android/organizer/**",
     "com/bitchat/android/mesh/**",
     "com/bitchat/android/model/**",
     "com/bitchat/android/sync/**",

@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
@@ -301,6 +302,7 @@ fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
     onShowDebug: (() -> Unit)? = null,
+    onSendAnnouncement: ((BitchatMessage) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -336,6 +338,14 @@ fun AboutSheet(
         mutableStateOf(LanguagePreferenceManager.currentLanguageTag())
     }
     var showLanguagePicker by remember { mutableStateOf(false) }
+    var showOrganizerMode by remember { mutableStateOf(false) }
+
+    if (showOrganizerMode && onSendAnnouncement != null) {
+        com.bitchat.android.ui.OrganizerModeSheet(
+            onDismiss = { showOrganizerMode = false },
+            onSendAnnouncement = onSendAnnouncement
+        )
+    }
 
     if (isPresented) {
         BitchatBottomSheet(
@@ -351,7 +361,10 @@ fun AboutSheet(
                 ) {
                     // Header Section - App Identity
                     item(key = "hero") {
-                        AboutHero(versionName = versionName ?: "")
+                        AboutHero(
+                            versionName = versionName ?: "",
+                            onLogoClick = { showOrganizerMode = true }
+                        )
                     }
 
                     item(key = "tabs") {

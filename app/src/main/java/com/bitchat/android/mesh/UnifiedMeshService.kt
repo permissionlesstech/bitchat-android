@@ -96,6 +96,13 @@ class UnifiedMeshService(
         }
     }
 
+    override fun sendAnnouncement(message: com.bitchat.android.model.BitchatMessage) {
+        when {
+            isBleEnabled() -> bluetooth.sendAnnouncement(message)
+            else -> wifiService()?.sendAnnouncement(message)
+        }
+    }
+
     override fun sendPrivateMessage(
         content: String,
         recipientPeerID: String,

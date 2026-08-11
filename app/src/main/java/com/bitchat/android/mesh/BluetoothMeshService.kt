@@ -614,6 +614,13 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 } catch (_: Exception) { }
             }
 
+            override fun handleAnnouncement(routed: RoutedPacket) {
+                serviceScope.launch { messageHandler.handleAnnouncement(routed) }
+                try {
+                    gossipSyncManager.onPublicPacketSeen(routed.packet)
+                } catch (_: Exception) { }
+            }
+
             override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
                 messageHandler.handlePublicVoiceFrame(routed)
             
@@ -875,6 +882,32 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             broadcastRoutedPacket(RoutedPacket(signedPacket))
             // Track our own broadcast message for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+        }
+    }
+
+    /**
+     * Send an official announcement
+     */
+    fun sendAnnouncement(message: com.bitchat.android.model.BitchatMessage) {
+        serviceScope.launch {
+            val payload = message.toBinaryPayload() ?: return@launch
+            val packet = BitchatPacket(
+                version = 1u,
+                type = MessageType.ANNOUNCEMENT.value,
+                senderID = com.bitchat.android.organizer.OrganizerIdentityManager.getOrganizerSenderId(),
+                recipientID = SpecialRecipients.BROADCAST,
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = payload,
+                signature = null,
+                ttl = MAX_TTL
+            )
+            
+            if (com.bitchat.android.organizer.OrganizerIdentityManager.signAnnouncement(packet)) {
+                broadcastRoutedPacket(RoutedPacket(packet))
+                try { gossipSyncManager.onPublicPacketSeen(packet) } catch (_: Exception) { }
+            } else {
+                Log.e(TAG, "Failed to sign announcement. Not sending.")
+            }
         }
     }
 

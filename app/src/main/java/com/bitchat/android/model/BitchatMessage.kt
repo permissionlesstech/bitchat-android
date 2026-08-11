@@ -77,7 +77,13 @@ data class BitchatMessage(
      * surfaces color the sender by the same stable key while [senderPeerID] remains available for
      * mesh IDs and private-chat routing aliases.
      */
-    val senderNostrPubkey: String? = null
+    val senderNostrPubkey: String? = null,
+    
+    /**
+     * Local flag indicating if this message was verified as an official organizer announcement.
+     * Not serialized into the binary payload.
+     */
+    val isOfficial: Boolean = false
 ) : Parcelable {
 
     /**
@@ -339,6 +345,8 @@ data class BitchatMessage(
         } else if (other.encryptedContent != null) return false
         if (isEncrypted != other.isEncrypted) return false
         if (deliveryStatus != other.deliveryStatus) return false
+        if (senderNostrPubkey != other.senderNostrPubkey) return false
+        if (isOfficial != other.isOfficial) return false
 
         return true
     }
@@ -359,6 +367,8 @@ data class BitchatMessage(
         result = 31 * result + (encryptedContent?.contentHashCode() ?: 0)
         result = 31 * result + isEncrypted.hashCode()
         result = 31 * result + (deliveryStatus?.hashCode() ?: 0)
+        result = 31 * result + (senderNostrPubkey?.hashCode() ?: 0)
+        result = 31 * result + isOfficial.hashCode()
         return result
     }
 }

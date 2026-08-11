@@ -13,6 +13,9 @@ class BitchatApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Initialize Organizer Identity Manager
+        com.bitchat.android.organizer.OrganizerIdentityManager.init(this)
+
         // Start the single process-wide power policy before transport components are constructed.
         com.bitchat.android.mesh.PowerManager.getInstance(this).start()
 

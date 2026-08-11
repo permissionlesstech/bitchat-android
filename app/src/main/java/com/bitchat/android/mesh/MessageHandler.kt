@@ -418,12 +418,27 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         
         if (recipientID == null) {
             // BROADCAST MESSAGE
-            handleBroadcastMessage(routed)
+            handleBroadcastMessage(routed, isOfficial = false)
         } else if (recipientID.toHexString() == myPeerID) {
             // PRIVATE MESSAGE FOR US
             handlePrivateMessage(packet, peerID)
         }
         // Message relay is now handled by centralized PacketRelayManager
+    }
+
+    /**
+     * Handle official organizer announcement
+     */
+    suspend fun handleAnnouncement(routed: RoutedPacket) {
+        val packet = routed.packet
+        
+        if (com.bitchat.android.organizer.OrganizerIdentityManager.verifyAnnouncement(packet)) {
+            Log.d(TAG, "Received valid official announcement from mesh.")
+            // Verify succeeded, process as broadcast with official flag
+            handleBroadcastMessage(routed, isOfficial = true)
+        } else {
+            Log.w(TAG, "Received spoofed or invalid announcement packet! Dropping.")
+        }
     }
 
     /** Validate and ingest an ephemeral public push-to-talk frame. */
@@ -450,7 +465,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     /**
      * Handle broadcast message with verification enforcement
      */
-    private suspend fun handleBroadcastMessage(routed: RoutedPacket) {
+    private suspend fun handleBroadcastMessage(routed: RoutedPacket, isOfficial: Boolean = false) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
         
@@ -474,7 +489,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     content = savedPath,
                     type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
                     senderPeerID = peerID,
-                    timestamp = Date(packet.timestamp.toLong())
+                    timestamp = Date(packet.timestamp.toLong()),
+                    isOfficial = isOfficial
                 )
                 if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
                     delegate?.onMessageReceived(message)
@@ -490,7 +506,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
-                timestamp = Date(packet.timestamp.toLong())
+                timestamp = Date(packet.timestamp.toLong()),
+                isOfficial = isOfficial
             )
             delegate?.onMessageReceived(message)
         } catch (e: Exception) {

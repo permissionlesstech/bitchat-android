@@ -174,6 +174,7 @@ internal fun SheetCardDivider() {
 @Composable
 internal fun AboutHero(
     versionName: String,
+    onLogoClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -189,7 +190,9 @@ internal fun AboutHero(
             imageVector = BitChatIcon,
             contentDescription = null,
             tint = colorScheme.primary,
-            modifier = Modifier.size(64.dp)
+            modifier = Modifier
+                .size(64.dp)
+                .clickable { onLogoClick() }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
