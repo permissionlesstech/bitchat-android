@@ -30,18 +30,9 @@ fun OrganizerModeSheet(
     var isAuthenticated by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf("") }
 
-    val handleDismiss = {
-        passcode = ""
-        privateKey = ""
-        onDismiss()
-    }
-
     ModalBottomSheet(
-        onDismissRequest = handleDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        properties = ModalBottomSheetDefaults.properties(
-            securePolicy = androidx.compose.ui.window.SecureFlagPolicy.SecureOn
-        )
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
         Column(
             modifier = Modifier
@@ -94,14 +85,12 @@ fun OrganizerModeSheet(
                         value = privateKey,
                         onValueChange = { privateKey = it; errorText = "" },
                         label = { Text("Private Key (Hex)") },
-                        visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = {
                             if (OrganizerIdentityManager.provisionOrganizer(privateKey)) {
-                                privateKey = ""
                                 errorText = "Provisioned successfully."
                             } else {
                                 errorText = "Invalid private key or does not match official public key."

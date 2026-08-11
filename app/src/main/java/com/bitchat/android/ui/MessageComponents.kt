@@ -16,6 +16,10 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -312,80 +316,140 @@ fun MessagesList(
     }
 
     val layoutDirection = LocalLayoutDirection.current
-    LazyColumn(
-        state = listState,
-        // Wider side gutters than the old 12.dp: the redesign trades a little line length for
-        // a much calmer edge, and long monospace lines were running into the screen bezel.
-        contentPadding = PaddingValues(
-            start = 16.dp + contentPadding.calculateStartPadding(layoutDirection),
-            end = 16.dp + contentPadding.calculateEndPadding(layoutDirection),
-            top = 8.dp + contentPadding.calculateTopPadding(),
-            bottom = 12.dp + contentPadding.calculateBottomPadding()
-        ),
-        // Spacing is owned by each item. The exported transcript uses a consistent 8.dp rhythm;
-        // a new speaker gets additional separation from the visible sender row's top inset.
-        verticalArrangement = Arrangement.spacedBy(0.dp),
-        modifier = modifier,
-        reverseLayout = true
-    ) {
-        val reversed = messages.asReversed()
-        itemsIndexed(
-            items = reversed,
-            key = { _, message -> message.id }
-        ) { reversedIndex, message ->
-            // reverseLayout renders index 0 at the bottom, so the chronological predecessor of
-            // this row lives at a *higher* original index offset. Resolve against the original
-            // list rather than the reversed view to keep the grouping logic readable.
-            val originalIndex = messages.lastIndex - reversedIndex
-            val previous = messages.getOrNull(originalIndex - 1)
-            val isGrouped = MessageGrouping.shouldGroup(previous, message)
+    if (messages.isEmpty()) {
+        val hasNearbyPeers = remember(messages) { meshService.getActivePeerCount() > 0 }
 
-            // Decided once per item instance, so an item recycling back into view during a scroll
-            // never re-animates. Items that are not arriving skip the animation machinery
-            // entirely: no Animatable, no coroutine, and no extra render layer per row.
-            val isArriving = remember(message.id) { message.id in enteringIds }
-            val entryModifier = if (isArriving) {
-                val entry = remember(message.id) { Animatable(0f) }
-                LaunchedEffect(message.id) { entry.animateTo(1f, MessageEntrySpec) }
-                // A draw-time transform only: no measure, no layout, and no recomposition of the
-                // message content on any frame of the animation.
-                Modifier.graphicsLayer {
-                    val progress = entry.value
-                    alpha = progress
-                    translationY = (1f - progress) * MessageEntrySlide.toPx()
-                }
-            } else {
-                Modifier
-            }
-
-            MessageItem(
-                message = message,
-                messages = messages,
-                currentUserNickname = currentUserNickname,
-                meshService = meshService,
-                mentionPeerIdentities = resolvedMentionPeerIdentities,
-                showSender = !isGrouped,
-                bubbles = bubbles.isBubbles,
-                topSpacing = MessageGrouping.topSpacingFor(
-                    isGrouped = isGrouped,
-                    isFirstInList = originalIndex == 0
-                ),
-                onNicknameClick = onNicknameClick,
-                onMessageLongPress = onMessageLongPress,
-                onCancelTransfer = onCancelTransfer,
-                onImageClick = onImageClick,
-                modifier = Modifier
-                    // Animates the shift when a neighbour is inserted or removed: this is what
-                    // makes the conversation glide up instead of jumping.
-                    .animateItem(
-                        // Entry fade is handled by entryModifier, together with the slide, so the
-                        // two cannot drift out of step.
-                        fadeInSpec = null,
-                        placementSpec = if (placementArmed) MessagePlacementSpec else null,
-                        fadeOutSpec = MessageFadeOutSpec
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(contentPadding),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(24.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_spec_chat_bubbles),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                if (!hasNearbyPeers) {
+                    Text(
+                        text = "No nearby users yet.",
+                        fontFamily = BitchatFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
                     )
-                    .then(entryModifier)
-            )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Keep Bluetooth on and try again.",
+                        fontFamily = BitchatFontFamily,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    Text(
+                        text = "No messages yet.",
+                        fontFamily = BitchatFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Start the conversation.",
+                        fontFamily = BitchatFontFamily,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    } else {
+        LazyColumn(
+            state = listState,
+            // Wider side gutters than the old 12.dp: the redesign trades a little line length for
+            // a much calmer edge, and long monospace lines were running into the screen bezel.
+            contentPadding = PaddingValues(
+                start = 16.dp + contentPadding.calculateStartPadding(layoutDirection),
+                end = 16.dp + contentPadding.calculateEndPadding(layoutDirection),
+                top = 8.dp + contentPadding.calculateTopPadding(),
+                bottom = 12.dp + contentPadding.calculateBottomPadding()
+            ),
+            // Spacing is owned by each item. The exported transcript uses a consistent 8.dp rhythm;
+            // a new speaker gets additional separation from the visible sender row's top inset.
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+            modifier = modifier,
+            reverseLayout = true
+        ) {
+            val reversed = messages.asReversed()
+            itemsIndexed(
+                items = reversed,
+                key = { _, message -> message.id }
+            ) { reversedIndex, message ->
+                // reverseLayout renders index 0 at the bottom, so the chronological predecessor of
+                // this row lives at a *higher* original index offset. Resolve against the original
+                // list rather than the reversed view to keep the grouping logic readable.
+                val originalIndex = messages.lastIndex - reversedIndex
+                val previous = messages.getOrNull(originalIndex - 1)
+                val isGrouped = MessageGrouping.shouldGroup(previous, message)
+
+                // Decided once per item instance, so an item recycling back into view during a scroll
+                // never re-animates. Items that are not arriving skip the animation machinery
+                // entirely: no Animatable, no coroutine, and no extra render layer per row.
+                val isArriving = remember(message.id) { message.id in enteringIds }
+                val entryModifier = if (isArriving) {
+                    val entry = remember(message.id) { Animatable(0f) }
+                    LaunchedEffect(message.id) { entry.animateTo(1f, MessageEntrySpec) }
+                    // A draw-time transform only: no measure, no layout, and no recomposition of the
+                    // message content on any frame of the animation.
+                    Modifier.graphicsLayer {
+                        val progress = entry.value
+                        alpha = progress
+                        translationY = (1f - progress) * MessageEntrySlide.toPx()
+                    }
+                } else {
+                    Modifier
+                }
+
+                MessageItem(
+                    message = message,
+                    messages = messages,
+                    currentUserNickname = currentUserNickname,
+                    meshService = meshService,
+                    mentionPeerIdentities = resolvedMentionPeerIdentities,
+                    showSender = !isGrouped,
+                    bubbles = bubbles.isBubbles,
+                    topSpacing = MessageGrouping.topSpacingFor(
+                        isGrouped = isGrouped,
+                        isFirstInList = originalIndex == 0
+                    ),
+                    onNicknameClick = onNicknameClick,
+                    onMessageLongPress = onMessageLongPress,
+                    onCancelTransfer = onCancelTransfer,
+                    onImageClick = onImageClick,
+                    modifier = Modifier
+                        // Animates the shift when a neighbour is inserted or removed: this is what
+                        // makes the conversation glide up instead of jumping.
+                        .animateItem(
+                            // Entry fade is handled by entryModifier, together with the slide, so the
+                            // two cannot drift out of step.
+                            fadeInSpec = null,
+                            placementSpec = if (placementArmed) MessagePlacementSpec else null,
+                            fadeOutSpec = MessageFadeOutSpec
+                        )
+                        .then(entryModifier)
+                )
+            }
         }
     }
 }

@@ -18,17 +18,8 @@ object OrganizerIdentityManager {
     // Every attendee app uses this to verify official announcements.
     private const val ORGANIZER_PUB_KEY_HEX = "b70c287c5292cb599bf7cb455da47dc1536b586ec6b8a41ef771fc5da789baf8"
     
-    // Salt and SHA-256 digest of default passcode ("FESTIVAL2026").
-    // No plaintext passcode string exists in DEX bytecode or APK resources.
-    private const val PASSCODE_SALT = "CampusFestival2026Salt"
-    private const val DEFAULT_PASSCODE_HASH_HEX = "7782ac60144fd27672802d62bf4361ae262a5eb30abe3f9bfbf07d18e1ef7697"
-
-    // Maximum allowed age of an announcement (2 hours in milliseconds)
-    const val MAX_ANNOUNCEMENT_AGE_MS = 2 * 60 * 60 * 1000L
-
-    // Maximum allowed future clock skew (5 minutes in milliseconds)
-    const val MAX_FUTURE_SKEW_MS = 5 * 60 * 1000L
-
+    // Passcode for accessing the organizer mode UI.
+    private const val ORGANIZER_PASSCODE = "FESTIVAL2026"
     private const val MAX_PASSCODE_ATTEMPTS = 5
     private const val LOCKOUT_DURATION_MS = 30_000L // 30 seconds lockout
 
@@ -37,7 +28,6 @@ object OrganizerIdentityManager {
 
     private const val PREFS_FILE = "organizer_secure_prefs"
     private const val KEY_ORGANIZER_PRIV = "organizer_priv_key_base64"
-    private const val KEY_PASSCODE_HASH = "organizer_passcode_hash_hex"
 
     private lateinit var prefs: SharedPreferences
     private var privateKeyParams: Ed25519PrivateKeyParameters? = null
@@ -95,7 +85,7 @@ object OrganizerIdentityManager {
     }
 
     /**
-     * Validates the passcode to access the Organizer UI using salted SHA-256 comparison.
+     * Validates the passcode to access the Organizer UI.
      * Enforces rate limiting: locks out after 5 consecutive failed attempts for 30 seconds.
      */
     fun validatePasscode(passcode: String): Boolean {
@@ -103,14 +93,7 @@ object OrganizerIdentityManager {
             Log.w(TAG, "Passcode entry attempted while locked out.")
             return false
         }
-        val inputHashHex = hashPasscode(passcode)
-        val targetHashHex = if (this::prefs.isInitialized) {
-            prefs.getString(KEY_PASSCODE_HASH, DEFAULT_PASSCODE_HASH_HEX) ?: DEFAULT_PASSCODE_HASH_HEX
-        } else {
-            DEFAULT_PASSCODE_HASH_HEX
-        }
-
-        return if (inputHashHex.equals(targetHashHex, ignoreCase = true)) {
+        return if (passcode == ORGANIZER_PASSCODE) {
             failedPasscodeAttempts = 0
             true
         } else {
@@ -121,23 +104,6 @@ object OrganizerIdentityManager {
             }
             false
         }
-    }
-
-    /**
-     * Configures a custom organizer passcode saved into EncryptedSharedPreferences.
-     */
-    fun setPasscode(newPasscode: String): Boolean {
-        if (!this::prefs.isInitialized) return false
-        val hash = hashPasscode(newPasscode)
-        prefs.edit().putString(KEY_PASSCODE_HASH, hash).apply()
-        return true
-    }
-
-    private fun hashPasscode(passcode: String): String {
-        val digest = java.security.MessageDigest.getInstance("SHA-256")
-        val saltedBytes = (PASSCODE_SALT + passcode).toByteArray(Charsets.UTF_8)
-        val hashBytes = digest.digest(saltedBytes)
-        return hashBytes.joinToString("") { "%02x".format(it) }
     }
 
     /**
@@ -175,9 +141,7 @@ object OrganizerIdentityManager {
      */
     fun clearOrganizer() {
         privateKeyParams = null
-        if (this::prefs.isInitialized) {
-            prefs.edit().remove(KEY_ORGANIZER_PRIV).apply()
-        }
+        prefs.edit().remove(KEY_ORGANIZER_PRIV).apply()
         Log.d(TAG, "Organizer credentials cleared.")
     }
 
@@ -214,12 +178,9 @@ object OrganizerIdentityManager {
     }
 
     /**
-     * Verifies that the packet was signed by the official Organizer and is within the freshness window.
-     *
-     * @param packet The incoming announcement packet
-     * @param nowMs Reference current time in milliseconds (default: System.currentTimeMillis())
+     * Verifies that the packet was signed by the official Organizer.
      */
-    fun verifyAnnouncement(packet: BitchatPacket, nowMs: Long = System.currentTimeMillis()): Boolean {
+    fun verifyAnnouncement(packet: BitchatPacket): Boolean {
         val signature = packet.signature
         if (signature == null || signature.isEmpty()) {
             Log.w(TAG, "Announcement packet has no signature.")
@@ -227,7 +188,6 @@ object OrganizerIdentityManager {
         }
 
         return try {
-            // 1. Verify Ed25519 signature over canonical binary representation
             val dataToVerify = packet.toBinaryDataForSigning()
             if (dataToVerify == null) {
                 Log.e(TAG, "Failed to canonicalize packet for verification.")
@@ -237,29 +197,14 @@ object OrganizerIdentityManager {
             val verifier = Ed25519Signer()
             verifier.init(false, publicKeyParams)
             verifier.update(dataToVerify, 0, dataToVerify.size)
-            val isValidSignature = verifier.verifySignature(signature)
+            val isValid = verifier.verifySignature(signature)
             
-            if (!isValidSignature) {
+            if (isValid) {
+                Log.d(TAG, "Announcement signature verified successfully.")
+            } else {
                 Log.w(TAG, "Announcement signature verification failed!")
-                return false
             }
-
-            // 2. Validate Timestamp Freshness & Clock Skew
-            val packetTimeMs = packet.timestamp.toLong()
-            val ageMs = nowMs - packetTimeMs
-
-            if (packetTimeMs > nowMs + MAX_FUTURE_SKEW_MS) {
-                Log.w(TAG, "Announcement packet rejected: timestamp is in the future ($packetTimeMs > $nowMs).")
-                return false
-            }
-
-            if (ageMs > MAX_ANNOUNCEMENT_AGE_MS) {
-                Log.w(TAG, "Announcement packet rejected: timestamp is stale (age ${ageMs / 1000}s > ${MAX_ANNOUNCEMENT_AGE_MS / 1000}s).")
-                return false
-            }
-
-            Log.d(TAG, "Announcement signature and timestamp verified successfully.")
-            true
+            isValid
         } catch (e: Exception) {
             Log.e(TAG, "Error verifying announcement packet.", e)
             false

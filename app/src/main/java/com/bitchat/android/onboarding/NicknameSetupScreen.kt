@@ -9,10 +9,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.bitchat.android.R
+import com.bitchat.android.ui.theme.BitchatFontFamily
 
 @Composable
 fun NicknameSetupScreen(
@@ -39,16 +40,21 @@ fun NicknameSetupScreen(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Choose your nickname",
-            style = MaterialTheme.typography.headlineMedium
+            text = "Campus Festival Mesh Chat",
+            fontFamily = BitchatFontFamily,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center
         )
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "This name will be visible to everyone at the festival.",
+            text = "Chat with people nearby without mobile data or Wi-Fi.",
+            fontFamily = BitchatFontFamily,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
         
@@ -62,16 +68,16 @@ fun NicknameSetupScreen(
                     isError = false
                 }
             },
-            label = { Text("Nickname") },
-            placeholder = { Text("e.g. FestivalFan") },
+            label = { Text("Nickname", fontFamily = BitchatFontFamily) },
+            placeholder = { Text("Enter nickname", fontFamily = BitchatFontFamily) },
             isError = isError,
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             supportingText = {
                 if (isError) {
-                    Text("Please enter a valid nickname (max 15 chars).")
+                    Text("Please enter a valid nickname (max 15 chars).", fontFamily = BitchatFontFamily)
                 } else {
-                    Text("${nickname.length}/15")
+                    Text("${nickname.length}/15", fontFamily = BitchatFontFamily)
                 }
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -100,7 +106,7 @@ fun NicknameSetupScreen(
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Continue")
+            Text("Continue", fontFamily = BitchatFontFamily, fontWeight = FontWeight.Bold)
         }
     }
 }

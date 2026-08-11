@@ -562,86 +562,6 @@ fun NicknameEditor(
 }
 
 @Composable
-fun PeerCounter(
-    connectedPeers: List<String>,
-    joinedChannels: Set<String>,
-    hasUnreadChannels: Map<String, Int>,
-    isConnected: Boolean,
-    selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
-    geohashPeople: List<GeoPerson>,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    showJoinedChannelCount: Boolean = true
-) {
-    val palette = LocalBitchatPalette.current
-    val colorScheme = MaterialTheme.colorScheme
-
-    // Compute channel-aware people count and color (matches iOS logic exactly)
-    val (peopleCount, countColor) = when (selectedLocationChannel) {
-        is com.bitchat.android.geohash.ChannelID.Location -> {
-            // Geohash channel: show geohash participants
-            val count = geohashPeople.size
-            Pair(count, if (count > 0) colorScheme.primary else palette.textTertiary)
-        }
-        is com.bitchat.android.geohash.ChannelID.Mesh,
-        null -> {
-            // Mesh channel: show Bluetooth-connected peers (excluding self)
-            val count = connectedPeers.size
-            Pair(count, if (isConnected && count > 0) colorScheme.secondary else palette.textTertiary)
-        }
-    }
-
-    // Peers come and go constantly; fading the tint avoids a flicker every time the count
-    // crosses zero.
-    val animatedCountColor by animateColorAsState(
-        targetValue = countColor,
-        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
-        label = "peerCountColor"
-    )
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = modifier
-            .clip(HeaderClusterShape)
-            .pressScaleClickable(onClick = onClick)
-            .height(HeaderTapTarget)
-            .padding(horizontal = 6.dp)
-    ) {
-        Icon(
-            // The extracted people glyph stays legible at the compact header scale; the number
-            // beside it carries the precise count.
-            painter = painterResource(R.drawable.ic_spec_people),
-            contentDescription = when (selectedLocationChannel) {
-                is com.bitchat.android.geohash.ChannelID.Location -> stringResource(R.string.cd_geohash_participants)
-                else -> stringResource(R.string.cd_connected_peers)
-            },
-            modifier = Modifier.size(HeaderIconSize),
-            tint = animatedCountColor
-        )
-
-        AnimatedCount(
-            count = peopleCount,
-            style = MaterialTheme.typography.bodyMedium,
-            fontSize = HeaderTextSize,
-            color = animatedCountColor,
-            fontWeight = FontWeight.Medium
-        )
-
-        if (showJoinedChannelCount && joinedChannels.isNotEmpty()) {
-            AnimatedCount(
-                count = joinedChannels.size,
-                prefix = stringResource(R.string.channel_count_prefix),
-                style = MaterialTheme.typography.bodyMedium,
-                fontSize = HeaderTextSize,
-                color = if (isConnected) colorScheme.primary else colorScheme.error,
-                fontWeight = FontWeight.Medium
-            )
-        }
-    }
-}
-
-@Composable
 fun ChatHeaderContent(
     selectedPrivatePeer: String?,
     currentChannel: String?,
@@ -654,11 +574,8 @@ fun ChatHeaderContent(
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-
     when {
         currentChannel != null -> {
-            // Channel header
             ChannelHeader(
                 channel = currentChannel,
                 onBackClick = onBackClick,
@@ -667,7 +584,6 @@ fun ChatHeaderContent(
             )
         }
         else -> {
-            // Main header
             MainHeader(
                 nickname = nickname,
                 onNicknameChange = viewModel::setNickname,
@@ -682,8 +598,6 @@ fun ChatHeaderContent(
     }
 }
 
-
-
 @Composable
 private fun ChannelHeader(
     channel: String,
@@ -692,10 +606,6 @@ private fun ChannelHeader(
     onSidebarClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-
-    // No back affordance: the close action on the right is the way out, exactly as in a private
-    // chat. Leaving the channel outright lives on its row in the network sheet, so it does not
-    // need a second, easily-mistaken home next to the exit.
     ConversationHeader(
         leadingIconRes = R.drawable.ic_spec_chat_bubbles,
         leadingIconTint = colorScheme.primary,
@@ -738,7 +648,6 @@ private fun MainHeader(
                 .padding(start = HeaderInsetStart, end = HeaderInsetEnd),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Keep the brand and trailing actions fixed. Only the nickname yields under pressure.
             BitChatBrandButton(
                 onClick = onTitleClick,
                 onTripleClick = onTripleTitleClick,
@@ -746,8 +655,6 @@ private fun MainHeader(
                 modifier = Modifier.size(HeaderTapTarget),
             )
 
-            // Nudge toward the brand glyph: the 44.dp tap target leaves more optical gap than the
-            // spacing between the mark and path label.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -758,8 +665,6 @@ private fun MainHeader(
                     text = "/",
                     style = MaterialTheme.typography.bodyMedium,
                     fontSize = HeaderTextSize,
-                    // Dimmed: the slash is a separator, not content. At full brightness it competed
-                    // with the nickname beside it.
                     color = colorScheme.primary.copy(alpha = 0.45f),
                     modifier = Modifier.padding(end = 2.dp)
                 )
@@ -771,8 +676,6 @@ private fun MainHeader(
                 )
             }
 
-            // Order, left to right: unread DMs, notes, channel, people. This cluster is measured
-            // before the weighted nickname, so actions cannot be pushed off-screen by identity.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -822,13 +725,65 @@ private fun MainHeader(
     }
 }
 
-/**
- * Current channel indicator: a globe for geohash channels, a mesh glyph for the local mesh.
- *
- * The design brief asked for the "addition of globe icon to represent channels". Previously this
- * was a text-only badge wrapped in an M3 [Button], which imposed a hidden 58.dp minimum width
- * and 40.dp minimum height that fought the header's explicit sizing.
- */
+@Composable
+fun PeerCounter(
+    connectedPeers: List<String>,
+    joinedChannels: Set<String>,
+    hasUnreadChannels: Map<String, Int>,
+    isConnected: Boolean,
+    selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
+    geohashPeople: List<GeoPerson>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    showJoinedChannelCount: Boolean = true
+) {
+    val palette = LocalBitchatPalette.current
+    val colorScheme = MaterialTheme.colorScheme
+
+    val statusText = when {
+        connectedPeers.isNotEmpty() -> "Connected nearby"
+        isConnected -> "Looking for nearby users..."
+        else -> "No nearby users"
+    }
+
+    val statusColor = when {
+        connectedPeers.isNotEmpty() -> colorScheme.primary
+        isConnected -> palette.accentOrange
+        else -> palette.textTertiary
+    }
+
+    val animatedStatusColor by animateColorAsState(
+        targetValue = statusColor,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "peerCountColor"
+    )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier
+            .clip(HeaderClusterShape)
+            .pressScaleClickable(onClick = onClick)
+            .height(HeaderTapTarget)
+            .padding(horizontal = 6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(animatedStatusColor, CircleShape)
+        )
+
+        Text(
+            text = statusText,
+            style = MaterialTheme.typography.bodyMedium,
+            fontSize = 13.sp,
+            color = animatedStatusColor,
+            fontWeight = FontWeight.Medium,
+            fontFamily = BitchatFontFamily
+        )
+    }
+}
+
 @Composable
 private fun LocationChannelsButton(
     viewModel: ChatViewModel,
@@ -836,36 +791,11 @@ private fun LocationChannelsButton(
     showLabel: Boolean
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val activeChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
+    val badgeText = activeChannel ?: com.bitchat.android.model.FestivalChannels.GENERAL
+    val channelColor = colorScheme.primary
 
-    // Get current channel selection from location manager
-    val selectedChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
-
-    val isLocation = selectedChannel is com.bitchat.android.geohash.ChannelID.Location
-    val badgeText = when (val channel = selectedChannel) {
-        // Geohashes keep the '#' because that is how they are written and typed everywhere else.
-        is com.bitchat.android.geohash.ChannelID.Location -> "#${channel.channel.geohash}"
-        // The local mesh is not a hashtag channel, and the mesh glyph already says what it is,
-        // so it is plain "mesh".
-        else -> stringResource(R.string.mesh_label)
-    }
-    val channelColor = if (isLocation) colorScheme.primary else colorScheme.secondary
-    // Tor status only tints the globe (location channels). The local mesh stays blue.
-    val torVisual = if (isLocation) {
-        rememberTorConnectionVisual(normal = channelColor)
-    } else {
-        TorConnectionVisual(tint = channelColor, isProgress = false)
-    }
-    val badgeIconRes = if (isLocation) {
-        R.drawable.ic_spec_globe
-    } else {
-        R.drawable.ic_spec_range
-    }
     val actionDescription = stringResource(R.string.cd_open_location_channels)
-    val contentDescription = locationChannelContentDescription(
-        actionDescription = actionDescription,
-        channelLabel = badgeText,
-        showLabel = showLabel
-    )
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -880,11 +810,11 @@ private fun LocationChannelsButton(
             .widthIn(min = HeaderTapTarget)
             .padding(end = if (showLabel) 6.dp else 0.dp)
     ) {
-        TorAwareHeaderIcon(
-            painter = painterResource(badgeIconRes),
-            tint = torVisual.tint,
-            isProgress = torVisual.isProgress,
-            contentDescription = contentDescription
+        Icon(
+            painter = painterResource(R.drawable.ic_spec_chat_bubbles),
+            contentDescription = actionDescription,
+            modifier = Modifier.size(HeaderIconSize),
+            tint = channelColor
         )
 
         if (showLabel) {
@@ -892,11 +822,12 @@ private fun LocationChannelsButton(
                 text = badgeText,
                 style = MaterialTheme.typography.bodyMedium,
                 fontSize = HeaderTextSize,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Bold,
                 color = channelColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 88.dp)
+                fontFamily = BitchatFontFamily,
+                modifier = Modifier.widthIn(max = 120.dp)
             )
         }
     }
