@@ -24,11 +24,12 @@ import org.robolectric.RobolectricTestRunner
 import java.util.Date
 
 @RunWith(RobolectricTestRunner::class)
-class CommandProcessorTest() {
+class CommandProcessorTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val testDispatcher = UnconfinedTestDispatcher()
-    private val testScope = TestScope(testDispatcher)
+  
+  @OptIn(ExperimentalCoroutinesApi::class)
+  private val testDispatcher = UnconfinedTestDispatcher()
+  private val testScope = TestScope(testDispatcher)
   private val chatState = ChatState(scope = testScope)
   private lateinit var commandProcessor: CommandProcessor
 
@@ -63,11 +64,11 @@ class CommandProcessorTest() {
     val channel = "channel-1"
 
     val result = commandProcessor.processCommand(
-        command = "/j $channel",
-        meshService = meshService,
-        myPeerID = "peer-id",
-        onSendMessage = { a, b, c -> { } },
-        viewModel = null
+      command = "/j $channel",
+      meshService = meshService,
+      myPeerID = "peer-id",
+      onSendMessage = { a, b, c -> { } },
+      viewModel = null
     )
 
     assertEquals(result, true)
