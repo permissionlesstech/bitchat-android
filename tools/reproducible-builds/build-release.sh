@@ -52,9 +52,7 @@ gradle_args=(
 )
 
 cd "$PROJECT_ROOT"
-./gradlew "${gradle_args[@]}" \
-  :app:clean :wear:clean \
-  :app:bundleRelease :wear:bundleRelease
+./gradlew "${gradle_args[@]}" :app:clean :app:bundleRelease
 
 aab_source="$PROJECT_ROOT/app/build/outputs/bundle/release/app-release.aab"
 if [ ! -f "$aab_source" ]; then
@@ -62,6 +60,8 @@ if [ ! -f "$aab_source" ]; then
   exit 1
 fi
 cp "$aab_source" "$OUTPUT_DIR/bitchat-android-release-unsigned.aab"
+
+./gradlew "${gradle_args[@]}" :wear:clean :wear:bundleRelease
 
 wear_aab_source="$PROJECT_ROOT/wear/build/outputs/bundle/release/wear-release.aab"
 if [ ! -f "$wear_aab_source" ]; then
@@ -71,9 +71,7 @@ fi
 cp "$wear_aab_source" "$OUTPUT_DIR/bitchat-android-wear-release-unsigned.aab"
 
 # AGP cannot build split APKs and an app bundle from the same intermediates.
-./gradlew "${gradle_args[@]}" \
-  :app:clean :wear:clean \
-  :app:assembleRelease :wear:assembleRelease
+./gradlew "${gradle_args[@]}" :app:clean :app:assembleRelease
 
 declare -A apk_names=(
   ["app-arm64-v8a-release-unsigned.apk"]="bitchat-android-arm64-unsigned.apk"
@@ -91,6 +89,8 @@ for source_name in "${!apk_names[@]}"; do
   fi
   cp "$source_path" "$OUTPUT_DIR/${apk_names[$source_name]}"
 done
+
+./gradlew "${gradle_args[@]}" :wear:clean :wear:assembleRelease
 
 wear_apk_source="$PROJECT_ROOT/wear/build/outputs/apk/release/wear-release-unsigned.apk"
 if [ ! -f "$wear_apk_source" ]; then
