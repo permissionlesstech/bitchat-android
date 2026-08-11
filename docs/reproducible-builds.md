@@ -33,10 +33,13 @@ The build uses a clean source tree, an isolated Gradle user home, UTC, a stable
 locale, `SOURCE_DATE_EPOCH` from the Git commit, no Gradle build or configuration
 cache, fresh tasks, a non-incremental in-process Kotlin compiler, and R8's
 deterministic-debugging mode. The R8 mode uses one compiler thread and disables
-randomized input shuffling so the ProGuard map embedded in each AAB is stable.
-Native builds remap source paths and release validation rejects host paths in
-packaged libraries. The container overlays a canonical `local.properties`, so
-an ignored Android Studio file cannot redirect Gradle to a host-specific SDK.
+randomized input shuffling. The regular R8 ProGuard map remains embedded in each
+AAB. Kotlin 2.4.10's optional Compose group-key mapping augmentation is disabled
+because its duplicate-key selection depends on unspecified class-file iteration
+order across clean builds. Native builds remap source paths and release
+validation rejects host paths in packaged libraries. The container overlays a
+canonical `local.properties`, so an ignored Android Studio file cannot redirect
+Gradle to a host-specific SDK.
 
 AGP's embedded VCS record is disabled because its Git discovery depends on the
 host checkout layout. The canonical `BUILDINFO.json` and GitHub provenance

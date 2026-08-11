@@ -111,6 +111,13 @@ android {
     }
 }
 
+composeCompiler {
+    // Kotlin 2.4.10's optional Compose group-key mapping depends on unspecified
+    // class-file iteration order. Keep the normal R8 mapping, but omit that
+    // augmentation until its producer is deterministic across clean builds.
+    includeComposeMappingFile.set(false)
+}
+
 kotlin {
     jvmToolchain(21)
     compilerOptions {
