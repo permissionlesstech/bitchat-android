@@ -1,16 +1,14 @@
 # Reproducible builds
 
-Bitchat's canonical phone-app release build produces byte-for-byte reproducible
-unsigned APKs and an unsigned Android App Bundle (AAB). CI builds the release
+Bitchat's canonical release build produces byte-for-byte reproducible unsigned
+phone and Wear OS APKs and Android App Bundles (AABs). CI builds the release
 twice in independent jobs and exposes a verified release artifact only when
-every canonical byte matches. The `:wear` module is tested and
-dependency-locked but is outside this phone artifact contract until a separate
-Wear release and signing process is defined.
+every canonical byte matches.
 
 Signing remains local: no keystore or signing password is stored in or exposed
 to GitHub Actions. Anyone can reproduce the unsigned artifacts; maintainers
 download the verified CI output, sign the selected GitHub APKs and Play upload
-AAB locally, then manually publish those exact files.
+AABs locally, then manually publish those exact files.
 
 Maintainers should use the complete
 [Android maintainer release guide](maintainer-release-guide.md) for the
@@ -71,6 +69,8 @@ The output contains:
 
 - unsigned APKs for arm64, armv7, x86, x86_64, and universal installs
 - `bitchat-android-release-unsigned.aab`
+- `bitchat-android-wear-unsigned.apk`
+- `bitchat-android-wear-release-unsigned.aab`
 - `BUILDINFO.json`
 - `SHA256SUMS.unsigned`
 
@@ -104,13 +104,13 @@ tools/reproducible-builds/verify-github-release.sh vX.Y.Z
 
 That command:
 
-1. downloads all release APKs, the AAB, build information, and checksum files;
+1. downloads all release APKs, AABs, build information, and checksum files;
 2. verifies the canonical unsigned build's GitHub artifact-attestation subjects
    against this repository;
 3. verifies `BITCHAT_SHA256SUMS`;
 4. checks that the local source commit is the release commit;
 5. rebuilds in the pinned container; and
-6. byte-compares every unsigned APK, the unsigned AAB, build information, and
+6. byte-compares every unsigned APK, both unsigned AABs, build information, and
    the unsigned checksum manifest.
 
 To verify the published checksums and attestations without rebuilding:
@@ -154,8 +154,8 @@ gh attestation verify bitchat-android-universal-unsigned.apk \
 
 Google Play App Signing changes the verification boundary:
 
-- maintainers upload a signed AAB using the upload key;
-- Google Play generates optimized, device-specific APK splits from that AAB;
+- maintainers upload signed phone and Wear AABs using the upload key;
+- Google Play generates optimized, device-specific APK splits from those AABs;
 - Google signs the delivered APKs with the app-signing key.
 
 Consequently, a Play-delivered APK is not expected to be byte-identical to the
@@ -163,8 +163,8 @@ GitHub universal APK or to a locally built APK. Use this procedure instead:
 
 1. In Play Console, open **Test and release > App bundle explorer**, select the
    release/version code, and download the original app bundle if that option is
-   available to your account. Compare its unsigned payload with the reproduced
-   `bitchat-android-release-unsigned.aab`:
+   available to your account. Compare its unsigned payload with the matching
+   reproduced phone or Wear AAB:
 
    ```bash
    tools/reproducible-builds/compare-archive-payloads.sh \
@@ -204,9 +204,10 @@ maintainers to retain the uploaded AAB, publish its digest and provenance, and
 record the Play version code and app-signing certificate fingerprint alongside
 the release.
 
-The GitHub workflow builds and attests the canonical unsigned AAB. A maintainer
-locally creates `bitchat-android-play-upload.aab` from that exact file and
-uploads it manually to Google Play.
+The GitHub workflow builds and attests both canonical unsigned AABs. A
+maintainer locally creates `bitchat-android-play-upload.aab` and
+`bitchat-android-wear-play-upload.aab` from those exact files and uploads them
+manually to Google Play.
 
 ## Maintainer release process
 

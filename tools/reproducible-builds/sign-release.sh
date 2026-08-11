@@ -68,11 +68,13 @@ export BITCHAT_GITHUB_KEY_PASSWORD
 unsigned_names=(
   "bitchat-android-arm64-unsigned.apk"
   "bitchat-android-universal-unsigned.apk"
+  "bitchat-android-wear-unsigned.apk"
   "bitchat-android-x86_64-unsigned.apk"
 )
 signed_names=(
   "bitchat-android-arm64.apk"
   "bitchat-android-universal.apk"
+  "bitchat-android-wear.apk"
   "bitchat-android-x86_64.apk"
 )
 
