@@ -219,6 +219,20 @@ class CommandProcessorTest() {
   }
 
   @Test
+  fun `command suggestions close once the input grows past the command`() {
+    // The command popup only shows while the whole input is a prefix of a
+    // command name or alias, and none of them contains a space or an @. An
+    // input that can match the mention popup has already closed the command
+    // popup.
+    commandProcessor.updateCommandSuggestions("/m")
+    assertTrue(chatState.getShowCommandSuggestionsValue())
+
+    commandProcessor.updateCommandSuggestions("/msg @ali")
+    assertFalse(chatState.getShowCommandSuggestionsValue())
+    assertTrue(chatState.getCommandSuggestionsValue().isEmpty())
+  }
+
+  @Test
   fun `a restored command draft reopens the command popup`() {
     // Switching conversations restores the draft in code; re-syncing with the
     // restored text brings the popup back for a command draft.
