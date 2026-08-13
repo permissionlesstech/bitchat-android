@@ -29,8 +29,22 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
     companion object {
         val NONE = PeerCapabilities(0)
 
+        val PREKEYS = PeerCapabilities(1L shl 0)
+        val WIFI_BULK = PeerCapabilities(1L shl 1)
+        val GATEWAY = PeerCapabilities(1L shl 2)
+        val GROUPS = PeerCapabilities(1L shl 3)
+        val BOARD = PeerCapabilities(1L shl 4)
+        val VOUCH = PeerCapabilities(1L shl 5)
+        val MESH_DIAGNOSTICS = PeerCapabilities(1L shl 6)
+        val BRIDGE = PeerCapabilities(1L shl 7)
+
         /** Noise-encrypted private BitchatFilePacket using payload type 0x20. */
         val PRIVATE_MEDIA = PeerCapabilities(1L shl 8)
+
+        val PRIVATE_MEDIA_RECEIPTS = PeerCapabilities(1L shl 9)
+
+        /** Reserved by iOS; decode it but do not advertise or act on it. */
+        val NON_DESTRUCTIVE_NOISE_REPLACEMENT = PeerCapabilities(1L shl 10)
 
         /** Capabilities implemented by this Android build. */
         val LOCAL_SUPPORTED = PRIVATE_MEDIA
