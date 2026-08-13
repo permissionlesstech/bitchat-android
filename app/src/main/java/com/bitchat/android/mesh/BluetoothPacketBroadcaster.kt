@@ -204,6 +204,18 @@ class BluetoothPacketBroadcaster(
         }
     }
 
+    suspend fun sendPacketToPeerAndAwaitAcceptance(
+        routed: RoutedPacket,
+        targetPeerID: String,
+        gattServer: BluetoothGattServer?,
+        characteristic: BluetoothGattCharacteristic?
+    ): Boolean {
+        if (!hasPeerConnection(targetPeerID)) return false
+        return fragmentingSender.sendAndAwaitAcceptance(routed, "BLE peer ${targetPeerID.take(8)}") { packet ->
+            sendSinglePacketToPeer(packet, targetPeerID, gattServer, characteristic)
+        }
+    }
+
     fun sendPacketToLink(
         routed: RoutedPacket,
         deviceAddress: String,

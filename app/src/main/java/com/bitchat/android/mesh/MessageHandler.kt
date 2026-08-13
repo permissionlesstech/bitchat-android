@@ -207,6 +207,32 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         return true
     }
 
+    /** Admit an already authenticated Noise X payload through the normal private-message path. */
+    suspend fun handleOpenedCourierPayload(routed: RoutedPacket): Boolean {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: return false
+        val noisePayload = com.bitchat.android.model.NoisePayload.decode(packet.payload) ?: return false
+        if (noisePayload.type == com.bitchat.android.model.NoisePayloadType.DELIVERED) {
+            val messageID = noisePayload.data.toString(Charsets.UTF_8)
+            if (messageID.isBlank()) return false
+            delegate?.onDeliveryAckReceived(messageID, peerID)
+            return true
+        }
+        if (noisePayload.type != com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE) return false
+        val privateMessage = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data) ?: return false
+        val message = BitchatMessage(
+            id = privateMessage.messageID,
+            sender = delegate?.getPeerNickname(peerID) ?: "Unknown",
+            content = privateMessage.content,
+            timestamp = Date(packet.timestamp.toLong()),
+            isPrivate = true,
+            recipientNickname = delegate?.getMyNickname(),
+            senderPeerID = peerID
+        )
+        delegate?.onMessageReceived(message)
+        return true
+    }
+
     /**
      * Count consecutive decrypt failures from a signature-verified peer that we still hold an
      * established session for. After repeated failures the session is stale (the peer completed
@@ -453,6 +479,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     private suspend fun handleBroadcastMessage(routed: RoutedPacket) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
+        if (packet.timestamp > Long.MAX_VALUE.toULong()) return
+        val ageMs = System.currentTimeMillis() - packet.timestamp.toLong()
+        if (ageMs !in 0..com.bitchat.android.sync.GossipSyncManager.PUBLIC_MESSAGE_MAX_AGE_MS) return
         
         // Enforce: only accept public messages from verified peers we know
         val peerInfo = delegate?.getPeerInfo(peerID)

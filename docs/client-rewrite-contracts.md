@@ -15,6 +15,7 @@ The remaining implementation work and milestone progress are tracked in
 | Outer mesh packet | v1/v2 header widths, big-endian fields, flags, section order, route placement, signature placement, padding, compression, signing bytes | `BinaryProtocolTest`, `ClientRewriteWireContractTest` |
 | Chat payload | Flag bits, millisecond timestamp, UTF-8 byte lengths, encrypted-content substitution, optional-field order | `ClientRewriteWireContractTest` |
 | Inner payloads | Noise type bytes, private-message TLVs, peer-state TLVs, file-transfer TLVs, live-voice bursts, fragment header, sync request TLVs | `ClientRewriteWireContractTest`, `AuthenticatedPeerStateTest`, `PrivateMediaTransferPreparerTest`, `VoiceBurstPacketTest`, `FragmentManagerTest` |
+| Store and forward | Courier type `0x04`, rotating HMAC recipient tags, Noise X seals, copy-budget TLV, 24-hour expiry, bounded tiered custody | `CourierEnvelopeTest`, `NoiseCourierTest`, `MessageRouterTest` |
 | Identity/security | Announcement extensions, capability bitfield endianness, Noise static-key binding, handshake identity binding, signatures | `IdentityAnnouncementTest`, `NoiseSessionManagerIdentityBindingTest`, `ClientRewritePrimitiveContractTest` |
 | Sync/routing | Stable packet IDs, GCS bitstream, replay collapse, TTL handling, relay choice, confirmed graph edges | `ClientRewritePrimitiveContractTest`, `GCSFilterTest`, `PacketRelayManagerTest`, `MeshGraphServiceTest`, `TransportBridgeServiceTest` |
 | Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
@@ -53,8 +54,8 @@ shipping a rewrite, run the following on at least two physical devices:
 2. Runtime permission denial/retry for Bluetooth, location, notifications, and
    microphone.
 3. Foreground-service survival with the screen off and after process recreation.
-4. Cross-client Android/iOS exchange for announce, public/private text, delivery
-   and read receipts, image/audio/file transfer, sync replay, and Nostr fallback.
+4. Cross-client Android/iOS exchange for announce, public/private text, courier
+   deposit/handover, delivery/read receipts, media, six-hour sync replay, and Nostr fallback.
 5. Corrupt, duplicated, reordered, delayed, and partially delivered fragments.
 6. Identity rotation, verification continuity, downgrade rejection, and recovery
    after stale Noise sessions.

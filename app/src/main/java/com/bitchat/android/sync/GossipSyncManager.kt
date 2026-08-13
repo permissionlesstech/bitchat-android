@@ -8,6 +8,9 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
+import android.content.Context
+import java.io.File
+import java.nio.file.StandardCopyOption
 
 /**
  * Gossip-based synchronization manager using on-demand GCS filters.
@@ -17,7 +20,8 @@ import java.util.concurrent.ConcurrentHashMap
 class GossipSyncManager(
     private val myPeerID: String,
     private val scope: CoroutineScope,
-    private val configProvider: ConfigProvider
+    private val configProvider: ConfigProvider,
+    context: Context? = null
 ) {
     interface Delegate {
         fun sendPacket(packet: BitchatPacket)
@@ -33,6 +37,9 @@ class GossipSyncManager(
 
     companion object {
         private const val TAG = "GossipSyncManager"
+        const val PUBLIC_MESSAGE_MAX_AGE_MS = 6 * 60 * 60 * 1000L
+        const val FRAGMENT_MAX_AGE_MS = 15 * 60 * 1000L
+        private const val ARCHIVE_FILE = "gossip-public-history.bin"
     }
 
     var delegate: Delegate? = null
@@ -44,11 +51,15 @@ class GossipSyncManager(
     // Stored packets for sync:
     // - broadcast messages: keep up to seenCapacity() most recent, keyed by packetId
     private val messages = LinkedHashMap<String, BitchatPacket>()
+    private val fragments = LinkedHashMap<String, BitchatPacket>()
+    private val archiveFile = context?.applicationContext?.filesDir?.let { File(it, ARCHIVE_FILE) }
+    private var restoringArchive = false
     // - announcements: only keep latest per sender peerID
     private val latestAnnouncementByPeer = ConcurrentHashMap<String, Pair<String, BitchatPacket>>()
 
     private var periodicJob: Job? = null
     private var cleanupJob: Job? = null
+    init { restoreArchive() }
     fun start() {
         periodicJob?.cancel()
         periodicJob = scope.launch(Dispatchers.IO) {
@@ -84,7 +95,9 @@ class GossipSyncManager(
         synchronized(messages) {
             messages.clear()
         }
+        synchronized(fragments) { fragments.clear() }
         latestAnnouncementByPeer.clear()
+        archiveFile?.delete()
         Log.d(TAG, "Cleared all gossip sync messages and announcements")
     }
 
@@ -106,13 +119,20 @@ class GossipSyncManager(
         // Only ANNOUNCE or broadcast MESSAGE
         val mt = MessageType.fromValue(packet.type)
         val isBroadcastMessage = (mt == MessageType.MESSAGE && (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST)))
+        val isBroadcastFile = mt == MessageType.FILE_TRANSFER &&
+            (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
         val isAnnouncement = (mt == MessageType.ANNOUNCE)
-        if (!isBroadcastMessage && !isAnnouncement) return
+        val isFragment = (mt == MessageType.FRAGMENT || isBroadcastFile) &&
+            (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
+        if (!isBroadcastMessage && !isAnnouncement && !isFragment) return
 
         val idBytes = PacketIdUtil.computeIdBytes(packet)
         val id = idBytes.joinToString("") { b -> "%02x".format(b) }
 
         if (isBroadcastMessage) {
+            val now = System.currentTimeMillis()
+            val age = now - packet.timestamp.toLong()
+            if (age !in 0..PUBLIC_MESSAGE_MAX_AGE_MS) return
             synchronized(messages) {
                 messages[id] = packet
                 // Enforce capacity (remove oldest when exceeded)
@@ -120,6 +140,17 @@ class GossipSyncManager(
                 while (messages.size > cap) {
                     val it = messages.entries.iterator()
                     if (it.hasNext()) { it.next(); it.remove() } else break
+                }
+            }
+            if (!restoringArchive) persistArchive()
+        } else if (isFragment) {
+            val age = System.currentTimeMillis() - packet.timestamp.toLong()
+            if (age !in 0..FRAGMENT_MAX_AGE_MS) return
+            synchronized(fragments) {
+                fragments[id] = packet
+                while (fragments.size > configProvider.seenCapacity().coerceAtLeast(1)) {
+                    val iterator = fragments.entries.iterator()
+                    if (iterator.hasNext()) { iterator.next(); iterator.remove() } else break
                 }
             }
         } else if (isAnnouncement) {
@@ -205,6 +236,13 @@ class GossipSyncManager(
                 Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
         }
+        val toSendFragments = synchronized(fragments) { fragments.values.toList() }
+        for (pkt in toSendFragments) {
+            val idBytes = PacketIdUtil.computeIdBytes(pkt)
+            if (!mightContain(idBytes)) {
+                delegate?.sendPacketToPeer(fromPeerID, pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS))
+            }
+        }
     }
 
     private fun hexStringToByteArray(hexString: String): ByteArray {
@@ -243,6 +281,7 @@ class GossipSyncManager(
         synchronized(messages) {
             list.addAll(messages.values)
         }
+        synchronized(fragments) { list.addAll(fragments.values) }
         // sort by timestamp desc, then take up to min(seenCapacity, fit capacity)
         list.sortByDescending { it.timestamp.toLong() }
 
@@ -262,7 +301,7 @@ class GossipSyncManager(
         return RequestSyncPacket(p = params.p, m = mVal, data = params.data).encode()
     }
 
-    // Periodically remove stale announcements and all their messages
+    // Announcements age out quickly; public history remains independently sync-able for six hours.
     private fun pruneStaleAnnouncements() {
         val now = System.currentTimeMillis()
         val stalePeers = mutableListOf<String>()
@@ -276,26 +315,17 @@ class GossipSyncManager(
             }
         }
 
-        if (stalePeers.isEmpty()) return
-
-        // Remove announcements and their messages
-        var totalPrunedMsgs = 0
+        var changed = false
         for (peerID in stalePeers) {
-            // Count messages to be pruned for logging
-            val toRemove = mutableListOf<String>()
-            synchronized(messages) {
-                for ((id, message) in messages) {
-                    val sender = message.senderID.joinToString("") { b -> "%02x".format(b) }
-                    if (sender == peerID) toRemove.add(id)
-                }
-            }
-            totalPrunedMsgs += toRemove.size
-
-            // Reuse existing removal which also clears announcement entry
-            removeAnnouncementForPeer(peerID)
+            changed = latestAnnouncementByPeer.remove(peerID) != null || changed
         }
-
-        Log.d(TAG, "Pruned ${stalePeers.size} stale announcements and $totalPrunedMsgs messages")
+        synchronized(messages) {
+            changed = messages.entries.removeAll { now - it.value.timestamp.toLong() > PUBLIC_MESSAGE_MAX_AGE_MS } || changed
+        }
+        synchronized(fragments) {
+            fragments.entries.removeAll { now - it.value.timestamp.toLong() > FRAGMENT_MAX_AGE_MS }
+        }
+        if (changed) persistArchive()
     }
 
     // Explicitly remove stored announcement for a given peer (hex ID)
@@ -305,26 +335,53 @@ class GossipSyncManager(
             Log.d(TAG, "Removed stored announcement for peer $peerID")
         }
 
-        // Collect IDs to remove first to avoid modifying collection while iterating
-        val idsToRemove = mutableListOf<String>()
-        synchronized(messages) {
-            for ((id, message) in messages) {
-                val sender = message.senderID.joinToString("") { b -> "%02x".format(b) }
-                if (sender == key) {
-                    idsToRemove.add(id)
+    }
+
+    private fun restoreArchive() {
+        val file = archiveFile ?: return
+        if (!file.exists()) return
+        try {
+            restoringArchive = true
+            val input = java.io.DataInputStream(file.inputStream().buffered())
+            val count = input.readInt().coerceIn(0, configProvider.seenCapacity())
+            repeat(count) {
+                val length = input.readInt()
+                if (length <= 0 || length > com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH + 256) return@repeat
+                val packet = com.bitchat.android.protocol.BinaryProtocol.decode(input.readNBytes(length)) ?: return@repeat
+                onPublicPacketSeen(packet)
+            }
+            input.close()
+        } catch (_: Exception) {
+            synchronized(messages) { messages.clear() }
+        } finally {
+            restoringArchive = false
+        }
+    }
+
+    @Synchronized
+    private fun persistArchive() {
+        val file = archiveFile ?: return
+        try {
+            val packets = synchronized(messages) { messages.values.toList() }
+            val temporary = File(file.parentFile, "${file.name}.tmp")
+            java.io.DataOutputStream(temporary.outputStream().buffered()).use { output ->
+                output.writeInt(packets.size)
+                packets.forEach { packet ->
+                    val encoded = com.bitchat.android.protocol.BinaryProtocol.encode(packet, padding = false) ?: return@forEach
+                    output.writeInt(encoded.size)
+                    output.write(encoded)
                 }
             }
-        }
-        
-        // Now remove the collected IDs
-        synchronized(messages) {
-            for (id in idsToRemove) {
-                messages.remove(id)
+            try {
+                java.nio.file.Files.move(
+                    temporary.toPath(),
+                    file.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: Exception) {
+                temporary.delete()
             }
-        }
-        
-        if (idsToRemove.isNotEmpty()) {
-            Log.d(TAG, "Pruned ${idsToRemove.size} messages with senders without announcements")
-        }
+        } catch (_: Exception) { }
     }
 }

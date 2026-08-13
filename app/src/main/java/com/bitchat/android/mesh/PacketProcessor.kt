@@ -122,6 +122,20 @@ class PacketProcessor(private val myPeerID: String) {
 
         var validPacket = true
         val messageType = MessageType.fromValue(packet.type)
+        val isBroadcast = packet.recipientID == null ||
+            packet.recipientID.contentEquals(com.bitchat.android.protocol.SpecialRecipients.BROADCAST)
+        if (isBroadcast && packet.timestamp <= Long.MAX_VALUE.toULong()) {
+            val ageMs = System.currentTimeMillis() - packet.timestamp.toLong()
+            val maxAgeMs = when (messageType) {
+                MessageType.MESSAGE -> com.bitchat.android.sync.GossipSyncManager.PUBLIC_MESSAGE_MAX_AGE_MS
+                MessageType.FRAGMENT, MessageType.FILE_TRANSFER ->
+                    com.bitchat.android.sync.GossipSyncManager.FRAGMENT_MAX_AGE_MS
+                else -> null
+            }
+            if (maxAgeMs != null && ageMs !in 0..maxAgeMs) return
+        } else if (isBroadcast && packet.timestamp > Long.MAX_VALUE.toULong()) {
+            return
+        }
         // Verbose logging to debug manager (and chat via ChatViewModel observer)
         try {
             val mt = messageType?.name ?: packet.type.toString()
@@ -146,6 +160,7 @@ class PacketProcessor(private val myPeerID: String) {
                     when (messageType) {
                         MessageType.NOISE_HANDSHAKE -> validPacket = handleNoiseHandshake(routed)
                         MessageType.NOISE_ENCRYPTED -> validPacket = handleNoiseEncrypted(routed)
+                        MessageType.COURIER_ENVELOPE -> validPacket = delegate?.handleCourierEnvelope(routed) ?: false
                         MessageType.FILE_TRANSFER -> handleMessage(routed)
                         else -> {
                             validPacket = false
@@ -295,6 +310,7 @@ interface PacketProcessorDelegate {
     // Message type handlers
     fun handleNoiseHandshake(routed: RoutedPacket): Boolean
     fun handleNoiseEncrypted(routed: RoutedPacket): Boolean
+    fun handleCourierEnvelope(routed: RoutedPacket): Boolean = false
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean
     fun handleMessage(routed: RoutedPacket)
     fun handleVoiceFrame(routed: RoutedPacket): Boolean = false

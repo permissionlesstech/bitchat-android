@@ -112,6 +112,23 @@ class FragmentingPacketSender(
         return true
     }
 
+    suspend fun sendAndAwaitAcceptance(
+        routed: RoutedPacket,
+        description: String,
+        sendSingle: (RoutedPacket) -> Boolean
+    ): Boolean {
+        val packets = packetsForTransport(routed) ?: return false
+        Log.d(logTag, "Sending ${packets.size} packet(s) for $description")
+        for ((index, packet) in packets.withIndex()) {
+            val accepted = sendSingle(
+                routed.copy(packet = packet, transferId = null, preparedPackets = null)
+            )
+            if (!accepted) return false
+            if (index < packets.lastIndex) delay(interFragmentDelayMs)
+        }
+        return true
+    }
+
     fun cancelTransfer(transferId: String): Boolean {
         val job = transferJobs.remove(transferId) ?: return false
         job.cancel()

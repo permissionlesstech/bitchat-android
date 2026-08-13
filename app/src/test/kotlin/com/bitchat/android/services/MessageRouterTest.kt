@@ -56,11 +56,19 @@ class MessageRouterTest {
         ContactDirectory.initialize(context) { mesh }
 
         MessageRouter.disableSchedulerForTesting = true
+        MessageRouter.outboxStoreFactory = { testContext ->
+            MessageOutboxStore(testContext, object : ConversationStorageCipher {
+                override fun encrypt(plaintext: ByteArray, associatedData: ByteArray) = plaintext
+                override fun decrypt(envelope: ByteArray, associatedData: ByteArray) = envelope
+                override fun destroyKey() = Unit
+            })
+        }
         MessageRouter.resetForTesting()
         fakeTime = 1_000_000L
         expired.clear()
 
         router = MessageRouter.getInstance(context, mesh)
+        router.clearAll()
         router.clock = { fakeTime }
         router.onMessageExpired = { expired.add(it) }
     }
@@ -69,6 +77,7 @@ class MessageRouterTest {
     fun tearDown() {
         MessageRouter.resetForTesting()
         MessageRouter.disableSchedulerForTesting = false
+        MessageRouter.outboxStoreFactory = ::MessageOutboxStore
         ContactDirectory.identityManagerProvider = { SecureIdentityStateManager(it) }
     }
 
@@ -172,6 +181,48 @@ class MessageRouterTest {
         assertEquals(MessageRouter.RouteResult.MESH, result)
         verify(mesh, times(1)).sendPrivateMessage("direct", peerID, "peer", "msg-direct")
         verify(mesh, never()).initiateNoiseHandshake(any())
+    }
+
+    @Test
+    fun `direct send remains retained until delivery acknowledgement`() {
+        peerReady()
+        router.sendPrivate("direct", peerID, "peer", "msg-direct")
+        clearInvocations(mesh)
+
+        fakeTime += 31_000
+        router.tickOutbox()
+        verify(mesh, times(1)).sendPrivateMessage("direct", peerID, "peer", "msg-direct")
+
+        router.onMessageAcknowledged("msg-direct", peerID)
+        clearInvocations(mesh)
+        router.tickOutbox()
+        verify(mesh, never()).sendPrivateMessage(any(), any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `queued message survives router recreation`() {
+        peerOffline()
+        router.sendPrivate("durable", peerID, "peer", "msg-durable")
+
+        MessageRouter.resetForTesting()
+        router = MessageRouter.getInstance(RuntimeEnvironment.getApplication(), mesh)
+        router.clock = { fakeTime }
+        peerReady()
+        router.onSessionEstablished(peerID)
+
+        verify(mesh).sendPrivateMessage("durable", peerID, "peer", "msg-durable")
+    }
+
+    @Test
+    fun `outbox stops transport retries after eight attempts`() {
+        peerReady()
+        router.sendPrivate("bounded", peerID, "peer", "msg-bounded")
+        repeat(10) {
+            fakeTime += 10 * 60_000L + 1
+            router.tickOutbox()
+        }
+
+        verify(mesh, times(8)).sendPrivateMessage("bounded", peerID, "peer", "msg-bounded")
     }
 
     @Test

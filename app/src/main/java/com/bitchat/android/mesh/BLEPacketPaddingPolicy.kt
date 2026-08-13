@@ -11,7 +11,7 @@ import com.bitchat.android.protocol.MessageType
 object BLEPacketPaddingPolicy {
     fun shouldPadForBLE(type: UByte): Boolean {
         return when (MessageType.fromValue(type)) {
-            MessageType.NOISE_ENCRYPTED, MessageType.NOISE_HANDSHAKE -> true
+            MessageType.NOISE_ENCRYPTED, MessageType.NOISE_HANDSHAKE, MessageType.COURIER_ENVELOPE -> true
             else -> false
         }
     }
