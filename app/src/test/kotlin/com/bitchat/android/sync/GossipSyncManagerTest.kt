@@ -41,6 +41,27 @@ class GossipSyncManagerTest {
         assertEquals(listOf(1, 3, 5), sent.map { it.payload.single().toInt() })
     }
 
+    @Test
+    fun `public history tolerates bounded future clock skew`() {
+        val sent = mutableListOf<BitchatPacket>()
+        val manager = GossipSyncManager("1111222233334444", TestScope(), config)
+        manager.delegate = object : GossipSyncManager.Delegate {
+            override fun sendPacket(packet: BitchatPacket) = Unit
+            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) { sent += packet }
+            override fun signPacketForBroadcast(packet: BitchatPacket) = packet
+        }
+        val now = System.currentTimeMillis()
+        manager.onPublicPacketSeen(packet(MessageType.MESSAGE, now + 60_000L, 1))
+        manager.onPublicPacketSeen(packet(MessageType.FRAGMENT, now + 60_000L, 2))
+        manager.onPublicPacketSeen(packet(MessageType.FILE_TRANSFER, now + 60_000L, 3))
+        manager.onPublicPacketSeen(packet(MessageType.MESSAGE, now + 11 * 60_000L, 4))
+        manager.onPublicPacketSeen(packet(MessageType.FRAGMENT, now + 11 * 60_000L, 5))
+
+        manager.handleRequestSync("peer", RequestSyncPacket(p = 1, m = 1, data = byteArrayOf()))
+
+        assertEquals(listOf(1, 2, 3), sent.map { it.payload.single().toInt() })
+    }
+
     private fun packet(type: MessageType, timestamp: Long, marker: Int) = BitchatPacket(
         type = type.value,
         senderID = ByteArray(8) { 1 },

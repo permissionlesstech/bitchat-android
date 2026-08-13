@@ -481,7 +481,10 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val peerID = routed.peerID ?: "unknown"
         if (packet.timestamp > Long.MAX_VALUE.toULong()) return
         val ageMs = System.currentTimeMillis() - packet.timestamp.toLong()
-        if (ageMs !in 0..com.bitchat.android.sync.GossipSyncManager.PUBLIC_MESSAGE_MAX_AGE_MS) return
+        if (ageMs !in
+            -com.bitchat.android.sync.GossipSyncManager.PUBLIC_PACKET_FUTURE_SKEW_MS..
+                com.bitchat.android.sync.GossipSyncManager.PUBLIC_MESSAGE_MAX_AGE_MS
+        ) return
         
         // Enforce: only accept public messages from verified peers we know
         val peerInfo = delegate?.getPeerInfo(peerID)

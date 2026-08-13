@@ -1620,7 +1620,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             )
             if (direct) {
                 serviceScope.launch {
-                    if (connectionManager.sendToPeerAndAwaitAcceptance(
+                    if (connectionManager.sendToPeerAndAwaitCompletion(
                             peerID,
                             RoutedPacket(signPacketBeforeBroadcast(packet))
                         )
@@ -1641,7 +1641,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     ttl = MAX_TTL
                 )
                 serviceScope.launch {
-                    if (connectionManager.sendToPeerAndAwaitAcceptance(
+                    if (connectionManager.sendToPeerAndAwaitCompletion(
                             peerID,
                             RoutedPacket(signPacketBeforeBroadcast(packet))
                         )

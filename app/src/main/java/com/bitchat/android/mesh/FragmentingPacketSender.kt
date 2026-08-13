@@ -115,7 +115,7 @@ class FragmentingPacketSender(
     suspend fun sendAndAwaitAcceptance(
         routed: RoutedPacket,
         description: String,
-        sendSingle: (RoutedPacket) -> Boolean
+        sendSingle: suspend (RoutedPacket) -> Boolean
     ): Boolean {
         val packets = packetsForTransport(routed) ?: return false
         Log.d(logTag, "Sending ${packets.size} packet(s) for $description")

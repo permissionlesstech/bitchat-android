@@ -22,6 +22,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.actor
 import java.util.ArrayDeque
 
@@ -55,6 +56,7 @@ class BluetoothPacketBroadcaster(
         private const val MAX_PENDING_BYTES_PER_LINK = 1_048_576
         private const val SEND_RETRY_DELAY_MS = 15L
         private const val MAX_CALLBACK_RETRIES = 3
+        private const val SEND_COMPLETION_TIMEOUT_MS = 30_000L
     }
 
     // Optional nickname resolver injected by higher layer (peerID -> nickname?)
@@ -140,6 +142,7 @@ class BluetoothPacketBroadcaster(
         val gatt: BluetoothGatt? = null,
         val gattServer: BluetoothGattServer? = null,
         val characteristic: BluetoothGattCharacteristic,
+        val completion: CompletableDeferred<Boolean>? = null,
         var callbackFailures: Int = 0
     )
 
@@ -216,6 +219,18 @@ class BluetoothPacketBroadcaster(
         }
     }
 
+    suspend fun sendPacketToPeerAndAwaitCompletion(
+        routed: RoutedPacket,
+        targetPeerID: String,
+        gattServer: BluetoothGattServer?,
+        characteristic: BluetoothGattCharacteristic?
+    ): Boolean {
+        if (!hasPeerConnection(targetPeerID)) return false
+        return fragmentingSender.sendAndAwaitAcceptance(routed, "BLE peer ${targetPeerID.take(8)}") { packet ->
+            sendSinglePacketToPeerAndAwaitCompletion(packet, targetPeerID, gattServer, characteristic)
+        }
+    }
+
     fun sendPacketToLink(
         routed: RoutedPacket,
         deviceAddress: String,
@@ -277,6 +292,35 @@ class BluetoothPacketBroadcaster(
         }
 
         return false
+    }
+
+    private suspend fun sendSinglePacketToPeerAndAwaitCompletion(
+        routed: RoutedPacket,
+        targetPeerID: String,
+        gattServer: BluetoothGattServer?,
+        characteristic: BluetoothGattCharacteristic?
+    ): Boolean {
+        val packet = routed.packet
+        val data = packet.toBinaryData(
+            padding = BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
+        ) ?: return false
+        val completion = CompletableDeferred<Boolean>()
+
+        val serverTarget = connectionTracker.getSubscribedDevices()
+            .firstOrNull { connectionTracker.addressPeerMap[it.address] == targetPeerID }
+        val queuedOnServer = serverTarget != null &&
+            notifyDevice(serverTarget, data, gattServer, characteristic, completion)
+        val queued = if (queuedOnServer) {
+            true
+        } else {
+            val clientTarget = connectionTracker.getConnectedDevices().values
+                .firstOrNull { connectionTracker.addressPeerMap[it.device.address] == targetPeerID }
+                ?: return false
+            writeToDeviceConn(clientTarget, data, completion)
+        }
+        if (!queued) return false
+
+        return withTimeoutOrNull(SEND_COMPLETION_TIMEOUT_MS) { completion.await() } ?: false
     }
 
     
@@ -486,7 +530,8 @@ class BluetoothPacketBroadcaster(
         device: BluetoothDevice, 
         data: ByteArray,
         gattServer: BluetoothGattServer?,
-        characteristic: BluetoothGattCharacteristic?
+        characteristic: BluetoothGattCharacteristic?,
+        completion: CompletableDeferred<Boolean>? = null
     ): Boolean {
         val server = gattServer ?: return false
         val char = characteristic ?: return false
@@ -496,7 +541,13 @@ class BluetoothPacketBroadcaster(
             ?: return false
         return enqueueSend(
             SendKey(device.address, linkID, SendDirection.SERVER_NOTIFICATION),
-            PendingSend(data.copyOf(), device, gattServer = server, characteristic = char)
+            PendingSend(
+                data.copyOf(),
+                device,
+                gattServer = server,
+                characteristic = char,
+                completion = completion
+            )
         )
     }
 
@@ -505,13 +556,20 @@ class BluetoothPacketBroadcaster(
      */
     private fun writeToDeviceConn(
         deviceConn: BluetoothConnectionTracker.DeviceConnection, 
-        data: ByteArray
+        data: ByteArray,
+        completion: CompletableDeferred<Boolean>? = null
     ): Boolean {
         val gatt = deviceConn.gatt ?: return false
         val char = deviceConn.characteristic ?: return false
         return enqueueSend(
             SendKey(deviceConn.device.address, deviceConn.linkID, SendDirection.CLIENT_WRITE),
-            PendingSend(data.copyOf(), deviceConn.device, gatt = gatt, characteristic = char)
+            PendingSend(
+                data.copyOf(),
+                deviceConn.device,
+                gatt = gatt,
+                characteristic = char,
+                completion = completion
+            )
         )
     }
 
@@ -643,6 +701,7 @@ class BluetoothPacketBroadcaster(
                 }
                 state.pending.removeFirst()
                 state.pendingBytes -= head.data.size
+                head.completion?.complete(status == BluetoothGatt.GATT_SUCCESS)
                 if (state.pending.isEmpty()) {
                     sendStates.remove(key)
                     false
@@ -657,8 +716,13 @@ class BluetoothPacketBroadcaster(
 
     fun onLinkDisconnected(deviceAddress: String, linkID: String?) {
         synchronized(sendLock) {
-            sendStates.keys.removeAll { key ->
-                key.deviceAddress == deviceAddress && (linkID == null || key.linkID == linkID)
+            val iterator = sendStates.entries.iterator()
+            while (iterator.hasNext()) {
+                val (key, state) = iterator.next()
+                if (key.deviceAddress == deviceAddress && (linkID == null || key.linkID == linkID)) {
+                    state.pending.forEach { it.completion?.complete(false) }
+                    iterator.remove()
+                }
             }
         }
     }
@@ -679,7 +743,12 @@ class BluetoothPacketBroadcaster(
      * Shutdown the broadcaster actor gracefully
      */
     fun shutdown() {
-        synchronized(sendLock) { sendStates.clear() }
+        synchronized(sendLock) {
+            sendStates.values.forEach { state ->
+                state.pending.forEach { it.completion?.complete(false) }
+            }
+            sendStates.clear()
+        }
         // Close the actor gracefully
         broadcasterActor.close()
 

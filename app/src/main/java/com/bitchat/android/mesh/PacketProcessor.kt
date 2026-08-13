@@ -132,7 +132,9 @@ class PacketProcessor(private val myPeerID: String) {
                     com.bitchat.android.sync.GossipSyncManager.FRAGMENT_MAX_AGE_MS
                 else -> null
             }
-            if (maxAgeMs != null && ageMs !in 0..maxAgeMs) return
+            if (maxAgeMs != null && ageMs !in
+                -com.bitchat.android.sync.GossipSyncManager.PUBLIC_PACKET_FUTURE_SKEW_MS..maxAgeMs
+            ) return
         } else if (isBroadcast && packet.timestamp > Long.MAX_VALUE.toULong()) {
             return
         }

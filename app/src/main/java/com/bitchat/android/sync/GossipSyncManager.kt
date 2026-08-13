@@ -39,6 +39,7 @@ class GossipSyncManager(
         private const val TAG = "GossipSyncManager"
         const val PUBLIC_MESSAGE_MAX_AGE_MS = 6 * 60 * 60 * 1000L
         const val FRAGMENT_MAX_AGE_MS = 15 * 60 * 1000L
+        const val PUBLIC_PACKET_FUTURE_SKEW_MS = 10 * 60 * 1000L
         private const val ARCHIVE_FILE = "gossip-public-history.bin"
     }
 
@@ -132,7 +133,7 @@ class GossipSyncManager(
         if (isBroadcastMessage) {
             val now = System.currentTimeMillis()
             val age = now - packet.timestamp.toLong()
-            if (age !in 0..PUBLIC_MESSAGE_MAX_AGE_MS) return
+            if (age !in -PUBLIC_PACKET_FUTURE_SKEW_MS..PUBLIC_MESSAGE_MAX_AGE_MS) return
             synchronized(messages) {
                 messages[id] = packet
                 // Enforce capacity (remove oldest when exceeded)
@@ -145,7 +146,7 @@ class GossipSyncManager(
             if (!restoringArchive) persistArchive()
         } else if (isFragment) {
             val age = System.currentTimeMillis() - packet.timestamp.toLong()
-            if (age !in 0..FRAGMENT_MAX_AGE_MS) return
+            if (age !in -PUBLIC_PACKET_FUTURE_SKEW_MS..FRAGMENT_MAX_AGE_MS) return
             synchronized(fragments) {
                 fragments[id] = packet
                 while (fragments.size > configProvider.seenCapacity().coerceAtLeast(1)) {
