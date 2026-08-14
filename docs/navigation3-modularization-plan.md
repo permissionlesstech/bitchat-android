@@ -474,10 +474,10 @@ those two entries once the decomposition reaches them.
 
 | Risk | Mitigation |
 |---|---|
-| Hilt/KSP incompatible with AGP 9.3.1 / Kotlin 2.4.10 | PR 0 is a half-day spike whose only job is to find out. Koin fallback pre-decided. |
-| Codegen breaks byte-for-byte reproducibility | Release CI already builds twice and byte-compares — a regression fails the build rather than shipping. Verify on the first release build after PR 1. |
-| `:wear` breaks when `model/` moves | Isolated in PR 2 with no other change. `./gradlew :wear:assembleDebug` is the gate. |
-| Mesh delegate lost mid-sequence | `ChatViewModel` stays a single activity-scoped instance through every PR. Assert `unifiedMeshService.delegate === chatViewModel` in an instrumented test before PR 4. |
+| ~~Hilt/KSP incompatible with AGP 9.3.1 / Kotlin 2.4.10~~ | **Closed.** Hilt 2.60.1 + KSP 2.3.11 build and R8-minify cleanly. |
+| ~~`:wear` breaks when `model/` moves~~ | **Closed.** `:wear`'s `sharedSrc` still resolves all nine model files and still excludes `FileSharingManager`. |
+| Codegen breaks byte-for-byte reproducibility | Release CI builds twice and byte-compares, so a regression fails the build rather than shipping. Checked locally after the DI change: two `:app:bundleRelease` runs under the determinism flags from `build-release.sh` produced identical bytes, so KSP and the Hilt processors do not introduce ordering nondeterminism. That is a proxy, not the guarantee — the canonical check pins JDK 21.0.11+10 and Linux SDK archives and only runs in the container. |
+| Mesh delegate lost mid-sequence | `ChatViewModel` stays a single activity-scoped instance through every PR. Assert `unifiedMeshService.delegate === chatViewModel` in an instrumented test before PR 4. Note the DI change made the ordering safer, not riskier: the ViewModel now reads `MeshServiceHolder` itself instead of capturing two `lateinit` fields from `MainActivity`. |
 | Back-order semantics change | Explicit tests for all four cases in `handleBackPressed`'s chain, landed with PR 11. |
 | Long-lived branch conflicts | Every PR is independently mergeable; none should stay open more than a few days. |
 
