@@ -2,6 +2,9 @@
 # Android and Kotlin
 agp = "9.3.1"
 kotlin = "2.4.10"
+# KSP versions independently of Kotlin as of 2.3.0; earlier releases used a
+# <kotlin>-<ksp> scheme that had to match the Kotlin version exactly.
+ksp = "2.3.11"
 compileSdk = "37"
 minSdk = "26" # API 26 for proper BLE support
 targetSdk = "37"
@@ -19,6 +22,10 @@ compose-icons-extended = "1.7.8"
 
 # Navigation
 navigation-compose = "2.9.8"
+
+# Dependency injection
+hilt = "2.60.1"
+androidx-hilt = "1.4.0"
 
 # Accompanist
 accompanist-permissions = "0.37.3"
@@ -98,6 +105,11 @@ androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-
 # Navigation
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation-compose" }
 
+# Dependency injection
+hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
+hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
+androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "androidx-hilt" }
+
 # Accompanist
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanist-permissions" }
 
@@ -166,6 +178,8 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-parcelize = { id = "kotlin-parcelize" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 
 [bundles]
 compose = [
