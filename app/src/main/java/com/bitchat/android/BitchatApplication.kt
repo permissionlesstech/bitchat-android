@@ -4,10 +4,12 @@ import android.app.Application
 import com.bitchat.android.nostr.RelayDirectory
 import com.bitchat.android.ui.theme.ThemePreferenceManager
 import com.bitchat.android.net.ArtiTorManager
+import dagger.hilt.android.HiltAndroidApp
 
 /**
  * Main application class for bitchat Android
  */
+@HiltAndroidApp
 class BitchatApplication : Application() {
 
     override fun onCreate() {

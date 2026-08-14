@@ -15,6 +15,8 @@ import com.bitchat.android.util.LatestReleaseProvider
 import com.bitchat.android.util.ShareableApkVariant
 import com.bitchat.android.util.UniversalApkManager
 import com.bitchat.android.util.WorkManagerApkDownloader
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -151,6 +153,7 @@ sealed class ApkUiEffect {
  * ViewModel for APK download/status/share logic following MVI pattern.
  * UI sends [ApkUiEvent], observes [ApkUiState], and collects [ApkUiEffect].
  */
+@HiltViewModel
 class ApkDownloadViewModel internal constructor(
     application: Application,
     private val apkManager: UniversalApkManager,
@@ -158,6 +161,11 @@ class ApkDownloadViewModel internal constructor(
     private val latestReleaseProvider: LatestReleaseProvider
 ) : AndroidViewModel(application) {
 
+    // Hilt injects through this constructor rather than the primary one:
+    // UniversalApkManager's collaborators are internal, and routing internal
+    // Kotlin types through Dagger's generated Java buys nothing here. Tests
+    // keep using the primary constructor to substitute fakes.
+    @Inject
     constructor(application: Application) : this(
         application = application,
         apkManager = UniversalApkManager(application),

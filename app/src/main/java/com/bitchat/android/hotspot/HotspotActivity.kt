@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import dagger.hilt.android.AndroidEntryPoint
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -47,6 +48,7 @@ import java.io.File
  * Activity for managing Wi-Fi P2P hotspot for offline APK sharing.
  * Pure Compose implementation, no fragments.
  */
+@AndroidEntryPoint
 class HotspotActivity : ComponentActivity() {
 
     companion object {
