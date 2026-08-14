@@ -18,13 +18,16 @@ fun nostrPeerColorSeed(pubkeyHex: String): PeerColorSeed =
     PeerColorSeed("nostr:${pubkeyHex.lowercase(Locale.ROOT)}")
 
 fun peerColorSeedForMessage(message: BitchatMessage): PeerColorSeed {
+    // Read once into a local: BitchatMessage lives in :core:domain, and Kotlin will
+    // not smart-cast a property declared in another module.
+    val senderPeerID = message.senderPeerID
     val value = when {
-        message.senderPeerID?.startsWith("nostr:") == true ||
-            message.senderPeerID?.startsWith("nostr_") == true -> {
-            "nostr:${message.senderPeerID.lowercase(Locale.ROOT)}"
+        senderPeerID?.startsWith("nostr:") == true ||
+            senderPeerID?.startsWith("nostr_") == true -> {
+            "nostr:${senderPeerID.lowercase(Locale.ROOT)}"
         }
-        message.senderPeerID?.length == 16 || message.senderPeerID?.length == 64 -> {
-            "noise:${message.senderPeerID.lowercase(Locale.ROOT)}"
+        senderPeerID?.length == 16 || senderPeerID?.length == 64 -> {
+            "noise:${senderPeerID.lowercase(Locale.ROOT)}"
         }
         else -> message.sender.lowercase(Locale.ROOT)
     }

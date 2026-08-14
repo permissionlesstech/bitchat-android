@@ -72,7 +72,8 @@ composeCompiler {
     includeComposeMappingFile.set(false)
 }
 
-// Shared bitchat protocol stack: compiled from :app sources in place (never moved/copied by hand).
+// Shared bitchat protocol stack: compiled from :app and :core:domain sources in place
+// (never moved/copied by hand).
 // AGP's source directory sets no longer support include/exclude filters, so a Sync task
 // materializes a filtered mirror into build/sharedSrc and that directory is added as a source
 // root. The app sources remain the single source of truth; extend the include list below (don't
@@ -125,6 +126,14 @@ val sharedSourceExcludes = listOf(
 
 val syncSharedAppSources = tasks.register<Sync>("syncSharedAppSources") {
     from("../app/src/main/java") {
+        include(sharedSourceIncludes)
+        exclude(sharedSourceExcludes)
+    }
+    // Domain models extracted to :core:domain so feature library modules can
+    // depend on them (Gradle forbids a library depending on an application).
+    // They remain part of the same shared source set from the watch's point of
+    // view; the include list above still governs which of them are mirrored.
+    from("../core/domain/src/main/java") {
         include(sharedSourceIncludes)
         exclude(sharedSourceExcludes)
     }

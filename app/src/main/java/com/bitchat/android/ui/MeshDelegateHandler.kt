@@ -70,9 +70,11 @@ class MeshDelegateHandler(
                     }
                 }
             } else if (message.channel != null) {
-                // Channel message: AppStateStore is the source of truth for list; only manage unread
-                if (state.getJoinedChannelsValue().contains(message.channel)) {
-                    val channel = message.channel
+                // Channel message: AppStateStore is the source of truth for list; only manage unread.
+                // Read into a local first: BitchatMessage lives in :core:domain, and Kotlin will not
+                // smart-cast a property declared in another module.
+                val channel = message.channel
+                if (channel != null && state.getJoinedChannelsValue().contains(channel)) {
                     val viewingClassic = state.getCurrentChannelValue() == channel
                     val viewingGeohash = try {
                         if (channel.startsWith("geo:")) {

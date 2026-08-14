@@ -12,6 +12,9 @@ import kotlinx.coroutines.runBlocking
  */
 internal object IncomingMessageAdmission {
     fun admitToAppState(message: BitchatMessage): Boolean = try {
+        // Read once into a local: BitchatMessage lives in :core:domain, and Kotlin
+        // will not smart-cast a property declared in another module.
+        val channel = message.channel
         when {
             message.isPrivate -> {
                 val peerID = message.senderPeerID?.takeIf(String::isNotBlank)
@@ -24,8 +27,8 @@ internal object IncomingMessageAdmission {
                 }
             }
 
-            message.channel != null -> {
-                AppStateStore.addChannelMessage(message.channel, message)
+            channel != null -> {
+                AppStateStore.addChannelMessage(channel, message)
                 true
             }
 

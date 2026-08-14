@@ -3,7 +3,11 @@
 Design and sequencing for introducing Jetpack Navigation 3, a DI framework, and a
 multi-module structure to the phone client.
 
-Status: **design approved, not started.**
+Status: **groundwork landed; feature work not started.**
+
+DI, the convention plugins and `:core:domain` are in place. Sections 1–6 describe
+the design; §7 tracks sequencing, and §10 records where reality diverged from the
+original design once it met the build.
 
 ---
 
@@ -149,10 +153,16 @@ Costs, weighed and accepted: ~25 extra components in `verification-metadata.xml`
 (regeneration is automated), and full non-incremental KSP cost in the twice-run
 release pipeline — on the order of minutes for ~15 small modules.
 
-**The one real risk is toolchain compatibility.** Hilt's Gradle plugin performs
-bytecode transformation through AGP APIs that AGP 9 reworked, and KSP must match
-Kotlin 2.4.10 exactly. This repo is on AGP 9.3.1 / Kotlin 2.4.10 / compileSdk 37.
-PR 0 exists solely to answer this.
+**The one real risk was toolchain compatibility** — Hilt's Gradle plugin performs
+bytecode transformation through AGP APIs that AGP 9 reworked. **Resolved:** Hilt
+2.60.1 and KSP 2.3.11 build on AGP 9.3.1 / Kotlin 2.4.10 / compileSdk 37, with
+`transformDebugUnitTestClassesWithAsm` and the `hiltAggregateDeps*` tasks running
+normally.
+
+The second half of that risk turned out not to exist. KSP versions independently
+of Kotlin as of KSP 2.3.0; the old `<kotlin>-<ksp>` scheme that required an exact
+match to the Kotlin version was retired, so there is no longer a KSP release
+pinned to Kotlin 2.4.10 to wait for.
 
 **Fallback: Koin.** If PR 0 fails, switch. Koin adds 3 artifacts, no codegen, no
 KSP, no AGP plugin transform, and ships a first-party Nav3 integration
@@ -180,20 +190,57 @@ depend on `:app` — Gradle forbids library→application. But every feature nee
 `com.bitchat.android.model.BitchatMessage` and the `MeshService` interface, both
 currently in `:app` and both inside `wear`'s globs.
 
-The fix is small: `model/` is **10 files** and `MeshService` is **already an
-interface** (`mesh/MeshService.kt:8`). Extract a thin `:core:domain` holding
-`model/**` plus that interface; leave `BluetoothMeshService`,
-`UnifiedMeshService` and all 129 singletons in `:app`, bound to the interface via
-DI in `:app`. Then `wear/build.gradle.kts` needs one added block inside
-`syncSharedAppSources`:
+**As built, `:core:domain` holds two files:** `model/BitchatMessage.kt` (which
+declares `BitchatMessage`, `BitchatMessageType` and `DeliveryStatus`) and
+`model/BitchatFilePacket.kt`. Between them those are every `model` type the UI
+layer imports, and both depend only on `Parcelable`, Gson and `java.nio` — no
+`com.bitchat` package at all.
+
+Two things the original design got wrong here:
+
+- **`model/**` is not extractable wholesale.** Four of its ten files reach into
+  other packages: `RoutedPacket` and `FragmentPayload` into `protocol`,
+  `RequestSyncPacket` into `sync`, and `FileSharingManager` into `features.file`
+  (the last is already in `sharedSourceExcludes`). Moving the package entire
+  would drag `protocol/` and `sync/` out of `:app`, which §2 rules out.
+- **`MeshService` cannot move.** It is an interface, but it references
+  `MeshDelegate`, `PeerInfo` and `PrivateMediaPreparation` from its own package
+  and returns `noise.NoiseSession.NoiseSessionState`. Extracting it would pull
+  the Noise/crypto layer into `:core:domain`. It stays in `:app`.
+
+That second point is a constraint, not a loss: feature modules have no business
+depending on the transport API. They reach mesh behaviour through their own
+ViewModels, which live in `:app`'s graph.
+
+`wear/build.gradle.kts` gains a second `from(...)` block in `syncSharedAppSources`
+reusing the same include and exclude lists, so the moved files keep being
+mirrored and `sharedSourceIncludes` keeps its shape:
 
 ```kotlin
-from("../core/domain/src/main/kotlin") { include("com/bitchat/android/model/**") }
+from("../core/domain/src/main/java") {
+    include(sharedSourceIncludes)
+    exclude(sharedSourceExcludes)
+}
 ```
 
-`sharedSourceIncludes` keeps its shape, `wear` keeps its copy-based approach, and
-`AGENTS.md`'s "app is the source of truth" rule survives in spirit. This is a
-~3-line `:wear` edit, landed in isolation in PR 2.
+### `:core:designsystem` is deferred
+
+It is not a pure move, for two reasons:
+
+- **Resources.** The candidate files reference 2 drawables, 4 fonts and 3
+  strings, and one of those strings (`fingerprint_verified_label`) exists in all
+  **34** `values-*` directories. Extracting them means recreating that locale
+  tree in the new module and splitting the translation workflow.
+- **Visibility.** `internal` is Gradle-module scoped, so four symbols would have
+  to widen to `public`: `BitchatFontFamily` (30 external referencing files),
+  `BASE_FONT_SIZE` (8), `ChatVisualTokens` (4) and `PeerAvatar` (2).
+  `PeerAvatarBadgeSize` and the two colour schemes have no external references
+  and would stay `internal`.
+
+Widening those four is defensible — they become the design system's public API —
+but combined with the locale tree it deserves its own change rather than riding
+along with the module scaffolding. Nothing before the first feature module needs
+it.
 
 ### 3.3 Ordering: DI first, Nav3 second, feature modules as output
 
@@ -343,17 +390,14 @@ any point in the sequence.
 
 Small sequential PRs. Each is independently reviewable, revertable, and shippable.
 
-### PR 0 — Toolchain spike (throwaway branch, not merged)
+### PR 0 — Toolchain spike — **done**
 
-Prove AGP 9.3.1 + Kotlin 2.4.10 + KSP + the Hilt Gradle plugin build together,
-and that `androidx.navigation3` artifacts resolve under dependency locking and
-checksum verification. **This is the single decision point for §3.1.**
+AGP 9.3.1 + Kotlin 2.4.10 + KSP 2.3.11 + Hilt 2.60.1 build together. Hilt's
+bytecode transform runs on AGP 9. Koin is not needed. Verification metadata
+gained 36 components and lost none; `:wear` and `settings-gradle.lockfile` were
+untouched.
 
-Exit criteria: `./gradlew :app:assembleDebug` green with a trivial `@HiltViewModel`,
-and `--write-verification-metadata sha256 help` produces a clean diff.
-If it fails, switch to Koin and re-scope PR 1.
-
-### PR 1 — DI in `:app` only
+### PR 1 — DI in `:app` only — **done**
 
 `@HiltAndroidApp` on `BitchatApplication`, `@AndroidEntryPoint` on
 `MainActivity`, `@HiltViewModel` on the 5 existing ViewModels. Delete the
@@ -363,15 +407,23 @@ Regenerate `verification-metadata.xml` and the lockfile.
 
 **Zero behaviour change. No singleton is converted.**
 
-### PR 2 — `build-logic` + core modules
+### PR 2 — `build-logic` + `:core:domain` — **done**
 
-Convention plugins, then `:core:domain`, `:core:designsystem`,
-`:core:navigation`, `:core:presentation`. Pure moves plus new code; all verified
-`ChatViewModel`-free. The 3-line `wear/build.gradle.kts` edit from §3.2 lands
-here, in isolation, where a `:wear` regression is unambiguous.
+`build-logic` is an included build exposing `bitchat.android.library` and
+`bitchat.android.library.compose`, plus `:core:domain` and the
+`wear/build.gradle.kts` edit from §3.2.
 
-Also: remove the unused `libs.androidx.navigation.compose` from
-`app/build.gradle.kts:136`.
+Scoped down from the original four core modules: `:core:designsystem` is
+deferred for the reasons in §3.2, and `:core:navigation` and
+`:core:presentation` have no content to move yet. `:core:navigation` belongs
+with PR 3, where the Navigation 3 types it would hold are introduced;
+`:core:presentation` waits until there is shared MVI scaffolding to put in it.
+Creating either now would violate the rule in §3.3 against empty modules that
+get backfilled.
+
+Still outstanding from this step: remove the unused
+`libs.androidx.navigation.compose` from `app/build.gradle.kts`. Deliberately
+left for PR 3, which replaces it rather than merely deleting it.
 
 ### PR 3 — Nav3 skeleton + onboarding
 
@@ -429,7 +481,46 @@ those two entries once the decomposition reaches them.
 | Back-order semantics change | Explicit tests for all four cases in `handleBackPressed`'s chain, landed with PR 11. |
 | Long-lived branch conflicts | Every PR is independently mergeable; none should stay open more than a few days. |
 
-## 9. Open questions
+## 9. Toolchain notes for the remaining modules
+
+Things that cost time once and should not cost it twice.
+
+**Kotlin does not smart-cast across a module boundary.** Moving `BitchatMessage`
+into `:core:domain` broke six call sites of the form
+`if (message.channel != null) { use(message.channel) }`, because a property
+declared in another module could in principle change between the check and the
+use. The fix is a local `val`, not `!!` — the local keeps the null-safety the
+smart cast was providing. Expect a handful more of these each time a widely-used
+type moves.
+
+**AGP 9 reshaped the extension DSL.** `CommonExtension` is no longer generic
+(it was `CommonExtension<*, *, *, *, *, *>` through AGP 8), and it exposes
+getters only. The block-syntax overloads — `defaultConfig { }`,
+`compileOptions { }`, `lint { }`, `buildFeatures { }` — are declared on the
+concrete `LibraryExtension` / `ApplicationExtension`. Convention plugins must
+configure the concrete type.
+
+**AGP 9 applies the Kotlin Android plugin itself.** Convention plugins must not
+apply `org.jetbrains.kotlin.android`; that is why the version catalog has no
+entry for it.
+
+**Metaspace.** `org.gradle.jvmargs` capped metaspace at 512m, which KSP and the
+Dagger processors exhaust. The failure does not present as a memory error in the
+task that caused it — it surfaces as `ClassLoader.defineClass` OOM in whatever
+task happens to be loading classes, including lint on an unrelated module. Worse,
+when it lands during `--write-verification-metadata` it can truncate
+`gradle/verification-metadata.xml` to zero bytes. Raised to 1g. **Back that file
+up before any regeneration run**, and check it is well-formed afterwards; the
+repo's own guidance not to accept metadata generated after an unexplained
+failure applies exactly here.
+
+**New Compose modules must set `includeComposeMappingFile.set(false)`.** `:app`
+and `:wear` both do, because Kotlin 2.4.10's optional Compose group-key mapping
+depends on unspecified class-file iteration order. A library that omits it
+reintroduces the nondeterminism the release pipeline byte-compares against. The
+`bitchat.android.library.compose` convention plugin sets it centrally.
+
+## 10. Open questions
 
 - Does `:feature:conversations` need a `:domain` and `:data` split, or is
   `{api, presentation}` enough? Defer until PR 10; the other five features do not
