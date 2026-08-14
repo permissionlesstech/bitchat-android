@@ -5,9 +5,9 @@ import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.LocationStatus
 import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.BatteryOptimizationStatus
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
