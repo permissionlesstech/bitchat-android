@@ -64,8 +64,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             withAuthenticatedSession = encryptionService::withAuthenticatedSession,
             store = authenticatedPeerStateStore,
             localStateProvider = {
-                AuthenticatedPeerState(
-                    PeerCapabilities.LOCAL_SUPPORTED,
+                AuthenticatedPeerState.local(
                     requireNotNull(encryptionService.getSigningPublicKey())
                 )
             },
