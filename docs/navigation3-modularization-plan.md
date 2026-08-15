@@ -3,7 +3,7 @@
 Design and sequencing for introducing Jetpack Navigation 3, a DI framework, and a
 multi-module structure to the phone client.
 
-Status: **groundwork landed; feature work not started.**
+Status: **groundwork and the Navigation 3 skeleton landed; overlay conversion not started.**
 
 DI, the convention plugins and `:core:domain` are in place. Sections 1–6 describe
 the design; §7 tracks sequencing, and §10 records where reality diverged from the
@@ -329,7 +329,7 @@ that only ever holds one key. What is needed is a single
 
 | Kind | Route | Replaces |
 |---|---|---|
-| Full screen | `OnboardingRoute(step)` | 8 `OnboardingState` values, `MainActivity.kt:231` |
+| Full screen | `OnboardingRoute` (**not** per-step) | the `when (onboardingState)` in `MainActivity` |
 | Full screen | `ChatRoute` | `ChatScreen` body (public/geohash chat) |
 | List-detail | `ConversationsRoute` / `PrivateChatRoute(peerId)` | `MeshPeerListSheet` / `PrivateChatSheet` |
 | Sheet scene | `LocationChannelsRoute`, `LocationNotesRoute`, `UserActionsRoute(nick, msgId)`, `AboutRoute`, `DebugRoute`, `VerificationRoute(fromSidebar)`, `SecurityVerificationRoute` | the 9 booleans |
@@ -425,13 +425,38 @@ Still outstanding from this step: remove the unused
 `libs.androidx.navigation.compose` from `app/build.gradle.kts`. Deliberately
 left for PR 3, which replaces it rather than merely deleting it.
 
-### PR 3 — Nav3 skeleton + onboarding
+### PR 3 — Nav3 skeleton + onboarding — **done**
 
-`Navigator`, `NavDisplay`, and the onboarding routes. Onboarding is the cleanest
-possible first target: it is already a state machine, and `onboarding/**`
-contains **zero** `ChatViewModel` references. Deletes the `when` at
-`MainActivity.kt:231-349` and the recomposition-registered `OnBackPressedCallback`
-at `MainActivity.kt:317-332`.
+`:core:navigation` (Navigator, `@ActivityRetainedScoped` AppNavigator,
+`EntryProviderInstaller`, the NavDisplay host) plus `OnboardingRoute` and
+`ChatRoute` in `:app`. Removes the `when (onboardingState)` and the
+recomposition-registered `OnBackPressedCallback`.
+
+**Onboarding is one destination, not eight.** The original plan called it "the
+cleanest possible first target: it is already a state machine" — which is true,
+and is exactly why its steps are *not* back-stack entries. Transitions are
+driven by permission results and adapter state changes, not by the user
+navigating, and the app has never supported going back a step. Per-step routes
+would invent a history that does not exist. Only the crossing between onboarding
+and chat is a navigation event, and it uses `resetTo` so Back cannot re-enter
+onboarding.
+
+Two things that only show up at runtime, both now covered:
+
+- **NavDisplay rejects an empty back stack**, and a `LaunchedEffect` does not run
+  until after the first composition. Seeding the stack from an effect crashes on
+  launch. It has to be seeded before `setContent`.
+- **Configuration changes are handled by the retained scope**, so the seeding
+  call must be idempotent — re-seeding on Activity recreation would discard the
+  history the scope is still holding.
+
+Chat keeps its boolean-driven overlays for now, so back consults
+`ChatViewModel.handleBackPressed()` first through an `interceptBack` hook on the
+host. That hook is temporary and is deleted as the overlays become routes.
+
+Still outstanding: the unused `libs.androidx.navigation.compose` in
+`app/build.gradle.kts` — `:wear` still uses Navigation 2, so removing it from
+`:app` is a separate check rather than a free deletion.
 
 ### PRs 4–9 — One overlay each, cheapest first
 
