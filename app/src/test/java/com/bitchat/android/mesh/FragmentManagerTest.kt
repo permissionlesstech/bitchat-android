@@ -252,4 +252,112 @@ class FragmentManagerTest {
         }
         return result
     }
+
+    // Injected-fragment hardening. Fragment packets are unauthenticated and
+    // both halves of the reassembly key are attacker-choosable, so a stream in
+    // flight has to survive a crafted packet aimed at it. Ports the storage
+    // rules from permissionlesstech/bitchat#1515.
+
+    /** A real packet, fragmented the way the sender would fragment it. */
+    private fun honestStream(): Pair<BitchatPacket, List<BitchatPacket>> {
+        val payload = ByteArray(1200) { (it % 251).toByte() }
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.FILE_TRANSFER.value,
+            senderID = hexStringToByteArray(senderID),
+            recipientID = hexStringToByteArray(recipientID),
+            timestamp = 1u,
+            payload = payload,
+            ttl = 7u
+        )
+        val fragments = fragmentManager.createFragments(packet)
+        assertTrue("Need a multi-fragment stream", fragments.size >= 3)
+        return packet to fragments
+    }
+
+    /** Same stream key as [honest], but attacker-chosen contents. */
+    private fun injected(
+        honest: BitchatPacket,
+        index: Int,
+        total: Int,
+        data: ByteArray,
+        originalType: UByte
+    ): BitchatPacket {
+        val decoded = FragmentPayload.decode(honest.payload)!!
+        return honest.copy(
+            payload = FragmentPayload(
+                fragmentID = decoded.fragmentID,
+                index = index,
+                total = total,
+                originalType = originalType,
+                data = data
+            ).encode()
+        )
+    }
+
+    private fun feedAllButLast(fragments: List<BitchatPacket>) {
+        fragments.dropLast(1).forEach {
+            assertNull("No fragment before the last should complete", fragmentManager.handleFragment(it))
+        }
+    }
+
+    private fun assertCompletes(original: BitchatPacket, last: BitchatPacket) {
+        val reassembled = fragmentManager.handleFragment(last)
+        assertNotNull("The honest stream must still complete", reassembled)
+        assertTrue(
+            "Reassembled payload must be the honest bytes",
+            original.payload.contentEquals(reassembled!!.payload)
+        )
+    }
+
+    @Test
+    fun `a conflicting total is rejected without destroying the stream`() {
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
+
+        val decoded = FragmentPayload.decode(fragments[0].payload)!!
+        assertNull(
+            fragmentManager.handleFragment(
+                injected(fragments[0], index = 0, total = decoded.total - 1,
+                         data = ByteArray(4), originalType = decoded.originalType)
+            )
+        )
+
+        assertCompletes(original, fragments.last())
+    }
+
+    @Test
+    fun `a conflicting original type is rejected without destroying the stream`() {
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
+
+        val decoded = FragmentPayload.decode(fragments[0].payload)!!
+        assertNull(
+            fragmentManager.handleFragment(
+                injected(fragments[0], index = 0, total = decoded.total,
+                         data = ByteArray(4), originalType = MessageType.ANNOUNCE.value)
+            )
+        )
+
+        assertCompletes(original, fragments.last())
+    }
+
+    @Test
+    fun `an oversized fragment cannot wipe an assembly it did not start`() {
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
+
+        val decoded = FragmentPayload.decode(fragments[0].payload)!!
+        val oversized = ByteArray(
+            com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_TOTAL_BYTES + 1
+        )
+        assertNull(
+            fragmentManager.handleFragment(
+                injected(fragments[0], index = decoded.total - 1, total = decoded.total,
+                         data = oversized, originalType = decoded.originalType)
+            )
+        )
+
+        assertCompletes(original, fragments.last())
+    }
 }
