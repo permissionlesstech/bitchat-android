@@ -22,6 +22,9 @@ compose-icons-extended = "1.7.8"
 
 # Navigation
 navigation-compose = "2.9.8"
+# Latest stable line; the 1.2.0 branch is still alpha. 1.1.6 floors Compose at
+# 1.10.0, below the 1.11.4 the BOM resolves, so it does not drag Compose forward.
+navigation3 = "1.1.6"
 
 # Dependency injection
 hilt = "2.60.1"
@@ -109,6 +112,9 @@ androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-
 
 # Navigation
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation-compose" }
+androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
+androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
+androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycle-runtime" }
 
 # Dependency injection
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }

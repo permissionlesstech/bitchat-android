@@ -24,5 +24,9 @@ gradlePlugin {
             id = "bitchat.android.library.compose"
             implementationClass = "AndroidLibraryComposeConventionPlugin"
         }
+        register("androidHilt") {
+            id = "bitchat.android.hilt"
+            implementationClass = "AndroidHiltConventionPlugin"
+        }
     }
 }
