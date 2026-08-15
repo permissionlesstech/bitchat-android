@@ -5,9 +5,13 @@ multi-module structure to the phone client.
 
 Status: **groundwork and the Navigation 3 skeleton landed; overlay conversion not started.**
 
-DI, the convention plugins and `:core:domain` are in place. Sections 1–6 describe
-the design; §7 tracks sequencing, and §10 records where reality diverged from the
-original design once it met the build.
+DI, the convention plugins, `:core:domain`, `:core:navigation` and the NavDisplay
+host are in place; onboarding and chat are routes. The nine chat overlays are
+still booleans.
+
+Sections 1–6 describe the design and still contain the pre-implementation view
+of the app in §1. §7 tracks sequencing and marks what has landed, §9 collects
+toolchain constraints worth not rediscovering, and §10 holds the open questions.
 
 ---
 
