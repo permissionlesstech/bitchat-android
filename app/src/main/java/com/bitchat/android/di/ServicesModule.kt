@@ -1,6 +1,8 @@
 package com.bitchat.android.di
 
 import android.content.Context
+import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.SeenMessageStore
 import dagger.Module
 import dagger.Provides
@@ -30,4 +32,28 @@ object ServicesModule {
     fun provideSeenMessageStore(
         @ApplicationContext context: Context
     ): SeenMessageStore = SeenMessageStore.getInstance(context)
+
+    /**
+     * Deliberately unscoped, and meant to be injected as `Provider<MessageRouter>`.
+     *
+     * MessageRouter keeps one instance for the process but re-points it at the
+     * current mesh on every getInstance call — the accessor both returns the
+     * router and refreshes `mesh` and the sender peer ID. Caching the binding
+     * would not hand out a stale object; it would skip that refresh, so the
+     * router would keep pointing at the mesh service that panic-clear replaced.
+     *
+     * Unscoped keeps the refresh on every resolution. It works because
+     * [MeshService] is itself unscoped and re-reads MeshServiceHolder, which
+     * recreateMeshServiceAfterPanic() clears and repopulates.
+     *
+     * The deeper fix is for the mesh service to keep a stable identity and swap
+     * its internals on panic instead of being replaced. Then this and the
+     * repeated `delegate` reassignments all become unnecessary. That change
+     * reaches into the mesh layer, which is shared with :wear.
+     */
+    @Provides
+    fun provideMessageRouter(
+        @ApplicationContext context: Context,
+        mesh: MeshService
+    ): MessageRouter = MessageRouter.getInstance(context, mesh)
 }

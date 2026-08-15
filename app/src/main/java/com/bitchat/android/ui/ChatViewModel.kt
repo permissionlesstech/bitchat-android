@@ -10,8 +10,10 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.SeenMessageStore
 import dagger.Lazy
+import javax.inject.Provider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -71,7 +73,12 @@ class ChatViewModel @Inject constructor(
     private val seenMessageStoreLazy: Lazy<SeenMessageStore>,
     private val locationChannelManagerLazy: Lazy<LocationChannelManager>,
     private val geohashBookmarksStoreLazy: Lazy<GeohashBookmarksStore>,
-    private val nostrTransportLazy: Lazy<NostrTransport>
+    private val nostrTransportLazy: Lazy<NostrTransport>,
+    // Provider, not Lazy: MessageRouter.getInstance both returns the router and
+    // re-points it at the current mesh, so it has to be re-resolved each time.
+    // Caching it would skip the refresh and leave the router on the mesh service
+    // that panic-clear replaced.
+    private val messageRouterProvider: Provider<MessageRouter>
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
 
     // Made var to support mesh service replacement after panic clear
@@ -447,7 +454,7 @@ class ChatViewModel @Inject constructor(
         )
         // Mark queued private messages as failed when the router gives up on them
         try {
-            com.bitchat.android.services.MessageRouter.getInstance(getApplication(), mesh).onMessageExpired = { messageID ->
+            messageRouterProvider.get().onMessageExpired = { messageID ->
                 messageManager.updateMessageDeliveryStatus(
                     messageID,
                     com.bitchat.android.model.DeliveryStatus.Failed("Message expired before delivery")
@@ -1013,10 +1020,7 @@ class ChatViewModel @Inject constructor(
                     state.getNicknameValue(),
                     mesh.myPeerID
                 ) { messageContent, peerID, recipientNicknameParam, messageId ->
-                    val router = com.bitchat.android.services.MessageRouter.getInstance(
-                        getApplication(),
-                        mesh
-                    )
+                    val router = messageRouterProvider.get()
                     val route = router.sendPrivate(
                         messageContent,
                         peerID,
@@ -1123,9 +1127,7 @@ class ChatViewModel @Inject constructor(
                 )
 
                 try {
-                    com.bitchat.android.services.MessageRouter
-                        .getInstance(getApplication(), mesh)
-                        .sendFavoriteNotification(peerID, isNowFavorite)
+                    messageRouterProvider.get().sendFavoriteNotification(peerID, isNowFavorite)
                 } catch (_: Exception) { }
             }
         } catch (_: Exception) { }
@@ -1223,9 +1225,7 @@ class ChatViewModel @Inject constructor(
         sessionStates.forEach { (peerID, newState) ->
             val old = prevStates[peerID]
             if (old != "established" && newState == "established") {
-                com.bitchat.android.services.MessageRouter
-                    .getInstance(getApplication(), mesh)
-                    .onSessionEstablished(peerID)
+                messageRouterProvider.get().onSessionEstablished(peerID)
             }
         }
         // Update fingerprint mappings from centralized manager
