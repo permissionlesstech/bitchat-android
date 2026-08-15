@@ -241,7 +241,19 @@ class FragmentManager {
                     return null
                 }
 
-                val oldEntrySize = fragmentMap[fragmentPayload.index]?.size ?: 0
+                val heldEntry = fragmentMap[fragmentPayload.index]
+                if (heldEntry != null && !heldEntry.contentEquals(fragmentPayload.data)) {
+                    // Duplicate delivery is normal in a mesh, but one index of a
+                    // stream must always carry the same bytes. Overwriting
+                    // last-wins let a crafted duplicate replace bytes already
+                    // received from the real sender. This protects indices
+                    // already held; an index still empty when the injected
+                    // fragment arrives is filled by whichever copy wins the
+                    // race, and nothing here can tell them apart.
+                    Log.w(TAG, "Rejecting fragment for $fragmentIDString: index ${fragmentPayload.index} already holds different bytes")
+                    return null
+                }
+                val oldEntrySize = heldEntry?.size ?: 0
                 val newSize = currentSize - oldEntrySize + fragmentPayload.data.size
                 val maxTotalBytes = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_TOTAL_BYTES
                 if (newSize > maxTotalBytes) {
