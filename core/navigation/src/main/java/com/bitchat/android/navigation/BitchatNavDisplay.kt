@@ -25,11 +25,17 @@ fun BitchatNavDisplay(
     entryInstallers: Set<EntryProviderInstaller>,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
+    interceptBack: () -> Boolean = { false },
 ) {
     NavDisplay(
         backStack = navigator.backStack,
         modifier = modifier,
-        onBack = { if (!navigator.goBack()) onExit() },
+        onBack = {
+            // interceptBack exists only while some screens still manage their own
+            // overlays with booleans instead of routes. It goes away once those
+            // overlays become back-stack entries.
+            if (!interceptBack() && !navigator.goBack()) onExit()
+        },
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
             rememberViewModelStoreNavEntryDecorator(),

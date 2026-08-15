@@ -130,6 +130,7 @@ kotlin {
 dependencies {
     // Shared domain models, also compiled into :wear from source
     implementation(project(":core:domain"))
+    implementation(project(":core:navigation"))
 
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
