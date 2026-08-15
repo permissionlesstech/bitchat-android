@@ -10,8 +10,10 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.services.ConversationListPreferences
 import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.SeenMessageStore
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import dagger.Lazy
 import javax.inject.Provider
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -78,7 +80,9 @@ class ChatViewModel @Inject constructor(
     // re-points it at the current mesh, so it has to be re-resolved each time.
     // Caching it would skip the refresh and leave the router on the mesh service
     // that panic-clear replaced.
-    private val messageRouterProvider: Provider<MessageRouter>
+    private val messageRouterProvider: Provider<MessageRouter>,
+    private val conversationListPreferences: ConversationListPreferences,
+    private val debugSettingsManager: DebugSettingsManager
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
 
     // Made var to support mesh service replacement after panic clear
@@ -87,7 +91,6 @@ class ChatViewModel @Inject constructor(
     private var unifiedMeshService: MeshService = initialUnifiedMeshService
     private val mesh: MeshService
         get() = unifiedMeshService
-    private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
 
     companion object {
         private const val TAG = "ChatViewModel"
@@ -163,8 +166,6 @@ class ChatViewModel @Inject constructor(
     private val geohashBookmarksStore: GeohashBookmarksStore
         get() = geohashBookmarksStoreLazy.get()
     private val nostrTransport: NostrTransport get() = nostrTransportLazy.get()
-    private val conversationListPreferences =
-        com.bitchat.android.services.ConversationListPreferences.getInstance(getApplication())
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
 
@@ -617,8 +618,8 @@ class ChatViewModel @Inject constructor(
 
         // Bridge DebugSettingsManager -> Chat messages when verbose logging is on
         viewModelScope.launch {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().debugMessages.collect { msgs ->
-                if (com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().verboseLoggingEnabled.value) {
+            debugSettingsManager.debugMessages.collect { msgs ->
+                if (debugSettingsManager.verboseLoggingEnabled.value) {
                     // Only show debug logs in the Mesh chat timeline to avoid leaking into geohash chats
                     val selectedLocation = state.selectedLocationChannel.value
                     if (selectedLocation is com.bitchat.android.geohash.ChannelID.Mesh) {

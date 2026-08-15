@@ -14,7 +14,11 @@ import org.json.JSONObject
  * Message history remains in SQLite; these compact sets and drafts belong in the app's existing
  * Keystore-backed preference store. Panic clearing the identity store also removes these values.
  */
-internal class ConversationListPreferences private constructor(
+// Public rather than internal so it can be provided into the injection graph:
+// a @Provides returning an internal Kotlin type hits name mangling in Dagger's
+// generated Java. :app is an application module with no consumers, so widening
+// this changes nothing semantically.
+class ConversationListPreferences private constructor(
     private val stateManager: SecureIdentityStateManager,
     private val canonicalize: (String) -> String
 ) {

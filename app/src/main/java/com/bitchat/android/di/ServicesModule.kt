@@ -2,8 +2,10 @@ package com.bitchat.android.di
 
 import android.content.Context
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.services.ConversationListPreferences
 import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.SeenMessageStore
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -51,6 +53,22 @@ object ServicesModule {
      * repeated `delegate` reassignments all become unnecessary. That change
      * reaches into the mesh layer, which is shared with :wear.
      */
+    @Provides
+    @Singleton
+    fun provideConversationListPreferences(
+        @ApplicationContext context: Context
+    ): ConversationListPreferences = ConversationListPreferences.getInstance(context)
+
+    /**
+     * Despite the name, getInstance() never fails: it lazily constructs a
+     * no-argument instance under a lock. There is no initialise-first contract to
+     * respect, so a plain @Singleton binding is safe.
+     */
+    @Provides
+    @Singleton
+    fun provideDebugSettingsManager(): DebugSettingsManager =
+        DebugSettingsManager.getInstance()
+
     @Provides
     fun provideMessageRouter(
         @ApplicationContext context: Context,
