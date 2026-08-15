@@ -7,6 +7,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.favorites.FavoritesChangeListener
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.geohash.GeohashBookmarksStore
+import com.bitchat.android.geohash.LocationChannelManager
+import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.services.SeenMessageStore
+import dagger.Lazy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -59,7 +64,14 @@ private data class ConversationLiveIdentityState(
 class ChatViewModel @Inject constructor(
     application: Application,
     initialMeshService: BluetoothMeshService,
-    initialUnifiedMeshService: MeshService
+    initialUnifiedMeshService: MeshService,
+    // Injected as dagger.Lazy because every one of these was previously reached
+    // through getInstance(...) at the point of use. Resolving them eagerly would
+    // construct them during ViewModel creation, which is earlier than before.
+    private val seenMessageStoreLazy: Lazy<SeenMessageStore>,
+    private val locationChannelManagerLazy: Lazy<LocationChannelManager>,
+    private val geohashBookmarksStoreLazy: Lazy<GeohashBookmarksStore>,
+    private val nostrTransportLazy: Lazy<NostrTransport>
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
 
     // Made var to support mesh service replacement after panic clear
@@ -137,9 +149,13 @@ class ChatViewModel @Inject constructor(
     // Specialized managers
     private val dataManager = DataManager(application.applicationContext)
     private val identityManager by lazy { SecureIdentityStateManager(getApplication()) }
-    private val seenMessageStore by lazy {
-        com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
-    }
+    // dagger.Lazy caches, so these resolve once and stay cheap thereafter.
+    private val seenMessageStore: SeenMessageStore get() = seenMessageStoreLazy.get()
+    private val locationChannelManager: LocationChannelManager
+        get() = locationChannelManagerLazy.get()
+    private val geohashBookmarksStore: GeohashBookmarksStore
+        get() = geohashBookmarksStoreLazy.get()
+    private val nostrTransport: NostrTransport get() = nostrTransportLazy.get()
     private val conversationListPreferences =
         com.bitchat.android.services.ConversationListPreferences.getInstance(getApplication())
     private val messageManager = MessageManager(state)
@@ -629,7 +645,6 @@ class ChatViewModel @Inject constructor(
 
         // Ensure NostrTransport knows our mesh peer ID for embedded packets
         try {
-            val nostrTransport = com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
             nostrTransport.senderPeerID = mesh.myPeerID
         } catch (_: Exception) { }
 
@@ -1447,9 +1462,7 @@ class ChatViewModel @Inject constructor(
     private suspend fun performPanicClearAllData() {
         Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
         try {
-            com.bitchat.android.geohash.LocationChannelManager
-                .getInstance(getApplication())
-                .disableLocationServices()
+            locationChannelManager.disableLocationServices()
         } catch (_: Exception) { }
 
         // A pending one-shot downgrade confirmation must not survive panic or
@@ -1473,7 +1486,7 @@ class ChatViewModel @Inject constructor(
         
         // Clear seen message store and MessageRouter outbox
         try {
-            com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
+            seenMessageStore.clear()
         } catch (_: Exception) { }
         try {
             com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
@@ -1492,13 +1505,11 @@ class ChatViewModel @Inject constructor(
         try {
             // Clear geohash bookmarks too (panic should remove everything)
             try {
-                val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
-                store.clearAll()
+                geohashBookmarksStore.clearAll()
             } catch (_: Exception) { }
 
             try {
-                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-                locationManager.clearPersistedChannel()
+                locationChannelManager.clearPersistedChannel()
             } catch (_: Exception) { }
 
             geohashViewModel.panicReset()
