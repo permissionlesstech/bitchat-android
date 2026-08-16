@@ -200,11 +200,11 @@ class GossipSyncManager(
     }
 
     /**
-     * Charges [fromPeerID] for one request and returns how many packets it may be sent in
-     * response, or 0 when the request must be dropped. Called before any decoding or hashing so
-     * a flood costs us the admission check and nothing else.
+     * Charges [budgetKey] for one request and returns how many packets may be sent in response,
+     * or 0 when the request must be dropped. Called before any decoding or hashing so a flood
+     * costs us the admission check and nothing else.
      */
-    private fun admitRequest(fromPeerID: String): Int {
+    private fun admitRequest(budgetKey: String): Int {
         val capacity = try {
             configProvider.seenCapacity()
         } catch (_: Exception) {
@@ -213,7 +213,7 @@ class GossipSyncManager(
         val now = nowMs()
 
         synchronized(requesterBudgets) {
-            val budget = requesterBudgets.getOrPut(fromPeerID) {
+            val budget = requesterBudgets.getOrPut(budgetKey) {
                 RequesterBudget(
                     requestTokens = AppConstants.Sync.REQUEST_BURST.toDouble(),
                     responseTokens = capacity,
@@ -245,16 +245,28 @@ class GossipSyncManager(
         requesterBudgets.size
     }
 
-    private fun chargeResponses(fromPeerID: String, sent: Int) {
+    private fun chargeResponses(budgetKey: String, sent: Int) {
         if (sent <= 0) return
         synchronized(requesterBudgets) {
-            val budget = requesterBudgets[fromPeerID] ?: return
+            val budget = requesterBudgets[budgetKey] ?: return
             budget.responseTokens = (budget.responseTokens - sent).coerceAtLeast(0.0)
         }
     }
 
-    fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
-        var remaining = admitRequest(fromPeerID)
+    /**
+     * @param ingressLinkID locally-assigned identity of the link the request arrived on. REQUEST_SYNC
+     *   is not in the set of types `SecurityManager.verifyPacketSignature` authenticates, so the
+     *   sender ID on the wire is unauthenticated and free to rotate — budgeting by it would let a
+     *   peer mint a fresh allowance per request. This value is assigned by the transport and never
+     *   serialized onto the mesh, so a flooder is bounded by the links it can actually hold open.
+     */
+    fun handleRequestSync(
+        fromPeerID: String,
+        request: RequestSyncPacket,
+        ingressLinkID: String? = null
+    ) {
+        val budgetKey = ingressLinkID ?: fromPeerID
+        var remaining = admitRequest(budgetKey)
         if (remaining <= 0) {
             Log.d(TAG, "Dropping REQUEST_SYNC from $fromPeerID: over budget")
             return
@@ -296,7 +308,7 @@ class GossipSyncManager(
             }
         }
 
-        chargeResponses(fromPeerID, allowance - remaining)
+        chargeResponses(budgetKey, allowance - remaining)
     }
 
     private fun hexStringToByteArray(hexString: String): ByteArray {
