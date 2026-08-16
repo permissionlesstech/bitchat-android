@@ -33,6 +33,21 @@ class TorCircuitHealthPolicyTest {
     }
 
     @Test
+    fun `does not treat a local SOCKS protocol fault as a circuit failure`() {
+        // handle_socks_connection wraps every one of its errors in "SOCKS connection error",
+        // including these, which are raised before a circuit is ever attempted. Anything on the
+        // device that speaks SOCKS badly to the local port must not read as a dead Tor.
+        listOf(
+            "Arti: ERROR: SOCKS connection error: Invalid SOCKS handshake",
+            "Arti: ERROR: SOCKS connection error: Invalid SOCKS request",
+            "Arti: ERROR: SOCKS connection error: Unsupported SOCKS version: 4",
+            "Arti: ERROR: SOCKS connection error: Unsupported SOCKS command: 2"
+        ).forEach { line ->
+            assertFalse(line, policy.isCircuitFailure(line))
+        }
+    }
+
+    @Test
     fun `a burst of simultaneous failures does not downgrade`() {
         // The report shows three threads failing inside the same millisecond. That is an
         // ordinary circuit loss, not a dead connection.
