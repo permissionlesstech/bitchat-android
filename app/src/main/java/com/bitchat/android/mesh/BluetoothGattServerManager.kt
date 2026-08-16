@@ -34,6 +34,10 @@ class BluetoothGattServerManager(
         // Self-healing advertising recovery tuning
         private const val ADVERTISE_RETRY_BASE_MS = 3_000L      // base backoff for transient advertise failures
         private const val ADVERTISE_MAX_RETRY_DELAY_MS = 30_000L // cap on backoff delay
+        // ATT error code 0x09 "Prepare Queue Full" — Android's BluetoothGatt has no
+        // constant for it (it exposes GATT_INVALID_OFFSET but not this), so it is
+        // defined here. Returned when a prepared-write chunk can't be buffered.
+        private const val ATT_ERROR_PREPARE_QUEUE_FULL = 0x09
     }
     
     // Core Bluetooth components
@@ -275,11 +279,20 @@ class BluetoothGattServerManager(
                         if (accepted) {
                             Log.d(TAG, "Server: Buffered prepared-write chunk from ${device.address} (offset=$offset, size=${value.size})")
                         } else {
-                            Log.w(TAG, "Server: Rejected prepared-write chunk from ${device.address} (offset=$offset, size=${value.size}); buffer limit exceeded")
+                            val reason = if (offset < 0) "invalid offset" else "buffer cap exceeded"
+                            Log.w(TAG, "Server: Rejected prepared-write chunk from ${device.address} (offset=$offset, size=${value.size}); $reason")
                         }
-                        // Prepared-write protocol requires echoing the offset and value back
+                        // On success the prepared-write protocol echoes the offset and value
+                        // back; on rejection send the matching ATT error so the peer can
+                        // abort or resend, instead of only discovering the loss at execute
+                        // (where the chunk is silently dropped).
                         if (responseNeeded) {
-                            gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
+                            val status = when {
+                                accepted -> BluetoothGatt.GATT_SUCCESS
+                                offset < 0 -> BluetoothGatt.GATT_INVALID_OFFSET
+                                else -> ATT_ERROR_PREPARE_QUEUE_FULL
+                            }
+                            gattServer?.sendResponse(device, requestId, status, offset, if (accepted) value else null)
                         }
                         return
                     }

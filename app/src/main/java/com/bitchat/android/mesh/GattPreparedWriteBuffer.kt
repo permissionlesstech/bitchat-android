@@ -37,6 +37,11 @@ class GattPreparedWriteBuffer(
         var data: ByteArray = ByteArray(0)
         var length: Int = 0
         var overflowed: Boolean = false
+        // Byte ranges [start, end) actually written, kept sorted and merged. `data`
+        // is grown to the highest offset seen, so without this an unwritten gap
+        // would reassemble as zero-filled and parse as a complete packet. Tracking
+        // coverage lets execute() tell "not yet written" from "wrote zeros".
+        val covered: MutableList<IntArray> = mutableListOf()
     }
 
     private val buffers = ConcurrentHashMap<String, DeviceBuffer>()
@@ -63,6 +68,7 @@ class GattPreparedWriteBuffer(
                 buf.overflowed = true
                 buf.data = ByteArray(0)
                 buf.length = 0
+                buf.covered.clear()
                 return false
             }
             val endInt = end.toInt()
@@ -72,8 +78,30 @@ class GattPreparedWriteBuffer(
             }
             System.arraycopy(value, 0, buf.data, offset, value.size)
             if (endInt > buf.length) buf.length = endInt
+            if (value.isNotEmpty()) addCovered(buf.covered, offset, endInt)
             return true
         }
+    }
+
+    /**
+     * Merge the range [start, end) into [ranges], keeping it sorted and coalesced
+     * so [execute] can check whether the payload was fully covered.
+     */
+    private fun addCovered(ranges: MutableList<IntArray>, start: Int, end: Int) {
+        if (end <= start) return
+        ranges.add(intArrayOf(start, end))
+        ranges.sortBy { it[0] }
+        val merged = ArrayList<IntArray>(ranges.size)
+        for (r in ranges) {
+            val last = merged.lastOrNull()
+            if (last != null && r[0] <= last[1]) {
+                last[1] = maxOf(last[1], r[1])
+            } else {
+                merged.add(r)
+            }
+        }
+        ranges.clear()
+        ranges.addAll(merged)
     }
 
     /**
@@ -85,6 +113,12 @@ class GattPreparedWriteBuffer(
         val buf = buffers.remove(deviceKey) ?: return null
         synchronized(buf) {
             if (buf.overflowed || buf.length == 0) return null
+            // Reject a payload with a hole: a missing chunk would otherwise be
+            // handed up as zero-filled and parse as if it were complete. Require a
+            // single contiguous run covering [0, length).
+            if (buf.covered.size != 1 || buf.covered[0][0] != 0 || buf.covered[0][1] != buf.length) {
+                return null
+            }
             return buf.data.copyOf(buf.length)
         }
     }

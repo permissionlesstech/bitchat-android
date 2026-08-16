@@ -157,4 +157,32 @@ class GattPreparedWriteBufferTest {
         assertNull(buffer.execute("AA:BB:CC:DD:EE:0A"))
         assertNull(buffer.execute("AA:BB:CC:DD:EE:0B"))
     }
+
+    @Test
+    fun `execute rejects a payload with an unwritten gap`() {
+        val device = "AA:BB:CC:DD:EE:0C"
+        buffer.append(device, 0, bytes(1, 2, 3))
+        // A later chunk lands past a hole — bytes 3..99 were never written. `data`
+        // is grown to offset 100, so without coverage tracking this would come back
+        // zero-filled and parse as if it were complete.
+        assertTrue(buffer.append(device, 100, bytes(4, 5, 6)))
+        assertNull(buffer.execute(device))
+    }
+
+    @Test
+    fun `execute accepts adjacent chunks that meet exactly`() {
+        val device = "AA:BB:CC:DD:EE:0D"
+        assertTrue(buffer.append(device, 0, bytes(1, 2)))
+        assertTrue(buffer.append(device, 2, bytes(3, 4)))
+        assertArrayEquals(bytes(1, 2, 3, 4), buffer.execute(device))
+    }
+
+    @Test
+    fun `overlapping chunks leave no gap and the later write wins`() {
+        val device = "AA:BB:CC:DD:EE:0E"
+        assertTrue(buffer.append(device, 0, bytes(1, 2, 3, 4)))
+        // Overlaps bytes 2..3; coverage stays contiguous so execute still succeeds.
+        assertTrue(buffer.append(device, 2, bytes(9, 9)))
+        assertArrayEquals(bytes(1, 2, 9, 9), buffer.execute(device))
+    }
 }
