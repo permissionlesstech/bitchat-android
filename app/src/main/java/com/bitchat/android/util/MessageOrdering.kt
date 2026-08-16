@@ -19,9 +19,19 @@ object MessageOrdering {
      * through this path), so it can binary-search the insertion point and stay cheap on long lists.
      * Ordering is stable: a message whose timestamp equals existing ones is placed after them, so
      * equal timestamps keep insertion order.
+     *
+     * In-order arrival is overwhelmingly the common case, so a message at or after the current tail
+     * is appended in O(1) and skips the search; only an out-of-order message (older than the tail —
+     * e.g. a store-forwarded backlog) pays for the binary search. Mirrors iOS
+     * `ConversationStore.insert(_:)`.
      */
     fun insertByTimestamp(messages: MutableList<BitchatMessage>, message: BitchatMessage) {
         val ts = message.timestamp.time
+        val last = messages.lastOrNull()
+        if (last == null || ts >= last.timestamp.time) {
+            messages.add(message)
+            return
+        }
         var lo = 0
         var hi = messages.size
         while (lo < hi) {

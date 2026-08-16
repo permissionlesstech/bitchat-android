@@ -108,7 +108,7 @@ class MessageManager(private val state: ChatState) {
         }
         
         val chatMessages = currentPrivateChats[peerID]?.toMutableList() ?: mutableListOf()
-        chatMessages.add(message)
+        com.bitchat.android.util.MessageOrdering.insertByTimestamp(chatMessages, message)
         currentPrivateChats[peerID] = chatMessages
         state.setPrivateChats(currentPrivateChats)
         // Reflect into process-wide store
@@ -129,7 +129,7 @@ class MessageManager(private val state: ChatState) {
             currentPrivateChats[peerID] = mutableListOf()
         }
         val chatMessages = currentPrivateChats[peerID]?.toMutableList() ?: mutableListOf()
-        chatMessages.add(message)
+        com.bitchat.android.util.MessageOrdering.insertByTimestamp(chatMessages, message)
         currentPrivateChats[peerID] = chatMessages
         state.setPrivateChats(currentPrivateChats)
         // Reflect into process-wide store

@@ -103,8 +103,12 @@ object AppStateStore {
             if (seenMessageIds.contains(msg.id)) return
             seenMessageIds.add(msg.id)
             val map = _privateMessages.value.toMutableMap()
-            val list = (map[peerID] ?: emptyList()) + msg
-            map[peerID] = list
+            // Order DMs by source packet timestamp too — a store-forwarded private
+            // backlog is exactly what the courier path delivers, so appending would
+            // misorder it the way it did public timelines (#525). Matches iOS, which
+            // routes .direct through the same ConversationStore.insert as everything else.
+            map[peerID] = com.bitchat.android.util.MessageOrdering
+                .withMessageInserted(map[peerID] ?: emptyList(), msg)
             _privateMessages.value = map
         }
     }
