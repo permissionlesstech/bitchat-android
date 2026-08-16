@@ -104,7 +104,9 @@ data class BitchatFilePacket(
                 var name: String? = null
                 var size: Long? = null
                 var mime: String? = null
-                var contentBytes: ByteArray? = null
+                val contentChunks = ArrayList<ByteArray>(1)
+                var contentLength = 0
+                var sawContent = false
                 var skippedUnknownTLVs = 0
                 while (off < data.size) {
                     // Every TLV needs at least a type and a 2-byte length.
@@ -150,10 +152,18 @@ data class BitchatFilePacket(
                         }
                         TLVType.MIME_TYPE -> mime = String(value, Charsets.UTF_8)
                         TLVType.CONTENT -> {
-                            // Expect a single CONTENT TLV
-                            if (contentBytes == null) contentBytes = value else {
-                                // If multiple CONTENT TLVs appear, concatenate for tolerance
-                                contentBytes = (contentBytes!! + value)
+                            // Expect a single CONTENT TLV, but tolerate a split one.
+                            //
+                            // `contentBytes + value` reallocates and copies the whole
+                            // accumulator per chunk, so k chunks totalling N bytes cost
+                            // O(k*N). The chunk count is the sender's to choose — a 6-byte
+                            // TLV carries one content byte — so at the 1 MB BLE reassembly
+                            // ceiling one packet buys ~10^10 byte copies on the mesh handler
+                            // thread. Collect the chunks and join once instead.
+                            sawContent = true
+                            if (value.isNotEmpty()) {
+                                contentChunks.add(value)
+                                contentLength += value.size
                             }
                         }
                     }
@@ -162,7 +172,18 @@ data class BitchatFilePacket(
                     android.util.Log.d("BitchatFilePacket", "⏭️ Skipped $skippedUnknownTLVs unknown TLV(s)")
                 }
                 val n = name ?: return null
-                val c = contentBytes ?: return null
+                if (!sawContent) return null
+                val c = when (contentChunks.size) {
+                    0 -> ByteArray(0)
+                    1 -> contentChunks[0]
+                    else -> ByteArray(contentLength).also { joined ->
+                        var at = 0
+                        for (chunk in contentChunks) {
+                            System.arraycopy(chunk, 0, joined, at, chunk.size)
+                            at += chunk.size
+                        }
+                    }
+                }
                 val s = size ?: c.size.toLong()
                 val m = mime ?: "application/octet-stream"
                 val result = BitchatFilePacket(n, s, m, c)
