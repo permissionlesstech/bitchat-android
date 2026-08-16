@@ -32,8 +32,19 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         /** Noise-encrypted private BitchatFilePacket using payload type 0x20. */
         val PRIVATE_MEDIA = PeerCapabilities(1L shl 8)
 
+        /** Authenticated out-of-band bootstrap for the Nostr double ratchet. */
+        val NOSTR_DOUBLE_RATCHET = PeerCapabilities(1L shl 11)
+
         /** Capabilities implemented by this Android build. */
-        val LOCAL_SUPPORTED = PRIVATE_MEDIA
+        val LOCAL_SUPPORTED: PeerCapabilities
+            get() {
+                val ndrCapability = if (NdrFeatureGate.isEnabled()) {
+                    NOSTR_DOUBLE_RATCHET.rawValue
+                } else {
+                    0L
+                }
+                return PeerCapabilities(PRIVATE_MEDIA.rawValue or ndrCapability)
+            }
 
         /**
          * Decode the low 64 bits and ignore any future extension bytes, which

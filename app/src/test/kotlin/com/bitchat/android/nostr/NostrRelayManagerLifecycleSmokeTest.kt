@@ -40,6 +40,8 @@ class NostrRelayManagerLifecycleSmokeTest {
     @Test
     fun `disconnected manager maintains subscription and empty publish invariants locally`() {
         val manager = NostrRelayManager.shared
+        val setupReset = manager.discardForAccountReset()
+        assertTrue(manager.completeAccountReset(setupReset))
         manager.disconnect()
         manager.clearAllSubscriptions()
 
@@ -54,7 +56,7 @@ class NostrRelayManagerLifecycleSmokeTest {
         assertEquals(1, manager.getActiveSubscriptionCount())
         assertTrue(manager.getActiveSubscriptions().containsKey(id))
         assertTrue(manager.validateSubscriptionConsistency().isConsistent)
-        manager.sendEvent(signedEvent(), relayUrls = emptyList())
+        assertFalse(manager.sendEvent(signedEvent(), relayUrls = emptyList()))
         manager.retryConnection("wss://not-configured.example")
 
         manager.unsubscribe(id)
@@ -64,6 +66,114 @@ class NostrRelayManagerLifecycleSmokeTest {
 
         manager.disconnect()
         assertFalse(manager.isConnected.value)
+    }
+
+    @Test
+    fun `account reset advances generation and discards queued legacy gift wraps`() {
+        val manager = NostrRelayManager.shared
+        val setupReset = manager.discardForAccountReset()
+        assertTrue(manager.completeAccountReset(setupReset))
+        val oldGeneration = manager.accountGenerationForTesting()
+        val event = signedEvent()
+        assertTrue(manager.registerPendingGiftWrap(event.id, oldGeneration))
+        manager.sendEvent(event, relayUrls = targetRelays)
+
+        assertEquals(1, manager.queuedEventCountForTesting())
+        assertEquals(1, manager.pendingGiftWrapCountForTesting())
+
+        val resetToken = manager.discardForAccountReset()
+
+        assertEquals(oldGeneration + 1, manager.accountGenerationForTesting())
+        assertFalse(manager.isAccountGenerationCurrent(oldGeneration))
+        assertFalse(
+            manager.isAccountGenerationCurrent(
+                manager.accountGenerationForTesting()
+            )
+        )
+        assertEquals(0, manager.queuedEventCountForTesting())
+        assertEquals(0, manager.pendingGiftWrapCountForTesting())
+        assertTrue(manager.completeAccountReset(resetToken))
+    }
+
+    @Test
+    fun `new relay work is rejected during reset and admitted after completion`() {
+        val manager = NostrRelayManager.shared
+        val resetToken = manager.discardForAccountReset()
+        val event = signedEvent()
+
+        assertFalse(manager.sendEvent(event, relayUrls = targetRelays))
+        assertEquals(0, manager.queuedEventCountForTesting())
+
+        assertTrue(manager.completeAccountReset(resetToken))
+        assertTrue(manager.sendEvent(event, relayUrls = targetRelays))
+        assertEquals(1, manager.queuedEventCountForTesting())
+
+        val cleanupReset = manager.discardForAccountReset()
+        assertTrue(manager.completeAccountReset(cleanupReset))
+    }
+
+    @Test
+    fun `stale reset cannot clear or reopen a newer relay reset`() {
+        val manager = NostrRelayManager.shared
+        val firstReset = manager.beginAccountReset()
+        val secondReset = manager.beginAccountReset()
+        val event = signedEvent()
+
+        assertFalse(manager.discardForAccountReset(firstReset))
+        assertFalse(manager.completeAccountReset(firstReset))
+        assertFalse(manager.sendEvent(event, relayUrls = targetRelays))
+        assertEquals(0, manager.queuedEventCountForTesting())
+
+        assertTrue(manager.discardForAccountReset(secondReset))
+        assertTrue(manager.completeAccountReset(secondReset))
+        assertTrue(manager.sendEvent(event, relayUrls = targetRelays))
+
+        val cleanupReset = manager.discardForAccountReset()
+        assertTrue(manager.completeAccountReset(cleanupReset))
+    }
+
+    @Test
+    fun `stale geohash wrapper cannot recapture a replacement generation`() {
+        val manager = NostrRelayManager.shared
+        val setupReset = manager.discardForAccountReset()
+        assertTrue(manager.completeAccountReset(setupReset))
+        val oldGeneration = manager.captureAccountGeneration()
+        val replacementReset = manager.discardForAccountReset()
+        assertTrue(manager.completeAccountReset(replacementReset))
+        val event = signedEvent()
+
+        manager.sendEventToGeohash(
+            event = event,
+            geohash = "u4pruydq",
+            expectedAccountGeneration = oldGeneration
+        )
+        manager.subscribe(
+            filter = NostrFilter(kinds = listOf(NostrKind.TEXT_NOTE)),
+            id = "stale-wrapper",
+            handler = {},
+            targetRelayUrls = emptyList(),
+            expectedAccountGeneration = oldGeneration
+        )
+
+        assertEquals(0, manager.queuedEventCountForTesting())
+        assertFalse(manager.getActiveSubscriptions().containsKey("stale-wrapper"))
+
+        val cleanupReset = manager.discardForAccountReset()
+        assertTrue(manager.completeAccountReset(cleanupReset))
+    }
+
+    @Test
+    fun `generation captured during reset never becomes replacement work`() {
+        val manager = NostrRelayManager.shared
+        val resetToken = manager.beginAccountReset()
+        val parkedGeneration = manager.captureAccountGeneration()
+
+        assertTrue(manager.discardForAccountReset(resetToken))
+        assertTrue(manager.completeAccountReset(resetToken))
+        assertFalse(manager.isAccountGenerationCurrent(parkedGeneration))
+
+        val cleanupReset = manager.discardForAccountReset()
+        assertTrue(manager.completeAccountReset(cleanupReset))
     }
 
     private fun signedEvent(): NostrEvent {
@@ -76,4 +186,6 @@ class NostrRelayManagerLifecycleSmokeTest {
             content = "local"
         ).sign(privateKey)
     }
+
+    private val targetRelays = listOf(NostrRelayManager.defaultRelays().first())
 }

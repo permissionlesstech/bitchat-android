@@ -5,6 +5,7 @@ import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.AuthenticatedPeerState
+import com.bitchat.android.model.NdrFeatureGate
 import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.RoutedPacket
@@ -22,6 +23,8 @@ import com.bitchat.android.service.TransportBridgeService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.sign
 import kotlin.random.Random
 
@@ -43,6 +46,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     
     companion object {
         private const val TAG = "BluetoothMeshService"
+        private const val NDR_TRANSPORT_ID = "BLE"
+        private const val BLE_AUTHENTICATION_TIMEOUT_MS = 20_000L
         private val MAX_TTL: UByte = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
         private const val PEER_DISCONNECT_GRACE_MS = com.bitchat.android.util.AppConstants.Mesh.PEER_DISCONNECT_GRACE_MS
     }
@@ -541,6 +546,34 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
                 delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
+            }
+
+            override fun onNdrEventReceived(
+                peerID: String,
+                payload: ByteArray,
+                timestampMs: Long,
+                authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+            ) {
+                if (NdrFeatureGate.isEnabled() &&
+                    sessionProvesAuthenticatedCapability(
+                        peerID,
+                        PeerCapabilities.NOSTR_DOUBLE_RATCHET,
+                        authenticatedSession
+                    )
+                ) {
+                    val transportTarget =
+                        connectionManager.currentNdrTransportTarget(peerID) ?: return
+                    delegate?.didReceiveNdrEvent(
+                        NdrMeshRoute(
+                            transportId = NDR_TRANSPORT_ID,
+                            peerID = peerID,
+                            authenticatedSession = authenticatedSession,
+                            transportTarget = transportTarget
+                        ),
+                        payload,
+                        timestampMs
+                    )
+                }
             }
         }
         
@@ -1206,10 +1239,114 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         sendNoisePayloadToPeer(payload, peerID, "verify response")
     }
 
-    private fun sendNoisePayloadToPeer(payload: NoisePayload, recipientPeerID: String, label: String) {
+    fun currentNdrRoute(peerID: String, transportId: String? = null): NdrMeshRoute? {
+        if (!NdrFeatureGate.isEnabled() ||
+            (transportId != null && transportId != NDR_TRANSPORT_ID)
+        ) return null
+        val authenticatedSession = authenticatedSessionProvingCapability(
+            peerID,
+            PeerCapabilities.NOSTR_DOUBLE_RATCHET
+        ) ?: return null
+        val transportTarget =
+            connectionManager.currentNdrTransportTarget(peerID) ?: return null
+        return NdrMeshRoute(
+            transportId = NDR_TRANSPORT_ID,
+            peerID = peerID,
+            authenticatedSession = authenticatedSession,
+            transportTarget = transportTarget
+        )
+    }
+
+    fun sendNdrEvent(
+        route: NdrMeshRoute,
+        eventPayload: String,
+        isStillAuthorized: () -> Boolean,
+        completion: (admitted: Boolean) -> Unit
+    ) {
+        if (!NdrFeatureGate.isEnabled() ||
+            route.transportId != NDR_TRANSPORT_ID ||
+            eventPayload.isBlank()
+        ) {
+            completion(false)
+            return
+        }
+        val completionDelivered = AtomicBoolean(false)
+        fun complete(admitted: Boolean) {
+            if (completionDelivered.compareAndSet(false, true)) {
+                runCatching { completion(admitted) }
+            }
+        }
         serviceScope.launch {
+            var handedToTransport = false
             try {
-                val encrypted = encryptionService.encrypt(payload.encode(), recipientPeerID)
+                val preflight = {
+                    currentNdrRoute(route.peerID, route.transportId) == route &&
+                        isStillAuthorized()
+                }
+                if (!preflight()) return@launch
+                val encrypted = encryptionService.encryptForSession(
+                    NoisePayload(
+                        type = NoisePayloadType.NDR_EVENT,
+                        data = eventPayload.toByteArray(Charsets.UTF_8)
+                    ).encode(),
+                    route.peerID,
+                    route.authenticatedSession
+                )
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_ENCRYPTED.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(route.peerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = encrypted,
+                    signature = null,
+                    ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
+                )
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                handedToTransport = true
+                connectionManager.sendPacketToNdrTargetConfirmed(
+                    target = route.transportTarget,
+                    routed = RoutedPacket(signedPacket),
+                    preflight = preflight,
+                    completion = ::complete
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send NDR event to ${route.peerID}: ${e.message}")
+            } finally {
+                if (!handedToTransport) complete(false)
+            }
+        }
+    }
+
+    private fun sendNoisePayloadToPeer(
+        payload: NoisePayload,
+        recipientPeerID: String,
+        label: String,
+        expectedSession: com.bitchat.android.noise.AuthenticatedNoiseSession? = null,
+        preflight: () -> Boolean = { true },
+        completion: ((admitted: Boolean) -> Unit)? = null
+    ) {
+        val completionDelivered = AtomicBoolean(false)
+        fun complete(admitted: Boolean) {
+            if (completionDelivered.compareAndSet(false, true)) {
+                runCatching { completion?.invoke(admitted) }
+            }
+        }
+        val job = serviceScope.launch {
+            var admitted = false
+            try {
+                if (!preflight()) {
+                    return@launch
+                }
+                val encrypted = if (expectedSession == null) {
+                    encryptionService.encrypt(payload.encode(), recipientPeerID)
+                } else {
+                    encryptionService.encryptForSession(
+                        payload.encode(),
+                        recipientPeerID,
+                        expectedSession
+                    )
+                }
                 val packet = BitchatPacket(
                     version = 1u,
                     type = MessageType.NOISE_ENCRYPTED.value,
@@ -1222,10 +1359,15 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 )
 
                 val signedPacket = signPacketBeforeBroadcast(packet)
-                broadcastRoutedPacket(RoutedPacket(signedPacket))
+                admitted = broadcastRoutedPacket(RoutedPacket(signedPacket))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send $label to $recipientPeerID: ${e.message}")
+            } finally {
+                complete(admitted)
             }
+        }
+        job.invokeOnCompletion {
+            complete(false)
         }
     }
     
@@ -1440,6 +1582,33 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      */
     fun getPeerInfo(peerID: String): PeerInfo? {
         return peerManager.getPeerInfo(peerID)
+    }
+
+    fun peerSupportsAuthenticatedCapability(
+        peerID: String,
+        capability: PeerCapabilities
+    ): Boolean = authenticatedSessionProvingCapability(peerID, capability) != null
+
+    private fun authenticatedSessionProvingCapability(
+        peerID: String,
+        capability: PeerCapabilities
+    ): com.bitchat.android.noise.AuthenticatedNoiseSession? {
+        val authenticatedSession = encryptionService.getAuthenticatedSession(peerID) ?: return null
+        return authenticatedSession.takeIf {
+            sessionProvesAuthenticatedCapability(peerID, capability, it)
+        }
+    }
+
+    private fun sessionProvesAuthenticatedCapability(
+        peerID: String,
+        capability: PeerCapabilities,
+        authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+    ): Boolean {
+        val proven = authenticatedPeerState.status(
+            peerID,
+            authenticatedSession
+        ) as? AuthenticatedPeerStateStatus.Proven ?: return false
+        return proven.state.capabilities.contains(capability)
     }
 
     /**

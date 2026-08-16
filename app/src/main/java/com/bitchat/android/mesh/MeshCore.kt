@@ -6,6 +6,7 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.AuthenticatedPeerState
+import com.bitchat.android.model.NdrFeatureGate
 import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.NoisePayload
@@ -25,6 +26,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Shared mesh coordinator that wires all mesh-layer components and provides common APIs
@@ -437,6 +439,34 @@ class MeshCore(
             override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
                 delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
             }
+
+            override fun onNdrEventReceived(
+                peerID: String,
+                payload: ByteArray,
+                timestampMs: Long,
+                authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+            ) {
+                if (NdrFeatureGate.isEnabled() &&
+                    sessionProvesAuthenticatedCapability(
+                        peerID,
+                        PeerCapabilities.NOSTR_DOUBLE_RATCHET,
+                        authenticatedSession
+                    )
+                ) {
+                    val transportTarget =
+                        transport.currentNdrTransportTarget(peerID) ?: return
+                    delegate?.didReceiveNdrEvent(
+                        NdrMeshRoute(
+                            transportId = transport.id,
+                            peerID = peerID,
+                            authenticatedSession = authenticatedSession,
+                            transportTarget = transportTarget
+                        ),
+                        payload,
+                        timestampMs
+                    )
+                }
+            }
         }
 
         packetProcessor.delegate = object : PacketProcessorDelegate {
@@ -798,10 +828,114 @@ class MeshCore(
         sendNoisePayloadToPeer(payload, peerID)
     }
 
-    private fun sendNoisePayloadToPeer(payload: NoisePayload, recipientPeerID: String) {
+    fun currentNdrRoute(peerID: String, transportId: String? = null): NdrMeshRoute? {
+        if (!NdrFeatureGate.isEnabled() ||
+            (transportId != null && transportId != transport.id)
+        ) return null
+        val authenticatedSession = authenticatedSessionProvingCapability(
+            peerID,
+            PeerCapabilities.NOSTR_DOUBLE_RATCHET
+        ) ?: return null
+        val transportTarget = transport.currentNdrTransportTarget(peerID) ?: return null
+        return NdrMeshRoute(
+            transportId = transport.id,
+            peerID = peerID,
+            authenticatedSession = authenticatedSession,
+            transportTarget = transportTarget
+        )
+    }
+
+    fun sendNdrEvent(
+        route: NdrMeshRoute,
+        eventPayload: String,
+        isStillAuthorized: () -> Boolean,
+        completion: (admitted: Boolean) -> Unit
+    ) {
+        if (!NdrFeatureGate.isEnabled() ||
+            route.transportId != transport.id ||
+            eventPayload.isBlank()
+        ) {
+            completion(false)
+            return
+        }
+        val completionDelivered = AtomicBoolean(false)
+        fun complete(admitted: Boolean) {
+            if (completionDelivered.compareAndSet(false, true)) {
+                runCatching { completion(admitted) }
+            }
+        }
         scope.launch {
+            var handedToTransport = false
             try {
-                val encrypted = encryptionService.encrypt(payload.encode(), recipientPeerID)
+                val preflight = {
+                    currentNdrRoute(route.peerID, route.transportId) == route &&
+                        isStillAuthorized()
+                }
+                if (!preflight()) return@launch
+                val encrypted = encryptionService.encryptForSession(
+                    NoisePayload(
+                        type = NoisePayloadType.NDR_EVENT,
+                        data = eventPayload.toByteArray(Charsets.UTF_8)
+                    ).encode(),
+                    route.peerID,
+                    route.authenticatedSession
+                )
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_ENCRYPTED.value,
+                    senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+                    recipientID = MeshPacketUtils.hexStringToByteArray(route.peerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = encrypted,
+                    signature = null,
+                    ttl = maxTtl
+                )
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                handedToTransport = true
+                transport.sendPacketToNdrTargetConfirmed(
+                    peerID = route.peerID,
+                    target = route.transportTarget,
+                    routed = RoutedPacket(signedPacket),
+                    preflight = preflight,
+                    completion = ::complete
+                )
+            } catch (e: Exception) {
+                Log.e("MeshCore", "Failed to send NDR event to ${route.peerID}: ${e.message}")
+            } finally {
+                if (!handedToTransport) complete(false)
+            }
+        }
+    }
+
+    private fun sendNoisePayloadToPeer(
+        payload: NoisePayload,
+        recipientPeerID: String,
+        expectedSession: com.bitchat.android.noise.AuthenticatedNoiseSession? = null,
+        preflight: () -> Boolean = { true },
+        directAdmissionPeerID: String? = null,
+        completion: ((admitted: Boolean) -> Unit)? = null
+    ) {
+        val completionDelivered = AtomicBoolean(false)
+        fun complete(admitted: Boolean) {
+            if (completionDelivered.compareAndSet(false, true)) {
+                runCatching { completion?.invoke(admitted) }
+            }
+        }
+        val job = scope.launch {
+            var admitted = false
+            try {
+                if (!preflight()) {
+                    return@launch
+                }
+                val encrypted = if (expectedSession == null) {
+                    encryptionService.encrypt(payload.encode(), recipientPeerID)
+                } else {
+                    encryptionService.encryptForSession(
+                        payload.encode(),
+                        recipientPeerID,
+                        expectedSession
+                    )
+                }
                 val packet = BitchatPacket(
                     version = 1u,
                     type = MessageType.NOISE_ENCRYPTED.value,
@@ -812,10 +946,21 @@ class MeshCore(
                     signature = null,
                     ttl = maxTtl
                 )
-                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                admitted = if (directAdmissionPeerID != null) {
+                    transport.sendPacketToPeer(directAdmissionPeerID, signedPacket)
+                } else {
+                    dispatchGlobal(RoutedPacket(signedPacket))
+                    true
+                }
             } catch (e: Exception) {
                 Log.e("MeshCore", "Failed to send Noise payload to $recipientPeerID: ${e.message}")
+            } finally {
+                complete(admitted)
             }
+        }
+        job.invokeOnCompletion {
+            complete(false)
         }
     }
 
@@ -978,6 +1123,33 @@ class MeshCore(
     fun getPeerFingerprint(peerID: String): String? = peerManager.getFingerprintForPeer(peerID)
 
     fun getPeerInfo(peerID: String): PeerInfo? = peerManager.getPeerInfo(peerID)
+
+    fun peerSupportsAuthenticatedCapability(
+        peerID: String,
+        capability: PeerCapabilities
+    ): Boolean = authenticatedSessionProvingCapability(peerID, capability) != null
+
+    private fun authenticatedSessionProvingCapability(
+        peerID: String,
+        capability: PeerCapabilities
+    ): com.bitchat.android.noise.AuthenticatedNoiseSession? {
+        val authenticatedSession = encryptionService.getAuthenticatedSession(peerID) ?: return null
+        return authenticatedSession.takeIf {
+            sessionProvesAuthenticatedCapability(peerID, capability, it)
+        }
+    }
+
+    private fun sessionProvesAuthenticatedCapability(
+        peerID: String,
+        capability: PeerCapabilities,
+        authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+    ): Boolean {
+        val proven = authenticatedPeerState.status(
+            peerID,
+            authenticatedSession
+        ) as? AuthenticatedPeerStateStatus.Proven ?: return false
+        return proven.state.capabilities.contains(capability)
+    }
 
     fun updatePeerInfo(
         peerID: String,

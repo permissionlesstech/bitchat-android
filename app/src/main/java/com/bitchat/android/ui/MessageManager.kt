@@ -291,15 +291,17 @@ class MessageManager(private val state: ChatState) {
     }
 
     private fun chooseStatus(old: DeliveryStatus?, new: DeliveryStatus): DeliveryStatus? {
-        // A send failure may replace an in-flight state, but never a confirmed delivery/read.
-        return when {
-            new is DeliveryStatus.Failed &&
-                old !is DeliveryStatus.Delivered &&
-                old !is DeliveryStatus.Read -> new
-            old is DeliveryStatus.Failed -> new
-            statusPriority(new) >= statusPriority(old) -> new
-            else -> old
+        if (new is DeliveryStatus.Failed) {
+            // A locally queued message may fail before any transport admits it.
+            // Never let a late local failure overwrite evidence of handoff/delivery.
+            return if (old == null || old is DeliveryStatus.Sending || old is DeliveryStatus.Failed) {
+                new
+            } else {
+                old
+            }
         }
+        // Never downgrade (e.g., Read -> Delivered). Keep the higher priority.
+        return if (statusPriority(new) >= statusPriority(old)) new else old
     }
 
     fun updateMessageDeliveryStatus(messageID: String, status: DeliveryStatus) {

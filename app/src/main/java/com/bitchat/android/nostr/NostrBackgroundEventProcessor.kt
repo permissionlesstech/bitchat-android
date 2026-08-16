@@ -48,7 +48,6 @@ internal class NostrBackgroundEventProcessor(
     private val geohashMessageHandler = GeohashMessageHandler(
         application = application,
         repo = geohashRepository,
-        scope = scope,
         dataManager = dataManager,
         addChannelMessage = AppStateStore::addChannelMessage
     )
@@ -76,19 +75,44 @@ internal class NostrBackgroundEventProcessor(
         }
     }
 
-    fun onAccountDm(event: NostrEvent, identity: NostrIdentity) {
-        refreshBlockLists()
-        directMessageHandler.onGiftWrap(event, "", identity)
+    fun configureAccount(identity: NostrIdentity): NostrAccountEpoch {
+        val epoch = directMessageHandler.configureAccount(identity)
+        refreshBlockLists(epoch)
+        return epoch
     }
 
-    fun onGeohashMessage(event: NostrEvent, geohash: String) {
-        refreshBlockLists()
-        geohashMessageHandler.onEvent(event, geohash)
+    fun invalidateAccount() {
+        directMessageHandler.invalidateAccount()
+        geohashMessageHandler.clearAccountState()
+        geohashRepository.clearAll()
     }
 
-    fun onGeohashDm(event: NostrEvent, geohash: String, identity: NostrIdentity) {
-        refreshBlockLists()
-        directMessageHandler.onGiftWrap(event, geohash, identity)
+    fun onAccountDm(
+        event: NostrEvent,
+        identity: NostrIdentity,
+        accountEpoch: NostrAccountEpoch
+    ) {
+        if (!refreshBlockLists(accountEpoch)) return
+        directMessageHandler.onGiftWrap(event, "", identity, accountEpoch)
+    }
+
+    fun onGeohashMessage(
+        event: NostrEvent,
+        geohash: String,
+        accountEpoch: NostrAccountEpoch
+    ) {
+        if (!refreshBlockLists(accountEpoch)) return
+        geohashMessageHandler.onEvent(event, geohash, accountEpoch)
+    }
+
+    fun onGeohashDm(
+        event: NostrEvent,
+        geohash: String,
+        identity: NostrIdentity,
+        accountEpoch: NostrAccountEpoch
+    ) {
+        if (!refreshBlockLists(accountEpoch)) return
+        directMessageHandler.onGiftWrap(event, geohash, identity, accountEpoch)
     }
 
     fun conversationGeohash(conversationKey: String): String? =
@@ -108,8 +132,9 @@ internal class NostrBackgroundEventProcessor(
         AppStateStore.updatePrivateMessageStatus(messageId, status)
     }
 
-    private fun refreshBlockLists() {
-        dataManager.loadBlockedUsers()
-        dataManager.loadGeohashBlockedUsers()
-    }
+    private fun refreshBlockLists(accountEpoch: NostrAccountEpoch): Boolean =
+        NostrInboundAccountLifecycle.runIfCurrent(accountEpoch) {
+            dataManager.loadBlockedUsers()
+            dataManager.loadGeohashBlockedUsers()
+        }
 }

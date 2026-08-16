@@ -107,6 +107,18 @@ class BluetoothConnectionManager(
     fun getCurrentLinkID(deviceAddress: String): String? =
         connectionTracker.getCurrentLinkID(deviceAddress)
 
+    fun currentNdrTransportTarget(peerID: String): NdrTransportTarget? {
+        val deviceAddress = connectionTracker.addressPeerMap.entries
+            .firstOrNull { it.value == peerID }
+            ?.key
+            ?: return null
+        val linkID = connectionTracker.getCurrentLinkID(deviceAddress) ?: return null
+        return NdrTransportTarget(
+            endpointId = deviceAddress,
+            generationToken = linkID
+        )
+    }
+
     private fun isBleTransportEnabled(): Boolean {
         return try {
             com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
@@ -392,6 +404,28 @@ class BluetoothConnectionManager(
             linkID,
             serverManager.getGattServer(),
             serverManager.getCharacteristic()
+        )
+    }
+
+    fun sendPacketToNdrTargetConfirmed(
+        target: NdrTransportTarget,
+        routed: RoutedPacket,
+        preflight: () -> Boolean,
+        completion: (Boolean) -> Unit
+    ) {
+        val linkID = target.generationToken as? String
+        if (!isActive || !isBleTransportEnabled() || linkID == null) {
+            completion(false)
+            return
+        }
+        packetBroadcaster.sendPacketToLinkConfirmed(
+            routed = routed,
+            deviceAddress = target.endpointId,
+            linkID = linkID,
+            gattServer = serverManager.getGattServer(),
+            characteristic = serverManager.getCharacteristic(),
+            preflight = preflight,
+            completion = completion
         )
     }
     

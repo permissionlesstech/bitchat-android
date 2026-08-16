@@ -26,7 +26,9 @@ enum class NoisePayloadType(val value: UByte) {
     VERIFY_RESPONSE(0x11u),     // Verification response
     FILE_TRANSFER(0x20u),
     /** Authenticated capabilities + Ed25519 binding for the current Noise generation. */
-    PEER_STATE(0x21u);
+    PEER_STATE(0x21u),
+    /** UTF-8 Nostr event/URL used only for authenticated double-ratchet bootstrap. */
+    NDR_EVENT(0x22u);
 
 
     companion object {

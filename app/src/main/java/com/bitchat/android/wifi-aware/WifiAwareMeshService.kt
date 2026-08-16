@@ -16,6 +16,8 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.mesh.DirectLinkAnnouncementPolicy
 import com.bitchat.android.mesh.FragmentingPacketSender
 import com.bitchat.android.mesh.MeshCore
+import com.bitchat.android.mesh.NdrMeshRoute
+import com.bitchat.android.mesh.NdrTransportTarget
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.MeshTransport
 import com.bitchat.android.mesh.PeerInfo
@@ -1401,6 +1403,18 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendVerifyResponse(peerID, noiseKeyHex, nonceA)
     }
 
+    override fun currentNdrRoute(peerID: String, transportId: String?): NdrMeshRoute? =
+        meshCore.currentNdrRoute(peerID, transportId)
+
+    override fun sendNdrEvent(
+        route: NdrMeshRoute,
+        payload: String,
+        isStillAuthorized: () -> Boolean,
+        completion: (admitted: Boolean) -> Unit
+    ) {
+        meshCore.sendNdrEvent(route, payload, isStillAuthorized, completion)
+    }
+
     /**
      * Broadcasts a file (TLV payload) to all peers. Uses protocol version 2 to support
      * large payloads and generates a deterministic transferId (sha256 of payload) for UI/state.
@@ -1495,6 +1509,11 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
      * Retrieves the full profile for a peer, including keys and verification state, if available.
      */
     override fun getPeerInfo(peerID: String): PeerInfo? = meshCore.getPeerInfo(peerID)
+
+    override fun peerSupportsAuthenticatedCapability(
+        peerID: String,
+        capability: com.bitchat.android.model.PeerCapabilities
+    ): Boolean = meshCore.peerSupportsAuthenticatedCapability(peerID, capability)
 
     /**
      * Updates local metadata for a peer and returns whether the change was applied.
@@ -1617,6 +1636,47 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             this@WifiAwareMeshService.broadcastPacket(routed)
         override fun sendPacketToPeer(peerID: String, packet: BitchatPacket): Boolean {
             return this@WifiAwareMeshService.sendPacketToPeer(peerID, packet)
+        }
+
+        override fun currentNdrTransportTarget(peerID: String): NdrTransportTarget? {
+            val canonicalPeerID = connectionTracker.canonicalPeerId(peerID)
+            val socket = connectionTracker.getSocketForPeer(canonicalPeerID) ?: return null
+            return NdrTransportTarget(
+                endpointId = canonicalPeerID,
+                generationToken = socket
+            )
+        }
+
+        override fun sendPacketToNdrTargetConfirmed(
+            peerID: String,
+            target: NdrTransportTarget,
+            routed: RoutedPacket,
+            preflight: () -> Boolean,
+            completion: (Boolean) -> Unit
+        ) {
+            val expectedSocket = target.generationToken as? SyncedSocket
+            if (expectedSocket == null) {
+                completion(false)
+                return
+            }
+            fragmentingSender.sendConfirmed(
+                routed = routed,
+                description = "Wi-Fi Aware NDR peer ${peerID.take(8)}",
+                preflight = preflight,
+                sendSingle = sendSingle@{ single ->
+                    if (connectionTracker.getSocketForPeer(target.endpointId) !== expectedSocket) {
+                        return@sendSingle false
+                    }
+                    val data = single.packet.toBinaryData() ?: return@sendSingle false
+                    try {
+                        expectedSocket.write(data)
+                        true
+                    } catch (_: IOException) {
+                        false
+                    }
+                },
+                completion = completion
+            )
         }
         override fun sendPacketToLink(
             relayAddress: String,

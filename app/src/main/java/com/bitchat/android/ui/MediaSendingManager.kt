@@ -628,8 +628,9 @@ class MediaSendingManager(
             senderPeerID = meshService.myPeerID
         )
 
-        // Preparation already built and admitted the exact final packet. Map
-        // progress before commit so the first asynchronous event cannot race us.
+        // Preparation already built the exact final packet. Map the transfer before commit so the
+        // first asynchronous event cannot race us, but keep the local status at Sending until a
+        // real progress event proves transport admission.
         if (!messageManager.addPrivateMessageDurably(conversationID, msg, forceRead = true)) {
             Log.e(TAG, "Prepared private-media message could not be persisted; send aborted")
             addPrivateMediaSystemMessage(
@@ -644,7 +645,7 @@ class MediaSendingManager(
         }
         messageManager.updateMessageDeliveryStatus(
             msg.id,
-            com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
+            com.bitchat.android.model.DeliveryStatus.Sending
         )
 
         if (!preparation.transfer.commit()) {
@@ -708,10 +709,10 @@ class MediaSendingManager(
             messageTransferMap[message.id] = transferId
         }
         
-        // Seed progress so animations start immediately
+        // Seed the pending state without fabricating delivery progress.
         messageManager.updateMessageDeliveryStatus(
             message.id,
-            com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
+            com.bitchat.android.model.DeliveryStatus.Sending
         )
         
         withContext(mediaWorkDispatcher) {

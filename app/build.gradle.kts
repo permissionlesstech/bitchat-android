@@ -37,6 +37,9 @@ android {
             "GITHUB_RELEASE_CERT_SHA256",
             "\"$normalizedGithubReleaseCertSha256\""
         )
+        // Keep NDR dark until the Apple and Android implementations are
+        // reviewed and ready to be enabled together.
+        buildConfigField("boolean", "NDR_ROLLOUT_ENABLED", "false")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -168,6 +171,7 @@ dependencies {
 
     // WebSocket
     implementation(libs.okhttp)
+    implementation("net.java.dev.jna:jna:5.13.0@aar")
 
     // WorkManager for background APK downloads
     implementation(libs.androidx.work.runtime.ktx)
@@ -193,6 +197,8 @@ dependencies {
     // Testing
     testImplementation(libs.bundles.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.bundles.compose.testing)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
