@@ -119,4 +119,23 @@ class MessageOrderingTest {
 
         assertEquals(listOf(older, existing, incomingSameAsExisting), list)
     }
+
+    @Test
+    fun `in-order arrivals append while an older-than-tail message still inserts`() {
+        // Exercises both branches: the in-order fast path (append) and the
+        // binary-search path taken only when a message predates the tail.
+        val base = 1_700_000_000_000L
+        val m1 = msg("m1", base)
+        val m2 = msg("m2", base + 1_000L)  // in order -> fast-path append
+        val m3 = msg("m3", base + 2_000L)  // in order -> fast-path append
+        val gap = msg("gap", base + 500L)  // older than tail -> binary search
+
+        val list = mutableListOf<BitchatMessage>()
+        MessageOrdering.insertByTimestamp(list, m1)
+        MessageOrdering.insertByTimestamp(list, m2)
+        MessageOrdering.insertByTimestamp(list, m3)
+        MessageOrdering.insertByTimestamp(list, gap)
+
+        assertEquals(listOf(m1, gap, m2, m3), list)
+    }
 }
