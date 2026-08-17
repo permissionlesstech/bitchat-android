@@ -1,6 +1,7 @@
 package com.bitchat.android.testhook
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.util.Log
 import com.bitchat.android.favorites.FavoritesPersistenceService
@@ -15,7 +16,10 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PrivateMediaPreparation
 import com.bitchat.android.mesh.TransferProgressManager
+import com.bitchat.android.mesh.CourierDepositTier
+import com.bitchat.android.mesh.CourierStore
 import com.bitchat.android.model.BitchatFilePacket
+import com.bitchat.android.model.CourierEnvelope
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.protocol.BitchatPacket
@@ -23,8 +27,10 @@ import com.bitchat.android.service.MeshForegroundService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ConversationStorageCipher
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.PrivateMediaRecipientResolver
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -89,7 +95,10 @@ object TestHookDriver {
             "ptt_send" -> pttSend(context, intent)
             "ptt_recv" -> pttRecv(context, intent)
             "raw_send" -> rawSend(context, intent)
+            "courier_contract" -> courierContract(context)
+            "sync_request" -> syncRequest(intent.requiredString("peer"))
             "ble" -> setBle(intent.getBooleanExtra("enabled", true))
+            "wifi_aware" -> setWifiAware(intent.getBooleanExtra("enabled", true))
             "inject_peers" -> injectPeers(intent.getStringExtra("peers"))
             "state" -> state(context)
             "clear_results" -> clearResults(context)
@@ -276,10 +285,11 @@ object TestHookDriver {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_RECV_TIMEOUT_MS)
         val contains = intent.getStringExtra("contains")
         val channel = intent.getStringExtra("channel")
+        val includeExisting = intent.getBooleanExtra("include_existing", false)
         val startTime = System.currentTimeMillis()
         val mesh = mesh(context)
         val matches: (com.bitchat.android.model.BitchatMessage) -> Boolean = { msg ->
-            msg.timestamp.time >= startTime &&
+            (includeExisting || msg.timestamp.time >= startTime) &&
                 msg.senderPeerID != mesh.myPeerID &&
                 (contains == null || msg.content.contains(contains)) &&
                 (channel == null || msg.channel == channel)
@@ -653,12 +663,123 @@ object TestHookDriver {
             .put("peer", peerID)
     }
 
+    /**
+     * Exercises the real courier wire/store implementation on a physical debug build.
+     * This is intentionally local: the two-phone harness has no third identity to act as
+     * both recipient and an independent courier, so transport scenarios cannot observe the
+     * spray budget without weakening the assertion.
+     */
+    private fun courierContract(context: Context): JSONObject {
+        val filesDir = File(context.cacheDir, "testhook/courier-contract-files")
+        filesDir.deleteRecursively()
+        filesDir.mkdirs()
+        val labContext = LabStorageContext(context, filesDir)
+        val cipher = LabCipher(0x5a)
+        val now = System.currentTimeMillis()
+        val recipientKey = ByteArray(32) { 7 }
+        val depositorKey = ByteArray(32) { 8 }
+        val firstCourier = ByteArray(32) { 11 }
+        val secondCourier = ByteArray(32) { 12 }
+        val thirdCourier = ByteArray(32) { 13 }
+        val fourthCourier = ByteArray(32) { 14 }
+        val tag = CourierEnvelope.recipientTag(recipientKey, CourierEnvelope.epochDay(now))
+        val store = CourierStore(labContext, cipher) { now }
+        try {
+            val firstEnvelope = CourierEnvelope(
+                recipientTag = tag,
+                expiry = (now + CourierEnvelope.MAX_LIFETIME_MS).toULong(),
+                ciphertext = ByteArray(32) { (it + 1).toByte() },
+                copies = 4u,
+                prekeyID = 0x11223344u
+            )
+            require(store.deposit(firstEnvelope, depositorKey, CourierDepositTier.VERIFIED))
+            val wire = requireNotNull(firstEnvelope.encode())
+            val decoded = requireNotNull(CourierEnvelope.decode(wire))
+            val first = store.sprayCopiesFor(firstCourier).single()
+            val second = store.sprayCopiesFor(secondCourier).single()
+            val sameCourierEmpty = store.sprayCopiesFor(firstCourier).isEmpty()
+            val secondCommitted = store.commitSpray(second, secondCourier)
+            val firstCommitted = store.commitSpray(first, firstCourier)
+            val thirdCourierEmpty = store.sprayCopiesFor(thirdCourier).isEmpty()
+
+            val secondEnvelope = firstEnvelope.copy(ciphertext = ByteArray(32) { (it + 65).toByte() })
+            require(store.deposit(secondEnvelope, depositorKey, CourierDepositTier.VERIFIED))
+            val cancelledPreview = store.sprayCopiesFor(fourthCourier).single()
+            val cancelled = store.cancelSpray(cancelledPreview, fourthCourier)
+            val retry = store.sprayCopiesFor(fourthCourier).single()
+            val retryCommitted = store.commitSpray(retry, fourthCourier)
+
+            val reloaded = CourierStore(labContext, LabCipher(0x5a)) { now }
+            val persistedSprayHistory = reloaded.sprayCopiesFor(fourthCourier)
+                .none { it.ciphertext.contentEquals(secondEnvelope.ciphertext) }
+            val remainingCopies = reloaded.sprayCopiesFor(thirdCourier)
+                .firstOrNull { it.ciphertext.contentEquals(secondEnvelope.ciphertext) }
+                ?.copies
+                ?.toInt()
+            reloaded.wipe()
+
+            require(decoded.prekeyID == firstEnvelope.prekeyID)
+            require(decoded.encode()?.contentEquals(wire) == true)
+            require(first.prekeyID == firstEnvelope.prekeyID)
+            require(first.copies == 2u.toUByte())
+            require(second.copies == 1u.toUByte())
+            require(sameCourierEmpty)
+            require(secondCommitted && firstCommitted && thirdCourierEmpty)
+            require(cancelled && retry.copies == 2u.toUByte() && retryCommitted)
+            require(persistedSprayHistory && remainingCopies == 1)
+
+            return ok("courier_contract")
+                .put("wire_prekey_id_preserved", true)
+                .put("stored_prekey_id_preserved", true)
+                .put("first_reserved_copies", first.copies.toInt())
+                .put("second_reserved_copies", second.copies.toInt())
+                .put("same_courier_second_reservation_empty", sameCourierEmpty)
+                .put("reverse_order_commits", true)
+                .put("cancel_restored_eligibility", cancelled)
+                .put("persisted_spray_history", persistedSprayHistory)
+                .put("remaining_copies_after_restart", remainingCopies)
+        } finally {
+            store.wipe()
+            filesDir.deleteRecursively()
+        }
+    }
+
+    private fun syncRequest(peerID: String): JSONObject {
+        val manager = MeshServiceHolder.sharedGossipSyncManager
+            ?: return err("sync_request", "gossip sync manager is unavailable")
+        manager.scheduleInitialSyncToPeer(peerID, 0)
+        return ok("sync_request").put("peer", peerID)
+    }
+
+    private class LabStorageContext(base: Context, private val labFilesDir: File) : ContextWrapper(base) {
+        override fun getApplicationContext(): Context = this
+        override fun getFilesDir(): File = labFilesDir
+    }
+
+    private class LabCipher(private val mask: Int) : ConversationStorageCipher {
+        override fun encrypt(plaintext: ByteArray, associatedData: ByteArray): ByteArray =
+            plaintext.map { (it.toInt() xor mask).toByte() }.toByteArray()
+
+        override fun decrypt(envelope: ByteArray, associatedData: ByteArray): ByteArray =
+            encrypt(envelope, associatedData)
+
+        override fun destroyKey() = Unit
+    }
+
     // MARK: - Transport / state
 
     private fun setBle(enabled: Boolean): JSONObject {
         val ble = MeshServiceHolder.meshService ?: return err("ble", "BLE service not running")
         ble.setBleTransportEnabled(enabled)
         return ok("ble").put("enabled", enabled)
+    }
+
+    private fun setWifiAware(enabled: Boolean): JSONObject {
+        val previous = com.bitchat.android.wifiaware.WifiAwareController.enabled.value
+        DebugSettingsManager.getInstance().setWifiAwareEnabled(enabled)
+        return ok("wifi_aware")
+            .put("enabled", enabled)
+            .put("previous_enabled", previous)
     }
 
     private fun state(context: Context): JSONObject {

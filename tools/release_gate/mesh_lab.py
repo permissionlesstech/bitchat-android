@@ -532,6 +532,79 @@ def scenario_broadcast(a: Device, b: Device) -> dict:
     return {"send": send_result, "recv": recv_result}
 
 
+def scenario_sync_recovery(a: Device, b: Device) -> dict:
+    """Miss a public message while B's transports are offline, then receive it via gossip sync."""
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+    token = f"sync-{uuid.uuid4().hex[:8]}"
+    b.cmd_ok("ble", enabled=False)
+    wifi_before = b.cmd_ok("wifi_aware", enabled=False)["previous_enabled"]
+    try:
+        send_result = a.cmd_ok("broadcast_msg", 30_000, content=f"sync recovery {token}")
+        # The hook returns after dispatching the send coroutine. Give the sender's
+        # gossip observer time to retain the packet before taking B offline.
+        time.sleep(2)
+        offline_result = b.cmd("msg_recv", 5_000, contains=token, include_existing=True)
+        if offline_result.get("status") == "ok":
+            raise MeshLabError(f"message was delivered while receiver transports were disabled: {offline_result}")
+
+        # Restart B so the initial sync request is scheduled from a fresh peer
+        # observation instead of relying on an already-cached relationship.
+        b.force_stop()
+        b.wake()
+        b.launch()
+        b.cmd_ok("start")
+        b.cmd_ok("ble", enabled=True)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            recv = pool.submit(
+                b.cmd_ok,
+                "msg_recv",
+                180_000,
+                contains=token,
+                include_existing=True,
+            )
+            time.sleep(2)
+            ensure_direct_link(a, b, id_a, id_b)
+            b.cmd_ok("sync_request", peer=id_a)
+            recv_result = recv.result()
+        assert recv_result["from"] == id_a, recv_result
+        return {
+            "send": send_result,
+            "offline_delivery": {"status": offline_result.get("status", "missing")},
+            "synced_recv": recv_result,
+        }
+    finally:
+        # Leave the pair usable if an assertion or timeout interrupts the recovery.
+        try:
+            b.cmd_ok("ble", enabled=True)
+        except MeshLabError:
+            pass
+        try:
+            b.cmd_ok("wifi_aware", enabled=wifi_before)
+        except MeshLabError:
+            pass
+
+
+def scenario_courier_contract(a: Device, b: Device) -> dict:
+    """Run the real courier wire/store contract on device A's debug build."""
+    result = a.cmd_ok("courier_contract", 60_000)
+    expected = {
+        "wire_prekey_id_preserved": True,
+        "stored_prekey_id_preserved": True,
+        "first_reserved_copies": 2,
+        "second_reserved_copies": 1,
+        "same_courier_second_reservation_empty": True,
+        "reverse_order_commits": True,
+        "cancel_restored_eligibility": True,
+        "persisted_spray_history": True,
+        "remaining_copies_after_restart": 1,
+    }
+    for field, value in expected.items():
+        if result.get(field) != value:
+            raise MeshLabError(f"courier contract field {field}={result.get(field)!r}, expected {value!r}")
+    return result
+
+
 def _ptt_one_way(
     sender: Device,
     receiver: Device,
@@ -869,6 +942,8 @@ SCENARIOS = {
     "dm": scenario_dm,
     "favorite_verification": scenario_favorite_verification,
     "broadcast": scenario_broadcast,
+    "sync_recovery": scenario_sync_recovery,
+    "courier_contract": scenario_courier_contract,
     "ptt_dm": scenario_ptt_dm,
     "ptt_broadcast": scenario_ptt_broadcast,
     # Broadcast transfers are receiver-capped at 256 fragments (~120 KB); only
