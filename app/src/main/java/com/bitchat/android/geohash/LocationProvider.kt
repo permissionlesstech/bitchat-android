@@ -6,7 +6,7 @@ import android.location.Location
  * Abstraction for location providers to support both
  * System (LocationManager) and Google Play Services (FusedLocationProvider).
  */
-interface LocationProvider {
+internal interface LocationProvider {
     /**
      * Get the last known location from cache.
      * @param callback Called with the location or null if not found/error.

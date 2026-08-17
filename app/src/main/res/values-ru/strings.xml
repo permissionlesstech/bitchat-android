@@ -40,7 +40,7 @@
     <string name="notification_summary_more">и ещё %1$d</string>
     <string name="notification_messages_from_people">%1$d сообщений от %2$d людей</string>
     <string name="notification_more_conversations">и ещё %1$d бесед</string>
-    <string name="notification_active_peers_title">👥 bitchatter рядом!</string>
+    <string name="notification_active_peers_title">bitchatter рядом!</string>
     <string name="notification_active_peers_one">Рядом 1 человек</string>
     <string name="notification_active_peers_many">Рядом %1$d человек</string>
     <string name="notification_new_messages">Новые сообщения</string>
@@ -63,14 +63,10 @@
     <string name="cd_remove_favorite">Убрать из избранного</string>
     <string name="cd_add_bookmark">Добавить закладку</string>
 
-    <string name="chat_back">назад</string>
-    <string name="chat_channel_prefix">канал: %1$s</string>
-    <string name="chat_leave">выйти</string>
     <string name="cd_nostr_reachable">Доступен через Nostr</string>
     <string name="cd_unread_private_messages">Непрочитанные личные</string>
-    <string name="cd_toggle_bookmark">Переключить закладку</string>
     <string name="cd_teleported">Телепортировано</string>
-    <string name="cd_tor_status">Статус Tor</string>
+    <string name="cd_open_location_channels">Открыть настройки местоположения и каналов</string>
     <string name="cd_connected_peers">Подключённые узлы</string>
     <string name="cd_geohash_participants">Участники geohash</string>
     <string name="cd_ready_for_handshake">Готов к рукопожатию</string>
@@ -86,14 +82,12 @@
     <string name="close_with_emoji">❌ Закрыть</string>
     <string name="pick_image">Выбрать изображение</string>
 
-    <string name="about_tagline">децентрализованный mesh‑чат со сквозным шифрованием</string>
     <string name="about_offline_mesh_title">Оффлайн Mesh‑чат</string>
     <string name="about_offline_mesh_desc">Общение напрямую по Bluetooth LE без интернета и серверов. Сообщения ретранслируются близлежащими устройствами.</string>
     <string name="about_online_geohash_title">Онлайн‑каналы Geohash</string>
     <string name="about_online_geohash_desc">Общайся с людьми поблизости через каналы на основе geohash. Расширяй mesh через публичные ретрансляторы.</string>
     <string name="about_e2e_title">Сквозное шифрование</string>
     <string name="about_e2e_desc">Личные сообщения — зашифрованы. Канальные — публичны.</string>
-    <string name="about_appearance">оформление</string>
     <string name="about_system">система</string>
     <string name="about_light">светлая</string>
     <string name="about_dark">тёмная</string>
@@ -117,7 +111,6 @@
     <string name="about_tor_status">статус Tor: %1$s, загрузка %2$d%%</string>
     <string name="about_last">Последнее: %1$s</string>
     <string name="about_emergency_title">Экстренное удаление данных</string>
-    <string name="about_emergency_tip">Совет: тройной тап по заголовку — удалить все данные (сообщения, ключи, настройки).</string>
     <string name="about_debug_settings">Настройки отладки</string>
     <string name="about_footer">Open Source • Privacy First • Децентрализация</string>
     <string name="close_plain">Закрыть</string>
@@ -136,7 +129,6 @@
     <string name="cd_open_map">Открыть карту</string>
     <string name="cd_remove_bookmark">Удалить закладку</string>
     <string name="cd_teleport">Телепорт</string>
-    <string name="cd_selected">Выбрано</string>
     <string name="cd_leave_channel">Покинуть канал</string>
     <string name="cd_reachable_via_nostr">Доступен через Nostr</string>
     <string name="cd_offline_favorite">Избранное (оффлайн)</string>
@@ -264,9 +256,7 @@
     <string name="grant_permissions">Выдать разрешения</string>
     <string name="location_tracking_warning">bitchat НЕ отслеживает вашу геопозицию</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">ЛЮДИ</string>
     <string name="nobody_around">никого рядом…</string>
     <string name="you_suffix"> (вы)</string>
     <string name="pan_zoom_instruction">прокрутите/масштабируйте для выбора geohash</string>
@@ -275,7 +265,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">упоминание</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -286,13 +275,6 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Изображение</string>
     <string name="media_type_file">Файл</string>
-
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <string name="notification_sent_image">📷 отправил изображение</string>
     <string name="notification_sent_voice">🎤 отправил голосовое</string>
@@ -390,4 +372,12 @@
   <string name="verify_success_title">Проверено</string>
   <string name="verify_success_body">Вы проверили %1$s</string>
   <string name="verify_success_system_message">проверен %1$s</string>
+    <string name="cd_open_about">Открыть раздел «О приложении»</string>
+  <string name="nearby_notes_reveal">проверить, есть ли здесь заметки</string>
+  <string name="nearby_notes_one">здесь оставлена 1 заметка — нажмите, чтобы прочитать</string>
+  <string name="nearby_notes_many">здесь оставлено заметок: %d — нажмите, чтобы прочитать</string>
+    <string name="about_language">Язык</string>
+    <string name="about_app_language">Язык приложения</string>
+    <string name="about_system_default">Системный язык</string>
+    <string name="about_select_language">Выбрать язык</string>
 </resources>

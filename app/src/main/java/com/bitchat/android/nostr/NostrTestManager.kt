@@ -165,7 +165,7 @@ class NostrTestManager(private val context: Context) {
         
         // Subscribe to private messages (won't receive any in test, but tests the subscription mechanism)
         nostrClient.subscribeToPrivateMessages { content, senderNpub, timestamp ->
-            Log.d(TAG, "📥 Received test private message from $senderNpub: $content")
+            Log.d(TAG, "Received test private message (${content.length} chars)")
             messageReceived = true
         }
         

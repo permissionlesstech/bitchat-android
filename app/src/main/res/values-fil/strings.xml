@@ -46,7 +46,7 @@
     <string name="notification_summary_more">at %1$d pa</string>
     <string name="notification_messages_from_people">%1$d mensahe mula sa %2$d tao</string>
     <string name="notification_more_conversations">at %1$d pang usapan</string>
-    <string name="notification_active_peers_title">👥 mga bitchatter na malapit!</string>
+    <string name="notification_active_peers_title">mga bitchatter na malapit!</string>
     <string name="notification_active_peers_one">1 tao sa paligid</string>
     <string name="notification_active_peers_many">%1$d tao sa paligid</string>
     <string name="notification_new_messages">Mga bagong mensahe</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">Mag‑bookmark</string>
 
     <!-- Header at accessibility -->
-    <string name="chat_back">bumalik</string>
-    <string name="chat_channel_prefix">channel: %1$s</string>
-    <string name="chat_leave">umalis</string>
     <string name="cd_nostr_reachable">Maabot sa Nostr</string>
     <string name="cd_unread_private_messages">Hindi nabasang pribadong mensahe</string>
-    <string name="cd_toggle_bookmark">I‑toggle ang bookmark</string>
     <string name="cd_teleported">Naiteleport</string>
-    <string name="cd_tor_status">Katayuan ng Tor</string>
+    <string name="cd_open_location_channels">Buksan ang mga setting ng lokasyon at channel</string>
     <string name="cd_connected_peers">Nakakonektang peers</string>
     <string name="cd_geohash_participants">Mga kalahok sa geohash</string>
     <string name="cd_ready_for_handshake">Handa para sa handshake</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">Pumili ng larawan</string>
 
     <!-- About sheet -->
-    <string name="about_tagline">desentralisadong mesh messaging na may end‑to‑end encryption</string>
     <string name="about_offline_mesh_title">Offline Mesh Chat</string>
     <string name="about_offline_mesh_desc">Makipag‑usap direkta sa Bluetooth LE nang walang internet o server. Ang mga mensahe ay nire‑relay ng mga kalapit na device.</string>
     <string name="about_online_geohash_title">Online na Geohash na mga Channel</string>
     <string name="about_online_geohash_desc">Makipag‑ugnayan sa mga tao sa paligid gamit ang geohash‑based na mga channel. Palawakin ang mesh sa pampublikong internet relays.</string>
     <string name="about_e2e_title">End‑to‑End Encryption</string>
     <string name="about_e2e_desc">Ang mga pribadong mensahe ay naka‑encrypt. Ang mga mensahe sa channel ay publiko.</string>
-    <string name="about_appearance">hitsura</string>
     <string name="about_system">system</string>
     <string name="about_light">light</string>
     <string name="about_dark">dark</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">katayuan ng Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Huli: %1$s</string>
     <string name="about_emergency_title">Emergency Data Deletion</string>
-    <string name="about_emergency_tip">Tip: i‑tap ang pamagat ng app nang 3 beses para burahin ang lahat ng data (mga mensahe, susi, setting).</string>
     <string name="about_debug_settings">Debug Settings</string>
     <string name="about_footer">Open Source • Privacy First • Desentralisado</string>
     <string name="close_plain">Isara</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">Buksan ang mapa</string>
     <string name="cd_remove_bookmark">Alisin ang bookmark</string>
     <string name="cd_teleport">Teleport</string>
-    <string name="cd_selected">Napili</string>
     <string name="cd_leave_channel">Umalis sa channel</string>
     <string name="cd_reachable_via_nostr">Maabot sa Nostr</string>
     <string name="cd_offline_favorite">Paborito (offline)</string>
@@ -280,9 +272,7 @@
     <string name="grant_permissions">Payagan</string>
     <string name="location_tracking_warning">HINDI sinusubaybayan ng bitchat ang lokasyon mo</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">TAO</string>
     <string name="nobody_around">walang tao sa paligid…</string>
     <string name="you_suffix"> (ikaw)</string>
     <string name="pan_zoom_instruction">i‑pan at i‑zoom para pumili ng geohash</string>
@@ -291,7 +281,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">banggit</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -304,12 +293,6 @@
     <string name="media_type_file">File</string>
 
     <!-- Mga status ng mensahe -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- Tulong na text sa abiso -->
     <string name="notification_sent_image">📷 nagpadala ng larawan</string>
@@ -400,4 +383,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Buksan ang Tungkol</string>
+  <string name="nearby_notes_reveal">tingnan kung may mga note na naiwan dito</string>
+  <string name="nearby_notes_one">1 note ang naiwan dito — i-tap para basahin</string>
+  <string name="nearby_notes_many">%d note ang naiwan dito — i-tap para basahin</string>
+    <string name="about_language">Wika</string>
+    <string name="about_app_language">Wika ng app</string>
+    <string name="about_system_default">Default ng system</string>
+    <string name="about_select_language">Pumili ng wika</string>
 </resources>

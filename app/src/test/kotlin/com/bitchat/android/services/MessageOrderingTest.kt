@@ -120,23 +120,11 @@ class MessageOrderingTest {
         assertEquals(listOf(older, existing, incomingSameAsExisting), list)
     }
 
-    @Test
-    fun `private timeline orders a store-forwarded DM backlog by timestamp`() {
-        val now = 1_700_000_000_000L
-        val peer = "aabbccddeeff0011"
-        // Same shape as the public case: a current DM is on screen, then the courier
-        // path replays an hour-old private backlog out of order. iOS orders DMs the
-        // same way; before this they appended in receive order (#525).
-        val current = msg("dm-current", now, content = "dm-current")
-        val oldA = msg("dm-old-a", now - 3_600_000L, content = "dm-old-a")
-        val oldB = msg("dm-old-b", now - 1_800_000L, content = "dm-old-b")
-
-        AppStateStore.addPrivateMessage(peer, current)
-        AppStateStore.addPrivateMessage(peer, oldB)
-        AppStateStore.addPrivateMessage(peer, oldA)
-
-        assertEquals(listOf(oldA, oldB, current), AppStateStore.privateMessages.value[peer])
-    }
+    // Note: private (DM) timelines are intentionally NOT timestamp-ordered here.
+    // AppStateStore orders them by arrival sequence (PrivateMessageArrivalOrder /
+    // ContactDirectory.canonicalizePrivateChats), because a peer's clock can't be
+    // trusted to order a conversation. So this fix covers public and channel
+    // timelines only; DM ordering is owned by that arrival-order path.
 
     @Test
     fun `in-order arrivals append while an older-than-tail message still inserts`() {

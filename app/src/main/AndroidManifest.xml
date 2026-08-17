@@ -22,11 +22,18 @@
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Wi‑Fi / Wi‑Fi Aware permissions -->
+    <!-- Wi‑Fi / Wi‑Fi Aware permissions (also used for hotspot APK sharing) -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <!-- Android 13+ runtime permission for Wi‑Fi operations (including Aware) -->
-    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <!-- Android 13+ runtime permission for Wi‑Fi operations (including Aware and Wi‑Fi P2P) -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
+    <!-- Android 17+ gates local network access; Wi‑Fi Aware peers over link-local IPv6 -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <!-- Keep hotspot alive while sharing the APK -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <!-- Signature permission for internal UI shutdown broadcasts -->
     <uses-permission android:name="com.bitchat.android.permission.FORCE_FINISH" />
     <!-- Foreground service and boot permissions for long-running background mesh -->
@@ -73,11 +80,21 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
+        android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.BitchatAndroid"
-        tools:targetApi="31">
+        tools:targetApi="33">
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
+
         <!-- FileProvider for sharing temp/cache files with external viewers -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -120,15 +137,10 @@
             tools:ignore="DataExtractionRules">
         </service>
 
-        <!-- Listen for in-app broadcast when POST_NOTIFICATIONS is granted -->
         <receiver
-            android:name=".service.NotificationPermissionChangedReceiver"
+            android:name=".service.ConversationNotificationReceiver"
             android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.bitchat.android.action.NOTIFICATION_PERMISSION_GRANTED" />
-            </intent-filter>
-        </receiver>
+            android:exported="false" />
 
         <!-- Auto-start mesh service after boot if enabled -->
         <receiver
@@ -140,5 +152,20 @@
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- Hotspot Activity for offline APK sharing -->
+        <activity
+            android:name=".hotspot.HotspotActivity"
+            android:exported="false"
+            android:label="Share BitChat"
+            android:theme="@style/Theme.BitchatAndroid"
+            android:launchMode="singleTop" />
+
+        <!-- Declare the foreground service type for WorkManager's foreground
+             service so the APK download worker can run as dataSync work -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
     </application>
 </manifest>

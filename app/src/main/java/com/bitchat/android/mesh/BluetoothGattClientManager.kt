@@ -63,7 +63,7 @@ class BluetoothGattClientManager(
      */
     fun connectToAddress(deviceAddress: String): Boolean {
         if (!isClientRoleEnabled()) {
-            Log.i(TAG, "connectToAddress skipped: BLE client disabled")
+            Log.d(TAG, "connectToAddress skipped: BLE client disabled")
             return false
         }
         val device = bluetoothAdapter?.getRemoteDevice(deviceAddress)
@@ -93,9 +93,7 @@ class BluetoothGattClientManager(
     @Volatile private var lastScanResultTime = 0L
     private var scanRetryCount = 0
     private var scanWatchdogJob: Job? = null
-    
-    // RSSI monitoring state
-    private var rssiMonitoringJob: Job? = null
+    private var scanDutyCycleJob: Job? = null
     
     // State management
     private var isActive = false
@@ -111,7 +109,6 @@ class BluetoothGattClientManager(
         }
 
         if (isActive) {
-            Log.d(TAG, "GATT client already active; start is a no-op")
             return true
         }
         if (!permissionManager.hasBluetoothPermissions()) {
@@ -132,18 +129,7 @@ class BluetoothGattClientManager(
         isActive = true
         
         connectionScope.launch {
-            if (powerManager.shouldUseDutyCycle()) {
-                Log.i(TAG, "Using power-aware duty cycling")
-                // Duty cycle drives onScanStateChanged(true/false); scanningDesired follows that.
-            } else {
-                scanningDesired = true
-                startScanning()
-            }
-            
-            // Start RSSI monitoring
-            startRSSIMonitoring()
-            // Start the scan watchdog so a silently-dead or wedged scanner self-heals.
-            startScanWatchdog()
+            applyPowerProfile(powerManager.profile.value)
         }
         
         return true
@@ -154,12 +140,12 @@ class BluetoothGattClientManager(
      */
     fun stop() {
         scanningDesired = false
+        scanDutyCycleJob?.cancel()
+        scanDutyCycleJob = null
         stopScanWatchdog()
         if (!isActive) {
             // Idempotent stop
             stopScanning()
-            stopRSSIMonitoring()
-            Log.i(TAG, "GATT client manager stopped (already inactive)")
             return
         }
 
@@ -175,7 +161,6 @@ class BluetoothGattClientManager(
             } catch (_: Exception) { }
             
             stopScanning()
-            stopRSSIMonitoring()
             Log.i(TAG, "GATT client manager stopped")
         }
     }
@@ -194,41 +179,6 @@ class BluetoothGattClientManager(
     }
     
     /**
-     * Start periodic RSSI monitoring for all client connections
-     */
-    private fun startRSSIMonitoring() {
-        rssiMonitoringJob?.cancel()
-        rssiMonitoringJob = connectionScope.launch {
-            while (isActive) {
-                try {
-                    // Request RSSI from all client connections
-                    val connectedDevices = connectionTracker.getConnectedDevices()
-                    connectedDevices.values.filter { it.isClient && it.gatt != null }.forEach { deviceConn ->
-                        try {
-                            Log.d(TAG, "Requesting RSSI from ${deviceConn.device.address}")
-                            deviceConn.gatt?.readRemoteRssi()
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed to request RSSI from ${deviceConn.device.address}: ${e.message}")
-                        }
-                    }
-                    delay(AppConstants.Mesh.RSSI_UPDATE_INTERVAL_MS)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error in RSSI monitoring: ${e.message}")
-                    delay(AppConstants.Mesh.RSSI_UPDATE_INTERVAL_MS)
-                }
-            }
-        }
-    }
-    
-    /**
-     * Stop RSSI monitoring
-     */
-    private fun stopRSSIMonitoring() {
-        rssiMonitoringJob?.cancel()
-        rssiMonitoringJob = null
-    }
-    
-    /**
      * Start scanning with rate limiting
      */
     @Suppress("DEPRECATION")
@@ -240,14 +190,13 @@ class BluetoothGattClientManager(
         // Rate limit scan starts to prevent "scanning too frequently" errors
         val currentTime = System.currentTimeMillis()
         if (isCurrentlyScanning) {
-            Log.d(TAG, "Scan already in progress, skipping start request")
             return
         }
-        
+
         val timeSinceLastStart = currentTime - lastScanStartTime
         if (timeSinceLastStart < scanRateLimit) {
             val remainingWait = scanRateLimit - timeSinceLastStart
-            Log.w(TAG, "Scan rate limited: need to wait ${remainingWait}ms before starting scan")
+            Log.d(TAG, "Scan rate limited: waiting ${remainingWait}ms before starting scan")
             
             // Schedule delayed scan start
             connectionScope.launch {
@@ -263,63 +212,52 @@ class BluetoothGattClientManager(
             .setServiceUuid(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID))
             .build()
         
-        val scanFilters = listOf(scanFilter) 
-        
-        Log.d(TAG, "Starting BLE scan with target service UUID: ${AppConstants.Mesh.Gatt.SERVICE_UUID}")
-        
+        val scanFilters = listOf(scanFilter)
+
         scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
-                // Log.d(TAG, "Scan result received: ${result.device.address}")
                 handleScanResult(result)
             }
-            
+
             override fun onBatchScanResults(results: MutableList<ScanResult>) {
-                Log.d(TAG, "Batch scan results received: ${results.size} devices")
                 results.forEach { result ->
                     handleScanResult(result)
                 }
             }
-            
+
             override fun onScanFailed(errorCode: Int) {
-                Log.e(TAG, "Scan failed: $errorCode")
                 isCurrentlyScanning = false
                 lastScanStopTime = System.currentTimeMillis()
-                
+
                 when (errorCode) {
                     1 -> {
                         // Already started: the stack thinks a scan is running. Re-arm from a clean
                         // state so we don't stay wedged (stop then restart with backoff).
-                        Log.e(TAG, "SCAN_FAILED_ALREADY_STARTED")
                         stopScanning()
                         scheduleScanRestart("already-started", SCAN_RETRY_BASE_MS)
                     }
                     2 -> {
                         // App registration failed: common transient stack fault. Previously had NO
                         // retry, which left discovery dead until a manual BLE toggle.
-                        Log.e(TAG, "SCAN_FAILED_APPLICATION_REGISTRATION_FAILED")
                         scheduleScanRestart("registration-failed", SCAN_RETRY_BASE_MS)
                     }
                     3 -> {
-                        Log.e(TAG, "SCAN_FAILED_INTERNAL_ERROR")
                         scheduleScanRestart("internal-error", SCAN_RETRY_BASE_MS)
                     }
-                    4 -> Log.e(TAG, "SCAN_FAILED_FEATURE_UNSUPPORTED") // permanent: don't retry
+                    4 -> Unit // permanent: don't retry
                     5 -> {
                         // Out of hardware resources: back off longer so other scanners/connections
                         // can free up before we try again.
-                        Log.e(TAG, "SCAN_FAILED_OUT_OF_HARDWARE_RESOURCES")
                         scheduleScanRestart("out-of-resources", SCAN_RETRY_BASE_MS * 3)
                     }
                     6 -> {
-                        Log.e(TAG, "SCAN_FAILED_SCANNING_TOO_FREQUENTLY")
-                        Log.w(TAG, "Scan failed due to rate limiting - will retry after delay")
                         scheduleScanRestart("too-frequently", 10_000L)
                     }
                     else -> {
-                        Log.e(TAG, "Unknown scan failure code: $errorCode")
                         scheduleScanRestart("unknown-$errorCode", SCAN_RETRY_BASE_MS)
                     }
                 }
+                Log.e(TAG, "Scan failed: $errorCode")
             }
         }
         
@@ -328,7 +266,7 @@ class BluetoothGattClientManager(
             isCurrentlyScanning = true
             
             bleScanner.startScan(scanFilters, powerManager.getScanSettings(), scanCallback)
-            Log.d(TAG, "BLE scan started successfully")
+            Log.i(TAG, "BLE scan started")
         } catch (e: Exception) {
             Log.e(TAG, "Exception starting scan: ${e.message}")
             isCurrentlyScanning = false
@@ -344,9 +282,9 @@ class BluetoothGattClientManager(
         
         if (isCurrentlyScanning) {
             try {
-                scanCallback?.let { 
+                scanCallback?.let {
                     bleScanner.stopScan(it)
-                    Log.d(TAG, "BLE scan stopped successfully")
+                    Log.i(TAG, "BLE scan stopped")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Error stopping scan: ${e.message}")
@@ -455,15 +393,11 @@ class BluetoothGattClientManager(
         }
 
         if (peerID != null) {
-            // Log.v(TAG, "Found peerID $peerID in scan record for $deviceAddress")
             if (connectionTracker.isPeerConnected(peerID)) {
-                 Log.d(TAG, "Deduplication: Peer $peerID is already connected (ignoring $deviceAddress)")
                  return
             }
         }
 
-        // Log.d(TAG, "Received scan result from $deviceAddress - already connected: ${connectionTracker.isDeviceConnected(deviceAddress)}")
-        
         // Store RSSI from scan results for later use (especially for server connections)
         connectionTracker.updateScanRSSI(deviceAddress, rssi)
 
@@ -481,7 +415,6 @@ class BluetoothGattClientManager(
         
         // Power-aware RSSI filtering
         if (rssi < powerManager.getRSSIThreshold()) {
-            Log.d(TAG, "Skipping device $deviceAddress due to weak signal: $rssi < ${powerManager.getRSSIThreshold()}")
             // Even if we skip connecting, still publish scan result to debug UI
             try {
                 DebugSettingsManager.getInstance().addScanResult(
@@ -503,7 +436,6 @@ class BluetoothGattClientManager(
         
         // Check if connection attempt is allowed
         if (!connectionTracker.isConnectionAttemptAllowed(deviceAddress)) {
-            Log.d(TAG, "Connection to $deviceAddress not allowed due to recent attempts")
             return
         }
         
@@ -513,7 +445,6 @@ class BluetoothGattClientManager(
         val maxClient = dbg?.maxClientConnections?.value ?: maxOverall
 
         if (!connectionTracker.canConnectAsClient(maxOverall, maxClient)) {
-            Log.d(TAG, "Client connection limit reached (overall: $maxOverall, client: $maxClient)")
             return
         }
         
@@ -532,14 +463,12 @@ class BluetoothGattClientManager(
         if (!permissionManager.hasBluetoothPermissions()) return
 
         val deviceAddress = device.address
-        Log.i(TAG, "Connecting to bitchat device: $deviceAddress (peerID: $peerID)")
-        
+        val linkID = UUID.randomUUID().toString()
+        Log.d(TAG, "Connecting to bitchat device: $deviceAddress (peerID: $peerID)")
+
         val gattCallback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-                Log.d(TAG, "Client: Connection state change - Device: $deviceAddress, Status: $status, NewState: $newState")
-
                 if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
-                    Log.i(TAG, "Client: Successfully connected to $deviceAddress. Requesting MTU...")
                     // Request a larger MTU. Must be done before any data transfer.
                     connectionScope.launch {
                         delay(200) // A small delay can improve reliability of MTU request.
@@ -547,17 +476,16 @@ class BluetoothGattClientManager(
                     }
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     if (status != BluetoothGatt.GATT_SUCCESS) {
-                        Log.w(TAG, "Client: Disconnected from $deviceAddress with error status $status")
-                        if (status == 147) {
-                            Log.e(TAG, "Client: Connection establishment failed (status 147) for $deviceAddress")
-                        }
+                        Log.w(TAG, "Disconnected from $deviceAddress with error status $status (client)")
                     } else {
-                        Log.d(TAG, "Client: Cleanly disconnected from $deviceAddress")
-                        connectionTracker.cleanupDeviceConnection(deviceAddress)
+                        Log.i(TAG, "Disconnected from $deviceAddress (client)")
                     }
+                    // Capture the observed peer before cleanup drops the address mapping.
+                    val disconnectedPeerID = connectionTracker.addressPeerMap[deviceAddress]
+                    connectionTracker.cleanupDeviceConnectionIfCurrent(deviceAddress, linkID)
 
                     // Notify higher layers about device disconnection to update direct flags
-                    delegate?.onDeviceDisconnected(gatt.device)
+                    delegate?.onDeviceDisconnected(gatt.device, linkID, disconnectedPeerID)
 
                     connectionScope.launch {
                         delay(500) // CLEANUP_DELAY
@@ -572,18 +500,16 @@ class BluetoothGattClientManager(
             
             override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
                 val deviceAddress = gatt.device.address
-                Log.i(TAG, "Client: MTU changed for $deviceAddress to $mtu with status $status")
 
                 if (status == BluetoothGatt.GATT_SUCCESS) {
-                    Log.i(TAG, "MTU successfully negotiated for $deviceAddress. Discovering services.")
-                    
                     // Now that MTU is set, connection is fully ready.
                     val deviceConn = BluetoothConnectionTracker.DeviceConnection(
                         device = gatt.device,
                         gatt = gatt,
                         rssi = rssi,
                         isClient = true,
-                        peerID = peerID // Store the peerID discovered during scan
+                        peerID = peerID, // Store the peerID discovered during scan
+                        linkID = linkID
                     )
                     connectionTracker.addDeviceConnection(deviceAddress, deviceConn)
                     
@@ -602,10 +528,12 @@ class BluetoothGattClientManager(
                     if (service != null) {
                         val characteristic = service.getCharacteristic(AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID)
                         if (characteristic != null) {
-                            connectionTracker.getDeviceConnection(deviceAddress)?.let { deviceConn ->
-                                val updatedConn = deviceConn.copy(characteristic = characteristic)
-                                connectionTracker.updateDeviceConnection(deviceAddress, updatedConn)
-                                Log.d(TAG, "Client: Updated device connection with characteristic for $deviceAddress")
+                            if (connectionTracker.updateDeviceConnectionIfCurrent(
+                                    deviceAddress,
+                                    linkID
+                                ) { it.copy(characteristic = characteristic) }
+                            ) {
+                                // Characteristic stored on the current device connection
                             }
                             
                             gatt.setCharacteristicNotification(characteristic, true)
@@ -616,7 +544,7 @@ class BluetoothGattClientManager(
                                 
                                 connectionScope.launch {
                                     delay(200)
-                                    Log.i(TAG, "Client: Connection setup complete for $deviceAddress")
+                                    Log.i(TAG, "Connected to $deviceAddress (client)")
                                     delegate?.onDeviceConnected(device)
                                 }
                             } else {
@@ -639,43 +567,33 @@ class BluetoothGattClientManager(
             
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
                 val value = characteristic.value
-                Log.i(TAG, "Client: Received packet from ${gatt.device.address}, size: ${value.size} bytes")
                 val packet = BitchatPacket.fromBinaryData(value)
                 if (packet != null) {
                     val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
-                    Log.d(TAG, "Client: Parsed packet type ${packet.type} from $peerID")
-                    delegate?.onPacketReceived(packet, peerID, gatt.device)
+                    delegate?.onPacketReceived(packet, peerID, gatt.device, linkID)
                 } else {
-                    Log.w(TAG, "Client: Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")
-                    Log.w(TAG, "Client: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
+                    Log.d(TAG, "Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")
+                }
+            }
+
+            override fun onCharacteristicWrite(
+                gatt: BluetoothGatt,
+                characteristic: BluetoothGattCharacteristic,
+                status: Int
+            ) {
+                if (characteristic.uuid == AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID) {
+                    delegate?.onGattClientWriteComplete(gatt.device.address, linkID, status)
                 }
             }
             
-            override fun onReadRemoteRssi(gatt: BluetoothGatt, rssi: Int, status: Int) {
-                val deviceAddress = gatt.device.address
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    Log.d(TAG, "Client: RSSI updated for $deviceAddress: $rssi dBm")
-                    
-                    // Update the connection tracker with new RSSI value
-                    connectionTracker.getDeviceConnection(deviceAddress)?.let { deviceConn ->
-                        val updatedConn = deviceConn.copy(rssi = rssi)
-                        connectionTracker.updateDeviceConnection(deviceAddress, updatedConn)
-                    }
-                } else {
-                    Log.w(TAG, "Client: Failed to read RSSI for $deviceAddress, status: $status")
-                }
-            }
         }
         
         try {
-            Log.d(TAG, "Client: Attempting GATT connection to $deviceAddress with autoConnect=false")
             val gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
             if (gatt == null) {
                 Log.e(TAG, "connectGatt returned null for $deviceAddress")
                 // keep the pending connection so we can avoid too many reconnections attempts, TODO: needs testing
                 // connectionTracker.removePendingConnection(deviceAddress)
-            } else {
-                Log.d(TAG, "Client: GATT connection initiated successfully for $deviceAddress")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Client: Exception connecting to $deviceAddress: ${e.message}")
@@ -695,13 +613,37 @@ class BluetoothGattClientManager(
         connectionScope.launch {
             stopScanning()
             delay(1000) // Extra delay to avoid rate limiting
-            
-            if (powerManager.shouldUseDutyCycle()) {
-                Log.i(TAG, "Switching to duty cycle scanning mode")
-                // Duty cycle will handle scanning
-            } else {
-                Log.i(TAG, "Switching to continuous scanning mode")
-                startScanning()
+            applyPowerProfile(powerManager.profile.value)
+        }
+    }
+
+    /**
+     * Apply the current process-wide profile without ever disabling background discovery.
+     */
+    fun applyPowerProfile(profile: PowerManager.RuntimePerformanceProfile) {
+        scanDutyCycleJob?.cancel()
+        scanDutyCycleJob = null
+        if (!isActive || !isClientRoleEnabled()) {
+            onScanStateChanged(false)
+            return
+        }
+
+        if (profile.ble.continuousScan) {
+            startScanWatchdog()
+            onScanStateChanged(true)
+            return
+        }
+
+        // Duty-cycled scans are re-armed every window, so the continuous-scan watchdog would only
+        // create background wakeups during intentional OFF periods.
+        stopScanWatchdog()
+        scanDutyCycleJob = connectionScope.launch {
+            while (isActive && isClientRoleEnabled()) {
+                onScanStateChanged(true)
+                delay(profile.ble.scanOnMs)
+                if (!isActive || !isClientRoleEnabled()) break
+                onScanStateChanged(false)
+                delay(profile.ble.scanOffMs)
             }
         }
     }

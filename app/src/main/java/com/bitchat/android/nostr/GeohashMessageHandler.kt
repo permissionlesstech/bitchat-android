@@ -3,8 +3,6 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.ui.ChatState
-import com.bitchat.android.ui.MessageManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -17,11 +15,10 @@ import java.util.Date
  */
 class GeohashMessageHandler(
     private val application: Application,
-    private val state: ChatState,
-    private val messageManager: MessageManager,
     private val repo: GeohashRepository,
     private val scope: CoroutineScope,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    private val addChannelMessage: (String, BitchatMessage) -> Unit
 ) {
     companion object { private const val TAG = "GeohashMessageHandler" }
 
@@ -96,13 +93,14 @@ class GeohashMessageHandler(
                     isRelay = false,
                     originalSender = repo.displayNameForNostrPubkey(pubkey),
                     senderPeerID = "nostr:${pubkey.take(8)}",
+                    senderNostrPubkey = pubkey,
                     mentions = null,
                     channel = "#$subscribedGeohash",
                     powDifficulty = try {
                         if (hasNonce) NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } else null
                     } catch (_: Exception) { null }
                 )
-                messageManager.addChannelMessage("geo:$subscribedGeohash", msg)
+                addChannelMessage("geo:$subscribedGeohash", msg)
             } catch (e: Exception) {
                 Log.e(TAG, "onEvent error: ${e.message}")
             }

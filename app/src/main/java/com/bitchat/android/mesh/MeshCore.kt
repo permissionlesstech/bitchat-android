@@ -5,6 +5,8 @@ import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatFilePacket
+import com.bitchat.android.model.AuthenticatedPeerState
+import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
@@ -18,7 +20,7 @@ import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -40,8 +42,11 @@ class MeshCore(
     private val hooks: Hooks = Hooks()
 ) {
     data class Hooks(
-        val onMessageReceived: ((BitchatMessage) -> Unit)? = null,
-        val onPeerIdBindingUpdated: ((String, String, ByteArray, String?) -> Unit)? = null,
+        /**
+         * Reflects a decoded message into transport-owned state before delegate dispatch.
+         * Return false to suppress all downstream effects for a rejected message.
+         */
+        val onMessageReceived: ((BitchatMessage) -> Boolean)? = null,
         val onAnnounceProcessed: ((RoutedPacket, Boolean) -> Unit)? = null,
         val readReceiptInterceptor: ((String, String) -> Boolean)? = null,
         val onReadReceiptSent: ((String) -> Unit)? = null,
@@ -51,10 +56,64 @@ class MeshCore(
 
     private val peerManager = PeerManager()
     val fragmentManager = FragmentManager()
+    private val readReceiptRetrySender = RetryingControlPacketSender(scope)
+    private val authenticatedPeerStateStore = SecureAuthenticatedPeerStateStore(context)
+    private val authenticatedPeerState by lazy {
+        AuthenticatedPeerStateCoordinator(
+            scope = scope,
+            authenticatedSessionProvider = encryptionService::getAuthenticatedSession,
+            withAuthenticatedSession = encryptionService::withAuthenticatedSession,
+            store = authenticatedPeerStateStore,
+            localStateProvider = {
+                AuthenticatedPeerState(
+                    PeerCapabilities.LOCAL_SUPPORTED,
+                    requireNotNull(encryptionService.getSigningPublicKey())
+                )
+            },
+            applyAuthenticatedState = peerManager::applyAuthenticatedPeerState,
+            sendState = ::sendAuthenticatedPeerState,
+            onResolution = { peerID -> delegate?.didResolvePrivateMediaPolicy(peerID) }
+        )
+    }
+    private val privateMediaSecurity by lazy { PrivateMediaSecurityController(
+        authenticatedSessionProvider = encryptionService::getAuthenticatedSession,
+        peerStateStatusProvider = authenticatedPeerState::status,
+        isPrivateMediaPinned = authenticatedPeerState::isPrivateMediaPinned
+    ) }
+    private val privateMediaPreparer by lazy {
+        PrivateMediaTransferPreparer(
+            senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+            ttl = maxTtl,
+            policyProvider = privateMediaSecurity::sendPolicy,
+            encrypt = { plaintext, peerID, authenticatedSession ->
+                try {
+                    PrivateMediaEncryptionResult.Success(
+                        encryptionService.encryptForSession(
+                            plaintext,
+                            peerID,
+                            authenticatedSession
+                        )
+                    )
+                } catch (_: com.bitchat.android.noise.NoiseSessionError.SessionGenerationChanged) {
+                    PrivateMediaEncryptionResult.GenerationChanged
+                } catch (_: com.bitchat.android.noise.NoiseSessionError.SessionNotFound) {
+                    PrivateMediaEncryptionResult.GenerationChanged
+                } catch (_: com.bitchat.android.noise.NoiseSessionError.SessionNotEstablished) {
+                    PrivateMediaEncryptionResult.GenerationChanged
+                } catch (_: Exception) {
+                    PrivateMediaEncryptionResult.Failed
+                }
+            },
+            finalizeRoutedAndSigned = ::routeAndSignPrivateMediaStrict,
+            fragment = fragmentManager::createFragments
+        )
+    }
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     private val packetProcessor = PacketProcessor(myPeerID)
+    private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
+    private val voiceFrameQueue = Channel<VoiceFrameRequest>(capacity = 128)
     private val directPeers = ConcurrentHashMap.newKeySet<String>()
 
     val gossipSyncManager: GossipSyncManager =
@@ -63,10 +122,12 @@ class MeshCore(
 
     var delegate: MeshDelegate? = null
 
-    private var announceJob: Job? = null
     private var isActive = false
 
     init {
+        scope.launch {
+            for (request in voiceFrameQueue) dispatchVoiceFrame(request)
+        }
         messageHandler.packetProcessor = packetProcessor
         peerManager.isPeerDirectlyConnected = { peerID -> directPeers.contains(peerID) }
         setupDelegates()
@@ -92,7 +153,6 @@ class MeshCore(
     fun startCore() {
         if (isActive) return
         isActive = true
-        startPeriodicBroadcastAnnounce()
         if (ownsGossipManager) {
             gossipSyncManager.start()
         }
@@ -101,14 +161,14 @@ class MeshCore(
     fun stopCore() {
         if (!isActive) return
         isActive = false
-        announceJob?.cancel()
-        announceJob = null
+        directPeers.clear()
         if (ownsGossipManager) {
             gossipSyncManager.stop()
         }
     }
 
     fun shutdown() {
+        directPeers.clear()
         peerManager.shutdown()
         fragmentManager.shutdown()
         securityManager.shutdown()
@@ -117,12 +177,28 @@ class MeshCore(
         packetProcessor.shutdown()
     }
 
-    fun processIncoming(packet: BitchatPacket, peerID: String?, relayAddress: String?) {
-        packetProcessor.processPacket(RoutedPacket(packet, peerID, relayAddress))
+    fun processIncoming(
+        packet: BitchatPacket,
+        peerID: String?,
+        relayAddress: String?,
+        ingressLinkID: String? = null
+    ) {
+        packetProcessor.processPacket(
+            RoutedPacket(
+                packet = packet,
+                peerID = peerID,
+                relayAddress = relayAddress,
+                ingressLinkID = ingressLinkID
+            )
+        )
     }
 
     fun sendFromBridge(packet: RoutedPacket) {
         transport.broadcastPacket(packet)
+    }
+
+    fun sendFromBridgeAndReport(packet: RoutedPacket): Boolean {
+        return transport.broadcastPacket(packet)
     }
 
     private fun dispatchGlobal(routed: RoutedPacket) {
@@ -130,16 +206,11 @@ class MeshCore(
         TransportBridgeService.broadcast(transport.id, routed)
     }
 
-    private fun startPeriodicBroadcastAnnounce() {
-        announceJob?.cancel()
-        announceJob = scope.launch {
-            while (isActive) {
-                try {
-                    delay(30_000)
-                    sendBroadcastAnnounce()
-                } catch (_: Exception) { }
-            }
-        }
+    private suspend fun dispatchGlobalAndReport(routed: RoutedPacket): Boolean {
+        val acceptedByLocalTransport = transport.broadcastPacket(routed)
+        val acceptedByBridgedTransport =
+            TransportBridgeService.broadcastAndReport(transport.id, routed)
+        return acceptedByLocalTransport || acceptedByBridgedTransport
     }
 
     private fun setupDelegates() {
@@ -150,6 +221,8 @@ class MeshCore(
             }
 
             override fun onPeerRemoved(peerID: String) {
+                directPeers.remove(peerID)
+                authenticatedPeerState.clear(peerID)
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
                 try { encryptionService.removePeer(peerID) } catch (_: Exception) { }
                 try { peerManager.refreshPeerList() } catch (_: Exception) { }
@@ -157,7 +230,18 @@ class MeshCore(
         }
 
         securityManager.delegate = object : SecurityManagerDelegate {
-            override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
+            override fun onKeyExchangeCompleted(
+                peerID: String,
+                authenticatedRemoteStaticKey: ByteArray,
+                authenticatedSessionToken: ByteArray,
+                directRelayAddress: String?,
+                ingressLinkID: String?
+            ) {
+                authenticatedPeerState.onSessionAuthenticated(
+                    peerID,
+                    authenticatedRemoteStaticKey,
+                    authenticatedSessionToken
+                )
                 scope.launch {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
@@ -180,6 +264,9 @@ class MeshCore(
             }
 
             override fun getPeerInfo(peerID: String): PeerInfo? = peerManager.getPeerInfo(peerID)
+
+            override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
+                authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
         }
 
         storeForwardManager.delegate = object : StoreForwardManagerDelegate {
@@ -225,14 +312,22 @@ class MeshCore(
                 return peerManager.getPeerInfo(peerID)
             }
 
-            override fun updatePeerInfo(
+            override fun updatePeerInfoFromVerifiedAnnouncement(
                 peerID: String,
                 nickname: String,
                 noisePublicKey: ByteArray,
                 signingPublicKey: ByteArray,
-                isVerified: Boolean
+                isVerified: Boolean,
+                capabilities: com.bitchat.android.model.PeerCapabilities?
             ): Boolean {
-                return peerManager.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
+                return peerManager.updatePeerInfoFromVerifiedAnnouncement(
+                    peerID,
+                    nickname,
+                    noisePublicKey,
+                    signingPublicKey,
+                    isVerified,
+                    capabilities
+                )
             }
 
             override fun sendPacket(packet: BitchatPacket) {
@@ -256,7 +351,10 @@ class MeshCore(
                 return securityManager.encryptForPeer(data, recipientPeerID)
             }
 
-            override fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray? {
+            override fun decryptFromPeer(
+                encryptedData: ByteArray,
+                senderPeerID: String
+            ): com.bitchat.android.noise.NoiseDecryptionResult? {
                 return securityManager.decryptFromPeer(encryptedData, senderPeerID)
             }
 
@@ -264,8 +362,19 @@ class MeshCore(
                 return encryptionService.verifyEd25519Signature(signature, data, publicKey)
             }
 
+            override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
+                authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
+
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)
+            }
+
+            override fun removeNoiseSession(peerID: String) {
+                try {
+                    encryptionService.removePeer(peerID)
+                } catch (e: Exception) {
+                    Log.w("MeshCore", "Failed to remove Noise session for $peerID: ${e.message}")
+                }
             }
 
             override fun initiateNoiseHandshake(peerID: String) {
@@ -280,17 +389,12 @@ class MeshCore(
                 }
             }
 
-            override fun updatePeerIDBinding(
-                newPeerID: String,
-                nickname: String,
-                publicKey: ByteArray,
-                previousPeerID: String?
+            override fun onAuthenticatedPeerStateReceived(
+                peerID: String,
+                state: AuthenticatedPeerState,
+                authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
             ) {
-                peerManager.addOrUpdatePeer(newPeerID, nickname)
-                val fingerprint = peerManager.storeFingerprintForPeer(newPeerID, publicKey)
-                previousPeerID?.let { peerManager.removePeer(it) }
-                Log.d("MeshCore", "Updated peer ID binding: $newPeerID fp=${fingerprint.take(16)}")
-                hooks.onPeerIdBindingUpdated?.invoke(newPeerID, nickname, publicKey, previousPeerID)
+                authenticatedPeerState.receive(peerID, state, authenticatedSession)
             }
 
             override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
@@ -298,7 +402,7 @@ class MeshCore(
             }
 
             override fun onMessageReceived(message: BitchatMessage) {
-                hooks.onMessageReceived?.invoke(message)
+                if (hooks.onMessageReceived?.invoke(message) == false) return
                 delegate?.didReceiveMessage(message)
             }
 
@@ -307,10 +411,22 @@ class MeshCore(
             }
 
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
+                try {
+                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                        messageID,
+                        com.bitchat.android.model.DeliveryStatus.Delivered(peerID, java.util.Date())
+                    )
+                } catch (_: Exception) { }
                 delegate?.didReceiveDeliveryAck(messageID, peerID)
             }
 
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
+                try {
+                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                        messageID,
+                        com.bitchat.android.model.DeliveryStatus.Read(peerID, java.util.Date())
+                    )
+                } catch (_: Exception) { }
                 delegate?.didReceiveReadReceipt(messageID, peerID)
             }
 
@@ -348,16 +464,16 @@ class MeshCore(
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
 
-            override fun handleNoiseEncrypted(routed: RoutedPacket) {
-                scope.launch { messageHandler.handleNoiseEncrypted(routed) }
+            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
             }
 
-            override fun handleAnnounce(routed: RoutedPacket) {
-                scope.launch {
-                    val isFirst = messageHandler.handleAnnounce(routed)
-                    hooks.onAnnounceProcessed?.invoke(routed, isFirst)
-                    try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
-                }
+            override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+                val result = messageHandler.handleAnnounceWithResult(routed)
+                if (result !is AnnounceHandlingResult.Accepted) return false
+                hooks.onAnnounceProcessed?.invoke(routed, result.isFirst)
+                try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
+                return true
             }
 
             override fun handleMessage(routed: RoutedPacket) {
@@ -370,6 +486,9 @@ class MeshCore(
                     }
                 } catch (_: Exception) { }
             }
+
+            override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
+                messageHandler.handlePublicVoiceFrame(routed)
 
             override fun handleLeave(routed: RoutedPacket) {
                 scope.launch { messageHandler.handleLeave(routed) }
@@ -430,6 +549,32 @@ class MeshCore(
         }
     }
 
+    private fun sendAuthenticatedPeerState(
+        peerID: String,
+        state: AuthenticatedPeerState,
+        authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+    ): Boolean {
+        val plaintext = NoisePayload(NoisePayloadType.PEER_STATE, state.encode()).encode()
+        val ciphertext = securityManager.encryptForPeer(
+            plaintext,
+            peerID,
+            authenticatedSession
+        ) ?: return false
+        val packet = BitchatPacket(
+            version = if (ciphertext.size > 0xFFFF) 2u else 1u,
+            type = MessageType.NOISE_ENCRYPTED.value,
+            senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+            recipientID = MeshPacketUtils.hexStringToByteArray(peerID),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = ciphertext,
+            ttl = maxTtl
+        )
+        val signed = signPacketBeforeBroadcast(packet)
+        if (signed.signature?.size != 64) return false
+        dispatchGlobal(RoutedPacket(signed))
+        return true
+    }
+
     fun sendFileBroadcast(file: BitchatFilePacket) {
         try {
             val payload = file.encode() ?: return
@@ -455,31 +600,102 @@ class MeshCore(
     }
 
     fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket) {
+        val payload = file.encode() ?: return
+        when (val prepared = prepareFilePrivate(
+            recipientPeerID,
+            file,
+            MeshPacketUtils.sha256Hex(payload),
+            allowLegacyFallback = false
+        )) {
+            is PrivateMediaPreparation.Ready -> prepared.transfer.commit()
+            is PrivateMediaPreparation.RequiresLegacyConsent ->
+                Log.w("MeshCore", "Private media requires explicit one-shot legacy consent")
+            PrivateMediaPreparation.NeedsHandshake -> {
+                Log.i("MeshCore", "Private media needs a Noise handshake; initiating without sending")
+                initiateNoiseHandshake(recipientPeerID)
+            }
+            PrivateMediaPreparation.AwaitingPeerState -> Unit
+            is PrivateMediaPreparation.Rejected ->
+                Log.w("MeshCore", "Private media blocked: ${prepared.reason}")
+        }
+    }
+
+    fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
+        if (payload.isEmpty()) return
+        voiceFrameQueue.trySend(VoiceFrameRequest(recipientPeerID, payload.copyOf()))
+    }
+
+    private fun dispatchVoiceFrame(request: VoiceFrameRequest) {
         try {
-            scope.launch {
-                if (!encryptionService.hasEstablishedSession(recipientPeerID)) {
-                    initiateNoiseHandshake(recipientPeerID)
-                    return@launch
-                }
-                val tlv = file.encode() ?: return@launch
-                val np = NoisePayload(type = NoisePayloadType.FILE_TRANSFER, data = tlv).encode()
-                val enc = encryptionService.encrypt(np, recipientPeerID)
-                val packet = BitchatPacket(
-                    version = if (enc.size > 0xFFFF) 2u else 1u,
+            val recipientPeerID = request.recipientPeerID
+            val packet = if (recipientPeerID == null) {
+                BitchatPacket(
+                    version = 1u,
+                    type = MessageType.VOICE_FRAME.value,
+                    senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+                    recipientID = SpecialRecipients.BROADCAST,
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = request.payload,
+                    ttl = maxTtl
+                )
+            } else {
+                if (!encryptionService.hasEstablishedSession(recipientPeerID)) return
+                val plaintext = NoisePayload(NoisePayloadType.VOICE_FRAME, request.payload).encode()
+                val ciphertext = encryptionService.encrypt(plaintext, recipientPeerID)
+                BitchatPacket(
+                    version = 1u,
                     type = MessageType.NOISE_ENCRYPTED.value,
                     senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
                     recipientID = MeshPacketUtils.hexStringToByteArray(recipientPeerID),
                     timestamp = System.currentTimeMillis().toULong(),
-                    payload = enc,
-                    signature = null,
+                    payload = ciphertext,
                     ttl = maxTtl
                 )
-                val signed = signPacketBeforeBroadcast(packet)
-                val transferId = MeshPacketUtils.sha256Hex(tlv)
-                dispatchGlobal(RoutedPacket(signed, transferId = transferId))
             }
+            dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
         } catch (e: Exception) {
-            Log.e("MeshCore", "sendFilePrivate failed: ${e.message}", e)
+            Log.w("MeshCore", "Live voice frame send failed: ${e.message}")
+        }
+    }
+
+    fun prepareFilePrivate(
+        recipientPeerID: String,
+        file: BitchatFilePacket,
+        transferId: String,
+        allowLegacyFallback: Boolean
+    ): PrivateMediaPreparation {
+        return when (val outcome = privateMediaPreparer.prepare(
+            recipientPeerID = recipientPeerID,
+            recipientID = MeshPacketUtils.hexStringToByteArray(recipientPeerID),
+            file = file,
+            allowLegacyFallback = allowLegacyFallback
+        )) {
+            is PrivateMediaBuildOutcome.RequiresLegacyConsent ->
+                PrivateMediaPreparation.RequiresLegacyConsent(outcome.warning)
+            PrivateMediaBuildOutcome.NeedsHandshake ->
+                PrivateMediaPreparation.NeedsHandshake
+            PrivateMediaBuildOutcome.AwaitingPeerState ->
+                PrivateMediaPreparation.AwaitingPeerState
+            is PrivateMediaBuildOutcome.Rejected ->
+                PrivateMediaPreparation.Rejected(outcome.reason)
+            is PrivateMediaBuildOutcome.Ready -> {
+                val built = outcome.built
+                val routed = RoutedPacket(
+                    packet = built.packet,
+                    transferId = transferId,
+                    preparedPackets = built.fragments
+                )
+                PrivateMediaPreparation.Ready(
+                    PreparedPrivateMediaTransfer(transferId, built.wireMode) {
+                        if (!isActive) {
+                            false
+                        } else {
+                            dispatchGlobal(routed)
+                            true
+                        }
+                    }
+                )
+            }
         }
     }
 
@@ -541,8 +757,24 @@ class MeshCore(
                     signature = null,
                     ttl = maxTtl
                 )
-                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
-                hooks.onReadReceiptSent?.invoke(messageID)
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                val retryKey = "$recipientPeerID:$messageID"
+                readReceiptRetrySender.enqueue(
+                    key = retryKey,
+                    sendAttempt = {
+                        dispatchGlobalAndReport(RoutedPacket(signedPacket))
+                    },
+                    onComplete = { accepted ->
+                        if (accepted) {
+                            try {
+                                com.bitchat.android.services.SeenMessageStore
+                                    .getInstance(context.applicationContext)
+                                    .markReadReceiptSent(messageID)
+                            } catch (_: Exception) { }
+                            hooks.onReadReceiptSent?.invoke(messageID)
+                        }
+                    }
+                )
             } catch (e: Exception) {
                 Log.e("MeshCore", "Failed to send read receipt: ${e.message}")
             }
@@ -600,7 +832,7 @@ class MeshCore(
                 Log.e("MeshCore", "No signing public key available for announcement")
                 return@launch
             }
-            val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
+            val announcement = IdentityAnnouncement.forLocalPeer(nickname, staticKey, signingKey)
             val tlvPayload = buildAnnouncementPayload(announcement, nickname) ?: return@launch
             val announcePacket = BitchatPacket(
                 type = MessageType.ANNOUNCE.value,
@@ -621,7 +853,7 @@ class MeshCore(
             ?: myPeerID
         val staticKey = encryptionService.getStaticPublicKey() ?: return
         val signingKey = encryptionService.getSigningPublicKey() ?: return
-        val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
+        val announcement = IdentityAnnouncement.forLocalPeer(nickname, staticKey, signingKey)
         val tlvPayload = buildAnnouncementPayload(announcement, nickname) ?: return
         val packet = BitchatPacket(
             type = MessageType.ANNOUNCE.value,
@@ -689,6 +921,7 @@ class MeshCore(
     }
 
     fun removePeer(peerID: String) {
+        directPeers.remove(peerID)
         peerManager.removePeer(peerID)
     }
 
@@ -795,39 +1028,55 @@ class MeshCore(
     }
 
     fun clearAllInternalData() {
+        directPeers.clear()
         fragmentManager.clearAllFragments()
         storeForwardManager.clearAllCache()
         securityManager.clearAllData()
         peerManager.clearAllPeers()
         peerManager.clearAllFingerprints()
+        try { gossipSyncManager.clear() } catch (_: Exception) { }
     }
 
     fun clearAllEncryptionData() {
         encryptionService.clearPersistentIdentity()
     }
 
-    private fun signPacketBeforeBroadcast(packet: BitchatPacket): BitchatPacket {
+    private fun applyRouteIfAvailable(packet: BitchatPacket): BitchatPacket {
         return try {
-            val withRoute = try {
-                val recipient = packet.recipientID
-                if (recipient != null && !recipient.contentEquals(SpecialRecipients.BROADCAST)) {
-                    val destination = recipient.toHexString()
-                    val path = com.bitchat.android.services.meshgraph.RoutePlanner.shortestPath(myPeerID, destination)
-                    if (path != null && path.size >= 3) {
-                        val intermediates = path.subList(1, path.size - 1)
-                        packet.copy(
-                            route = intermediates.map { MeshPacketUtils.hexStringToByteArray(it) },
-                            version = 2u
-                        )
-                    } else {
-                        packet.copy(route = null)
-                    }
+            val recipient = packet.recipientID
+            if (recipient != null && !recipient.contentEquals(SpecialRecipients.BROADCAST)) {
+                val destination = recipient.toHexString()
+                val path = com.bitchat.android.services.meshgraph.RoutePlanner.shortestPath(
+                    myPeerID,
+                    destination
+                )
+                if (path != null && path.size >= 3) {
+                    val intermediates = path.subList(1, path.size - 1)
+                    packet.copy(
+                        route = intermediates.map { MeshPacketUtils.hexStringToByteArray(it) },
+                        version = 2u
+                    )
                 } else {
-                    packet
+                    packet.copy(route = null)
                 }
-            } catch (_: Exception) {
+            } else {
                 packet
             }
+        } catch (_: Exception) {
+            packet
+        }
+    }
+
+    private fun routeAndSignPrivateMediaStrict(packet: BitchatPacket): BitchatPacket? {
+        val routed = applyRouteIfAvailable(packet)
+        val signingBytes = routed.toBinaryDataForSigning() ?: return null
+        val signature = encryptionService.signData(signingBytes) ?: return null
+        return routed.copy(signature = signature)
+    }
+
+    private fun signPacketBeforeBroadcast(packet: BitchatPacket): BitchatPacket {
+        return try {
+            val withRoute = applyRouteIfAvailable(packet)
 
             val packetDataForSigning = withRoute.toBinaryDataForSigning() ?: return withRoute
             val signature = encryptionService.signData(packetDataForSigning)

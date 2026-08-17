@@ -40,7 +40,7 @@
     <string name="notification_summary_more">och %1$d till</string>
     <string name="notification_messages_from_people">%1$d meddelanden från %2$d personer</string>
     <string name="notification_more_conversations">och %1$d fler konversationer</string>
-    <string name="notification_active_peers_title">👥 bitchatter i närheten!</string>
+    <string name="notification_active_peers_title">bitchatter i närheten!</string>
     <string name="notification_active_peers_one">1 person i närheten</string>
     <string name="notification_active_peers_many">%1$d personer i närheten</string>
     <string name="notification_new_messages">Nya meddelanden</string>
@@ -63,14 +63,10 @@
     <string name="cd_remove_favorite">Ta bort favorit</string>
     <string name="cd_add_bookmark">Lägg till bokmärke</string>
 
-    <string name="chat_back">tillbaka</string>
-    <string name="chat_channel_prefix">kanal: %1$s</string>
-    <string name="chat_leave">lämna</string>
     <string name="cd_nostr_reachable">Nås via Nostr</string>
     <string name="cd_unread_private_messages">Olästa privata meddelanden</string>
-    <string name="cd_toggle_bookmark">Växla bokmärke</string>
     <string name="cd_teleported">Teleporterad</string>
-    <string name="cd_tor_status">Tor‑status</string>
+    <string name="cd_open_location_channels">Öppna plats- och kanalinställningar</string>
     <string name="cd_connected_peers">Anslutna noder</string>
     <string name="cd_geohash_participants">Geohash‑deltagare</string>
     <string name="cd_ready_for_handshake">Redo för handshake</string>
@@ -86,14 +82,12 @@
     <string name="close_with_emoji">❌ Stäng</string>
     <string name="pick_image">Välj bild</string>
 
-    <string name="about_tagline">decentraliserad mesh‑meddelanden med ända‑till‑ända‑kryptering</string>
     <string name="about_offline_mesh_title">Offline Mesh‑chatt</string>
     <string name="about_offline_mesh_desc">Kommunicera direkt via Bluetooth LE utan internet eller servrar. Meddelanden reläas av enheter i närheten.</string>
     <string name="about_online_geohash_title">Online Geohash‑kanaler</string>
     <string name="about_online_geohash_desc">Anslut med personer i närheten via geohash‑kanaler. Utöka mesh via publika internetreläer.</string>
     <string name="about_e2e_title">Ända‑till‑ända‑kryptering</string>
     <string name="about_e2e_desc">Privata meddelanden är krypterade. Kanalmeddelanden är publika.</string>
-    <string name="about_appearance">utseende</string>
     <string name="about_system">system</string>
     <string name="about_light">ljus</string>
     <string name="about_dark">mörk</string>
@@ -117,7 +111,6 @@
     <string name="about_tor_status">Tor‑status: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Senast: %1$s</string>
     <string name="about_emergency_title">Nödradering av data</string>
-    <string name="about_emergency_tip">Tips: tryck tre gånger på appens titel för att radera alla data (meddelanden, nycklar, inställningar).</string>
     <string name="about_debug_settings">Felsökningsinställningar</string>
     <string name="about_footer">Open Source • Privacy First • Decentraliserad</string>
     <string name="close_plain">Stäng</string>
@@ -136,7 +129,6 @@
     <string name="cd_open_map">Öppna karta</string>
     <string name="cd_remove_bookmark">Ta bort bokmärke</string>
     <string name="cd_teleport">Teleportera</string>
-    <string name="cd_selected">Vald</string>
     <string name="cd_leave_channel">Lämna kanal</string>
     <string name="cd_reachable_via_nostr">Nås via Nostr</string>
     <string name="cd_offline_favorite">Favorit (offline)</string>
@@ -264,9 +256,7 @@
     <string name="grant_permissions">Ge behörigheter</string>
     <string name="location_tracking_warning">bitchat spårar INTE din plats</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">PERSONER</string>
     <string name="nobody_around">ingen i närheten…</string>
     <string name="you_suffix"> (du)</string>
     <string name="pan_zoom_instruction">panorera och zooma för att välja geohash</string>
@@ -275,7 +265,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">nämn</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -286,13 +275,6 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Bild</string>
     <string name="media_type_file">Fil</string>
-
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <string name="notification_sent_image">📷 skickade en bild</string>
     <string name="notification_sent_voice">🎤 skickade ett röstmeddelande</string>
@@ -388,4 +370,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Öppna Om</string>
+  <string name="nearby_notes_reveal">kolla om anteckningar lämnats här</string>
+  <string name="nearby_notes_one">1 anteckning lämnad här — tryck för att läsa</string>
+  <string name="nearby_notes_many">%d anteckningar lämnade här — tryck för att läsa</string>
+    <string name="about_language">Språk</string>
+    <string name="about_app_language">Appspråk</string>
+    <string name="about_system_default">Systemstandard</string>
+    <string name="about_select_language">Välj språk</string>
 </resources>

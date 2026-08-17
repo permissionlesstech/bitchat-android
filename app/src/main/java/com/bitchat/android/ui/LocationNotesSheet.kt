@@ -1,16 +1,15 @@
 package com.bitchat.android.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -18,9 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,6 +31,7 @@ import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
+import com.bitchat.android.nostr.NearbyNotesController
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
@@ -50,20 +50,21 @@ fun LocationNotesSheet(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
-    
-    // iOS color scheme
-    val accentGreen = if (isDark) Color.Green else Color(0xFF008000) // dark: green, light: dark green (0, 0.5, 0)
+    val colorScheme = MaterialTheme.colorScheme
+    val accentGreen = colorScheme.primary
     
     // Managers
     val notesManager = remember { LocationNotesManager.getInstance() }
     val locationManager = remember { LocationChannelManager.getInstance(context) }
+    val nearbyNotesController = remember { NearbyNotesController.shared }
     
     // State
     val notes by notesManager.notes.collectAsStateWithLifecycle()
     val state by notesManager.state.collectAsStateWithLifecycle(LocationNotesManager.State.IDLE)
     val errorMessage by notesManager.errorMessage.collectAsStateWithLifecycle()
     val initialLoadComplete by notesManager.initialLoadComplete.collectAsStateWithLifecycle(false)
+    val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
+    val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
     
     // SIMPLIFIED: Get count directly from notes list (no separate counter needed)
     val count = notes.size
@@ -94,15 +95,24 @@ fun LocationNotesSheet(
         locationManager.refreshChannels()
     }
 
-    // Effect to set geohash when sheet opens
-    LaunchedEffect(geohash) {
-        notesManager.setGeohash(geohash)
-    }
-    
-    // Cleanup when sheet closes
-    DisposableEffect(Unit) {
+    // Opening the notes sheet is an explicit reveal. The balanced hold lets
+    // the mesh timeline keep the shared subscription alive after dismissal.
+    DisposableEffect(
+        geohash,
+        locationEnabled,
+        permissionState,
+        nearbyNotesController,
+    ) {
+        nearbyNotesController.updateAvailability(
+            locationEnabled = locationEnabled,
+            locationAuthorized =
+                permissionState == LocationChannelManager.PermissionState.AUTHORIZED,
+            buildingGeohash = geohash,
+        )
+        nearbyNotesController.activate()
+        nearbyNotesController.reveal()
         onDispose {
-            notesManager.cancel()
+            nearbyNotesController.deactivate()
         }
     }
 
@@ -238,7 +248,7 @@ private fun LocationNotesHeader(
             if (name.isNotEmpty()) {
                 Text(
                     text = name,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 12.sp,
                     color = accentGreen
                 )
@@ -249,7 +259,7 @@ private fun LocationNotesHeader(
         // Description
         Text(
             text = stringResource(R.string.location_notes_description),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
@@ -259,7 +269,7 @@ private fun LocationNotesHeader(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = stringResource(R.string.location_notes_relays_unavailable),
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
@@ -290,7 +300,7 @@ private fun NoteRow(note: LocationNotesManager.Note) {
         ) {
             Text(
                 text = "@$baseName",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -299,7 +309,7 @@ private fun NoteRow(note: LocationNotesManager.Note) {
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = ts,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
@@ -311,7 +321,7 @@ private fun NoteRow(note: LocationNotesManager.Note) {
         // Second row: content
         Text(
             text = note.content,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -330,7 +340,7 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
     ) {
         Text(
             text = stringResource(R.string.location_notes_no_relays_title),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
@@ -338,14 +348,14 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.location_notes_no_relays_desc),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.retry),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.clickable(onClick = onRetry)
@@ -372,7 +382,7 @@ private fun LoadingRow() {
         Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = stringResource(R.string.loading_location_notes),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
@@ -391,7 +401,7 @@ private fun EmptyRow() {
     ) {
         Text(
             text = stringResource(R.string.location_notes_empty_title),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
@@ -399,7 +409,7 @@ private fun EmptyRow() {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.location_notes_empty_desc),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
@@ -427,7 +437,7 @@ private fun ErrorRow(message: String, onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = message,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -435,7 +445,7 @@ private fun ErrorRow(message: String, onDismiss: () -> Unit) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.dismiss),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.clickable(onClick = onDismiss)
@@ -455,7 +465,6 @@ private fun LocationNotesInputSection(
     nickname: String?,
     onSend: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
     val colorScheme = MaterialTheme.colorScheme
 
     Column(
@@ -469,7 +478,7 @@ private fun LocationNotesInputSection(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "@$baseName",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = colorScheme.onSurface
@@ -493,7 +502,7 @@ private fun LocationNotesInputSection(
                 onValueChange = onDraftChange,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = colorScheme.primary,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = BitchatFontFamily
                 ),
                 cursorBrush = androidx.compose.ui.graphics.SolidColor(colorScheme.primary),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -510,7 +519,7 @@ private fun LocationNotesInputSection(
                 Text(
                     text = stringResource(R.string.location_notes_input_placeholder),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = BitchatFontFamily
                     ),
                     color = colorScheme.onSurface.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth()
@@ -543,10 +552,8 @@ private fun LocationNotesInputSection(
                     modifier = Modifier.size(20.dp),
                     tint = if (!sendButtonEnabled) {
                         colorScheme.onSurface.copy(alpha = 0.5f)
-                    } else if (isDark) {
-                        Color.Black // Black arrow on green in dark theme
                     } else {
-                        Color.White // White arrow on green in light theme
+                        colorScheme.onPrimary
                     }
                 )
             }

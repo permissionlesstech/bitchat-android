@@ -2,7 +2,6 @@ package com.bitchat.android.noise
 
 import android.util.Log
 import com.bitchat.android.noise.southernstorm.protocol.*
-import com.bitchat.android.util.toHexString
 import java.security.SecureRandom
 
 
@@ -123,7 +122,6 @@ class NoiseSession(
                 }
                 // Extract ciphertext (remaining bytes)
                 val ciphertext = combinedPayload.copyOfRange(NONCE_SIZE_BYTES, combinedPayload.size)
-                Log.d(TAG, "Extracted nonce: $extractedNonce, ciphertext size: ${ciphertext.size}")
                 return Pair(extractedNonce, ciphertext)
                 
             } catch (e: Exception) {
@@ -210,9 +208,7 @@ class NoiseSession(
     
     init {
         try {
-            // Validate static keys
             validateStaticKeys()
-            Log.d(TAG, "Created ${if (isInitiator) "initiator" else "responder"} session for $peerID")
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
             Log.e(TAG, "Failed to initialize Noise session: ${e.message}")
@@ -237,8 +233,6 @@ class NoiseSession(
         if (localStaticPublicKey.all { it == 0.toByte() }) {
             throw IllegalArgumentException("Local static public key cannot be all zeros")
         }
-        
-        Log.d(TAG, "Static keys validated successfully - private: ${localStaticPrivateKey.size} bytes, public: ${localStaticPublicKey.size} bytes")
     }
     
     /**
@@ -247,60 +241,24 @@ class NoiseSession(
      */
     private fun initializeNoiseHandshake(role: Int) {
         try {
-            Log.d(TAG, "Creating HandshakeState with role: ${if (role == HandshakeState.INITIATOR) "INITIATOR" else "RESPONDER"}")
-            
-            // LOGGING: Track Android handshake initialization (matching iOS) 
-            Log.d(TAG, "=== ANDROID NOISE SESSION - BEFORE HANDSHAKE INIT ===")
-            Log.d(TAG, "Creating NoiseHandshakeState for peer: $peerID")
-            Log.d(TAG, "Role: ${if (role == HandshakeState.INITIATOR) "INITIATOR" else "RESPONDER"}")
-            
             handshakeState = HandshakeState(PROTOCOL_NAME, role)
-            Log.d(TAG, "HandshakeState created successfully")
-            
-            Log.d(TAG, "=== ANDROID NOISE SESSION - AFTER HANDSHAKE INIT ===")
-            Log.d(TAG, "NoiseHandshakeState created and mixPreMessageKeys() completed")
-            
+
             if (handshakeState?.needsLocalKeyPair() == true) {
-                Log.d(TAG, "Local static key pair is required for XX pattern")
-                
                 val localKeyPair = handshakeState?.getLocalKeyPair()
                 if (localKeyPair != null) {
-                    // FIXED: Use the provided persistent identity keys with our local fork
-                    // Our local fork properly supports setting pre-existing keys
-                    Log.d(TAG, "Setting persistent static identity keys...")
-                    
                     localKeyPair.setPrivateKey(localStaticPrivateKey, 0)
-                    
+
                     if (!localKeyPair.hasPrivateKey() || !localKeyPair.hasPublicKey()) {
                         throw IllegalStateException("Failed to set static identity keys - local fork issue")
                     }
-                    
-                    Log.d(TAG, "✓ Successfully set persistent static identity keys")
-                    Log.d(TAG, "Algorithm: ${localKeyPair.dhName}")
-                    Log.d(TAG, "Private key length: ${localKeyPair.privateKeyLength}")
-                    Log.d(TAG, "Public key length: ${localKeyPair.publicKeyLength}")
-                    
-                    // Verify the keys were set correctly
-                    val verifyPrivate = ByteArray(32)
-                    val verifyPublic = ByteArray(32)
-                    localKeyPair.getPrivateKey(verifyPrivate, 0)
-                    localKeyPair.getPublicKey(verifyPublic, 0)
-                    
-                    Log.d(TAG, "Persistent identity public key: ${localStaticPublicKey.joinToString("") { "%02x".format(it) }}")
-                    Log.d(TAG, "Set public key:               ${verifyPublic.joinToString("") { "%02x".format(it) }}")
-
                 } else {
                     throw IllegalStateException("HandshakeState returned null for local key pair")
                 }
-                
-            } else {
-                Log.d(TAG, "Local static key pair not needed for this handshake pattern/role")
             }
             handshakeState?.start()
-            Log.d(TAG, "Handshake state started successfully with persistent identity keys")
 
         } catch (e: Exception) {
-            Log.e(TAG, "Exception during handshake initialization: ${e.message}", e)
+            Log.e(TAG, "Handshake init failed for $peerID: ${e.message}", e)
             throw e
         }
     }
@@ -315,8 +273,6 @@ class NoiseSession(
      */
     @Synchronized
     fun startHandshake(): ByteArray {
-        Log.d(TAG, "Starting noise XX handshake with $peerID as INITIATOR")
-
         if (!isInitiator) {
             throw IllegalStateException("Only initiator can start handshake")
         }
@@ -343,15 +299,13 @@ class NoiseSession(
             
             // Validate message size matches XX pattern expectations
             if (firstMessage.size != XX_MESSAGE_1_SIZE) {
-                Log.w(TAG, "Warning: XX message 1 size ${firstMessage.size} != expected $XX_MESSAGE_1_SIZE")
+                Log.w(TAG, "XX message 1 size ${firstMessage.size} != expected $XX_MESSAGE_1_SIZE")
             }
-            
-            val ePrefix = firstMessage.take(4).toByteArray().toHexString()
-            Log.d(TAG, "Sending XX handshake message 1 to $peerID (${firstMessage.size} bytes) e_prefix=$ePrefix currentPattern: $currentPattern")
+
             return firstMessage
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
-            Log.e(TAG, "Failed to start handshake: ${e.message}")
+            Log.e(TAG, "Failed to start handshake with $peerID: ${e.message}")
             throw e
         }
     }
@@ -362,9 +316,6 @@ class NoiseSession(
      */
     @Synchronized
     fun processHandshakeMessage(message: ByteArray): ByteArray? {
-        val inputPrefix = message.take(4).toByteArray().toHexString()
-        Log.d(TAG, "Processing handshake message from $peerID (${message.size} bytes) prefix=$inputPrefix")
-        
         try {
             // Initialize as responder if receiving first message
             if (state == NoiseSessionState.Uninitialized && !isInitiator) {
@@ -373,7 +324,6 @@ class NoiseSession(
                 if (handshakeStartMs == null) {
                     handshakeStartMs = System.currentTimeMillis()
                 }
-                Log.d(TAG, "Initialized as RESPONDER for XX handshake with $peerID")
             }
             
             if (state != NoiseSessionState.Handshaking) {
@@ -389,13 +339,10 @@ class NoiseSession(
             // Read the incoming message - the Noise library will handle validation
             val payloadLength = handshakeStateLocal.readMessage(message, 0, message.size, payloadBuffer, 0)
             currentPattern++
-            val readPrefix = message.take(4).toByteArray().toHexString()
-            Log.d(TAG, "Read handshake message, payload length: $payloadLength prefix=$readPrefix currentPattern: $currentPattern")
-            
+
             // Check what action the handshake state wants us to take next
             val action = handshakeStateLocal.getAction()
-            Log.d(TAG, "Handshake action after processing message: $action")
-            
+
             return when (action) {
                 HandshakeState.WRITE_MESSAGE -> {
                     // Noise library says we need to send a response
@@ -403,33 +350,22 @@ class NoiseSession(
                     val responseLength = handshakeStateLocal.writeMessage(responseBuffer, 0, null, 0, 0)
                     currentPattern++
                     val response = responseBuffer.copyOf(responseLength)
-                    
-                    Log.d(TAG, "Generated handshake response: ${response.size} bytes, action still: ${handshakeStateLocal.getAction()} currentPattern: $currentPattern")
+
                     completeHandshake()
                     response
                 }
-                
+
                 HandshakeState.SPLIT -> {
                     // Handshake complete, split into transport keys
                     completeHandshake()
-                    Log.d(TAG, "SPLIT ✅ XX handshake completed with $peerID")
                     null
                 }
-                
+
                 HandshakeState.FAILED -> {
                     throw Exception("Handshake failed - Noise library reported FAILED state")
                 }
-                
-                HandshakeState.READ_MESSAGE -> {
-                    // Noise library expects us to read another message
-                    Log.d(TAG, "Handshake waiting for next message from $peerID")
-                    null
-                }
-                
-                else -> {
-                    Log.d(TAG, "Handshake action: $action - no immediate action needed")
-                    null
-                }
+
+                else -> null
             }
             
         } catch (e: Exception) {
@@ -448,30 +384,36 @@ class NoiseSession(
             return
         }
 
-        Log.d(TAG, "Completing XX handshake with $peerID")
-        
         try {
-            // Split handshake state into transport ciphers
-            val cipherPair = handshakeState?.split()
-            
-            sendCipher = cipherPair?.getSender()
-            receiveCipher = cipherPair?.getReceiver()
-            
-            // Extract remote static key if available
-            if (handshakeState?.hasRemotePublicKey() == true) {
-                val remoteDH = handshakeState?.getRemotePublicKey()
-                if (remoteDH != null) {
-                    remoteStaticPublicKey = ByteArray(32)
-                    remoteDH.getPublicKey(remoteStaticPublicKey!!, 0)
-                    Log.d(TAG, "Remote static public key: ${remoteStaticPublicKey!!.joinToString("") { "%02x".format(it) }}")
-                }
+            val activeHandshake = handshakeState ?: throw NoiseSessionError.HandshakeFailed
+
+            // Authenticate the remote static key's claimed mesh identity before split creates
+            // transport ciphers or the session can become observable as Established.
+            if (!activeHandshake.hasRemotePublicKey()) throw NoiseSessionError.HandshakeFailed
+            val remoteDH = activeHandshake.getRemotePublicKey()
+                ?: throw NoiseSessionError.HandshakeFailed
+            val authenticatedRemoteKey = ByteArray(NoisePeerIdentity.STATIC_PUBLIC_KEY_SIZE)
+            remoteDH.getPublicKey(authenticatedRemoteKey, 0)
+            val derivedPeerID = NoisePeerIdentity.derivePeerID(authenticatedRemoteKey)
+            if (!NoisePeerIdentity.matchesClaimedPeerID(peerID, authenticatedRemoteKey)) {
+                authenticatedRemoteKey.fill(0)
+                throw NoiseSessionError.PeerIdentityMismatch(peerID, derivedPeerID)
             }
+            remoteStaticPublicKey = authenticatedRemoteKey
+
+            // Only a bound remote identity may derive transport ciphers.
+            val cipherPair = activeHandshake.split()
+            sendCipher = cipherPair.getSender()
+            receiveCipher = cipherPair.getReceiver()
             
             // Extract handshake hash for channel binding
-            handshakeHash = handshakeState?.getHandshakeHash()
+            // getHandshakeHash() exposes the handshake state's backing array. Clone it before
+            // destroy() zeroizes that state, or every completed session appears to have the same
+            // all-zero channel-binding token.
+            handshakeHash = activeHandshake.getHandshakeHash().clone()
             
             // Clean up handshake state
-            handshakeState?.destroy()
+            activeHandshake.destroy()
             handshakeState = null
             
             messagesSent = 0
@@ -483,8 +425,7 @@ class NoiseSession(
             replayWindow = ByteArray(REPLAY_WINDOW_BYTES)
             
             state = NoiseSessionState.Established
-            Log.d(TAG, "Handshake completed with $peerID as isInitiator: $isInitiator - transport keys derived")
-            Log.d(TAG, "✅ XX handshake completed with $peerID")
+            Log.i(TAG, "Handshake established with $peerID (${if (isInitiator) "initiator" else "responder"})")
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
             Log.e(TAG, "Failed to complete handshake: ${e.message}")
@@ -547,20 +488,13 @@ class NoiseSession(
                 
                 // Log high nonce values that might indicate issues
                 if (currentNonce > HIGH_NONCE_WARNING_THRESHOLD) {
-                    Log.w(TAG, "High nonce value detected: $currentNonce - consider rekeying")
+                    Log.w(TAG, "High send nonce $currentNonce for $peerID - rekey recommended")
                 }
-                
-                Log.d(TAG, "✅ ANDROID ENCRYPT: ${data.size} → ${combinedPayload.size} bytes (nonce: $currentNonce, ciphertextLength+TAG: ${ciphertextLength}) for $peerID (msg #$messagesSent, role: ${if (isInitiator) "INITIATOR" else "RESPONDER"})")
+
                 return combinedPayload
-                
+
             } catch (e: Exception) {
-                Log.e(TAG, "Real encryption failed - exception: ${e.message}")
-                
-                // ENHANCED: Log cipher state for debugging
-                if (sendCipher != null) {
-                    Log.e(TAG, "Send cipher state: ${sendCipher!!.javaClass.simpleName}")
-                }
-                
+                Log.e(TAG, "Encryption failed for $peerID: ${e.message}")
                 throw SessionError.EncryptionFailed
             }
         }
@@ -621,23 +555,13 @@ class NoiseSession(
 
                 // Log high nonce values that might indicate issues
                 if (extractedNonce > HIGH_NONCE_WARNING_THRESHOLD) {
-                    Log.w(TAG, "High nonce value detected: $extractedNonce - consider rekeying")
+                    Log.w(TAG, "High receive nonce $extractedNonce for $peerID - rekey recommended")
                 }
 
-                val result = plaintext.copyOf(plaintextLength)
-                Log.d(TAG, "✅ ANDROID DECRYPT: ${combinedPayload.size} → ${result.size} bytes from $peerID (nonce: $extractedNonce, highest: $highestReceivedNonce, role: ${if (isInitiator) "INITIATOR" else "RESPONDER"})")
-                return result
-                
+                return plaintext.copyOf(plaintextLength)
+
             } catch (e: Exception) {
-                Log.e(TAG, "Decryption failed - exception: ${e.message}")
-                
-                // ENHANCED: Log cipher state and session details for debugging
-                if (receiveCipher != null) {
-                    Log.e(TAG, "Receive cipher state: ${receiveCipher!!.javaClass.simpleName}")
-                }
-                Log.e(TAG, "Session state: $state, highest received nonce: $highestReceivedNonce")
-                Log.e(TAG, "Input data size: ${combinedPayload.size} bytes")
-                
+                Log.w(TAG, "Decrypt failed for $peerID: ${e.message} (state=$state, highestNonce=$highestReceivedNonce)")
                 throw SessionError.DecryptionFailed
             }
         }
@@ -738,9 +662,7 @@ class NoiseSession(
             if (state !is NoiseSessionState.Failed) {
                 state = NoiseSessionState.Failed(Exception("Session destroyed"))
             }
-            
-            Log.d(TAG, "Session destroyed for $peerID")
-            
+
         } catch (e: Exception) {
             Log.w(TAG, "Error during session cleanup: ${e.message}")
         }

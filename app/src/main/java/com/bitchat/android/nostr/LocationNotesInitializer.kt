@@ -28,25 +28,33 @@ object LocationNotesInitializer {
                         return@initialize id // Return subscription ID even on error
                     }
                     
-                    Log.d(TAG, "📍 Location Notes subscribing to geohash: $geohashFromFilter")
-                    
+                    val token = com.bitchat.android.geohash.LiveLocationPrivacyGate
+                        .captureToken() ?: return@initialize id
                     NostrRelayManager.getInstance(context).subscribeForGeohash(
                         geohash = geohashFromFilter,
                         filter = filter,
                         id = id,
                         handler = handler,
                         includeDefaults = true,
-                        nRelays = 5
+                        nRelays = 5,
+                        liveLocationToken = token
                     )
                 },
                 unsubscribe = { id ->
                     NostrRelayManager.getInstance(context).unsubscribe(id)
                 },
-                sendEvent = { event, relayUrls ->
+                sendEvent = { event, relayUrls, token ->
                     if (relayUrls != null) {
-                        NostrRelayManager.getInstance(context).sendEvent(event, relayUrls)
+                        NostrRelayManager.getInstance(context).sendEvent(
+                            event,
+                            relayUrls,
+                            liveLocationToken = token
+                        )
                     } else {
-                        NostrRelayManager.getInstance(context).sendEvent(event)
+                        NostrRelayManager.getInstance(context).sendEvent(
+                            event,
+                            liveLocationToken = token
+                        )
                     }
                 },
                 deriveIdentity = { geohash ->

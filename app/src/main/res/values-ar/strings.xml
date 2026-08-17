@@ -46,7 +46,7 @@
     <string name="notification_summary_more">و%1$d إضافية</string>
     <string name="notification_messages_from_people">%1$d رسالة من %2$d أشخاص</string>
     <string name="notification_more_conversations">و%1$d محادثات أخرى</string>
-    <string name="notification_active_peers_title">👥 مستخدمون قريبون!</string>
+    <string name="notification_active_peers_title">مستخدمون قريبون!</string>
     <string name="notification_active_peers_one">شخص واحد قريب</string>
     <string name="notification_active_peers_many">%1$d أشخاص قريبون</string>
     <string name="notification_new_messages">رسائل جديدة</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">إضافة إشارة مرجعية</string>
 
     <!-- ترويسة الدردشة وسهولة الوصول -->
-    <string name="chat_back">رجوع</string>
-    <string name="chat_channel_prefix">القناة: %1$s</string>
-    <string name="chat_leave">مغادرة</string>
     <string name="cd_nostr_reachable">يمكن الوصول عبر Nostr</string>
     <string name="cd_unread_private_messages">رسائل خاصة غير مقروءة</string>
-    <string name="cd_toggle_bookmark">تبديل الإشارة المرجعية</string>
     <string name="cd_teleported">تم الانتقال</string>
-    <string name="cd_tor_status">حالة Tor</string>
+    <string name="cd_open_location_channels">فتح إعدادات الموقع والقنوات</string>
     <string name="cd_connected_peers">الأقران المتصلون</string>
     <string name="cd_geohash_participants">مشاركو geohash</string>
     <string name="cd_ready_for_handshake">جاهز للمصافحة</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">اختيار صورة</string>
 
     <!-- ورقة حول التطبيق -->
-    <string name="about_tagline">دردشة شبكية لامركزية مع تشفير طرف إلى طرف</string>
     <string name="about_offline_mesh_title">دردشة شبكية دون اتصال</string>
     <string name="about_offline_mesh_desc">تواصل مباشرة عبر Bluetooth LE بدون إنترنت أو خوادم. تُعاد توجيه الرسائل عبر الأجهزة القريبة لتوسيع النطاق.</string>
     <string name="about_online_geohash_title">قنوات geohash عبر الإنترنت</string>
     <string name="about_online_geohash_desc">تواصل مع أشخاص بالقرب منك عبر قنوات تعتمد على geohash. وسّع الشبكة عبر مرحلات الإنترنت العامة.</string>
     <string name="about_e2e_title">تشفير طرف إلى طرف</string>
     <string name="about_e2e_desc">الرسائل الخاصة مشفّرة. رسائل القنوات عامة.</string>
-    <string name="about_appearance">المظهر</string>
     <string name="about_system">النظام</string>
     <string name="about_light">فاتح</string>
     <string name="about_dark">داكن</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">حالة Tor: %1$s، التمهيد %2$d%%</string>
     <string name="about_last">آخر: %1$s</string>
     <string name="about_emergency_title">مسح البيانات الطارئ</string>
-    <string name="about_emergency_tip">تلميح: انقر ثلاث مرات على عنوان التطبيق لمسح كل البيانات المحفوظة – بما في ذلك الرسائل والمفاتيح والإعدادات.</string>
     <string name="about_debug_settings">إعدادات التصحيح</string>
     <string name="about_footer">مفتوح المصدر • الخصوصية أولاً • لامركزي</string>
     <string name="close_plain">إغلاق</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">فتح الخريطة</string>
     <string name="cd_remove_bookmark">إزالة الإشارة المرجعية</string>
     <string name="cd_teleport">انتقال</string>
-    <string name="cd_selected">محدد</string>
     <string name="cd_leave_channel">مغادرة القناة</string>
     <string name="cd_reachable_via_nostr">يمكن الوصول عبر Nostr</string>
     <string name="cd_offline_favorite">مفضل (غير متصل)</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">الأذونات</string>
     <string name="grant_permissions">منح الأذونات</string>
     <string name="location_tracking_warning">bitchat لا يتتبع موقعك</string>
-    <string name="geohash_people_header">الأشخاص</string>
     <string name="nobody_around">لا أحد هنا…</string>
     <string name="you_suffix"> (أنت)</string>
     <string name="pan_zoom_instruction">حرّك وقرّب لاختيار geohash</string>
     <string name="select">اختيار</string>
     <string name="type_a_message_placeholder">اكتب رسالة…</string>
     <string name="mention">إشارة</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">صورة</string>
@@ -307,11 +297,6 @@
     <!-- سهولة استخدام مشغّل الصوت -->
     <string name="cd_play_voice">تشغيل</string>
     <string name="cd_pause_voice">إيقاف مؤقت</string>
-    <string name="cd_mining_pow">تعدين PoW</string>
-    <string name="cd_pow_enabled">PoW مفعّل</string>
-    <string name="cd_proof_of_work">برهان العمل</string>
-    <string name="pow_mining_ellipsis">يتم التعدين…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- أوصاف الأذونات -->
     <string name="perm_nearby_devices_desc">مطلوب لاكتشاف مستخدمي bitchat عبر البلوتوث</string>
@@ -400,4 +385,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">فتح قسم حول</string>
+  <string name="nearby_notes_reveal">تحقّق من الملاحظات المتروكة هنا</string>
+  <string name="nearby_notes_one">تُركت ملاحظة واحدة هنا — انقر للقراءة</string>
+  <string name="nearby_notes_many">تُركت %d ملاحظات هنا — انقر للقراءة</string>
+    <string name="about_language">اللغة</string>
+    <string name="about_app_language">لغة التطبيق</string>
+    <string name="about_system_default">إعداد النظام الافتراضي</string>
+    <string name="about_select_language">اختر اللغة</string>
 </resources>
