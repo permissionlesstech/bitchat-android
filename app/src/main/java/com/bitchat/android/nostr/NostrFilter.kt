@@ -191,18 +191,24 @@ data class NostrFilter(
             return false
         }
         
-        // Check tag filters
+        // Check tag filters.
+        //
+        // Tag names and values are compared case-insensitively. The values this
+        // app filters on are hex ids (`e`, `p`) or geohashes (`g`), and both
+        // encode the same value in either case; iOS has no client-side filter at
+        // all and lowercases the tag name and the geohash where it reads them,
+        // so an event tagged ["G", "U4PRUYD"] is a note there. Comparing exactly
+        // here dropped it before any handler saw it.
         if (tagFilters != null) {
             for ((tagName, requiredValues) in tagFilters) {
-                val eventTags = event.tags.filter { it.isNotEmpty() && it[0] == tagName }
-                val eventValues = eventTags.mapNotNull { tag ->
-                    if (tag.size > 1) tag[1] else null
-                }
-                
+                val eventValues = event.tags
+                    .filter { it.size > 1 && it[0].equals(tagName, ignoreCase = true) }
+                    .map { it[1].lowercase() }
+
                 val hasMatch = requiredValues.any { requiredValue ->
-                    eventValues.contains(requiredValue)
+                    eventValues.contains(requiredValue.lowercase())
                 }
-                
+
                 if (!hasMatch) {
                     return false
                 }
