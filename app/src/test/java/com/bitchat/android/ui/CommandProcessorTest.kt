@@ -180,6 +180,7 @@ class CommandProcessorTest {
 
     assertEquals("#backchannel", chatState.getCurrentChannelValue())
     assertEquals(ChannelID.Mesh, chatState.selectedLocationChannel.value)
+  }
 
   @Test
   fun `clearSuggestions hides the command suggestion popup`() {
