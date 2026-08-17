@@ -34,8 +34,11 @@ Other optional extension:
   5 vouch, 6 mesh diagnostics, 7 bridge, 8 authenticated Noise private media,
   9 private-media receipts, and 10 reserved non-destructive Noise replacement.
   Bit 8's exact value is `00 01`. An empty value is valid and means no
-  advertised capabilities. Unknown bits and bytes beyond the low 64 bits must
-  be tolerated for forward compatibility.
+  advertised capabilities. For this announcement TLV, unknown bits and bytes
+  beyond the low 64 bits must be tolerated for forward compatibility. This
+  tolerance does not apply to the Noise-authenticated peer-state payload
+  `0x21`, whose capability field must be canonical and 1...8 bytes; see
+  `PRIVATE_MEDIA_V1.md`.
 
 New TLV (optional):
 
@@ -76,6 +79,9 @@ This matches the on‑wire 8‑byte `senderID`/`recipientID` encoding used in th
 - Capability bits are independent discovery hints. Implementations advertise
   only wire features they implement and must not infer support from platform,
   app version, or unrelated transports with similar names.
+- Private-media receipts and retry (bit 9) require the current Noise
+  generation's authenticated `0x21` peer state to prove both bits 8 and 9. An
+  announcement alone never authorizes that behavior.
 - If a `0x04` TLV is present:
   - Interpret the value as `N = length / 8` peer IDs (ignore trailing non‑aligned bytes).
   - Each 8‑byte chunk is decoded back to a 16‑hex‑char peer ID string (lowercase).
