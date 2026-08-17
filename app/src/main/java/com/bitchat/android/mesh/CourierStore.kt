@@ -27,6 +27,12 @@ internal class CourierStore(
         var lastRemoteHandoverAtMs: Long = 0
     )
 
+    private data class SprayReservation(
+        val envelopeKey: String,
+        val courierKey: String,
+        val copies: Int
+    )
+
     companion object {
         private const val KEY_ALIAS = "bitchat_courier_store_v1"
         private val AAD = "bitchat-courier-store-v1".toByteArray(Charsets.UTF_8)
@@ -41,6 +47,7 @@ internal class CourierStore(
     private val gson = Gson()
     private val file = File(context.applicationContext.filesDir, "courier-store.sealed")
     private val stored = load()
+    private val sprayReservations = mutableListOf<SprayReservation>()
 
     @Synchronized
     fun deposit(envelope: CourierEnvelope, depositorNoiseKey: ByteArray, tier: CourierDepositTier): Boolean {
@@ -82,10 +89,14 @@ internal class CourierStore(
 
     @Synchronized
     fun remove(envelope: CourierEnvelope): Boolean {
+        val envelopeKey = envelope.ciphertext.storageKey()
         val removed = stored.removeAll {
             it.envelope()?.ciphertext?.contentEquals(envelope.ciphertext) == true
         }
-        if (removed) persist()
+        if (removed) {
+            sprayReservations.removeAll { it.envelopeKey == envelopeKey }
+            persist()
+        }
         return removed
     }
 
@@ -118,10 +129,18 @@ internal class CourierStore(
         val result = mutableListOf<CourierEnvelope>()
         stored.forEach { record ->
             val envelope = record.envelope() ?: return@forEach
+            val envelopeKey = envelope.ciphertext.storageKey()
             if (record.copies <= 1 || record.depositorKey == key || key in record.sprayedTo ||
+                sprayReservations.any { it.envelopeKey == envelopeKey && it.courierKey == key } ||
                 courierTags.any { it.contentEquals(envelope.recipientTag) }
             ) return@forEach
-            val given = record.copies / 2
+            val reserved = sprayReservations
+                .filter { it.envelopeKey == envelopeKey }
+                .sumOf { it.copies }
+            val available = record.copies - reserved
+            if (available <= 1) return@forEach
+            val given = available / 2
+            sprayReservations += SprayReservation(envelopeKey, key, given)
             result += envelope.copy(copies = given.toUByte())
         }
         return result
@@ -130,28 +149,55 @@ internal class CourierStore(
     @Synchronized
     fun commitSpray(envelope: CourierEnvelope, courierNoiseKey: ByteArray): Boolean {
         val key = courierNoiseKey.toHex()
+        val envelopeKey = envelope.ciphertext.storageKey()
+        val reservationIndex = sprayReservations.indexOfFirst {
+            it.envelopeKey == envelopeKey && it.courierKey == key && it.copies == envelope.copies.toInt()
+        }
+        if (reservationIndex < 0) return false
+        val reservation = sprayReservations[reservationIndex]
         val record = stored.firstOrNull {
             it.envelope()?.ciphertext?.contentEquals(envelope.ciphertext) == true
-        } ?: return false
-        if (record.copies <= 1 || key in record.sprayedTo) return false
-        val given = record.copies / 2
-        if (given != envelope.copies.toInt()) return false
-        record.copies -= given
+        }
+        val otherReservedCopies = sprayReservations.withIndex()
+            .filter { (index, candidate) -> index != reservationIndex && candidate.envelopeKey == envelopeKey }
+            .sumOf { it.value.copies }
+        if (record == null || key in record.sprayedTo ||
+            record.copies - otherReservedCopies <= reservation.copies
+        ) {
+            sprayReservations.removeAt(reservationIndex)
+            return false
+        }
+        record.copies -= reservation.copies
         record.sprayedTo += key
+        sprayReservations.removeAt(reservationIndex)
         persist()
         return true
     }
 
     @Synchronized
+    fun cancelSpray(envelope: CourierEnvelope, courierNoiseKey: ByteArray): Boolean {
+        val envelopeKey = envelope.ciphertext.storageKey()
+        val courierKey = courierNoiseKey.toHex()
+        return sprayReservations.removeAll {
+            it.envelopeKey == envelopeKey && it.courierKey == courierKey && it.copies == envelope.copies.toInt()
+        }
+    }
+
+    @Synchronized
     fun wipe() {
         stored.clear()
+        sprayReservations.clear()
         file.delete()
         cipher.destroyKey()
     }
 
     private fun pruneExpired() {
         val nowMs = now().toULong()
-        if (stored.removeAll { (it.envelope()?.expiry ?: 0u) <= nowMs }) persist()
+        if (stored.removeAll { (it.envelope()?.expiry ?: 0u) <= nowMs }) {
+            val retainedEnvelopeKeys = stored.mapNotNull { it.envelope()?.ciphertext?.storageKey() }.toSet()
+            sprayReservations.removeAll { it.envelopeKey !in retainedEnvelopeKeys }
+            persist()
+        }
     }
 
     private fun Stored.envelope(): CourierEnvelope? = try {
@@ -190,4 +236,6 @@ internal class CourierStore(
     }
 
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
+
+    private fun ByteArray.storageKey(): String = Base64.getEncoder().encodeToString(this)
 }

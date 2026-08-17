@@ -12,13 +12,15 @@ class CourierEnvelopeTest {
             recipientTag = ByteArray(16) { it.toByte() },
             expiry = 0x0102030405060708u,
             ciphertext = byteArrayOf(0xaa.toByte(), 0xbb.toByte(), 0xcc.toByte()),
-            copies = 4u
+            copies = 4u,
+            prekeyID = 0x11223344u
         )
         assertEquals(
             "010010000102030405060708090a0b0c0d0e0f" +
                 "0200080102030405060708" +
                 "030003aabbcc" +
-                "04000104",
+                "04000104" +
+                "05000411223344",
             envelope.encode()!!.toHex()
         )
     }
@@ -38,6 +40,33 @@ class CourierEnvelopeTest {
 
         val legacy = envelope.copy(copies = 1u)
         assertEquals(1u.toUByte(), CourierEnvelope.decode(legacy.encode()!!)!!.copies)
+    }
+
+    @Test
+    fun `prekey id survives decode re-encode and copy changes`() {
+        val envelope = CourierEnvelope(
+            recipientTag = ByteArray(16) { it.toByte() },
+            expiry = 123456789u,
+            ciphertext = ByteArray(96) { (it + 1).toByte() },
+            copies = 4u,
+            prekeyID = 0xfedcba98u
+        )
+
+        val decoded = CourierEnvelope.decode(envelope.encode()!!)!!
+
+        assertEquals(0xfedcba98u, decoded.prekeyID)
+        assertArrayEquals(envelope.encode(), decoded.copy(copies = 4u).encode())
+        assertEquals(0xfedcba98u, decoded.copy(copies = 2u).prekeyID)
+    }
+
+    @Test
+    fun `invalid or duplicate prekey fields are rejected`() {
+        val envelope = CourierEnvelope(ByteArray(16), 1u, ByteArray(32) { 1 }, prekeyID = 7u)
+        val encoded = envelope.encode()!!
+        val prekeyField = encoded.copyOfRange(encoded.size - 7, encoded.size)
+
+        assertNull(CourierEnvelope.decode(encoded + prekeyField))
+        assertNull(CourierEnvelope.decode(encoded.copyOf(encoded.size - 1)))
     }
 
     @Test

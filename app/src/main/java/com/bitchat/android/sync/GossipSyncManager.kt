@@ -175,22 +175,27 @@ class GossipSyncManager(
     }
 
     private fun sendRequestSync() {
-        val payload = buildGcsPayload()
-
-        val packet = BitchatPacket(
-            type = MessageType.REQUEST_SYNC.value,
-            senderID = hexStringToByteArray(myPeerID),
-            timestamp = System.currentTimeMillis().toULong(),
-            payload = payload,
-            ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS // neighbors only
-        )
-        // Sign and broadcast
-        val signed = delegate?.signPacketForBroadcast(packet) ?: packet
-        delegate?.sendPacket(signed)
+        listOf(
+            SyncTypeFlags.PUBLIC_MESSAGES,
+            SyncTypeFlags.FRAGMENT,
+            SyncTypeFlags.FILE_TRANSFER
+        ).forEach { types ->
+            val payload = buildGcsPayload(types)
+            val packet = BitchatPacket(
+                type = MessageType.REQUEST_SYNC.value,
+                senderID = hexStringToByteArray(myPeerID),
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = payload,
+                ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS // neighbors only
+            )
+            val signed = delegate?.signPacketForBroadcast(packet) ?: packet
+            delegate?.sendPacket(signed)
+        }
     }
 
     private fun sendRequestSyncToPeer(peerID: String) {
-        val payload = buildGcsPayload()
+        val types = SyncTypeFlags.PUBLIC_MESSAGES.union(SyncTypeFlags.FRAGMENTS_AND_FILES)
+        val payload = buildGcsPayload(types)
 
         val packet = BitchatPacket(
             type = MessageType.REQUEST_SYNC.value,
@@ -207,6 +212,8 @@ class GossipSyncManager(
     }
 
     fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
+        val requestedTypes = request.types ?: SyncTypeFlags.PUBLIC_MESSAGES
+        val sinceTimestamp = request.sinceTimestamp
         // Decode GCS into sorted set for membership checks
         val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
         fun mightContain(id: ByteArray): Boolean {
@@ -215,30 +222,38 @@ class GossipSyncManager(
             return GCSFilter.contains(sorted, nonZeroV)
         }
 
-        // 1) Announcements: send latest per peerID if remote doesn't have them
-        for ((_, pair) in latestAnnouncementByPeer.entries) {
-            val (id, pkt) = pair
-            val idBytes = hexToBytes(id)
-            if (!mightContain(idBytes)) {
-                // Send original packet unchanged to requester only (keep local TTL)
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
-                delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
+        // Announcements are exempt from the cursor: only the latest per peer is retained,
+        // and peers need their signing keys before they can verify other sync responses.
+        if (requestedTypes.contains(MessageType.ANNOUNCE)) {
+            for ((_, pair) in latestAnnouncementByPeer.entries) {
+                val (id, pkt) = pair
+                val idBytes = hexToBytes(id)
+                if (!mightContain(idBytes)) {
+                    val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                    delegate?.sendPacketToPeer(fromPeerID, toSend)
+                    Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
+                }
             }
         }
 
-        // 2) Broadcast messages: send all they lack
-        val toSendMsgs = synchronized(messages) { messages.values.toList() }
-        for (pkt in toSendMsgs) {
-            val idBytes = PacketIdUtil.computeIdBytes(pkt)
-            if (!mightContain(idBytes)) {
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
-                delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
+        if (requestedTypes.contains(MessageType.MESSAGE)) {
+            val toSendMsgs = synchronized(messages) { messages.values.toList() }
+            for (pkt in toSendMsgs) {
+                if (sinceTimestamp != null && pkt.timestamp < sinceTimestamp) continue
+                val idBytes = PacketIdUtil.computeIdBytes(pkt)
+                if (!mightContain(idBytes)) {
+                    val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                    delegate?.sendPacketToPeer(fromPeerID, toSend)
+                    Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
+                }
             }
         }
+
         val toSendFragments = synchronized(fragments) { fragments.values.toList() }
         for (pkt in toSendFragments) {
+            val type = MessageType.fromValue(pkt.type) ?: continue
+            if (!requestedTypes.contains(type)) continue
+            if (sinceTimestamp != null && pkt.timestamp < sinceTimestamp) continue
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
             if (!mightContain(idBytes)) {
                 delegate?.sendPacketToPeer(fromPeerID, pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS))
@@ -271,18 +286,24 @@ class GossipSyncManager(
         return out
     }
 
-    private fun buildGcsPayload(): ByteArray {
-        // Collect candidates: latest announcement per peer + recent broadcast messages
+    internal fun buildGcsPayload(types: SyncTypeFlags): ByteArray {
+        // Collect only the packet types represented by this filter.
         val list = ArrayList<BitchatPacket>()
-        // announcements
-        for ((_, pair) in latestAnnouncementByPeer) {
-            list.add(pair.second)
+        if (types.contains(MessageType.ANNOUNCE)) {
+            for ((_, pair) in latestAnnouncementByPeer) {
+                list.add(pair.second)
+            }
         }
-        // messages
-        synchronized(messages) {
-            list.addAll(messages.values)
+        if (types.contains(MessageType.MESSAGE)) {
+            synchronized(messages) {
+                list.addAll(messages.values)
+            }
         }
-        synchronized(fragments) { list.addAll(fragments.values) }
+        synchronized(fragments) {
+            list.addAll(fragments.values.filter { packet ->
+                MessageType.fromValue(packet.type)?.let(types::contains) == true
+            })
+        }
         // sort by timestamp desc, then take up to min(seenCapacity, fit capacity)
         list.sortByDescending { it.timestamp.toLong() }
 
@@ -294,12 +315,21 @@ class GossipSyncManager(
         val takeN = minOf(nMax, cap, list.size)
         if (takeN <= 0) {
             val p0 = GCSFilter.deriveP(fpr)
-            return RequestSyncPacket(p = p0, m = 1, data = ByteArray(0)).encode()
+            return RequestSyncPacket(p = p0, m = 1, data = ByteArray(0), types = types).encode()
         }
-        val ids = list.take(takeN).map { pkt -> PacketIdUtil.computeIdBytes(pkt) }
+        val included = list.take(takeN)
+        val ids = included.map { pkt -> PacketIdUtil.computeIdBytes(pkt) }
         val params = GCSFilter.buildFilter(ids, maxBytes, fpr)
         val mVal = if (params.m <= 0L) 1 else params.m
-        return RequestSyncPacket(p = params.p, m = mVal, data = params.data).encode()
+        val covered = params.includedCount
+        val sinceTimestamp = if (covered in 1 until list.size) included[covered - 1].timestamp else null
+        return RequestSyncPacket(
+            p = params.p,
+            m = mVal,
+            data = params.data,
+            types = types,
+            sinceTimestamp = sinceTimestamp
+        ).encode()
     }
 
     // Announcements age out quickly; public history remains independently sync-able for six hours.

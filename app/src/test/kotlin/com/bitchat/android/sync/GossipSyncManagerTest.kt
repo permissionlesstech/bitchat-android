@@ -36,7 +36,15 @@ class GossipSyncManagerTest {
         manager.onPublicPacketSeen(packet(MessageType.FRAGMENT, now - 20 * 60 * 1000L, 4))
         manager.onPublicPacketSeen(packet(MessageType.FILE_TRANSFER, now - 10 * 60 * 1000L, 5))
 
-        manager.handleRequestSync("peer", RequestSyncPacket(p = 1, m = 1, data = byteArrayOf()))
+        manager.handleRequestSync(
+            "peer",
+            RequestSyncPacket(
+                p = 1,
+                m = 1,
+                data = byteArrayOf(),
+                types = SyncTypeFlags.PUBLIC_MESSAGES.union(SyncTypeFlags.FRAGMENTS_AND_FILES)
+            )
+        )
 
         assertEquals(listOf(1, 3, 5), sent.map { it.payload.single().toInt() })
     }
@@ -57,10 +65,96 @@ class GossipSyncManagerTest {
         manager.onPublicPacketSeen(packet(MessageType.MESSAGE, now + 11 * 60_000L, 4))
         manager.onPublicPacketSeen(packet(MessageType.FRAGMENT, now + 11 * 60_000L, 5))
 
-        manager.handleRequestSync("peer", RequestSyncPacket(p = 1, m = 1, data = byteArrayOf()))
+        manager.handleRequestSync(
+            "peer",
+            RequestSyncPacket(
+                p = 1,
+                m = 1,
+                data = byteArrayOf(),
+                types = SyncTypeFlags.PUBLIC_MESSAGES.union(SyncTypeFlags.FRAGMENTS_AND_FILES)
+            )
+        )
 
         assertEquals(listOf(1, 2, 3), sent.map { it.payload.single().toInt() })
     }
+
+    @Test
+    fun `type scoped fragment request does not replay other packet classes`() {
+        val sent = mutableListOf<BitchatPacket>()
+        val manager = GossipSyncManager("1111222233334444", TestScope(), config)
+        manager.delegate = recordingDelegate(sent)
+        val now = System.currentTimeMillis()
+        manager.onPublicPacketSeen(packet(MessageType.MESSAGE, now, 1))
+        manager.onPublicPacketSeen(packet(MessageType.FRAGMENT, now, 2))
+        manager.onPublicPacketSeen(packet(MessageType.FILE_TRANSFER, now, 3))
+
+        manager.handleRequestSync(
+            "peer",
+            RequestSyncPacket(
+                p = 1,
+                m = 1,
+                data = byteArrayOf(),
+                types = SyncTypeFlags.FRAGMENT
+            )
+        )
+
+        assertEquals(listOf(2), sent.map { it.payload.single().toInt() })
+    }
+
+    @Test
+    fun `coverage cursor prevents replay of an identical history tail`() {
+        val tinyFilterConfig = object : GossipSyncManager.ConfigProvider {
+            override fun seenCapacity() = 100
+            override fun gcsMaxBytes() = 1
+            override fun gcsTargetFpr() = 0.01
+        }
+        val requester = GossipSyncManager("1111222233334444", TestScope(), tinyFilterConfig)
+        val responder = GossipSyncManager("5555666677778888", TestScope(), tinyFilterConfig)
+        val now = System.currentTimeMillis()
+        val history = listOf(
+            packet(MessageType.MESSAGE, now - 100, 1),
+            packet(MessageType.MESSAGE, now - 200, 2),
+            packet(MessageType.MESSAGE, now - 300, 3)
+        )
+        history.forEach {
+            requester.onPublicPacketSeen(it)
+            responder.onPublicPacketSeen(it)
+        }
+        val request = RequestSyncPacket.decode(
+            requester.buildGcsPayload(SyncTypeFlags.PUBLIC_MESSAGES)
+        )!!
+        val sent = mutableListOf<BitchatPacket>()
+        responder.delegate = recordingDelegate(sent)
+
+        responder.handleRequestSync("peer", request)
+
+        assertEquals(SyncTypeFlags.PUBLIC_MESSAGES, request.types)
+        assertEquals(history.first().timestamp, request.sinceTimestamp)
+        assertEquals(emptyList<Int>(), sent.map { it.payload.single().toInt() })
+    }
+
+    @Test
+    fun `legacy request without type metadata remains public message only`() {
+        val sent = mutableListOf<BitchatPacket>()
+        val manager = GossipSyncManager("1111222233334444", TestScope(), config)
+        manager.delegate = recordingDelegate(sent)
+        val now = System.currentTimeMillis()
+        manager.onPublicPacketSeen(packet(MessageType.MESSAGE, now, 1))
+        manager.onPublicPacketSeen(packet(MessageType.FRAGMENT, now, 2))
+
+        manager.handleRequestSync("peer", RequestSyncPacket(p = 1, m = 1, data = byteArrayOf()))
+
+        assertEquals(listOf(1), sent.map { it.payload.single().toInt() })
+    }
+
+    private fun recordingDelegate(sent: MutableList<BitchatPacket>) =
+        object : GossipSyncManager.Delegate {
+            override fun sendPacket(packet: BitchatPacket) = Unit
+            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
+                sent += packet
+            }
+            override fun signPacketForBroadcast(packet: BitchatPacket) = packet
+        }
 
     private fun packet(type: MessageType, timestamp: Long, marker: Int) = BitchatPacket(
         type = type.value,

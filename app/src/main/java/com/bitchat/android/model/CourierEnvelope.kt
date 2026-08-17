@@ -10,7 +10,8 @@ data class CourierEnvelope(
     val recipientTag: ByteArray,
     val expiry: ULong,
     val ciphertext: ByteArray,
-    val copies: UByte = 1u
+    val copies: UByte = 1u,
+    val prekeyID: UInt? = null
 ) {
     companion object {
         const val TAG_LENGTH = 16
@@ -36,6 +37,7 @@ data class CourierEnvelope(
             var expiry: ULong? = null
             var ciphertext: ByteArray? = null
             var copies: UByte = 1u
+            var prekeyID: UInt? = null
             while (offset + 3 <= data.size) {
                 val type = data[offset].toUByte()
                 val length = ((data[offset + 1].toInt() and 0xff) shl 8) or
@@ -53,6 +55,11 @@ data class CourierEnvelope(
                         copies = value[0].toUByte()
                         if (copies !in 2u.toUByte()..MAX_COPIES.toUByte()) return null
                     }
+                    5 -> if (length == 4 && prekeyID == null) {
+                        prekeyID = ByteBuffer.wrap(value).order(ByteOrder.BIG_ENDIAN).int.toUInt()
+                    } else {
+                        return null
+                    }
                 }
             }
             if (offset != data.size) return null
@@ -60,7 +67,7 @@ data class CourierEnvelope(
             val requiredExpiry = expiry ?: return null
             val requiredCiphertext = ciphertext ?: return null
             if (requiredCiphertext.isEmpty() || requiredCiphertext.size > MAX_CIPHERTEXT_BYTES) return null
-            return CourierEnvelope(requiredTag, requiredExpiry, requiredCiphertext, copies)
+            return CourierEnvelope(requiredTag, requiredExpiry, requiredCiphertext, copies, prekeyID)
         }
     }
 
@@ -73,6 +80,9 @@ data class CourierEnvelope(
         fields += 2 to ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putLong(expiry.toLong()).array()
         fields += 3 to ciphertext
         if (copies > 1u) fields += 4 to byteArrayOf(copies.toByte())
+        prekeyID?.let {
+            fields += 5 to ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(it.toInt()).array()
+        }
         val size = fields.sumOf { 3 + it.second.size }
         val buffer = ByteBuffer.allocate(size).order(ByteOrder.BIG_ENDIAN)
         fields.forEach { (type, value) ->
@@ -92,8 +102,14 @@ data class CourierEnvelope(
 
     override fun equals(other: Any?): Boolean = other is CourierEnvelope &&
         recipientTag.contentEquals(other.recipientTag) && expiry == other.expiry &&
-        ciphertext.contentEquals(other.ciphertext) && copies == other.copies
+        ciphertext.contentEquals(other.ciphertext) && copies == other.copies && prekeyID == other.prekeyID
 
-    override fun hashCode(): Int = 31 * (31 * recipientTag.contentHashCode() + expiry.hashCode()) +
-        31 * ciphertext.contentHashCode() + copies.hashCode()
+    override fun hashCode(): Int {
+        var result = recipientTag.contentHashCode()
+        result = 31 * result + expiry.hashCode()
+        result = 31 * result + ciphertext.contentHashCode()
+        result = 31 * result + copies.hashCode()
+        result = 31 * result + (prekeyID?.hashCode() ?: 0)
+        return result
+    }
 }

@@ -1632,22 +1632,35 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         }
         if (direct) {
             courierStore.sprayCopiesFor(noiseKey).forEach { envelope ->
+                val payload = envelope.encode()
+                if (payload == null) {
+                    courierStore.cancelSpray(envelope, noiseKey)
+                    return@forEach
+                }
                 val packet = BitchatPacket(
                     type = MessageType.COURIER_ENVELOPE.value,
                     senderID = hexStringToByteArray(myPeerID),
                     recipientID = hexStringToByteArray(peerID),
                     timestamp = System.currentTimeMillis().toULong(),
-                    payload = envelope.encode() ?: return@forEach,
+                    payload = payload,
                     ttl = MAX_TTL
                 )
                 serviceScope.launch {
-                    if (connectionManager.sendToPeerAndAwaitCompletion(
-                            peerID,
-                            RoutedPacket(signPacketBeforeBroadcast(packet))
-                        )
-                    ) {
-                        courierStore.commitSpray(envelope, noiseKey)
+                    var committed = false
+                    try {
+                        if (connectionManager.sendToPeerAndAwaitCompletion(
+                                peerID,
+                                RoutedPacket(signPacketBeforeBroadcast(packet))
+                            )
+                        ) {
+                            committed = courierStore.commitSpray(envelope, noiseKey)
+                        }
+                    } finally {
+                        if (!committed) courierStore.cancelSpray(envelope, noiseKey)
                     }
+                }.invokeOnCompletion {
+                    // A coroutine cancelled before its body starts never reaches finally.
+                    courierStore.cancelSpray(envelope, noiseKey)
                 }
             }
         }

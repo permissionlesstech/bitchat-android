@@ -72,6 +72,49 @@ class CourierStoreTest {
     }
 
     @Test
+    fun `concurrent spray reservations cannot over allocate custody`() {
+        val store = newStore()
+        assertTrue(store.deposit(envelope(1, copies = 4u), verified, CourierDepositTier.VERIFIED))
+        val firstCourier = ByteArray(32) { 12 }
+        val secondCourier = ByteArray(32) { 13 }
+        val thirdCourier = ByteArray(32) { 14 }
+
+        val first = store.sprayCopiesFor(firstCourier).single()
+        val second = store.sprayCopiesFor(secondCourier).single()
+
+        assertEquals(2u.toUByte(), first.copies)
+        assertEquals(1u.toUByte(), second.copies)
+        assertTrue(store.sprayCopiesFor(firstCourier).isEmpty())
+        assertTrue(store.sprayCopiesFor(thirdCourier).isEmpty())
+        assertTrue(store.commitSpray(second, secondCourier))
+        assertTrue(store.commitSpray(first, firstCourier))
+        assertTrue(reloaded().sprayCopiesFor(thirdCourier).isEmpty())
+    }
+
+    @Test
+    fun `cancelled spray reservation makes its copies eligible again`() {
+        val store = newStore()
+        assertTrue(store.deposit(envelope(1, copies = 4u), verified, CourierDepositTier.VERIFIED))
+        val courier = ByteArray(32) { 15 }
+
+        val first = store.sprayCopiesFor(courier).single()
+
+        assertTrue(store.cancelSpray(first, courier))
+        assertEquals(2u.toUByte(), store.sprayCopiesFor(courier).single().copies)
+    }
+
+    @Test
+    fun `stored prekey envelope retains its prekey id through spray`() {
+        val store = newStore()
+        val envelope = envelope(1, copies = 4u).copy(prekeyID = 0x11223344u)
+        assertTrue(store.deposit(envelope, verified, CourierDepositTier.VERIFIED))
+
+        val spray = store.sprayCopiesFor(ByteArray(32) { 16 }).single()
+
+        assertEquals(0x11223344u, spray.prekeyID)
+    }
+
+    @Test
     fun `wipe deletes sealed custody and destroys key`() {
         val store = newStore()
         assertTrue(store.deposit(envelope(1), favorite, CourierDepositTier.FAVORITE))
