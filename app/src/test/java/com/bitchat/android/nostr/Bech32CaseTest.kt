@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 /**
@@ -41,6 +42,18 @@ class Bech32CaseTest {
         val flipped = npub.dropLast(1) + if (npub.last() == 'Q') 'P' else 'Q'
 
         assertThrows(IllegalArgumentException::class.java) { Bech32.decode(flipped) }
+    }
+
+    @Test
+    fun `a non-ascii homoglyph is rejected rather than folded to ascii`() {
+        val npub = Bech32.encode("npub", pubkey).uppercase()
+        // U+212A KELVIN SIGN is uppercase and lowercases to an ASCII 'k', so an
+        // all-uppercase string carrying one passes a naive mixed-case test and
+        // then folds into a perfectly valid npub.
+        val kelvin = npub.replace("K", "\u212A")
+        assumeTrue(kelvin != npub)
+
+        assertThrows(IllegalArgumentException::class.java) { Bech32.decode(kelvin) }
     }
 
     @Test
