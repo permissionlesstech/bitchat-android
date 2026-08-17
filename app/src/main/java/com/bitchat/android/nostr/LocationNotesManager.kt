@@ -417,21 +417,28 @@ class LocationNotesManager private constructor() {
             return
         }
         
-        // Check for geohash tag
-        val geohashTag = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }
+        // Check for geohash tag. Tag names and geohashes are case-insensitive,
+        // and iOS matches them lowercased, so a note tagged ["G", "U4PRUYD"]
+        // has to be the same note on both platforms.
+        val validGeohashes = subscribedGeohashes.map { it.lowercase() }.toSet()
+        val geohashTag = event.tags.firstOrNull {
+            it.size >= 2 && it[0].lowercase() == "g" && validGeohashes.contains(it[1].lowercase())
+        }
         if (geohashTag == null) {
-            Log.v(TAG, "Ignoring event without geohash tag: ${event.id.take(16)}...")
+            Log.v(TAG, "Ignoring event without a matching geohash tag: ${event.id.take(16)}...")
             return
         }
-        
-        // Check if matches current geohash
-        val eventGeohash = geohashTag[1]
-        if (!subscribedGeohashes.contains(eventGeohash)) {
-            return
-        }
-        
+
         // Deduplicate
         if (noteIDs.contains(event.id)) {
+            return
+        }
+
+        // NIP-40: relays are not required to drop expired events, so enforce it
+        // here - otherwise a 24h dead drop stays visible past its expiry.
+        val expiresAt = expirationSeconds(event)
+        if (expiresAt != null && expiresAt * 1000L <= System.currentTimeMillis()) {
+            Log.v(TAG, "Ignoring expired note: ${event.id.take(16)}...")
             return
         }
         
@@ -465,6 +472,15 @@ class LocationNotesManager private constructor() {
         _state.value = State.READY
     }
     
+    /**
+     * The NIP-40 `expiration` tag as unix seconds, when the event carries one.
+     */
+    private fun expirationSeconds(event: NostrEvent): Long? {
+        val tag = event.tags.firstOrNull { it.size >= 2 && it[0].lowercase() == "expiration" }
+            ?: return null
+        return tag[1].toLongOrNull()
+    }
+
     /**
      * Trim oldest notes to stay within memory limit
      */
