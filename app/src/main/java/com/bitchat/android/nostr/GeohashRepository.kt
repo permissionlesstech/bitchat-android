@@ -64,10 +64,17 @@ class GeohashRepository(
     // peerID alias -> nostr pubkey mapping for geohash DMs and temp aliases
     private val nostrKeyMapping: MutableMap<String, String> = mutableMapOf()
 
-    // Current geohash in view
+    // Current geohash in view.  Written from the UI thread when the user picks
+    // a channel and read from Nostr handler and timer threads - including from
+    // the @Synchronized methods below, which only see a published write if the
+    // write itself is synchronized.  NotificationManager marks its copy of this
+    // state @Volatile for the same reason.
     private var currentGeohash: String? = null
 
+    @Synchronized
     fun setCurrentGeohash(geo: String?) { currentGeohash = geo }
+
+    @Synchronized
     fun getCurrentGeohash(): String? = currentGeohash
 
     @Synchronized
