@@ -7,6 +7,17 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.favorites.FavoritesChangeListener
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.geohash.GeohashBookmarksStore
+import com.bitchat.android.geohash.LocationChannelManager
+import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.services.ConversationListPreferences
+import com.bitchat.android.services.MessageRouter
+import com.bitchat.android.services.SeenMessageStore
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import dagger.Lazy
+import javax.inject.Provider
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,10 +64,25 @@ private data class ConversationLiveIdentityState(
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
  * Delegates specific responsibilities to specialized managers while maintaining 100% iOS compatibility
  */
-class ChatViewModel(
+@HiltViewModel
+class ChatViewModel @Inject constructor(
     application: Application,
     initialMeshService: BluetoothMeshService,
-    initialUnifiedMeshService: MeshService
+    initialUnifiedMeshService: MeshService,
+    // Injected as dagger.Lazy because every one of these was previously reached
+    // through getInstance(...) at the point of use. Resolving them eagerly would
+    // construct them during ViewModel creation, which is earlier than before.
+    private val seenMessageStoreLazy: Lazy<SeenMessageStore>,
+    private val locationChannelManagerLazy: Lazy<LocationChannelManager>,
+    private val geohashBookmarksStoreLazy: Lazy<GeohashBookmarksStore>,
+    private val nostrTransportLazy: Lazy<NostrTransport>,
+    // Provider, not Lazy: MessageRouter.getInstance both returns the router and
+    // re-points it at the current mesh, so it has to be re-resolved each time.
+    // Caching it would skip the refresh and leave the router on the mesh service
+    // that panic-clear replaced.
+    private val messageRouterProvider: Provider<MessageRouter>,
+    private val conversationListPreferences: ConversationListPreferences,
+    private val debugSettingsManager: DebugSettingsManager
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
 
     // Made var to support mesh service replacement after panic clear
@@ -65,7 +91,6 @@ class ChatViewModel(
     private var unifiedMeshService: MeshService = initialUnifiedMeshService
     private val mesh: MeshService
         get() = unifiedMeshService
-    private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
 
     companion object {
         private const val TAG = "ChatViewModel"
@@ -134,11 +159,13 @@ class ChatViewModel(
     // Specialized managers
     private val dataManager = DataManager(application.applicationContext)
     private val identityManager by lazy { SecureIdentityStateManager(getApplication()) }
-    private val seenMessageStore by lazy {
-        com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
-    }
-    private val conversationListPreferences =
-        com.bitchat.android.services.ConversationListPreferences.getInstance(getApplication())
+    // dagger.Lazy caches, so these resolve once and stay cheap thereafter.
+    private val seenMessageStore: SeenMessageStore get() = seenMessageStoreLazy.get()
+    private val locationChannelManager: LocationChannelManager
+        get() = locationChannelManagerLazy.get()
+    private val geohashBookmarksStore: GeohashBookmarksStore
+        get() = geohashBookmarksStoreLazy.get()
+    private val nostrTransport: NostrTransport get() = nostrTransportLazy.get()
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(
         state,
@@ -438,7 +465,7 @@ class ChatViewModel(
         )
         // Mark queued private messages as failed when the router gives up on them
         try {
-            com.bitchat.android.services.MessageRouter.getInstance(getApplication(), mesh).onMessageExpired = { messageID ->
+            messageRouterProvider.get().onMessageExpired = { messageID ->
                 messageManager.updateMessageDeliveryStatus(
                     messageID,
                     com.bitchat.android.model.DeliveryStatus.Failed("Message expired before delivery")
@@ -601,8 +628,8 @@ class ChatViewModel(
 
         // Bridge DebugSettingsManager -> Chat messages when verbose logging is on
         viewModelScope.launch {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().debugMessages.collect { msgs ->
-                if (com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().verboseLoggingEnabled.value) {
+            debugSettingsManager.debugMessages.collect { msgs ->
+                if (debugSettingsManager.verboseLoggingEnabled.value) {
                     // Only show debug logs in the Mesh chat timeline to avoid leaking into geohash chats
                     val selectedLocation = state.selectedLocationChannel.value
                     if (selectedLocation is com.bitchat.android.geohash.ChannelID.Mesh) {
@@ -636,7 +663,6 @@ class ChatViewModel(
 
         // Ensure NostrTransport knows our mesh peer ID for embedded packets
         try {
-            val nostrTransport = com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
             nostrTransport.senderPeerID = mesh.myPeerID
         } catch (_: Exception) { }
 
@@ -1005,10 +1031,7 @@ class ChatViewModel(
                     state.getNicknameValue(),
                     mesh.myPeerID
                 ) { messageContent, peerID, recipientNicknameParam, messageId ->
-                    val router = com.bitchat.android.services.MessageRouter.getInstance(
-                        getApplication(),
-                        mesh
-                    )
+                    val router = messageRouterProvider.get()
                     val route = router.sendPrivate(
                         messageContent,
                         peerID,
@@ -1115,9 +1138,7 @@ class ChatViewModel(
                 )
 
                 try {
-                    com.bitchat.android.services.MessageRouter
-                        .getInstance(getApplication(), mesh)
-                        .sendFavoriteNotification(peerID, isNowFavorite)
+                    messageRouterProvider.get().sendFavoriteNotification(peerID, isNowFavorite)
                 } catch (_: Exception) { }
             }
         } catch (_: Exception) { }
@@ -1215,9 +1236,7 @@ class ChatViewModel(
         sessionStates.forEach { (peerID, newState) ->
             val old = prevStates[peerID]
             if (old != "established" && newState == "established") {
-                com.bitchat.android.services.MessageRouter
-                    .getInstance(getApplication(), mesh)
-                    .onSessionEstablished(peerID)
+                messageRouterProvider.get().onSessionEstablished(peerID)
             }
         }
         // Update fingerprint mappings from centralized manager
@@ -1454,9 +1473,7 @@ class ChatViewModel(
     private suspend fun performPanicClearAllData() {
         Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
         try {
-            com.bitchat.android.geohash.LocationChannelManager
-                .getInstance(getApplication())
-                .disableLocationServices()
+            locationChannelManager.disableLocationServices()
         } catch (_: Exception) { }
 
         // A pending one-shot downgrade confirmation must not survive panic or
@@ -1480,7 +1497,7 @@ class ChatViewModel(
         
         // Clear seen message store and MessageRouter outbox
         try {
-            com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
+            seenMessageStore.clear()
         } catch (_: Exception) { }
         try {
             com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
@@ -1499,13 +1516,11 @@ class ChatViewModel(
         try {
             // Clear geohash bookmarks too (panic should remove everything)
             try {
-                val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
-                store.clearAll()
+                geohashBookmarksStore.clearAll()
             } catch (_: Exception) { }
 
             try {
-                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-                locationManager.clearPersistedChannel()
+                locationChannelManager.clearPersistedChannel()
             } catch (_: Exception) { }
 
             geohashViewModel.panicReset()

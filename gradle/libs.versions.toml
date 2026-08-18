@@ -2,6 +2,9 @@
 # Android and Kotlin
 agp = "9.3.1"
 kotlin = "2.4.10"
+# KSP versions independently of Kotlin as of 2.3.0; earlier releases used a
+# <kotlin>-<ksp> scheme that had to match the Kotlin version exactly.
+ksp = "2.3.11"
 compileSdk = "37"
 minSdk = "26" # API 26 for proper BLE support
 targetSdk = "37"
@@ -19,6 +22,13 @@ compose-icons-extended = "1.7.8"
 
 # Navigation
 navigation-compose = "2.9.8"
+# Latest stable line; the 1.2.0 branch is still alpha. 1.1.6 floors Compose at
+# 1.10.0, below the 1.11.4 the BOM resolves, so it does not drag Compose forward.
+navigation3 = "1.1.6"
+
+# Dependency injection
+hilt = "2.60.1"
+androidx-hilt = "1.4.0"
 
 # Accompanist
 accompanist-permissions = "0.37.3"
@@ -76,6 +86,11 @@ mockito-core = "5.23.0"
 roboelectric = "4.15" # 4.16+ drops the AndroidKeyStore shim; breaks EncryptionServiceTest
 
 [libraries]
+# Gradle plugin artifacts, resolved only by build-logic convention plugins
+android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+compose-gradlePlugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+
 # AndroidX Core
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle-runtime" }
@@ -97,6 +112,14 @@ androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-
 
 # Navigation
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation-compose" }
+androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
+androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
+androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycle-runtime" }
+
+# Dependency injection
+hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
+hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
+androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "androidx-hilt" }
 
 # Accompanist
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanist-permissions" }
@@ -166,6 +189,8 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-parcelize = { id = "kotlin-parcelize" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 
 [bundles]
 compose = [

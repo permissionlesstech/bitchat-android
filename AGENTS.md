@@ -59,10 +59,16 @@ BLE/Wi-Fi mesh, protocol, Noise/crypto, identity, Nostr, geohash, and media.
 and JVM tests in `src/test/`. Specifications are in `docs/`; tooling is in
 `tools/`.
 
-`app/` is the source of truth for shared mesh/protocol code.
-`syncSharedAppSources` generates `wear/build/sharedSrc` from the include list
-in `wear/build.gradle.kts`. Extend that list; never copy shared
-Kotlin into `wear/src/` or edit generated `build/` content.
+`app/` is the source of truth for shared mesh/protocol code, alongside
+`core/domain/`, which holds the domain models that Android library modules
+need (Gradle forbids a library module depending on an application module).
+`syncSharedAppSources` generates `wear/build/sharedSrc` from both trees using
+the include list in `wear/build.gradle.kts`. Extend that list; never copy
+shared Kotlin into `wear/src/` or edit generated `build/` content.
+
+`build-logic/` holds the Gradle convention plugins (`bitchat.android.*`)
+applied by library modules. It is an included build; it does not appear in
+`settings.gradle.kts` as a project.
 
 ## Build, Test & Development Commands
 

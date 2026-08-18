@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 val githubReleaseCertSha256 = providers
@@ -126,6 +128,10 @@ kotlin {
 }
 
 dependencies {
+    // Shared domain models, also compiled into :wear from source
+    implementation(project(":core:domain"))
+    implementation(project(":core:navigation"))
+
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -141,7 +147,12 @@ dependencies {
     
     // Navigation
     implementation(libs.androidx.navigation.compose)
-    
+
+    // Dependency injection
+    implementation(libs.hilt.android)
+    implementation(libs.androidx.hilt.navigation.compose)
+    ksp(libs.hilt.compiler)
+
     // Permissions
     implementation(libs.accompanist.permissions)
 
