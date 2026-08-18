@@ -3,6 +3,7 @@ package com.bitchat.android.mesh
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.sync.PacketIdUtil
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.AuthenticatedNoiseSession
@@ -241,18 +242,28 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     /**
      * Generate message ID for duplicate detection
      */
+    /**
+     * Identity used for replay and duplicate detection.
+     *
+     * This was a 32-bit `contentHashCode()` over at most the first 64 bytes of
+     * the payload. Two packets from the same peer in the same millisecond that
+     * agreed on that prefix collided, and a collision here is a *dropped
+     * message* — the second packet is discarded as a duplicate and there is no
+     * signal that it happened.
+     *
+     * `PacketIdUtil` is the identity the rest of the stack already uses for
+     * exactly this question (gossip sync membership, message IDs in
+     * `MessageHandler`), and iOS derives it the same way: the first 16 bytes of
+     * SHA-256 over type, senderID, timestamp and the **whole** payload. Using
+     * it here makes the security path agree with the sync path instead of
+     * carrying a weaker private notion of "same packet".
+     *
+     * Peer scoping is kept: `PacketIdUtil` covers the packet's own senderID,
+     * while this key is scoped by the peer the packet was received from, and
+     * those are not the same thing for a relayed packet.
+     */
     private fun generateMessageID(packet: BitchatPacket, peerID: String): String {
-        return when (MessageType.fromValue(packet.type)) {
-            MessageType.FRAGMENT -> {
-                // For fragments, include the payload hash to distinguish different fragments
-                "${packet.timestamp}-$peerID-${packet.type}-${packet.payload.contentHashCode()}"
-            }
-            else -> {
-                // For other messages, use a truncated payload hash
-                val payloadHash = packet.payload.sliceArray(0 until minOf(64, packet.payload.size)).contentHashCode()
-                "${packet.timestamp}-$peerID-$payloadHash"
-            }
-        }
+        return "$peerID-${PacketIdUtil.computeIdHex(packet)}"
     }
     
     /**
