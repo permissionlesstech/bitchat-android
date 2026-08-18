@@ -192,7 +192,10 @@ object AppStateStore {
             if (seenMessageIds.contains(msg.id) || seenPublicMessageKeys.contains(publicKey)) return
             seenMessageIds.add(msg.id)
             seenPublicMessageKeys.add(publicKey)
-            _publicMessages.value = _publicMessages.value + msg
+            // Insert by source packet timestamp so a store-forwarded/gossip-synced backlog is
+            // interleaved chronologically instead of appended at the bottom in receive order.
+            _publicMessages.value = com.bitchat.android.util.MessageOrdering
+                .withMessageInserted(_publicMessages.value, msg)
         }
     }
 
@@ -828,8 +831,8 @@ object AppStateStore {
             if (seenMessageIds.contains(msg.id)) return
             seenMessageIds.add(msg.id)
             val map = _channelMessages.value.toMutableMap()
-            val list = (map[channel] ?: emptyList()) + msg
-            map[channel] = list
+            map[channel] = com.bitchat.android.util.MessageOrdering
+                .withMessageInserted(map[channel] ?: emptyList(), msg)
             _channelMessages.value = map
         }
     }
