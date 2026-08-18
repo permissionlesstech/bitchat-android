@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%2$d ადამიანიდან %1$d შეტყობინება</string>
     <string name="notification_more_conversations">და კიდევ %1$d საუბარი</string>
     <string name="notification_active_peers_title">bitchatter-ები ახლოს!</string>
-    <string name="notification_active_peers_one">1 ადამიანი ახლოს</string>
-    <string name="notification_active_peers_many">ახლოს %1$d ადამიანი</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">1 ადამიანი ახლოს</item>
+        <item quantity="other">ახლოს %1$d ადამიანი</item>
+    </plurals>
     <string name="notification_new_messages">ახალი შეტყობინებები</string>
     <string name="notification_new_location_messages">მდებარეობის ახალი შეტყობინებები</string>
     <string name="notification_mentions_in">ხსენება %1$s-ში</string>

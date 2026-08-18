@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%2$d জন থেকে %1$d বার্তা</string>
     <string name="notification_more_conversations">এবং %1$d আরো কথোপকথন</string>
     <string name="notification_active_peers_title">কাছাকাছি bitchatter!</string>
-    <string name="notification_active_peers_one">কাছাকাছি ১ জন</string>
-    <string name="notification_active_peers_many">কাছাকাছি %1$d জন</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">কাছাকাছি ১ জন</item>
+        <item quantity="other">কাছাকাছি %1$d জন</item>
+    </plurals>
     <string name="notification_new_messages">নতুন বার্তা</string>
     <string name="notification_new_location_messages">নতুন অবস্থান বার্তা</string>
     <string name="notification_mentions_in">%1$s এ উল্লিখিত</string>

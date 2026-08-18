@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%2$d लोगों से %1$d संदेश</string>
     <string name="notification_more_conversations">और %1$d वार्तालाप</string>
     <string name="notification_active_peers_title">पास में उपयोगकर्ता!</string>
-    <string name="notification_active_peers_one">पास में 1 व्यक्ति</string>
-    <string name="notification_active_peers_many">पास में %1$d लोग</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">पास में 1 व्यक्ति</item>
+        <item quantity="other">पास में %1$d लोग</item>
+    </plurals>
     <string name="notification_new_messages">नए संदेश</string>
     <string name="notification_new_location_messages">नई स्थान संदेश</string>
     <string name="notification_mentions_in">%1$s में उल्लेख</string>
