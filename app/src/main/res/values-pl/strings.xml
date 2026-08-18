@@ -398,4 +398,11 @@
     <string name="about_app_language">Język aplikacji</string>
     <string name="about_system_default">Domyślny systemu</string>
     <string name="about_select_language">Wybierz język</string>
+
+  <string name="action_delete_note_subtitle">wysyła żądanie usunięcia nostr do przekaźników</string>
+  <string name="action_delete_note_title">usuń notatkę</string>
+  <string name="cd_open_about">Otwórz informacje</string>
+  <string name="nearby_notes_many">%d notatek zostawionych tutaj — stuknij, aby przeczytać</string>
+  <string name="nearby_notes_one">1 notatka zostawiona tutaj — stuknij, aby przeczytać</string>
+  <string name="nearby_notes_reveal">sprawdź, czy zostawiono tutaj notatki</string>
 </resources>
