@@ -1836,12 +1836,25 @@ fun PrivateChatSheet(
 
                     // Input section. No divider here: ChatInputSection draws its own fade and
                     // hairline.
+                    val conversationDrafts by viewModel.conversationDrafts
+                        .collectAsStateWithLifecycle()
                     var messageText by remember(peerID) {
                         mutableStateOf(
                             androidx.compose.ui.text.input.TextFieldValue(
                                 viewModel.conversationDraft(peerID)
                             )
                         )
+                    }
+                    val persistedDraft = conversationDrafts[
+                        ContactDirectory.canonicalConversationId(peerID).lowercase()
+                    ].orEmpty()
+                    LaunchedEffect(persistedDraft) {
+                        if (persistedDraft != messageText.text) {
+                            messageText = androidx.compose.ui.text.input.TextFieldValue(
+                                text = persistedDraft,
+                                selection = androidx.compose.ui.text.TextRange(persistedDraft.length),
+                            )
+                        }
                     }
 
                     ChatInputSection(
@@ -1853,10 +1866,10 @@ fun PrivateChatSheet(
                             // renders its own popups as hidden, so an update only leaves
                             // a stale popup behind for the main composer.
                         },
-                        onSend = {
-                            if (messageText.text.trim().isNotEmpty()) {
-                                viewModel.sendMessage(messageText.text.trim()) { accepted ->
-                                    if (accepted) {
+                        onSend = { submittedText ->
+                            if (submittedText.trim().isNotEmpty()) {
+                                viewModel.sendMessage(submittedText.trim()) { accepted ->
+                                    if (accepted && messageText.text == submittedText) {
                                         messageText =
                                             androidx.compose.ui.text.input.TextFieldValue("")
                                         viewModel.setConversationDraft(peerID, "")
