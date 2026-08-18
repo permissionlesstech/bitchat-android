@@ -11,7 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +40,7 @@ fun UserDetailScreen(
     onOpenVerification: () -> Unit
 ) {
     val mesh = WearMeshService.peek()
-    val revision by WearPeerIdentityState.revision.collectAsState()
+    val revision by WearPeerIdentityState.revision.collectAsStateWithLifecycle()
     val identity = androidx.compose.runtime.remember(peerID, revision) {
         WearPeerIdentityState.snapshot(peerID, mesh)
     }

@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.People
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.lazy.items
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
@@ -61,16 +61,16 @@ import java.util.Locale
 @Composable
 fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
     val context = LocalContext.current
-    val messages by AppStateStore.publicMessages.collectAsState()
-    val peers by AppStateStore.peers.collectAsState()
-    val unreadDms by WearChatState.unreadDms.collectAsState()
+    val messages by AppStateStore.publicMessages.collectAsStateWithLifecycle()
+    val peers by AppStateStore.peers.collectAsStateWithLifecycle()
+    val unreadDms by WearChatState.unreadDms.collectAsStateWithLifecycle()
     val mesh = WearMeshService.peek()
     val myPeerID = mesh?.myPeerID ?: ""
     var viewerPath by remember { mutableStateOf<String?>(null) }
     val liveVoiceManager = remember(context) {
         com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
     }
-    val busyTalker by liveVoiceManager.activePublicTalker.collectAsState()
+    val busyTalker by liveVoiceManager.activePublicTalker.collectAsStateWithLifecycle()
     val voice = rememberVoiceNoteController(
         recorderFactory = {
             val target = if (

@@ -292,6 +292,13 @@ class WatchDevice(Device):
         _shell(self.serial, "settings put system screen_off_timeout 600000")
         _shell(self.serial, "input keyevent KEYCODE_WAKEUP")
 
+    def background_and_sleep(self) -> None:
+        """Background the activity and turn the display off without stopping its mesh FGS."""
+        _shell(self.serial, "input keyevent KEYCODE_HOME")
+        time.sleep(1)
+        _shell(self.serial, "input keyevent KEYCODE_SLEEP")
+        time.sleep(5)
+
 
 # MARK: - fixtures
 
@@ -530,6 +537,69 @@ def scenario_broadcast(a: Device, b: Device) -> dict:
         recv_result, send_result = recv.result(), send.result()
     assert recv_result["from"] == id_a, recv_result
     return {"send": send_result, "recv": recv_result}
+
+
+def scenario_watch_power(a: Device, b: Device) -> dict:
+    """Assert the Wear screen-off radio policy while preserving live message delivery."""
+    if not isinstance(b, WatchDevice):
+        raise MeshLabError("watch_power requires --serial-watch")
+
+    before = b.cmd_ok("power")
+    if before.get("connection_limit") != 2:
+        raise MeshLabError(f"watch connection limit is not two: {before}")
+    if not 1 <= before.get("active_connections", 0) <= 2:
+        raise MeshLabError(f"watch does not have a bounded active link: {before}")
+
+    try:
+        b.background_and_sleep()
+        # Allow ProcessLifecycleOwner, the one-second scan window, and advertising mode changes
+        # to settle before taking the first background snapshot.
+        time.sleep(8)
+        background_first = b.cmd_ok("power")
+        time.sleep(15)
+        background_second = b.cmd_ok("power")
+
+        if not background_second.get("background"):
+            raise MeshLabError(f"watch did not enter its background profile: {background_second}")
+        if background_second.get("scanning"):
+            raise MeshLabError(f"watch kept scanning with a stable link: {background_second}")
+        active_connections = background_second.get("active_connections", 0)
+        if active_connections < 2 and not background_second.get("advertising"):
+            raise MeshLabError(
+                f"watch cannot accept a second routing link while one slot is free: {background_second}"
+            )
+        if active_connections == 2 and background_second.get("advertising"):
+            raise MeshLabError(f"watch kept advertising with both link slots occupied: {background_second}")
+        if background_second.get("scan_active_ms") != background_first.get("scan_active_ms"):
+            raise MeshLabError(
+                "watch accumulated scan time during the settled background interval: "
+                f"{background_first.get('scan_active_ms')} -> "
+                f"{background_second.get('scan_active_ms')}"
+            )
+        if background_second.get("rssi_reads") != background_first.get("rssi_reads"):
+            raise MeshLabError(
+                "watch continued RSSI polling while backgrounded: "
+                f"{background_first.get('rssi_reads')} -> {background_second.get('rssi_reads')}"
+            )
+        if active_connections > 2:
+            raise MeshLabError(f"watch exceeded its two-link ceiling: {background_second}")
+
+        token = f"watch-power-{uuid.uuid4().hex[:8]}"
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            recv = pool.submit(b.cmd_ok, "msg_recv", 60_000, contains=token)
+            time.sleep(2)
+            send = pool.submit(a.cmd_ok, "broadcast_msg", 30_000, content=token)
+            recv_result, send_result = recv.result(), send.result()
+
+        return {
+            "foreground": before,
+            "background_settled": background_first,
+            "background_verified": background_second,
+            "delivery": {"send": send_result, "recv": recv_result},
+        }
+    finally:
+        b.wake()
+        b.launch()
 
 
 def _ptt_one_way(
@@ -869,6 +939,7 @@ SCENARIOS = {
     "dm": scenario_dm,
     "favorite_verification": scenario_favorite_verification,
     "broadcast": scenario_broadcast,
+    "watch_power": scenario_watch_power,
     "ptt_dm": scenario_ptt_dm,
     "ptt_broadcast": scenario_ptt_broadcast,
     # Broadcast transfers are receiver-capped at 256 fragments (~120 KB); only
@@ -893,12 +964,16 @@ SCENARIOS = {
     "identity_reset": scenario_identity_reset,
 }
 
+WATCH_ONLY_SCENARIOS = frozenset({"watch_power"})
+PHONE_SCENARIOS = tuple(name for name in SCENARIOS if name not in WATCH_ONLY_SCENARIOS)
+
 # Scenarios supported when device B is a watch (file scenarios are receive-only: phone sends,
 # the watch must receive with matching digests).
-WATCH_SCENARIOS = [
+WATCH_SCENARIOS = (
     "dm",
     "favorite_verification",
     "broadcast",
+    "watch_power",
     "ptt_dm",
     "ptt_broadcast",
     "raw",
@@ -906,14 +981,14 @@ WATCH_SCENARIOS = [
     "file_private",
     "session_recovery",
     "identity_reset",
-]
+)
 
 
 def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:
     started = time.time()
     evidence: dict[str, object] = {"scenario": name, "devices": [a.alias, b.alias]}
     try:
-        supported = WATCH_SCENARIOS if isinstance(b, WatchDevice) else list(SCENARIOS)
+        supported = WATCH_SCENARIOS if isinstance(b, WatchDevice) else PHONE_SCENARIOS
         if name == "all":
             results = {}
             failures = []
