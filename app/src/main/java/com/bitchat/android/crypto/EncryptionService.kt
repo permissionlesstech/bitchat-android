@@ -112,6 +112,12 @@ open class EncryptionService(private val context: Context) {
     fun getStaticPublicKey(): ByteArray? {
         return noiseService.getStaticPublicKeyData()
     }
+
+    fun sealCourierPayload(payload: ByteArray, recipientStaticKey: ByteArray): ByteArray =
+        noiseService.sealCourierPayload(payload, recipientStaticKey)
+
+    fun openCourierPayload(ciphertext: ByteArray): Pair<ByteArray, ByteArray> =
+        noiseService.openCourierPayload(ciphertext)
     
     /**
      * Get our signing public key for Ed25519 signatures (for identity announcements)

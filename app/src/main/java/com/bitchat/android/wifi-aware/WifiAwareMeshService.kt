@@ -240,6 +240,9 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         sendPacketToPeer(peerID, packet)
     }
 
+    override fun sendToPeerAndReport(peerID: String, packet: BitchatPacket): Boolean =
+        sendPacketToPeer(peerID, packet)
+
     /**
      * Broadcasts routed packet to currently connected peers.
      */

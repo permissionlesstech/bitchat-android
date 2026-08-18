@@ -72,6 +72,9 @@ object ContactDirectory {
             favorite != null -> favorite.peerNoisePublicKey
             ContactIdentityResolver.isNoiseKeyHex(peerOrConversationID) ->
                 ContactIdentityResolver.bytesFromHex(peerOrConversationID)
+            contactFingerprint != null -> cachedNoiseKeyForFingerprint(contactFingerprint)
+            ContactIdentityResolver.isMeshPeerId(peerOrConversationID) ->
+                noiseKeyForAlias(peerOrConversationID)
             else -> null
         }
         val liveMeshPeerID = contactFingerprint?.let { findLiveMeshPeerForFingerprint(it) }
@@ -155,6 +158,18 @@ object ContactDirectory {
             null
         }
     }
+
+    /**
+     * A contact conversation ID contains the SHA-256 fingerprint of the Noise key, whose
+     * first 16 hex characters are the stable mesh peer ID. Recovering that cached key keeps
+     * offline routing viable after the outbox has canonicalized a peer ID to `contact_…`.
+     * Recompute the fingerprint before returning it so stale or mismatched cache entries cannot
+     * redirect a private message.
+     */
+    private fun cachedNoiseKeyForFingerprint(fingerprint: String): ByteArray? =
+        cachedNoiseKey(fingerprint.take(16))?.takeIf {
+            ContactIdentityResolver.fingerprintHex(it).equals(fingerprint, ignoreCase = true)
+        }
 
     private fun cachedFingerprintNickname(fingerprint: String): String? {
         val context = appContext ?: return null
