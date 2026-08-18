@@ -67,6 +67,13 @@ object Geohash {
     }
 
     /**
+     * True when every character of [geohash] is a base32 geohash digit and the
+     * string is non-empty, i.e. when it names an actual cell.
+     */
+    fun isValid(geohash: String): Boolean =
+        geohash.isNotEmpty() && geohash.lowercase().all { charToValue.containsKey(it) }
+
+    /**
      * Decodes a geohash string to the center latitude/longitude of its cell.
      * @return Pair(latitude, longitude)
      */
@@ -78,7 +85,30 @@ object Geohash {
     }
 
     /**
+     * Decodes a geohash string to the center latitude/longitude of its cell, or
+     * null when the string does not name a cell.
+     *
+     * Prefer this over [decodeToCenter] wherever the string can come from
+     * outside: an empty or malformed geohash decodes to the (0, 0) box, and
+     * (0, 0) is a real place in the Gulf of Guinea, so a caller that cannot
+     * tell the two apart silently acts on a location the user never chose.
+     */
+    fun decodeToCenterOrNull(geohash: String): Pair<Double, Double>? =
+        if (isValid(geohash)) decodeToCenter(geohash) else null
+
+    /**
+     * Decodes a geohash string to a bounding box, or null when the string does
+     * not name a cell.  See [decodeToCenterOrNull].
+     */
+    fun decodeToBoundsOrNull(geohash: String): Bounds? =
+        if (isValid(geohash)) decodeToBounds(geohash) else null
+
+    /**
      * Decodes a geohash string to bounding box (lat/lon min/max).
+     *
+     * An empty or malformed geohash yields the degenerate box at (0, 0); use
+     * [decodeToBoundsOrNull] when that has to be distinguishable from a real
+     * cell there.
      */
     fun decodeToBounds(geohash: String): Bounds {
         if (geohash.isEmpty()) return Bounds(0.0, 0.0, 0.0, 0.0)
