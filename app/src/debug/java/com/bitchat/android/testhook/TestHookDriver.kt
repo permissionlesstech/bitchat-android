@@ -28,6 +28,7 @@ import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ConversationStorageCipher
+import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.PrivateMediaRecipientResolver
 import com.bitchat.android.ui.debug.DebugSettingsManager
@@ -75,6 +76,13 @@ object TestHookDriver {
             "announce" -> announce(context)
             "broadcast_msg" -> broadcastMsg(context, intent.requiredString("content"), intent.getStringExtra("channel"))
             "dm_send" -> dmSend(context, intent.requiredString("peer"), intent.requiredString("content"), intent.getStringExtra("msg_id"))
+            "router_private_send" -> routerPrivateSend(
+                context,
+                intent.requiredString("peer"),
+                intent.requiredString("content"),
+                intent.getStringExtra("msg_id")
+            )
+            "router_resume" -> routerResume(context)
             "dm_recv" -> dmRecv(context, intent)
             "msg_recv" -> msgRecv(context, intent)
             "favorite_set" -> favoriteSet(
@@ -96,6 +104,7 @@ object TestHookDriver {
             "ptt_recv" -> pttRecv(context, intent)
             "raw_send" -> rawSend(context, intent)
             "courier_contract" -> courierContract(context)
+            "cache_peer_identity" -> cachePeerIdentity(context, intent.requiredString("peer"))
             "sync_request" -> syncRequest(intent.requiredString("peer"))
             "ble" -> setBle(intent.getBooleanExtra("enabled", true))
             "wifi_aware" -> setWifiAware(intent.getBooleanExtra("enabled", true))
@@ -250,6 +259,27 @@ object TestHookDriver {
         val id = msgID ?: "testhook-${System.currentTimeMillis()}"
         mesh.sendPrivateMessage(content, peerID, nickname, id)
         return ok("dm_send").put("peer", peerID).put("msg_id", id)
+    }
+
+    /**
+     * Drives the same durable outbox/router path used by private-chat sends instead of the
+     * lower-level direct mesh API that backs `dm_send`.
+     */
+    private fun routerPrivateSend(context: Context, peerID: String, content: String, msgID: String?): JSONObject {
+        val mesh = mesh(context)
+        val nickname = mesh.getPeerNicknames()[peerID] ?: peerID
+        val id = msgID ?: "testhook-router-${System.currentTimeMillis()}"
+        val route = MessageRouter.getInstance(context, mesh).sendPrivate(content, peerID, nickname, id)
+        return ok("router_private_send")
+            .put("peer", peerID)
+            .put("msg_id", id)
+            .put("route", route.name)
+    }
+
+    /** Recreates the durable router after a process restart without adding another message. */
+    private fun routerResume(context: Context): JSONObject {
+        MessageRouter.getInstance(context, mesh(context))
+        return ok("router_resume")
     }
 
     private suspend fun dmRecv(context: Context, intent: Intent): JSONObject {
@@ -742,6 +772,25 @@ object TestHookDriver {
             store.wipe()
             filesDir.deleteRecursively()
         }
+    }
+
+    /** Persist the currently authenticated peer key exactly as the normal UI session observer does. */
+    private fun cachePeerIdentity(context: Context, peerID: String): JSONObject {
+        val info = mesh(context).getPeerInfo(peerID)
+            ?: return err("cache_peer_identity", "peer is not known")
+        val noiseKey = info.noisePublicKey
+            ?: return err("cache_peer_identity", "peer Noise key is unavailable")
+        val noiseKeyHex = noiseKey.toHex()
+        val identityManager = SecureIdentityStateManager(context)
+        identityManager.cachePeerNoiseKey(peerID, noiseKeyHex)
+        identityManager.cacheNoiseFingerprint(noiseKeyHex, com.bitchat.android.services.ContactIdentityResolver.fingerprintHex(noiseKey))
+        info.nickname.takeIf { it.isNotBlank() }?.let { nickname ->
+            identityManager.cacheFingerprintNickname(
+                com.bitchat.android.services.ContactIdentityResolver.fingerprintHex(noiseKey),
+                nickname
+            )
+        }
+        return ok("cache_peer_identity").put("peer", peerID)
     }
 
     private fun syncRequest(peerID: String): JSONObject {

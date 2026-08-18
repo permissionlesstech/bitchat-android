@@ -166,10 +166,13 @@ class Device:
 
     def reset_bluetooth(self) -> None:
         """Cycle the BT adapter; clears zombie GATT connections from peer restarts."""
-        _shell(self.serial, "svc bluetooth disable")
+        self.disable_bluetooth()
         time.sleep(2)
         _shell(self.serial, "svc bluetooth enable")
         time.sleep(3)
+
+    def disable_bluetooth(self) -> None:
+        _shell(self.serial, "svc bluetooth disable")
 
     def enable_bluetooth(self) -> None:
         subprocess.run(
@@ -365,6 +368,31 @@ def setup_pair(
     wait_for_mutual_discovery(a, b)
 
 
+def setup_triad(
+    a: Device,
+    b: Device,
+    c: Device,
+    apk: Path | None,
+    nickname_a: str,
+    nickname_b: str,
+    nickname_c: str,
+) -> None:
+    """Install and isolate three phones, then ensure every pair can discover each other."""
+    for device, nickname in ((a, nickname_a), (b, nickname_b), (c, nickname_c)):
+        device.reset_bluetooth()
+        device.enable_bluetooth()
+        if apk is not None:
+            device.install(apk)
+        device.clear_app_data()
+        device.grant_permissions()
+        device.wake()
+        device.launch()
+        device.cmd_ok("start")
+        device.cmd_ok("set_nickname", name=nickname)
+    for left, right in ((a, b), (a, c), (b, c)):
+        wait_for_mutual_discovery(left, right)
+
+
 def whoami(device: Device) -> dict:
     return device.cmd_ok("whoami")
 
@@ -389,6 +417,47 @@ def wait_for_mutual_discovery(a: Device, b: Device) -> None:
         fb = pool.submit(wait_for_peer, b, id_a)
         fa.result()
         fb.result()
+
+
+def wait_for_peer_absent(device: Device, peer_id: str, timeout_s: int = 90) -> None:
+    """Wait until the peer is absent or no longer connected in the visible mesh state."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        peers = device.cmd_ok("peers").get("peers", [])
+        peer = next((item for item in peers if item.get("id") == peer_id), None)
+        if peer is None or not peer.get("connected", False):
+            return
+        time.sleep(2)
+    raise MeshLabError(f"[{device.alias}] peer {peer_id} remained connected after transport shutdown")
+
+
+def disable_transports(device: Device) -> bool:
+    """Make a phone unreachable through either local mesh transport and return its Wi-Fi setting."""
+    device.cmd_ok("ble", enabled=False)
+    return bool(device.cmd_ok("wifi_aware", enabled=False)["previous_enabled"])
+
+
+def resume_transports(device: Device, wifi_enabled: bool) -> None:
+    """Bring a force-stopped phone back as the same identity with its prior Wi-Fi setting."""
+    device.wake()
+    device.launch()
+    device.cmd_ok("start")
+    device.cmd_ok("ble", enabled=True)
+    device.cmd_ok("wifi_aware", enabled=wifi_enabled)
+
+
+def take_device_offline(device: Device) -> bool:
+    """Stop the app and radio so the counterpart must observe a real link loss."""
+    wifi_enabled = disable_transports(device)
+    device.force_stop()
+    device.disable_bluetooth()
+    return wifi_enabled
+
+
+def bring_device_online(device: Device, wifi_enabled: bool) -> None:
+    device.enable_bluetooth()
+    time.sleep(3)
+    resume_transports(device, wifi_enabled)
 
 
 # MARK: - scenarios
@@ -583,6 +652,233 @@ def scenario_sync_recovery(a: Device, b: Device) -> dict:
             b.cmd_ok("wifi_aware", enabled=wifi_before)
         except MeshLabError:
             pass
+
+
+def scenario_sync_auto_recovery(a: Device, b: Device) -> dict:
+    """A restarted receiver recovers a missed public message without a test-hook sync request."""
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+    token = f"sync-auto-{uuid.uuid4().hex[:8]}"
+    wifi_before = disable_transports(b)
+    try:
+        send_result = a.cmd_ok("broadcast_msg", 30_000, content=f"automatic sync recovery {token}")
+        time.sleep(2)
+        offline_result = b.cmd("msg_recv", 5_000, contains=token, include_existing=True)
+        if offline_result.get("status") == "ok":
+            raise MeshLabError(f"message was delivered while receiver transports were disabled: {offline_result}")
+
+        b.force_stop()
+        resume_transports(b, wifi_before)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            recv = pool.submit(
+                b.cmd_ok,
+                "msg_recv",
+                180_000,
+                contains=token,
+                include_existing=True,
+            )
+            time.sleep(2)
+            ensure_direct_link(a, b, id_a, id_b)
+            # No sync_request command here: this must arrive from the production initial/periodic
+            # gossip scheduler created by the restarted receiver.
+            recv_result = recv.result()
+        assert recv_result["from"] == id_a, recv_result
+        return {
+            "send": send_result,
+            "offline_delivery": {"status": offline_result.get("status", "missing")},
+            "synced_recv": recv_result,
+        }
+    finally:
+        try:
+            bring_device_online(b, wifi_before)
+        except MeshLabError:
+            pass
+
+
+def scenario_sync_file_recovery(a: Device, b: Device) -> dict:
+    """Sync an offline-missed broadcast transfer, exercising FILE_TRANSFER and FRAGMENT replay."""
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+    fixture = make_fixtures(
+        Path(tempfile.mkdtemp(prefix="meshlab-sync-file-")),
+        names=["small_1k.bin"],
+    )["small_1k.bin"]
+    name = f"sync-file-{uuid.uuid4().hex[:8]}.bin"
+    remote = a.push_fixture(fixture["path"], name=name)
+    b.clear_incoming()
+    wifi_before = disable_transports(b)
+    try:
+        send_result = a.cmd_ok("file_send", 180_000, path=remote)
+        time.sleep(2)
+        offline_result = b.cmd("file_recv", 10_000, name_contains=name)
+        if offline_result.get("status") == "ok":
+            raise MeshLabError(f"file was delivered while receiver transports were disabled: {offline_result}")
+
+        b.force_stop()
+        resume_transports(b, wifi_before)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            recv = pool.submit(b.cmd_ok, "file_recv", 240_000, name_contains=name)
+            time.sleep(2)
+            ensure_direct_link(a, b, id_a, id_b)
+            b.cmd_ok("sync_request", peer=id_a)
+            recv_result = recv.result()
+        if recv_result["sha256"] != fixture["sha256"]:
+            raise MeshLabError("synced file digest did not match the synthetic fixture")
+        return {
+            "send": send_result,
+            "offline_delivery": {"status": offline_result.get("status", "missing")},
+            "synced_recv": {
+                "name": recv_result["name"],
+                "bytes": recv_result["bytes"],
+                "digest_match": True,
+            },
+        }
+    finally:
+        try:
+            b.cmd_ok("ble", enabled=True)
+        except MeshLabError:
+            pass
+        try:
+            b.cmd_ok("wifi_aware", enabled=wifi_before)
+        except MeshLabError:
+            pass
+
+
+def scenario_durable_outbox(a: Device, b: Device) -> dict:
+    """Queue a private message offline, kill the sender, and deliver it after both phones return."""
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+    ensure_direct_link(a, b, id_a, id_b)
+    force_handshake(a, id_b)
+    force_handshake(b, id_a)
+    a.cmd_ok("cache_peer_identity", peer=id_b)
+
+    token = f"durable-outbox-{uuid.uuid4().hex[:8]}"
+    message_id = f"outbox-{uuid.uuid4().hex}"
+    wifi_before = take_device_offline(b)
+    try:
+        wait_for_peer_absent(a, id_b)
+        queued: dict | None = None
+        for _attempt in range(5):
+            candidate = a.cmd_ok(
+                "router_private_send",
+                peer=id_b,
+                content=f"durable outbox {token}",
+                msg_id=message_id,
+            )
+            if candidate.get("route") == "QUEUED":
+                queued = candidate
+                break
+            time.sleep(3)
+        if queued is None:
+            raise MeshLabError("private message did not enter the durable outbox while recipient was offline")
+
+        # The queued entry must survive a complete sender process death, not just an in-memory
+        # reconnect. B is restored before A so its receiver is ready for the resumed delivery.
+        a.force_stop()
+        bring_device_online(b, wifi_before)
+        a.wake()
+        a.launch()
+        a.cmd_ok("start")
+        a.cmd_ok("router_resume")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            recv = pool.submit(b.cmd_ok, "dm_recv", 180_000, peer=id_a, contains=token)
+            time.sleep(2)
+            ensure_direct_link(a, b, id_a, id_b)
+            force_handshake(a, id_b)
+            force_handshake(b, id_a)
+            recv_result = recv.result()
+        assert recv_result["from"] == id_a, recv_result
+        return {
+            "queued_route": queued["route"],
+            "sender_process_restarted": True,
+            "received_after_restart": {"msg_id": recv_result["msg_id"], "from_sender": True},
+        }
+    finally:
+        try:
+            bring_device_online(b, wifi_before)
+        except MeshLabError:
+            pass
+
+
+def _make_mutual_favorites(a: Device, b: Device, id_a: str, id_b: str) -> None:
+    """Establish a trusted direct A↔B relationship for a courier deposit."""
+    ensure_direct_link(a, b, id_a, id_b)
+    force_handshake(a, id_b)
+    force_handshake(b, id_a)
+    a.cmd_ok("favorite_set", peer=id_b, enabled=True)
+    b.cmd_ok("favorite_set", peer=id_a, enabled=True)
+    deadline = time.monotonic() + 45
+    while time.monotonic() < deadline:
+        a_status = a.cmd_ok("favorite_status", peer=id_b)
+        b_status = b.cmd_ok("favorite_status", peer=id_a)
+        if a_status.get("is_mutual") and b_status.get("is_mutual"):
+            return
+        time.sleep(1)
+    raise MeshLabError("courier depositor and courier did not establish a mutual favorite relationship")
+
+
+def scenario_courier_delivery(a: Device, b: Device, c: Device) -> dict:
+    """A deposits to B while C is offline; C returns only after A is unavailable."""
+    id_a = whoami(a)["peer_id"]
+    id_b = whoami(b)["peer_id"]
+    id_c = whoami(c)["peer_id"]
+    _make_mutual_favorites(a, b, id_a, id_b)
+    ensure_direct_link(a, c, id_a, id_c)
+    a.cmd_ok("cache_peer_identity", peer=id_c)
+
+    token = f"courier-delivery-{uuid.uuid4().hex[:8]}"
+    message_id = f"courier-{uuid.uuid4().hex}"
+    wifi_c = take_device_offline(c)
+    wifi_a: bool | None = None
+    try:
+        wait_for_peer_absent(a, id_c)
+        ensure_direct_link(a, b, id_a, id_b)
+
+        queued: dict | None = None
+        for _attempt in range(5):
+            candidate = a.cmd_ok(
+                "router_private_send",
+                peer=id_c,
+                content=f"courier delivery {token}",
+                msg_id=message_id,
+            )
+            if candidate.get("route") == "QUEUED":
+                queued = candidate
+                break
+            time.sleep(3)
+        if queued is None:
+            raise MeshLabError("offline recipient message did not enter the courier-capable outbox")
+
+        # A must be unavailable when C returns. This prevents the sender's direct outbox retry
+        # from masking whether B actually retained and handed over the courier envelope.
+        wifi_a = take_device_offline(a)
+        wait_for_peer_absent(b, id_a)
+
+        bring_device_online(c, wifi_c)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            recv = pool.submit(c.cmd_ok, "dm_recv", 240_000, peer=id_a, contains=token)
+            time.sleep(2)
+            ensure_direct_link(b, c, id_b, id_c)
+            c.cmd_ok("announce")
+            recv_result = recv.result()
+        assert recv_result["from"] == id_a, recv_result
+        return {
+            "queued_route": queued["route"],
+            "sender_offline_before_recipient_return": True,
+            "received_from_original_sender": True,
+            "received_message_id": recv_result["msg_id"],
+        }
+    finally:
+        try:
+            bring_device_online(c, wifi_c)
+        except MeshLabError:
+            pass
+        if wifi_a is not None:
+            try:
+                bring_device_online(a, wifi_a)
+            except MeshLabError:
+                pass
 
 
 def scenario_courier_contract(a: Device, b: Device) -> dict:
@@ -801,26 +1097,26 @@ def ensure_direct_link(a: Device, b: Device, id_a: str, id_b: str) -> None:
     wait_for_peer(a, id_b, timeout_s=120)
     wait_for_peer(b, id_a, timeout_s=120)
     for device, peer, announcer in ((a, id_b, b), (b, id_a, a)):
-        connected = False
         last: dict = {}
         for _attempt in range(4):
             last = device.cmd("connect", timeout_ms=45_000, peer=peer)
             if last.get("status") == "ok" and last.get("direct"):
-                connected = True
-                break
-            # Already acceptable if the mesh formed a direct link on its own.
-            peers = device.cmd_ok("peers").get("peers", [])
-            match = next((p for p in peers if p.get("id") == peer), None)
-            if match and match.get("direct"):
-                connected = True
-                break
+                # A GATT link carries traffic both ways. Requiring a second client connection from
+                # the other endpoint turns a healthy single direct link into a false test failure,
+                # especially after one phone has just restarted and has not rebuilt its address map.
+                return
+            # Already acceptable if either endpoint formed a direct link on its own.
+            for observer, observed_peer in ((device, peer), (announcer, whoami(device)["peer_id"])):
+                peers = observer.cmd_ok("peers").get("peers", [])
+                match = next((p for p in peers if p.get("id") == observed_peer), None)
+                if match and match.get("direct"):
+                    return
             try:
                 announcer.cmd_ok("announce")
             except MeshLabError:
                 pass
             time.sleep(4)
-        if not connected:
-            raise MeshLabError(f"[{device.alias}] no direct link to {peer}: connect={last}")
+    raise MeshLabError(f"no direct link formed between {a.alias} and {b.alias}: connect={last}")
 
 
 def force_handshake(device: Device, peer_id: str, attempts: int = 5, per_attempt_s: int = 20) -> dict:
@@ -943,6 +1239,9 @@ SCENARIOS = {
     "favorite_verification": scenario_favorite_verification,
     "broadcast": scenario_broadcast,
     "sync_recovery": scenario_sync_recovery,
+    "sync_auto_recovery": scenario_sync_auto_recovery,
+    "sync_file_recovery": scenario_sync_file_recovery,
+    "durable_outbox": scenario_durable_outbox,
     "courier_contract": scenario_courier_contract,
     "ptt_dm": scenario_ptt_dm,
     "ptt_broadcast": scenario_ptt_broadcast,
@@ -968,6 +1267,11 @@ SCENARIOS = {
     "identity_reset": scenario_identity_reset,
 }
 
+# End-to-end peer courier delivery needs distinct sender, courier, and recipient identities.
+TRIAD_SCENARIOS = {
+    "courier_delivery": scenario_courier_delivery,
+}
+
 # Scenarios supported when device B is a watch (file scenarios are receive-only: phone sends,
 # the watch must receive with matching digests).
 WATCH_SCENARIOS = [
@@ -984,9 +1288,16 @@ WATCH_SCENARIOS = [
 ]
 
 
-def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:
+def run_scenario(
+    name: str,
+    a: Device,
+    b: Device,
+    out: Path | None,
+    c: Device | None = None,
+) -> dict:
     started = time.time()
-    evidence: dict[str, object] = {"scenario": name, "devices": [a.alias, b.alias]}
+    devices = [a, b] + ([c] if c is not None else [])
+    evidence: dict[str, object] = {"scenario": name, "devices": [device.alias for device in devices]}
     try:
         supported = WATCH_SCENARIOS if isinstance(b, WatchDevice) else list(SCENARIOS)
         if name == "all":
@@ -997,9 +1308,20 @@ def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:
                 results[n] = sub.get("results", {"error": sub.get("error", "unknown")})
                 if sub["status"] != "pass":
                     failures.append(n)
+            if c is not None:
+                sub = run_scenario("courier_delivery", a, b, out, c)
+                results["courier_delivery"] = sub.get("results", {"error": sub.get("error", "unknown")})
+                if sub["status"] != "pass":
+                    failures.append("courier_delivery")
             evidence["results"] = results
             if failures:
                 raise MeshLabError(f"sub-scenarios failed: {', '.join(failures)}")
+        elif name in TRIAD_SCENARIOS:
+            if c is None:
+                raise MeshLabError(f"scenario '{name}' requires --serial-c")
+            if isinstance(b, WatchDevice):
+                raise MeshLabError(f"scenario '{name}' requires three phones")
+            evidence["results"] = TRIAD_SCENARIOS[name](a, b, c)
         elif name not in supported:
             raise MeshLabError(f"scenario '{name}' is not supported on device '{b.alias}'")
         else:
@@ -1008,7 +1330,7 @@ def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:
     except (MeshLabError, AssertionError) as error:
         evidence["status"] = "fail"
         evidence["error"] = str(error)
-        evidence["logcat"] = {d.alias: d.logcat_dump() for d in (a, b)}
+        evidence["logcat"] = {d.alias: d.logcat_dump() for d in devices}
     evidence["duration_s"] = round(time.time() - started, 1)
     if out is not None:
         out.mkdir(parents=True, exist_ok=True)
@@ -1025,16 +1347,19 @@ def build_parser() -> argparse.ArgumentParser:
     setup = commands.add_parser("setup", help="install, grant, launch, nickname, discover")
     setup.add_argument("--serial-a", required=True)
     setup.add_argument("--serial-b")
+    setup.add_argument("--serial-c", help="third phone for a three-party scenario")
     setup.add_argument("--serial-watch", help="watch serial; used as device B (overrides --serial-b)")
     setup.add_argument("--apk", type=Path, default=None)
     setup.add_argument("--watch-apk", type=Path, default=None)
     setup.add_argument("--nickname-a", default="alice")
     setup.add_argument("--nickname-b", default="bob")
+    setup.add_argument("--nickname-c", default="charlie")
 
-    scenario = commands.add_parser("scenario", help="run a test scenario on two devices")
-    scenario.add_argument("name", choices=[*SCENARIOS.keys(), "all"])
+    scenario = commands.add_parser("scenario", help="run a test scenario on two phones, or three for courier delivery")
+    scenario.add_argument("name", choices=[*SCENARIOS.keys(), *TRIAD_SCENARIOS.keys(), "all"])
     scenario.add_argument("--serial-a", required=True)
     scenario.add_argument("--serial-b")
+    scenario.add_argument("--serial-c", help="third phone; required for courier_delivery")
     scenario.add_argument("--serial-watch", help="watch serial; used as device B (overrides --serial-b)")
     scenario.add_argument("--out", type=Path, default=None, help="evidence output directory")
 
@@ -1047,30 +1372,36 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _resolve_devices(args: argparse.Namespace) -> tuple[Device, Device]:
+def _resolve_devices(args: argparse.Namespace) -> tuple[Device, Device, Device | None]:
     """Device A is always the phone; device B is a watch when --serial-watch is given."""
     a = Device(args.serial_a, "alpha")
     if getattr(args, "serial_watch", None):
-        return a, WatchDevice(args.serial_watch)
+        if getattr(args, "serial_c", None):
+            raise MeshLabError("--serial-c cannot be combined with --serial-watch")
+        return a, WatchDevice(args.serial_watch), None
     if not getattr(args, "serial_b", None):
         raise MeshLabError("either --serial-b or --serial-watch is required")
-    return a, Device(args.serial_b, "beta")
+    c = Device(args.serial_c, "charlie") if getattr(args, "serial_c", None) else None
+    return a, Device(args.serial_b, "beta"), c
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "setup":
-            a, b = _resolve_devices(args)
+            a, b, c = _resolve_devices(args)
             nickname_b = "watch" if isinstance(b, WatchDevice) and args.nickname_b == "bob" else args.nickname_b
-            setup_pair(
-                a, b, args.apk, args.nickname_a, nickname_b,
-                apk_b=args.watch_apk if isinstance(b, WatchDevice) else None,
-            )
+            if c is not None:
+                setup_triad(a, b, c, args.apk, args.nickname_a, nickname_b, args.nickname_c)
+            else:
+                setup_pair(
+                    a, b, args.apk, args.nickname_a, nickname_b,
+                    apk_b=args.watch_apk if isinstance(b, WatchDevice) else None,
+                )
             print(json.dumps({"status": "ok", "step": "setup"}))
         elif args.command == "scenario":
-            a, b = _resolve_devices(args)
-            evidence = run_scenario(args.name, a, b, args.out)
+            a, b, c = _resolve_devices(args)
+            evidence = run_scenario(args.name, a, b, args.out, c)
             print(json.dumps(evidence, indent=2, default=str))
             return 0 if evidence["status"] == "pass" else 1
         elif args.command == "cmd":

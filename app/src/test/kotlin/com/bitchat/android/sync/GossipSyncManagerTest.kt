@@ -1,5 +1,6 @@
 package com.bitchat.android.sync
 
+import android.content.ContextWrapper
 import android.os.Build
 import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.protocol.BitchatPacket
@@ -9,7 +10,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.File
+import java.nio.file.Files
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.P], manifest = Config.NONE)
@@ -145,6 +149,59 @@ class GossipSyncManagerTest {
         manager.handleRequestSync("peer", RequestSyncPacket(p = 1, m = 1, data = byteArrayOf()))
 
         assertEquals(listOf(1), sent.map { it.payload.single().toInt() })
+    }
+
+    @Test
+    fun `public history survives manager recreation for post-reconnect sync`() {
+        val filesDir = Files.createTempDirectory("gossip-sync-test-").toFile()
+        val context = object : ContextWrapper(RuntimeEnvironment.getApplication()) {
+            override fun getApplicationContext() = this
+            override fun getFilesDir(): File = filesDir
+        }
+        try {
+            val now = System.currentTimeMillis()
+            GossipSyncManager("1111222233334444", TestScope(), config, context)
+                .onPublicPacketSeen(packet(MessageType.MESSAGE, now, 42))
+
+            val sent = mutableListOf<BitchatPacket>()
+            val restored = GossipSyncManager("1111222233334444", TestScope(), config, context)
+            restored.delegate = recordingDelegate(sent)
+            restored.handleRequestSync(
+                "peer",
+                RequestSyncPacket(
+                    p = 1,
+                    m = 1,
+                    data = byteArrayOf(),
+                    types = SyncTypeFlags.PUBLIC_MESSAGES
+                )
+            )
+
+            assertEquals(listOf(42), sent.map { it.payload.single().toInt() })
+        } finally {
+            filesDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `announcement-only request returns the latest announcement independently of message history`() {
+        val sent = mutableListOf<BitchatPacket>()
+        val manager = GossipSyncManager("1111222233334444", TestScope(), config)
+        manager.delegate = recordingDelegate(sent)
+        val now = System.currentTimeMillis()
+        manager.onPublicPacketSeen(packet(MessageType.ANNOUNCE, now - 1_000, 6))
+        manager.onPublicPacketSeen(packet(MessageType.MESSAGE, now, 7))
+
+        manager.handleRequestSync(
+            "peer",
+            RequestSyncPacket(
+                p = 1,
+                m = 1,
+                data = byteArrayOf(),
+                types = SyncTypeFlags.ANNOUNCE
+            )
+        )
+
+        assertEquals(listOf(6), sent.map { it.payload.single().toInt() })
     }
 
     private fun recordingDelegate(sent: MutableList<BitchatPacket>) =

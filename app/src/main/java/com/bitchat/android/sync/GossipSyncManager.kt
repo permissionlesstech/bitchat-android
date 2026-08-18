@@ -411,7 +411,17 @@ class GossipSyncManager(
                     StandardCopyOption.REPLACE_EXISTING
                 )
             } catch (_: Exception) {
-                temporary.delete()
+                // Some Android filesystems do not support ATOMIC_MOVE. Preserve the durable
+                // public-history guarantee with a regular replacement move before giving up.
+                try {
+                    java.nio.file.Files.move(
+                        temporary.toPath(),
+                        file.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                    )
+                } catch (_: Exception) {
+                    temporary.delete()
+                }
             }
         } catch (_: Exception) { }
     }

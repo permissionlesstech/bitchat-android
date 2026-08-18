@@ -14,19 +14,104 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/**
+ * Minimal relay surface used by the bridge courier.
+ *
+ * Keeping this adapter boundary small lets the kind-1401 contract be exercised with a
+ * deterministic in-memory relay in unit tests, without opening a network connection.
+ */
+internal interface BridgeCourierRelay {
+    fun subscribe(
+        filter: NostrFilter,
+        id: String,
+        targetRelayUrls: List<String>,
+        handler: (NostrEvent) -> Unit
+    )
+
+    fun unsubscribe(id: String)
+
+    fun hasConnectedRelay(relayUrls: Collection<String>): Boolean
+
+    fun sendEvent(
+        event: NostrEvent,
+        relayUrls: List<String>,
+        onAccepted: () -> Unit
+    ): Boolean
+}
+
+internal interface BridgeCourierCipher {
+    fun staticPublicKey(): ByteArray?
+
+    fun seal(payload: ByteArray, recipientNoiseKey: ByteArray): ByteArray
+}
+
+private class NostrBridgeCourierRelay(
+    private val relayManager: NostrRelayManager
+) : BridgeCourierRelay {
+    override fun subscribe(
+        filter: NostrFilter,
+        id: String,
+        targetRelayUrls: List<String>,
+        handler: (NostrEvent) -> Unit
+    ) {
+        relayManager.subscribe(
+            filter = filter,
+            id = id,
+            targetRelayUrls = targetRelayUrls,
+            handler = handler
+        )
+    }
+
+    override fun unsubscribe(id: String) {
+        relayManager.unsubscribe(id)
+    }
+
+    override fun hasConnectedRelay(relayUrls: Collection<String>): Boolean =
+        relayManager.hasConnectedRelay(relayUrls)
+
+    override fun sendEvent(
+        event: NostrEvent,
+        relayUrls: List<String>,
+        onAccepted: () -> Unit
+    ): Boolean = relayManager.sendEvent(event, relayUrls, onAccepted = onAccepted)
+}
+
+private class EncryptionBridgeCourierCipher(
+    private val encryptionService: EncryptionService
+) : BridgeCourierCipher {
+    override fun staticPublicKey(): ByteArray? = encryptionService.getStaticPublicKey()
+
+    override fun seal(payload: ByteArray, recipientNoiseKey: ByteArray): ByteArray =
+        encryptionService.sealCourierPayload(payload, recipientNoiseKey)
+}
+
 /** Parks opaque courier envelopes on default Nostr relays using the iOS kind-1401 contract. */
-class BridgeCourierService(
-    context: Context,
-    private val encryptionService: EncryptionService,
-    private val onEnvelope: (CourierEnvelope) -> Unit
+class BridgeCourierService internal constructor(
+    private val cipher: BridgeCourierCipher,
+    private val onEnvelope: (CourierEnvelope) -> Unit,
+    private val relayManager: BridgeCourierRelay,
+    private val relayUrls: List<String> = NostrRelayManager.defaultRelays(),
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val identityFactory: () -> NostrIdentity = NostrIdentity::generate
 ) {
+    constructor(
+        context: Context,
+        encryptionService: EncryptionService,
+        onEnvelope: (CourierEnvelope) -> Unit
+    ) : this(
+        cipher = EncryptionBridgeCourierCipher(encryptionService),
+        onEnvelope = onEnvelope,
+        relayManager = NostrBridgeCourierRelay(
+            NostrRelayManager.getInstance(context.applicationContext)
+        )
+    )
+
     companion object {
         private const val KIND = 1401
         private const val MAX_ENCODED_BYTES = 20 * 1024
         private const val TAG_REFRESH_INTERVAL_MS = 60 * 60 * 1000L
     }
 
-    private val relayManager = NostrRelayManager.getInstance(context.applicationContext)
     private val seenEvents = Collections.synchronizedMap(
         object : LinkedHashMap<String, Unit>(512, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Unit>?) = size > 512
@@ -40,9 +125,10 @@ class BridgeCourierService(
 
     @Synchronized
     fun start() {
-        val localKey = encryptionService.getStaticPublicKey() ?: ByteArray(0)
+        val localKey = cipher.staticPublicKey() ?: ByteArray(0)
         if (localKey.size == 32) {
-            val day = CourierEnvelope.epochDay(System.currentTimeMillis())
+            val now = clock()
+            val day = CourierEnvelope.epochDay(now)
             if (subscribedDay == day) return
             if (subscribedDay != null) relayManager.unsubscribe(subscriptionID)
             val tags = listOf(day - 1u, day, day + 1u).map {
@@ -50,14 +136,14 @@ class BridgeCourierService(
             }
             val filter = NostrFilter.Builder()
                 .kinds(KIND)
-                .since(System.currentTimeMillis() - CourierEnvelope.MAX_LIFETIME_MS)
+                .since(now - CourierEnvelope.MAX_LIFETIME_MS)
                 .limit(100)
                 .tag("x", *tags.toTypedArray())
                 .build()
             relayManager.subscribe(
                 filter = filter,
                 id = subscriptionID,
-                targetRelayUrls = NostrRelayManager.defaultRelays(),
+                targetRelayUrls = relayUrls,
                 handler = ::handleEvent
             )
             subscribedDay = day
@@ -92,9 +178,9 @@ class BridgeCourierService(
         onAccepted: () -> Unit = {}
     ): Boolean {
         start()
-        if (!relayManager.hasConnectedRelay(NostrRelayManager.defaultRelays())) return false
-        val sealed = try { encryptionService.sealCourierPayload(typedPayload, recipientNoiseKey) } catch (_: Exception) { return false }
-        val now = System.currentTimeMillis()
+        if (!relayManager.hasConnectedRelay(relayUrls)) return false
+        val sealed = try { cipher.seal(typedPayload, recipientNoiseKey) } catch (_: Exception) { return false }
+        val now = clock()
         val envelope = CourierEnvelope(
             recipientTag = CourierEnvelope.recipientTag(recipientNoiseKey, CourierEnvelope.epochDay(now)),
             expiry = (now + CourierEnvelope.MAX_LIFETIME_MS).toULong(),
@@ -103,7 +189,7 @@ class BridgeCourierService(
         )
         val encoded = envelope.encode() ?: return false
         if (encoded.size > MAX_ENCODED_BYTES) return false
-        val identity = try { NostrIdentity.generate() } catch (_: Exception) { return false }
+        val identity = try { identityFactory() } catch (_: Exception) { return false }
         val event = identity.signEvent(
             NostrEvent(
                 pubkey = identity.publicKeyHex,
@@ -116,7 +202,7 @@ class BridgeCourierService(
                 content = Base64.encodeToString(encoded, Base64.NO_WRAP)
             )
         )
-        return relayManager.sendEvent(event, NostrRelayManager.defaultRelays(), onAccepted = onAccepted)
+        return relayManager.sendEvent(event, relayUrls, onAccepted)
     }
 
     @Synchronized
@@ -134,12 +220,12 @@ class BridgeCourierService(
         val encoded = try { Base64.decode(event.content, Base64.DEFAULT) } catch (_: Exception) { return }
         if (encoded.size > MAX_ENCODED_BYTES) return
         val envelope = CourierEnvelope.decode(encoded) ?: return
-        val now = System.currentTimeMillis()
+        val now = clock()
         if (envelope.expiry.toLong() <= now || envelope.expiry.toLong() > now + CourierEnvelope.MAX_LIFETIME_MS + 60 * 60 * 1000L) return
         val eventTag = event.tags.firstOrNull { it.size > 1 && it[0] == "x" }?.get(1) ?: return
         val expiration = event.tags.firstOrNull { it.size > 1 && it[0] == "expiration" }?.get(1)?.toULongOrNull() ?: return
         if (eventTag != envelope.recipientTag.toHex() || expiration != envelope.expiry / 1000u) return
-        val localKey = encryptionService.getStaticPublicKey() ?: return
+        val localKey = cipher.staticPublicKey() ?: return
         if (!envelope.matchesRecipient(localKey, now)) return
         onEnvelope(envelope)
     }

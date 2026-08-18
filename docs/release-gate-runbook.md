@@ -299,6 +299,10 @@ python3 tools/release_gate/mesh_lab.py scenario all \
 | `favorite_verification` | favorite signal, orange-outline/filled mutual state, and peer fingerprint verification |
 | `broadcast` | public mesh message A→B |
 | `sync_recovery` | message missed while B's BLE and Wi-Fi Aware transports are disabled is recovered by the gossip sync request after reconnection |
+| `sync_auto_recovery` | message missed while B is offline is recovered after restart by the production gossip scheduler, without a test-hook sync request |
+| `sync_file_recovery` | broadcast file missed while B is offline is recovered through sync; validates the synthetic file digest and fragment replay |
+| `durable_outbox` | a router-queued DM survives sender process death while the recipient is offline, then reaches the recipient after reconnection |
+| `courier_delivery` | three-phone sender→courier→recipient handoff: recipient is offline for deposit and sender remains offline for recipient pickup |
 | `courier_contract` | on-device courier wire/store contract: prekey TLV retention, split reservations, cancellation, reverse commits, and persisted spray history |
 | `ptt_dm` | Noise-encrypted 440 Hz PTT in both directions; asserts real-time capture, zero sequence gaps, decoded PCM duration/energy/continuity, and finalized-note absorption |
 | `ptt_broadcast` | signed public 440 Hz PTT with the same bidirectional packet and decoded-audio quality assertions |
@@ -309,7 +313,7 @@ python3 tools/release_gate/mesh_lab.py scenario all \
 | `raw` | raw packet injection is accepted by the mesh |
 | `session_recovery` | force-stop B mid-session: identity persists, re-handshake, DMs flow again |
 | `identity_reset` | pm clear B mid-session: new identity, rediscovery, handshake, DMs |
-| `all` | every scenario above in sequence |
+| `all` | every supported two-phone scenario in sequence, plus `courier_delivery` when a third phone is supplied |
 
 Each run writes `<scenario>-evidence.json` to `--out` (digests, timings,
 session states, logcat excerpts on failure) and exits non-zero on failure.
@@ -328,10 +332,11 @@ python3 tools/release_gate/mesh_lab.py cmd --serial <serial> state   # full mesh
 
 See `TestHookDriver.kt` for the full command set (`ping`, `start`, `stop`,
 `whoami`, `set_nickname`, `scan`, `peers`, `connect`, `handshake`, `session`,
-`announce`, `broadcast_msg`, `dm_send`, `dm_recv`, `msg_recv`, `favorite_set`,
+`announce`, `broadcast_msg`, `dm_send`, `router_private_send`, `router_resume`,
+`dm_recv`, `msg_recv`, `favorite_set`,
 `favorite_status`, `verification_set`, `verification_status`, `file_send`,
 `file_recv`, `file_cancel`, `ptt_send`, `ptt_recv`, `raw_send`, `courier_contract`,
-`sync_request`, `ble`, `wifi_aware`, `state`, `clear_results`).
+`cache_peer_identity`, `sync_request`, `ble`, `wifi_aware`, `state`, `clear_results`).
 
 `msg_recv` accepts `include_existing=true` for deterministic backfill checks when
 the packet's original timestamp predates the receive hook; use a unique synthetic
