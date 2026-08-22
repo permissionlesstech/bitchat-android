@@ -53,7 +53,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -412,11 +411,19 @@ private fun ScannerView(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var lastValid by remember { mutableStateOf<String?>(null) }
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    // CameraX initialization can fail on devices where no usable camera is available.  In
+    // particular, do not allow that failure to escape composition and take down the activity
+    // when the user selects the Scan tab.
+    val cameraProviderFuture = remember(context) {
+        runCatching { ProcessCameraProvider.getInstance(context) }
+            .onFailure { error -> Log.w("VerificationSheet", "Unable to initialize camera", error) }
+            .getOrNull()
+    }
     val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
     val surfaceRequests = remember { MutableStateFlow<SurfaceRequest?>(null) }
     val surfaceRequest by surfaceRequests.collectAsState(initial = null)
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
+    var cameraUnavailable by remember(cameraProviderFuture) { mutableStateOf(cameraProviderFuture == null) }
 
     val onCodeState = rememberUpdatedState(onScan)
     val analyzer = remember {
@@ -429,23 +436,48 @@ private fun ScannerView(
         }
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(cameraProviderFuture, lifecycleOwner, analyzer) {
+        if (cameraProviderFuture == null) {
+            return@DisposableEffect onDispose {
+                analyzer.close()
+                cameraExecutor.shutdown()
+            }
+        }
+
         val executor = ContextCompat.getMainExecutor(context)
         var cameraProvider: ProcessCameraProvider? = null
+        var disposed = false
 
         cameraProviderFuture.addListener(
             {
-                val provider = cameraProviderFuture.get()
-                cameraProvider = provider
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider { request -> surfaceRequests.value = request }
+                if (disposed) return@addListener
+
+                val provider = runCatching { cameraProviderFuture.get() }
+                    .onFailure { error ->
+                        Log.w("VerificationSheet", "Unable to obtain camera provider", error)
+                    }
+                    .getOrNull()
+
+                if (provider == null) {
+                    cameraUnavailable = true
+                    surfaceRequests.value = null
+                    return@addListener
                 }
-                val analysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                    .also { it.setAnalyzer(cameraExecutor, analyzer) }
+                if (disposed) return@addListener
 
                 runCatching {
+                    cameraProvider = provider
+                    if (!provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
+                        error("Back camera is not available")
+                    }
+                    val preview = Preview.Builder().build().also {
+                        it.setSurfaceProvider { request -> surfaceRequests.value = request }
+                    }
+                    val analysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+                        .also { it.setAnalyzer(cameraExecutor, analyzer) }
+
                     provider.unbindAll()
                     provider.bindToLifecycle(
                         lifecycleOwner,
@@ -454,20 +486,34 @@ private fun ScannerView(
                         analysis
                     )
                 }.onFailure {
-                    Log.w("VerificationSheet", "Failed to bind camera: ${it.message}")
+                    cameraUnavailable = true
+                    surfaceRequests.value = null
+                    Log.w("VerificationSheet", "Failed to start QR camera", it)
                 }
             },
             executor
         )
 
         onDispose {
+            disposed = true
             surfaceRequests.value = null
             runCatching { cameraProvider?.unbindAll() }
+            analyzer.close()
             cameraExecutor.shutdown()
         }
     }
 
-    surfaceRequest?.let { request ->
+    val request = surfaceRequest
+    if (cameraUnavailable) {
+        Text(
+            text = stringResource(R.string.verify_qr_unavailable),
+            color = Color.White,
+            fontFamily = BitchatFontFamily,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(24.dp)
+        )
+    } else if (request != null) {
         CameraXViewfinder(
             surfaceRequest = request,
             implementationMode = ImplementationMode.EMBEDDED,
@@ -528,11 +574,19 @@ private class QRCodeAnalyzer(
             return
         }
         val input = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-        scanner.process(input)
-            .addOnSuccessListener { barcodes ->
-                val text = barcodes.firstOrNull()?.rawValue
-                if (!text.isNullOrBlank()) onCode(text)
-            }
-            .addOnCompleteListener { imageProxy.close() }
+        runCatching {
+            scanner.process(input)
+                .addOnSuccessListener { barcodes ->
+                    val text = barcodes.firstOrNull()?.rawValue
+                    if (!text.isNullOrBlank()) onCode(text)
+                }
+                .addOnCompleteListener { imageProxy.close() }
+        }.onFailure {
+            imageProxy.close()
+        }
+    }
+
+    fun close() {
+        scanner.close()
     }
 }
