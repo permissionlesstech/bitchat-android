@@ -13,7 +13,7 @@ import kotlinx.coroutines.withContext
 object NostrProtocol {
     
     private const val TAG = "NostrProtocol"
-    private const val NIP17_IOS_COMPATIBLE_LOOKBACK_SECONDS = 86_400
+    private const val NIP17_IOS_COMPATIBLE_LOOKBACK_SECONDS = 86_400 - 600
     private val gson = Gson()
     
     /**
