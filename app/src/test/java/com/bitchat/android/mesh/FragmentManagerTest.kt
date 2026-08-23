@@ -3,6 +3,7 @@ package com.bitchat.android.mesh
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.FragmentPayload
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -242,6 +243,68 @@ class FragmentManagerTest {
         }
 
         assertEquals(257, plan(low).size)
+    }
+
+    /**
+     * pad() declines any request needing more than 255 bytes and
+     * optimalBlockSize() returns the input size unchanged above 2048, so frames
+     * of 513-768, 1009-1792 and >=2033 bytes are emitted unpadded. The frame
+     * then ends with the last byte of the signature, which is uniformly random,
+     * and a value of 0x01 reads as a one-byte PKCS#7 pad.
+     */
+    @Test
+    fun `an unpadded frame keeps every byte through fragmentation`() {
+        for (payloadSize in listOf(600, 1500, 2400)) {
+            val packet = BitchatPacket(
+                version = 1u,
+                type = MessageType.MESSAGE.value,
+                senderID = hexStringToByteArray(senderID),
+                recipientID = hexStringToByteArray(recipientID),
+                timestamp = 1u,
+                payload = ByteArray(payloadSize).also { Random(payloadSize.toLong()).nextBytes(it) },
+                signature = ByteArray(64) { index -> if (index == 63) 0x01 else 0x7F },
+                ttl = 7u
+            )
+
+            val frame = packet.toBinaryData(padding = false)!!
+            val padded = packet.toBinaryData()!!
+            assertEquals("frame of $payloadSize should not be padded", frame.size, padded.size)
+
+            val fragments = fragmentManager.createFragments(packet)
+            assertTrue("frame of $payloadSize should fragment", fragments.size > 1)
+
+            val reassembled = fragments
+                .map { FragmentPayload.decode(it.payload)!!.data }
+                .reduce { acc, next -> acc + next }
+            assertArrayEquals(
+                "fragments of a $payloadSize-byte payload must carry the whole frame",
+                frame,
+                reassembled
+            )
+        }
+    }
+
+    /** A frame that really was padded must still fragment unpadded. */
+    @Test
+    fun `a padded frame is fragmented without its padding`() {
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = hexStringToByteArray(senderID),
+            recipientID = hexStringToByteArray(recipientID),
+            timestamp = 1u,
+            payload = ByteArray(900).also { Random(900).nextBytes(it) },
+            signature = ByteArray(64) { 0x7F },
+            ttl = 7u
+        )
+
+        val frame = packet.toBinaryData(padding = false)!!
+        assertTrue("frame should be padded", packet.toBinaryData()!!.size > frame.size)
+
+        val reassembled = fragmentManager.createFragments(packet)
+            .map { FragmentPayload.decode(it.payload)!!.data }
+            .reduce { acc, next -> acc + next }
+        assertArrayEquals(frame, reassembled)
     }
 
     private fun hexStringToByteArray(hexString: String): ByteArray {
