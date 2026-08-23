@@ -8,7 +8,7 @@ import org.junit.Test
 
 class NostrProtocolTest {
     private val gson = Gson()
-    private val nip17IosCompatibleLookbackSeconds = 86_400
+    private val nip17IosCompatibleLookbackSeconds = 86_400 - 600
 
     @Test
     fun decryptPrivateMessage_acceptsAuthenticatedSeal() {
