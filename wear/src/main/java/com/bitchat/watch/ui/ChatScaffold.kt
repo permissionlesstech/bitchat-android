@@ -313,7 +313,9 @@ private fun ChatBody(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .height(30.dp)
+                // Overlap the clipped list viewport by 4dp so transformed glyphs cannot
+                // leave antialiased remnants exactly on the boundary at larger font scales.
+                .height(34.dp)
                 .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.TopCenter
         ) {
