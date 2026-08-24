@@ -266,11 +266,13 @@ private fun ChatBody(
                 // The padding reserves permanent room for the floating header and action
                 // bar; being constant, it never disturbs an in-flight scroll gesture.
                 verticalArrangement = Arrangement.Bottom,
-                contentPadding = scaffoldPadding.withMinimumVerticalPadding(
-                    layoutDirection = layoutDirection,
-                    top = 30.dp,
-                    bottom = 64.dp
-                )
+                contentPadding = scaffoldPadding
+                    .withRoundScreenPadding(layoutDirection)
+                    .withMinimumVerticalPadding(
+                        layoutDirection = layoutDirection,
+                        top = 30.dp,
+                        bottom = 64.dp
+                    )
             ) {
                 if (messages.isEmpty()) {
                     item {

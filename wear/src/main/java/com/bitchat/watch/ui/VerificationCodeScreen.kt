@@ -48,11 +48,13 @@ fun VerificationCodeScreen(peerID: String) {
         ScalingLazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = scaffoldPadding.withAdditionalPadding(
-                layoutDirection = layoutDirection,
-                horizontal = 10.dp,
-                vertical = 8.dp
-            )
+            contentPadding = scaffoldPadding
+                .withRoundScreenPadding(layoutDirection)
+                .withAdditionalPadding(
+                    layoutDirection = layoutDirection,
+                    horizontal = 10.dp,
+                    vertical = 8.dp
+                )
         ) {
             item {
                 ListHeader {

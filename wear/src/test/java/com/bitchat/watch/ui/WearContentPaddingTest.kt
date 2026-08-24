@@ -37,4 +37,11 @@ class WearContentPaddingTest {
         assertEquals(30.dp, resolved.calculateTopPadding())
         assertEquals(64.dp, resolved.calculateBottomPadding())
     }
+
+    @Test
+    fun `round screens receive an additional ten percent inset`() {
+        assertEquals(20.dp, additionalRoundScreenPadding(192, isScreenRound = true))
+        assertEquals(22.dp, additionalRoundScreenPadding(220, isScreenRound = true))
+        assertEquals(0.dp, additionalRoundScreenPadding(192, isScreenRound = false))
+    }
 }
