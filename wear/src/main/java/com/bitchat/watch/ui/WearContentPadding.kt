@@ -33,27 +33,6 @@ internal fun PaddingValues.withAdditionalPadding(
     )
 }
 
-internal fun PaddingValues.withMinimumVerticalPadding(
-    layoutDirection: LayoutDirection,
-    top: Dp,
-    bottom: Dp
-): PaddingValues {
-    val start = when (layoutDirection) {
-        LayoutDirection.Ltr -> calculateLeftPadding(layoutDirection)
-        LayoutDirection.Rtl -> calculateRightPadding(layoutDirection)
-    }
-    val end = when (layoutDirection) {
-        LayoutDirection.Ltr -> calculateRightPadding(layoutDirection)
-        LayoutDirection.Rtl -> calculateLeftPadding(layoutDirection)
-    }
-    return PaddingValues(
-        start = start,
-        top = maxOf(calculateTopPadding(), top),
-        end = end,
-        bottom = maxOf(calculateBottomPadding(), bottom)
-    )
-}
-
 @Composable
 internal fun PaddingValues.withRoundScreenPadding(
     layoutDirection: LayoutDirection

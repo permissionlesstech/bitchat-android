@@ -24,21 +24,6 @@ class WearContentPaddingTest {
     }
 
     @Test
-    fun `chat padding keeps responsive sides and overlay clearances`() {
-        val resolved = PaddingValues(start = 10.dp, top = 18.dp, end = 12.dp, bottom = 20.dp)
-            .withMinimumVerticalPadding(
-                layoutDirection = LayoutDirection.Ltr,
-                top = 30.dp,
-                bottom = 64.dp
-            )
-
-        assertEquals(10.dp, resolved.calculateLeftPadding(LayoutDirection.Ltr))
-        assertEquals(12.dp, resolved.calculateRightPadding(LayoutDirection.Ltr))
-        assertEquals(30.dp, resolved.calculateTopPadding())
-        assertEquals(64.dp, resolved.calculateBottomPadding())
-    }
-
-    @Test
     fun `round screens receive an additional ten percent inset`() {
         assertEquals(20.dp, additionalRoundScreenPadding(192, isScreenRound = true))
         assertEquals(22.dp, additionalRoundScreenPadding(220, isScreenRound = true))

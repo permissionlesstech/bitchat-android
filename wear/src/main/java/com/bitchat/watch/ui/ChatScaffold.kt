@@ -260,19 +260,17 @@ private fun ChatBody(
             val layoutDirection = LocalLayoutDirection.current
             TransformingLazyColumn(
                 state = columnState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 30.dp, bottom = 64.dp),
                 // Arrangement.Bottom anchors short content to the bottom: the first message
                 // starts just above the action bar and new messages push history upward.
-                // The padding reserves permanent room for the floating header and action
-                // bar; being constant, it never disturbs an in-flight scroll gesture.
+                // The viewport itself stays between the floating header and action bar, so
+                // rows cannot scroll underneath either control. Its geometry is constant,
+                // so showing or hiding the overlays never disturbs an in-flight gesture.
                 verticalArrangement = Arrangement.Bottom,
                 contentPadding = scaffoldPadding
                     .withRoundScreenPadding(layoutDirection)
-                    .withMinimumVerticalPadding(
-                        layoutDirection = layoutDirection,
-                        top = 30.dp,
-                        bottom = 64.dp
-                    )
             ) {
                 if (messages.isEmpty()) {
                     item {
