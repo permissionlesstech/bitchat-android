@@ -54,7 +54,6 @@ fun UserDetailScreen(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = scaffoldPadding
-                .withRoundScreenPadding(layoutDirection)
                 .withAdditionalPadding(
                     layoutDirection = layoutDirection,
                     horizontal = 10.dp,

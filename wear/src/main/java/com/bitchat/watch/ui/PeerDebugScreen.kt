@@ -13,7 +13,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,11 +47,10 @@ fun PeerDebugScreen() {
     val identityRevision by WearPeerIdentityState.revision.collectAsState()
 
     ScreenScaffold(scrollState = listState) { scaffoldPadding ->
-        val layoutDirection = LocalLayoutDirection.current
         ScalingLazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = scaffoldPadding.withRoundScreenPadding(layoutDirection)
+            contentPadding = scaffoldPadding
         ) {
             item {
                 ListHeader {
