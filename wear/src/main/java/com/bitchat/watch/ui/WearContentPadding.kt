@@ -31,12 +31,14 @@ internal fun PaddingValues.withAdditionalPadding(
 }
 
 /**
- * Keep the responsive horizontal inset supplied by Wear Material without also reserving its
- * vertical list padding. Chat owns its fixed header and action-bar clearances, so stacking the
- * scaffold's vertical padding on top would unnecessarily shorten the message viewport.
+ * Keep the responsive horizontal inset supplied by Wear Material while replacing its vertical
+ * padding with screen-owned clearances. This keeps the lazy list full-screen for correct Wear
+ * transformation and scroll calculations without stacking duplicate vertical insets.
  */
-internal fun PaddingValues.horizontalOnly(
-    layoutDirection: LayoutDirection
+internal fun PaddingValues.withVerticalClearance(
+    layoutDirection: LayoutDirection,
+    top: Dp,
+    bottom: Dp
 ): PaddingValues {
     val start = when (layoutDirection) {
         LayoutDirection.Ltr -> calculateLeftPadding(layoutDirection)
@@ -46,5 +48,5 @@ internal fun PaddingValues.horizontalOnly(
         LayoutDirection.Ltr -> calculateRightPadding(layoutDirection)
         LayoutDirection.Rtl -> calculateLeftPadding(layoutDirection)
     }
-    return PaddingValues(start = start, end = end)
+    return PaddingValues(start = start, top = top, end = end, bottom = bottom)
 }

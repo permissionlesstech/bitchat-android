@@ -22,10 +22,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
@@ -87,35 +88,41 @@ fun ChatScaffold(
         previousCount = messages.size
     }
 
-    // One state drives both overlays: visible at the bottom or when scrolling toward it,
-    // hidden when scrolling up into history. The 24px (~12dp) threshold is deliberately
-    // small so the controls answer every flick immediately.
-    var atNewest by remember { mutableStateOf(true) }
+    // Follow intent is changed only by an actual user scroll away from the newest item or by
+    // reaching the end again. A new item temporarily makes canScrollForward true before layout;
+    // treating that transient range change as user intent breaks automatic following.
+    var followNewest by remember { mutableStateOf(true) }
     val controlsVisible = remember { mutableStateOf(true) }
     LaunchedEffect(columnState) {
         var lastPosition = -1
         snapshotFlow {
             val first = columnState.layoutInfo.visibleItems.firstOrNull()
-            Triple(columnState.canScrollForward, first?.index ?: 0, first?.offset ?: 0)
-        }.collect { (canScrollForward, index, offset) ->
-            val position = index * 100_000 + offset
-            atNewest = !canScrollForward
-            if (!canScrollForward) {
+            ChatScrollSnapshot(
+                canScrollForward = columnState.canScrollForward,
+                isScrollInProgress = columnState.isScrollInProgress,
+                position = (first?.index ?: 0) * 100_000 + (first?.offset ?: 0)
+            )
+        }.collect { snapshot ->
+            followNewest = updatedFollowNewest(
+                current = followNewest,
+                snapshot = snapshot,
+                previousPosition = lastPosition
+            )
+            if (!snapshot.canScrollForward) {
                 controlsVisible.value = true
             } else if (lastPosition >= 0) {
                 when {
-                    position > lastPosition + 24 -> controlsVisible.value = true
-                    position < lastPosition - 24 -> controlsVisible.value = false
+                    snapshot.position > lastPosition + CHAT_SCROLL_DIRECTION_THRESHOLD_PX ->
+                        controlsVisible.value = true
+                    snapshot.position < lastPosition - CHAT_SCROLL_DIRECTION_THRESHOLD_PX ->
+                        controlsVisible.value = false
                 }
             }
-            lastPosition = position
+            lastPosition = snapshot.position
         }
     }
 
-    // Stick to bottom: follow new messages while resting at the newest.
-    // Capture this when the message count changes, before the new layout can temporarily make
-    // canScrollForward true and report that the user is browsing history.
-    val followNewest = remember(messages.size) { atNewest }
+    // Stick to bottom when the user has not intentionally moved into history.
     LaunchedEffect(columnState, messages.size) {
         if (messages.isNotEmpty() && followNewest) {
             val expectedSingleMessageKey = messages.singleOrNull()?.id
@@ -159,6 +166,24 @@ internal data class MeasuredChatLayout(
     val itemCount: Int,
     val singleVisibleItemKey: Any?
 )
+
+internal data class ChatScrollSnapshot(
+    val canScrollForward: Boolean,
+    val isScrollInProgress: Boolean,
+    val position: Int
+)
+
+internal fun updatedFollowNewest(
+    current: Boolean,
+    snapshot: ChatScrollSnapshot,
+    previousPosition: Int
+): Boolean = when {
+    !snapshot.canScrollForward -> true
+    snapshot.isScrollInProgress &&
+        previousPosition >= 0 &&
+        snapshot.position < previousPosition - CHAT_SCROLL_DIRECTION_THRESHOLD_PX -> false
+    else -> current
+}
 
 internal suspend fun scrollToNewestAfterItemsMeasured(
     expectedItemCount: Int,
@@ -268,18 +293,30 @@ private fun ChatBody(
                 state = columnState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 30.dp, bottom = 64.dp)
-                    .clipToBounds(),
+                    // Keep full-screen measurement so Wear's transformation focal point and
+                    // scroll range stay correct. Only drawing is clipped around the overlays.
+                    .drawWithContent {
+                        clipRect(
+                            top = headerBackdropHeight.toPx(),
+                            bottom = size.height - CHAT_ACTION_BAR_CLEARANCE.toPx()
+                        ) {
+                            this@drawWithContent.drawContent()
+                        }
+                    },
                 // Arrangement.Bottom anchors short content to the bottom: the first message
                 // starts just above the action bar and new messages push history upward.
                 // The viewport itself stays between the floating header and action bar, so
-                // rows cannot scroll underneath either control. Its geometry is constant,
-                // so showing or hiding the overlays never disturbs an in-flight gesture.
+                // content stays clear of both controls while the full-screen list geometry keeps
+                // autoscroll and the native transformation focal point intact.
                 verticalArrangement = Arrangement.Bottom,
                 // Wear Material already supplies a responsive 5.2% horizontal inset. Keep it,
-                // but omit the scaffold's vertical inset because the viewport itself reserves
-                // the header and action-bar space. Stacking both made chat narrow and too high.
-                contentPadding = scaffoldPadding.horizontalOnly(layoutDirection)
+                // while replacing its vertical inset with the overlay clearances used before the
+                // shape fix. This avoids both duplicated padding and a shortened list viewport.
+                contentPadding = scaffoldPadding.withVerticalClearance(
+                    layoutDirection = layoutDirection,
+                    top = CHAT_HEADER_CONTENT_CLEARANCE,
+                    bottom = CHAT_ACTION_BAR_CLEARANCE
+                )
             ) {
                 if (messages.isEmpty()) {
                     item {
@@ -356,6 +393,9 @@ private fun ChatBody(
 // Extra finger slack (px, ~28dp at watch density) around the cancel target so the snap
 // engages as the finger approaches, not only on exact contact.
 private const val CANCEL_HOVER_SLANT_PX = 56f
+private const val CHAT_SCROLL_DIRECTION_THRESHOLD_PX = 24
+private val CHAT_HEADER_CONTENT_CLEARANCE = 30.dp
+private val CHAT_ACTION_BAR_CLEARANCE = 64.dp
 // Magnetic zone geometry (px at watch density): the button starts reacting at
 // MAGNET_OUTER_PX from its center and fully blushes at MAGNET_INNER_PX (~the activation
 // boundary); it leans toward the finger by up to MAGNET_PULL_PX.

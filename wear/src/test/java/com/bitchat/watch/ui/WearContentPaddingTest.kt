@@ -24,13 +24,17 @@ class WearContentPaddingTest {
     }
 
     @Test
-    fun `horizontal only padding preserves width inset and restores vertical space`() {
+    fun `vertical clearance preserves responsive width and replaces scaffold height inset`() {
         val resolved = PaddingValues(start = 10.dp, top = 20.dp, end = 12.dp, bottom = 20.dp)
-            .horizontalOnly(LayoutDirection.Ltr)
+            .withVerticalClearance(
+                layoutDirection = LayoutDirection.Ltr,
+                top = 30.dp,
+                bottom = 64.dp
+            )
 
         assertEquals(10.dp, resolved.calculateLeftPadding(LayoutDirection.Ltr))
         assertEquals(12.dp, resolved.calculateRightPadding(LayoutDirection.Ltr))
-        assertEquals(0.dp, resolved.calculateTopPadding())
-        assertEquals(0.dp, resolved.calculateBottomPadding())
+        assertEquals(30.dp, resolved.calculateTopPadding())
+        assertEquals(64.dp, resolved.calculateBottomPadding())
     }
 }

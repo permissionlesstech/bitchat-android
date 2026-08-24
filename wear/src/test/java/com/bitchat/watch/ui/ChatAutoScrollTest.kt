@@ -11,6 +11,46 @@ import org.junit.Test
 class ChatAutoScrollTest {
 
     @Test
+    fun `new scroll range from appended message keeps follow intent`() {
+        val updated = updatedFollowNewest(
+            current = true,
+            snapshot = ChatScrollSnapshot(
+                canScrollForward = true,
+                isScrollInProgress = false,
+                position = 100
+            ),
+            previousPosition = 100
+        )
+
+        assertEquals(true, updated)
+    }
+
+    @Test
+    fun `user scroll away disables follow until list reaches newest again`() {
+        val browsingHistory = updatedFollowNewest(
+            current = true,
+            snapshot = ChatScrollSnapshot(
+                canScrollForward = true,
+                isScrollInProgress = true,
+                position = 60
+            ),
+            previousPosition = 100
+        )
+        assertFalse(browsingHistory)
+
+        val dockedAgain = updatedFollowNewest(
+            current = browsingHistory,
+            snapshot = ChatScrollSnapshot(
+                canScrollForward = false,
+                isScrollInProgress = false,
+                position = 200
+            ),
+            previousPosition = 60
+        )
+        assertEquals(true, dockedAgain)
+    }
+
+    @Test
     fun `newest scroll waits until appended message is measured`() = runTest {
         val measuredLayouts = MutableStateFlow(MeasuredChatLayout(3, null))
         var scrollCount = 0
