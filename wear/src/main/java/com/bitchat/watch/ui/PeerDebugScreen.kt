@@ -46,10 +46,11 @@ fun PeerDebugScreen() {
     val rssi = mesh?.getPeerRSSI() ?: emptyMap()
     val identityRevision by WearPeerIdentityState.revision.collectAsState()
 
-    ScreenScaffold(scrollState = listState) {
+    ScreenScaffold(scrollState = listState) { contentPadding ->
         ScalingLazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding
         ) {
             item {
                 ListHeader {

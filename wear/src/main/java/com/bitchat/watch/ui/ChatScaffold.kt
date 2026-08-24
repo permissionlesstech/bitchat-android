@@ -8,7 +8,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,6 +27,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
@@ -256,7 +256,8 @@ private fun ChatBody(
                 }
             }
     ) {
-        ScreenScaffold(scrollState = columnState) {
+        ScreenScaffold(scrollState = columnState) { scaffoldPadding ->
+            val layoutDirection = LocalLayoutDirection.current
             TransformingLazyColumn(
                 state = columnState,
                 modifier = Modifier.fillMaxSize(),
@@ -265,7 +266,11 @@ private fun ChatBody(
                 // The padding reserves permanent room for the floating header and action
                 // bar; being constant, it never disturbs an in-flight scroll gesture.
                 verticalArrangement = Arrangement.Bottom,
-                contentPadding = PaddingValues(top = 30.dp, bottom = 64.dp)
+                contentPadding = scaffoldPadding.withMinimumVerticalPadding(
+                    layoutDirection = layoutDirection,
+                    top = 30.dp,
+                    bottom = 64.dp
+                )
             ) {
                 if (messages.isEmpty()) {
                     item {
