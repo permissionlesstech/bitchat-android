@@ -24,9 +24,13 @@ class WearContentPaddingTest {
     }
 
     @Test
-    fun `round screens receive an additional ten percent inset`() {
-        assertEquals(20.dp, additionalRoundScreenPadding(192, isScreenRound = true))
-        assertEquals(22.dp, additionalRoundScreenPadding(220, isScreenRound = true))
-        assertEquals(0.dp, additionalRoundScreenPadding(192, isScreenRound = false))
+    fun `horizontal only padding preserves width inset and restores vertical space`() {
+        val resolved = PaddingValues(start = 10.dp, top = 20.dp, end = 12.dp, bottom = 20.dp)
+            .horizontalOnly(LayoutDirection.Ltr)
+
+        assertEquals(10.dp, resolved.calculateLeftPadding(LayoutDirection.Ltr))
+        assertEquals(12.dp, resolved.calculateRightPadding(LayoutDirection.Ltr))
+        assertEquals(0.dp, resolved.calculateTopPadding())
+        assertEquals(0.dp, resolved.calculateBottomPadding())
     }
 }

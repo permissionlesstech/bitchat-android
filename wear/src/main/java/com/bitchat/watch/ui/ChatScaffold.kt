@@ -190,7 +190,7 @@ private fun ChatBody(
     val palette = LocalBitchatPalette.current
     val context = LocalContext.current
     val transformationSpec = rememberTransformationSpec()
-    val headerBackdropHeight = if (LocalConfiguration.current.isScreenRound) 35.dp else 37.dp
+    val headerBackdropHeight = if (LocalConfiguration.current.isScreenRound) 49.dp else 37.dp
 
     // Slide-to-cancel: while recording, the finger's position is tracked globally; the
     // overlay's mic button reports its bounds and becomes the cancel target when the
@@ -276,8 +276,10 @@ private fun ChatBody(
                 // rows cannot scroll underneath either control. Its geometry is constant,
                 // so showing or hiding the overlays never disturbs an in-flight gesture.
                 verticalArrangement = Arrangement.Bottom,
-                contentPadding = scaffoldPadding
-                    .withRoundScreenPadding(layoutDirection)
+                // Wear Material already supplies a responsive 5.2% horizontal inset. Keep it,
+                // but omit the scaffold's vertical inset because the viewport itself reserves
+                // the header and action-bar space. Stacking both made chat narrow and too high.
+                contentPadding = scaffoldPadding.horizontalOnly(layoutDirection)
             ) {
                 if (messages.isEmpty()) {
                     item {

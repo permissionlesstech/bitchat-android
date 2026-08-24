@@ -1,12 +1,9 @@
 package com.bitchat.watch.ui
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlin.math.ceil
 
 /**
  * Preserve the responsive, shape-aware padding supplied by Wear Material while allowing a
@@ -33,24 +30,21 @@ internal fun PaddingValues.withAdditionalPadding(
     )
 }
 
-@Composable
-internal fun PaddingValues.withRoundScreenPadding(
+/**
+ * Keep the responsive horizontal inset supplied by Wear Material without also reserving its
+ * vertical list padding. Chat owns its fixed header and action-bar clearances, so stacking the
+ * scaffold's vertical padding on top would unnecessarily shorten the message viewport.
+ */
+internal fun PaddingValues.horizontalOnly(
     layoutDirection: LayoutDirection
-): PaddingValues = withAdditionalPadding(
-    layoutDirection = layoutDirection,
-    horizontal = additionalRoundScreenPadding(
-        screenWidthDp = LocalConfiguration.current.screenWidthDp,
-        isScreenRound = LocalConfiguration.current.isScreenRound
-    )
-)
-
-internal fun additionalRoundScreenPadding(
-    screenWidthDp: Int,
-    isScreenRound: Boolean
-): Dp = if (isScreenRound) {
-    ceil(screenWidthDp * ROUND_SCREEN_ADDITIONAL_PADDING_FRACTION).toInt().dp
-} else {
-    0.dp
+): PaddingValues {
+    val start = when (layoutDirection) {
+        LayoutDirection.Ltr -> calculateLeftPadding(layoutDirection)
+        LayoutDirection.Rtl -> calculateRightPadding(layoutDirection)
+    }
+    val end = when (layoutDirection) {
+        LayoutDirection.Ltr -> calculateRightPadding(layoutDirection)
+        LayoutDirection.Rtl -> calculateLeftPadding(layoutDirection)
+    }
+    return PaddingValues(start = start, end = end)
 }
-
-private const val ROUND_SCREEN_ADDITIONAL_PADDING_FRACTION = 0.10f
