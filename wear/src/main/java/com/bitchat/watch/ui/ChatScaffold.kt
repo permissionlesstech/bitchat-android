@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
@@ -189,6 +190,7 @@ private fun ChatBody(
     val palette = LocalBitchatPalette.current
     val context = LocalContext.current
     val transformationSpec = rememberTransformationSpec()
+    val headerBackdropHeight = if (LocalConfiguration.current.isScreenRound) 35.dp else 37.dp
 
     // Slide-to-cancel: while recording, the finger's position is tracked globally; the
     // overlay's mic button reports its bounds and becomes the cancel target when the
@@ -313,9 +315,9 @@ private fun ChatBody(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                // Overlap the clipped list viewport by 4dp so transformed glyphs cannot
-                // leave antialiased remnants exactly on the boundary at larger font scales.
-                .height(34.dp)
+                // Overlap the clipped list viewport enough for each shape so transformed
+                // glyphs cannot leave antialiased remnants exactly on the boundary.
+                .height(headerBackdropHeight)
                 .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.TopCenter
         ) {
