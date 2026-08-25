@@ -311,6 +311,72 @@ class ChatUIUtilsTest {
     }
 
     @Test
+    fun `unsuffixed nickname is unique when only one peer uses it`() {
+        val resolved = resolvePeerIDForNickname(
+            "Alice",
+            mapOf("aabbccdd" to "alice")
+        )
+        assertEquals(NicknameResolution.Unique("aabbccdd"), resolved)
+    }
+
+    @Test
+    fun `unsuffixed nickname is refused when two peers share it`() {
+        val resolved = resolvePeerIDForNickname(
+            "alice",
+            mapOf(
+                "1111aaaa" to "alice",
+                "2222bbbb" to "alice",
+            )
+        )
+        assertEquals(NicknameResolution.Ambiguous, resolved)
+        assertEquals(null, uniquePeerIDForNickname("alice", mapOf(
+            "1111aaaa" to "alice",
+            "2222bbbb" to "alice",
+        )))
+    }
+
+    @Test
+    fun `hash suffix selects the colliding peer`() {
+        val nicknames = mapOf(
+            "1111aaaa" to "alice",
+            "2222bbbb" to "alice",
+        )
+        assertEquals(
+            NicknameResolution.Unique("1111aaaa"),
+            resolvePeerIDForNickname("alice#1111", nicknames)
+        )
+        assertEquals(
+            NicknameResolution.Unique("2222bbbb"),
+            resolvePeerIDForNickname("ALICE#2222", nicknames)
+        )
+    }
+
+    @Test
+    fun `unknown nickname resolves to none`() {
+        assertEquals(
+            NicknameResolution.None,
+            resolvePeerIDForNickname("bob", mapOf("1111aaaa" to "alice"))
+        )
+    }
+
+    @Test
+    fun `geohash last-four suffix selects the colliding pubkey`() {
+        val nicknames = mapOf(
+            "1111aaaa" to "alice",
+            "2222bbbb" to "alice",
+        )
+        val lastFour: (String) -> String = { "#${it.takeLast(4)}" }
+        assertEquals(
+            NicknameResolution.Unique("1111aaaa"),
+            resolvePeerIDForNickname("alice#aaaa", nicknames, lastFour)
+        )
+        assertEquals(
+            NicknameResolution.Ambiguous,
+            resolvePeerIDForNickname("alice", nicknames, lastFour)
+        )
+    }
+
+    @Test
     fun `message without mentions has no background chips`() {
         val body = formatTextMessageBody(
             message = message("no mentions in here"),

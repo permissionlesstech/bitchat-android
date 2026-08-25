@@ -343,6 +343,54 @@ fun splitSuffix(name: String): Pair<String, String> {
 }
 
 /**
+ * Resolve a typed nickname to a mesh peer ID.
+ *
+ * An unsuffixed name is accepted only when it identifies exactly one peer.
+ * Colliding nicknames must be disambiguated with the `#xxxx` people-list suffix
+ * (first four hex characters of the peer ID), matching mention coloring.
+ */
+internal sealed class NicknameResolution {
+    data class Unique(val peerID: String) : NicknameResolution()
+    data object None : NicknameResolution()
+    data object Ambiguous : NicknameResolution()
+}
+
+internal fun resolvePeerIDForNickname(
+    query: String,
+    nicknames: Map<String, String>,
+    suffixOf: (String) -> String = { "#${it.take(4)}" },
+): NicknameResolution {
+    val target = query.trim().removePrefix("@")
+    if (target.isEmpty()) return NicknameResolution.None
+
+    val (base, suffix) = splitSuffix(target)
+    val matches = linkedSetOf<String>()
+    for ((peerID, nickname) in nicknames) {
+        val nick = nickname.trim()
+        if (nick.equals(target, ignoreCase = true)) {
+            matches.add(peerID)
+            continue
+        }
+        if (suffix.isNotEmpty() && nick.equals(base, ignoreCase = true)) {
+            if (suffixOf(peerID).equals(suffix, ignoreCase = true)) {
+                matches.add(peerID)
+            }
+        }
+    }
+    return when (matches.size) {
+        0 -> NicknameResolution.None
+        1 -> NicknameResolution.Unique(matches.first())
+        else -> NicknameResolution.Ambiguous
+    }
+}
+
+internal fun uniquePeerIDForNickname(
+    query: String,
+    nicknames: Map<String, String>,
+    suffixOf: (String) -> String = { "#${it.take(4)}" },
+): String? = (resolvePeerIDForNickname(query, nicknames, suffixOf) as? NicknameResolution.Unique)?.peerID
+
+/**
  * Build a case-insensitive mention-token lookup from canonical peer identities.
  *
  * Suffixed names such as `alice#04af` resolve exactly. Their unsuffixed base is only retained when

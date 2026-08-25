@@ -86,42 +86,53 @@ class CommandProcessor(
     private fun handleMessageCommand(parts: List<String>, meshService: MeshService, viewModel: ChatViewModel?) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
-            val peerID = getPeerIDForNickname(targetName, meshService)
-            
-            if (peerID != null) {
-                val success = privateChatManager.startPrivateChat(peerID, meshService)
-                
-                if (success) {
-                    if (parts.size > 2) {
-                        val messageContent = parts.drop(2).joinToString(" ")
-                        val recipientNickname = getPeerNickname(peerID, meshService)
-                        sendPrivateMessage(
-                            messageContent, 
-                            peerID, 
-                            recipientNickname,
-                            state.getNicknameValue(),
-                            getMyPeerID(meshService),
-                            meshService,
-                            viewModel
-                        )
-                    } else {
-                        val systemMessage = BitchatMessage(
-                            sender = "system",
-                            content = "started private chat with $targetName",
-                            timestamp = Date(),
-                            isRelay = false
-                        )
-                        messageManager.addMessage(systemMessage)
+            when (val resolved = resolvePeerIDForNickname(targetName, meshService.getPeerNicknames())) {
+                is NicknameResolution.Unique -> {
+                    val peerID = resolved.peerID
+                    val success = privateChatManager.startPrivateChat(peerID, meshService)
+
+                    if (success) {
+                        if (parts.size > 2) {
+                            val messageContent = parts.drop(2).joinToString(" ")
+                            val recipientNickname = getPeerNickname(peerID, meshService)
+                            sendPrivateMessage(
+                                messageContent,
+                                peerID,
+                                recipientNickname,
+                                state.getNicknameValue(),
+                                getMyPeerID(meshService),
+                                meshService,
+                                viewModel
+                            )
+                        } else {
+                            val systemMessage = BitchatMessage(
+                                sender = "system",
+                                content = "started private chat with $targetName",
+                                timestamp = Date(),
+                                isRelay = false
+                            )
+                            messageManager.addMessage(systemMessage)
+                        }
                     }
                 }
-            } else {
-                val systemMessage = BitchatMessage(
-                    sender = "system",
-                    content = "user '$targetName' not found. they may be offline or using a different nickname.",
-                    timestamp = Date(),
-                    isRelay = false
-                )
-                messageManager.addMessage(systemMessage)
+                NicknameResolution.Ambiguous -> {
+                    val systemMessage = BitchatMessage(
+                        sender = "system",
+                        content = "nickname '$targetName' is used by more than one peer; use the #xxxx suffix from the people list.",
+                        timestamp = Date(),
+                        isRelay = false
+                    )
+                    messageManager.addMessage(systemMessage)
+                }
+                NicknameResolution.None -> {
+                    val systemMessage = BitchatMessage(
+                        sender = "system",
+                        content = "user '$targetName' not found. they may be offline or using a different nickname.",
+                        timestamp = Date(),
+                        isRelay = false
+                    )
+                    messageManager.addMessage(systemMessage)
+                }
             }
         } else {
             val systemMessage = BitchatMessage(
@@ -627,7 +638,7 @@ class CommandProcessor(
     // MARK: - Utility Functions
     
     private fun getPeerIDForNickname(nickname: String, meshService: MeshService): String? {
-        return meshService.getPeerNicknames().entries.find { it.value == nickname }?.key
+        return uniquePeerIDForNickname(nickname, meshService.getPeerNicknames())
     }
     
     private fun getPeerNickname(peerID: String, meshService: MeshService): String {
