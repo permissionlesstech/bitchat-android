@@ -46,7 +46,7 @@
     <string name="notification_summary_more">و %1$d مورد دیگر</string>
     <string name="notification_messages_from_people">%1$d پیام از %2$d نفر</string>
     <string name="notification_more_conversations">و %1$d گفت‌وگوی دیگر</string>
-    <string name="notification_active_peers_title">👥 کاربران bitchat در نزدیکی!</string>
+    <string name="notification_active_peers_title">کاربران bitchat در نزدیکی!</string>
     <string name="notification_active_peers_one">۱ نفر در نزدیکی</string>
     <string name="notification_active_peers_many">%1$d نفر در نزدیکی</string>
     <string name="notification_new_messages">پیام‌های جدید</string>
@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">قابل دسترس از طریق Nostr</string>
     <string name="cd_unread_private_messages">پیام‌های خصوصی خوانده‌نشده</string>
     <string name="cd_teleported">انتقال مکانی</string>
-    <string name="cd_tor_status">وضعیت Tor</string>
+    <string name="cd_open_location_channels">باز کردن تنظیمات مکان و کانال‌ها</string>
     <string name="cd_connected_peers">همتایان متصل</string>
     <string name="cd_geohash_participants">شرکت‌کنندگان geohash</string>
     <string name="cd_ready_for_handshake">آمادهٔ دست‌دهی</string>
@@ -376,4 +376,8 @@
   <string name="nearby_notes_reveal">یادداشت‌های باقی‌مانده در اینجا را بررسی کنید</string>
   <string name="nearby_notes_one">۱ یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>
   <string name="nearby_notes_many">%d یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>
+    <string name="about_language">زبان</string>
+    <string name="about_app_language">زبان برنامه</string>
+    <string name="about_system_default">پیش‌فرض سیستم</string>
+    <string name="about_select_language">انتخاب زبان</string>
 </resources>

@@ -1,0 +1,59 @@
+{
+  "skill_name": "android-readme-screenshot-studio",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Refresh the Bitchat README with two polished screenshots from the latest main UI: a populated mesh chat and the geohash globe centered on the Middle East without zooming. Use a large high-resolution Android emulator, open a PR, and merge it after checks pass.",
+      "expected_output": "The agent works in a fresh latest-main worktree, tries the documented current-pair fast path before rediscovering the fixture, captures the real app on a verified large portrait emulator profile, uses deterministic synthetic state, centers the globe without changing whole-Earth scale, removes capture hooks, validates the assets, opens a PR, waits for checks, and merges only because the prompt explicitly authorizes it.",
+      "files": [],
+      "expectations": [
+        "Uses a fresh worktree rooted at current origin/main and leaves the original checkout untouched.",
+        "Captures from the real Android UI on a verified high-resolution portrait emulator profile.",
+        "Uses the verified nine-row chat fixture and synthetic thky globe seed as fast starting points when the current UI still matches, while visually validating the result.",
+        "Waits for fixture completion and quiet UI time, and invalidates the media path cache when replacing image bytes at the same destination.",
+        "Keeps the requested Middle East focus while preserving whole-Earth zoom.",
+        "Removes temporary fixtures and passes a clean debug build before committing.",
+        "Uses gh for the authorized PR and merge without publishing machine identifiers."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Replace only the README chat image. It should read top to bottom as: a photo, four short messages back and forth, three voice messages back and forth, then one thumbs-up. Keep the current globe exactly as-is and make the speech waveforms look natural.",
+      "expected_output": "The agent treats the requested order and counts as exact, asks or resolves the photo subject instead of inventing it, uses the real waveform extractor on three distinct speech clips, preserves the globe asset, visually inspects the final crop, and leaves only the chat PNG changed.",
+      "files": [],
+      "expectations": [
+        "Implements exactly one photo, four alternating texts, three alternating voice notes, and one final thumbs-up.",
+        "Does not infer a photo subject from nicknames or unrelated fixture copy.",
+        "Produces waveforms from real rights-safe speech audio through the app extractor rather than drawing bars.",
+        "Preserves the globe asset and verifies that only the chat screenshot remains in the diff.",
+        "Removes the debug fixture before the final clean build."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Show me before and after screenshots for the Compose header changes in PR #412 at 320 dp and 411 dp, and post the comparison as a PR comment.",
+      "expected_output": "The agent recognizes that this is visual regression evidence rather than README marketing capture and routes the task to android-ui-visual-review instead of applying the README screenshot workflow.",
+      "files": [],
+      "expectations": [
+        "Routes the request to android-ui-visual-review.",
+        "Does not replace README assets.",
+        "Uses the PR merge-base and paired before/after capture workflow.",
+        "Publishes only the requested PR comment rather than opening an unrelated screenshot PR."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "The bottom of one or both README showcase screenshots is cropped. Correct the images without changing their content, update the screenshot skill so this does not recur, and open a new PR.",
+      "expected_output": "The agent inspects both merged assets at full size, identifies every affected screen, recaptures from the real app with the existing deterministic fixtures, and treats the navigation inset as an inspection region rather than an automatic crop. The final crop preserves complete app controls while excluding the system gesture affordance, keeps the pair matched, adds a reusable edge-to-edge guardrail to the skill, validates and visually inspects both images, and opens a sanitized PR.",
+      "files": [],
+      "expectations": [
+        "Inspects both screenshots and corrects every affected asset rather than assuming only one is cropped.",
+        "Recaptures the real app with the established deterministic synthetic content instead of padding or compositing the merged PNGs.",
+        "Uses accessibility bounds and full-size pixel inspection to place the bottom crop after complete app controls and before system gesture chrome.",
+        "Verifies the entire chat composer border and bottom padding plus every globe action-button corner and shadow are visible.",
+        "Keeps paired screenshots at identical dimensions and passes the screenshot validator and clean debug build.",
+        "Updates the skill with a general edge-to-edge crop rule and publishes no device or machine identifiers."
+      ]
+    }
+  ]
+}

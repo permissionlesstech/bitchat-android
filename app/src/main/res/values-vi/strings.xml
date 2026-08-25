@@ -46,7 +46,7 @@
     <string name="notification_summary_more">và %1$d khác</string>
     <string name="notification_messages_from_people">%1$d tin nhắn từ %2$d người</string>
     <string name="notification_more_conversations">và %1$d cuộc trò chuyện khác</string>
-    <string name="notification_active_peers_title">👥 bitchatter gần đó!</string>
+    <string name="notification_active_peers_title">bitchatter gần đó!</string>
     <string name="notification_active_peers_one">1 người gần đó</string>
     <string name="notification_active_peers_many">%1$d người gần đó</string>
     <string name="notification_new_messages">Tin nhắn mới</string>
@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Có thể tiếp cận qua Nostr</string>
     <string name="cd_unread_private_messages">Tin nhắn riêng chưa đọc</string>
     <string name="cd_teleported">Đã dịch chuyển</string>
-    <string name="cd_tor_status">Trạng thái Tor</string>
+    <string name="cd_open_location_channels">Mở cài đặt vị trí và kênh</string>
     <string name="cd_connected_peers">Peers đã kết nối</string>
     <string name="cd_geohash_participants">Người tham gia geohash</string>
     <string name="cd_ready_for_handshake">Sẵn sàng cho handshake</string>
@@ -376,4 +376,8 @@
   <string name="nearby_notes_reveal">kiểm tra ghi chú để lại ở đây</string>
   <string name="nearby_notes_one">có 1 ghi chú để lại ở đây — chạm để đọc</string>
   <string name="nearby_notes_many">có %d ghi chú để lại ở đây — chạm để đọc</string>
+    <string name="about_language">Ngôn ngữ</string>
+    <string name="about_app_language">Ngôn ngữ ứng dụng</string>
+    <string name="about_system_default">Mặc định hệ thống</string>
+    <string name="about_select_language">Chọn ngôn ngữ</string>
 </resources>

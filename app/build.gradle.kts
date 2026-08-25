@@ -24,13 +24,14 @@ require(
 android {
     namespace = "com.bitchat.android"
     compileSdk = libs.versions.compileSdk.get().toInt()
+    buildToolsVersion = libs.versions.buildTools.get()
 
     defaultConfig {
         applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 36
-        versionName = "1.7.5"
+        versionCode = 38
+        versionName = "2.0.1"
         buildConfigField(
             "String",
             "GITHUB_RELEASE_CERT_SHA256",
@@ -64,6 +65,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            vcsInfo {
+                // BUILDINFO.json and attestations carry the verified commit
+                // without depending on host-specific Git/worktree paths.
+                include = false
+            }
         }
     }
 
@@ -105,7 +111,15 @@ android {
     }
 }
 
+composeCompiler {
+    // Kotlin 2.4.10's optional Compose group-key mapping depends on unspecified
+    // class-file iteration order. Keep the normal R8 mapping, but omit that
+    // augmentation until its producer is deterministic across clean builds.
+    includeComposeMappingFile.set(false)
+}
+
 kotlin {
+    jvmToolchain(21)
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_11)
     }

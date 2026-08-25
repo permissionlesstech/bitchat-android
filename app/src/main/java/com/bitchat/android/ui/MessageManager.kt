@@ -3,7 +3,6 @@ package com.bitchat.android.ui
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.ContactDirectory
-import com.bitchat.android.services.PrivateMessageArrivalOrder
 import java.util.*
 import java.util.Collections
 
@@ -103,6 +102,49 @@ class MessageManager(private val state: ChatState) {
 
     fun addPrivateMessage(peerID: String, message: BitchatMessage) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val accepted = try {
+            com.bitchat.android.services.AppStateStore.addPrivateMessage(
+                conversationID,
+                message
+            )
+        } catch (_: Exception) {
+            false
+        }
+        if (!accepted) return
+        publishAcceptedPrivateMessage(conversationID, message, forceRead = false)
+    }
+
+    /**
+     * Adds a private message only after its database transaction has completed.
+     *
+     * Outgoing sends and non-mesh transports use this path so the local echo is never shown or
+     * transmitted unless it can survive an immediate process death.
+     */
+    suspend fun addPrivateMessageDurably(
+        peerID: String,
+        message: BitchatMessage,
+        forceRead: Boolean = false
+    ): Boolean {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val accepted = try {
+            com.bitchat.android.services.AppStateStore.addPrivateMessageDurably(
+                peerID = conversationID,
+                msg = message,
+                forceRead = forceRead
+            )
+        } catch (_: Exception) {
+            false
+        }
+        if (!accepted) return false
+        publishAcceptedPrivateMessage(conversationID, message, forceRead)
+        return true
+    }
+
+    private fun publishAcceptedPrivateMessage(
+        conversationID: String,
+        message: BitchatMessage,
+        forceRead: Boolean
+    ) {
         val currentPrivateChats = state.getPrivateChatsValue().toMutableMap()
         if (!currentPrivateChats.containsKey(conversationID)) {
             currentPrivateChats[conversationID] = mutableListOf()
@@ -111,14 +153,16 @@ class MessageManager(private val state: ChatState) {
         val chatMessages = currentPrivateChats[conversationID]?.toMutableList() ?: mutableListOf()
         chatMessages.add(message)
         currentPrivateChats[conversationID] = chatMessages
-        // Record the local arrival sequence before canonicalizing UI aliases.
-        PrivateMessageArrivalOrder.record(message.id)
         state.setPrivateChats(ContactDirectory.canonicalizePrivateChats(currentPrivateChats))
-        // Reflect into process-wide store
-        try { com.bitchat.android.services.AppStateStore.addPrivateMessage(conversationID, message) } catch (_: Exception) { }
         
         // Mark as unread if not currently viewing this chat
-        if (state.getSelectedPrivateChatPeerValue() != conversationID && message.sender != state.getNicknameValue()) {
+        val selectedConversationID = state.getSelectedPrivateChatPeerValue()
+            ?.let(ContactDirectory::canonicalConversationId)
+        if (
+            !forceRead &&
+            selectedConversationID != conversationID &&
+            message.sender != state.getNicknameValue()
+        ) {
             val currentUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
             currentUnread.add(conversationID)
             state.setUnreadPrivateMessages(currentUnread)
@@ -128,25 +172,29 @@ class MessageManager(private val state: ChatState) {
     // Variant that does not mark unread (used when we know the message has been read already, e.g., persisted Nostr read store)
     fun addPrivateMessageNoUnread(peerID: String, message: BitchatMessage) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
-        val currentPrivateChats = state.getPrivateChatsValue().toMutableMap()
-        if (!currentPrivateChats.containsKey(conversationID)) {
-            currentPrivateChats[conversationID] = mutableListOf()
+        val accepted = try {
+            com.bitchat.android.services.AppStateStore.addPrivateMessage(
+                peerID = conversationID,
+                msg = message,
+                forceRead = true
+            )
+        } catch (_: Exception) {
+            false
         }
-        val chatMessages = currentPrivateChats[conversationID]?.toMutableList() ?: mutableListOf()
-        chatMessages.add(message)
-        currentPrivateChats[conversationID] = chatMessages
-        // Record the local arrival sequence before canonicalizing UI aliases.
-        PrivateMessageArrivalOrder.record(message.id)
-        state.setPrivateChats(ContactDirectory.canonicalizePrivateChats(currentPrivateChats))
-        // Reflect into process-wide store
-        try { com.bitchat.android.services.AppStateStore.addPrivateMessage(conversationID, message) } catch (_: Exception) { }
+        if (!accepted) return
+        publishAcceptedPrivateMessage(conversationID, message, forceRead = true)
     }
     
     fun clearPrivateMessages(peerID: String) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        com.bitchat.android.services.AppStateStore.deletePrivateConversation(conversationID)
         val updatedChats = state.getPrivateChatsValue().toMutableMap()
-        updatedChats[conversationID] = emptyList()
+        updatedChats.keys.removeAll { key ->
+            ContactDirectory.canonicalConversationId(key)
+                .equals(conversationID, ignoreCase = true)
+        }
         state.setPrivateChats(updatedChats)
+        clearPrivateUnreadMessages(conversationID)
     }
     
     fun initializePrivateChat(peerID: String) {
@@ -239,12 +287,19 @@ class MessageManager(private val state: ChatState) {
         is DeliveryStatus.PartiallyDelivered -> 3
         is DeliveryStatus.Delivered -> 4
         is DeliveryStatus.Read -> 5
-        is DeliveryStatus.Failed -> 0 // treat as lowest for UI check marks ordering
+        is DeliveryStatus.Failed -> 0
     }
 
     private fun chooseStatus(old: DeliveryStatus?, new: DeliveryStatus): DeliveryStatus? {
-        // Never downgrade (e.g., Read -> Delivered). Keep the higher priority.
-        return if (statusPriority(new) >= statusPriority(old)) new else old
+        // A send failure may replace an in-flight state, but never a confirmed delivery/read.
+        return when {
+            new is DeliveryStatus.Failed &&
+                old !is DeliveryStatus.Delivered &&
+                old !is DeliveryStatus.Read -> new
+            old is DeliveryStatus.Failed -> new
+            statusPriority(new) >= statusPriority(old) -> new
+            else -> old
+        }
     }
 
     fun updateMessageDeliveryStatus(messageID: String, status: DeliveryStatus) {
@@ -325,7 +380,10 @@ class MessageManager(private val state: ChatState) {
                     changed = true
                 }
             }
-            if (changed) state.setPrivateChats(chats)
+            if (changed) {
+                state.setPrivateChats(chats.filterValues { it.isNotEmpty() })
+                com.bitchat.android.services.AppStateStore.removePrivateMessage(messageID)
+            }
         }
         // Channels
         run {

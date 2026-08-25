@@ -46,7 +46,7 @@
     <string name="notification_summary_more">dan %1$d lagi</string>
     <string name="notification_messages_from_people">%1$d pesan dari %2$d orang</string>
     <string name="notification_more_conversations">dan %1$d percakapan lagi</string>
-    <string name="notification_active_peers_title">👥 bitchatter terdekat!</string>
+    <string name="notification_active_peers_title">bitchatter terdekat!</string>
     <string name="notification_active_peers_one">1 orang terdekat</string>
     <string name="notification_active_peers_many">%1$d orang terdekat</string>
     <string name="notification_new_messages">Pesan baru</string>
@@ -74,7 +74,7 @@
     <string name="cd_nostr_reachable">Dapat dijangkau melalui Nostr</string>
     <string name="cd_unread_private_messages">Pesan pribadi yang belum dibaca</string>
     <string name="cd_teleported">Diteleportasi</string>
-    <string name="cd_tor_status">Status Tor</string>
+    <string name="cd_open_location_channels">Buka pengaturan lokasi dan channel</string>
     <string name="cd_connected_peers">Peer yang terhubung</string>
     <string name="cd_geohash_participants">Peserta geohash</string>
     <string name="cd_ready_for_handshake">Siap untuk handshake</string>
@@ -389,4 +389,8 @@
   <string name="nearby_notes_reveal">periksa catatan yang ditinggalkan di sini</string>
   <string name="nearby_notes_one">1 catatan ditinggalkan di sini — ketuk untuk membaca</string>
   <string name="nearby_notes_many">%d catatan ditinggalkan di sini — ketuk untuk membaca</string>
+    <string name="about_language">Bahasa</string>
+    <string name="about_app_language">Bahasa aplikasi</string>
+    <string name="about_system_default">Default sistem</string>
+    <string name="about_select_language">Pilih bahasa</string>
 </resources>

@@ -48,6 +48,25 @@ data class FavoriteRelationship(
     }
 }
 
+internal fun FavoriteRelationship?.withPeerFavoritedUs(
+    noisePublicKey: ByteArray,
+    theyFavoritedUs: Boolean,
+    now: Date = Date()
+): FavoriteRelationship {
+    return this?.copy(
+        theyFavoritedUs = theyFavoritedUs,
+        lastUpdated = now
+    ) ?: FavoriteRelationship(
+        peerNoisePublicKey = noisePublicKey,
+        peerNostrPublicKey = null,
+        peerNickname = "Unknown",
+        isFavorite = false,
+        theyFavoritedUs = theyFavoritedUs,
+        favoritedAt = now,
+        lastUpdated = now
+    )
+}
+
 interface FavoritesChangeListener {
     fun onFavoriteChanged(noiseKeyHex: String)
     fun onAllCleared()
@@ -167,6 +186,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         if (ContactIdentityResolver.isMeshPeerId(pid)) {
             peerIdIndex[pid] = normalizedNpub
             savePeerIdIndex()
+            notifyChanged(pid)
             Log.d(TAG, "Indexed npub for peerID ${pid.take(8)}…")
         } else {
             Log.w(TAG, "updateNostrPublicKeyForPeerID called with non-16hex peerID: $peerID")
@@ -233,18 +253,13 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     fun updatePeerFavoritedUs(noisePublicKey: ByteArray, theyFavoritedUs: Boolean) {
         val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
         val existing = favorites[keyHex]
+        val updated = existing.withPeerFavoritedUs(noisePublicKey, theyFavoritedUs)
 
-        if (existing != null) {
-            val updated = existing.copy(
-                theyFavoritedUs = theyFavoritedUs,
-                lastUpdated = Date()
-            )
-            favorites[keyHex] = updated
-            saveFavorites()
-            notifyChanged(keyHex)
+        favorites[keyHex] = updated
+        saveFavorites()
+        notifyChanged(keyHex)
 
-            Log.d(TAG, "Updated peer favorited us for ${keyHex.take(16)}...: $theyFavoritedUs")
-        }
+        Log.d(TAG, "Updated peer favorited us for ${keyHex.take(16)}...: $theyFavoritedUs")
     }
 
     fun getMutualFavorites(): List<FavoriteRelationship> = favorites.values.filter { it.isMutual }

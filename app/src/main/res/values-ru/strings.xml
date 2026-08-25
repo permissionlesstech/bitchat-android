@@ -40,7 +40,7 @@
     <string name="notification_summary_more">и ещё %1$d</string>
     <string name="notification_messages_from_people">%1$d сообщений от %2$d людей</string>
     <string name="notification_more_conversations">и ещё %1$d бесед</string>
-    <string name="notification_active_peers_title">👥 bitchatter рядом!</string>
+    <string name="notification_active_peers_title">bitchatter рядом!</string>
     <string name="notification_active_peers_one">Рядом 1 человек</string>
     <string name="notification_active_peers_many">Рядом %1$d человек</string>
     <string name="notification_new_messages">Новые сообщения</string>
@@ -66,7 +66,7 @@
     <string name="cd_nostr_reachable">Доступен через Nostr</string>
     <string name="cd_unread_private_messages">Непрочитанные личные</string>
     <string name="cd_teleported">Телепортировано</string>
-    <string name="cd_tor_status">Статус Tor</string>
+    <string name="cd_open_location_channels">Открыть настройки местоположения и каналов</string>
     <string name="cd_connected_peers">Подключённые узлы</string>
     <string name="cd_geohash_participants">Участники geohash</string>
     <string name="cd_ready_for_handshake">Готов к рукопожатию</string>
@@ -276,13 +276,6 @@
     <string name="media_type_image">Изображение</string>
     <string name="media_type_file">Файл</string>
 
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
-
     <string name="notification_sent_image">📷 отправил изображение</string>
     <string name="notification_sent_voice">🎤 отправил голосовое</string>
     <string name="notification_sent_file">📎 отправил файл</string>
@@ -383,4 +376,8 @@
   <string name="nearby_notes_reveal">проверить, есть ли здесь заметки</string>
   <string name="nearby_notes_one">здесь оставлена 1 заметка — нажмите, чтобы прочитать</string>
   <string name="nearby_notes_many">здесь оставлено заметок: %d — нажмите, чтобы прочитать</string>
+    <string name="about_language">Язык</string>
+    <string name="about_app_language">Язык приложения</string>
+    <string name="about_system_default">Системный язык</string>
+    <string name="about_select_language">Выбрать язык</string>
 </resources>

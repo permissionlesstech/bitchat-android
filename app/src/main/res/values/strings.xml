@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="cashu_pay_via">pay via Cashu</string>
+    <string name="cashu_payment_description">Cashu payment</string>
+    <string name="cashu_copy_token">Copy token</string>
+    <string name="cashu_redeem_wallet">Redeem in wallet</string>
+    <string name="cashu_redeem_web">Redeem on web</string>
     <string name="app_name">bitchat</string>
     <string name="permission_bluetooth_rationale">Bluetooth permission is required for peer-to-peer messaging without internet.</string>
     <string name="permission_location_rationale">Location permission is required to discover nearby devices via Bluetooth.</string>
@@ -42,7 +47,7 @@
   <string name="notification_summary_more">and %1$d more</string>
   <string name="notification_messages_from_people">%1$d messages from %2$d people</string>
   <string name="notification_more_conversations">and %1$d more conversations</string>
-  <string name="notification_active_peers_title">👥 bitchatters nearby!</string>
+  <string name="notification_active_peers_title">bitchatters nearby!</string>
   <string name="notification_active_peers_one">1 person around</string>
   <string name="notification_active_peers_many">%1$d people around</string>
   <string name="notification_new_messages">New Messages</string>
@@ -69,14 +74,56 @@
   <!-- Favorites accessibility -->
   <string name="cd_add_favorite">Add to favorites</string>
   <string name="cd_remove_favorite">Remove from favorites</string>
+  <string name="cd_favorite">Favorite</string>
+  <string name="cd_favorited_you">Favorited you</string>
   <string name="cd_add_bookmark">Add bookmark</string>
 
   <!-- Chat header &amp; accessibility -->
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Messages</string>
+  <string name="conversations">Conversations</string>
+  <string name="offline_not_in_mesh">Offline · not in mesh</string>
+  <string name="offline_reachable_via_nostr">Offline from mesh · Nostr available</string>
+  <string name="delete">Delete</string>
+  <string name="delete_conversation_action">Delete conversation</string>
+  <string name="delete_conversation_title">Delete conversation?</string>
+  <string name="delete_conversation_message">Delete your conversation with %1$s from this device?</string>
+  <string name="search_conversations">Search conversations</string>
+  <string name="clear">Clear</string>
+  <string name="loading_conversations">Loading private conversations…</string>
+  <string name="conversation_storage_error">Private conversations could not be loaded</string>
+  <string name="no_conversations_yet">Private conversations will appear here</string>
+  <string name="no_conversation_results">No matching conversations</string>
+  <string name="online_conversations">ONLINE</string>
+  <string name="offline_conversations">OFFLINE</string>
+  <string name="mark_read">Mark as read</string>
+  <string name="mark_unread">Mark as unread</string>
+  <string name="pin_conversation">Pin conversation</string>
+  <string name="unpin_conversation">Unpin conversation</string>
+  <string name="mute_conversation">Mute conversation</string>
+  <string name="unmute_conversation">Unmute conversation</string>
+  <string name="conversation_actions">Conversation actions</string>
+  <string name="conversation_unread_count">%1$d unread messages</string>
+  <string name="conversation_read">Read</string>
+  <string name="conversation_draft_preview">Draft: %1$s</string>
+  <string name="conversation_you_preview">You: %1$s</string>
+  <string name="conversation_preview_timestamp">· %1$s</string>
+  <string name="conversation_delete_failed">Conversation could not be deleted</string>
+  <string name="conversation_deleted">Deleted conversation with %1$s</string>
+  <string name="undo">Undo</string>
+  <string name="conversation_restore_failed">Conversation could not be restored</string>
+  <string name="notification_reply">Reply</string>
+  <string name="notification_mark_read">Mark read</string>
+  <string name="notification_private_message">New private message</string>
+  <string name="notification_content_hidden">Open bitchat to view it</string>
+  <string name="notification_channel_direct_messages">Direct Messages</string>
+  <string name="notification_channel_direct_messages_description">Notifications for private messages from other users</string>
+  <string name="notification_channel_geohash">Geohash Chats</string>
+  <string name="notification_channel_geohash_description">Notifications for mentions and messages in geohash location channels</string>
+  <string name="you">You</string>
   <string name="cd_location_notes">Location notes</string>
   <string name="cd_teleported">Teleported</string>
-  <string name="cd_tor_status">Tor status</string>
+  <string name="cd_open_location_channels">Open location and channel settings</string>
   <string name="cd_connected_peers">Connected peers</string>
   <string name="cd_geohash_participants">Geohash participants</string>
   <string name="cd_ready_for_handshake">Ready for handshake</string>
@@ -149,6 +196,8 @@
   <string name="about_system">System</string>
   <string name="about_light">Light</string>
   <string name="about_dark">Dark</string>
+  <string name="chat_ui_matrix">Matrix</string>
+  <string name="chat_ui_bubbles">Bubbles</string>
   <string name="about_pow">Proof of Work</string>
   <string name="about_pow_off">PoW Off</string>
   <string name="about_pow_on">PoW On</string>
@@ -187,36 +236,70 @@
 
   <!-- Universal APK Preparation -->
   <string name="prepare_apk_title">Prepare App for Sharing</string>
-  <string name="prepare_apk_ready_title" translatable="false">App Ready for Offline Sharing</string>
+  <string name="prepare_apk_ready_title">App Ready for Offline Sharing</string>
   <string name="prepare_apk_subtitle">Download universal APK for offline sharing</string>
   <string name="prepare_apk_status_not_downloaded">Not ready • Tap to download</string>
   <string name="prepare_apk_status_ready">Ready to share</string>
-  <string name="prepare_apk_source_installed" translatable="false">Sharing source: this installed APK</string>
-  <string name="prepare_apk_source_installed_arm64" translatable="false">Sharing source: this installed APK • ARM64 devices only</string>
-  <string name="prepare_apk_source_github" translatable="false">Sharing source: verified GitHub universal APK</string>
-  <string name="prepare_apk_get_universal" translatable="false">Get universal</string>
+  <!-- Assembled as one string so translators control separator and line order, not Kotlin. -->
+  <string name="prepare_apk_ready_detail">Ready to share • %1$s • %2$d MB\n%3$s</string>
+  <string name="prepare_apk_status_resumable">%1$s • %2$d%% downloaded</string>
+  <string name="prepare_apk_source_installed">Sharing source: this installed APK</string>
+  <string name="prepare_apk_source_installed_arm64">Sharing source: this installed APK • ARM64 devices only</string>
+  <string name="prepare_apk_source_downloaded">Sharing source: verified downloaded universal APK</string>
+  <string name="prepare_apk_update_available">Version %1$s is available. You can keep sharing this APK or download the update.</string>
+  <string name="prepare_apk_update_warning">New version available</string>
+  <!-- Now the accessibility label and tooltip for an icon-only button, not a visible label. -->
+  <string name="prepare_apk_get_universal">Download universal APK</string>
+  <string name="prepare_apk_retry">Retry download</string>
   <string name="prepare_apk_status_downloading">Downloading… %1$d%%</string>
-  <string name="prepare_apk_status_update_available">Update available</string>
+  <!-- Stages of preparing the APK. Only the transfer has a meaningful percentage. -->
+  <string name="prepare_apk_phase_awaiting_connectivity">Waiting for network…</string>
+  <string name="prepare_apk_phase_retrying">Retrying…</string>
+  <string name="prepare_apk_phase_selecting_source">Selecting download source…</string>
+  <string name="prepare_apk_phase_awaiting_route">Waiting for Tor…</string>
+  <string name="prepare_apk_phase_transferring">Downloading…</string>
+  <string name="prepare_apk_phase_verifying_signature">Verifying signature…</string>
+  <string name="prepare_apk_stop">Stop download</string>
   <string name="prepare_apk_button_prepare">Prepare</string>
-  <string name="prepare_apk_button_update">Update</string>
   <string name="prepare_apk_button_delete">Delete</string>
   <string name="prepare_apk_info">Version %1$s • %2$d MB</string>
   <string name="prepare_apk_dialog_title">Download Universal APK?</string>
-  <string name="prepare_apk_dialog_message">This will download the universal APK (~%1$d MB) from GitHub releases. You only need to do this once.</string>
-  <string name="prepare_apk_dialog_message_unknown_size" translatable="false">The release size is temporarily unavailable. BitChat will retry the GitHub request before downloading.</string>
+  <string name="prepare_apk_update_dialog_title">Download Newer Universal APK?</string>
+  <string name="prepare_apk_dialog_message_unknown_size">This will download a verified universal APK from a configured source. You only need to do this once.</string>
+  <string name="prepare_apk_update_dialog_message">Version %1$s is available from GitHub (%2$d MB). Your current APK remains shareable during the download.</string>
   <string name="prepare_apk_dialog_confirm">Download</string>
   <string name="prepare_apk_downloading_title">Downloading Universal APK</string>
   <string name="prepare_apk_downloading_message">Downloading %1$d MB…</string>
-  <string name="prepare_apk_verifying">Verifying checksum…</string>
   <string name="prepare_apk_success">Universal APK ready!</string>
   <string name="prepare_apk_error_network">Network error. Check your connection.</string>
-  <string name="prepare_apk_error_checksum">Checksum verification failed. Please try again.</string>
   <string name="prepare_apk_error_storage">Not enough storage space.</string>
-  <string name="prepare_apk_error_github">Failed to fetch release info from GitHub.</string>
+  <!--
+    Download failures. These are named in the util layer, which has no Context, and resolved at
+    the presentation boundary: the row resolves its own status text, the ViewModel resolves the
+    toast shown when an APK is still shareable.
+  -->
+  <string name="prepare_apk_error_rate_limited">%1$s is temporarily rate limited. Try again later.</string>
+  <string name="prepare_apk_error_no_universal">%1$s does not currently have a universal APK.</string>
+  <string name="prepare_apk_error_http">%1$s download failed: HTTP %2$s %3$s</string>
+  <string name="prepare_apk_error_generic">Download failed. Please try again.</string>
+  <string name="prepare_apk_error_storage_needed">Not enough storage: %1$s MB needed, %2$s MB free.</string>
+  <string name="prepare_apk_error_no_sources">No APK download sources are configured.</string>
+  <string name="prepare_apk_error_tor_connecting">Tor is still connecting. Try again when Tor is ready.</string>
+  <string name="prepare_apk_error_no_url">%1$s has no usable APK URL.</string>
+  <string name="prepare_apk_error_unreachable">%1$s could not be reached.</string>
+  <string name="prepare_apk_error_insecure_redirect">%1$s redirected to an insecure URL.</string>
+  <string name="prepare_apk_error_resume_rejected">%1$s rejected the saved download position. The next attempt will restart the download.</string>
+  <string name="prepare_apk_error_incomplete">%1$s download ended before all bytes arrived. It can be resumed.</string>
+  <string name="prepare_apk_error_invalid_resume">%1$s returned an invalid resume response. The next attempt will restart the download.</string>
+  <string name="prepare_apk_error_untrusted_key">The APK from %1$s is not signed by a trusted BitChat release key.</string>
+  <string name="prepare_apk_error_not_universal">%1$s returned an architecture-specific APK, not the required universal APK.</string>
+  <string name="prepare_apk_error_apk_unreadable">The downloaded APK could not be read.</string>
+  <string name="prepare_apk_error_not_bitchat">The downloaded file is not a BitChat APK.</string>
+  <string name="prepare_apk_error_no_version">The downloaded APK has no version information.</string>
+  <string name="prepare_apk_error_source_failed">%1$s download failed.</string>
+  <string name="prepare_apk_error_all_sources">All configured APK sources failed.</string>
   <string name="prepare_apk_delete_confirm">Delete cached APK?</string>
   <string name="prepare_apk_delete_message">This will free up ~%1$d MB of storage.</string>
-  <string name="prepare_apk_update_dialog_title">Update Available</string>
-  <string name="prepare_apk_update_dialog_message">A newer version (%1$s) is available. Current: %2$s</string>
   <string name="prepare_apk_required">Please prepare the app for sharing first.</string>
   <string name="prepare_apk_download_interrupted">Download interrupted</string>
   <string name="prepare_apk_download_cancelled">Download cancelled</string>
@@ -228,6 +311,9 @@
   <string name="hotspot_share_via_subtitle">Create Wi-Fi hotspot to share offline</string>
   <string name="hotspot_share_other">Share via Quick Share</string>
   <string name="hotspot_share_other_subtitle">Use standard Android sharing</string>
+  <string name="hotspot_disconnect_title">Disconnect current Wi-Fi Direct connection?</string>
+  <string name="hotspot_disconnect_message">Starting the hotspot will disconnect the current Wi-Fi Direct connection. This may interrupt Cast, Android Auto, Quick Share, or another nearby connection.</string>
+  <string name="hotspot_disconnect_confirm">Disconnect and start</string>
 
   <!-- APK Installation -->
   <string name="install_bitchat_title">Install Received APK</string>
@@ -252,6 +338,9 @@
   <string name="cd_checking_battery_optimization">Checking Battery Optimization</string>
   <string name="cd_not_supported_battery_optimization">Battery Optimization Not Supported</string>
   <string name="cd_bluetooth">Bluetooth</string>
+  <string name="cd_direct_wifi_aware" tools:ignore="MissingTranslation">Direct Wi-Fi Aware</string>
+  <string name="cd_direct_bluetooth" tools:ignore="MissingTranslation">Direct Bluetooth</string>
+  <string name="cd_routed_mesh" tools:ignore="MissingTranslation">Routed mesh</string>
   <string name="cd_unread_message">Unread message</string>
   <string name="cd_open_map">Open map</string>
   <string name="cd_remove_bookmark">Remove bookmark</string>
@@ -486,7 +575,7 @@
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="nobody_around">Nobody around…</string>
   <string name="you_suffix"> (you)</string>
-  <string name="pan_zoom_instruction">Pan and zoom to select a geohash</string>
+  <string name="pan_zoom_instruction">Drag to spin · Pinch to zoom · Tap to focus</string>
   <string name="select">Select</string>
   <string name="type_a_message_placeholder">Type a message…</string>
   <string name="mention_suggestion_at">@%1$s</string>
@@ -502,14 +591,6 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">Image</string>
   <string name="media_type_file">File</string>
-
-  <!-- Message status icons -->
-  <string name="status_sending">○</string>
-  <string name="status_pending">○</string>
-  <string name="status_sent">✓</string>
-  <string name="status_delivered">✓✓</string>
-  <string name="status_failed">⚠</string>
-  <string name="status_read">✓</string>
 
   <!-- Notification text helpers -->
   <string name="notification_sent_image">📷 sent an image</string>
@@ -569,4 +650,8 @@
   </plurals>
 
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
+  <string name="about_language">Language</string>
+  <string name="about_app_language">App language</string>
+  <string name="about_system_default">System default</string>
+  <string name="about_select_language">Select language</string>
 </resources>

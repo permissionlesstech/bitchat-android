@@ -40,7 +40,7 @@
     <string name="notification_summary_more">ve %1$d daha</string>
     <string name="notification_messages_from_people">%2$d kişiden %1$d mesaj</string>
     <string name="notification_more_conversations">ve %1$d sohbet daha</string>
-    <string name="notification_active_peers_title">👥 yakında bitchatter’lar!</string>
+    <string name="notification_active_peers_title">yakında bitchatter’lar!</string>
     <string name="notification_active_peers_one">Yakında 1 kişi</string>
     <string name="notification_active_peers_many">Yakında %1$d kişi</string>
     <string name="notification_new_messages">Yeni mesajlar</string>
@@ -66,7 +66,7 @@
     <string name="cd_nostr_reachable">Nostr üzerinden ulaşılabilir</string>
     <string name="cd_unread_private_messages">Okunmamış özel mesaj</string>
     <string name="cd_teleported">Teleport edildi</string>
-    <string name="cd_tor_status">Tor durumu</string>
+    <string name="cd_open_location_channels">Konum ve kanal ayarlarını aç</string>
     <string name="cd_connected_peers">Bağlı eşler</string>
     <string name="cd_geohash_participants">Geohash katılımcıları</string>
     <string name="cd_ready_for_handshake">El sıkışmaya hazır</string>
@@ -276,13 +276,6 @@
     <string name="media_type_image">Görsel</string>
     <string name="media_type_file">Dosya</string>
 
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
-
     <string name="notification_sent_image">📷 görsel gönderdi</string>
     <string name="notification_sent_voice">🎤 sesli mesaj gönderdi</string>
     <string name="notification_sent_file">📎 dosya gönderdi</string>
@@ -381,4 +374,8 @@
   <string name="nearby_notes_reveal">buraya bırakılan notlara bak</string>
   <string name="nearby_notes_one">buraya 1 not bırakıldı — okumak için dokun</string>
   <string name="nearby_notes_many">buraya %d not bırakıldı — okumak için dokun</string>
+    <string name="about_language">Dil</string>
+    <string name="about_app_language">Uygulama dili</string>
+    <string name="about_system_default">Sistem varsayılanı</string>
+    <string name="about_select_language">Dil seçin</string>
 </resources>

@@ -1,338 +1,266 @@
 package com.bitchat.android.util
 
+import android.content.Context
 import android.util.Log
+import androidx.core.content.edit
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.OkHttpProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.Request
+import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-/**
- * Client for fetching BitChat release information from GitHub API.
- */
-object GitHubReleaseClient {
-    private const val TAG = "GitHubAPI"
-    private const val GITHUB_API_URL = "https://api.github.com/repos/permissionlesstech/bitchat-android/releases/latest"
-    private const val USER_AGENT = "BitChat-Android"
-    private const val CACHE_TTL_MILLIS = 10 * 60 * 1000L
-    private const val MAX_FETCH_ATTEMPTS = 3
-    private const val ROUTE_READY_TIMEOUT_MILLIS = 60_000L
+internal interface LatestReleaseProvider {
+    suspend fun latestRelease(): Result<GitHubReleaseClient.ReleaseSnapshot>
+}
 
-    private val fetchMutex = Mutex()
+/** Fetches GitHub release metadata without participating in APK availability. */
+internal class GitHubReleaseClient(
+    context: Context,
+    private val apiUrl: String = GITHUB_API_URL,
+    private val nowMillis: () -> Long = System::currentTimeMillis,
+    private val routedClient: () -> OkHttpProvider.RoutedClient = OkHttpProvider::routedHttpClient,
+    private val awaitRoute: suspend () -> Boolean = {
+        ArtiTorManager.getInstance().awaitSelectedRoute(ROUTE_READY_TIMEOUT_MILLIS)
+    },
+    private val rateLimits: ApkRateLimitStore = ApkRateLimitStore(context)
+) : LatestReleaseProvider {
+    companion object {
+        private const val TAG = "GitHubRelease"
+        private const val GITHUB_API_URL =
+            "https://api.github.com/repos/permissionlesstech/bitchat-android/releases/latest"
+        private const val ROUTE_READY_TIMEOUT_MILLIS = 60_000L
+        private const val CACHE_TTL_MILLIS = 30 * 60_000L
+        private const val PREFS_NAME = "apk_release_metadata"
+        private const val RATE_LIMIT_SCOPE = "github_release_metadata"
+        private const val USER_AGENT = "BitChat-Android"
 
-    @Volatile
-    private var cachedRelease: CachedRelease? = null
+        private val SOURCE = ApkDownloadSource(
+            id = DefaultApkDownloadSources.GITHUB_ID,
+            displayName = "GitHub Releases",
+            latestApkUrl = "https://github.com/permissionlesstech/bitchat-android/releases/latest/" +
+                "download/bitchat-android-universal.apk"
+        )
 
-    private val client
-        get() = OkHttpProvider.httpClient().newBuilder()
-            // GitHub requests may travel through Tor, where a 15-second total
-            // timeout is too aggressive during circuit establishment.
-            .callTimeout(45, TimeUnit.SECONDS)
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build()
-
-    /**
-     * Fetch the latest release information from GitHub.
-     * Successful metadata is cached briefly so the status screen and download
-     * worker use the same release snapshot instead of making duplicate calls.
-     */
-    suspend fun fetchLatestRelease(forceRefresh: Boolean = false): Result<Release> =
-        withContext(Dispatchers.IO) {
-            fetchMutex.withLock {
-                if (!forceRefresh) {
-                    cachedRelease
-                        ?.takeIf { System.currentTimeMillis() - it.fetchedAtMillis < CACHE_TTL_MILLIS }
-                        ?.let { return@withLock Result.success(it.release) }
-                }
-
-                if (!awaitSelectedNetworkRoute()) {
-                    return@withLock Result.failure(
-                        ReleaseFetchException(
-                            message = "Tor is still connecting. Try again when Tor is ready.",
-                            retryable = true
-                        )
-                    )
-                }
-
-                var lastFailure: Throwable = ReleaseFetchException(
-                    "Failed to fetch the latest release from GitHub"
-                )
-
-                repeat(MAX_FETCH_ATTEMPTS) { attempt ->
-                    val result = fetchLatestReleaseOnce()
-                    result.onSuccess { release ->
-                        cachedRelease = CachedRelease(release, System.currentTimeMillis())
-                        return@withLock Result.success(release)
-                    }
-                    lastFailure = result.exceptionOrNull() ?: lastFailure
-
-                    if (!isRetryable(lastFailure) || attempt == MAX_FETCH_ATTEMPTS - 1) {
-                        return@withLock Result.failure(lastFailure)
-                    }
-
-                    delay(1_000L shl attempt)
-                }
-
-                Result.failure(lastFailure)
-            }
-        }
-
-    /**
-     * Wait for Tor when it is the selected route. This deliberately does not
-     * fall back to a direct connection because doing so would violate the
-     * user's Tor preference.
-     */
-    suspend fun awaitSelectedNetworkRoute(): Boolean {
-        return ArtiTorManager.getInstance()
-            .awaitSelectedRoute(ROUTE_READY_TIMEOUT_MILLIS)
-    }
-
-    private fun fetchLatestReleaseOnce(): Result<Release> {
-        return try {
-            Log.d(TAG, "Fetching latest release from GitHub API")
-            val request = Request.Builder()
-                .url(GITHUB_API_URL)
-                .addHeader("User-Agent", USER_AGENT)
-                .addHeader("Accept", "application/vnd.github+json")
-                .addHeader("X-GitHub-Api-Version", "2022-11-28")
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    val remaining = response.header("X-RateLimit-Remaining")
-                    val resetAt = response.header("X-RateLimit-Reset")
-                    val message = when {
-                        response.code == 403 && remaining == "0" ->
-                            "GitHub API rate limit exceeded. Try again after reset time $resetAt."
-                        response.code == 429 ->
-                            "GitHub API rate limit exceeded. Please try again later."
-                        else ->
-                            "GitHub release request failed: HTTP ${response.code} ${response.message}"
-                    }
-                    Log.e(TAG, message)
-                    return Result.failure(
-                        ReleaseFetchException(
-                            message = message,
-                            httpCode = response.code,
-                            retryable = response.code == 403 ||
-                                response.code == 408 ||
-                                response.code == 429 ||
-                                response.code >= 500
-                        )
-                    )
-                }
-
-                val body = response.body?.string()
-                if (body.isNullOrBlank()) {
-                    return Result.failure(
-                        ReleaseFetchException(
-                            message = "GitHub returned an empty response",
-                            retryable = true
-                        )
-                    )
-                }
-
-                val release = parseRelease(body)
-                    ?: return Result.failure(
-                        ReleaseFetchException(
-                            message = "GitHub's latest release has no universal APK asset",
-                            retryable = false
-                        )
-                    )
-                Result.success(release)
-            }
-        } catch (e: IOException) {
-            Log.e(TAG, "Network error fetching release", e)
-            Result.failure(
-                ReleaseFetchException(
-                    "Could not reach GitHub${e.message?.let { ": $it" } ?: ""}",
-                    cause = e
-                )
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching release", e)
-            Result.failure(ReleaseFetchException("Invalid GitHub release response", cause = e))
-        }
-    }
-
-    private fun isRetryable(error: Throwable): Boolean {
-        return error !is ReleaseFetchException || error.retryable
-    }
-
-    /**
-     * Parse GitHub API JSON response into Release object.
-     */
-    internal fun parseRelease(jsonString: String): Release? {
-        try {
+        internal fun parseRelease(jsonString: String): Release? = runCatching {
             val json = JSONObject(jsonString)
-            val tagName = json.optString("tag_name", "")
-            val versionName = tagName.removePrefix("v") // Remove "v" prefix if present
+            val tagName = json.optString("tag_name")
+            val versionName = tagName.removePrefix("v").trim()
+            if (versionName.isBlank()) return null
 
-            if (versionName.isBlank()) {
-                Log.e(TAG, "No version tag found in release")
-                return null
-            }
-
-            Log.d(TAG, "Found release: $versionName")
-
-            // Parse assets array to find universal APK
-            val assets = json.optJSONArray("assets")
-            if (assets == null || assets.length() == 0) {
-                Log.e(TAG, "No assets found in release")
-                return null
-            }
-
-            // Look for universal APK (usually named "app-universal-release.apk")
-            for (i in 0 until assets.length()) {
-                val asset = assets.getJSONObject(i)
-                val name = asset.optString("name", "")
-
-                if (name.contains("universal", ignoreCase = true) && name.endsWith(".apk")) {
-                    val downloadUrl = asset.optString("browser_download_url", "")
-                    val size = asset.optLong("size", 0L)
-
-                    if (downloadUrl.isBlank()) {
-                        Log.e(TAG, "Universal APK found but no download URL")
-                        continue
-                    }
-
-                    // Prefer GitHub's asset digest when available, then fall
-                    // back to release notes used by older releases.
-                    val body = json.optString("body", "")
-                    val assetDigest = asset.optString("digest", "")
-                        .takeIf { it.startsWith("sha256:", ignoreCase = true) }
-                        ?.substringAfter(":")
-                        ?.takeIf { it.matches(Regex("[a-fA-F0-9]{64}")) }
-                        ?.lowercase()
-                    val sha256 = assetDigest ?: extractSha256FromBody(body, name)
-
-                    Log.d(TAG, "Found universal APK: $name (${size / 1024 / 1024}MB)")
-
+            val assets = json.optJSONArray("assets") ?: return null
+            for (index in 0 until assets.length()) {
+                val asset = assets.getJSONObject(index)
+                val name = asset.optString("name")
+                val url = asset.optString("browser_download_url")
+                if (name.contains("universal", ignoreCase = true) &&
+                    name.endsWith(".apk", ignoreCase = true) &&
+                    url.startsWith("https://")
+                ) {
                     return Release(
-                        tagName = tagName,
                         versionName = versionName,
-                        universalApkUrl = downloadUrl,
-                        universalApkSha256 = sha256,
-                        universalApkSize = size,
+                        universalApkSize = asset.optLong("size", 0L),
+                        universalApkUrl = url,
                         universalApkName = name
                     )
                 }
             }
-
-            Log.e(TAG, "No universal APK found in release assets")
-            return null
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing release JSON", e)
-            return null
-        }
+            null
+        }.getOrNull()
     }
 
-    /**
-     * Extract SHA256 checksum from release body/notes.
-     * Looks for patterns like:
-     * - sha256:abc123...
-     * - SHA256: abc123...
-     * - app-universal-release.apk: abc123...
-     */
-    private fun extractSha256FromBody(body: String, apkName: String): String? {
-        if (body.isBlank()) return null
+    private val appContext = context.applicationContext
+    private val preferences = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val mutex = Mutex()
 
-        try {
-            // Pattern 1: Look for "sha256:" followed by hash
-            val sha256Pattern = Regex("""sha256:\s*([a-fA-F0-9]{64})""", RegexOption.IGNORE_CASE)
-            sha256Pattern.find(body)?.let { match ->
-                return match.groupValues[1].lowercase()
+    override suspend fun latestRelease(): Result<ReleaseSnapshot> = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val cached = readCache()
+            val now = nowMillis()
+            val cacheAge = cached?.let { now - it.fetchedAtMillis }
+            if (cached != null && cacheAge != null && cacheAge in 0 until CACHE_TTL_MILLIS) {
+                return@withLock Result.success(ReleaseSnapshot(cached.release, isStale = false))
             }
 
-            // Pattern 2: Look for APK name followed by hash
-            val apkPattern = Regex("""${Regex.escape(apkName)}.*?([a-fA-F0-9]{64})""", RegexOption.IGNORE_CASE)
-            apkPattern.find(body)?.let { match ->
-                return match.groupValues[1].lowercase()
+            if (!awaitRoute()) return@withLock cached.orRouteFailure()
+
+            val routeSnapshot = routedClient()
+            // Route readiness can take longer than a cooldown. Judge an existing deadline at the
+            // point where the request can actually start, not with the pre-wait cache timestamp.
+            val routeReadyNow = nowMillis()
+            rateLimits.retryAtMillis(
+                RATE_LIMIT_SCOPE,
+                routeSnapshot.route,
+                routeReadyNow
+            )?.let { deadline ->
+                return@withLock cached.orFailure(
+                    rateLimits.blockedException(SOURCE, deadline)
+                )
             }
 
-            Log.w(TAG, "Could not extract SHA256 from release body")
-            return null
+            val request = Request.Builder()
+                .url(apiUrl)
+                .addHeader("User-Agent", USER_AGENT)
+                .addHeader("Accept", "application/vnd.github+json")
+                .addHeader("X-GitHub-Api-Version", "2022-11-28")
+                .apply { cached?.etag?.let { addHeader("If-None-Match", it) } }
+                .build()
+            val client = routeSnapshot.client.newBuilder()
+                .callTimeout(45, TimeUnit.SECONDS)
+                .connectTimeout(20, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build()
 
-        } catch (e: Exception) {
-            Log.w(TAG, "Error extracting SHA256", e)
-            return null
-        }
-    }
+            try {
+                client.newCall(request).awaitResponse().use { response ->
+                    // The route wait and the call itself can each take a minute, so `now` is too
+                    // old to interpret a relative Retry-After: anchoring the cooldown there can
+                    // date it into the past and let the very next check reach GitHub.
+                    val responseNow = nowMillis()
+                    if (apiUrl.startsWith("https://") && !response.request.url.isHttps) {
+                        return@withLock cached.orFailure(
+                            IOException("GitHub redirected release metadata to an insecure URL")
+                        )
+                    }
+                    if (response.code == 304 && cached != null) {
+                        val refreshed = cached.copy(fetchedAtMillis = responseNow)
+                        writeCache(refreshed)
+                        rateLimits.clear(RATE_LIMIT_SCOPE, routeSnapshot.route)
+                        return@withLock Result.success(
+                            ReleaseSnapshot(refreshed.release, isStale = false)
+                        )
+                    }
+                    if (!response.isSuccessful) {
+                        val failure = ApkDownloadHttpErrors.fromResponse(
+                            source = SOURCE,
+                            code = response.code,
+                            responseMessage = response.message,
+                            retryAfter = response.header("Retry-After"),
+                            rateLimitRemaining = response.header("X-RateLimit-Remaining"),
+                            rateLimitResetEpochSeconds = response.header("X-RateLimit-Reset"),
+                            nowMillis = responseNow
+                        )
+                        val persistedFailure = if (
+                            failure.reason == ApkDownloadFailureReason.RateLimited
+                        ) {
+                            val deadline = rateLimits.recordRateLimit(
+                                RATE_LIMIT_SCOPE,
+                                routeSnapshot.route,
+                                failure.retryAtMillis,
+                                responseNow
+                            )
+                            rateLimits.blockedException(SOURCE, deadline)
+                        } else {
+                            failure
+                        }
+                        return@withLock cached.orFailure(persistedFailure)
+                    }
 
-    /**
-     * Check if a newer version is available.
-     * @param currentVersion Current installed/cached version
-     * @param latestRelease Latest release from GitHub
-     * @return true if latestRelease is newer
-     */
-    fun isNewerVersion(currentVersion: String, latestRelease: Release): Boolean {
-        return isNewerVersion(currentVersion, latestRelease.versionName)
-    }
-
-    internal fun isNewerVersion(currentVersion: String, candidateVersion: String): Boolean {
-        return try {
-            // Simple version comparison (assumes semantic versioning)
-            // Remove any non-numeric prefixes
-            val current = currentVersion.removePrefix("v").trim()
-            val latest = candidateVersion.removePrefix("v").trim()
-
-            if (current == latest) {
-                return false
-            }
-
-            // Split by dots and compare each part
-            val currentParts = current.split(".").mapNotNull { it.toIntOrNull() }
-            val latestParts = latest.split(".").mapNotNull { it.toIntOrNull() }
-
-            val maxLength = maxOf(currentParts.size, latestParts.size)
-
-            for (i in 0 until maxLength) {
-                val currentPart = currentParts.getOrNull(i) ?: 0
-                val latestPart = latestParts.getOrNull(i) ?: 0
-
-                if (latestPart > currentPart) {
-                    return true
-                } else if (latestPart < currentPart) {
-                    return false
+                    val rawBody = response.body.string()
+                    val release = parseRelease(rawBody)
+                        ?: return@withLock cached.orFailure(
+                            IOException("GitHub's latest release has no universal APK asset")
+                        )
+                    val entry = CachedRelease(
+                        release = release,
+                        etag = response.header("ETag"),
+                        fetchedAtMillis = responseNow
+                    )
+                    writeCache(entry)
+                    rateLimits.clear(RATE_LIMIT_SCOPE, routeSnapshot.route)
+                    Result.success(ReleaseSnapshot(release, isStale = false))
                 }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.w(TAG, "Could not refresh release metadata; using cache when available", error)
+                cached.orFailure(error)
             }
-
-            false
-        } catch (e: Exception) {
-            Log.e(TAG, "Error comparing versions", e)
-            false
         }
     }
 
-    /**
-     * Release information from GitHub.
-     */
+    private fun CachedRelease?.orRouteFailure(): Result<ReleaseSnapshot> = orFailure(
+        IOException("The selected network route is not ready")
+    )
+
+    private fun CachedRelease?.orFailure(error: Throwable): Result<ReleaseSnapshot> =
+        if (this != null) {
+            Result.success(ReleaseSnapshot(release, isStale = true))
+        } else {
+            Result.failure(error)
+        }
+
+    private fun readCache(): CachedRelease? = runCatching {
+        val version = preferences.getString("version", null)?.takeIf { it.isNotBlank() } ?: return null
+        val url = preferences.getString("url", null)?.takeIf { it.startsWith("https://") } ?: return null
+        val name = preferences.getString("name", null)?.takeIf { it.isNotBlank() } ?: return null
+        CachedRelease(
+            release = Release(
+                versionName = version,
+                universalApkSize = preferences.getLong("size", 0L),
+                universalApkUrl = url,
+                universalApkName = name
+            ),
+            etag = preferences.getString("etag", null),
+            fetchedAtMillis = preferences.getLong("fetched_at", 0L)
+        )
+    }.getOrNull()
+
+    private fun writeCache(entry: CachedRelease) {
+        preferences.edit(commit = true) {
+            putString("version", entry.release.versionName)
+            putLong("size", entry.release.universalApkSize)
+            putString("url", entry.release.universalApkUrl)
+            putString("name", entry.release.universalApkName)
+            putString("etag", entry.etag)
+            putLong("fetched_at", entry.fetchedAtMillis)
+        }
+    }
+
+    private suspend fun Call.awaitResponse(): Response =
+        suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { cancel() }
+            enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (continuation.isActive) {
+                        continuation.resumeWith(Result.failure(e))
+                    }
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    if (continuation.isActive) {
+                        continuation.resumeWith(Result.success(response))
+                    } else {
+                        response.close()
+                    }
+                }
+            })
+        }
+
     data class Release(
-        val tagName: String,
         val versionName: String,
-        val universalApkUrl: String,
-        val universalApkSha256: String?,
         val universalApkSize: Long,
+        val universalApkUrl: String,
         val universalApkName: String
     )
 
-    class ReleaseFetchException(
-        message: String,
-        val httpCode: Int? = null,
-        val retryable: Boolean = true,
-        cause: Throwable? = null
-    ) : IOException(message, cause)
+    data class ReleaseSnapshot(
+        val release: Release,
+        val isStale: Boolean
+    )
 
     private data class CachedRelease(
         val release: Release,
+        val etag: String?,
         val fetchedAtMillis: Long
     )
 }

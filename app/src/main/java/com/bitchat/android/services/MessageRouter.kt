@@ -99,6 +99,12 @@ class MessageRouter private constructor(
         startOutboxScheduler()
     }
 
+    fun clearAll() {
+        outbox.clear()
+        retryState.clear()
+        Log.d(TAG, "Cleared all MessageRouter outbox messages and retry state")
+    }
+
     // Listener for favorites changes to flush outbox when npub mapping appears/changes
     private val favoriteListener = object: com.bitchat.android.favorites.FavoritesChangeListener {
 

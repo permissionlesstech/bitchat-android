@@ -33,6 +33,13 @@ class BitchatApplication : Application() {
             com.bitchat.android.favorites.FavoritesPersistenceService.initialize(this)
         } catch (_: Exception) { }
 
+        // Restore private conversations before background transports can deliver new messages.
+        // AppStateStore merges any in-flight arrivals by message ID, so startup cannot replace
+        // newer transport state with an older database snapshot.
+        try {
+            com.bitchat.android.services.AppStateStore.initializeConversationPersistence(this)
+        } catch (_: Exception) { }
+
         // Warm up Nostr identity to ensure npub is available for favorite notifications
         try {
             com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(this)
@@ -40,6 +47,9 @@ class BitchatApplication : Application() {
 
         // Initialize theme preference
         ThemePreferenceManager.init(this)
+
+        // Initialize chat UI mode (matrix transcript vs bubbles)
+        com.bitchat.android.ui.theme.ChatUiModeManager.init(this)
 
         // Initialize debug preference manager (persists debug toggles)
         try { com.bitchat.android.ui.debug.DebugPreferenceManager.init(this) } catch (_: Exception) { }

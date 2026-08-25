@@ -385,7 +385,7 @@ class ChatUIUtilsTest {
             palette = palette,
         )
 
-        assertEquals("@carol#04af", sender.text)
+        assertEquals("@carol #04af", sender.text)
 
         val suffixSpan = sender.spanStyles.first { sender.text.substring(it.start, it.end) == "#04af" }
         val nameSpan = sender.spanStyles.first { sender.text.substring(it.start, it.end) == "@carol" }

@@ -3,7 +3,15 @@ package com.bitchat.android.testhook
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.features.file.FileUtils
+import com.bitchat.android.features.voice.LiveVoiceEvent
+import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.features.voice.LiveVoicePreferences
+import com.bitchat.android.features.voice.LiveVoiceScope
+import com.bitchat.android.features.voice.LiveVoiceTarget
+import com.bitchat.android.features.voice.LiveVoiceCapture
+import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PrivateMediaPreparation
 import com.bitchat.android.mesh.TransferProgressManager
@@ -16,6 +24,7 @@ import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.ui.DataManager
+import com.bitchat.android.ui.PrivateMediaRecipientResolver
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -62,11 +71,26 @@ object TestHookDriver {
             "dm_send" -> dmSend(context, intent.requiredString("peer"), intent.requiredString("content"), intent.getStringExtra("msg_id"))
             "dm_recv" -> dmRecv(context, intent)
             "msg_recv" -> msgRecv(context, intent)
+            "favorite_set" -> favoriteSet(
+                context,
+                intent.requiredString("peer"),
+                intent.getBooleanExtra("enabled", true)
+            )
+            "favorite_status" -> favoriteStatus(context, intent.requiredString("peer"))
+            "verification_set" -> verificationSet(
+                context,
+                intent.requiredString("peer"),
+                intent.getBooleanExtra("enabled", true)
+            )
+            "verification_status" -> verificationStatus(context, intent.requiredString("peer"))
             "file_send" -> fileSend(context, intent)
             "file_recv" -> fileRecv(context, intent)
             "file_cancel" -> fileCancel(context, intent.requiredString("transfer_id"))
+            "ptt_send" -> pttSend(context, intent)
+            "ptt_recv" -> pttRecv(context, intent)
             "raw_send" -> rawSend(context, intent)
             "ble" -> setBle(intent.getBooleanExtra("enabled", true))
+            "inject_peers" -> injectPeers(intent.getStringExtra("peers"))
             "state" -> state(context)
             "clear_results" -> clearResults(context)
             else -> err(cmd, "unknown command: $cmd")
@@ -129,6 +153,21 @@ object TestHookDriver {
     private fun peers(context: Context): JSONObject {
         val mesh = mesh(context)
         return ok("peers").put("peers", peerInfosJson(mesh, AppStateStore.peers.value))
+    }
+
+    /**
+     * Debug-only state injection for testing peer-list consumers such as notifications.
+     * A blank or missing comma-separated value restores the empty state.
+     */
+    private fun injectPeers(commaSeparatedPeers: String?): JSONObject {
+        val peers = commaSeparatedPeers
+            .orEmpty()
+            .split(',')
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .distinct()
+        AppStateStore.setPeers(peers)
+        return ok("inject_peers").put("peers", JSONArray(peers))
     }
 
     private suspend fun connect(peerID: String, intent: Intent): JSONObject {
@@ -261,6 +300,68 @@ object TestHookDriver {
             .put("msg_id", found.id)
     }
 
+    // MARK: - Favorite and verification state
+
+    private fun favoriteSet(context: Context, peerID: String, enabled: Boolean): JSONObject {
+        val mesh = mesh(context)
+        val peerInfo = mesh.getPeerInfo(peerID)
+            ?: return err("favorite_set", "peer is not known")
+        val noisePublicKey = peerInfo.noisePublicKey
+            ?: return err("favorite_set", "peer Noise key is unavailable")
+        FavoritesPersistenceService.initialize(context)
+        FavoritesPersistenceService.shared.updateFavoriteStatus(
+            noisePublicKey = noisePublicKey,
+            nickname = peerInfo.nickname,
+            isFavorite = enabled
+        )
+        mesh.sendFavoriteNotification(peerID, enabled)
+        return favoriteStatus(context, peerID)
+    }
+
+    private fun favoriteStatus(context: Context, peerID: String): JSONObject {
+        val mesh = mesh(context)
+        FavoritesPersistenceService.initialize(context)
+        val relationship = FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+            ?: mesh.getPeerInfo(peerID)?.noisePublicKey?.let {
+                FavoritesPersistenceService.shared.getFavoriteStatus(it)
+            }
+        val isFavorite = relationship?.isFavorite == true
+        val theyFavoritedUs = relationship?.theyFavoritedUs == true
+        return ok("favorite_status")
+            .put("peer", peerID)
+            .put("is_favorite", isFavorite)
+            .put("they_favorited_us", theyFavoritedUs)
+            .put("is_mutual", isFavorite && theyFavoritedUs)
+            .put(
+                "star_state",
+                when {
+                    isFavorite -> "filled"
+                    theyFavoritedUs -> "outlined_orange"
+                    else -> "outlined"
+                }
+            )
+    }
+
+    private fun verificationSet(context: Context, peerID: String, enabled: Boolean): JSONObject {
+        val mesh = mesh(context)
+        val fingerprint = mesh.getPeerFingerprint(peerID)
+            ?: return err("verification_set", "peer fingerprint is unavailable")
+        SecureIdentityStateManager(context).setVerifiedFingerprint(fingerprint, enabled)
+        return verificationStatus(context, peerID)
+    }
+
+    private fun verificationStatus(context: Context, peerID: String): JSONObject {
+        val fingerprint = mesh(context).getPeerFingerprint(peerID)
+        val verified = fingerprint != null &&
+            SecureIdentityStateManager(context).getVerifiedFingerprints().any {
+                it.equals(fingerprint, ignoreCase = true)
+            }
+        return ok("verification_status")
+            .put("peer", peerID)
+            .put("fingerprint", fingerprint ?: JSONObject.NULL)
+            .put("verified", verified)
+    }
+
     // MARK: - File transfer
 
     private suspend fun fileSend(context: Context, intent: Intent): JSONObject {
@@ -283,6 +384,10 @@ object TestHookDriver {
         )
         val encoded = packet.encode() ?: return err("file_send", "failed to TLV-encode packet")
         val transferId = sha256Hex(encoded)
+        val recipient = peerID?.let {
+            PrivateMediaRecipientResolver.resolve(it, mesh)
+                ?: return err("file_send", "no active mesh route for private conversation: $it")
+        }
 
         return coroutineScope {
             // Subscribe on a background dispatcher before sending so synchronous
@@ -291,7 +396,14 @@ object TestHookDriver {
                 TransferProgressManager.events.first { it.transferId == transferId && it.completed }
             }
             delay(50)
-            val sendError = dispatchFileSend(context, intent, mesh, peerID, packet, transferId)
+            val sendError = dispatchFileSend(
+                context,
+                intent,
+                mesh,
+                recipient?.meshPeerID,
+                packet,
+                transferId
+            )
             if (sendError != null) {
                 completion.cancel()
                 return@coroutineScope sendError.put("cmd", "file_send")
@@ -307,7 +419,8 @@ object TestHookDriver {
                 .put("sent", event.sent)
                 .put("total", event.total)
                 .put("bytes", content.size)
-                .put("peer", peerID)
+                .put("peer", recipient?.meshPeerID)
+                .put("conversation", peerID)
         }
     }
 
@@ -384,6 +497,131 @@ object TestHookDriver {
     private fun fileCancel(context: Context, transferId: String): JSONObject {
         val cancelled = mesh(context).cancelFileTransfer(transferId)
         return ok("file_cancel").put("transfer_id", transferId).put("cancelled", cancelled)
+    }
+
+    // MARK: - Live push-to-talk
+
+    private suspend fun pttSend(context: Context, intent: Intent): JSONObject {
+        val requestedPeer = intent.getStringExtra("peer")
+        val durationMs = intent.getIntExtra("duration_ms", 1_500).toLong().coerceIn(700L, 10_000L)
+        val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_FILE_TIMEOUT_MS)
+        val mesh = mesh(context)
+        LiveVoicePreferences.setEnabled(context, true)
+        val recipient = requestedPeer?.let {
+            PrivateMediaRecipientResolver.resolve(it, mesh)
+                ?: return err("ptt_send", "no active mesh route for private conversation")
+        }
+        if (recipient != null && !mesh.hasEstablishedSession(recipient.meshPeerID)) {
+            val handshake = handshake(context, recipient.meshPeerID, intent)
+            if (handshake.optString("status") != "ok") return handshake.put("cmd", "ptt_send")
+        }
+        val target = LiveVoiceTarget { payload -> mesh.sendVoiceFrame(recipient?.meshPeerID, payload) }
+        val recorder = LiveVoiceCapture(
+            File(context.filesDir, "voicenotes/outgoing"),
+            target,
+            syntheticPcm = true
+        )
+        val pendingFile = recorder.start() ?: return err("ptt_send", "live codec failed to start")
+        delay(durationMs)
+        val finalFile = recorder.stop(canceled = false)
+            ?: return err("ptt_send", "capture did not produce a finalized note")
+        val captureStats = recorder.stats()
+        if (finalFile != pendingFile || !finalFile.isFile) {
+            return err("ptt_send", "finalized note is unavailable")
+        }
+        val content = withContext(Dispatchers.IO) { finalFile.readBytes() }
+        val packet = BitchatFilePacket(
+            fileName = finalFile.name,
+            fileSize = content.size.toLong(),
+            mimeType = "audio/mp4",
+            content = content
+        )
+        val encoded = packet.encode() ?: return err("ptt_send", "failed to encode finalized note")
+        val transferId = sha256Hex(encoded)
+        return coroutineScope {
+            val completion = async(Dispatchers.Default) {
+                TransferProgressManager.events.first { it.transferId == transferId && it.completed }
+            }
+            delay(50)
+            val sendError = dispatchFileSend(
+                context,
+                intent,
+                mesh,
+                recipient?.meshPeerID,
+                packet,
+                transferId
+            )
+            if (sendError != null) {
+                completion.cancel()
+                return@coroutineScope sendError.put("cmd", "ptt_send")
+            }
+            val event = withTimeoutOrNull(timeoutMs) { completion.await() }
+                ?: return@coroutineScope err("ptt_send", "timeout waiting for finalized note transfer")
+            if (event.failed) return@coroutineScope err("ptt_send", "finalized note transfer failed")
+            ok("ptt_send")
+                .put("live", true)
+                .put("scope", if (recipient == null) "public" else "dm")
+                .put("duration_ms", durationMs)
+                .put("burst_id", LiveVoiceManager.burstIDFromVoiceFileName(finalFile.name))
+                .put("bytes", content.size)
+                .put("queued_pcm_frames", captureStats.queuedPcmFrames)
+                .put("encoded_frames", captureStats.encodedFrames)
+                .put("data_packets", captureStats.dataPackets)
+                .put("dropped_oversize_frames", captureStats.droppedOversizeFrames)
+                .put("outbound_packets", captureStats.outboundPackets)
+                .put("delivered_packets", captureStats.deliveredPackets)
+        }
+    }
+
+    private suspend fun pttRecv(context: Context, intent: Intent): JSONObject {
+        val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_FILE_TIMEOUT_MS)
+        val fromPeer = intent.getStringExtra("peer")
+        val expectedScope = if (intent.getStringExtra("scope") == "public") {
+            LiveVoiceScope.PUBLIC_MESH
+        } else {
+            LiveVoiceScope.DIRECT_MESSAGE
+        }
+        LiveVoicePreferences.setEnabled(context, true)
+        var finished: LiveVoiceEvent.Finished? = null
+        var liveSnapshot: File? = null
+        val absorbed = withTimeoutOrNull(timeoutMs) {
+            LiveVoiceManager.getInstance(context).events.first { event ->
+                val matches = event.scope == expectedScope &&
+                    (fromPeer == null || event.peerID == fromPeer)
+                if (matches && event is LiveVoiceEvent.Finished) {
+                    finished = event
+                    liveSnapshot = runCatching {
+                        File(context.cacheDir, "testhook/ptt-${event.burstID}.aac").also { snapshot ->
+                            snapshot.parentFile?.mkdirs()
+                            File(event.path).copyTo(snapshot, overwrite = true)
+                        }
+                    }.getOrNull()
+                }
+                matches && event is LiveVoiceEvent.Absorbed
+            } as LiveVoiceEvent.Absorbed
+        } ?: return err("ptt_recv", "timeout waiting for live burst and finalized note")
+        val analysis = liveSnapshot?.let { snapshot ->
+            try {
+                withContext(Dispatchers.IO) { PttTestAudioAnalyzer.analyze(snapshot) }
+            } finally {
+                snapshot.delete()
+            }
+        } ?: return err("ptt_recv", "live AAC snapshot was unavailable")
+        return ok("ptt_recv")
+            .put("live_observed", finished != null)
+            .put("scope", if (expectedScope == LiveVoiceScope.PUBLIC_MESH) "public" else "dm")
+            .put("from", absorbed.peerID)
+            .put("burst_id", absorbed.burstID)
+            .put("frames", finished?.frames ?: 0)
+            .put("data_packets", finished?.dataPackets ?: 0)
+            .put("bytes", finished?.bytes ?: 0)
+            .put("expected_packets", finished?.expectedPackets ?: 0)
+            .put("missing_packets", finished?.missingPackets ?: 0)
+            .put("decoded_samples", analysis.decodedSamples)
+            .put("rms", analysis.rms)
+            .put("silent_block_fraction", analysis.silentBlockFraction)
+            .put("longest_silent_block_run", analysis.longestSilentBlockRun)
+            .put("zero_crossings_per_second", analysis.zeroCrossingsPerSecond)
     }
 
     // MARK: - Raw packet injection
