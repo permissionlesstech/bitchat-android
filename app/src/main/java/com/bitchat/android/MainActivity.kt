@@ -179,6 +179,32 @@ class MainActivity : OrientationAwareActivity() {
                     val onboardingState by mainViewModel.onboardingState.collectAsState()
                     val root = rootRouteFor(onboardingState)
 
+                    // Hosted here rather than in the onboarding destination: turning
+                    // Bluetooth off has to be noticed on the chat route too, and a
+                    // destination-scoped receiver is unregistered when its entry leaves
+                    // the back stack.
+                    val context = LocalContext.current
+                    DisposableEffect(context, bluetoothStatusManager) {
+                        val receiver = bluetoothStatusManager.monitorBluetoothState(
+                            context = context,
+                            bluetoothStatusManager = bluetoothStatusManager,
+                            onBluetoothStateChanged = { status ->
+                                if (status == BluetoothStatus.ENABLED &&
+                                    mainViewModel.onboardingState.value == OnboardingState.BLUETOOTH_CHECK
+                                ) {
+                                    checkBluetoothAndProceed()
+                                }
+                            }
+                        )
+                        onDispose {
+                            try {
+                                context.unregisterReceiver(receiver)
+                            } catch (e: IllegalStateException) {
+                                Log.w("BluetoothStatusUI", "Receiver was not registered")
+                            }
+                        }
+                    }
+
                     // Keyed on root, so this fires only when the app crosses between
                     // onboarding and chat — not on every step within onboarding.
                     // resetTo rather than goTo: onboarding must not be reachable with
@@ -237,7 +263,6 @@ class MainActivity : OrientationAwareActivity() {
     
     @Composable
     private fun OnboardingFlowScreen(modifier: Modifier = Modifier) {
-        val context = LocalContext.current
         val onboardingState by mainViewModel.onboardingState.collectAsState()
         val bluetoothStatus by mainViewModel.bluetoothStatus.collectAsState()
         val locationStatus by mainViewModel.locationStatus.collectAsState()
@@ -246,27 +271,6 @@ class MainActivity : OrientationAwareActivity() {
         val isBluetoothLoading by mainViewModel.isBluetoothLoading.collectAsState()
         val isLocationLoading by mainViewModel.isLocationLoading.collectAsState()
         val isBatteryOptimizationLoading by mainViewModel.isBatteryOptimizationLoading.collectAsState()
-
-        DisposableEffect(context, bluetoothStatusManager) {
-
-            val receiver = bluetoothStatusManager.monitorBluetoothState(
-                context = context,
-                bluetoothStatusManager = bluetoothStatusManager,
-                onBluetoothStateChanged = { status ->
-                    if (status == BluetoothStatus.ENABLED && onboardingState == OnboardingState.BLUETOOTH_CHECK) {
-                        checkBluetoothAndProceed()
-                    }
-                }
-            )
-
-            onDispose {
-                try {
-                    context.unregisterReceiver(receiver)
-                } catch (e: IllegalStateException) {
-                    Log.w("BluetoothStatusUI", "Receiver was not registered")
-                }
-            }
-        }
 
         when (onboardingState) {
             OnboardingState.PERMISSION_REQUESTING -> {
