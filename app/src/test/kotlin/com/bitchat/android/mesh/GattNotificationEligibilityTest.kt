@@ -1,17 +1,22 @@
 package com.bitchat.android.mesh
 
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class GattNotificationEligibilityTest {
     @Test
-    fun `subscription denied before a verified announce`() {
-        assertFalse(GattNotificationEligibility.maySubscribe(hasVerifiedAnnounce = false))
+    fun `subscription is deferred before a verified announce`() {
+        assertEquals(
+            GattSubscriptionAction.DEFER,
+            GattNotificationEligibility.action(hasVerifiedAnnounce = false)
+        )
     }
 
     @Test
-    fun `subscription allowed after a verified announce`() {
-        assertTrue(GattNotificationEligibility.maySubscribe(hasVerifiedAnnounce = true))
+    fun `subscription is granted after a verified announce`() {
+        assertEquals(
+            GattSubscriptionAction.GRANT,
+            GattNotificationEligibility.action(hasVerifiedAnnounce = true)
+        )
     }
 }
