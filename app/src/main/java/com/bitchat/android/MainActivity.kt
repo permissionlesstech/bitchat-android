@@ -197,8 +197,6 @@ class MainActivity : OrientationAwareActivity() {
                         entryInstallers = setOf(entries),
                         onExit = { finish() },
                         modifier = contentModifier,
-                        // Chat still drives its overlays with booleans, so Back has to
-                        // ask it first. Removed once those overlays become routes.
                         interceptBack = {
                             navigator.backStack.lastOrNull() == ChatRoute &&
                                 chatViewModel.handleBackPressed()
