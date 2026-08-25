@@ -283,6 +283,26 @@ class BluetoothGattServerManager(
                 }
 
                 if (BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE.contentEquals(value)) {
+                    if (!GattNotificationEligibility.maySubscribe(
+                            connectionTracker.hasSeenFirstAnnounce(device.address)
+                        )
+                    ) {
+                        Log.w(
+                            TAG,
+                            "Rejecting broadcast subscription from ${device.address} before verified ANNOUNCE"
+                        )
+                        if (responseNeeded) {
+                            gattServer?.sendResponse(
+                                device,
+                                requestId,
+                                BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION,
+                                0,
+                                null
+                            )
+                        }
+                        return
+                    }
+
                     connectionTracker.addSubscribedDevice(device)
 
                     connectionScope.launch {
