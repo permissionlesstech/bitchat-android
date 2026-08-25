@@ -171,7 +171,9 @@ class MainActivity : OrientationAwareActivity() {
                     modifier = Modifier.fillMaxSize(),
                     containerColor = MaterialTheme.colorScheme.background
                 ) { innerPadding ->
-                    val contentModifier = Modifier
+                    // Only onboarding takes the scaffold insets; ChatScreen applies
+                    // its own status, navigation and IME padding.
+                    val onboardingModifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
                     val onboardingState by mainViewModel.onboardingState.collectAsState()
@@ -188,7 +190,7 @@ class MainActivity : OrientationAwareActivity() {
                     }
 
                     val entries: EntryProviderInstaller = {
-                        entry<OnboardingRoute> { OnboardingFlowScreen(contentModifier) }
+                        entry<OnboardingRoute> { OnboardingFlowScreen(onboardingModifier) }
                         entry<ChatRoute> { ChatScreen(viewModel = chatViewModel) }
                     }
 
@@ -196,7 +198,7 @@ class MainActivity : OrientationAwareActivity() {
                         navigator = navigator,
                         entryInstallers = setOf(entries),
                         onExit = { finish() },
-                        modifier = contentModifier,
+                        modifier = Modifier.fillMaxSize(),
                         interceptBack = {
                             navigator.backStack.lastOrNull() == ChatRoute &&
                                 chatViewModel.handleBackPressed()
