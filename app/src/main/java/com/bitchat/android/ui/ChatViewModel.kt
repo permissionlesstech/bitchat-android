@@ -377,6 +377,7 @@ class ChatViewModel(
     val passwordPromptChannel: StateFlow<String?> = state.passwordPromptChannel
     val hasUnreadChannels = state.hasUnreadChannels
     val hasUnreadPrivateMessages = state.hasUnreadPrivateMessages
+    val canHandleBack = state.canHandleBack
     val showCommandSuggestions: StateFlow<Boolean> = state.showCommandSuggestions
     val commandSuggestions: StateFlow<List<CommandSuggestion>> = state.commandSuggestions
     val showMentionSuggestions: StateFlow<Boolean> = state.showMentionSuggestions

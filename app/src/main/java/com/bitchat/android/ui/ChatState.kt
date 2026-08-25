@@ -170,6 +170,28 @@ class ChatState(
             initialValue = false
         )
     
+    // True while some in-app navigation state is open for Back to unwind.
+    // Mirrors the branches of ChatViewModel.handleBackPressed: the back
+    // handler is enabled from this, the press is consumed by that, and the
+    // two drifting apart is what makes Back feel broken.
+    val canHandleBack: StateFlow<Boolean> = combine(
+        _showAppInfo,
+        _showPasswordPrompt,
+        _selectedPrivateChatPeer,
+        _privateChatSheetPeer,
+        _currentChannel
+    ) { showAppInfo, showPasswordPrompt, privateChatPeer, privateChatSheetPeer, channel ->
+        showAppInfo ||
+            showPasswordPrompt ||
+            privateChatPeer != null ||
+            privateChatSheetPeer != null ||
+            channel != null
+    }.stateIn(
+        scope = scope,
+        started = WhileSubscribed(5_000),
+        initialValue = false
+    )
+
     // Getters for internal state access
     fun getMessagesValue() = _messages.value
     fun getConnectedPeersValue() = _connectedPeers.value

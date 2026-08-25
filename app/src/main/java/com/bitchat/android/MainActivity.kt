@@ -4,7 +4,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -313,23 +313,13 @@ class MainActivity : OrientationAwareActivity() {
             }
 
             OnboardingState.CHECKING, OnboardingState.INITIALIZING, OnboardingState.COMPLETE -> {
-                // Set up back navigation handling for the chat screen
-                val backCallback = object : OnBackPressedCallback(true) {
-                    override fun handleOnBackPressed() {
-                        // Let ChatViewModel handle navigation state
-                        val handled = chatViewModel.handleBackPressed()
-                        if (!handled) {
-                            // If ChatViewModel doesn't handle it, disable this callback
-                            // and let the system handle it (which will exit the app)
-                            this.isEnabled = false
-                            onBackPressedDispatcher.onBackPressed()
-                            this.isEnabled = true
-                        }
-                    }
+                // Intercept Back only while the chat has navigation state to
+                // unwind. Staying disabled otherwise lets the dispatcher fall
+                // through to the system, which exits the app.
+                val canHandleBack by chatViewModel.canHandleBack.collectAsState()
+                BackHandler(enabled = canHandleBack) {
+                    chatViewModel.handleBackPressed()
                 }
-
-                // Add the callback - this will be automatically removed when the activity is destroyed
-                onBackPressedDispatcher.addCallback(this, backCallback)
                 ChatScreen(viewModel = chatViewModel)
             }
             
