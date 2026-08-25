@@ -10,10 +10,6 @@ import com.bitchat.android.onboarding.OnboardingState
  * results and adapter state changes rather than by the user navigating, and the
  * app has never supported going back from one step to the previous one. Giving
  * each step its own entry would invent a history that does not exist.
- *
- * These live in :app because both destinations still need collaborators the
- * Activity owns. They move to :feature:<name>:api as those features become
- * modules.
  */
 data object OnboardingRoute : NavKey
 
