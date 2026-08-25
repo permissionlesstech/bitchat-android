@@ -44,8 +44,15 @@ import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.wifiaware.WifiAwareController
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.navigation.AppNavigator
+import com.bitchat.android.navigation.BitchatNavDisplay
+import com.bitchat.android.navigation.ChatRoute
+import com.bitchat.android.navigation.EntryProviderInstaller
+import com.bitchat.android.navigation.OnboardingRoute
+import com.bitchat.android.navigation.rootRouteFor
 import com.bitchat.android.services.VerificationService
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -64,6 +71,11 @@ class MainActivity : OrientationAwareActivity() {
     private val mainViewModel: MainViewModel by viewModels()
     private var pendingMeshForegroundServiceStart = false
     private val chatViewModel: ChatViewModel by viewModels()
+
+    // Held by ActivityRetainedComponent, so the back stack outlives configuration
+    // changes without being rebuilt here.
+    @Inject
+    lateinit var navigator: AppNavigator
 
     private val forceFinishReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
@@ -148,16 +160,57 @@ class MainActivity : OrientationAwareActivity() {
             onOnboardingFailed = ::handleOnboardingFailed
         )
         
+        // Seed the stack before the first composition. NavDisplay rejects an empty
+        // back stack, and a LaunchedEffect would not run until after it has already
+        // composed once.
+        navigator.setRootIfEmpty(rootRouteFor(mainViewModel.onboardingState.value))
+
         setContent {
             BitchatTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = MaterialTheme.colorScheme.background
                 ) { innerPadding ->
-                    OnboardingFlowScreen(modifier = Modifier
+                    val contentModifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
+                    val onboardingState by mainViewModel.onboardingState.collectAsState()
+                    val root = rootRouteFor(onboardingState)
+
+                    // Keyed on root, so this fires only when the app crosses between
+                    // onboarding and chat — not on every step within onboarding.
+                    // resetTo rather than goTo: onboarding must not be reachable with
+                    // Back once the app is in.
+                    LaunchedEffect(root) {
+                        if (navigator.backStack.lastOrNull() != root) {
+                            navigator.resetTo(root)
+                        }
+                    }
+
+                    val entries: EntryProviderInstaller = {
+                        entry<OnboardingRoute> { OnboardingFlowScreen(contentModifier) }
+                        entry<ChatRoute> { ChatScreen(viewModel = chatViewModel) }
+                    }
+
+                    BitchatNavDisplay(
+                        navigator = navigator,
+                        entryInstallers = setOf(entries),
+                        onExit = { finish() },
+                        modifier = contentModifier,
                     )
+
+                    // Chat still drives its overlays with booleans rather than routes,
+                    // and NavDisplay enables its own handler only while something sits
+                    // beneath the current scene, which at the root destination is never.
+                    // So the press has to be claimed here. Composed after NavDisplay:
+                    // among enabled handlers the last one composed wins, so overlays
+                    // unwind before routes pop. Removed once the overlays become routes.
+                    val canHandleBack by chatViewModel.canHandleBack.collectAsState()
+                    BackHandler(
+                        enabled = navigator.backStack.lastOrNull() == ChatRoute && canHandleBack
+                    ) {
+                        chatViewModel.handleBackPressed()
+                    }
                 }
             }
         }
@@ -306,17 +359,12 @@ class MainActivity : OrientationAwareActivity() {
                 )
             }
 
-            OnboardingState.CHECKING, OnboardingState.INITIALIZING, OnboardingState.COMPLETE -> {
-                val canHandleBack by chatViewModel.canHandleBack.collectAsState()
-                // Disabled rather than always-on so predictive back can preview
-                // the exit instead of the app claiming every gesture.
-                BackHandler(enabled = canHandleBack) {
-                    // enabled trails the state by a dispatch and a recomposition.
-                    if (!chatViewModel.handleBackPressed()) finish()
-                }
-                ChatScreen(viewModel = chatViewModel)
-            }
-            
+            // CHECKING, INITIALIZING and COMPLETE are handled by ChatRoute, so this
+            // composable is only ever shown for the onboarding steps themselves.
+            OnboardingState.CHECKING,
+            OnboardingState.INITIALIZING,
+            OnboardingState.COMPLETE -> Unit
+
             OnboardingState.ERROR -> {
                 InitializationErrorScreen(
                     modifier = modifier,
