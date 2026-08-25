@@ -318,7 +318,11 @@ class MainActivity : OrientationAwareActivity() {
                 // through to the system, which exits the app.
                 val canHandleBack by chatViewModel.canHandleBack.collectAsState()
                 BackHandler(enabled = canHandleBack) {
-                    chatViewModel.handleBackPressed()
+                    // enabled reaches this handler a dispatch and a recomposition
+                    // after the state changes, so a second press can arrive while
+                    // it is still true but there is no longer anything to unwind.
+                    // Forward that press instead of swallowing it.
+                    if (!chatViewModel.handleBackPressed()) finish()
                 }
                 ChatScreen(viewModel = chatViewModel)
             }
