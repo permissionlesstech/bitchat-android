@@ -146,7 +146,10 @@ object VerificationService {
         val service = encryptionServiceRef?.get() ?: return null
         val qr = VerificationQR.fromUrlString(urlString) ?: return null
         val now = System.currentTimeMillis() / 1000L
-        if (now - qr.ts > maxAgeSeconds) return null
+        // Freshness in both directions: a future-dated timestamp must not
+        // buy a QR a longer validity window than a fresh one gets. iOS uses
+        // the same abs() check in VerificationService.verifyScannedQR.
+        if (verificationTimestampSkewSeconds(now, qr.ts) > maxAgeSeconds) return null
 
         val sig = qr.sigHex.dataFromHexString() ?: return null
         val signKey = qr.signKeyHex.dataFromHexString() ?: return null
@@ -291,4 +294,9 @@ object VerificationService {
     private object Cache {
         var last: CacheEntry? = null
     }
+}
+
+/** Absolute age of a verification QR timestamp, in seconds. */
+internal fun verificationTimestampSkewSeconds(nowSeconds: Long, qrTimestampSeconds: Long): Long {
+    return kotlin.math.abs(nowSeconds - qrTimestampSeconds)
 }
