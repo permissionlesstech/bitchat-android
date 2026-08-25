@@ -12,10 +12,9 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * `canHandleBack` tells the chat screen's back handler whether there is any
- * in-app navigation state left to unwind. It has to agree with the branches of
- * [ChatViewModel.handleBackPressed], because the handler is enabled from one
- * and the press is consumed by the other.
+ * `canHandleBack` must agree with the branches of
+ * [ChatViewModel.handleBackPressed]: the back handler is enabled from one and
+ * the press consumed by the other.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatStateBackNavigationTest {
@@ -28,9 +27,7 @@ class ChatStateBackNavigationTest {
     fun setUp() {
         scope = TestScope(UnconfinedTestDispatcher())
         state = ChatState(scope)
-        // canHandleBack is shared WhileSubscribed, so it only tracks its
-        // sources while something collects it. The composable does that in
-        // production; the test has to do it explicitly.
+        // Shared WhileSubscribed, so it only tracks its sources while collected.
         subscription = scope.launch { state.canHandleBack.collect { } }
     }
 

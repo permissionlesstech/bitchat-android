@@ -313,15 +313,11 @@ class MainActivity : OrientationAwareActivity() {
             }
 
             OnboardingState.CHECKING, OnboardingState.INITIALIZING, OnboardingState.COMPLETE -> {
-                // Intercept Back only while the chat has navigation state to
-                // unwind. Staying disabled otherwise lets the dispatcher fall
-                // through to the system, which exits the app.
                 val canHandleBack by chatViewModel.canHandleBack.collectAsState()
+                // Disabled rather than always-on so predictive back can preview
+                // the exit instead of the app claiming every gesture.
                 BackHandler(enabled = canHandleBack) {
-                    // enabled reaches this handler a dispatch and a recomposition
-                    // after the state changes, so a second press can arrive while
-                    // it is still true but there is no longer anything to unwind.
-                    // Forward that press instead of swallowing it.
+                    // enabled trails the state by a dispatch and a recomposition.
                     if (!chatViewModel.handleBackPressed()) finish()
                 }
                 ChatScreen(viewModel = chatViewModel)

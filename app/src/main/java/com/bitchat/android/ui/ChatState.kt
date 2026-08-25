@@ -170,10 +170,8 @@ class ChatState(
             initialValue = false
         )
     
-    // True while some in-app navigation state is open for Back to unwind.
-    // Mirrors the branches of ChatViewModel.handleBackPressed: the back
-    // handler is enabled from this, the press is consumed by that, and the
-    // two drifting apart is what makes Back feel broken.
+    // Mirrors the branches of ChatViewModel.handleBackPressed. The back handler
+    // is enabled from this and the press consumed by that, so they must agree.
     val canHandleBack: StateFlow<Boolean> = combine(
         _showAppInfo,
         _showPasswordPrompt,
