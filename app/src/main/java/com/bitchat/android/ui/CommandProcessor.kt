@@ -573,9 +573,15 @@ class CommandProcessor(
             when (val selectedChannel = viewModel.selectedLocationChannel.value) {
                 is com.bitchat.android.geohash.ChannelID.Mesh,
                 null -> {
-                    // Mesh channel: use Bluetooth mesh peer nicknames
+                    // Mesh channel: use Bluetooth mesh peer nicknames, with the same
+                    // #xxxx suffix the people list shows when two peers share a name.
                     val peerNicknames = meshService.getPeerNicknames()
-                    peerNicknames.values.filter { it != peerNicknames[meshService.myPeerID] }
+                    val myPeerID = meshService.myPeerID
+                    val duplicateNames = duplicateMeshBaseNames(peerNicknames)
+                    peerNicknames.mapNotNull { (peerID, name) ->
+                        if (peerID == myPeerID) null
+                        else disambiguatedMeshDisplayName(peerID, name, duplicateNames)
+                    }
                 }
                 
                 is com.bitchat.android.geohash.ChannelID.Location -> {
@@ -606,7 +612,12 @@ class CommandProcessor(
         } else {
             // Fallback to mesh peers if no viewModel available
             val peerNicknames = meshService.getPeerNicknames()
-            peerNicknames.values.filter { it != peerNicknames[meshService.myPeerID] }
+            val myPeerID = meshService.myPeerID
+            val duplicateNames = duplicateMeshBaseNames(peerNicknames)
+            peerNicknames.mapNotNull { (peerID, name) ->
+                if (peerID == myPeerID) null
+                else disambiguatedMeshDisplayName(peerID, name, duplicateNames)
+            }
         }
         
         val filteredNicknames = filterMentionCandidates(peerCandidates, textAfterAt)

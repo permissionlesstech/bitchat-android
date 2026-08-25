@@ -352,6 +352,26 @@ class ChatUIUtilsTest {
     }
 
     @Test
+    fun `mesh people-list suffix is the first four hex characters of the peer id`() {
+        val nicknames = mapOf(
+            "1111aaaa" to "alice",
+            "2222bbbb" to "alice",
+            "ccccdddd" to "bob",
+        )
+        val duplicates = duplicateMeshBaseNames(nicknames)
+        assertEquals(setOf("alice"), duplicates)
+        assertEquals("alice#1111", disambiguatedMeshDisplayName("1111aaaa", "alice", duplicates))
+        assertEquals("alice#2222", disambiguatedMeshDisplayName("2222bbbb", "alice", duplicates))
+        assertEquals("bob", disambiguatedMeshDisplayName("ccccdddd", "bob", duplicates))
+        assertEquals(
+            "#1111",
+            meshIdentitySuffix("1111aaaa", "alice", showHashSuffix = true)
+        )
+        assertEquals("", meshIdentitySuffix("1111aaaa", "alice", showHashSuffix = false))
+        assertEquals("", meshIdentitySuffix("1111aaaa", "You", showHashSuffix = true))
+    }
+
+    @Test
     fun `unknown nickname resolves to none`() {
         assertEquals(
             NicknameResolution.None,

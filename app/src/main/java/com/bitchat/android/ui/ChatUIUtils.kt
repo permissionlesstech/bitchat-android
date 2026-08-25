@@ -390,6 +390,42 @@ internal fun uniquePeerIDForNickname(
     suffixOf: (String) -> String = { "#${it.take(4)}" },
 ): String? = (resolvePeerIDForNickname(query, nicknames, suffixOf) as? NicknameResolution.Unique)?.peerID
 
+/** First four hex characters of a mesh peer ID, matching mention coloring. */
+internal fun meshPeerSuffix(peerID: String): String = "#${peerID.take(4)}"
+
+internal fun duplicateMeshBaseNames(nicknames: Map<String, String>): Set<String> =
+    nicknames.values
+        .groupingBy { splitSuffix(it).first.lowercase(Locale.ROOT) }
+        .eachCount()
+        .filterValues { it > 1 }
+        .keys
+
+/**
+ * People-list / autocomplete suffix for a mesh peer.
+ *
+ * Mesh nicknames are stored unsuffixed, unlike some geohash announcements, so a collision
+ * has to derive `#xxxx` from the peer ID. Preserve an already-embedded suffix if present.
+ */
+internal fun meshIdentitySuffix(
+    peerID: String,
+    displayName: String,
+    showHashSuffix: Boolean,
+): String {
+    if (!showHashSuffix || displayName == "You") return ""
+    val announcedSuffix = splitSuffix(displayName).second
+    return announcedSuffix.ifEmpty { meshPeerSuffix(peerID) }
+}
+
+internal fun disambiguatedMeshDisplayName(
+    peerID: String,
+    displayName: String,
+    duplicateBaseNames: Set<String>,
+): String {
+    val baseName = splitSuffix(displayName).first
+    val showSuffix = baseName.lowercase(Locale.ROOT) in duplicateBaseNames
+    return baseName + meshIdentitySuffix(peerID, displayName, showSuffix)
+}
+
 /**
  * Build a case-insensitive mention-token lookup from canonical peer identities.
  *
