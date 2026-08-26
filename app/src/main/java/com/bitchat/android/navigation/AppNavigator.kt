@@ -29,17 +29,6 @@ class AppNavigator @Inject constructor() : Navigator {
 
     val backStack: SnapshotStateList<NavKey> = mutableStateListOf()
 
-    /**
-     * Seeds the stack with [root] the first time only.
-     *
-     * Idempotent by design: an Activity recreated after a configuration change
-     * re-runs its setup, and the retained scope still holds the real history.
-     * Seeding again would discard it.
-     */
-    fun setRootIfEmpty(root: NavKey) {
-        if (backStack.isEmpty()) backStack.add(root)
-    }
-
     override fun goTo(dest: NavKey) {
         // A same-frame double tap pushes the same key twice. Dedup at the source
         // rather than guarding every call site.

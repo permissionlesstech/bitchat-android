@@ -14,7 +14,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
@@ -76,6 +75,11 @@ class MainActivity : OrientationAwareActivity() {
     // changes without being rebuilt here.
     @Inject
     lateinit var navigator: AppNavigator
+
+    // Watches the adapter for the whole Activity, not for as long as some
+    // composable happens to stay on screen. Scoping it to a destination is what
+    // let a Bluetooth switch-off go unnoticed once chat became its own route.
+    private var bluetoothStateReceiver: android.content.BroadcastReceiver? = null
 
     private val forceFinishReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
@@ -160,11 +164,6 @@ class MainActivity : OrientationAwareActivity() {
             onOnboardingFailed = ::handleOnboardingFailed
         )
         
-        // Seed the stack before the first composition. NavDisplay rejects an empty
-        // back stack, and a LaunchedEffect would not run until after it has already
-        // composed once.
-        navigator.setRootIfEmpty(rootRouteFor(mainViewModel.onboardingState.value))
-
         setContent {
             BitchatTheme {
                 Scaffold(
@@ -179,38 +178,14 @@ class MainActivity : OrientationAwareActivity() {
                     val onboardingState by mainViewModel.onboardingState.collectAsState()
                     val root = rootRouteFor(onboardingState)
 
-                    // Hosted here rather than in the onboarding destination: turning
-                    // Bluetooth off has to be noticed on the chat route too, and a
-                    // destination-scoped receiver is unregistered when its entry leaves
-                    // the back stack.
-                    val context = LocalContext.current
-                    DisposableEffect(context, bluetoothStatusManager) {
-                        val receiver = bluetoothStatusManager.monitorBluetoothState(
-                            context = context,
-                            bluetoothStatusManager = bluetoothStatusManager,
-                            onBluetoothStateChanged = { status ->
-                                if (status == BluetoothStatus.ENABLED &&
-                                    mainViewModel.onboardingState.value == OnboardingState.BLUETOOTH_CHECK
-                                ) {
-                                    checkBluetoothAndProceed()
-                                }
-                            }
-                        )
-                        onDispose {
-                            try {
-                                context.unregisterReceiver(receiver)
-                            } catch (e: IllegalStateException) {
-                                Log.w("BluetoothStatusUI", "Receiver was not registered")
-                            }
-                        }
-                    }
-
-                    // Keyed on root, so this fires only when the app crosses between
-                    // onboarding and chat — not on every step within onboarding.
-                    // resetTo rather than goTo: onboarding must not be reachable with
-                    // Back once the app is in.
+                    // Seeds the stack on its first run and re-roots it on every
+                    // later crossing between onboarding and chat. Keyed on root, so
+                    // it stays quiet between onboarding steps. resetTo rather than
+                    // goTo: onboarding must not be reachable with Back once the app
+                    // is in. Compares the root of the stack, not its top, so pushing
+                    // a destination onto chat does not read as a crossing.
                     LaunchedEffect(root) {
-                        if (navigator.backStack.lastOrNull() != root) {
+                        if (navigator.backStack.firstOrNull() != root) {
                             navigator.resetTo(root)
                         }
                     }
@@ -220,19 +195,37 @@ class MainActivity : OrientationAwareActivity() {
                         entry<ChatRoute> { ChatScreen(viewModel = chatViewModel) }
                     }
 
-                    BitchatNavDisplay(
-                        navigator = navigator,
-                        entryInstallers = setOf(entries),
-                        onExit = { finish() },
-                        modifier = Modifier.fillMaxSize(),
-                        interceptBack = {
-                            navigator.backStack.lastOrNull() == ChatRoute &&
-                                chatViewModel.handleBackPressed()
-                        },
-                    )
+                    // NavDisplay rejects an empty back stack and the effect above does
+                    // not run until after this composition, so the host waits a frame
+                    // for it. Gate on the stack itself: root is non-null immediately,
+                    // so gating on that would compose with nothing to show.
+                    if (navigator.backStack.isNotEmpty()) {
+                        BitchatNavDisplay(
+                            navigator = navigator,
+                            entryInstallers = setOf(entries),
+                            onExit = { finish() },
+                            modifier = Modifier.fillMaxSize(),
+                            interceptBack = {
+                                navigator.backStack.lastOrNull() == ChatRoute &&
+                                    chatViewModel.handleBackPressed()
+                            },
+                        )
+                    }
                 }
             }
         }
+        
+        bluetoothStateReceiver = bluetoothStatusManager.monitorBluetoothState(
+            context = this,
+            bluetoothStatusManager = bluetoothStatusManager,
+            onBluetoothStateChanged = { status ->
+                if (status == BluetoothStatus.ENABLED &&
+                    mainViewModel.onboardingState.value == OnboardingState.BLUETOOTH_CHECK
+                ) {
+                    checkBluetoothAndProceed()
+                }
+            }
+        )
         
         // Collect state changes in a lifecycle-aware manner
         lifecycleScope.launch {
@@ -893,6 +886,10 @@ class MainActivity : OrientationAwareActivity() {
         super.onDestroy()
         
         try { unregisterReceiver(forceFinishReceiver) } catch (_: Exception) { }
+        bluetoothStateReceiver?.let {
+            try { unregisterReceiver(it) } catch (_: IllegalArgumentException) { }
+        }
+        bluetoothStateReceiver = null
         
         // Cleanup location status manager
         try {
