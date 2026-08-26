@@ -40,6 +40,15 @@ relay sets for the same geohash and silently fail to exchange messages.
 `RelayDirectoryTest` pins the Android side; iOS implements the same rules in
 `GeoRelayDirectory`.
 
+Directory acceptance is part of the same contract. Both platforms validate a
+directory file with the same rules (exact header, per-row host and coordinate
+checks, size, row, and entry caps, and a minimum overlap with the previous
+entries for downloads) and reject a violating file whole, keeping the previous
+copy. A file one platform accepts and the other rejects splits the two relay
+selections at every geohash at once. `RelayDirectoryValidationTest` pins the
+Android side; iOS implements the same rules in
+`GeoRelayDirectory.validatedEntries`.
+
 ## Rewrite acceptance gate
 
 From a configured Android development environment, run:
