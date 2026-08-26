@@ -20,12 +20,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
@@ -209,6 +215,7 @@ private fun ChatBody(
     val palette = LocalBitchatPalette.current
     val context = LocalContext.current
     val transformationSpec = rememberTransformationSpec()
+    val isScreenRound = LocalConfiguration.current.isScreenRound
     // Slide-to-cancel: while recording, the finger's position is tracked globally; the
     // overlay's mic button reports its bounds and becomes the cancel target when the
     // finger hovers it (with generous slack so the snap engages on approach).
@@ -283,10 +290,44 @@ private fun ChatBody(
             val layoutDirection = LocalLayoutDirection.current
             TransformingLazyColumn(
                 state = columnState,
-                // Keep the list full-screen and unclipped. Wear's transformation spec scales
-                // and fades rows naturally along the round display edge, including underneath
-                // the transparent header and floating action controls.
-                modifier = Modifier.fillMaxSize(),
+                // Keep the list full-screen and geometrically unclipped. Wear's transformation
+                // spec curves rows along the round display; a soft destination-alpha mask then
+                // makes them fully transparent at the physical edges instead of cutting glyphs.
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.Offscreen
+                    }
+                    .drawWithContent {
+                        drawContent()
+                        val edgeMask = if (isScreenRound) {
+                            // Fade toward the actual circular contour so glyphs become
+                            // transparent before the panel can crop their left or right edge.
+                            Brush.radialGradient(
+                                0f to Color.Black,
+                                CHAT_ROUND_EDGE_OPAQUE_STOP to Color.Black,
+                                1f to Color.Transparent,
+                                center = Offset(size.width / 2f, size.height / 2f),
+                                radius = size.minDimension / 2f
+                            )
+                        } else {
+                            val topOpaqueStop =
+                                (CHAT_HEADER_EDGE_FADE.toPx() / size.height).coerceIn(0f, 1f)
+                            val bottomOpaqueStop =
+                                (1f - CHAT_ACTION_BAR_EDGE_FADE.toPx() / size.height)
+                                    .coerceIn(topOpaqueStop, 1f)
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                topOpaqueStop to Color.Black,
+                                bottomOpaqueStop to Color.Black,
+                                1f to Color.Transparent
+                            )
+                        }
+                        drawRect(
+                            brush = edgeMask,
+                            blendMode = BlendMode.DstIn
+                        )
+                    },
                 // Arrangement.Bottom anchors short content to the bottom: the first message
                 // starts just above the action bar and new messages push history upward.
                 // The scroll range reserves resting space for the floating controls while the
@@ -377,6 +418,9 @@ private const val CANCEL_HOVER_SLANT_PX = 56f
 private const val CHAT_SCROLL_DIRECTION_THRESHOLD_PX = 24
 private val CHAT_HEADER_CONTENT_CLEARANCE = 30.dp
 private val CHAT_ACTION_BAR_CLEARANCE = 64.dp
+private val CHAT_HEADER_EDGE_FADE = 36.dp
+private val CHAT_ACTION_BAR_EDGE_FADE = 72.dp
+private const val CHAT_ROUND_EDGE_OPAQUE_STOP = 0.78f
 // Magnetic zone geometry (px at watch density): the button starts reacting at
 // MAGNET_OUTER_PX from its center and fully blushes at MAGNET_INNER_PX (~the activation
 // boundary); it leans toward the finger by up to MAGNET_PULL_PX.
