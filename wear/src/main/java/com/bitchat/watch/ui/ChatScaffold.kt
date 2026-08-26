@@ -20,7 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlendMode
@@ -298,8 +298,7 @@ private fun ChatBody(
                     .graphicsLayer {
                         compositingStrategy = CompositingStrategy.Offscreen
                     }
-                    .drawWithContent {
-                        drawContent()
+                    .drawWithCache {
                         val edgeMask = if (isScreenRound) {
                             // Fade toward the actual circular contour so glyphs become
                             // transparent before the panel can crop their left or right edge.
@@ -323,10 +322,13 @@ private fun ChatBody(
                                 1f to Color.Transparent
                             )
                         }
-                        drawRect(
-                            brush = edgeMask,
-                            blendMode = BlendMode.DstIn
-                        )
+                        onDrawWithContent {
+                            drawContent()
+                            drawRect(
+                                brush = edgeMask,
+                                blendMode = BlendMode.DstIn
+                            )
+                        }
                     },
                 // Arrangement.Bottom anchors short content to the bottom: the first message
                 // starts just above the action bar and new messages push history upward.
@@ -335,9 +337,9 @@ private fun ChatBody(
                 // point. Rows may travel behind the overlays only after they have begun the Wear
                 // edge scale/fade treatment.
                 verticalArrangement = Arrangement.Bottom,
-                // Wear Material already supplies a responsive 5.2% horizontal inset. Keep it,
-                // while replacing its vertical inset with the overlay clearances used before the
-                // shape fix. This avoids both duplicated padding and a shortened list viewport.
+                // Keep Wear Material's responsive horizontal inset while replacing its vertical
+                // inset with the overlay clearances used before the shape fix. This avoids both
+                // duplicated padding and a shortened list viewport.
                 contentPadding = scaffoldPadding.withVerticalClearance(
                     layoutDirection = layoutDirection,
                     top = CHAT_HEADER_CONTENT_CLEARANCE,

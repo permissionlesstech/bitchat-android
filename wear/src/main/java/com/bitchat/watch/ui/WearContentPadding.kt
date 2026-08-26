@@ -14,18 +14,10 @@ internal fun PaddingValues.withAdditionalPadding(
     horizontal: Dp = 0.dp,
     vertical: Dp = 0.dp
 ): PaddingValues {
-    val start = when (layoutDirection) {
-        LayoutDirection.Ltr -> calculateLeftPadding(layoutDirection)
-        LayoutDirection.Rtl -> calculateRightPadding(layoutDirection)
-    }
-    val end = when (layoutDirection) {
-        LayoutDirection.Ltr -> calculateRightPadding(layoutDirection)
-        LayoutDirection.Rtl -> calculateLeftPadding(layoutDirection)
-    }
     return PaddingValues(
-        start = start + horizontal,
+        start = calculateStartPadding(layoutDirection) + horizontal,
         top = calculateTopPadding() + vertical,
-        end = end + horizontal,
+        end = calculateEndPadding(layoutDirection) + horizontal,
         bottom = calculateBottomPadding() + vertical
     )
 }
@@ -40,13 +32,22 @@ internal fun PaddingValues.withVerticalClearance(
     top: Dp,
     bottom: Dp
 ): PaddingValues {
-    val start = when (layoutDirection) {
+    return PaddingValues(
+        start = calculateStartPadding(layoutDirection),
+        top = top,
+        end = calculateEndPadding(layoutDirection),
+        bottom = bottom
+    )
+}
+
+private fun PaddingValues.calculateStartPadding(layoutDirection: LayoutDirection): Dp =
+    when (layoutDirection) {
         LayoutDirection.Ltr -> calculateLeftPadding(layoutDirection)
         LayoutDirection.Rtl -> calculateRightPadding(layoutDirection)
     }
-    val end = when (layoutDirection) {
+
+private fun PaddingValues.calculateEndPadding(layoutDirection: LayoutDirection): Dp =
+    when (layoutDirection) {
         LayoutDirection.Ltr -> calculateRightPadding(layoutDirection)
         LayoutDirection.Rtl -> calculateLeftPadding(layoutDirection)
     }
-    return PaddingValues(start = start, top = top, end = end, bottom = bottom)
-}
