@@ -30,8 +30,8 @@ android {
         applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 36
-        versionName = "1.7.5"
+        versionCode = 38
+        versionName = "2.0.1"
         buildConfigField(
             "String",
             "GITHUB_RELEASE_CERT_SHA256",
@@ -109,6 +109,13 @@ android {
         abortOnError = false
         checkReleaseBuilds = false
     }
+}
+
+composeCompiler {
+    // Kotlin 2.4.10's optional Compose group-key mapping depends on unspecified
+    // class-file iteration order. Keep the normal R8 mapping, but omit that
+    // augmentation until its producer is deterministic across clean builds.
+    includeComposeMappingFile.set(false)
 }
 
 kotlin {

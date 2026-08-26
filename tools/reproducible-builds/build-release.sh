@@ -42,6 +42,9 @@ if ! [[ "$SOURCE_DATE_EPOCH" =~ ^[0-9]+$ ]]; then
 fi
 
 gradle_args=(
+  # R8 otherwise randomizes input traversal and uses multiple compiler threads.
+  # The optimized DEX can still match while its embedded ProGuard map differs.
+  -Dcom.android.tools.r8.deterministicdebugging=1
   -Pkotlin.compiler.execution.strategy=in-process
   -Pkotlin.incremental=false
   --no-build-cache
@@ -56,10 +59,19 @@ cd "$PROJECT_ROOT"
 
 aab_source="$PROJECT_ROOT/app/build/outputs/bundle/release/app-release.aab"
 if [ ! -f "$aab_source" ]; then
-  echo "error: expected release AAB not found" >&2
+  echo "error: expected phone release AAB not found" >&2
   exit 1
 fi
 cp "$aab_source" "$OUTPUT_DIR/bitchat-android-release-unsigned.aab"
+
+./gradlew "${gradle_args[@]}" :wear:clean :wear:bundleRelease
+
+wear_aab_source="$PROJECT_ROOT/wear/build/outputs/bundle/release/wear-release.aab"
+if [ ! -f "$wear_aab_source" ]; then
+  echo "error: expected Wear release AAB not found" >&2
+  exit 1
+fi
+cp "$wear_aab_source" "$OUTPUT_DIR/bitchat-android-wear-release-unsigned.aab"
 
 # AGP cannot build split APKs and an app bundle from the same intermediates.
 ./gradlew "${gradle_args[@]}" :app:clean :app:assembleRelease
@@ -80,6 +92,15 @@ for source_name in "${!apk_names[@]}"; do
   fi
   cp "$source_path" "$OUTPUT_DIR/${apk_names[$source_name]}"
 done
+
+./gradlew "${gradle_args[@]}" :wear:clean :wear:assembleRelease
+
+wear_apk_source="$PROJECT_ROOT/wear/build/outputs/apk/release/wear-release-unsigned.apk"
+if [ ! -f "$wear_apk_source" ]; then
+  echo "error: expected Wear release APK not found" >&2
+  exit 1
+fi
+cp "$wear_apk_source" "$OUTPUT_DIR/bitchat-android-wear-unsigned.apk"
 
 source_commit="${BITCHAT_SOURCE_COMMIT:-$(git -C "$PROJECT_ROOT" rev-parse HEAD)}"
 if ! [[ "$source_commit" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
@@ -109,6 +130,7 @@ EOF
     sha256sum BUILDINFO.json
     sha256sum bitchat-android-*-unsigned.apk
     sha256sum bitchat-android-release-unsigned.aab
+    sha256sum bitchat-android-wear-release-unsigned.aab
   } | sort -k2 > SHA256SUMS.unsigned
 )
 

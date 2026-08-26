@@ -50,6 +50,8 @@ attested_artifacts=(
   bitchat-android-armv7-unsigned.apk
   bitchat-android-release-unsigned.aab
   bitchat-android-universal-unsigned.apk
+  bitchat-android-wear-release-unsigned.aab
+  bitchat-android-wear-unsigned.apk
   bitchat-android-x86-unsigned.apk
   bitchat-android-x86_64-unsigned.apk
 )

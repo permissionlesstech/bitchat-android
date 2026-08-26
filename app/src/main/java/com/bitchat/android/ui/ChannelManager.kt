@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.geohash.ChannelID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
@@ -16,7 +17,8 @@ class ChannelManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val dataManager: DataManager,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val onSwitchToMeshLocation: () -> Unit = {}
 ) {
     
     // Channel encryption and security
@@ -109,6 +111,8 @@ class ChannelManager(
     fun switchToChannel(channel: String?) {
         state.setCurrentChannel(channel)
         state.setSelectedPrivateChatPeer(null)
+        state.setSelectedLocationChannel(ChannelID.Mesh)
+        onSwitchToMeshLocation()
         
         // Clear unread count
         channel?.let { ch ->

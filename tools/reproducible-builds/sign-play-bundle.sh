@@ -48,13 +48,6 @@ fi
   "${SHA256[@]}" -c SHA256SUMS.unsigned
 )
 
-UNSIGNED_AAB="$RELEASE_DIR/bitchat-android-release-unsigned.aab"
-SIGNED_AAB="$RELEASE_DIR/bitchat-android-play-upload.aab"
-if [ -e "$SIGNED_AAB" ]; then
-  echo "error: signed Play upload AAB already exists" >&2
-  exit 1
-fi
-
 TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEMP_DIR"' EXIT
 STOREPASS_FILE="$TEMP_DIR/storepass"
@@ -63,17 +56,40 @@ printf '%s\n' "$BITCHAT_PLAY_KEYSTORE_PASSWORD" > "$STOREPASS_FILE"
 printf '%s\n' "$BITCHAT_PLAY_KEY_PASSWORD" > "$KEYPASS_FILE"
 chmod 600 "$STOREPASS_FILE" "$KEYPASS_FILE"
 
-"$JARSIGNER" \
-  -keystore "$KEYSTORE" \
-  -storepass:file "$STOREPASS_FILE" \
-  -keypass:file "$KEYPASS_FILE" \
-  -digestalg SHA-256 \
-  -signedjar "$SIGNED_AAB" \
-  "$UNSIGNED_AAB" \
-  "$BITCHAT_PLAY_UPLOAD_KEY_ALIAS"
+unsigned_names=(
+  "bitchat-android-release-unsigned.aab"
+  "bitchat-android-wear-release-unsigned.aab"
+)
+signed_names=(
+  "bitchat-android-play-upload.aab"
+  "bitchat-android-wear-play-upload.aab"
+)
 
-"$JARSIGNER" -verify "$SIGNED_AAB" >/dev/null
-"$SCRIPT_DIR/compare-archive-payloads.sh" "$UNSIGNED_AAB" "$SIGNED_AAB"
+for ((index = 0; index < ${#unsigned_names[@]}; index++)); do
+  unsigned_aab="$RELEASE_DIR/${unsigned_names[$index]}"
+  signed_aab="$RELEASE_DIR/${signed_names[$index]}"
+
+  if [ ! -f "$unsigned_aab" ]; then
+    echo "error: unsigned Play AAB not found: ${unsigned_names[$index]}" >&2
+    exit 1
+  fi
+  if [ -e "$signed_aab" ]; then
+    echo "error: signed Play upload AAB already exists: ${signed_names[$index]}" >&2
+    exit 1
+  fi
+
+  "$JARSIGNER" \
+    -keystore "$KEYSTORE" \
+    -storepass:file "$STOREPASS_FILE" \
+    -keypass:file "$KEYPASS_FILE" \
+    -digestalg SHA-256 \
+    -signedjar "$signed_aab" \
+    "$unsigned_aab" \
+    "$BITCHAT_PLAY_UPLOAD_KEY_ALIAS"
+
+  "$JARSIGNER" -verify "$signed_aab" >/dev/null
+  "$SCRIPT_DIR/compare-archive-payloads.sh" "$unsigned_aab" "$signed_aab"
+done
 
 (
   cd "$RELEASE_DIR"
@@ -86,4 +102,4 @@ chmod 600 "$STOREPASS_FILE" "$KEYPASS_FILE"
   } | sort -k2 > SHA256SUMS
 )
 
-echo "Verified unsigned AAB was signed locally with the Play upload key and checksummed."
+echo "Verified unsigned phone and Wear AABs were signed locally with the Play upload key and checksummed."

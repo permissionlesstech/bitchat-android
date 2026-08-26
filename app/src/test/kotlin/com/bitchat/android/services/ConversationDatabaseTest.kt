@@ -434,6 +434,22 @@ class ConversationDatabaseTest {
     }
 
     @Test
+    fun `destroy storage deletes database files so history cannot reload`() {
+        database.upsertMessage(
+            "contact_alice",
+            setOf("contact_alice"),
+            "alice",
+            message("survives-failure", "alice", 1L),
+            true
+        )
+        assertTrue(context.databaseList().contains(databaseName))
+
+        database.destroyStorage()
+
+        assertFalse(context.databaseList().contains(databaseName))
+    }
+
+    @Test
     fun `version one plaintext database migrates without losing history`() {
         database.close()
         context.deleteDatabase(databaseName)

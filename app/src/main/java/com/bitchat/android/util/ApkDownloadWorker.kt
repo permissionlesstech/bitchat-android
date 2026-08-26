@@ -33,12 +33,12 @@ class ApkDownloadWorker(
 
         // Progress keys
         const val KEY_PROGRESS = "progress"
+        const val KEY_PHASE = "phase"
         const val KEY_VERSION = "version"
         const val KEY_SIZE_MB = "size_mb"
-        const val KEY_ERROR = "error"
+        const val KEY_ERROR_REASON = "error_reason"
+        const val KEY_ERROR_ARGS = "error_args"
         const val KEY_RESUMABLE_PERCENT = "resumable_percent"
-
-        private const val MAX_RETRIES = 3
 
         private const val CHANNEL_ID = "apk_download"
         private const val NOTIFICATION_ID = 4201
@@ -50,6 +50,8 @@ class ApkDownloadWorker(
         applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     private var lastNotifiedProgress = -NOTIFY_STEP_PERCENT
+    private var lastProgress = 0
+    private var currentPhase = ApkDownloader.DownloadPhase.SelectingSource
 
     override suspend fun doWork(): Result {
         Log.d(TAG, "Starting APK download work")
@@ -64,10 +66,20 @@ class ApkDownloadWorker(
             Log.w(TAG, "Could not promote download to foreground work", e)
         }
 
-        val result = apkManager.downloadUniversalApk { progress ->
-            setProgressAsync(Data.Builder().putInt(KEY_PROGRESS, progress).build())
-            updateNotification(progress)
-        }
+        val result = apkManager.downloadUniversalApk(
+            progressCallback = { progress ->
+                lastProgress = progress
+                publishProgress(progress, currentPhase)
+                updateNotification(progress)
+            },
+            phaseCallback = { phase ->
+                currentPhase = phase
+                publishProgress(lastProgress, phase)
+                // Forced: a phase change is exactly the moment the percentage stops meaning
+                // anything, so the every-5% threshold must not suppress the redraw.
+                updateNotification(lastProgress, force = true)
+            }
+        )
 
         return if (result.isSuccess) {
             val info = apkManager.getCachedApkInfo()
@@ -81,20 +93,36 @@ class ApkDownloadWorker(
 
             // Retry transient network errors with backoff; the partial file
             // is kept on disk, so the retry resumes where it left off.
-            val isRetryable = when (error) {
-                is GitHubReleaseClient.ReleaseFetchException -> error.retryable
-                is java.io.IOException -> true
-                else -> false
-            }
-            if (isRetryable && runAttemptCount < MAX_RETRIES) {
-                Log.w(TAG, "Transient download error (attempt $runAttemptCount), retrying", error)
+            val attemptNumber = runAttemptCount + 1
+            if (ApkDownloadRetryPolicy.shouldRetry(runAttemptCount, error)) {
+                Log.w(
+                    TAG,
+                    "Transient download error " +
+                        "(attempt $attemptNumber/${ApkDownloadRetryPolicy.MAX_ATTEMPTS}), retrying",
+                    error
+                )
                 return Result.retry()
             }
 
             val partial = apkManager.getPartialDownloadProgress()
+            // Only a named failure carries a localizable message; anything else falls back to a
+            // generic one rather than leaking an untranslated exception string to the user.
+            val failure = error as? ApkDownloadException
             val outputData = Data.Builder()
-                .putString(KEY_ERROR, error?.message ?: "Download failed")
+                // The reason's name, never its resource id: this record can outlive the build
+                // that wrote it, and resource ids are reassigned on every build.
+                .putString(
+                    KEY_ERROR_REASON,
+                    (failure?.reason ?: ApkDownloadFailureReason.Generic).name
+                )
+                .putStringArray(
+                    KEY_ERROR_ARGS,
+                    failure?.messageArgs.orEmpty().toTypedArray()
+                )
                 .putInt(KEY_RESUMABLE_PERCENT, partial ?: -1)
+                // No retry deadline is recorded: a rate-limit cooldown belongs to the route it was
+                // earned on, and ApkRateLimitStore already keeps it that way. A copy frozen here
+                // would outlive both the route and the cooldown.
                 .build()
             Result.failure(outputData)
         }
@@ -118,16 +146,28 @@ class ApkDownloadWorker(
         }
     }
 
+    private fun publishProgress(progress: Int, phase: ApkDownloader.DownloadPhase) {
+        setProgressAsync(
+            Data.Builder()
+                .putInt(KEY_PROGRESS, progress)
+                .putString(KEY_PHASE, phase.name)
+                .build()
+        )
+    }
+
     private fun buildNotification(progress: Int): android.app.Notification {
         val cancelIntent = WorkManager.getInstance(applicationContext)
             .createCancelPendingIntent(id)
 
         return NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setContentTitle(applicationContext.getString(R.string.apk_download_notification_title))
+            .setContentText(applicationContext.getString(downloadPhaseLabel(currentPhase)))
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setProgress(100, progress, progress <= 0)
+            // A percentage is a lie outside the transfer: the release lookup, the Tor bootstrap
+            // and both verification passes have no measurable progress at all.
+            .setProgress(100, progress, !currentPhase.hasMeasurableProgress || progress <= 0)
             .addAction(
                 android.R.drawable.ic_delete,
                 applicationContext.getString(android.R.string.cancel),
@@ -136,8 +176,8 @@ class ApkDownloadWorker(
             .build()
     }
 
-    private fun updateNotification(progress: Int) {
-        if (progress - lastNotifiedProgress < NOTIFY_STEP_PERCENT) return
+    private fun updateNotification(progress: Int, force: Boolean = false) {
+        if (!force && progress - lastNotifiedProgress < NOTIFY_STEP_PERCENT) return
         lastNotifiedProgress = progress
         try {
             notificationManager.notify(NOTIFICATION_ID, buildNotification(progress))
@@ -149,13 +189,11 @@ class ApkDownloadWorker(
     }
 
     private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                applicationContext.getString(R.string.apk_download_channel_name),
-                NotificationManager.IMPORTANCE_LOW
-            )
-            notificationManager.createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            applicationContext.getString(R.string.apk_download_channel_name),
+            NotificationManager.IMPORTANCE_LOW
+        )
+        notificationManager.createNotificationChannel(channel)
     }
 }
