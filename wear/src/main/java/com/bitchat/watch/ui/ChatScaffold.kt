@@ -6,12 +6,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,15 +20,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
@@ -40,7 +35,6 @@ import androidx.wear.compose.foundation.lazy.TransformingLazyColumnState
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.ScreenScaffold
-import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
@@ -215,8 +209,6 @@ private fun ChatBody(
     val palette = LocalBitchatPalette.current
     val context = LocalContext.current
     val transformationSpec = rememberTransformationSpec()
-    val headerBackdropHeight = if (LocalConfiguration.current.isScreenRound) 49.dp else 37.dp
-
     // Slide-to-cancel: while recording, the finger's position is tracked globally; the
     // overlay's mic button reports its bounds and becomes the cancel target when the
     // finger hovers it (with generous slack so the snap engages on approach).
@@ -291,23 +283,16 @@ private fun ChatBody(
             val layoutDirection = LocalLayoutDirection.current
             TransformingLazyColumn(
                 state = columnState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    // Keep full-screen measurement so Wear's transformation focal point and
-                    // scroll range stay correct. Only drawing is clipped around the overlays.
-                    .drawWithContent {
-                        clipRect(
-                            top = headerBackdropHeight.toPx(),
-                            bottom = size.height - CHAT_ACTION_BAR_CLEARANCE.toPx()
-                        ) {
-                            this@drawWithContent.drawContent()
-                        }
-                    },
+                // Keep the list full-screen and unclipped. Wear's transformation spec scales
+                // and fades rows naturally along the round display edge, including underneath
+                // the transparent header and floating action controls.
+                modifier = Modifier.fillMaxSize(),
                 // Arrangement.Bottom anchors short content to the bottom: the first message
                 // starts just above the action bar and new messages push history upward.
-                // The viewport itself stays between the floating header and action bar, so
-                // content stays clear of both controls while the full-screen list geometry keeps
-                // autoscroll and the native transformation focal point intact.
+                // The scroll range reserves resting space for the floating controls while the
+                // full-screen viewport preserves autoscroll and the native transformation focal
+                // point. Rows may travel behind the overlays only after they have begun the Wear
+                // edge scale/fade treatment.
                 verticalArrangement = Arrangement.Bottom,
                 // Wear Material already supplies a responsive 5.2% horizontal inset. Keep it,
                 // while replacing its vertical inset with the overlay clearances used before the
@@ -353,11 +338,7 @@ private fun ChatBody(
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                // Overlap the clipped list viewport enough for each shape so transformed
-                // glyphs cannot leave antialiased remnants exactly on the boundary.
-                .height(headerBackdropHeight)
-                .background(MaterialTheme.colorScheme.background),
+                .fillMaxWidth(),
             contentAlignment = Alignment.TopCenter
         ) {
             header(controlsVisible)
