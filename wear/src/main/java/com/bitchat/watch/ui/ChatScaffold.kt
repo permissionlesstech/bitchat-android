@@ -50,6 +50,7 @@ import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlin.math.sign
 
 /**
  * The shared chat body for global chat and DM threads, following the classic messenger
@@ -95,6 +96,7 @@ fun ChatScaffold(
     val controlsVisible = remember { mutableStateOf(true) }
     LaunchedEffect(columnState) {
         var lastPosition = -1
+        var scrollIntent = ChatScrollIntentState()
         snapshotFlow {
             val first = columnState.layoutInfo.visibleItems.firstOrNull()
             ChatScrollSnapshot(
@@ -103,21 +105,13 @@ fun ChatScaffold(
                 position = (first?.index ?: 0) * 100_000 + (first?.offset ?: 0)
             )
         }.collect { snapshot ->
-            followNewest = updatedFollowNewest(
-                current = followNewest,
+            scrollIntent = updatedChatScrollIntent(
+                current = scrollIntent,
                 snapshot = snapshot,
                 previousPosition = lastPosition
             )
-            if (!snapshot.canScrollForward) {
-                controlsVisible.value = true
-            } else if (lastPosition >= 0) {
-                when {
-                    snapshot.position > lastPosition + CHAT_SCROLL_DIRECTION_THRESHOLD_PX ->
-                        controlsVisible.value = true
-                    snapshot.position < lastPosition - CHAT_SCROLL_DIRECTION_THRESHOLD_PX ->
-                        controlsVisible.value = false
-                }
-            }
+            followNewest = scrollIntent.followsNewest
+            controlsVisible.value = scrollIntent.controlsVisible
             lastPosition = snapshot.position
         }
     }
@@ -173,16 +167,42 @@ internal data class ChatScrollSnapshot(
     val position: Int
 )
 
-internal fun updatedFollowNewest(
-    current: Boolean,
+internal data class ChatScrollIntentState(
+    val followsNewest: Boolean = true,
+    val controlsVisible: Boolean = true,
+    val accumulatedDeltaPx: Int = 0
+)
+
+internal fun updatedChatScrollIntent(
+    current: ChatScrollIntentState,
     snapshot: ChatScrollSnapshot,
     previousPosition: Int
-): Boolean = when {
-    !snapshot.canScrollForward -> true
-    snapshot.isScrollInProgress &&
-        previousPosition >= 0 &&
-        snapshot.position < previousPosition - CHAT_SCROLL_DIRECTION_THRESHOLD_PX -> false
-    else -> current
+): ChatScrollIntentState {
+    if (!snapshot.canScrollForward) return ChatScrollIntentState()
+    if (!snapshot.isScrollInProgress || previousPosition < 0) return current
+
+    val delta = snapshot.position - previousPosition
+    val accumulatedDelta = when {
+        delta == 0 -> current.accumulatedDeltaPx
+        current.accumulatedDeltaPx == 0 ||
+            current.accumulatedDeltaPx.sign == delta.sign ->
+            current.accumulatedDeltaPx + delta
+        else -> delta
+    }
+    val movedAway = accumulatedDelta <= -CHAT_SCROLL_DIRECTION_THRESHOLD_PX
+    val movedTowardNewest = accumulatedDelta >= CHAT_SCROLL_DIRECTION_THRESHOLD_PX
+
+    return current.copy(
+        followsNewest = current.followsNewest && !movedAway,
+        controlsVisible = when {
+            movedAway -> false
+            movedTowardNewest -> true
+            else -> current.controlsVisible
+        },
+        // Keep sub-threshold movement across discrete rotary events. Once intent is clear,
+        // start a fresh accumulator so reversing direction gets the same threshold treatment.
+        accumulatedDeltaPx = if (movedAway || movedTowardNewest) 0 else accumulatedDelta
+    )
 }
 
 internal suspend fun scrollToNewestAfterItemsMeasured(
