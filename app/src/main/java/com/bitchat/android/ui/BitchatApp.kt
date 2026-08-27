@@ -11,7 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.navigation3.runtime.rememberNavBackStack
 import com.bitchat.android.MainViewModel
+import com.bitchat.android.ui.navigation.BitchatNavDisplay
+import com.bitchat.android.ui.navigation.BitchatRoute
 import com.bitchat.android.onboarding.*
 import com.bitchat.android.ui.theme.BitchatTheme
 
@@ -30,12 +33,15 @@ internal fun BitchatApp(
     onProceedWithPermissionCheck: () -> Unit,
     onCheckOnboardingStatus: () -> Unit
 ) {
+    val backStack = rememberNavBackStack(BitchatRoute.Main)
+
     BitchatTheme {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
-            OnboardingFlowScreen(
+            BitchatNavDisplay(
+                backStack = backStack,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
@@ -50,14 +56,14 @@ internal fun BitchatApp(
                 onCheckLocationAndProceed = onCheckLocationAndProceed,
                 onCheckBatteryOptimizationAndProceed = onCheckBatteryOptimizationAndProceed,
                 onProceedWithPermissionCheck = onProceedWithPermissionCheck,
-                onCheckOnboardingStatus = onCheckOnboardingStatus
+                onCheckOnboardingStatus = onCheckOnboardingStatus,
             )
         }
     }
 }
 
 @Composable
-private fun OnboardingFlowScreen(
+internal fun OnboardingFlowScreen(
     modifier: Modifier = Modifier,
     mainViewModel: MainViewModel,
     chatViewModel: ChatViewModel,
