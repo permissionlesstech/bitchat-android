@@ -530,16 +530,42 @@ class MeshCore(
         }
     }
 
+
+    /**
+     * Mesh timeline stays UTF-8 for iOS interop. Channel messages use the shared
+     * [BitchatMessage] binary envelope so receivers can route by `channel` instead
+     * of dumping every #room into the public Mesh feed.
+     */
+    private fun encodePublicOrChannelPayload(
+        content: String,
+        mentions: List<String>,
+        channel: String?
+    ): ByteArray {
+        if (channel == null) return content.toByteArray(Charsets.UTF_8)
+        val nickname = hooks.announcementNicknameProvider?.invoke() ?: myPeerID
+        val encoded = BitchatMessage(
+            sender = nickname,
+            content = content,
+            timestamp = java.util.Date(),
+            isRelay = false,
+            senderPeerID = myPeerID,
+            mentions = mentions.takeIf { it.isNotEmpty() },
+            channel = channel
+        ).toBinaryPayload()
+        return encoded ?: content.toByteArray(Charsets.UTF_8)
+    }
+
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
         scope.launch {
+            val payloadBytes = encodePublicOrChannelPayload(content, mentions, channel)
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.MESSAGE.value,
                 senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
                 recipientID = SpecialRecipients.BROADCAST,
                 timestamp = System.currentTimeMillis().toULong(),
-                payload = content.toByteArray(Charsets.UTF_8),
+                payload = payloadBytes,
                 signature = null,
                 ttl = maxTtl
             )
