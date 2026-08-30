@@ -221,13 +221,33 @@ class RelayDirectoryValidationTest {
     // MARK: the shipped asset
 
     @Test
-    fun `the bundled asset passes validation with the expected entry count`() {
+    fun `the bundled asset passes the same validation a download must pass`() {
+        // fetch-georelays.yml rewrites the bundled asset every week, so this
+        // test checks validity, not contents: whatever the job ships must pass
+        // the same validation a download must pass. The exact-count check
+        // lives on the fixed snapshot below.
         val asset = listOf(
             File("src/main/assets/nostr_relays.csv"),
             File("app/src/main/assets/nostr_relays.csv")
         ).firstOrNull { it.isFile } ?: error("bundled relay asset not found")
-        val entries = RelayDirectory.validatedEntries(asset.readBytes(), minimumEntries = 1)
-        assertNotNull("the shipped snapshot must pass its own gate", entries)
+        val entries = RelayDirectory.validatedEntries(
+            asset.readBytes(),
+            minimumEntries = RelayDirectory.MIN_REMOTE_ENTRIES
+        )
+        assertNotNull("the bundled asset must pass validation", entries)
+    }
+
+    @Test
+    fun `a fixed snapshot of the directory yields the exact entry count`() {
+        // A copy of online_relays_gps.csv taken 2026-08-30, 441 rows collapsing
+        // to 326 entries. This file never changes, so a different count here is
+        // a change in the validator, never a change in the data.
+        val snapshot = listOf(
+            File("src/test/resources/nostr_relays_snapshot.csv"),
+            File("app/src/test/resources/nostr_relays_snapshot.csv")
+        ).firstOrNull { it.isFile } ?: error("relay snapshot fixture not found")
+        val entries = RelayDirectory.validatedEntries(snapshot.readBytes(), minimumEntries = 1)
+        assertNotNull(entries)
         assertEquals(326, entries!!.size)
     }
 }
