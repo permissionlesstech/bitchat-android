@@ -8,7 +8,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,13 +20,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
@@ -44,6 +50,7 @@ import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlin.math.sign
 
 /**
  * The shared chat body for global chat and DM threads, following the classic messenger
@@ -82,35 +89,34 @@ fun ChatScaffold(
         previousCount = messages.size
     }
 
-    // One state drives both overlays: visible at the bottom or when scrolling toward it,
-    // hidden when scrolling up into history. The 24px (~12dp) threshold is deliberately
-    // small so the controls answer every flick immediately.
-    var atNewest by remember { mutableStateOf(true) }
+    // Follow intent is changed only by an actual user scroll away from the newest item or by
+    // reaching the end again. A new item temporarily makes canScrollForward true before layout;
+    // treating that transient range change as user intent breaks automatic following.
+    var followNewest by remember { mutableStateOf(true) }
     val controlsVisible = remember { mutableStateOf(true) }
     LaunchedEffect(columnState) {
         var lastPosition = -1
+        var scrollIntent = ChatScrollIntentState()
         snapshotFlow {
             val first = columnState.layoutInfo.visibleItems.firstOrNull()
-            Triple(columnState.canScrollForward, first?.index ?: 0, first?.offset ?: 0)
-        }.collect { (canScrollForward, index, offset) ->
-            val position = index * 100_000 + offset
-            atNewest = !canScrollForward
-            if (!canScrollForward) {
-                controlsVisible.value = true
-            } else if (lastPosition >= 0) {
-                when {
-                    position > lastPosition + 24 -> controlsVisible.value = true
-                    position < lastPosition - 24 -> controlsVisible.value = false
-                }
-            }
-            lastPosition = position
+            ChatScrollSnapshot(
+                canScrollForward = columnState.canScrollForward,
+                isScrollInProgress = columnState.isScrollInProgress,
+                position = (first?.index ?: 0) * 100_000 + (first?.offset ?: 0)
+            )
+        }.collect { snapshot ->
+            scrollIntent = updatedChatScrollIntent(
+                current = scrollIntent,
+                snapshot = snapshot,
+                previousPosition = lastPosition
+            )
+            followNewest = scrollIntent.followsNewest
+            controlsVisible.value = scrollIntent.controlsVisible
+            lastPosition = snapshot.position
         }
     }
 
-    // Stick to bottom: follow new messages while resting at the newest.
-    // Capture this when the message count changes, before the new layout can temporarily make
-    // canScrollForward true and report that the user is browsing history.
-    val followNewest = remember(messages.size) { atNewest }
+    // Stick to bottom when the user has not intentionally moved into history.
     LaunchedEffect(columnState, messages.size) {
         if (messages.isNotEmpty() && followNewest) {
             val expectedSingleMessageKey = messages.singleOrNull()?.id
@@ -155,6 +161,50 @@ internal data class MeasuredChatLayout(
     val singleVisibleItemKey: Any?
 )
 
+internal data class ChatScrollSnapshot(
+    val canScrollForward: Boolean,
+    val isScrollInProgress: Boolean,
+    val position: Int
+)
+
+internal data class ChatScrollIntentState(
+    val followsNewest: Boolean = true,
+    val controlsVisible: Boolean = true,
+    val accumulatedDeltaPx: Int = 0
+)
+
+internal fun updatedChatScrollIntent(
+    current: ChatScrollIntentState,
+    snapshot: ChatScrollSnapshot,
+    previousPosition: Int
+): ChatScrollIntentState {
+    if (!snapshot.canScrollForward) return ChatScrollIntentState()
+    if (!snapshot.isScrollInProgress || previousPosition < 0) return current
+
+    val delta = snapshot.position - previousPosition
+    val accumulatedDelta = when {
+        delta == 0 -> current.accumulatedDeltaPx
+        current.accumulatedDeltaPx == 0 ||
+            current.accumulatedDeltaPx.sign == delta.sign ->
+            current.accumulatedDeltaPx + delta
+        else -> delta
+    }
+    val movedAway = accumulatedDelta <= -CHAT_SCROLL_DIRECTION_THRESHOLD_PX
+    val movedTowardNewest = accumulatedDelta >= CHAT_SCROLL_DIRECTION_THRESHOLD_PX
+
+    return current.copy(
+        followsNewest = current.followsNewest && !movedAway,
+        controlsVisible = when {
+            movedAway -> false
+            movedTowardNewest -> true
+            else -> current.controlsVisible
+        },
+        // Keep sub-threshold movement across discrete rotary events. Once intent is clear,
+        // start a fresh accumulator so reversing direction gets the same threshold treatment.
+        accumulatedDeltaPx = if (movedAway || movedTowardNewest) 0 else accumulatedDelta
+    )
+}
+
 internal suspend fun scrollToNewestAfterItemsMeasured(
     expectedItemCount: Int,
     expectedSingleMessageKey: Any?,
@@ -185,7 +235,7 @@ private fun ChatBody(
     val palette = LocalBitchatPalette.current
     val context = LocalContext.current
     val transformationSpec = rememberTransformationSpec()
-
+    val isScreenRound = LocalConfiguration.current.isScreenRound
     // Slide-to-cancel: while recording, the finger's position is tracked globally; the
     // overlay's mic button reports its bounds and becomes the cancel target when the
     // finger hovers it (with generous slack so the snap engages on approach).
@@ -256,16 +306,65 @@ private fun ChatBody(
                 }
             }
     ) {
-        ScreenScaffold(scrollState = columnState) {
+        ScreenScaffold(scrollState = columnState) { scaffoldPadding ->
+            val layoutDirection = LocalLayoutDirection.current
             TransformingLazyColumn(
                 state = columnState,
-                modifier = Modifier.fillMaxSize(),
+                // Keep the list full-screen and geometrically unclipped. Wear's transformation
+                // spec curves rows along the round display; a soft destination-alpha mask then
+                // makes them fully transparent at the physical edges instead of cutting glyphs.
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.Offscreen
+                    }
+                    .drawWithCache {
+                        val edgeMask = if (isScreenRound) {
+                            // Fade toward the actual circular contour so glyphs become
+                            // transparent before the panel can crop their left or right edge.
+                            Brush.radialGradient(
+                                0f to Color.Black,
+                                CHAT_ROUND_EDGE_OPAQUE_STOP to Color.Black,
+                                1f to Color.Transparent,
+                                center = Offset(size.width / 2f, size.height / 2f),
+                                radius = size.minDimension / 2f
+                            )
+                        } else {
+                            val topOpaqueStop =
+                                (CHAT_HEADER_EDGE_FADE.toPx() / size.height).coerceIn(0f, 1f)
+                            val bottomOpaqueStop =
+                                (1f - CHAT_ACTION_BAR_EDGE_FADE.toPx() / size.height)
+                                    .coerceIn(topOpaqueStop, 1f)
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                topOpaqueStop to Color.Black,
+                                bottomOpaqueStop to Color.Black,
+                                1f to Color.Transparent
+                            )
+                        }
+                        onDrawWithContent {
+                            drawContent()
+                            drawRect(
+                                brush = edgeMask,
+                                blendMode = BlendMode.DstIn
+                            )
+                        }
+                    },
                 // Arrangement.Bottom anchors short content to the bottom: the first message
                 // starts just above the action bar and new messages push history upward.
-                // The padding reserves permanent room for the floating header and action
-                // bar; being constant, it never disturbs an in-flight scroll gesture.
+                // The scroll range reserves resting space for the floating controls while the
+                // full-screen viewport preserves autoscroll and the native transformation focal
+                // point. Rows may travel behind the overlays only after they have begun the Wear
+                // edge scale/fade treatment.
                 verticalArrangement = Arrangement.Bottom,
-                contentPadding = PaddingValues(top = 30.dp, bottom = 64.dp)
+                // Keep Wear Material's responsive horizontal inset while replacing its vertical
+                // inset with the overlay clearances used before the shape fix. This avoids both
+                // duplicated padding and a shortened list viewport.
+                contentPadding = scaffoldPadding.withVerticalClearance(
+                    layoutDirection = layoutDirection,
+                    top = CHAT_HEADER_CONTENT_CLEARANCE,
+                    bottom = CHAT_ACTION_BAR_CLEARANCE
+                )
             ) {
                 if (messages.isEmpty()) {
                     item {
@@ -299,7 +398,12 @@ private fun ChatBody(
 
         // The header stays put and shrinks to its dense form instead of disappearing;
         // as an overlay its size animation never touches the list's scroll geometry.
-        Box(modifier = Modifier.align(Alignment.TopCenter)) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.TopCenter
+        ) {
             header(controlsVisible)
         }
 
@@ -333,6 +437,12 @@ private fun ChatBody(
 // Extra finger slack (px, ~28dp at watch density) around the cancel target so the snap
 // engages as the finger approaches, not only on exact contact.
 private const val CANCEL_HOVER_SLANT_PX = 56f
+private const val CHAT_SCROLL_DIRECTION_THRESHOLD_PX = 24
+private val CHAT_HEADER_CONTENT_CLEARANCE = 30.dp
+private val CHAT_ACTION_BAR_CLEARANCE = 64.dp
+private val CHAT_HEADER_EDGE_FADE = 36.dp
+private val CHAT_ACTION_BAR_EDGE_FADE = 72.dp
+private const val CHAT_ROUND_EDGE_OPAQUE_STOP = 0.78f
 // Magnetic zone geometry (px at watch density): the button starts reacting at
 // MAGNET_OUTER_PX from its center and fully blushes at MAGNET_INNER_PX (~the activation
 // boundary); it leans toward the finger by up to MAGNET_PULL_PX.
