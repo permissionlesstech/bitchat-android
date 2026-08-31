@@ -188,6 +188,7 @@ class NostrDirectMessageHandler(
             }
             NoisePayloadType.DELIVERED -> {
                 val messageId = String(payload.data, Charsets.UTF_8)
+                com.bitchat.android.services.MessageRouter.tryGetInstance()?.onMessageAcknowledged(messageId, conversationID)
                 withContext(Dispatchers.Main) {
                     updateDeliveryStatus(
                         messageId,
@@ -197,6 +198,7 @@ class NostrDirectMessageHandler(
             }
             NoisePayloadType.READ_RECEIPT -> {
                 val messageId = String(payload.data, Charsets.UTF_8)
+                com.bitchat.android.services.MessageRouter.tryGetInstance()?.onMessageAcknowledged(messageId, conversationID)
                 withContext(Dispatchers.Main) {
                     updateDeliveryStatus(
                         messageId,

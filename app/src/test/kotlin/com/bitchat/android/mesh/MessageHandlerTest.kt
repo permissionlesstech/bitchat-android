@@ -7,6 +7,7 @@ import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.model.PeerCapabilities
+import com.bitchat.android.model.PrivateMessagePacket
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.NoisePeerIdentity
 import com.bitchat.android.noise.AuthenticatedNoiseSession
@@ -25,9 +26,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
@@ -433,6 +436,48 @@ class MessageHandlerTest {
         )
 
         assertTrue(handler.handleNoiseEncrypted(RoutedPacket(encryptedPacket(), peerID, "direct-link")))
+    }
+
+    @Test
+    fun `opened courier private message is admitted as its Noise sender`() = runBlocking {
+        whenever(delegate.getPeerNickname(peerID)).thenReturn(nickname)
+        whenever(delegate.getMyNickname()).thenReturn("me")
+        val payload = NoisePayload(
+            NoisePayloadType.PRIVATE_MESSAGE,
+            requireNotNull(PrivateMessagePacket("courier-message", "opaque courier content").encode())
+        ).encode()
+
+        assertTrue(
+            handler.handleOpenedCourierPayload(
+                RoutedPacket(encryptedPacket().copy(payload = payload), peerID, "courier-ingress")
+            )
+        )
+        verify(delegate).onMessageReceived(argThat {
+            id == "courier-message" &&
+                content == "opaque courier content" &&
+                senderPeerID == peerID &&
+                sender == nickname &&
+                recipientNickname == "me"
+        })
+    }
+
+    @Test
+    fun `opened courier delivery receipt acknowledges the original sender and rejects blank IDs`() = runBlocking {
+        val receipt = NoisePayload(NoisePayloadType.DELIVERED, "courier-message".toByteArray()).encode()
+        assertTrue(
+            handler.handleOpenedCourierPayload(
+                RoutedPacket(encryptedPacket().copy(payload = receipt), peerID, "courier-ingress")
+            )
+        )
+        verify(delegate).onDeliveryAckReceived("courier-message", peerID)
+
+        val blankReceipt = NoisePayload(NoisePayloadType.DELIVERED, ByteArray(0)).encode()
+        assertFalse(
+            handler.handleOpenedCourierPayload(
+                RoutedPacket(encryptedPacket().copy(payload = blankReceipt), peerID, "courier-ingress")
+            )
+        )
+        verify(delegate, times(1)).onDeliveryAckReceived("courier-message", peerID)
     }
 
     private fun encryptedPacket(): BitchatPacket = BitchatPacket(
