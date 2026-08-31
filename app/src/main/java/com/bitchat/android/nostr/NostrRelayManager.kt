@@ -14,8 +14,6 @@ import okhttp3.*
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.min
-import kotlin.math.pow
 
 /**
  * Manages WebSocket connections to Nostr relays
@@ -48,12 +46,8 @@ class NostrRelayManager private constructor() {
             "wss://nostr21.com"
         )
         
-        // Exponential backoff configuration (same as iOS)
-        private const val INITIAL_BACKOFF_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.INITIAL_BACKOFF_INTERVAL_MS  // 1 second
-        private const val MAX_BACKOFF_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.MAX_BACKOFF_INTERVAL_MS    // 5 minutes
-        private const val BACKOFF_MULTIPLIER = com.bitchat.android.util.AppConstants.Nostr.BACKOFF_MULTIPLIER
-        private const val MAX_RECONNECT_ATTEMPTS = com.bitchat.android.util.AppConstants.Nostr.MAX_RECONNECT_ATTEMPTS
-        
+        // Reconnect backoff lives in RelayReconnectPolicy.
+
         // Track gift-wraps we initiated for logging
         private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
         
@@ -1018,36 +1012,15 @@ class NostrRelayManager private constructor() {
         if (!desiredConnected.get() ||
             !isNetworkActionAllowed(connectionToken)
         ) return
-        
-        // Check if this is a DNS error
-        val errorMessage = error.message?.lowercase() ?: ""
-        if (errorMessage.contains("hostname could not be found") || 
-            errorMessage.contains("dns") ||
-            errorMessage.contains("unable to resolve host")) {
-            
-            val relay = relaysList.find { it.url == relayUrl }
-            if (relay?.lastError == null) {
-                Log.w(TAG, "Nostr relay DNS failure; not retrying")
-            }
-            return
-        }
-        
-        // Implement exponential backoff for non-DNS errors
+
+        // Every failure backs off and retries, including a name-resolution
+        // failure: "unable to resolve host" is what this device reports when it
+        // simply has no network, so treating it as permanent turns a walk
+        // through a tunnel into a dead relay layer for the rest of the process.
         val relay = relaysList.find { it.url == relayUrl } ?: return
-        relay.reconnectAttempts++
-        
-        // Stop attempting after max attempts
-        if (relay.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-            Log.w(TAG, "Max Nostr relay reconnection attempts reached")
-            return
-        }
-        
-        // Calculate backoff interval
-        val backoffInterval = min(
-            INITIAL_BACKOFF_INTERVAL * BACKOFF_MULTIPLIER.pow(relay.reconnectAttempts - 1.0),
-            MAX_BACKOFF_INTERVAL.toDouble()
-        ).toLong()
-        
+        relay.reconnectAttempts = RelayReconnectPolicy.nextAttempt(relay.reconnectAttempts)
+        val backoffInterval = RelayReconnectPolicy.backoffMs(relay.reconnectAttempts)
+
         relay.nextReconnectTime = System.currentTimeMillis() + backoffInterval
         
         Log.d(TAG, "Scheduling Nostr relay reconnection")
