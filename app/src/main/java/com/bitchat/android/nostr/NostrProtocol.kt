@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 object NostrProtocol {
     
     private const val TAG = "NostrProtocol"
+    private const val NIP17_IOS_COMPATIBLE_LOOKBACK_SECONDS = 86_400 - 600
     private val gson = Gson()
     
     /**
@@ -37,7 +38,8 @@ object NostrProtocol {
         val rumorId = rumorBase.computeEventIdHex()
         val rumor = rumorBase.copy(id = rumorId)
         
-        // 2. Seal the rumor (kind 13) signed by sender, timestamp randomized up to 2 days
+        // 2. Seal the rumor (kind 13) signed by sender, timestamp randomized within the
+        // receiver subscription window used by iOS.
         val sealedEvent = createSeal(
             rumor = rumor,
             recipientPubkey = recipientPubkey,
@@ -231,7 +233,9 @@ object NostrProtocol {
         
         val seal = NostrEvent(
             pubkey = senderPublicKey,
-            createdAt = NostrCrypto.randomizeTimestampUpToPast(),
+            createdAt = NostrCrypto.randomizeTimestampUpToPast(
+                NIP17_IOS_COMPATIBLE_LOOKBACK_SECONDS
+            ),
             kind = NostrKind.SEAL,
             tags = emptyList(),
             content = encrypted
@@ -260,7 +264,9 @@ object NostrProtocol {
         
         val giftWrap = NostrEvent(
             pubkey = wrapPublicKey,
-            createdAt = NostrCrypto.randomizeTimestampUpToPast(),
+            createdAt = NostrCrypto.randomizeTimestampUpToPast(
+                NIP17_IOS_COMPATIBLE_LOOKBACK_SECONDS
+            ),
             kind = NostrKind.GIFT_WRAP,
             tags = listOf(listOf("p", recipientPubkey)), // Tag recipient
             content = encrypted
