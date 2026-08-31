@@ -19,6 +19,8 @@ class StoreForwardManager {
         private const val MESSAGE_CACHE_TIMEOUT = com.bitchat.android.util.AppConstants.StoreForward.MESSAGE_CACHE_TIMEOUT_MS  // 12 hours for regular peers
         private const val MAX_CACHED_MESSAGES = com.bitchat.android.util.AppConstants.StoreForward.MAX_CACHED_MESSAGES  // For regular peers
         private const val MAX_CACHED_MESSAGES_FAVORITES = com.bitchat.android.util.AppConstants.StoreForward.MAX_CACHED_MESSAGES_FAVORITES  // For favorites
+        internal const val MAX_DELIVERED_MESSAGE_IDS = 1000
+        internal const val MAX_TRACKED_SENT_PEERS = 200
         private const val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.StoreForward.CLEANUP_INTERVAL_MS // 10 minutes
     }
     
@@ -35,8 +37,11 @@ class StoreForwardManager {
     // Message storage
     private val messageCache = Collections.synchronizedList(mutableListOf<StoredMessage>())
     private val favoriteMessageQueue = ConcurrentHashMap<String, MutableList<StoredMessage>>()
-    private val deliveredMessages = Collections.synchronizedSet(mutableSetOf<String>())
-    private val cachedMessagesSentToPeer = Collections.synchronizedSet(mutableSetOf<String>())
+    // Insertion-ordered so the periodic trim can drop the oldest entries.
+    // These used to be wiped wholesale once they grew past their bound, which
+    // bought a memory bound by forgetting delivery state.
+    private val deliveredMessages = Collections.synchronizedSet(LinkedHashSet<String>())
+    private val cachedMessagesSentToPeer = Collections.synchronizedSet(LinkedHashSet<String>())
     
     // Delegate for callbacks
     var delegate: StoreForwardManagerDelegate? = null
@@ -98,6 +103,7 @@ class StoreForwardManager {
                 favoriteMessageQueue[recipientPeerID]?.removeAt(0)
             }
             
+            releaseAlreadySentLatch(recipientPeerID)
             Log.d(TAG, "Cached message for favorite peer $recipientPeerID (${favoriteMessageQueue[recipientPeerID]?.size} total)")
             
         } else {
@@ -111,10 +117,27 @@ class StoreForwardManager {
                 messageCache.removeAt(0)
             }
             
+            releaseAlreadySentLatch(recipientPeerID)
             Log.d(TAG, "Cached message for peer $recipientPeerID (${messageCache.size} total in cache)")
         }
     }
     
+    /**
+     * `sendCachedMessages` runs at most once per peer, latched by
+     * [cachedMessagesSentToPeer]. Nothing ever removed a peer from that latch,
+     * so the *first* time a peer came online it received whatever was held for
+     * it and every later reconnection was refused — mail cached while it was
+     * away sat there until it aged out.
+     *
+     * The latch means "this peer has been handed everything we hold". Caching
+     * new mail for that peer is exactly the event that stops being true.
+     */
+    private fun releaseAlreadySentLatch(recipientPeerID: String) {
+        if (cachedMessagesSentToPeer.remove(recipientPeerID)) {
+            Log.d(TAG, "New cached mail for $recipientPeerID; it may be sent again on reconnect")
+        }
+    }
+
     /**
      * Send cached messages to peer when they come online
      */
@@ -267,14 +290,38 @@ class StoreForwardManager {
      * Clean up delivered messages set (prevent memory leak)
      */
     private fun cleanupDeliveredMessages() {
-        if (deliveredMessages.size > 1000) {
-            Log.d(TAG, "Clearing delivered messages set (${deliveredMessages.size} entries)")
-            deliveredMessages.clear()
+        // Trim the oldest, do not wipe. Emptying these sets bounds memory by
+        // forgetting: `deliveredMessages` is what stops an already-delivered
+        // message being queued again, and `cachedMessagesSentToPeer` is what
+        // stops a peer being handed the same batch twice in one session.
+        val droppedDeliveries = trimOldest(deliveredMessages, MAX_DELIVERED_MESSAGE_IDS)
+        if (droppedDeliveries > 0) {
+            Log.d(TAG, "Trimmed $droppedDeliveries oldest delivered message IDs")
         }
-        
-        if (cachedMessagesSentToPeer.size > 200) {
-            Log.d(TAG, "Clearing cached messages sent tracking (${cachedMessagesSentToPeer.size} entries)")
-            cachedMessagesSentToPeer.clear()
+
+        val droppedPeers = trimOldest(cachedMessagesSentToPeer, MAX_TRACKED_SENT_PEERS)
+        if (droppedPeers > 0) {
+            Log.d(TAG, "Trimmed $droppedPeers oldest already-sent peer entries")
+        }
+    }
+
+    /**
+     * Drops the oldest entries until [maxEntries] remain, returning how many
+     * went. `Collections.synchronizedSet` requires manual synchronization for
+     * iteration, hence the explicit block.
+     */
+    private fun trimOldest(entries: MutableSet<String>, maxEntries: Int): Int {
+        synchronized(entries) {
+            var toRemove = entries.size - maxEntries
+            if (toRemove <= 0) return 0
+            val removed = toRemove
+            val iterator = entries.iterator()
+            while (toRemove > 0 && iterator.hasNext()) {
+                iterator.next()
+                iterator.remove()
+                toRemove--
+            }
+            return removed
         }
     }
     
