@@ -9,6 +9,7 @@ import com.bitchat.android.noise.AuthenticatedNoiseSession
 import com.bitchat.android.noise.NoiseDecryptionResult
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import java.util.*
 import kotlin.collections.mutableSetOf
 
@@ -39,6 +40,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     
     // Coroutines
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val cleanupSignal = Channel<Unit>(Channel.CONFLATED)
     
     init {
         startPeriodicCleanup()
@@ -98,6 +100,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         // later legitimate packet with the same timestamp and payload.
         processedMessages.add(messageID)
         messageTimestamps[messageID] = currentTime
+        cleanupSignal.trySend(Unit)
 
         return true
     }
@@ -137,6 +140,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             val result = encryptionService.processHandshakeMessageWithResult(packet.payload, peerID)
             processedKeyExchanges.add(exchangeKey)
             keyExchangeTimestamps[exchangeKey] = System.currentTimeMillis()
+            cleanupSignal.trySend(Unit)
             
             if (result.response != null) {
                 // Send handshake response through delegate
@@ -388,11 +392,17 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     private fun startPeriodicCleanup() {
         managerScope.launch {
             while (isActive) {
-                delay(CLEANUP_INTERVAL)
-                cleanupOldData()
+                if (cleanupSignal.receiveCatching().getOrNull() == null) break
+                while (isActive && hasCleanupState()) {
+                    delay(CLEANUP_INTERVAL)
+                    cleanupOldData()
+                }
             }
         }
     }
+
+    private fun hasCleanupState(): Boolean =
+        messageTimestamps.isNotEmpty() || keyExchangeTimestamps.isNotEmpty()
     
     /**
      * Clean up old processed messages and timestamps
@@ -462,6 +472,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      * Shutdown the manager
      */
     fun shutdown() {
+        cleanupSignal.close()
         managerScope.cancel()
         clearAllData()
     }

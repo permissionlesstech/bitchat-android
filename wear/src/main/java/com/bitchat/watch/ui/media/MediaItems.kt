@@ -26,7 +26,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -130,13 +133,14 @@ fun VoiceNoteItem(path: String, messageID: String? = null) {
     val palette = LocalBitchatPalette.current
     val context = LocalContext.current
     val liveIDs by com.bitchat.android.features.voice.LiveVoiceManager
-        .getInstance(context).liveMessageIDs.collectAsState()
+        .getInstance(context).liveMessageIDs.collectAsStateWithLifecycle()
     val isLive = messageID != null && messageID in liveIDs
     var samples by remember { mutableStateOf(VoiceWaveformCache.get(path)) }
     var playing by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
     var durationMs by remember { mutableIntStateOf(0) }
     val player = remember { MediaPlayer() }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(path) {
         if (samples == null) {
@@ -166,10 +170,12 @@ fun VoiceNoteItem(path: String, messageID: String? = null) {
         }
     }
 
-    LaunchedEffect(playing) {
-        while (playing) {
-            progress = if (durationMs > 0) player.currentPosition.toFloat() / durationMs else 0f
-            delay(100)
+    LaunchedEffect(playing, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (playing) {
+                progress = if (durationMs > 0) player.currentPosition.toFloat() / durationMs else 0f
+                delay(100)
+            }
         }
     }
 

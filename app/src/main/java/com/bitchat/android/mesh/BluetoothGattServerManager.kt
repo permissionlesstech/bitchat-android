@@ -26,7 +26,12 @@ class BluetoothGattServerManager(
     private val permissionManager: BluetoothPermissionManager,
     private val powerManager: PowerManager,
     private val delegate: BluetoothConnectionManagerDelegate?,
-    private val myPeerID: String
+    private val myPeerID: String,
+    private val runtimePolicy: BleRuntimePolicy = DefaultBleRuntimePolicy,
+    private val connectionLimitsProvider: () -> BleConnectionLimits = {
+        val max = powerManager.getMaxConnections()
+        BleConnectionLimits(max, max, max)
+    }
 ) {
     
     companion object {
@@ -48,6 +53,13 @@ class BluetoothGattServerManager(
     private var characteristic: BluetoothGattCharacteristic? = null
     private var advertiseCallback: AdvertiseCallback? = null
     private var advertiseRetryCount = 0
+    @Volatile private var isAdvertising = false
+    @Volatile private var advertiseStartPending = false
+    private var advertisedMode: PowerManager.PowerMode? = null
+    private val powerCounterLock = Any()
+    private var advertiseStarts = 0L
+    private var advertiseActiveMs = 0L
+    private var advertiseStartedAt = 0L
     
     // State management
     private var isActive = false
@@ -109,7 +121,7 @@ class BluetoothGattServerManager(
         connectionScope.launch {
             setupGattServer()
             delay(300) // Brief delay to ensure GATT server is ready
-            startAdvertising()
+            applyPowerProfile(powerManager.profile.value)
         }
         
         return true
@@ -178,20 +190,30 @@ class BluetoothGattServerManager(
 
                 when (newState) {
                     BluetoothProfile.STATE_CONNECTED -> {
-                        Log.i(TAG, "Connected to ${device.address} (server)")
+                        val limits = connectionLimitsProvider()
                         val linkID = UUID.randomUUID().toString()
-                        serverLinkIDs[device.address] = linkID
-                        
+
                         // Get best available RSSI (scan RSSI for server connections)
                         val rssi = connectionTracker.getBestRSSI(device.address) ?: Int.MIN_VALUE
-                        
                         val deviceConn = BluetoothConnectionTracker.DeviceConnection(
                             device = device,
                             rssi = rssi,
                             isClient = false,
                             linkID = linkID
                         )
-                        connectionTracker.addDeviceConnection(device.address, deviceConn)
+                        if (!connectionTracker.tryAddServerConnection(
+                                device.address,
+                                deviceConn,
+                                limits.overall,
+                                limits.server
+                            )
+                        ) {
+                            Log.i(TAG, "Rejecting inbound GATT connection: connection limit reached")
+                            try { gattServer?.cancelConnection(device) } catch (_: Exception) { }
+                            return
+                        }
+                        Log.i(TAG, "Connected to ${device.address} (server)")
+                        serverLinkIDs[device.address] = linkID
 
                         connectionScope.launch {
                             delay(1000)
@@ -375,6 +397,15 @@ class BluetoothGattServerManager(
             Log.d(TAG, "Not starting advertising: GATT Server disabled via debug settings")
             return
         }
+        if (!runtimePolicy.shouldAdvertise(
+                powerManager.profile.value,
+                occupiedConnectionSlots()
+            )
+        ) {
+            stopAdvertising()
+            return
+        }
+        if (isAdvertising || advertiseStartPending) return
         if (bleAdvertiser == null) {
             Log.w(TAG, "Not starting advertising: BLE advertiser not available on this device")
             return
@@ -408,7 +439,18 @@ class BluetoothGattServerManager(
         
         advertiseCallback = object : AdvertiseCallback() {
             override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
+                advertiseStartPending = false
+                if (!isActive || !isServerRoleEnabled() || !runtimePolicy.shouldAdvertise(
+                        powerManager.profile.value,
+                        occupiedConnectionSlots()
+                    )
+                ) {
+                    stopAdvertising()
+                    return
+                }
                 advertiseRetryCount = 0
+                advertisedMode = powerManager.profile.value.mode
+                markAdvertisingStarted()
                 val mode = try {
                     powerManager.getPowerInfo().split("Current Mode: ")[1].split("\n")[0]
                 } catch (_: Exception) { "unknown" }
@@ -416,6 +458,8 @@ class BluetoothGattServerManager(
             }
 
             override fun onStartFailure(errorCode: Int) {
+                advertiseStartPending = false
+                markAdvertisingStopped()
                 Log.e(TAG, "Advertising failed: $errorCode")
                 // Previously this only logged, so if advertising failed this device became
                 // undiscoverable until a manual BLE toggle. Retry transient failures with backoff.
@@ -437,10 +481,13 @@ class BluetoothGattServerManager(
         }
         
         try {
+            advertiseStartPending = true
             bleAdvertiser.startAdvertising(settings, data, scanResponse, advertiseCallback)
         } catch (se: SecurityException) {
+            advertiseStartPending = false
             Log.e(TAG, "SecurityException starting advertising (missing permission?): ${se.message}")
         } catch (e: Exception) {
+            advertiseStartPending = false
             Log.e(TAG, "Exception starting advertising: ${e.message}")
         }
     }
@@ -450,12 +497,66 @@ class BluetoothGattServerManager(
      */
     @Suppress("DEPRECATION")
     private fun stopAdvertising() {
-        if (!permissionManager.hasBluetoothPermissions() || bleAdvertiser == null) return
+        advertiseStartPending = false
+        if (!permissionManager.hasBluetoothPermissions() || bleAdvertiser == null) {
+            markAdvertisingStopped()
+            return
+        }
         try {
             advertiseCallback?.let { cb -> bleAdvertiser.stopAdvertising(cb) }
         } catch (e: Exception) {
             Log.w(TAG, "Error stopping advertising: ${e.message}")
+        } finally {
+            advertiseCallback = null
+            advertisedMode = null
+            markAdvertisingStopped()
         }
+    }
+
+    fun applyPowerProfile(profile: PowerManager.RuntimePerformanceProfile) {
+        if (!isActive || !isServerRoleEnabled()) {
+            stopAdvertising()
+            return
+        }
+        val shouldAdvertise = runtimePolicy.shouldAdvertise(
+            profile,
+            occupiedConnectionSlots()
+        )
+        when {
+            !shouldAdvertise -> stopAdvertising()
+            isAdvertising && advertisedMode != profile.mode -> restartAdvertising()
+            !isAdvertising && !advertiseStartPending -> connectionScope.launch { startAdvertising() }
+        }
+    }
+
+    internal data class PowerSnapshot(
+        val advertising: Boolean,
+        val advertiseStarts: Long,
+        val advertiseActiveMs: Long
+    )
+
+    internal fun getPowerSnapshot(nowMs: Long = System.currentTimeMillis()): PowerSnapshot =
+        synchronized(powerCounterLock) {
+            val activeMs = if (isAdvertising && advertiseStartedAt > 0L) {
+                nowMs - advertiseStartedAt
+            } else {
+                0L
+            }
+            PowerSnapshot(isAdvertising, advertiseStarts, advertiseActiveMs + activeMs)
+        }
+
+    private fun markAdvertisingStarted() = synchronized(powerCounterLock) {
+        if (isAdvertising) return@synchronized
+        isAdvertising = true
+        advertiseStarts++
+        advertiseStartedAt = System.currentTimeMillis()
+    }
+
+    private fun markAdvertisingStopped() = synchronized(powerCounterLock) {
+        if (!isAdvertising) return@synchronized
+        advertiseActiveMs += System.currentTimeMillis() - advertiseStartedAt
+        advertiseStartedAt = 0L
+        isAdvertising = false
     }
     
     /**
@@ -467,7 +568,11 @@ class BluetoothGattServerManager(
         Log.w(TAG, "Scheduling advertising restart in ${delayMs}ms (attempt $advertiseRetryCount, reason=$reason)")
         connectionScope.launch {
             delay(delayMs)
-            if (isActive && isServerRoleEnabled()) {
+            if (isActive && isServerRoleEnabled() && runtimePolicy.shouldAdvertise(
+                    powerManager.profile.value,
+                    occupiedConnectionSlots()
+                )
+            ) {
                 stopAdvertising()
                 delay(100)
                 startAdvertising()
@@ -481,7 +586,11 @@ class BluetoothGattServerManager(
     fun restartAdvertising() {
         // Respect debug setting
         val enabled = isServerRoleEnabled()
-        if (!isActive || !enabled) {
+        if (!isActive || !enabled || !runtimePolicy.shouldAdvertise(
+                powerManager.profile.value,
+                occupiedConnectionSlots()
+            )
+        ) {
             stopAdvertising()
             return
         }
@@ -492,4 +601,7 @@ class BluetoothGattServerManager(
             startAdvertising()
         }
     }
+
+    private fun occupiedConnectionSlots(): Int =
+        connectionTracker.getConnectedDeviceCount() + connectionTracker.getPendingConnectionCount()
 }
