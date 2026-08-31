@@ -7,6 +7,8 @@ import android.view.WindowInsetsController
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -15,31 +17,35 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 
 // Standard UI semantics live in Material so stock components and custom Bitchat composables
 // share one source of truth. LocalBitchatPalette below only supplies app-specific extra colors.
+// Fixed fallback schemes for devices below Android 12 (no Material You dynamic color).
+// Neutral Material 3 surfaces with a retained green-family accent so the app keeps its identity
+// without the old terminal green-on-black surface tint.
 internal val DarkBitchatColorScheme = darkColorScheme(
-    primary = Color(0xFF32D74B),
-    onPrimary = Color.Black,
-    primaryContainer = Color(0xFF163D1D),
+    primary = Color(0xFF7CDC8A),
+    onPrimary = Color(0xFF00390F),
+    primaryContainer = Color(0xFF1C4A28),
     onPrimaryContainer = Color(0xFFB8F5C1),
-    secondary = Color(0xFF0A84FF),
-    onSecondary = Color.Black,
-    secondaryContainer = Color(0xFF082E54),
-    onSecondaryContainer = Color(0xFFC2E0FF),
+    secondary = Color(0xFF9CCBFF),
+    onSecondary = Color(0xFF00325A),
+    secondaryContainer = Color(0xFF1B4870),
+    onSecondaryContainer = Color(0xFFD3E4FF),
     tertiary = DarkBitchatPalette.accentOrange,
     onTertiary = Color.Black,
-    background = Color(0xFF000000),
-    onBackground = Color(0xFFF5F5F5),
-    surface = Color(0xFF0E150E),
-    onSurface = Color(0xFFF5F5F5),
-    surfaceVariant = Color(0xFF182118),
-    onSurfaceVariant = Color(0xFF9AA69A),
-    outline = Color(0xFF2A3A2A),
-    outlineVariant = Color(0xFF1C271C),
-    error = Color(0xFFFF453A),
-    onError = Color.Black
+    background = Color(0xFF111311),
+    onBackground = Color(0xFFE3E3DE),
+    surface = Color(0xFF191C19),
+    onSurface = Color(0xFFE3E3DE),
+    surfaceVariant = Color(0xFF43483F),
+    onSurfaceVariant = Color(0xFFC3C8BC),
+    outline = Color(0xFF8D9287),
+    outlineVariant = Color(0xFF43483F),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005)
 )
 
 internal val LightBitchatColorScheme = lightColorScheme(
@@ -82,7 +88,15 @@ fun BitchatTheme(
         }
     }
 
-    val colorScheme = if (shouldUseDark) DarkBitchatColorScheme else LightBitchatColorScheme
+    val context = LocalContext.current
+    // Material You: track the wallpaper on Android 12+, else fall back to the fixed modern schemes.
+    val dynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val colorScheme = when {
+        dynamicColor && shouldUseDark -> dynamicDarkColorScheme(context)
+        dynamicColor && !shouldUseDark -> dynamicLightColorScheme(context)
+        shouldUseDark -> DarkBitchatColorScheme
+        else -> LightBitchatColorScheme
+    }
     val palette = if (shouldUseDark) DarkBitchatPalette else LightBitchatPalette
 
     val view = LocalView.current
@@ -110,6 +124,7 @@ fun BitchatTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography,
+            shapes = BitchatShapes,
             content = content
         )
     }
