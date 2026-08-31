@@ -20,6 +20,19 @@ class LocationNotesManager private constructor() {
         private const val TAG = "LocationNotesManager"
         private const val MAX_NOTES_IN_MEMORY = 500
         
+        /** How often displayed notes are re-checked against their NIP-40 expiry. */
+        private const val EXPIRY_PRUNE_INTERVAL_MS = 60_000L
+
+        /**
+         * Drops notes whose NIP-40 expiry has passed. Their ids stay in
+         * `noteIDs`, so a relay replay cannot resurrect them.
+         */
+        internal fun pruneExpired(notes: List<Note>, nowMillis: Long): List<Note> =
+            notes.filter { note ->
+                val expiresAt = note.expiresAtSeconds ?: return@filter true
+                expiresAt * 1000L > nowMillis
+            }
+
         @Volatile
         private var INSTANCE: LocationNotesManager? = null
         
@@ -38,7 +51,9 @@ class LocationNotesManager private constructor() {
         val pubkey: String,
         val content: String,
         val createdAt: Int,
-        val nickname: String?
+        val nickname: String?,
+        /** NIP-40 expiry as unix seconds, when the note carries one. */
+        val expiresAtSeconds: Long? = null
     ) {
         /**
          * Display name for the note - matches iOS exactly
@@ -99,6 +114,7 @@ class LocationNotesManager private constructor() {
     private var liveLocationToken: Long? = null
     private var subscribeRetryJob: Job? = null
     private var initialLoadJob: Job? = null
+    private var expiryPruneJob: Job? = null
 
     init {
         LiveLocationPrivacyGate.addRevocationListener(::stop)
@@ -370,7 +386,18 @@ class LocationNotesManager private constructor() {
         }
 
         _state.value = State.LOADING
-        
+
+        // A note can expire while it is on screen (a 24h dead drop crossing its
+        // boundary). Filtering at ingest alone would keep it visible until the
+        // subscription is recreated, so re-check the displayed notes as well.
+        expiryPruneJob?.cancel()
+        expiryPruneJob = scope.launch {
+            while (isActive) {
+                delay(EXPIRY_PRUNE_INTERVAL_MS)
+                pruneExpiredNotes()
+            }
+        }
+
         // Subscribe for each geohash in the ±1 set
         subscribedGeohashes.forEach { gh ->
             if (!LiveLocationPrivacyGate.accepts(token)) return
@@ -422,21 +449,28 @@ class LocationNotesManager private constructor() {
             return
         }
         
-        // Check for geohash tag
-        val geohashTag = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }
+        // Check for geohash tag. Tag names and geohashes are case-insensitive,
+        // and iOS matches them lowercased, so a note tagged ["G", "U4PRUYD"]
+        // has to be the same note on both platforms.
+        val validGeohashes = subscribedGeohashes.map { it.lowercase() }.toSet()
+        val geohashTag = event.tags.firstOrNull {
+            it.size >= 2 && it[0].lowercase() == "g" && validGeohashes.contains(it[1].lowercase())
+        }
         if (geohashTag == null) {
-            Log.v(TAG, "Ignoring event without geohash tag: ${event.id.take(16)}...")
+            Log.v(TAG, "Ignoring event without a matching geohash tag: ${event.id.take(16)}...")
             return
         }
-        
-        // Check if matches current geohash
-        val eventGeohash = geohashTag[1]
-        if (!subscribedGeohashes.contains(eventGeohash)) {
-            return
-        }
-        
+
         // Deduplicate
         if (noteIDs.contains(event.id)) {
+            return
+        }
+
+        // NIP-40: relays are not required to drop expired events, so enforce it
+        // here - otherwise a 24h dead drop stays visible past its expiry.
+        val expiresAt = expirationSeconds(event)
+        if (expiresAt != null && expiresAt * 1000L <= System.currentTimeMillis()) {
+            Log.v(TAG, "Ignoring expired note: ${event.id.take(16)}...")
             return
         }
         
@@ -450,7 +484,8 @@ class LocationNotesManager private constructor() {
             pubkey = event.pubkey,
             content = event.content,
             createdAt = event.createdAt,
-            nickname = nickname
+            nickname = nickname,
+            expiresAtSeconds = expiresAt
         )
         
         // Add to collection
@@ -470,6 +505,27 @@ class LocationNotesManager private constructor() {
         _state.value = State.READY
     }
     
+    /**
+     * The NIP-40 `expiration` tag as unix seconds, when the event carries one.
+     */
+    private fun expirationSeconds(event: NostrEvent): Long? {
+        val tag = event.tags.firstOrNull { it.size >= 2 && it[0].lowercase() == "expiration" }
+            ?: return null
+        return tag[1].toLongOrNull()
+    }
+
+    /**
+     * Drops displayed notes whose NIP-40 expiry has passed.
+     */
+    private fun pruneExpiredNotes() {
+        val current = _notes.value ?: return
+        val remaining = pruneExpired(current, System.currentTimeMillis())
+        // Ids stay in noteIDs so a relay replay cannot resurrect a dropped note.
+        if (remaining.size != current.size) {
+            _notes.value = remaining
+        }
+    }
+
     /**
      * Trim oldest notes to stay within memory limit
      */
@@ -502,6 +558,8 @@ class LocationNotesManager private constructor() {
         subscribeRetryJob = null
         initialLoadJob?.cancel()
         initialLoadJob = null
+        expiryPruneJob?.cancel()
+        expiryPruneJob = null
 
         if (subscriptionIDs.isNotEmpty()) {
             subscriptionIDs.values.forEach { subId ->
