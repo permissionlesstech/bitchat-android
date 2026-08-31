@@ -55,6 +55,14 @@ Timers:
 - On connection setup complete (descriptor enable) and also after initial connect, start monitoring via `onConnectionEstablished(addr)`.
 - On packet write, call `deviceMonitor.onAnyPacketReceived(addr)`.
 - On disconnect, call `deviceMonitor.onDeviceDisconnected(addr, status)`.
+- Broadcast-notification subscription is keyed by device address and is
+  idempotent. A CCCD write needs no authentication and the Bluetooth spec puts
+  no limit on how often a client may repeat it, so the server must treat a
+  repeat enable as a no-op: exactly one entry per address in the notification
+  fan-out list, and peer-connect side effects (including the announce broadcast
+  `onDeviceConnected` triggers) run only on the transition into the subscribed
+  state. A CCCD write of `DISABLE_NOTIFICATION_VALUE` unsubscribes the address;
+  it is not deferred to disconnect.
 
 4) ANNOUNCE Binding
 - File: `BluetoothMeshService.kt` (in the ANNOUNCE handler where we first map device → peer)
