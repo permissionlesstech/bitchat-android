@@ -174,8 +174,11 @@ class ChannelManager(
         onEncryptedPayload: (ByteArray) -> Unit,
         onFallback: () -> Unit
     ) {
-        // TODO: REIMPLEMENT – REMOVED FOR NOW
-        return
+        // Channel AES path was removed; never no-op — callers only transmit from
+        // the callbacks, so a bare return permanently drops password-channel sends.
+        // Fall back to the unencrypted channel/mesh send path until encryption
+        // is restored end-to-end.
+        onFallback()
     }
     
     // MARK: - Channel Management
