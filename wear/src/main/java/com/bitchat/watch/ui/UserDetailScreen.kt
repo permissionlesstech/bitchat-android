@@ -1,7 +1,6 @@
 package com.bitchat.watch.ui
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,11 +48,17 @@ fun UserDetailScreen(
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
 
-    ScreenScaffold(scrollState = listState) {
+    ScreenScaffold(scrollState = listState) { scaffoldPadding ->
+        val layoutDirection = LocalLayoutDirection.current
         ScalingLazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+            contentPadding = scaffoldPadding
+                .withAdditionalPadding(
+                    layoutDirection = layoutDirection,
+                    horizontal = 10.dp,
+                    vertical = 8.dp
+                )
         ) {
             item {
                 ListHeader {
