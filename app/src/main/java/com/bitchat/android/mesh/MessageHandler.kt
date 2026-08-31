@@ -484,10 +484,20 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 Log.w(TAG, "FILE_TRANSFER decode failed (broadcast) from ${peerID.take(8)}")
             }
 
-            // Fallback: plain text
-            val message = BitchatMessage(
-                id = PacketIdUtil.computeIdHex(packet).uppercase(),
-                sender = delegate?.getPeerNickname(peerID) ?: "unknown",
+            // Prefer the shared binary envelope (channel / mentions). Fall back to
+            // legacy UTF-8 mesh text for older peers and for iOS public broadcasts.
+            val packetId = PacketIdUtil.computeIdHex(packet).uppercase()
+            val peerNickname = delegate?.getPeerNickname(peerID) ?: "unknown"
+            val message = BitchatMessage.fromBinaryPayload(packet.payload)?.let { decoded ->
+                decoded.copy(
+                    id = packetId,
+                    sender = decoded.sender.ifBlank { peerNickname },
+                    senderPeerID = peerID,
+                    timestamp = Date(packet.timestamp.toLong())
+                )
+            } ?: BitchatMessage(
+                id = packetId,
+                sender = peerNickname,
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
                 timestamp = Date(packet.timestamp.toLong())
