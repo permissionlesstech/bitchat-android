@@ -127,7 +127,7 @@ private fun LocationNotesErrorSheet(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "Location permission is required for notes",
+                    text = stringResource(R.string.location_notes_location_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

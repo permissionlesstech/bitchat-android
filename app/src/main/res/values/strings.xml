@@ -442,6 +442,7 @@
   <string name="location_notes_relays_unavailable">Geo relays unavailable; notes paused</string>
   <string name="location_notes_no_relays_title">No geo relays nearby</string>
   <string name="location_notes_no_relays_desc">Notes rely on geo relays. Check connection and try again.</string>
+  <string name="location_notes_location_unavailable">Unable to determine your current location. Check device location and try again.</string>
   <string name="loading_location_notes">Loading notes…</string>
   <string name="location_notes_empty_title">No notes yet</string>
   <string name="location_notes_empty_desc">Be the first to add one for this spot.</string>
@@ -483,6 +484,8 @@
   <string name="verify_qr_unavailable">QR unavailable</string>
   <string name="verify_camera_permission">Camera permission is needed to scan QR codes</string>
   <string name="verify_request_camera">Enable camera</string>
+  <string name="verify_camera_unavailable">Camera is unavailable. Please try again.</string>
+  <string name="verify_retry_camera">Retry camera</string>
   <string name="verify_paste_label">Paste verification URL</string>
   <string name="verify_validate">Validate</string>
   <string name="verify_scanned">Verification requested</string>
