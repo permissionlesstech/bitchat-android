@@ -7,6 +7,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.wifiaware.WifiAwareController
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +18,10 @@ import java.io.File
 /**
  * ViewModel for managing hotspot state and lifecycle.
  */
-class HotspotViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class HotspotViewModel @Inject constructor(
+    application: Application
+) : AndroidViewModel(application) {
 
     companion object {
         private const val TAG = "HotspotViewModel"

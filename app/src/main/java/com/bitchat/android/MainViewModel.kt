@@ -5,11 +5,14 @@ import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.LocationStatus
 import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.BatteryOptimizationStatus
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
 
-class MainViewModel : ViewModel() {
+@HiltViewModel
+class MainViewModel @Inject constructor() : ViewModel() {
 
     private val _onboardingState = MutableStateFlow(OnboardingState.CHECKING)
     val onboardingState: StateFlow<OnboardingState> = _onboardingState.asStateFlow()
