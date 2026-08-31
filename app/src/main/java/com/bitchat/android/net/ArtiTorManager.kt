@@ -92,7 +92,9 @@ class ArtiTorManager private constructor() {
     private var bindRetryAttempts = 0
     private var inactivityJob: Job? = null
     private var retryJob: Job? = null
+    private var restartJob: Job? = null
     private var currentApplication: Application? = null
+    private val circuitHealth = TorCircuitHealthPolicy()
 
     private enum class LifecycleState { STOPPED, STARTING, RUNNING, STOPPING }
 
@@ -354,6 +356,11 @@ class ArtiTorManager private constructor() {
     }
 
     private fun stopArti() {
+        // Only reached when the user turns Tor off. A pending restart is deliberately not
+        // cancelled by stopArtiInternal — that is what keeps a recovery alive across the stop —
+        // so it has to be dropped here or it would bring Arti back after an explicit off.
+        restartJob?.cancel()
+        restartJob = null
         stopArtiInternal()
         socksAddr = null
         _statusFlow.value = _statusFlow.value.copy(
@@ -374,6 +381,19 @@ class ArtiTorManager private constructor() {
         stopArtiAndWait()
         delay(RESTART_DELAY_MS)
         startArti(application, useDelay = false)
+    }
+
+    /**
+     * Runs [restartArti] on a job the stop path does not cancel.
+     *
+     * `restartArti` stops Arti first, and `stopArtiInternal` cancels both `retryJob` and
+     * `inactivityJob`. A restart driven from either of those coroutines therefore cancels itself
+     * between the stop and the start, so Arti is stopped and never comes back until the user
+     * toggles Tor by hand. `restartJob` is not cancelled there, so the second half survives.
+     */
+    private fun launchRestart(application: Application) {
+        if (restartJob?.isActive == true) return
+        restartJob = appScope.launch { restartArti(application) }
     }
 
     private fun startInactivityMonitoring() {
@@ -400,7 +420,7 @@ class ArtiTorManager private constructor() {
                 lifecycleState == LifecycleState.RUNNING
             ) {
                 Log.w(TAG, "Bootstrap inactivity detected (${timeSinceLastActivity}ms), restarting Arti")
-                currentApplication?.let { restartArti(it) }
+                currentApplication?.let { launchRestart(it) }
             }
         }
     }
@@ -420,7 +440,7 @@ class ArtiTorManager private constructor() {
                 delay(delayMs)
                 val currentMode = _statusFlow.value.mode
                 if (currentMode == TorMode.ON) {
-                    restartArti(application)
+                    launchRestart(application)
                 }
             }
         } else {
@@ -484,6 +504,7 @@ class ArtiTorManager private constructor() {
                 }
                 retryAttempts = 0
                 bindRetryAttempts = 0
+                circuitHealth.reset()
                 startInactivityMonitoring()
             }
 
@@ -498,8 +519,34 @@ class ArtiTorManager private constructor() {
                         running = true
                     )
                 }
+                circuitHealth.reset()
                 stopInactivityMonitoring()
                 completeWaitersIf(TorState.RUNNING)
+            }
+
+            // Bootstrap milestones only fire on the way up, so a session that loses every exit
+            // circuit after reaching RUNNING would otherwise stay pinned at 100% while every
+            // request through it fails.
+            circuitHealth.isCircuitFailure(s) -> {
+                if (currentState != TorState.RUNNING || currentLifecycle != LifecycleState.RUNNING) {
+                    return
+                }
+                if (!circuitHealth.onCircuitFailure(System.currentTimeMillis())) {
+                    return
+                }
+                circuitHealth.reset()
+                Log.w(TAG, "Tor circuits failing after bootstrap; no longer reporting connected")
+                // Drop below 100% rather than to ERROR: callers fail closed instead of leaking
+                // to clearnet, the indicator stops claiming a working Tor, and the existing
+                // watchdog plus retry path get another chance to re-establish the session.
+                _statusFlow.update {
+                    it.copy(
+                        state = TorState.BOOTSTRAPPING,
+                        bootstrapPercent = 75
+                    )
+                }
+                startInactivityMonitoring()
+                currentApplication?.let { scheduleRetry(it) }
             }
 
             s.contains("AMEx: state changed to Stopping", ignoreCase = true) -> {
