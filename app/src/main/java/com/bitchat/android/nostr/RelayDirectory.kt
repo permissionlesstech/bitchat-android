@@ -26,7 +26,15 @@ import okhttp3.Request
 object RelayDirectory {
 
     private const val TAG = "RelayDirectory"
-    private const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/georelays/refs/heads/main/nostr_relays.csv"
+
+    // The same file iOS reads (GeoRelayDirectory.swift). Both platforms take the 5
+    // nearest relays from their directory and use them without the defaults, so a
+    // geohash message crosses platforms only if the two selections share a relay.
+    // Reading different files made the selections diverge. Selecting from the same
+    // file, with rows keyed and ordered the same way, keeps them aligned.
+    internal const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv"
+    // Bundled snapshot and download cache of ASSET_FILE_URL above; the file names
+    // predate the source's move to online_relays_gps.csv.
     private const val ASSET_FILE = "nostr_relays.csv"
     private const val DOWNLOADED_FILE = "nostr_relays_latest.csv"
     private const val PREFS_NAME = "relay_directory_prefs"
@@ -97,13 +105,20 @@ object RelayDirectory {
         }
 
         val (lat, lon) = center
-        return snapshot
-            .asSequence()
-            .sortedBy { haversineMeters(lat, lon, it.latitude, it.longitude) }
-            .take(nRelays.coerceAtLeast(0))
-            .map { it.url }
-            .toList()
+        return closestRelays(snapshot, lat, lon, nRelays)
     }
+
+    // Distance ties are the directory's common case, not an edge: rows are geocoded
+    // to city centroids, so whole groups of relays sit at one exact coordinate. iOS
+    // breaks ties by host so every device with the same directory picks the same set
+    // (GeoRelayDirectory.closestRelays). Urls here are canonical hosts behind a fixed
+    // prefix, so ordering by url reproduces iOS's order.
+    internal fun closestRelays(entries: List<RelayInfo>, lat: Double, lon: Double, nRelays: Int): List<String> =
+        entries
+            .map { it to haversineMeters(lat, lon, it.latitude, it.longitude) }
+            .sortedWith(compareBy({ it.second }, { it.first.url }))
+            .take(nRelays.coerceAtLeast(0))
+            .map { it.first.url }
 
     private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val R = 6371000.0 // meters
@@ -255,8 +270,12 @@ object RelayDirectory {
         Log.i(TAG, "📦 Loaded ${list.size} relay entries from assets/$ASSET_FILE, sha256=$hash")
     }
 
-    private fun parseCsv(input: InputStream): List<RelayInfo> {
+    internal fun parseCsv(input: InputStream): List<RelayInfo> {
         val result = mutableListOf<RelayInfo>()
+        // The directory lists some relays twice, once bare and once with an explicit
+        // :443, which is the same server over wss. Without this check both copies can
+        // land in a nearest-N selection, and one of its slots connects nowhere new.
+        val seenEndpoints = HashSet<String>()
         BufferedReader(InputStreamReader(input)).use { reader ->
             var line: String?
             while (true) {
@@ -267,14 +286,33 @@ object RelayDirectory {
                 if (trimmed.lowercase().startsWith("relay url")) continue
                 val parts = trimmed.split(",")
                 if (parts.size < 3) continue
-                val url = normalizeRelayUrl(parts[0].trim())
+                val raw = normalizeRelayUrl(parts[0].trim())
                 val lat = parts[1].trim().toDoubleOrNull()
                 val lon = parts[2].trim().toDoubleOrNull()
-                if (url.isEmpty() || lat == null || lon == null) continue
-                result.add(RelayInfo(url = url, latitude = lat, longitude = lon))
+                if (raw.isEmpty() || lat == null || lon == null) continue
+                val canonical = canonicalHost(raw)
+                if (canonical.isEmpty() || !seenEndpoints.add(canonical)) continue
+                result.add(RelayInfo(url = "wss://$canonical", latitude = lat, longitude = lon))
             }
         }
         return result
+    }
+
+    /**
+     * The host string iOS builds for the same row (GeoRelayDirectory's
+     * validatedDirectoryAddress): host lowercased, an explicit port kept unless it is
+     * 443, the wss default. A relay on :8443 stays distinct from one on :443. Dedup
+     * and tie ordering both key on this, which is what keeps the two platforms'
+     * selections aligned row for row.
+     */
+    internal fun canonicalHost(url: String): String {
+        val hostPort = url.substringAfter("://").substringBefore("/")
+        val idx = hostPort.lastIndexOf(':')
+        val hasPort = idx > 0 && idx < hostPort.length - 1 &&
+            hostPort.substring(idx + 1).all { it.isDigit() }
+        val host = (if (hasPort) hostPort.substring(0, idx) else hostPort).lowercase()
+        val port = if (hasPort) hostPort.substring(idx + 1).toInt() else 443
+        return if (port == 443) host else "$host:$port"
     }
 
     private fun fileSha256Hex(file: File): String = try {

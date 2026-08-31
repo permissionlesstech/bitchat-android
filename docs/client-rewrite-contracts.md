@@ -31,6 +31,15 @@ Round-trip tests remain useful but are not sufficient on their own: an encoder
 and decoder can share the same defect. Each critical wire format therefore has
 at least one literal vector.
 
+Geohash relay selection is part of the cross-client contract. Both platforms
+read `relays/online_relays_gps.csv` from the bitchat repo, key each row by its
+host string (lowercased, an explicit port kept unless it is 443, the wss
+default), deduplicate by that key, and order candidates by distance with ties
+broken by the same key. Clients that select differently can end up on disjoint
+relay sets for the same geohash and silently fail to exchange messages.
+`RelayDirectoryTest` pins the Android side; iOS implements the same rules in
+`GeoRelayDirectory`.
+
 ## Rewrite acceptance gate
 
 From a configured Android development environment, run:
