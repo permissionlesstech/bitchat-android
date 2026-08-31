@@ -433,4 +433,11 @@
     <string name="about_app_language">Bahasa aplikasi</string>
     <string name="about_system_default">Lalai sistem</string>
     <string name="about_select_language">Pilih bahasa</string>
+
+  <string name="action_delete_note_subtitle">menghantar permintaan pemadaman nostr ke relay</string>
+  <string name="action_delete_note_title">padam nota</string>
+  <string name="cd_open_about">Buka Perihal</string>
+  <string name="nearby_notes_many">%d nota ditinggalkan di sini — ketik untuk baca</string>
+  <string name="nearby_notes_one">1 nota ditinggalkan di sini — ketik untuk baca</string>
+  <string name="nearby_notes_reveal">semak nota yang ditinggalkan di sini</string>
 </resources>

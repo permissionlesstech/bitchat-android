@@ -19,7 +19,7 @@ class LocationNotesManager private constructor() {
     companion object {
         private const val TAG = "LocationNotesManager"
         private const val MAX_NOTES_IN_MEMORY = 500
-        
+        private const val DELETIONS_THROTTLE_MS = 500L
         @Volatile
         private var INSTANCE: LocationNotesManager? = null
         
@@ -69,6 +69,9 @@ class LocationNotesManager private constructor() {
     // Published state (StateFlow for Android)
     private val _notes = MutableStateFlow<List<Note>>(emptyList())
     val notes: StateFlow<List<Note>> = _notes.asStateFlow()
+
+    private val _localPubkey = MutableStateFlow<String?>(null)
+    val localPubkey: StateFlow<String?> = _localPubkey.asStateFlow()
     
     private val _geohash = MutableStateFlow<String?>(null)
     val geohash: StateFlow<String?> = _geohash.asStateFlow()
@@ -96,6 +99,7 @@ class LocationNotesManager private constructor() {
     
     // Coroutine scope for background operations
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var lastDeletionsSubscribeTime = 0L
     private var liveLocationToken: Long? = null
     private var subscribeRetryJob: Job? = null
     private var initialLoadJob: Job? = null
@@ -103,7 +107,7 @@ class LocationNotesManager private constructor() {
     init {
         LiveLocationPrivacyGate.addRevocationListener(::stop)
     }
-    
+
     /**
      * Initialize dependencies
      */
@@ -159,6 +163,14 @@ class LocationNotesManager private constructor() {
         noteIDs.clear()
         _geohash.value = normalized
         
+        // Derive and cache local pubkey for ownership checks
+        scope.launch {
+            runCatching {
+                val identity = withContext(Dispatchers.IO) { deriveIdentityFunc?.invoke(normalized) }
+                if (identity != null) _localPubkey.value = identity.publicKeyHex
+            }
+        }
+
         // Compute target geohashes: center + neighbors (±1)
         val neighbors = try {
             com.bitchat.android.geohash.Geohash.neighborsSamePrecision(normalized)
@@ -321,6 +333,75 @@ class LocationNotesManager private constructor() {
     }
     
     /**
+     * Delete a location note by sending a NIP-09 kind:5 deletion event to relays.
+     * Removes the note locally immediately for optimistic UI, then broadcasts the
+     * deletion event. Only notes authored by the local user can be deleted.
+     */
+    fun deleteNote(noteId: String) {
+        val token = LiveLocationPrivacyGate.captureToken() ?: run {
+            stop()
+            return
+        }
+        val currentGeohash = _geohash.value ?: run {
+            Log.w(TAG, "Cannot delete note - no geohash set")
+            return
+        }
+        val targetNote = _notes.value.firstOrNull { it.id == noteId } ?: run {
+            Log.w(TAG, "Cannot delete note - note not found: ${noteId.take(16)}")
+            return
+        }
+        val deriveIdentity = deriveIdentityFunc ?: run {
+            Log.e(TAG, "Cannot delete note - deriveIdentity not initialized")
+            return
+        }
+        var relays: List<String> = emptyList()
+        try {
+            LiveLocationPrivacyGate.runIfAllowed(token) {
+                relays = RelayDirectory.closestRelaysForGeohash(currentGeohash, 5)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to lookup relays for location-note deletion")
+        }
+        if (!LiveLocationPrivacyGate.accepts(token)) {
+            stop()
+            return
+        }
+
+        scope.launch {
+            try {
+                val identity = withContext(Dispatchers.IO) { deriveIdentity(currentGeohash) }
+                if (targetNote.pubkey != identity.publicKeyHex) {
+                    Log.w(TAG, "Blocked delete for non-owned note: ${noteId.take(16)}")
+                    return@launch
+                }
+
+                val deletionEvent = withContext(Dispatchers.IO) {
+                    NostrProtocol.createDeletionEvent(
+                        targetEventId = noteId,
+                        senderIdentity = identity
+                    )
+                }
+                if (!LiveLocationPrivacyGate.accepts(token)) return@launch
+
+                // Optimistic local removal
+                _notes.value = _notes.value.filter { it.id != noteId }
+                noteIDs.remove(noteId)
+
+                // Broadcast to geo relays
+                withContext(Dispatchers.IO) {
+                    LiveLocationPrivacyGate.runIfAllowed(token) {
+                        sendEventFunc?.invoke(deletionEvent, relays, token)
+                    }
+                }
+
+                Log.d(TAG, "✅ Note deleted: ${noteId.take(16)}...")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to delete note: ${e.message}")
+            }
+        }
+    }
+
+    /**
      * Subscribe to location notes for current geohash
      */
     private fun subscribeAll(token: Long) {
@@ -371,7 +452,10 @@ class LocationNotesManager private constructor() {
 
         _state.value = State.LOADING
         
-        // Subscribe for each geohash in the ±1 set
+        // Subscribe for each geohash in the ±1 set — kind:1 only.
+        // kind:5 deletion events carry an #e tag (referencing the deleted event ID) but
+        // NOT a #g tag, so they would always fail this filter's matches() check.
+        // A separate deletion subscription is opened after initial notes load (below).
         subscribedGeohashes.forEach { gh ->
             if (!LiveLocationPrivacyGate.accepts(token)) return
             val filter = NostrFilter.geohashNotes(
@@ -390,8 +474,9 @@ class LocationNotesManager private constructor() {
                 Log.e(TAG, "Failed to subscribe to location notes")
             }
         }
-        
-        // Mark initial load complete after brief delay to allow relay responses
+
+        // Mark initial load complete after brief delay to allow relay responses,
+        // then open a kind:5 subscription filtered by the IDs of the notes we loaded.
         initialLoadJob = scope.launch {
             delay(2000) // Wait 2 seconds for initial batch
             if (_geohash.value == currentGeohash &&
@@ -401,9 +486,43 @@ class LocationNotesManager private constructor() {
                 _initialLoadComplete.value = true
                 _state.value = State.READY
             }
+            subscribeDeletions()
         }
     }
     
+    /**
+     * Open (or refresh) a kind:5 subscription covering the notes currently in memory.
+     *
+     * NIP-09 deletion events do not carry a #g (geohash) tag — they only reference the
+     * target event via an #e tag — so we cannot reuse the geohash-scoped subscription.
+     * Instead we build a filter keyed on the #e values of every note we already hold.
+     *
+     * This is called once after initial note load and re-called whenever new notes arrive
+     * (see [handleEvent]), so deletions published after the initial batch are also caught.
+     */
+    private fun subscribeDeletions() {
+        val subscribe = subscribeFunc ?: return
+        val ids = noteIDs.toList()
+        if (ids.isEmpty()) return
+
+        // Cancel any previous deletion subscription before re-subscribing with updated IDs.
+        subscriptionIDs["__deletions__"]?.let {
+            try { unsubscribeFunc?.invoke(it) } catch (_: Exception) {}
+        }
+
+        val filter = NostrFilter(
+            kinds = listOf(NostrKind.DELETION),
+            tagFilters = mapOf("e" to ids)
+        )
+        try {
+            val id = subscribe(filter, "location-deletions") { event -> handleEvent(event) }
+            subscriptionIDs["__deletions__"] = id
+            Log.d(TAG, "📡 Subscribed to kind:5 deletions for ${ids.size} note(s)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to subscribe for deletions: ${e.message}")
+        }
+    }
+
     /**
      * Handle incoming event from subscription
      */
@@ -411,7 +530,31 @@ class LocationNotesManager private constructor() {
         val token = liveLocationToken
         if (token == null || !LiveLocationPrivacyGate.accepts(token)) return
 
-        // Validate event
+        // Handle NIP-09 deletion events: remove notes authored by the sender.
+        if (event.kind == NostrKind.DELETION) {
+            // Verify the Schnorr signature before trusting event.pubkey.
+            // Without this check any relay or client could forge a kind:5 event with
+            // someone else's pubkey and silently hide that user's notes.
+            if (!event.isValidSignature()) {
+                Log.w(TAG, "Ignoring kind:5 with invalid signature from ${event.pubkey.take(8)}")
+                return
+            }
+            val targetIds = event.tags
+                .filter { it.size >= 2 && it[0] == "e" }
+                .map { it[1] }.toSet()
+            if (targetIds.isNotEmpty()) {
+                val before = _notes.value
+                val removed = before.filter { it.id in targetIds && it.pubkey == event.pubkey }
+                if (removed.isNotEmpty()) {
+                    _notes.value = before.filter { it.id !in targetIds || it.pubkey != event.pubkey }
+                    removed.forEach { noteIDs.remove(it.id) }
+                    Log.d(TAG, "🗑️ Removed ${removed.size} note(s) via kind:5 from ${event.pubkey.take(8)}")
+                }
+            }
+            return
+        }
+
+        // Validate event — only TEXT_NOTE beyond this point
         if (event.kind != NostrKind.TEXT_NOTE) {
             Log.v(TAG, "Ignoring non-text-note event: kind=${event.kind}")
             return
@@ -457,19 +600,34 @@ class LocationNotesManager private constructor() {
         noteIDs.add(event.id)
         val currentNotes = _notes.value ?: emptyList()
         _notes.value = (currentNotes + note).sortedByDescending { it.createdAt }
-        
+
+        Log.d(TAG, "📥 Added note: ${note.displayName} - ${note.content.take(50)}")
+
         // Trim if exceeds max
         if (noteIDs.size > MAX_NOTES_IN_MEMORY) {
             trimOldestNotes()
         }
-        
+
+        // Refresh the kind:5 deletion subscription to include this newly arrived note,
+        // so deletions published after initial load are also streamed in real-time.
+        maybeResubscribeDeletions()
+
         // Update state
         if (!_initialLoadComplete.value!!) {
             _initialLoadComplete.value = true
         }
         _state.value = State.READY
     }
-    
+
+
+    private fun maybeResubscribeDeletions() {
+        val now = System.currentTimeMillis()
+        if (now - lastDeletionsSubscribeTime > DELETIONS_THROTTLE_MS) {
+            lastDeletionsSubscribeTime = now
+            subscribeDeletions()
+        }
+    }
+
     /**
      * Trim oldest notes to stay within memory limit
      */
