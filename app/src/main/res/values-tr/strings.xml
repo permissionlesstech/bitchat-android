@@ -41,8 +41,10 @@
     <string name="notification_messages_from_people">%2$d kişiden %1$d mesaj</string>
     <string name="notification_more_conversations">ve %1$d sohbet daha</string>
     <string name="notification_active_peers_title">yakında bitchatter’lar!</string>
-    <string name="notification_active_peers_one">Yakında 1 kişi</string>
-    <string name="notification_active_peers_many">Yakında %1$d kişi</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">Yakında 1 kişi</item>
+        <item quantity="other">Yakında %1$d kişi</item>
+    </plurals>
     <string name="notification_new_messages">Yeni mesajlar</string>
     <string name="notification_new_location_messages">Yeni konum mesajları</string>
     <string name="notification_mentions_in">%1$s içinde bahsedildi</string>

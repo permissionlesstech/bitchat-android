@@ -80,8 +80,10 @@
     <string name="notification_messages_from_people">%1$d повідомлень від %2$d людей</string>
     <string name="notification_more_conversations">і ще %1$d розмов</string>
     <string name="notification_active_peers_title">👥 bitchat-користувачі поруч!</string>
-    <string name="notification_active_peers_one">1 людина поруч</string>
-    <string name="notification_active_peers_many">%1$d людей поруч</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">1 людина поруч</item>
+        <item quantity="other">%1$d людей поруч</item>
+    </plurals>
     <string name="notification_new_messages">Нові повідомлення</string>
     <string name="notification_new_location_messages">Нові повідомлення в геолокації</string>
     <string name="notification_mentions_in">Згадка в %1$s</string>
