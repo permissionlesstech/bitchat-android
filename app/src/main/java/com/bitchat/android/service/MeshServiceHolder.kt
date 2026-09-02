@@ -22,6 +22,7 @@ object MeshServiceHolder {
     @Synchronized
     fun setGossipManager(
         mgr: GossipSyncManager,
+        hasLivePeer: (String) -> Boolean = { true },
         signer: (BitchatPacket) -> BitchatPacket
     ) {
         val previous = sharedGossipSyncManager
@@ -29,7 +30,7 @@ object MeshServiceHolder {
             try { previous?.stop() } catch (_: Exception) { }
         }
         sharedGossipSyncManager = mgr
-        mgr.delegate = TransportGossipDelegate(signer)
+        mgr.delegate = TransportGossipDelegate(signer, hasLivePeer)
         if (activeGossipOwners.isNotEmpty()) {
             mgr.start()
         }
@@ -53,8 +54,11 @@ object MeshServiceHolder {
     }
 
     private class TransportGossipDelegate(
-        private val signer: (BitchatPacket) -> BitchatPacket
+        private val signer: (BitchatPacket) -> BitchatPacket,
+        private val livePeer: (String) -> Boolean
     ) : GossipSyncManager.Delegate {
+        override fun hasLivePeer(peerID: String): Boolean = livePeer(peerID)
+
         override fun sendPacket(packet: BitchatPacket) {
             TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
         }

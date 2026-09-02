@@ -314,13 +314,16 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                 return false
             }
             
-            // 2. Get Signing Public Key
+            // 2. Get Signing Public Key: the live registry first, then the identity persisted
+            //    for a peer this device authenticated before. A sync replay from a peer that has
+            //    since left carries that peer's signature, and the live registry has forgotten it.
             val peerInfo = delegate?.getPeerInfo(peerID)
             val signingPublicKey = peerInfo?.signingPublicKey
+                ?: delegate?.getPersistedSigningKey(peerID)
             
             if (signingPublicKey == null) {
-                // If we don't have a key (and it's not an announce), we can't verify.
-                // For security, we must reject packets from unknown peers unless it's an announce.
+                // No live and no persisted key: nothing can verify this sender. Reject, as
+                // for any unknown peer; only an ANNOUNCE may introduce a key.
                 Log.w(TAG, "Signature check for $peerID: NO_SIGNING_KEY_AVAILABLE (packet type ${packet.type})")
                 return false
             }
@@ -481,4 +484,6 @@ interface SecurityManagerDelegate {
     fun sendHandshakeResponse(peerID: String, response: ByteArray)
     fun getPeerInfo(peerID: String): PeerInfo? // NEW: For signature verification
     fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? = null
+    /** Signing key persisted for a peer this device authenticated before, for senders no longer in the live registry. */
+    fun getPersistedSigningKey(peerID: String): ByteArray? = null
 }
