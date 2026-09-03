@@ -171,6 +171,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
         )
 
+        com.bitchat.android.service.MeshServiceHolder.registerLivenessProbe("BLE") { peerID ->
+            peerManager.getPeerInfo(peerID) != null
+        }
         com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager) { packet ->
             signPacketBeforeBroadcast(packet)
         }
@@ -323,6 +326,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
+
+            override fun getPersistedSigningKey(peerID: String): ByteArray? =
+                authenticatedPeerState.persistedSigningKeyFor(peerID)
         }
         
         // StoreForwardManager delegates
@@ -419,6 +425,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
+
+            override fun getPersistedPeerNickname(peerID: String): String? =
+                authenticatedPeerState.persistedNicknameFor(peerID)
             
             // Noise protocol operations
             override fun hasNoiseSession(peerID: String): Boolean {

@@ -390,6 +390,19 @@ class SecureIdentityStateManager {
 
     fun getAuthenticatedSigningKey(fingerprint: String): ByteArray? =
         getAuthenticatedPeerState(fingerprint)?.signingPublicKey?.copyOf()
+
+    /**
+     * Fingerprint of the persisted authenticated peer state for a peer ID. A peer ID is the
+     * first sixteen hex characters of the fingerprint of its Noise static key, so a record
+     * whose fingerprint starts with the peer ID is that peer's; the record must still parse.
+     */
+    fun findAuthenticatedFingerprintByPeerID(peerID: String): String? {
+        val prefix = peerID.lowercase()
+        if (prefix.length != 16 || !prefix.all { it in '0'..'9' || it in 'a'..'f' }) return null
+        val records = prefs.getStringSet(KEY_AUTHENTICATED_PEER_STATES, emptySet()) ?: return null
+        val fingerprint = records.firstOrNull { it.startsWith(prefix) }?.substringBefore(':') ?: return null
+        return fingerprint.takeIf { isValidFingerprint(it) && getAuthenticatedPeerState(it) != null }
+    }
     
     // MARK: - Peer ID Rotation Management (removed)
     // Android now derives peer ID from the persisted Noise identity fingerprint.
