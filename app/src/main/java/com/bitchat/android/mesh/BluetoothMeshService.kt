@@ -171,10 +171,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
         )
 
-        com.bitchat.android.service.MeshServiceHolder.setGossipManager(
-            gossipSyncManager,
-            hasLivePeer = { peerID -> peerManager.getPeerInfo(peerID) != null }
-        ) { packet ->
+        com.bitchat.android.service.MeshServiceHolder.registerLivenessProbe("BLE") { peerID ->
+            peerManager.getPeerInfo(peerID) != null
+        }
+        com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager) { packet ->
             signPacketBeforeBroadcast(packet)
         }
         if (isBleTransportEnabled()) {

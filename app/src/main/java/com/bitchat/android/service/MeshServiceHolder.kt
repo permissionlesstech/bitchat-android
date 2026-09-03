@@ -6,6 +6,7 @@ import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.sync.GossipSyncManager
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Process-wide holder to share a single BluetoothMeshService instance
@@ -19,10 +20,17 @@ object MeshServiceHolder {
 
     private val activeGossipOwners = mutableSetOf<String>()
 
+    // One liveness probe per transport, keyed like the gossip owners above. The shared gossip
+    // manager archives a broadcast only when its sender is in a live peer registry, and every
+    // transport keeps its own registry: Bluetooth registers its lookup, Wi-Fi Aware registers
+    // its own while it runs. A sender known to any transport is live. The Bluetooth service
+    // registers before any delegate exists, so the empty map is never consulted in practice;
+    // if it were, the answer is true, which archives as the manager did before the guard.
+    private val livenessProbes = ConcurrentHashMap<String, (String) -> Boolean>()
+
     @Synchronized
     fun setGossipManager(
         mgr: GossipSyncManager,
-        hasLivePeer: (String) -> Boolean = { true },
         signer: (BitchatPacket) -> BitchatPacket
     ) {
         val previous = sharedGossipSyncManager
@@ -30,9 +38,25 @@ object MeshServiceHolder {
             try { previous?.stop() } catch (_: Exception) { }
         }
         sharedGossipSyncManager = mgr
-        mgr.delegate = TransportGossipDelegate(signer, hasLivePeer)
+        mgr.delegate = TransportGossipDelegate(signer)
         if (activeGossipOwners.isNotEmpty()) {
             mgr.start()
+        }
+    }
+
+    fun registerLivenessProbe(owner: String, probe: (String) -> Boolean) {
+        livenessProbes[owner] = probe
+    }
+
+    fun unregisterLivenessProbe(owner: String) {
+        livenessProbes.remove(owner)
+    }
+
+    /** True when any transport's live peer registry holds this peer. */
+    fun hasLivePeer(peerID: String): Boolean {
+        if (livenessProbes.isEmpty()) return true
+        return livenessProbes.values.any { probe ->
+            try { probe(peerID) } catch (_: Exception) { false }
         }
     }
 
@@ -54,10 +78,9 @@ object MeshServiceHolder {
     }
 
     private class TransportGossipDelegate(
-        private val signer: (BitchatPacket) -> BitchatPacket,
-        private val livePeer: (String) -> Boolean
+        private val signer: (BitchatPacket) -> BitchatPacket
     ) : GossipSyncManager.Delegate {
-        override fun hasLivePeer(peerID: String): Boolean = livePeer(peerID)
+        override fun hasLivePeer(peerID: String): Boolean = MeshServiceHolder.hasLivePeer(peerID)
 
         override fun sendPacket(packet: BitchatPacket) {
             TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
@@ -144,6 +167,7 @@ object MeshServiceHolder {
         try { sharedGossipSyncManager?.stop() } catch (_: Exception) { }
         sharedGossipSyncManager = null
         activeGossipOwners.clear()
+        livenessProbes.clear()
         meshService = null
         unifiedMeshService = null
     }
