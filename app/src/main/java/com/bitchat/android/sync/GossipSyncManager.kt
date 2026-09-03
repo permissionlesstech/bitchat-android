@@ -188,8 +188,13 @@ class GossipSyncManager(
             val (id, pkt) = pair
             val idBytes = hexToBytes(id)
             if (!mightContain(idBytes)) {
-                // Send original packet unchanged to requester only (keep local TTL)
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                // Send original packet unchanged to requester only (keep local TTL).
+                // Mark it as a solicited response: it carries its original timestamp, which a
+                // receiver applying a freshness window would otherwise reject as stale.
+                val toSend = pkt.copy(
+                    ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS,
+                    isRSR = true
+                )
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
                 Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
@@ -200,7 +205,10 @@ class GossipSyncManager(
         for (pkt in toSendMsgs) {
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
             if (!mightContain(idBytes)) {
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                val toSend = pkt.copy(
+                    ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS,
+                    isRSR = true
+                )
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
                 Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
