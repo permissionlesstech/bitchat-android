@@ -562,14 +562,20 @@ class CommandProcessor(
             when (val selectedChannel = viewModel.selectedLocationChannel.value) {
                 is com.bitchat.android.geohash.ChannelID.Mesh,
                 null -> {
-                    // Mesh channel: use Bluetooth mesh peer nicknames
-                    val peerNicknames = meshService.getPeerNicknames()
-                    peerNicknames.values.filter { it != peerNicknames[meshService.myPeerID] }
+                    meshMentionCandidates(
+                        peerNicknames = meshService.getPeerNicknames(),
+                        myPeerID = meshService.myPeerID,
+                        isPeerBlocked = privateChatManager::isPeerBlocked
+                    )
                 }
                 
                 is com.bitchat.android.geohash.ChannelID.Location -> {
                     // Location channel: use geohash participants with collision-resistant suffixes
-                    val geohashPeople = viewModel.geohashPeople.value
+                    val geohashPeople = excludeBlockedGeohashPeople(
+                        people = viewModel.geohashPeople.value,
+                        pubkeyOf = { it.id },
+                        isBlocked = viewModel::isGeohashPubkeyBlocked
+                    )
                     val currentNickname = state.getNicknameValue()
                     val duplicateNames = duplicateGeohashBaseNames(geohashPeople)
                     
@@ -593,9 +599,11 @@ class CommandProcessor(
                 }
             }
         } else {
-            // Fallback to mesh peers if no viewModel available
-            val peerNicknames = meshService.getPeerNicknames()
-            peerNicknames.values.filter { it != peerNicknames[meshService.myPeerID] }
+            meshMentionCandidates(
+                peerNicknames = meshService.getPeerNicknames(),
+                myPeerID = meshService.myPeerID,
+                isPeerBlocked = privateChatManager::isPeerBlocked
+            )
         }
         
         val filteredNicknames = filterMentionCandidates(peerCandidates, textAfterAt)
@@ -719,3 +727,30 @@ internal fun filterMentionCandidates(
         .sortedWith(String.CASE_INSENSITIVE_ORDER)
         .toList()
 }
+
+/**
+ * Mesh @-mention candidates excluding self and blocked peers (iOS ChatComposerCoordinator parity).
+ */
+internal fun meshMentionCandidates(
+    peerNicknames: Map<String, String>,
+    myPeerID: String,
+    isPeerBlocked: (String) -> Boolean
+): List<String> {
+    val myNickname = peerNicknames[myPeerID]
+    return peerNicknames
+        .filter { (peerID, nick) ->
+            nick != myNickname && !isPeerBlocked(peerID)
+        }
+        .values
+        .toList()
+}
+
+/**
+ * Drop geohash people whose Nostr pubkey is blocked before building mention tokens.
+ */
+internal fun <T> excludeBlockedGeohashPeople(
+    people: List<T>,
+    pubkeyOf: (T) -> String,
+    isBlocked: (String) -> Boolean
+): List<T> = people.filterNot { isBlocked(pubkeyOf(it)) }
+
