@@ -564,7 +564,7 @@ class CommandProcessor(
                 null -> {
                     meshMentionCandidates(
                         peerNicknames = meshService.getPeerNicknames(),
-                        myPeerID = meshService.myPeerID,
+                        myPeerID = meshService.myPeerID.orEmpty(),
                         isPeerBlocked = privateChatManager::isPeerBlocked
                     )
                 }
@@ -601,7 +601,7 @@ class CommandProcessor(
         } else {
             meshMentionCandidates(
                 peerNicknames = meshService.getPeerNicknames(),
-                myPeerID = meshService.myPeerID,
+                myPeerID = meshService.myPeerID.orEmpty(),
                 isPeerBlocked = privateChatManager::isPeerBlocked
             )
         }
