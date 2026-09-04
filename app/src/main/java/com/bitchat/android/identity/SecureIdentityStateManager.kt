@@ -393,16 +393,27 @@ class SecureIdentityStateManager {
 
     /**
      * Fingerprint of the persisted authenticated peer state for a peer ID. A peer ID is the
-     * first sixteen hex characters of the fingerprint of its Noise static key, so a record
-     * whose fingerprint starts with the peer ID is that peer's; the record must still parse.
+     * first sixteen hex characters of the fingerprint of its Noise static key. Each record is
+     * matched on its fingerprint field, 64 hex characters starting with the peer ID; a record
+     * whose field does not parse is skipped, and the matched record must still load.
      */
     fun findAuthenticatedFingerprintByPeerID(peerID: String): String? {
         val prefix = peerID.lowercase()
         if (prefix.length != 16 || !prefix.all { it in '0'..'9' || it in 'a'..'f' }) return null
         val records = prefs.getStringSet(KEY_AUTHENTICATED_PEER_STATES, emptySet()) ?: return null
-        val fingerprint = records.firstOrNull { it.startsWith(prefix) }?.substringBefore(':') ?: return null
-        return fingerprint.takeIf { isValidFingerprint(it) && getAuthenticatedPeerState(it) != null }
+        val fingerprint = fingerprintFieldFor(prefix, records) ?: return null
+        return fingerprint.takeIf { getAuthenticatedPeerState(it) != null }
     }
+
+    /**
+     * The fingerprint field of the first record, in the order given, that parses to 64 hex
+     * characters starting with [prefix]. A record whose field does not parse is skipped, not
+     * taken for a match on the raw string.
+     */
+    internal fun fingerprintFieldFor(prefix: String, records: Iterable<String>): String? =
+        records.asSequence()
+            .map { it.substringBefore(':').lowercase() }
+            .firstOrNull { isValidFingerprint(it) && it.startsWith(prefix) }
     
     // MARK: - Peer ID Rotation Management (removed)
     // Android now derives peer ID from the persisted Noise identity fingerprint.

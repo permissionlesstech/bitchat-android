@@ -52,4 +52,15 @@ class SecureAuthenticatedPeerStateStoreTest {
         assertNull("a cached nickname is not a persisted identity", store.persistedFingerprintFor(peerID))
         assertNull(store.load(fingerprint))
     }
+
+    @Test
+    fun `a record whose fingerprint field is not 64 hex is ignored`() {
+        val (_, identity) = freshStore()
+        // The raw string starts with the peer ID but the fingerprint field is only 16 characters.
+        // Examined first, it must be skipped and the real record still found.
+        val malformed = "$peerID:0:${"00".repeat(32)}"
+        val real = "$fingerprint:0:${"5a".repeat(32)}"
+
+        assertEquals(fingerprint, identity.fingerprintFieldFor(peerID, listOf(malformed, real)))
+    }
 }
