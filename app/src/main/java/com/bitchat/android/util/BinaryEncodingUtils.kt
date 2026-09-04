@@ -19,16 +19,27 @@ fun ByteArray.hexEncodedString(): String {
 }
 
 fun String.dataFromHexString(): ByteArray? {
-    val len = this.length / 2
-    val data = ByteArray(len)
-    var index = 0
-    
-    for (i in 0 until len) {
-        val hexByte = this.substring(i * 2, i * 2 + 2)
-        val byte = hexByte.toIntOrNull(16)?.toByte() ?: return null
-        data[index++] = byte
+    // Match iOS Data(hexString:): trim, optional 0x/0X prefix, reject odd length.
+    var hex = this.trim()
+    if (hex.startsWith("0x", ignoreCase = true)) {
+        hex = hex.substring(2)
     }
-    
+    if (hex.isEmpty()) {
+        return ByteArray(0)
+    }
+    if (hex.length % 2 != 0) {
+        return null
+    }
+
+    val len = hex.length / 2
+    val data = ByteArray(len)
+
+    for (i in 0 until len) {
+        val hexByte = hex.substring(i * 2, i * 2 + 2)
+        val byte = hexByte.toIntOrNull(16)?.toByte() ?: return null
+        data[i] = byte
+    }
+
     return data
 }
 
