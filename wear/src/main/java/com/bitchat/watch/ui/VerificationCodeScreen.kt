@@ -40,7 +40,7 @@ fun VerificationCodeScreen(peerID: String) {
         WearPeerIdentityState.snapshot(peerID, mesh)
     }
     val myFingerprint = WearPeerIdentityState.myFingerprint(mesh)
-    val listState = rememberScalingLazyListState()
+    val listState = rememberScalingLazyListState(initialCenterItemIndex = 0)
     val palette = LocalBitchatPalette.current
 
     ScreenScaffold(scrollState = listState) { scaffoldPadding ->
@@ -48,12 +48,13 @@ fun VerificationCodeScreen(peerID: String) {
         ScalingLazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
+            autoCentering = null,
             contentPadding = scaffoldPadding
                 .withAdditionalPadding(
                     layoutDirection = layoutDirection,
-                    horizontal = 10.dp,
-                    vertical = 8.dp
+                    horizontal = 10.dp
                 )
+                .withVerticalClearance(layoutDirection, top = 28.dp, bottom = 28.dp)
         ) {
             item {
                 ListHeader {
@@ -126,7 +127,8 @@ fun VerificationCodeScreen(peerID: String) {
                             "Remove verification"
                         } else {
                             "Mark verified"
-                        }
+                        },
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -158,8 +160,8 @@ private fun FingerprintCard(
             text = fingerprint?.let(::formatVerificationCode) ?: "Handshake pending",
             style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp,
-                lineHeight = 13.sp
+                fontSize = 12.sp,
+                lineHeight = 16.sp
             ),
             color = if (fingerprint == null) {
                 palette.accentOrange
@@ -178,6 +180,6 @@ fun formatVerificationCode(fingerprint: String): String {
     return fingerprint
         .uppercase()
         .chunked(4)
-        .chunked(4)
+        .chunked(2)
         .joinToString("\n") { line -> line.joinToString(" ") }
 }

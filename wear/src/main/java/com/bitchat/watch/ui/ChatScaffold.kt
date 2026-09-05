@@ -438,7 +438,7 @@ private fun ChatBody(
 // engages as the finger approaches, not only on exact contact.
 private const val CANCEL_HOVER_SLANT_PX = 56f
 private const val CHAT_SCROLL_DIRECTION_THRESHOLD_PX = 24
-private val CHAT_HEADER_CONTENT_CLEARANCE = 30.dp
+private val CHAT_HEADER_CONTENT_CLEARANCE = 56.dp
 private val CHAT_ACTION_BAR_CLEARANCE = 64.dp
 private val CHAT_HEADER_EDGE_FADE = 36.dp
 private val CHAT_ACTION_BAR_EDGE_FADE = 72.dp

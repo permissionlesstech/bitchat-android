@@ -1,9 +1,7 @@
 package com.bitchat.watch.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -118,77 +116,79 @@ private fun ChatHeader(
     peerCount: Int,
     unreadDms: Int,
     expanded: Boolean,
-    onOpenPeople: () -> Unit
+    onOpenPeople: () -> Unit,
 ) {
     // Floating title row: full-size at the newest messages, shrinks to its dense form
     // while scrolling up into history. Rendered as an overlay, so the animation only
     // relayouts this row, never the message list.
-    val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(
-        BitchatMotion.STANDARD_MS
-    )
-    val iconSize by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (expanded) 16.dp else 11.dp, animationSpec = spec, label = "hdrIcon"
-    )
-    val titleSize by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (expanded) 15.dp else 11.dp, animationSpec = spec, label = "hdrTitle"
-    )
-    val vPadding by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (expanded) 6.dp else 1.dp, animationSpec = spec, label = "hdrPad"
-    )
+    val spec =
+        androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(
+            BitchatMotion.STANDARD_MS
+        )
+    val iconSize by
+        androidx.compose.animation.core.animateDpAsState(
+            targetValue = if (expanded) 16.dp else 11.dp,
+            animationSpec = spec,
+            label = "hdrIcon",
+        )
+    val titleSize by
+        androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (expanded) 15f else 12f,
+            animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
+            label = "hdrTitle",
+        )
 
     // The entire header region opens the People screen. When there are unread DMs the
     // title gives way so the people and mail icons (with counts) fit side by side on the
     // round screen instead of clipping at the edges.
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onOpenPeople() }
-            .padding(horizontal = 8.dp, vertical = vPadding),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+    WearChatHeader(
+        fontSize = titleSize,
+        onClickLabel = "Open people",
+        onClick = onOpenPeople,
     ) {
         if (unreadDms == 0) {
             Text(
                 text = "bitchat",
                 style = MaterialTheme.typography.titleSmall,
-                fontSize = with(androidx.compose.ui.platform.LocalDensity.current) { titleSize.toSp() },
+                fontSize = titleSize.sp,
+                lineHeight = (titleSize * 1.3f).sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(end = 8.dp)
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp),
             )
         }
         Icon(
             imageVector = Icons.Filled.People,
             contentDescription = "people",
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(iconSize)
+            modifier = Modifier.size(iconSize),
         )
         Text(
-            text = "$peerCount",
+            text = if (peerCount > 99) "99+" else "$peerCount",
             style = MaterialTheme.typography.bodySmall,
-            fontSize = with(androidx.compose.ui.platform.LocalDensity.current) {
-                (iconSize.value * 0.85f).dp.toSp()
-            },
+            fontSize = 12.sp,
+            lineHeight = (titleSize * 1.3f).sp,
+            maxLines = 1,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 2.dp)
+            modifier = Modifier.padding(start = 2.dp),
         )
         if (unreadDms > 0) {
             Icon(
                 imageVector = Icons.Filled.MailOutline,
                 contentDescription = "$unreadDms unread messages",
                 tint = LocalBitchatPalette.current.accentOrange,
-                modifier = Modifier
-                    .padding(start = 6.dp)
-                    .size(iconSize)
+                modifier = Modifier.padding(start = 6.dp).size(iconSize),
             )
             Text(
-                text = "$unreadDms",
+                text = if (unreadDms > 99) "99+" else "$unreadDms",
                 style = MaterialTheme.typography.bodySmall,
-                fontSize = with(androidx.compose.ui.platform.LocalDensity.current) {
-                    (iconSize.value * 0.85f).dp.toSp()
-                },
+                fontSize = 12.sp,
+                lineHeight = (titleSize * 1.3f).sp,
+                maxLines = 1,
                 color = LocalBitchatPalette.current.accentOrange,
-                modifier = Modifier.padding(start = 2.dp)
+                modifier = Modifier.padding(start = 2.dp),
             )
         }
     }
@@ -240,8 +240,7 @@ fun MessageItem(
             )
             Text(
                 text = "  ${formatTime(message.timestamp)}",
-                style = ChatVisualTokens.SystemActionStyle,
-                fontSize = 9.sp,
+                style = ChatVisualTokens.TimestampStyle,
                 color = palette.textTertiary
             )
         }
