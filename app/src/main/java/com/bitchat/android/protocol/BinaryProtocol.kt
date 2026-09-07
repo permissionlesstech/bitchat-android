@@ -64,7 +64,8 @@ class WirePayload(
  * - Type: 1 byte
  * - TTL: 1 byte
  * - Timestamp: 8 bytes (UInt64, big-endian)
- * - Flags: 1 byte (bit 0: hasRecipient, bit 1: hasSignature, bit 2: isCompressed)
+ * - Flags: 1 byte (bit 0: hasRecipient, bit 1: hasSignature, bit 2: isCompressed,
+ *   bit 3: hasRoute (v2+), bit 4: isRSR)
  * - PayloadLength: 2 bytes (v1) / 4 bytes (v2) (big-endian)
  *
  * Variable sections:
@@ -86,7 +87,15 @@ data class BitchatPacket(
     var route: List<ByteArray>? = null, // Optional source route: ordered list of peerIDs (8 bytes each), not including sender and final recipient
     // Set by BinaryProtocol.decode. Not part of packet identity, so it stays out of
     // the parcel, equals and hashCode. Losing it only costs a re-compression.
-    @IgnoredOnParcel val wirePayload: WirePayload? = null
+    @IgnoredOnParcel val wirePayload: WirePayload? = null,
+    // Set when this packet is being sent as a solicited REQUEST_SYNC response. Mutable in
+    // transit like ttl, and deliberately not part of the signing preimage, so an archived
+    // packet can be marked without invalidating the signature it was stored with.
+    //
+    // Also deliberately outside equals/hashCode below, unlike ttl: a packet is the same packet
+    // whether or not it was served as a sync response, which is the view PacketIdUtil takes
+    // when it computes identity from type, sender, timestamp and payload alone.
+    var isRSR: Boolean = false
 ) : Parcelable {
 
     constructor(
@@ -112,6 +121,11 @@ data class BitchatPacket(
     /**
      * Create binary representation for signing (without signature and TTL fields)
      * TTL is excluded because it changes during packet relay operations
+     *
+     * isRSR is excluded for the same reason: a packet is marked as a sync response when it is
+     * replayed from the archive, long after it was signed. It is omitted from the constructor
+     * call below and so defaults to false on both the signing and verifying side. Do not pass
+     * it through here; threading it in would invalidate the signature on every replayed packet.
      */
     fun toBinaryDataForSigning(): ByteArray? {
         // Create a copy without signature and with fixed TTL for signing
@@ -215,6 +229,12 @@ object BinaryProtocol {
         const val HAS_SIGNATURE: UByte = 0x02u
         const val IS_COMPRESSED: UByte = 0x04u
         const val HAS_ROUTE: UByte = 0x08u
+
+        // Marks a packet as a solicited REQUEST_SYNC response. A peer replaying its archive
+        // sends the original timestamps, so a receiver that applies a freshness window needs
+        // to know the packet was asked for. Like TTL, this changes in transit and is excluded
+        // from the signing preimage (see BitchatPacket.toBinaryDataForSigning).
+        const val IS_RSR: UByte = 0x10u
     }
 
     private fun getHeaderSize(version: UByte): Int {
@@ -292,6 +312,9 @@ object BinaryProtocol {
             // HAS_ROUTE is only supported for v2+ packets
             if (!packet.route.isNullOrEmpty() && packet.version >= 2u.toUByte()) {
                 flags = flags or Flags.HAS_ROUTE
+            }
+            if (packet.isRSR) {
+                flags = flags or Flags.IS_RSR
             }
             buffer.put(flags.toByte())
             
@@ -423,6 +446,7 @@ object BinaryProtocol {
             val isCompressed = (flags and Flags.IS_COMPRESSED) != 0u.toUByte()
             // HAS_ROUTE is only valid for v2+ packets; ignore the flag for v1
             val hasRoute = (version >= 2u.toUByte()) && (flags and Flags.HAS_ROUTE) != 0u.toUByte()
+            val isRSR = (flags and Flags.IS_RSR) != 0u.toUByte()
 
             // Payload length - version-dependent (2 or 4 bytes)
             val payloadLength = if (version >= 2u.toUByte()) {
@@ -561,13 +585,14 @@ object BinaryProtocol {
                 signature = signature,
                 ttl = ttl,
                 route = route,
+                isRSR = isRSR,
                 wirePayload = WirePayload(
                     bytes = receivedCompressed ?: payload,
                     compressed = receivedCompressed != null,
                     forPayload = payload
                 )
             )
-            
+
         } catch (e: Exception) {
             Log.e("BinaryProtocol", "Error decoding packet: ${e.message}")
             return null
