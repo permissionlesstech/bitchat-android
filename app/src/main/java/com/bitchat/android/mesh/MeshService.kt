@@ -17,6 +17,8 @@ interface MeshService {
     fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String)
     fun sendPrekeyBundle(payload: ByteArray)
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null)
+    fun supportsPrivateMediaReceipts(peerID: String): Boolean = false
+
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String)
     fun sendDeliveryAck(messageID: String, recipientPeerID: String) {}
     fun sendFavoriteNotification(peerID: String, isFavorite: Boolean) {}

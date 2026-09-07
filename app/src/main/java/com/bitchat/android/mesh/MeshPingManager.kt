@@ -38,6 +38,7 @@ internal class MeshPingManager(
     private val inboundByLink = ConcurrentHashMap<String, ArrayDeque<Long>>()
 
     fun ping(peerID: String, callback: (MeshPingResult?) -> Unit) {
+        if (pending.size >= 64) { callback(null); return }
         val payload = MeshPingPayload.create(MeshDiagnosticsConstants.TTL)
         val key = pendingKey(payload)
         val timeout = scope.launch {
@@ -73,7 +74,16 @@ internal class MeshPingManager(
 
     private fun consumeInboundBudget(link: String): Boolean {
         val now = System.currentTimeMillis()
-        val timestamps = inboundByLink.computeIfAbsent(link) { ArrayDeque() }
+        synchronized(inboundByLink) {
+            inboundByLink.entries.removeAll { (_, times) ->
+                synchronized(times) {
+                    times.lastOrNull()?.let { now - it >= MeshDiagnosticsConstants.INBOUND_RATE_WINDOW_MILLIS } != false
+                }
+            }
+            if (inboundByLink.size >= 256 && link !in inboundByLink) return false
+            inboundByLink.putIfAbsent(link, ArrayDeque())
+        }
+        val timestamps = inboundByLink[link] ?: return false
         synchronized(timestamps) {
             while (timestamps.firstOrNull()?.let {
                     now - it >= MeshDiagnosticsConstants.INBOUND_RATE_WINDOW_MILLIS

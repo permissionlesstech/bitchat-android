@@ -80,7 +80,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             },
             applyAuthenticatedState = peerManager::applyAuthenticatedPeerState,
             sendState = ::sendAuthenticatedPeerState,
-            onResolution = { peerID -> delegate?.didResolvePrivateMediaPolicy(peerID) }
+            onResolution = { peerID -> GroupMessagePort.receiver?.peerAuthenticated(peerID)
+                delegate?.didResolvePrivateMediaPolicy(peerID) }
         )
     }
     private val privateMediaSecurity by lazy { PrivateMediaSecurityController(
@@ -558,6 +559,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
+                com.bitchat.android.services.PrivateMediaOutbox.tryGetInstance()?.acknowledge(messageID, peerID)
                 try { com.bitchat.android.services.MessageRouter.tryGetInstance()?.onMessageAcknowledged(messageID, peerID) } catch (_: Exception) { }
                 // Status events can arrive while MainActivity has detached the UI delegate.
                 // Persist first so the next UI collector observes the advancement.
@@ -571,6 +573,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
+                com.bitchat.android.services.PrivateMediaOutbox.tryGetInstance()?.acknowledge(messageID, peerID)
                 try { com.bitchat.android.services.MessageRouter.tryGetInstance()?.onMessageAcknowledged(messageID, peerID) } catch (_: Exception) { }
                 try {
                     com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
@@ -594,7 +597,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 authenticatedRemoteStaticKey: ByteArray,
                 payload: ByteArray
             ) {
-                delegate?.didReceiveGroupInvite(peerID, authenticatedRemoteStaticKey, payload)
+                GroupMessagePort.receiver?.invite(peerID, authenticatedRemoteStaticKey, payload)
             }
 
             override fun onGroupKeyUpdateReceived(
@@ -602,11 +605,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 authenticatedRemoteStaticKey: ByteArray,
                 payload: ByteArray
             ) {
-                delegate?.didReceiveGroupKeyUpdate(peerID, authenticatedRemoteStaticKey, payload)
+                GroupMessagePort.receiver?.keyUpdate(peerID, authenticatedRemoteStaticKey, payload)
             }
 
             override fun onGroupMessageReceived(payload: ByteArray, timestampMs: Long) {
-                delegate?.didReceiveGroupMessage(payload, timestampMs)
+                GroupMessagePort.receiver?.message(payload, timestampMs)
             }
 
             override fun onVouchPayloadReceived(peerID: String, payload: ByteArray) {
@@ -1137,6 +1140,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     }
 
     /** Safe non-interactive entry point: encrypted sends commit; legacy sends require UI consent. */
+    fun supportsPrivateMediaReceipts(peerID: String): Boolean {
+        val session = encryptionService.getAuthenticatedSession(peerID) ?: return false
+        val proof = authenticatedPeerState.status(peerID, session) as? AuthenticatedPeerStateStatus.Proven ?: return false
+        return proof.state.capabilities.contains(com.bitchat.android.model.PeerCapabilities.PRIVATE_MEDIA_RECEIPTS)
+    }
+
     fun sendFilePrivate(recipientPeerID: String, file: com.bitchat.android.model.BitchatFilePacket) {
         val payload = file.encode() ?: return
         when (val prepared = prepareFilePrivate(
@@ -2094,11 +2103,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             bridgeCourierService::stop,
             gossipSyncManager::clear
         )
+        var failure: Exception? = null
         operations.forEach { operation ->
-            try { operation() } catch (e: Exception) {
-                Log.e(TAG, "Error clearing mesh service internal data: ${e.message}")
-            }
+            try { operation() } catch (error: Exception) { failure = error }
         }
+        failure?.let { throw IllegalStateException("Mesh data wipe incomplete", it) }
     }
     
     /**

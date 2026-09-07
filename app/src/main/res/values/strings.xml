@@ -694,4 +694,29 @@
   <string name="about_app_language">App language</string>
   <string name="about_system_default">System default</string>
   <string name="about_select_language">Select language</string>
+  <string name="notification_hidden_message" tools:ignore="MissingTranslation">New message</string>
+  <string name="notification_previews" tools:ignore="MissingTranslation">Notification previews</string>
+  <string name="notification_previews_description" tools:ignore="MissingTranslation">Show sender names and message text in notifications. Hidden by default.</string>
+  <string name="custom_relays" tools:ignore="MissingTranslation">Custom relays</string>
+  <string name="custom_relays_description" tools:ignore="MissingTranslation">Add relays for your direct messages. Built-in relays stay available.</string>
+  <string name="relay_url" tools:ignore="MissingTranslation">Relay URL</string>
+  <string name="relay_add" tools:ignore="MissingTranslation">Add relay</string>
+  <string name="relay_remove" tools:ignore="MissingTranslation">Remove</string>
+  <string name="relay_invalid" tools:ignore="MissingTranslation">Enter a valid wss URL without credentials or query parameters. Up to 20 custom relays are supported.</string>
+  <string name="share_channel" tools:ignore="MissingTranslation">Share channel invitation</string>
+  <string name="channel_invitation" tools:ignore="MissingTranslation">Join #%1$s on bitchat: %2$s — get the app at https://bitchat.free</string>
+  <string name="bluetooth_unavailable_banner" tools:ignore="MissingTranslation">Bluetooth is unavailable. Nearby Bluetooth messaging is paused.</string>
+  <string name="tor_failed_banner" tools:ignore="MissingTranslation">Tor could not connect. Internet messages are paused.</string>
+  <string name="tor_connecting_banner" tools:ignore="MissingTranslation">Connecting to Tor (%1$d%%). Internet messages are waiting.</string>
+  <string name="panic_confirm_title" tools:ignore="MissingTranslation">Erase local bitchat data?</string>
+  <string name="panic_confirm_body" tools:ignore="MissingTranslation">This removes conversations, media, keys, favorites, groups, and custom relays from this app. Copies held by other people or relays remain. This cannot be undone.</string>
+  <string name="panic_erasing_title" tools:ignore="MissingTranslation">Erasing local data…</string>
+  <string name="panic_complete_title" tools:ignore="MissingTranslation">Local data erased</string>
+  <string name="panic_complete_body" tools:ignore="MissingTranslation">A new identity is ready. Copies on other devices and relays were not erased.</string>
+  <string name="panic_failed_title" tools:ignore="MissingTranslation">Erase incomplete</string>
+  <string name="panic_failed_body" tools:ignore="MissingTranslation">Some local data could not be erased. Messaging remains paused. Retry to finish.</string>
+  <string name="panic_erase" tools:ignore="MissingTranslation">Erase data</string>
+  <string name="panic_retry" tools:ignore="MissingTranslation">Retry erase</string>
+  <string name="gateway_title" tools:ignore="MissingTranslation">Share internet with the mesh</string>
+  <string name="gateway_description" tools:ignore="MissingTranslation">Carry signed public channel messages between nearby peers and relays. Off by default.</string>
 </resources>

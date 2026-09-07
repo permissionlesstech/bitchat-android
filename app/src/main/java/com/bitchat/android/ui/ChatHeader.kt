@@ -355,9 +355,9 @@ fun NoiseSessionIcon(
         )
     }
 
-    // Closed once the handshake resolves (success or failure); open while idle or in flight.
+    // A closed lock only represents an established encrypted session.
     val lockIconRes = when {
-        sessionState == "established" || sessionState?.startsWith("failed") == true ->
+        sessionState == "established" ->
             R.drawable.ic_spec_lock
         else -> R.drawable.ic_spec_lock_open
     }

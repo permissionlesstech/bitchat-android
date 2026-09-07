@@ -17,21 +17,6 @@ data class BridgeUiState(
     val participants: List<BridgedParticipant> = emptyList()
 )
 
-sealed interface CourierDepositResult {
-    data object Published : CourierDepositResult
-    data object ForwardedToGateway : CourierDepositResult
-    data object QueuedLocally : CourierDepositResult
-    data object AlreadyPublished : CourierDepositResult
-    data class Rejected(val reason: Reason) : CourierDepositResult
-
-    enum class Reason {
-        BRIDGE_DISABLED,
-        CONTENT_TOO_LARGE,
-        INVALID_MESSAGE,
-        ENCRYPTION_FAILED
-    }
-}
-
 internal data class VerifiedBridgePeer(
     val peerId: String,
     val nickname: String,

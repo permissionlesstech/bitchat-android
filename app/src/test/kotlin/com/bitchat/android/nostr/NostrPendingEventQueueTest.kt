@@ -68,6 +68,20 @@ class NostrPendingEventQueueTest {
         )
     }
 
+    @Test
+    fun `revocation invalidates queued and already selected deliveries even after reenable`() {
+        val queue = NostrPendingEventQueue(4)
+        var generation = 1
+        val captured = generation
+        queue.enqueue(event("bridge"), listOf("relay"), null) { generation == captured }
+        val selected = queue.pendingForRelay("relay").single()
+        generation++ // Disable.
+        generation++ // Re-enable; old permission must remain invalid.
+        org.junit.Assert.assertFalse(selected.publicationAllowed())
+        assertEquals(emptyList<NostrPendingEventQueue.Delivery>(), queue.pendingForRelay("relay"))
+        assertEquals(0, queue.size())
+    }
+
     private fun event(content: String): NostrEvent {
         val privateKey = "0".repeat(63) + "1"
         return NostrEvent(

@@ -58,10 +58,16 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
 
         /** Capabilities implemented by this Android build. */
         @Deprecated("Use localSupported() so runtime bridge state is included")
-        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or PREKEYS.rawValue or GROUPS.rawValue or BOARD.rawValue or VOUCH.rawValue or MESH_DIAGNOSTICS.rawValue)
+        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or BOARD.rawValue or VOUCH.rawValue or MESH_DIAGNOSTICS.rawValue)
 
         @Volatile
         private var bridgeEnabled: Boolean = false
+        @Volatile private var gatewayEnabled: Boolean = false
+        fun setGatewayEnabled(enabled: Boolean) { gatewayEnabled = enabled }
+
+        @Volatile private var phoneFeaturesEnabled = false
+
+        fun setPhoneFeaturesEnabled(enabled: Boolean) { phoneFeaturesEnabled = enabled }
 
         fun setBridgeEnabled(enabled: Boolean) {
             bridgeEnabled = enabled
@@ -69,8 +75,9 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
 
         fun localSupported(): PeerCapabilities = PeerCapabilities(
             LOCAL_SUPPORTED.rawValue or
-                PREKEYS.rawValue or
-                if (bridgeEnabled) BRIDGE.rawValue else 0L
+                (if (phoneFeaturesEnabled) PREKEYS.rawValue or GROUPS.rawValue or PRIVATE_MEDIA_RECEIPTS.rawValue else 0L) or
+                (if (bridgeEnabled) BRIDGE.rawValue else 0L) or
+                (if (gatewayEnabled) GATEWAY.rawValue else 0L)
         )
 
         /**

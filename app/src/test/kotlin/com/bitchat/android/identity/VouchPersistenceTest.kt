@@ -41,7 +41,7 @@ class VouchPersistenceTest {
     }
 
     @After
-    fun tearDown() = manager.clearIdentityData()
+    fun tearDown() { manager.clearIdentityData() }
 
     @Test
     fun `vouch persists and derives trust only while voucher remains verified`() {

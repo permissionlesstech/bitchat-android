@@ -167,6 +167,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             },
             hooks = MeshCore.Hooks(
                 onMessageReceived = { message -> handleMessageReceived(message) },
+                onDeliveryReceipt = { id, peer ->
+                    com.bitchat.android.services.PrivateMediaOutbox.tryGetInstance()?.acknowledge(id, peer)
+                    com.bitchat.android.services.MessageRouter.tryGetInstance()?.onMessageAcknowledged(id, peer)
+                },
                 onAnnounceProcessed = { routed, _ ->
                     publishControllerDebugSnapshot()
                     routed.peerID?.let { pid ->
@@ -1459,6 +1463,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     override fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
         meshCore.sendVoiceFrame(recipientPeerID, payload)
     }
+
+    override fun supportsPrivateMediaReceipts(peerID: String): Boolean = meshCore.supportsPrivateMediaReceipts(peerID)
 
     override fun prepareFilePrivate(
         recipientPeerID: String,

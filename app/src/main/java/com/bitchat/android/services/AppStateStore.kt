@@ -272,6 +272,22 @@ object AppStateStore {
      * Persists an incoming private message before it is admitted to UI, unread, haptic, or
      * notification state. Transport callbacks invoke this from their background worker.
      */
+    suspend fun hasPrivateTextReceipt(message: BitchatMessage): Boolean {
+        val repository = synchronized(this) {
+            if (privateConversationWritesSuspended) return false
+            conversationRepository
+        } ?: return false
+        return repository.hasPrivateTextReceipt(message)
+    }
+
+    suspend fun privateMediaReceiptState(messageID: String): PrivateMediaReceiptState {
+        val repository = synchronized(this) {
+            if (privateConversationWritesSuspended) return PrivateMediaReceiptState.UNAVAILABLE
+            conversationRepository
+        } ?: return PrivateMediaReceiptState.UNAVAILABLE
+        return repository.privateMediaReceiptState(messageID)
+    }
+
     suspend fun addPrivateMessageDurably(
         peerID: String,
         msg: BitchatMessage,

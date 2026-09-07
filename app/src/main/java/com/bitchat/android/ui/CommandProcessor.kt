@@ -79,10 +79,9 @@ class CommandProcessor(
             return
         }
 
-        val result = viewModel.handleGroupCommand(
-            parts.drop(1).filter(String::isNotBlank)
-        )
-        addCommandOutput(result.message)
+        viewModel.executeGroupCommand(parts.drop(1).filter(String::isNotBlank)) { result ->
+            addCommandOutput(result.message)
+        }
     }
 
     private fun addCommandOutput(message: String) {

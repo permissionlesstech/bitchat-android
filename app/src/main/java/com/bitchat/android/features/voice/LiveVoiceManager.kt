@@ -252,14 +252,22 @@ class LiveVoiceManager private constructor(private val context: Context) {
         } ?: return false
         val finished = entry.value
         val replacement = message.copy(
-            id = finished.messageID,
+            id = if (message.isPrivate && com.bitchat.android.model.PrivateMediaMessageIdentity.isStableID(message.id)) message.id else finished.messageID,
             timestamp = finished.timestamp,
             sender = finished.nickname,
             senderPeerID = peerID,
             isPrivate = messageScope == LiveVoiceScope.DIRECT_MESSAGE
         )
         if (messageScope == LiveVoiceScope.DIRECT_MESSAGE) {
-            AppStateStore.upsertPrivateMessage(peerID, replacement, isVisible(messageScope, peerID))
+            if (replacement.id != finished.messageID) {
+                val saved = kotlinx.coroutines.runBlocking {
+                    AppStateStore.addPrivateMessageDurably(peerID, replacement, isVisible(messageScope, peerID))
+                }
+                if (!saved) return false
+                AppStateStore.removePrivateMessage(finished.messageID)
+            } else {
+                AppStateStore.upsertPrivateMessage(peerID, replacement, isVisible(messageScope, peerID))
+            }
         } else {
             AppStateStore.upsertPublicMessage(replacement)
         }

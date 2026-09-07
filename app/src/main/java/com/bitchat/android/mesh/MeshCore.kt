@@ -50,6 +50,7 @@ class MeshCore(
          * Return false to suppress all downstream effects for a rejected message.
          */
         val onMessageReceived: ((BitchatMessage) -> Boolean)? = null,
+        val onDeliveryReceipt: ((String, String) -> Unit)? = null,
         val onAnnounceProcessed: ((RoutedPacket, Boolean) -> Unit)? = null,
         val readReceiptInterceptor: ((String, String) -> Boolean)? = null,
         val onReadReceiptSent: ((String) -> Unit)? = null,
@@ -76,7 +77,8 @@ class MeshCore(
             },
             applyAuthenticatedState = peerManager::applyAuthenticatedPeerState,
             sendState = ::sendAuthenticatedPeerState,
-            onResolution = { peerID -> delegate?.didResolvePrivateMediaPolicy(peerID) }
+            onResolution = { peerID -> GroupMessagePort.receiver?.peerAuthenticated(peerID)
+                delegate?.didResolvePrivateMediaPolicy(peerID) }
         )
     }
     private val privateMediaSecurity by lazy { PrivateMediaSecurityController(
@@ -437,6 +439,7 @@ class MeshCore(
             }
 
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
+                hooks.onDeliveryReceipt?.invoke(messageID, peerID)
                 try {
                     com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
                         messageID,
@@ -447,6 +450,7 @@ class MeshCore(
             }
 
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
+                hooks.onDeliveryReceipt?.invoke(messageID, peerID)
                 try {
                     com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
                         messageID,
@@ -469,7 +473,7 @@ class MeshCore(
                 authenticatedRemoteStaticKey: ByteArray,
                 payload: ByteArray
             ) {
-                delegate?.didReceiveGroupInvite(peerID, authenticatedRemoteStaticKey, payload)
+                GroupMessagePort.receiver?.invite(peerID, authenticatedRemoteStaticKey, payload)
             }
 
             override fun onGroupKeyUpdateReceived(
@@ -477,11 +481,11 @@ class MeshCore(
                 authenticatedRemoteStaticKey: ByteArray,
                 payload: ByteArray
             ) {
-                delegate?.didReceiveGroupKeyUpdate(peerID, authenticatedRemoteStaticKey, payload)
+                GroupMessagePort.receiver?.keyUpdate(peerID, authenticatedRemoteStaticKey, payload)
             }
 
             override fun onGroupMessageReceived(payload: ByteArray, timestampMs: Long) {
-                delegate?.didReceiveGroupMessage(payload, timestampMs)
+                GroupMessagePort.receiver?.message(payload, timestampMs)
             }
 
             override fun onVouchPayloadReceived(peerID: String, payload: ByteArray) {
@@ -849,6 +853,12 @@ class MeshCore(
         } catch (e: Exception) {
             Log.w("MeshCore", "Live voice frame send failed: ${e.message}")
         }
+    }
+
+    fun supportsPrivateMediaReceipts(peerID: String): Boolean {
+        val session = encryptionService.getAuthenticatedSession(peerID) ?: return false
+        val proof = authenticatedPeerState.status(peerID, session) as? AuthenticatedPeerStateStatus.Proven ?: return false
+        return proof.state.capabilities.contains(com.bitchat.android.model.PeerCapabilities.PRIVATE_MEDIA_RECEIPTS)
     }
 
     fun prepareFilePrivate(

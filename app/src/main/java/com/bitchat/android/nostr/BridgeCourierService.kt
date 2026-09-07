@@ -76,7 +76,8 @@ private class NostrBridgeCourierRelay(
         event: NostrEvent,
         relayUrls: List<String>,
         onAccepted: () -> Unit
-    ): Boolean = relayManager.sendEvent(event, relayUrls, onAccepted = onAccepted)
+    ): Boolean = relayManager.sendEvent(event, relayUrls, onAccepted = onAccepted,
+        publicationAllowed = com.bitchat.android.services.bridge.MeshBridgeService.publicationPermit())
 }
 
 private class EncryptionBridgeCourierCipher(

@@ -190,19 +190,6 @@ object MeshBridgeService : BridgeMeshDelegate {
             }
         }
         scope.launch {
-            val defaultRelays = NostrRelayManager.defaultRelays().toSet()
-            relayManager?.relays
-                ?.map { relays ->
-                    relays.asSequence()
-                        .filter { it.isConnected && it.url in defaultRelays }
-                        .map { it.url }
-                        .toSet()
-                }
-                ?.distinctUntilChanged()
-                ?.collect { connectedDefaults ->
-                }
-        }
-        scope.launch {
             if (_isEnabled.value) {
                 relayManager?.connect()
                 location.refreshChannels(
@@ -217,12 +204,20 @@ object MeshBridgeService : BridgeMeshDelegate {
         }
     }
 
+    private val publicationGeneration = java.util.concurrent.atomic.AtomicLong()
+    fun publicationPermit(): () -> Boolean {
+        val generation = publicationGeneration.get()
+        val enabledAtCapture = _isEnabled.value
+        return { enabledAtCapture && _isEnabled.value && generation == publicationGeneration.get() }
+    }
+
     fun setEnabled(enabled: Boolean) {
         if (outboundPolicy.get().enabled == enabled) return
         if (enabled) {
             panicQuiesced = false
             suppressPrekeyBroadcasts = false
         }
+        publicationGeneration.incrementAndGet()
         outboundPolicy.set(BridgeOutboundPolicy.capture(enabled, nearbyOnly = false))
         _isEnabled.value = enabled
         prefs?.edit { putBoolean(KEY_ENABLED, enabled) }
@@ -289,7 +284,7 @@ object MeshBridgeService : BridgeMeshDelegate {
             publishedEventIds.add(event.id)
             injectedEventIds.add(event.id)
             if (relayManager?.isConnected?.value == true) {
-                relayManager?.sendEventToGeohash(event, cell)
+                relayManager?.sendEventToGeohash(event, cell, publicationAllowed = publicationPermit())
             } else {
                 val peer = availableBridgePeer() ?: return@launch
                 NostrCarrierPacket.fromEvent(
@@ -354,7 +349,7 @@ object MeshBridgeService : BridgeMeshDelegate {
                     if (!directedToUs) handleDownlink(carrier)
                 }
                 NostrCarrierPacket.Direction.TO_GATEWAY,
-                NostrCarrierPacket.Direction.FROM_GATEWAY -> Unit
+                NostrCarrierPacket.Direction.FROM_GATEWAY -> MeshGatewayService.handleCarrier(carrier, fromPeerId, directedToUs)
             }
         }
     }
@@ -363,6 +358,7 @@ object MeshBridgeService : BridgeMeshDelegate {
     suspend fun wipe() {
         // Revoke policy synchronously so no already-queued bridge work can be
         // authorized by the pre-panic setting.
+        publicationGeneration.incrementAndGet()
         outboundPolicy.set(BridgeOutboundPolicy.Denied)
         panicQuiesced = true
         suppressPrekeyBroadcasts = true
@@ -626,7 +622,7 @@ object MeshBridgeService : BridgeMeshDelegate {
 
     private fun publishCarriedEvent(event: NostrEvent, cell: String) {
         publishedEventIds.add(event.id)
-        relayManager?.sendEventToGeohash(event, cell)
+        relayManager?.sendEventToGeohash(event, cell, publicationAllowed = publicationPermit())
     }
 
     private fun publishPresence() {
@@ -635,7 +631,7 @@ object MeshBridgeService : BridgeMeshDelegate {
         val identity = NostrIdentityBridge.deriveBridgeIdentity(cell, requireContext())
         val event = NostrProtocol.createBridgePresenceEvent(cell, identity)
         publishedEventIds.add(event.id)
-        relayManager?.sendEventToGeohash(event, cell)
+        relayManager?.sendEventToGeohash(event, cell, publicationAllowed = publicationPermit())
     }
 
     private fun startPresenceLoop() {
@@ -661,6 +657,12 @@ object MeshBridgeService : BridgeMeshDelegate {
     private fun stopPresenceLoop() {
         presenceJob?.cancel()
         presenceJob = null
+    }
+
+    fun resumeAfterPanic() {
+        panicQuiesced = false
+        suppressPrekeyBroadcasts = false
+        refreshPrekeys()
     }
 
     fun refreshPrekeys() {

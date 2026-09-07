@@ -82,6 +82,11 @@ class BitchatApplication : Application() {
             )
         } catch (_: Exception) { }
 
+        com.bitchat.android.services.bridge.MeshGatewayService.initialize(this)
+        com.bitchat.android.groups.GroupRuntime.getInstance(this)
+        com.bitchat.android.services.PrivateMediaOutbox.initialize(this)
+        com.bitchat.android.model.PeerCapabilities.setPhoneFeaturesEnabled(true)
+
         // Proactively start the foreground service to keep mesh alive
         try { com.bitchat.android.service.MeshForegroundService.start(this) } catch (_: Exception) { }
 

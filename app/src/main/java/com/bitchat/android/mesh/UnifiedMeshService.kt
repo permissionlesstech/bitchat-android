@@ -161,6 +161,9 @@ class UnifiedMeshService(
         onAccepted: () -> Unit
     ): Boolean = bluetooth.sendBridgeCourierMessage(content, messageID, recipientNoiseKey, onAccepted)
 
+    override fun supportsPrivateMediaReceipts(peerID: String): Boolean =
+        bluetooth.supportsPrivateMediaReceipts(peerID) || wifiService()?.supportsPrivateMediaReceipts(peerID) == true
+
     override fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
         when {
             isBleReady(recipientPeerID) -> bluetooth.sendReadReceipt(messageID, recipientPeerID, readerNickname)
@@ -471,8 +474,10 @@ class UnifiedMeshService(
     }
 
     override fun clearAllInternalData() {
-        try { bluetooth.clearAllInternalData() } catch (_: Exception) { }
-        try { wifiService()?.clearAllInternalData() } catch (_: Exception) { }
+        val bluetoothResult = runCatching { bluetooth.clearAllInternalData() }
+        val wifiResult = runCatching { wifiService()?.clearAllInternalData() }
+        bluetoothResult.getOrThrow()
+        wifiResult.getOrThrow()
     }
 
     override fun clearAllEncryptionData() {

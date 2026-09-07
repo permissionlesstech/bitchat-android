@@ -112,7 +112,9 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
     @Volatile
     private var inboundGeneration = 0L
 
+    @Synchronized
     fun createGroup(rawName: String): GroupCommandResult {
+        if (!acceptsInboundEvents) return error("private groups are paused")
         if (!context.groupStore.isReady) return loadingError()
         val name = rawName.trim()
         if (name.isEmpty()) return error("usage: /group create <name>")
@@ -131,7 +133,9 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         return success("created private group #${group.name}")
     }
 
+    @Synchronized
     fun inviteMember(rawNickname: String): GroupCommandResult {
+        if (!acceptsInboundEvents) return error("private groups are paused")
         if (!context.groupStore.isReady) return loadingError()
         val selector = parseMemberSelector(rawNickname)
             ?: return error("usage: /group invite <nickname>[#identity-suffix]")
@@ -171,7 +175,9 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         return success("invited $nickname to #${updated.name}")
     }
 
+    @Synchronized
     fun removeMember(rawNickname: String): GroupCommandResult {
+        if (!acceptsInboundEvents) return error("private groups are paused")
         if (!context.groupStore.isReady) return loadingError()
         val selector = parseMemberSelector(rawNickname)
             ?: return error("usage: /group remove <nickname>[#identity-suffix]")
@@ -205,7 +211,9 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         return success("removed ${member.nickname} and rotated the group key")
     }
 
+    @Synchronized
     fun leaveGroup(): GroupCommandResult {
+        if (!acceptsInboundEvents) return error("private groups are paused")
         if (!context.groupStore.isReady) return loadingError()
         val group = selectedGroup() ?: return error("open a private group first")
         if (isCreator(group) && group.members.size > 1) {
@@ -225,6 +233,7 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         return success("left #${group.name}")
     }
 
+    @Synchronized
     fun listGroups(): GroupCommandResult {
         if (!context.groupStore.isReady) return loadingError()
         val groups = context.groupStore.groups.value
@@ -237,26 +246,28 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         return success("private groups:\n$lines")
     }
 
-    fun sendMessage(content: String, groupPeerID: String) {
+    @Synchronized
+    fun sendMessage(content: String, groupPeerID: String): Boolean {
+        if (!acceptsInboundEvents) return false
         if (!context.groupStore.isReady) {
             context.addGroupSystemMessage(groupPeerID, "private groups are still loading")
-            return
+            return false
         }
         if (content.isEmpty() ||
             content.codePointCount(0, content.length) > MAX_MESSAGE_LENGTH
         ) {
-            return
+            return false
         }
         val group = context.groupStore.group(groupPeerID)
         val key = group?.let { context.groupStore.key(it.groupID) }
         if (group == null || key == null) {
             context.addGroupSystemMessage(groupPeerID, "this private group is unavailable")
-            return
+            return false
         }
         val signingKey = context.mySigningPublicKey()
         if (signingKey?.size != 32) {
             context.addGroupSystemMessage(groupPeerID, "your signing identity is unavailable")
-            return
+            return false
         }
 
         val messageID = UUID.randomUUID().toString()
@@ -275,10 +286,10 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
             )
         } catch (_: Exception) {
             context.addGroupSystemMessage(groupPeerID, "could not encrypt group message")
-            return
+            return false
         }
 
-        context.appendGroupMessage(
+        val stored = context.appendGroupMessage(
             groupPeerID,
             BitchatMessage(
                 id = messageID,
@@ -291,9 +302,12 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
                 deliveryStatus = DeliveryStatus.Sent
             )
         )
+        if (!stored) return false
         context.broadcastGroupMessage(payload)
+        return true
     }
 
+    @Synchronized
     fun handleMessage(payload: ByteArray, receivedAtMs: Long) {
         val generation = inboundGeneration
         if (!acceptsInboundEvents) return
@@ -346,6 +360,7 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         }
     }
 
+    @Synchronized
     fun handleInvite(
         peerID: String,
         authenticatedRemoteStaticKey: ByteArray,
@@ -370,6 +385,7 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         }
     }
 
+    @Synchronized
     fun handleKeyUpdate(
         peerID: String,
         authenticatedRemoteStaticKey: ByteArray,
@@ -399,6 +415,7 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
      * reconnects. This uses the existing iOS GROUP_KEY_UPDATE payload and
      * repairs updates that could not be delivered while the member was offline.
      */
+    @Synchronized
     fun handlePeerAuthenticated(peerID: String) {
         val generation = inboundGeneration
         if (!acceptsInboundEvents) return
@@ -425,6 +442,7 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
     /**
      * Drains packets received during asynchronous store initialization.
      */
+    @Synchronized
     fun onStoreReady() {
         val generation = inboundGeneration
         if (!acceptsInboundEvents) return
@@ -460,6 +478,7 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         }
     }
 
+    @Synchronized
     fun suspendForPanic() {
         synchronized(lifecycleLock) {
             acceptsInboundEvents = false
@@ -471,6 +490,7 @@ class GroupCoordinator(private val context: GroupCoordinatorContext) {
         }
     }
 
+    @Synchronized
     fun resumeAfterPanic() {
         synchronized(lifecycleLock) {
             acceptsInboundEvents = true

@@ -27,6 +27,8 @@ import java.util.Date
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
+enum class PrivateMediaReceiptState { ABSENT, ACCEPTED, TOMBSTONED, UNAVAILABLE }
+
 /**
  * Process-wide, serialized persistence for private conversations.
  *
@@ -138,6 +140,16 @@ class ConversationRepository internal constructor(
     ) {
         scope.launch {
             upsertMessageLocked(conversationID, aliases, displayName, message, isRead)
+        }
+    }
+
+    suspend fun hasPrivateTextReceipt(message: BitchatMessage): Boolean = withContext(dispatcher) {
+        try { database.hasPrivateTextReceipt(message) } catch (_: Exception) { false }
+    }
+
+    suspend fun privateMediaReceiptState(messageID: String): PrivateMediaReceiptState = withContext(dispatcher) {
+        try { database.privateMediaReceiptState(messageID) } catch (_: Exception) {
+            PrivateMediaReceiptState.UNAVAILABLE
         }
     }
 
@@ -740,6 +752,33 @@ internal class ConversationDatabase(
                         ?.let { put(storedConversationID, it) }
                 }
             }
+        }
+    }
+
+    fun hasPrivateTextReceipt(incoming: BitchatMessage): Boolean {
+        if (!incoming.isPrivate || incoming.type != BitchatMessageType.Message) return false
+        if (isDeletedMessageLocked(readableDatabase, incoming.id)) return true
+        readableDatabase.query("private_messages", MESSAGE_COLUMNS, "message_id = ?",
+            arrayOf(incoming.id), null, null, null).use { cursor ->
+            if (!cursor.moveToFirst()) return false
+            val stored = cursor.toMessage()
+            return stored.type == BitchatMessageType.Message && stored.content == incoming.content &&
+                stored.senderPeerID == incoming.senderPeerID
+        }
+    }
+
+    fun privateMediaReceiptState(messageID: String): PrivateMediaReceiptState {
+        if (!com.bitchat.android.model.PrivateMediaMessageIdentity.isStableID(messageID)) {
+            return PrivateMediaReceiptState.UNAVAILABLE
+        }
+        if (isDeletedMessageLocked(readableDatabase, messageID)) return PrivateMediaReceiptState.TOMBSTONED
+        readableDatabase.query("private_messages", MESSAGE_COLUMNS, "message_id = ?",
+            arrayOf(messageID), null, null, null).use { cursor ->
+            if (!cursor.moveToFirst()) return PrivateMediaReceiptState.ABSENT
+            val message = cursor.toMessage()
+            return if (message.type != BitchatMessageType.Message && File(message.content).isFile) {
+                PrivateMediaReceiptState.ACCEPTED
+            } else PrivateMediaReceiptState.UNAVAILABLE
         }
     }
 

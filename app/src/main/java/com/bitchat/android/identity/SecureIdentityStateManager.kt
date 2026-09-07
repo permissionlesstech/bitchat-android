@@ -668,22 +668,18 @@ class SecureIdentityStateManager {
      * Clear all identity data (for panic mode)
      */
     @SuppressLint("UseKtx")
-    fun clearIdentityData() {
-        try {
-            synchronized(identityPersistenceLock) {
-                identityPersistenceEpoch += 1
-                identityPersistenceEpochAtCreation = identityPersistenceEpoch
-                if (!prefs.edit().clear().commit()) {
-                    Log.e(TAG, "Identity preference wipe could not be committed")
-                }
-                identityChanges.tryEmit(Unit)
-            }
-            Log.w(TAG, "All identity data cleared")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to clear identity data: ${e.message}")
+    fun clearIdentityData(): Boolean = try {
+        synchronized(identityPersistenceLock) {
+            identityPersistenceEpoch += 1
+            identityPersistenceEpochAtCreation = identityPersistenceEpoch
+            check(prefs.edit().clear().commit()) { "Identity preference wipe could not be committed" }
+            identityChanges.tryEmit(Unit)
         }
+        true
+    } catch (_: Exception) {
+        false
     }
-    
+
     /**
      * Check if identity data exists
      */

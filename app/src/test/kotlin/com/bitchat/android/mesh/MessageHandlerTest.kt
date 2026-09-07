@@ -439,7 +439,7 @@ class MessageHandlerTest {
     }
 
     @Test
-    fun `opened courier private message is admitted as its Noise sender`() = runBlocking {
+    fun `opened courier message retains its authenticated sender but cannot acknowledge without persistence`() = runBlocking {
         whenever(delegate.getPeerNickname(peerID)).thenReturn(nickname)
         whenever(delegate.getMyNickname()).thenReturn("me")
         val payload = NoisePayload(
@@ -447,7 +447,7 @@ class MessageHandlerTest {
             requireNotNull(PrivateMessagePacket("courier-message", "opaque courier content").encode())
         ).encode()
 
-        assertTrue(
+        assertFalse(
             handler.handleOpenedCourierPayload(
                 RoutedPacket(encryptedPacket().copy(payload = payload), peerID, "courier-ingress")
             )

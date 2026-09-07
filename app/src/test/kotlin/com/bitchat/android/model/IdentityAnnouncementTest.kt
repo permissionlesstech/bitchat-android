@@ -101,10 +101,11 @@ class IdentityAnnouncementTest {
 
     @Test
     fun `local announcement send advertises private media and groups`() {
+        PeerCapabilities.setPhoneFeaturesEnabled(true)
         val encoded = IdentityAnnouncement.forLocalPeer(nickname, noiseKey, signingKey).encode()!!
 
         assertArrayEquals(
-            byteArrayOf(0x05, 0x02, 0x79, 0x01),
+            byteArrayOf(0x05, 0x02, 0x79, 0x03),
             encoded.takeLast(4).toByteArray()
         )
         val capabilities = IdentityAnnouncement.decode(encoded)!!.capabilities!!

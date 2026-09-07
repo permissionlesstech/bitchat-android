@@ -448,6 +448,8 @@ fun AboutSheet(
                         }
                     }
 
+                    item(key = "client_privacy") { ClientSettingsSection() }
+
                     item(key = "language") {
                         val selectedLanguageName = supportedLanguages
                             .firstOrNull { it.languageTag == selectedLanguageTag }

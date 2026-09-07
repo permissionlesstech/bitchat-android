@@ -119,7 +119,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         // Notify delegate
                         delegate?.onMessageReceived(message)
                         
-                        // Send delivery ACK exactly like iOS
+                        // An ACK means durable admission, including a previously deleted duplicate.
+                        if (!com.bitchat.android.services.AppStateStore.hasPrivateTextReceipt(message)) return false
                         sendDeliveryAck(privateMessage.messageID, peerID)
                     }
                 }
@@ -129,7 +130,19 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     val file = com.bitchat.android.model.BitchatFilePacket.decode(noisePayload.data)
                     if (file != null) {
                         Log.d(TAG, "Encrypted file from $peerID: ${file.fileSize} bytes")
-                        val uniqueMsgId = java.util.UUID.randomUUID().toString().uppercase()
+                        val stableID = com.bitchat.android.model.PrivateMediaMessageIdentity.stableID(peerID, myPeerID, file.fileName)
+                        if (stableID != null) {
+                            when (com.bitchat.android.services.AppStateStore.privateMediaReceiptState(stableID)) {
+                                com.bitchat.android.services.PrivateMediaReceiptState.ACCEPTED,
+                                com.bitchat.android.services.PrivateMediaReceiptState.TOMBSTONED -> {
+                                    sendDeliveryAck(stableID, peerID)
+                                    return true
+                                }
+                                com.bitchat.android.services.PrivateMediaReceiptState.UNAVAILABLE -> return false
+                                com.bitchat.android.services.PrivateMediaReceiptState.ABSENT -> Unit
+                            }
+                        }
+                        val uniqueMsgId = stableID ?: java.util.UUID.randomUUID().toString().uppercase()
                         val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
                         val message = BitchatMessage(
                             id = uniqueMsgId,
@@ -147,8 +160,18 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                             delegate?.onMessageReceived(message)
                         }
 
-                        // Send delivery ACK with generated message ID
-                        sendDeliveryAck(uniqueMsgId, peerID)
+                        if (stableID == null) {
+                            sendDeliveryAck(uniqueMsgId, peerID)
+                        } else {
+                            val receipt = com.bitchat.android.services.AppStateStore.privateMediaReceiptState(stableID)
+                            if (receipt == com.bitchat.android.services.PrivateMediaReceiptState.ACCEPTED ||
+                                receipt == com.bitchat.android.services.PrivateMediaReceiptState.TOMBSTONED) {
+                                sendDeliveryAck(stableID, peerID)
+                            } else {
+                                com.bitchat.android.features.file.FileUtils.deleteStoredMediaPaths(appContext, listOf(savedPath))
+                                return false
+                            }
+                        }
                     } else {
                         Log.w(TAG, "Failed to decode encrypted file transfer from $peerID")
                     }
@@ -248,7 +271,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             senderPeerID = peerID
         )
         delegate?.onMessageReceived(message)
-        return true
+        return com.bitchat.android.services.AppStateStore.hasPrivateTextReceipt(message)
     }
 
     /**

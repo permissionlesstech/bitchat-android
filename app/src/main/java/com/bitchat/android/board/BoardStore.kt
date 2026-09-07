@@ -143,7 +143,7 @@ class BoardStore(
     fun wipe() = synchronized(lock) {
         posts.clear()
         tombstones.clear()
-        file?.let { runCatching { if (it.exists()) it.delete() } }
+        file?.let { check(!it.exists() || it.delete()) }
         publishSnapshotLocked()
     }
 

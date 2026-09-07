@@ -231,6 +231,18 @@ fun LocationChannelsSheet(
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     // Mesh section: icon + title header, offline subtitle, then selection card
+                    (selectedChannel as? ChannelID.Location)?.channel?.geohash?.let { cell ->
+                        item(key = "share_channel") {
+                            androidx.compose.material3.TextButton(onClick = {
+                                val link = com.bitchat.android.services.ChannelInvitation.link(cell)
+                                if (link != null) context.startActivity(android.content.Intent.createChooser(
+                                    android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(android.content.Intent.EXTRA_TEXT, context.getString(R.string.channel_invitation, cell, link))
+                                    }, context.getString(R.string.share_channel)))
+                            }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.share_channel)) }
+                        }
+                    }
                     item(key = "mesh_card") {
                         Column {
                             SheetIconSectionHeader(
