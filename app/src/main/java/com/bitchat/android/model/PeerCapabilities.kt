@@ -27,6 +27,8 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
     }
 
     companion object {
+        private const val VOUCH_BIT_INDEX = 5
+        private const val PRIVATE_MEDIA_BIT_INDEX = 8
         val NONE = PeerCapabilities(0)
 
         val PREKEYS = PeerCapabilities(1L shl 0)
@@ -34,12 +36,14 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         val GATEWAY = PeerCapabilities(1L shl 2)
         val GROUPS = PeerCapabilities(1L shl 3)
         val BOARD = PeerCapabilities(1L shl 4)
-        val VOUCH = PeerCapabilities(1L shl 5)
         val MESH_DIAGNOSTICS = PeerCapabilities(1L shl 6)
         val BRIDGE = PeerCapabilities(1L shl 7)
 
         /** Noise-encrypted private BitchatFilePacket using payload type 0x20. */
-        val PRIVATE_MEDIA = PeerCapabilities(1L shl 8)
+        val PRIVATE_MEDIA = PeerCapabilities(1L shl PRIVATE_MEDIA_BIT_INDEX)
+
+        /** Transitive verification attestations over authenticated Noise. */
+        val VOUCH = PeerCapabilities(1L shl VOUCH_BIT_INDEX)
 
         val PRIVATE_MEDIA_RECEIPTS = PeerCapabilities(1L shl 9)
 
@@ -47,7 +51,7 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         val NON_DESTRUCTIVE_NOISE_REPLACEMENT = PeerCapabilities(1L shl 10)
 
         /** Capabilities implemented by this Android build. */
-        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or GROUPS.rawValue or BOARD.rawValue)
+        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or GROUPS.rawValue or BOARD.rawValue or VOUCH.rawValue)
 
         /**
          * Decode the low 64 bits and ignore any future extension bytes, which

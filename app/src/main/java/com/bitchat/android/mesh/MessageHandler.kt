@@ -213,6 +213,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         noisePayload.data
                     )
                 }
+                com.bitchat.android.model.NoisePayloadType.VOUCH -> {
+                    delegate?.onVouchPayloadReceived(peerID, noisePayload.data)
+                }
             }
             
         } catch (e: Exception) {
@@ -802,4 +805,5 @@ interface MessageHandlerDelegate {
         payload: ByteArray
     ) {}
     fun onGroupMessageReceived(payload: ByteArray, timestampMs: Long) {}
+    fun onVouchPayloadReceived(peerID: String, payload: ByteArray) {}
 }

@@ -77,6 +77,8 @@ import com.bitchat.android.util.hexEncodedString
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
+private val TRUST_BADGE_SPACING = 4.dp
+private val TRUST_BADGE_SIZE = 14.dp
 
 /**
  * Sheet components for ChatScreen
@@ -801,6 +803,7 @@ fun PeopleSection(
         val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
         val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
         val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
+        val vouchedFingerprints by viewModel.vouchedFingerprints.collectAsStateWithLifecycle()
 
         // Reactive favorite computation for all peers
         val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
@@ -925,6 +928,8 @@ fun PeopleSection(
             val isFavorite = peerFavoriteStates[peerID] ?: false
             val theyFavoritedUs = peerTheyFavoritedUsStates[peerID] ?: false
             val isVerified = peerVerifiedStates[peerID] ?: false
+            val isVouched = !isVerified &&
+                peerFingerprints[peerID]?.lowercase() in vouchedFingerprints
             // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
 
             val noiseHex = noiseHexByPeerID[peerID]
@@ -952,6 +957,7 @@ fun PeopleSection(
                 isFavorite = isFavorite,
                 theyFavoritedUs = theyFavoritedUs,
                 isVerified = isVerified,
+                isVouched = isVouched,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
                 onItemClick = { onPrivateChatStart(peerID) },
@@ -982,6 +988,7 @@ fun PeopleSection(
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
             val isVerified = viewModel.isNoisePublicKeyVerified(fav.peerNoisePublicKey, verifiedFingerprints)
+            val isVouched = !isVerified && viewModel.isNoisePublicKeyVouched(fav.peerNoisePublicKey)
 
             val unreadCount = (
                 privateChats[conversationID]?.count { msg -> msg.sender != nickname && hasUnreadPrivateMessages.contains(conversationID) } ?: 0
@@ -998,6 +1005,7 @@ fun PeopleSection(
                 isFavorite = true,
                 theyFavoritedUs = fav.theyFavoritedUs,
                 isVerified = isVerified,
+                isVouched = isVouched,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
                 onItemClick = { onPrivateChatStart(mappedConnectedPeerID ?: favPeerID) },
@@ -1584,6 +1592,7 @@ private fun PeerItem(
     isFavorite: Boolean,
     theyFavoritedUs: Boolean = false,
     isVerified: Boolean,
+    isVouched: Boolean,
     colorScheme: ColorScheme,
     viewModel: ChatViewModel,
     onItemClick: () -> Unit,
@@ -1679,6 +1688,23 @@ private fun PeerItem(
                     fontSize = 14.sp,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
                     color = baseColor.copy(alpha = SUFFIX_ALPHA)
+                )
+            }
+
+            if (isVerified) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_spec_check),
+                    contentDescription = stringResource(R.string.verify_title),
+                    modifier = Modifier.size(16.dp),
+                    tint = colorScheme.primary
+                )
+            } else if (isVouched) {
+                Spacer(modifier = Modifier.width(TRUST_BADGE_SPACING))
+                Icon(
+                    imageVector = Icons.Outlined.VerifiedUser,
+                    contentDescription = stringResource(R.string.fingerprint_status_vouched),
+                    modifier = Modifier.size(TRUST_BADGE_SIZE),
+                    tint = baseColor
                 )
             }
         }
