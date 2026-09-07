@@ -3,10 +3,12 @@ package com.bitchat.android.nostr
 import com.google.gson.Gson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NostrProtocolTest {
     private val gson = Gson()
+    private val nip17IosCompatibleLookbackSeconds = 86_400 - 600
 
     @Test
     fun decryptPrivateMessage_acceptsAuthenticatedSeal() {
@@ -39,6 +41,23 @@ class NostrProtocolTest {
         val decrypted = NostrProtocol.decryptPrivateMessage(giftWrap, recipient)
 
         assertNull(decrypted)
+    }
+
+    @Test
+    fun createPrivateMessage_keepsGiftWrapTimestampInsideIosLookbackWindow() {
+        val sender = NostrIdentity.generate()
+        val recipient = NostrIdentity.generate()
+        val before = (System.currentTimeMillis() / 1000).toInt()
+
+        val giftWrap = NostrProtocol.createPrivateMessage(
+            content = "bitchat1:timestamp-window",
+            recipientPubkey = recipient.publicKeyHex,
+            senderIdentity = sender
+        ).single()
+        val after = (System.currentTimeMillis() / 1000).toInt()
+
+        assertTrue(giftWrap.createdAt <= after)
+        assertTrue(giftWrap.createdAt >= before - nip17IosCompatibleLookbackSeconds)
     }
 
     private fun forgedGiftWrap(
