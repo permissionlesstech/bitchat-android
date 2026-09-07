@@ -82,6 +82,17 @@ class NostrPendingEventQueueTest {
         assertEquals(0, queue.size())
     }
 
+    @Test
+    fun `removing a relay drops its pending work without losing other deliveries`() {
+        val queue = NostrPendingEventQueue(4)
+        queue.enqueue(event("shared"), listOf("removed", "retained"), null)
+        queue.enqueue(event("removed-only"), listOf("removed"), null)
+        queue.removeRelay("removed")
+        assertEquals(0, queue.pendingForRelay("removed").size)
+        assertEquals(listOf("shared"), queue.pendingForRelay("retained").map { it.event.content })
+        assertEquals(1, queue.size())
+    }
+
     private fun event(content: String): NostrEvent {
         val privateKey = "0".repeat(63) + "1"
         return NostrEvent(

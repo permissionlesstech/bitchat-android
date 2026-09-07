@@ -83,6 +83,7 @@ class NostrRelayManager private constructor() {
     private val _customRelays = MutableStateFlow<List<String>>(emptyList())
     val customRelays: StateFlow<List<String>> = _customRelays.asStateFlow()
     private var customRelaysLoaded = false
+    private val removedCustomRelayUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     @Synchronized
     private fun loadCustomRelays(context: android.content.Context) {
@@ -101,6 +102,7 @@ class NostrRelayManager private constructor() {
         if (url in defaultRelays()) return true
         if (_customRelays.value.size >= 20) return false
         val previousDefaults = defaultRelays().toSet()
+        removedCustomRelayUrls.remove(url)
         _customRelays.value = _customRelays.value + url
         persistCustomRelays()
         nonLiveRelayUrls.add(url)
@@ -116,6 +118,8 @@ class NostrRelayManager private constructor() {
     @Synchronized
     fun removeCustomRelay(url: String) {
         if (url !in _customRelays.value) return
+        removedCustomRelayUrls.add(url)
+        messageQueue.removeRelay(url)
         _customRelays.value = _customRelays.value - url
         persistCustomRelays()
         activeSubscriptions.replaceAll { _, subscription ->
@@ -930,7 +934,7 @@ class NostrRelayManager private constructor() {
         urlString: String,
         liveLocationToken: Long? = null
     ) {
-        if (!desiredConnected.get()) return
+        if (!desiredConnected.get() || urlString in removedCustomRelayUrls) return
         val connectionToken = liveLocationToken
             ?.takeIf { urlString !in nonLiveRelayUrls }
         if (!isNetworkActionAllowed(connectionToken)) return
@@ -945,6 +949,7 @@ class NostrRelayManager private constructor() {
                 .build()
             
             val started = runNetworkAction(connectionToken) {
+                if (urlString in removedCustomRelayUrls) return@runNetworkAction
                 val webSocket = httpClient.newWebSocket(
                     request,
                     RelayWebSocketListener(urlString, connectionToken)
@@ -952,7 +957,7 @@ class NostrRelayManager private constructor() {
                 val existing = connections.putIfAbsent(urlString, webSocket)
                 when {
                     existing != null -> webSocket.close(1000, "Duplicate connection")
-                    !desiredConnected.get() -> {
+                    !desiredConnected.get() || urlString in removedCustomRelayUrls -> {
                         connections.remove(urlString, webSocket)
                         webSocket.close(1000, "Connection no longer desired")
                     }
@@ -973,14 +978,14 @@ class NostrRelayManager private constructor() {
         liveLocationToken: Long? = null,
         publicationAllowed: () -> Boolean = { true }
     ): Boolean {
-        if (!publicationAllowed() || !isNetworkActionAllowed(liveLocationToken)) return false
+        if (!publicationAllowed() || relayUrl in removedCustomRelayUrls || !isNetworkActionAllowed(liveLocationToken)) return false
         return try {
             val request = NostrRequest.Event(event)
             val message = gson.toJson(request, NostrRequest::class.java)
 
             var success = false
             runNetworkAction(liveLocationToken) {
-                if (publicationAllowed()) success = webSocket.send(message)
+                if (publicationAllowed() && relayUrl !in removedCustomRelayUrls) success = webSocket.send(message)
             }
             if (success) {
                 // Update relay stats
@@ -1238,7 +1243,7 @@ class NostrRelayManager private constructor() {
     ) : WebSocketListener() {
         
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            if (!desiredConnected.get() ||
+            if (!desiredConnected.get() || relayUrl in removedCustomRelayUrls ||
                 connections[relayUrl] !== webSocket ||
                 !isNetworkActionAllowed(liveLocationToken)
             ) {

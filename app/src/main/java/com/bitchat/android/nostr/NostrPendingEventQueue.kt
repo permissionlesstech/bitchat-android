@@ -79,6 +79,11 @@ internal class NostrPendingEventQueue(
         }
     }
 
+    fun removeRelay(relayUrl: String) = synchronized(lock) {
+        entries.forEach { it.pendingRelayUrls.remove(relayUrl) }
+        entries.removeAll { it.pendingRelayUrls.isEmpty() }
+    }
+
     fun removeLiveLocationEvents() {
         synchronized(lock) {
             entries.removeAll { it.liveLocationToken != null }
