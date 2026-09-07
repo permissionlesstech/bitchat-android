@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import android.app.Application
 import android.util.Log
+import com.bitchat.android.R
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -51,6 +52,10 @@ import com.bitchat.android.groups.GroupIds
 import com.bitchat.android.groups.GroupPeerIdentity
 import com.bitchat.android.groups.GroupStore
 import com.bitchat.android.groups.PeerGroupCapability
+
+import com.bitchat.android.board.BoardManager
+import com.bitchat.android.board.BoardSigningIdentity
+import com.bitchat.android.board.BoardStore
 
 private data class ConversationLiveIdentityState(
     val connectedPeerIDs: List<String>,
@@ -191,6 +196,49 @@ class ChatViewModel(
         channelManager,
         privateChatManager,
         viewModelScope
+    )
+    val boardManager = BoardManager(
+        store = BoardStore.getInstance(application.applicationContext),
+        scope = viewModelScope,
+        meshProvider = { mesh },
+        geoIdentityProvider = { geohash ->
+            runCatching {
+                NostrIdentityBridge.deriveIdentity(
+                    forGeohash = geohash,
+                    context = application.applicationContext
+                )
+            }.getOrNull()?.let { identity ->
+                BoardSigningIdentity.fromNostrPrivateKeyHex(identity.privateKeyHex)
+            }
+        },
+        onUrgentPosts = { geohash, posts ->
+            val text = if (posts.size == 1) {
+                val post = posts.single()
+                application.getString(
+                    R.string.notices_alert_urgent_single,
+                    post.authorNickname.trim().ifEmpty { "anon" },
+                    post.content.truncateNoticeAlert()
+                )
+            } else {
+                application.getString(
+                    R.string.notices_alert_urgent_collapsed,
+                    posts.size
+                )
+            }
+            if (geohash.isEmpty()) {
+                messageManager.addSystemMessage(text)
+            } else {
+                messageManager.addChannelMessage(
+                    "geo:$geohash",
+                    BitchatMessage(
+                        sender = "system",
+                        content = text,
+                        timestamp = Date(),
+                        isRelay = false
+                    )
+                )
+            }
+        }
     )
     private val notificationManager = NotificationManager(
       application.applicationContext,
@@ -1671,6 +1719,7 @@ class ChatViewModel(
         val groupsCleared = groupStore.wipe()
         dataManager.clearAllData()
         conversationListPreferences.clearAll()
+        boardManager.clearTransientState()
         
         // Clear seen message store and MessageRouter outbox
         try {
@@ -1925,4 +1974,6 @@ class ChatViewModel(
     fun peerIdentityForNostrPubkey(pubkeyHex: String): PeerIdentity =
         geohashViewModel.peerIdentityForNostrPubkey(pubkeyHex)
 
+    private fun String.truncateNoticeAlert(): String =
+        if (length <= 120) this else take(120) + "…"
 }

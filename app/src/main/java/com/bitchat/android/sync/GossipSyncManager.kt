@@ -43,6 +43,15 @@ class GossipSyncManager(
         private const val ARCHIVE_FILE = "gossip-public-history.bin"
     }
 
+    var boardPacketsProvider: (() -> List<BitchatPacket>)? = null
+    private val responseTimesByPeer = ConcurrentHashMap<String, ArrayDeque<Long>>()
+    private val observedBoardSyncPeers = ConcurrentHashMap.newKeySet<String>()
+    private fun peerSupportsBoard(peerID: String): Boolean =
+        peerID.lowercase() in observedBoardSyncPeers ||
+            latestAnnouncementByPeer[peerID.lowercase()]?.second?.payload?.let {
+                com.bitchat.android.model.IdentityAnnouncement.decode(it)?.capabilities
+                    ?.contains(com.bitchat.android.model.PeerCapabilities.BOARD)
+            } == true
     var delegate: Delegate? = null
 
     // Defaults (configurable constants)
@@ -100,6 +109,8 @@ class GossipSyncManager(
         synchronized(fragments) { fragments.clear() }
         synchronized(groupMessages) { groupMessages.clear() }
         latestAnnouncementByPeer.clear()
+        responseTimesByPeer.clear()
+        observedBoardSyncPeers.clear()
         archiveFile?.delete()
         Log.d(TAG, "Cleared all gossip sync messages and announcements")
     }
@@ -206,10 +217,17 @@ class GossipSyncManager(
             val signed = delegate?.signPacketForBroadcast(packet) ?: packet
             delegate?.sendPacket(signed)
         }
+        if (boardPacketsProvider != null) {
+            latestAnnouncementByPeer.keys.filter(::peerSupportsBoard).forEach {
+                sendRequestSyncToPeer(it, SyncTypeFlags.BOARD)
+            }
+        }
     }
 
-    private fun sendRequestSyncToPeer(peerID: String) {
-        val types = SyncTypeFlags.PUBLIC_MESSAGES.union(SyncTypeFlags.FRAGMENTS_AND_FILES).union(SyncTypeFlags.GROUP_MESSAGE)
+    private fun sendRequestSyncToPeer(peerID: String, requestedTypes: SyncTypeFlags? = null) {
+        val types = requestedTypes ?: SyncTypeFlags.PUBLIC_MESSAGES.union(SyncTypeFlags.FRAGMENTS_AND_FILES)
+            .union(SyncTypeFlags.GROUP_MESSAGE)
+            .let { if (boardPacketsProvider != null && peerSupportsBoard(peerID)) it.union(SyncTypeFlags.BOARD) else it }
         val payload = buildGcsPayload(types)
 
         val packet = BitchatPacket(
@@ -228,6 +246,10 @@ class GossipSyncManager(
 
     fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
         val requestedTypes = request.types ?: SyncTypeFlags.PUBLIC_MESSAGES
+        if (requestedTypes.contains(MessageType.BOARD_POST) && latestAnnouncementByPeer.containsKey(fromPeerID.lowercase())) {
+            observedBoardSyncPeers.add(fromPeerID.lowercase())
+        }
+        if (!shouldRespondTo(fromPeerID)) return
         val sinceTimestamp = request.sinceTimestamp
         // Decode GCS into sorted set for membership checks
         val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
@@ -272,6 +294,14 @@ class GossipSyncManager(
                 }
             }
         }
+        if (requestedTypes.contains(MessageType.BOARD_POST)) {
+            boardPacketsProvider?.invoke().orEmpty().take(200).forEach { packet ->
+                if ((sinceTimestamp == null || packet.timestamp >= sinceTimestamp) &&
+                    !mightContain(PacketIdUtil.computeIdBytes(packet))) {
+                    delegate?.sendPacketToPeer(fromPeerID, packet.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS))
+                }
+            }
+        }
         val toSendFragments = synchronized(fragments) { fragments.values.toList() }
         for (pkt in toSendFragments) {
             val type = MessageType.fromValue(pkt.type) ?: continue
@@ -280,6 +310,23 @@ class GossipSyncManager(
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
             if (!mightContain(idBytes)) {
                 delegate?.sendPacketToPeer(fromPeerID, pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS))
+            }
+        }
+    }
+
+    private fun shouldRespondTo(peerID: String): Boolean {
+        val now = System.currentTimeMillis()
+        if (responseTimesByPeer.size >= 256 && !responseTimesByPeer.containsKey(peerID)) return false
+        val times = responseTimesByPeer.computeIfAbsent(peerID) { ArrayDeque() }
+        return synchronized(times) {
+            while (times.isNotEmpty() && now - times.first() >= 30_000L) {
+                times.removeFirst()
+            }
+            if (times.size >= 8) {
+                false
+            } else {
+                times.addLast(now)
+                true
             }
         }
     }
@@ -312,6 +359,7 @@ class GossipSyncManager(
     internal fun buildGcsPayload(types: SyncTypeFlags): ByteArray {
         // Collect only the packet types represented by this filter.
         val list = ArrayList<BitchatPacket>()
+        if (types.contains(MessageType.BOARD_POST)) list.addAll(boardPacketsProvider?.invoke().orEmpty().take(200))
         if (types.contains(MessageType.GROUP_MESSAGE)) {
             synchronized(groupMessages) { list.addAll(groupMessages.values) }
         }

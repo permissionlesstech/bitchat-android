@@ -81,6 +81,8 @@ composeCompiler {
 // onboarding, nostr (except pure-Kotlin Bech32), net, geohash, wifi-aware, hotspot, voice
 // features, and the phone's foreground service.
 val sharedSourceIncludes = listOf(
+    "com/bitchat/android/board/BoardPackets.kt",
+    "com/bitchat/android/board/BoardStore.kt",
     "com/bitchat/android/protocol/**",
     "com/bitchat/android/noise/**",
     "com/bitchat/android/crypto/**",

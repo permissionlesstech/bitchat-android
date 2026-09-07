@@ -21,6 +21,7 @@ enum class MessageType(val value: UByte) {
     REQUEST_SYNC(0x21u), // GCS-based sync request
     FILE_TRANSFER(0x22u), // New: File transfer packet (BLE voice notes, etc.)
     VOICE_FRAME(0x29u), // Ephemeral live push-to-talk frame; never added to gossip sync
+    BOARD_POST(0x23u),
     GROUP_MESSAGE(0x25u); // Opaque private-group ciphertext broadcast
 
     companion object {

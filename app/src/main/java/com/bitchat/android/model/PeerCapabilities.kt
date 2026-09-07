@@ -47,7 +47,7 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         val NON_DESTRUCTIVE_NOISE_REPLACEMENT = PeerCapabilities(1L shl 10)
 
         /** Capabilities implemented by this Android build. */
-        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or GROUPS.rawValue)
+        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or GROUPS.rawValue or BOARD.rawValue)
 
         /**
          * Decode the low 64 bits and ignore any future extension bytes, which

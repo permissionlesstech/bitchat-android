@@ -398,4 +398,21 @@
     <string name="about_app_language">Język aplikacji</string>
     <string name="about_system_default">Domyślny systemu</string>
     <string name="about_select_language">Wybierz język</string>
+  <string name="cd_notices">ogłoszenia</string>
+  <string name="notices_title">ogłoszenia</string>
+  <string name="notices_tab_geo_count">geo · %1$d</string>
+  <string name="notices_tab_mesh_count">mesh · %1$d</string>
+  <string name="notices_description_mesh">przypinaj krótkie ogłoszenia dla ludzi w pobliżu. przeskakują z telefonu na telefon, nawet offline, i same znikają po kilku dniach.</string>
+  <string name="notices_permanent">na stałe</string>
+  <string name="notices_fades">zniknie %1$s</string>
+  <string name="notices_source_mesh">mesh</string>
+  <string name="notices_source_network">sieć</string>
+  <string name="notices_location_unavailable">lokalizacja niedostępna</string>
+  <string name="notices_enable_location">włącz lokalizację</string>
+  <string name="notices_alert_urgent_single">📌 pilne ogłoszenie od @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed">📌 %1$d nowych pilnych ogłoszeń — dotknij pinezki, aby zobaczyć</string>
+  <string name="cd_open_about">Otwórz informacje</string>
+  <string name="nearby_notes_reveal">sprawdź, czy zostawiono tutaj notatki</string>
+  <string name="nearby_notes_one">1 notatka zostawiona tutaj — stuknij, aby przeczytać</string>
+  <string name="nearby_notes_many">%d notatek zostawionych tutaj — stuknij, aby przeczytać</string>
 </resources>

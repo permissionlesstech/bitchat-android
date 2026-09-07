@@ -1426,6 +1426,12 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendFileBroadcast(file)
     }
 
+    override fun sendBoardPayload(payload: ByteArray) {
+        meshCore.sendBoardPayload(payload)
+    }
+
+
+
     /**
      * Sends a file privately to a specific peer. If no Noise session is established,
      * a handshake will be initiated and the send is deferred/aborted for now.

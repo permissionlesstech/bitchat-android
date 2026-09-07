@@ -210,6 +210,7 @@ data class NostrEvent(
 object NostrKind {
     const val METADATA = 0
     const val TEXT_NOTE = 1
+    const val DELETION = 5
     const val DIRECT_MESSAGE = 14     // NIP-17 direct message (unsigned)
     const val FILE_MESSAGE = 15       // NIP-17 file message (unsigned)
     const val SEAL = 13              // NIP-17 sealed event

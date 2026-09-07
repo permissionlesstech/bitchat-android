@@ -25,6 +25,7 @@ interface MeshService {
     fun sendFileBroadcast(file: BitchatFilePacket)
     fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket)
     fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray)
+    fun sendBoardPayload(payload: ByteArray) {}
     fun prepareFilePrivate(
         recipientPeerID: String,
         file: BitchatFilePacket,

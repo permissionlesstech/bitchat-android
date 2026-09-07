@@ -1,0 +1,206 @@
+package com.bitchat.android.sync
+
+import com.bitchat.android.model.IdentityAnnouncement
+import com.bitchat.android.model.PeerCapabilities
+import com.bitchat.android.model.RequestSyncPacket
+import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.protocol.MessageType
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
+class BoardSyncTest {
+    @Test
+    fun `board flag widens to second little-endian byte`() {
+        assertArrayEquals(byteArrayOf(0, 1), SyncTypeFlags.BOARD.encode())
+        val decoded = SyncTypeFlags.decode(byteArrayOf(0, 1))!!
+        assertTrue(decoded.contains(MessageType.BOARD_POST))
+        assertFalse(decoded.contains(MessageType.MESSAGE))
+    }
+
+    @Test
+    fun `legacy one-byte flags and unknown bits remain compatible`() {
+        val legacy = SyncTypeFlags.decode(byteArrayOf(0x03))!!
+        assertTrue(legacy.contains(MessageType.ANNOUNCE))
+        assertTrue(legacy.contains(MessageType.MESSAGE))
+        assertFalse(legacy.contains(MessageType.BOARD_POST))
+
+        val unknownOnly = SyncTypeFlags.decode(byteArrayOf(0, 0, 0x40))!!
+        assertNull(unknownOnly.encode())
+    }
+
+    @Test
+    fun `request sync round trips board types and cursor`() {
+        val request = RequestSyncPacket(
+            p = 7,
+            m = 1234,
+            data = byteArrayOf(1, 2, 3),
+            types = SyncTypeFlags.BOARD,
+            sinceTimestamp = 1_700_000_000_000uL
+        )
+
+        val decoded = RequestSyncPacket.decode(request.encode())!!
+
+        assertEquals(7, decoded.p)
+        assertEquals(1234, decoded.m)
+        assertArrayEquals(byteArrayOf(1, 2, 3), decoded.data)
+        assertTrue(decoded.types!!.contains(MessageType.BOARD_POST))
+        assertEquals(1_700_000_000_000uL, decoded.sinceTimestamp)
+    }
+
+    @Test
+    fun `legacy request without type field defaults at handler not decoder`() {
+        val request = RequestSyncPacket(p = 7, m = 1, data = ByteArray(0))
+        val decoded = RequestSyncPacket.decode(request.encode())!!
+
+        assertNull(decoded.types)
+        assertNull(decoded.sinceTimestamp)
+    }
+
+    @Test
+    fun `board round is served only from provider`() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val manager = GossipSyncManager(
+            myPeerID = "0102030405060708",
+            scope = scope,
+            configProvider = config()
+        )
+        val boardPacket = packet(MessageType.BOARD_POST, timestamp = 200uL)
+        val messagePacket = packet(MessageType.MESSAGE, timestamp = 300uL)
+        manager.boardPacketsProvider = { listOf(boardPacket) }
+        manager.onPublicPacketSeen(messagePacket)
+        val sent = mutableListOf<BitchatPacket>()
+        manager.delegate = object : GossipSyncManager.Delegate {
+            override fun sendPacket(packet: BitchatPacket) = Unit
+            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
+                sent += packet
+            }
+            override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket = packet
+        }
+
+        manager.handleRequestSync(
+            fromPeerID = "1111111111111111",
+            request = RequestSyncPacket(
+                p = 7,
+                m = 1,
+                data = ByteArray(0),
+                types = SyncTypeFlags.BOARD
+            )
+        )
+
+        assertEquals(listOf(MessageType.BOARD_POST.value), sent.map { it.type })
+        assertEquals(0u.toUByte(), sent.single().ttl)
+        scope.cancel()
+    }
+
+    @Test
+    fun `initial sync omits board for a legacy peer`() {
+        val requestedTypes = initialSyncTypes(
+            announcementCapabilities = null,
+            observeBoardRequest = false
+        )
+
+        assertTrue(requestedTypes.contains(MessageType.ANNOUNCE))
+        assertTrue(requestedTypes.contains(MessageType.MESSAGE))
+        assertFalse(requestedTypes.contains(MessageType.BOARD_POST))
+    }
+
+    @Test
+    fun `initial sync includes board for an advertising peer`() {
+        val requestedTypes = initialSyncTypes(
+            announcementCapabilities = PeerCapabilities.BOARD,
+            observeBoardRequest = false
+        )
+
+        assertTrue(requestedTypes.contains(MessageType.BOARD_POST))
+    }
+
+    @Test
+    fun `a board request opts current iOS peers into future board sync`() {
+        val requestedTypes = initialSyncTypes(
+            announcementCapabilities = null,
+            observeBoardRequest = true
+        )
+
+        assertTrue(requestedTypes.contains(MessageType.BOARD_POST))
+    }
+
+    private fun config() = object : GossipSyncManager.ConfigProvider {
+        override fun seenCapacity(): Int = 500
+        override fun gcsMaxBytes(): Int = 400
+        override fun gcsTargetFpr(): Double = 0.01
+    }
+
+    private fun packet(type: MessageType, timestamp: ULong) = BitchatPacket(
+        type = type.value,
+        senderID = ByteArray(8) { 1 },
+        timestamp = timestamp,
+        payload = byteArrayOf(1, 2, 3),
+        ttl = 7u
+    )
+
+    private fun initialSyncTypes(
+        announcementCapabilities: PeerCapabilities?,
+        observeBoardRequest: Boolean
+    ): SyncTypeFlags {
+        val peerID = "1111111111111111"
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val manager = GossipSyncManager(
+            myPeerID = "0102030405060708",
+            scope = scope,
+            configProvider = config()
+        )
+        manager.boardPacketsProvider = { emptyList() }
+        manager.onPublicPacketSeen(
+            BitchatPacket(
+                type = MessageType.ANNOUNCE.value,
+                senderID = ByteArray(8) { 0x11 },
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = IdentityAnnouncement(
+                    nickname = "peer",
+                    noisePublicKey = ByteArray(32) { 1 },
+                    signingPublicKey = ByteArray(32) { 2 },
+                    capabilities = announcementCapabilities
+                ).encode()!!,
+                ttl = 7u
+            )
+        )
+        if (observeBoardRequest) {
+            manager.handleRequestSync(
+                fromPeerID = peerID,
+                request = RequestSyncPacket(
+                    p = 7,
+                    m = 1,
+                    data = ByteArray(0),
+                    types = SyncTypeFlags.BOARD
+                )
+            )
+        }
+
+        val latch = CountDownLatch(1)
+        var sent: BitchatPacket? = null
+        manager.delegate = object : GossipSyncManager.Delegate {
+            override fun sendPacket(packet: BitchatPacket) = Unit
+            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
+                sent = packet
+                latch.countDown()
+            }
+            override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket = packet
+        }
+        manager.scheduleInitialSyncToPeer(peerID, delayMs = 0)
+
+        assertTrue("initial sync was not sent", latch.await(2, TimeUnit.SECONDS))
+        val types = RequestSyncPacket.decode(requireNotNull(sent).payload)?.types
+        scope.cancel()
+        return requireNotNull(types)
+    }
+}
