@@ -6,7 +6,7 @@ import com.bitchat.android.protocol.MessageType
 @JvmInline
 value class SyncTypeFlags private constructor(val rawValue: ULong) {
     companion object {
-        private const val KNOWN_TYPE_MASK: ULong = 0x5ffu
+        private const val KNOWN_TYPE_MASK: ULong = 0x7ffu
 
         val BOARD = fromMessageTypes(MessageType.BOARD_POST)
         val GROUP_MESSAGE = fromMessageTypes(MessageType.GROUP_MESSAGE)
@@ -48,7 +48,9 @@ value class SyncTypeFlags private constructor(val rawValue: ULong) {
             MessageType.REQUEST_SYNC -> 6
             MessageType.FILE_TRANSFER -> 7
             MessageType.BOARD_POST -> 8
+            MessageType.PREKEY_BUNDLE -> 9
             MessageType.GROUP_MESSAGE -> 10
+            MessageType.NOSTR_CARRIER,
             MessageType.COURIER_ENVELOPE,
             MessageType.VOICE_FRAME -> null
         }

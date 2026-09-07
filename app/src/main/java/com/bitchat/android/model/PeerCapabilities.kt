@@ -31,13 +31,11 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         private const val PRIVATE_MEDIA_BIT_INDEX = 8
         val NONE = PeerCapabilities(0)
 
-        val PREKEYS = PeerCapabilities(1L shl 0)
         val WIFI_BULK = PeerCapabilities(1L shl 1)
         val GATEWAY = PeerCapabilities(1L shl 2)
         val GROUPS = PeerCapabilities(1L shl 3)
         val BOARD = PeerCapabilities(1L shl 4)
         val MESH_DIAGNOSTICS = PeerCapabilities(1L shl 6)
-        val BRIDGE = PeerCapabilities(1L shl 7)
 
         /** Noise-encrypted private BitchatFilePacket using payload type 0x20. */
         val PRIVATE_MEDIA = PeerCapabilities(1L shl PRIVATE_MEDIA_BIT_INDEX)
@@ -50,8 +48,28 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         /** Reserved by iOS; decode it but do not advertise or act on it. */
         val NON_DESTRUCTIVE_NOISE_REPLACEMENT = PeerCapabilities(1L shl 10)
 
+        /** Can bridge public mesh traffic through geohash rendezvous relays. */
+        val BRIDGE = PeerCapabilities(1L shl 7)
+
+        /** Publishes signed one-time prekeys for forward-secret courier mail. */
+        val PREKEYS = PeerCapabilities(1L shl 0)
+
         /** Capabilities implemented by this Android build. */
-        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or GROUPS.rawValue or BOARD.rawValue or VOUCH.rawValue)
+        @Deprecated("Use localSupported() so runtime bridge state is included")
+        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or PREKEYS.rawValue or GROUPS.rawValue or BOARD.rawValue or VOUCH.rawValue)
+
+        @Volatile
+        private var bridgeEnabled: Boolean = false
+
+        fun setBridgeEnabled(enabled: Boolean) {
+            bridgeEnabled = enabled
+        }
+
+        fun localSupported(): PeerCapabilities = PeerCapabilities(
+            LOCAL_SUPPORTED.rawValue or
+                PREKEYS.rawValue or
+                if (bridgeEnabled) BRIDGE.rawValue else 0L
+        )
 
         /**
          * Decode the low 64 bits and ignore any future extension bytes, which

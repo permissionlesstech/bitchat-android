@@ -696,6 +696,10 @@ class SecureIdentityStateManager {
     /**
      * Store a string value in secure preferences
      */
+    /** Persist keys and consumption state before making their use observable. */
+    fun storeSecureValueSynchronously(key: String, value: String): Boolean =
+        prefs.edit().putString(key, value).commit()
+
     fun storeSecureValue(key: String, value: String) {
         prefs.edit().putString(key, value).apply()
     }

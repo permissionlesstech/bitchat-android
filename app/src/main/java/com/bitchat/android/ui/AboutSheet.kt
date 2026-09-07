@@ -303,11 +303,13 @@ private fun SettingsToggleRow(
 fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
-    onShowDebug: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    bridgeEnabled: Boolean,
+    onBridgeEnabledChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    onShowDebug: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    
+
     // Get version name from package info
     val versionName = remember {
         try {
@@ -542,6 +544,19 @@ fun AboutSheet(
                                                 com.bitchat.android.service.MeshForegroundService.start(context)
                                             }
                                         }
+                                    )
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp),
+                                        color = colorScheme.outline.copy(alpha = 0.12f)
+                                    )
+
+                                    SettingsToggleRow(
+                                        icon = Icons.Filled.Public,
+                                        title = stringResource(R.string.mesh_bridge_title),
+                                        subtitle = stringResource(R.string.mesh_bridge_description),
+                                        checked = bridgeEnabled,
+                                        onCheckedChange = onBridgeEnabledChange
                                     )
 
                                     HorizontalDivider(
@@ -1303,7 +1318,7 @@ fun PasswordPromptDialog(
 ) {
     if (show && channelName != null) {
         val colorScheme = MaterialTheme.colorScheme
-        
+
         AlertDialog(
             onDismissRequest = onDismiss,
             title = {
@@ -1321,7 +1336,7 @@ fun PasswordPromptDialog(
                         color = colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     OutlinedTextField(
                         value = passwordInput,
                         onValueChange = onPasswordChange,

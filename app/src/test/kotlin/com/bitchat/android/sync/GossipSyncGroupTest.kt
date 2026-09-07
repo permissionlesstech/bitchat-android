@@ -71,7 +71,7 @@ class GossipSyncGroupTest {
         type = type.value,
         senderID = ByteArray(8) { 0x11 },
         recipientID = SpecialRecipients.BROADCAST,
-        timestamp = 1u,
+        timestamp = System.currentTimeMillis().toULong(),
         payload = payload,
         ttl = 1u
     )

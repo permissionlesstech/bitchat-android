@@ -65,6 +65,12 @@ object NostrProtocol {
         Log.v(TAG, "Starting decryption of gift wrap: ${giftWrap.id.take(16)}...")
         
         return try {
+            val recipientTags = listOf(listOf("p", recipientIdentity.publicKeyHex))
+            if (giftWrap.content.toByteArray(Charsets.UTF_8).size > 64 * 1024 ||
+                giftWrap.kind != NostrKind.GIFT_WRAP || giftWrap.tags != recipientTags ||
+                !NostrTimestampPolicy.isAcceptableGiftWrapTimestamp(giftWrap.createdAt) ||
+                !giftWrap.isValidSignature()
+            ) return null
             // 1. Unwrap the gift wrap
             val seal = unwrapGiftWrap(giftWrap, recipientIdentity.privateKeyHex)
                 ?: run {
@@ -74,7 +80,7 @@ object NostrProtocol {
             
             Log.v(TAG, "Successfully unwrapped gift wrap from: ${seal.pubkey.take(16)}...")
 
-            if (seal.kind != NostrKind.SEAL || !seal.isValidSignature()) {
+            if (seal.kind != NostrKind.SEAL || seal.tags.isNotEmpty() || !seal.isValidSignature()) {
                 Log.w(TAG, "❌ Invalid NIP-17 seal signature")
                 return null
             }
@@ -86,7 +92,10 @@ object NostrProtocol {
                     return null
                 }
 
-            if (seal.pubkey != rumor.pubkey) {
+            if (seal.pubkey != rumor.pubkey || rumor.kind != NostrKind.DIRECT_MESSAGE ||
+                (rumor.tags.isNotEmpty() && rumor.tags != recipientTags) || rumor.sig != null ||
+                !NostrTimestampPolicy.isPlausibleRumorTimestamp(rumor.createdAt)
+            ) {
                 Log.w(TAG, "❌ NIP-17 seal pubkey does not match rumor pubkey")
                 return null
             }
@@ -235,6 +244,73 @@ object NostrProtocol {
         
         return@withContext senderIdentity.signEvent(event)
     }
+
+    /** iOS-compatible public mesh event on a bridge rendezvous cell. */
+    fun createBridgeMeshEvent(
+        content: String,
+        cell: String,
+        senderIdentity: NostrIdentity,
+        nickname: String? = null,
+        meshSenderId: String? = null,
+        meshTimestampMs: Long? = null
+    ): NostrEvent {
+        val tags = mutableListOf<List<String>>(listOf("r", cell))
+        nickname?.trim()?.takeIf { it.isNotEmpty() }?.let { tags += listOf("n", it) }
+        val sender = meshSenderId?.trim()?.takeIf { it.isNotEmpty() }
+        if (sender != null && meshTimestampMs != null) {
+            tags += listOf(
+                "m",
+                MeshMessageIdentity.stableId(sender, meshTimestampMs, content),
+                sender,
+                meshTimestampMs.toString()
+            )
+        }
+        return senderIdentity.signEvent(
+            NostrEvent(
+                pubkey = senderIdentity.publicKeyHex,
+                createdAt = (System.currentTimeMillis() / 1000).toInt(),
+                kind = NostrKind.EPHEMERAL_EVENT,
+                tags = tags,
+                content = content
+            )
+        )
+    }
+
+    /** Empty bridge-presence heartbeat, deliberately separate from `#g` chat. */
+    fun createBridgePresenceEvent(
+        cell: String,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = senderIdentity.signEvent(
+        NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = NostrKind.GEOHASH_PRESENCE,
+            tags = listOf(listOf("r", cell)),
+            content = ""
+        )
+    )
+
+    /**
+     * Opaque relay drop. Callers use a throwaway identity so deposits cannot
+     * be linked by their Nostr publisher key.
+     */
+    fun createCourierDropEvent(
+        envelope: ByteArray,
+        recipientTagHex: String,
+        expiresAtMs: Long,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = senderIdentity.signEvent(
+        NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = NostrKind.COURIER_DROP,
+            tags = listOf(
+                listOf("x", recipientTagHex),
+                listOf("expiration", (expiresAtMs / 1000).toString())
+            ),
+            content = android.util.Base64.encodeToString(envelope, android.util.Base64.NO_WRAP)
+        )
+    )
     
     // MARK: - Private Methods
     

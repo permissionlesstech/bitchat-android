@@ -22,7 +22,9 @@ enum class MessageType(val value: UByte) {
     FILE_TRANSFER(0x22u), // New: File transfer packet (BLE voice notes, etc.)
     VOICE_FRAME(0x29u), // Ephemeral live push-to-talk frame; never added to gossip sync
     BOARD_POST(0x23u),
-    GROUP_MESSAGE(0x25u); // Opaque private-group ciphertext broadcast
+    GROUP_MESSAGE(0x25u), // Opaque private-group ciphertext broadcast
+    PREKEY_BUNDLE(0x24u), // Signed batch of one-time courier prekeys
+    NOSTR_CARRIER(0x28u); // Signed bridge/gateway event carrier
 
     companion object {
         fun fromValue(value: UByte): MessageType? {

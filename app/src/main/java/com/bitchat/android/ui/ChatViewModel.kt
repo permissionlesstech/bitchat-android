@@ -40,6 +40,8 @@ import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
+import com.bitchat.android.services.bridge.BridgeUiState
+import com.bitchat.android.services.bridge.MeshBridgeService
 import com.bitchat.android.features.voice.LiveVoicePreferences
 import com.bitchat.android.features.voice.LiveVoiceTarget
 import com.bitchat.android.features.voice.VoiceRecorder
@@ -616,6 +618,21 @@ class ChatViewModel(
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
     val teleportedGeo: StateFlow<Set<String>> = state.teleportedGeo
     val geohashParticipantCounts: StateFlow<Map<String, Int>> = state.geohashParticipantCounts
+    val bridgeUiState: StateFlow<BridgeUiState> = combine(
+        MeshBridgeService.isEnabled,
+        MeshBridgeService.nearbyOnly,
+        MeshBridgeService.bridgedParticipants
+    ) { enabled, nearbyOnly, participants ->
+        BridgeUiState(enabled, nearbyOnly, participants)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = BridgeUiState(
+            enabled = MeshBridgeService.isEnabled.value,
+            nearbyOnly = MeshBridgeService.nearbyOnly.value,
+            participants = MeshBridgeService.bridgedParticipants.value
+        )
+    )
     val meshServiceFacade: MeshService
         get() = mesh
     val myPeerID: String
@@ -1566,6 +1583,14 @@ class ChatViewModel(
         state.setShowMeshPeerList(true)
     }
 
+    fun setBridgeEnabled(enabled: Boolean) {
+        MeshBridgeService.setEnabled(enabled)
+    }
+
+    fun setBridgeNearbyOnly(enabled: Boolean) {
+        MeshBridgeService.setNearbyOnly(enabled)
+    }
+
     fun hideMeshPeerList() {
         state.setShowMeshPeerList(false)
     }
@@ -1718,6 +1743,7 @@ class ChatViewModel(
         // A pending one-shot downgrade confirmation must not survive panic or
         // become actionable against the fresh post-wipe identity.
         mediaSendingManager.clearPendingPrivateMediaConsent()
+        MeshBridgeService.wipe()
 
         // Stop all message admission before wiping storage. The AppStateStore gate also rejects
         // any transport callback already in flight until the fresh identity is ready.
@@ -1763,7 +1789,7 @@ class ChatViewModel(
 
             try {
                 val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-                locationManager.clearPersistedChannel()
+                locationManager.panicReset()
             } catch (_: Exception) { }
 
             geohashViewModel.panicReset()

@@ -43,6 +43,9 @@ internal interface BridgeCourierCipher {
     fun staticPublicKey(): ByteArray?
 
     fun seal(payload: ByteArray, recipientNoiseKey: ByteArray): ByteArray
+
+    fun sealWithPrekey(payload: ByteArray, recipientNoiseKey: ByteArray): Pair<ByteArray, UInt?> =
+        seal(payload, recipientNoiseKey) to null
 }
 
 private class NostrBridgeCourierRelay(
@@ -77,12 +80,20 @@ private class NostrBridgeCourierRelay(
 }
 
 private class EncryptionBridgeCourierCipher(
-    private val encryptionService: EncryptionService
+    private val encryptionService: EncryptionService,
+    private val prekeys: com.bitchat.android.services.bridge.PrekeyManager
 ) : BridgeCourierCipher {
     override fun staticPublicKey(): ByteArray? = encryptionService.getStaticPublicKey()
 
     override fun seal(payload: ByteArray, recipientNoiseKey: ByteArray): ByteArray =
         encryptionService.sealCourierPayload(payload, recipientNoiseKey)
+
+    override fun sealWithPrekey(payload: ByteArray, recipientNoiseKey: ByteArray): Pair<ByteArray, UInt?> {
+        val id = java.security.MessageDigest.getInstance("SHA-256").digest(payload)
+            .joinToString("") { "%02x".format(it) }
+        val sealed = prekeys.seal(payload, id, recipientNoiseKey, recipientAdvertisesPrekeys = true)
+        return sealed.ciphertext to sealed.prekeyId?.toUInt()
+    }
 }
 
 /** Parks opaque courier envelopes on default Nostr relays using the iOS kind-1401 contract. */
@@ -92,18 +103,20 @@ class BridgeCourierService internal constructor(
     private val relayManager: BridgeCourierRelay,
     private val relayUrls: List<String> = NostrRelayManager.defaultRelays(),
     private val clock: () -> Long = System::currentTimeMillis,
-    private val identityFactory: () -> NostrIdentity = NostrIdentity::generate
+    private val identityFactory: () -> NostrIdentity = NostrIdentity::generate,
+    private val enabled: () -> Boolean = { true }
 ) {
     constructor(
         context: Context,
         encryptionService: EncryptionService,
         onEnvelope: (CourierEnvelope) -> Unit
     ) : this(
-        cipher = EncryptionBridgeCourierCipher(encryptionService),
+        cipher = EncryptionBridgeCourierCipher(encryptionService, com.bitchat.android.services.bridge.PrekeyManager.getInstance(context)),
         onEnvelope = onEnvelope,
         relayManager = NostrBridgeCourierRelay(
             NostrRelayManager.getInstance(context.applicationContext)
-        )
+        ),
+        enabled = { com.bitchat.android.services.bridge.MeshBridgeService.isEnabled.value }
     )
 
     companion object {
@@ -125,6 +138,7 @@ class BridgeCourierService internal constructor(
 
     @Synchronized
     fun start() {
+        if (!enabled()) return
         val localKey = cipher.staticPublicKey() ?: ByteArray(0)
         if (localKey.size == 32) {
             val now = clock()
@@ -177,14 +191,16 @@ class BridgeCourierService internal constructor(
         recipientNoiseKey: ByteArray,
         onAccepted: () -> Unit = {}
     ): Boolean {
+        if (!enabled()) return false
         start()
         if (!relayManager.hasConnectedRelay(relayUrls)) return false
-        val sealed = try { cipher.seal(typedPayload, recipientNoiseKey) } catch (_: Exception) { return false }
+        val sealed = try { cipher.sealWithPrekey(typedPayload, recipientNoiseKey) } catch (_: Exception) { return false }
         val now = clock()
         val envelope = CourierEnvelope(
             recipientTag = CourierEnvelope.recipientTag(recipientNoiseKey, CourierEnvelope.epochDay(now)),
             expiry = (now + CourierEnvelope.MAX_LIFETIME_MS).toULong(),
-            ciphertext = sealed,
+            ciphertext = sealed.first,
+            prekeyID = sealed.second,
             copies = 1u
         )
         val encoded = envelope.encode() ?: return false
@@ -202,6 +218,7 @@ class BridgeCourierService internal constructor(
                 content = Base64.encodeToString(encoded, Base64.NO_WRAP)
             )
         )
+        if (!enabled()) return false
         return relayManager.sendEvent(event, relayUrls, onAccepted)
     }
 
@@ -214,6 +231,7 @@ class BridgeCourierService internal constructor(
     }
 
     private fun handleEvent(event: NostrEvent) {
+        if (!enabled()) return
         if (event.kind != KIND || !event.isValidSignature()) return
         synchronized(seenEvents) { if (seenEvents.put(event.id, Unit) != null) return }
         if (event.content.length > ((MAX_ENCODED_BYTES + 2) / 3) * 4) return

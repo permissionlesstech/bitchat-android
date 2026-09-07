@@ -564,6 +564,7 @@ fun NicknameEditor(
 @Composable
 fun PeerCounter(
     connectedPeers: List<String>,
+    bridgedPeopleCount: Int = 0,
     joinedChannels: Set<String>,
     hasUnreadChannels: Map<String, Int>,
     isConnected: Boolean,
@@ -586,8 +587,8 @@ fun PeerCounter(
         is com.bitchat.android.geohash.ChannelID.Mesh,
         null -> {
             // Mesh channel: show Bluetooth-connected peers (excluding self)
-            val count = connectedPeers.size
-            Pair(count, if (isConnected && count > 0) colorScheme.secondary else palette.textTertiary)
+            val count = connectedPeers.size + bridgedPeopleCount
+            Pair(count, if ((isConnected || bridgedPeopleCount > 0) && count > 0) colorScheme.secondary else palette.textTertiary)
         }
     }
 
@@ -727,6 +728,7 @@ private fun MainHeader(
     val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val crowdingMode = headerCrowdingMode(maxWidth)
@@ -809,6 +811,7 @@ private fun MainHeader(
 
                 PeerCounter(
                     connectedPeers = connectedPeers.filter { it != viewModel.myPeerID },
+                    bridgedPeopleCount = bridgeUiState.participants.size,
                     joinedChannels = joinedChannels,
                     hasUnreadChannels = hasUnreadChannels,
                     isConnected = isConnected,

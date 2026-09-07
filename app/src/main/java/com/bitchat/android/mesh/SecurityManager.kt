@@ -271,7 +271,8 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                     MessageType.COURIER_ENVELOPE,
                     MessageType.VOICE_FRAME,
                     MessageType.LEAVE,
-                    MessageType.REQUEST_SYNC
+                    MessageType.REQUEST_SYNC,
+                    MessageType.NOSTR_CARRIER
                 )) {
                 return true
             }

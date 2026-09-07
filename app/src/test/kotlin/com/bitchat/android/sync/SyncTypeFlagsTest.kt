@@ -22,7 +22,7 @@ class SyncTypeFlagsTest {
 
     @Test
     fun `unknown extended bits are normalized away`() {
-        val decoded = SyncTypeFlags.decode(byteArrayOf(0x03, 0xfc.toByte()))!!
+        val decoded = SyncTypeFlags.decode(byteArrayOf(0x03, 0xf8.toByte()))!!
 
         assertEquals(SyncTypeFlags.PUBLIC_MESSAGES, decoded)
         assertArrayEquals(byteArrayOf(0x03), decoded.encode())

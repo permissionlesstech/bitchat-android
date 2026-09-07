@@ -188,12 +188,21 @@ object AppStateStore {
 
     fun addPublicMessage(msg: BitchatMessage) {
         synchronized(this) {
+            if (!msg.isBridged) {
+                _publicMessages.value = _publicMessages.value.filterNot {
+                    it.isBridged && it.bridgeRadioMessageIdHint == msg.id
+                }
+            }
             val publicKey = publicMessageKey(msg)
             if (seenMessageIds.contains(msg.id) || seenPublicMessageKeys.contains(publicKey)) return
             seenMessageIds.add(msg.id)
             seenPublicMessageKeys.add(publicKey)
             _publicMessages.value = _publicMessages.value + msg
         }
+    }
+
+    fun hasRadioPublicMessage(messageId: String): Boolean = synchronized(this) {
+        _publicMessages.value.any { !it.isBridged && it.id == messageId }
     }
 
     /** Replace a live media row by ID, or append it if the row was not admitted yet. */

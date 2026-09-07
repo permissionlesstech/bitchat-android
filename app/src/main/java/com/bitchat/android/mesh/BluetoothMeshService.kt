@@ -9,7 +9,6 @@ import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.RoutedPacket
-import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.protocol.BitchatPacket
@@ -21,6 +20,7 @@ import com.bitchat.android.util.toHexString
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.services.bridge.BridgeProtocolPacketFactory
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import java.util.*
@@ -74,7 +74,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             store = authenticatedPeerStateStore,
             localStateProvider = {
                 AuthenticatedPeerState(
-                    PeerCapabilities.LOCAL_SUPPORTED,
+                    PeerCapabilities.localSupported(),
                     requireNotNull(encryptionService.getSigningPublicKey())
                 )
             },
@@ -203,7 +203,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (isBleTransportEnabled()) {
             TransportBridgeService.register("BLE", this)
         }
-        bridgeCourierService.start()
+        serviceScope.launch {
+            com.bitchat.android.services.bridge.MeshBridgeService.isEnabled.collect { enabled ->
+                if (enabled) bridgeCourierService.start() else bridgeCourierService.stop()
+            }
+        }
         
         // Inject dynamic direct connection check into PeerManager
         // Matches iOS logic: checks if we have an active hardware mapping for this peer
@@ -433,7 +437,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun getBroadcastRecipient(): ByteArray {
                 return SpecialRecipients.BROADCAST
             }
-            
+
             // Cryptographic operations
             override fun verifySignature(packet: BitchatPacket, peerID: String): Boolean {
                 return securityManager.verifySignature(packet, peerID)
@@ -629,6 +633,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun getBroadcastRecipient(): ByteArray {
                 return SpecialRecipients.BROADCAST
             }
+
+            override fun isPeerDirectlyConnected(peerID: String): Boolean =
+                peerManager.getPeerInfo(peerID)?.isDirectConnection == true
             
             override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
@@ -936,6 +943,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      */
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
+        val bridgePolicyAtSend = BridgeMeshPort.outboundPolicy()
         
         serviceScope.launch {
             val packet = BitchatPacket(
@@ -954,6 +962,57 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             broadcastRoutedPacket(RoutedPacket(signedPacket))
             // Track our own broadcast message for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+            if (channel == null) {
+                val nickname = runCatching {
+                    com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID)
+                }.getOrNull()
+                BridgeMeshPort.bridgeOutgoing(
+                    content,
+                    myPeerID,
+                    packet.timestamp.toLong(),
+                    nickname,
+                    bridgePolicyAtSend
+                )
+            }
+        }
+    }
+
+    fun sendNostrCarrier(payload: ByteArray, recipientPeerID: String?) {
+        sendRawProtocolPacket(MessageType.NOSTR_CARRIER, payload, recipientPeerID, sign = true)
+    }
+
+    fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String) {
+        sendRawProtocolPacket(MessageType.COURIER_ENVELOPE, payload, recipientPeerID, sign = true)
+    }
+
+    fun sendPrekeyBundle(payload: ByteArray) {
+        sendRawProtocolPacket(MessageType.PREKEY_BUNDLE, payload, null, sign = true)
+    }
+
+    private fun sendRawProtocolPacket(
+        type: MessageType,
+        payload: ByteArray,
+        recipientPeerID: String?,
+        sign: Boolean
+    ) {
+        if (payload.isEmpty()) return
+        serviceScope.launch {
+            val packet = BridgeProtocolPacketFactory.protocolPacket(
+                type = type,
+                payload = payload,
+                senderPeerId = myPeerID,
+                recipientPeerId = recipientPeerID,
+                ttl = MAX_TTL
+            ) ?: return@launch
+            val outgoing = if (sign) signPacketBeforeBroadcast(packet) else packet
+            if (sign &&
+                type != MessageType.COURIER_ENVELOPE &&
+                outgoing.signature?.size != 64
+            ) {
+                return@launch
+            }
+            gossipSyncManager.onPublicPacketSeen(outgoing)
+            broadcastRoutedPacket(RoutedPacket(outgoing))
         }
     }
 
@@ -1418,7 +1477,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             // Create iOS-compatible IdentityAnnouncement with TLV encoding
-            val announcement = IdentityAnnouncement.forLocalPeer(nickname, staticKey, signingKey)
+            val announcement = BridgeProtocolPacketFactory.identityAnnouncement(
+                nickname,
+                staticKey,
+                signingKey
+            )
             var tlvPayload = announcement.encode()
             if (tlvPayload == null) {
                 Log.e(TAG, "Failed to encode announcement as TLV")
@@ -1480,7 +1543,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         }
         
         // Create iOS-compatible IdentityAnnouncement with TLV encoding
-        val announcement = IdentityAnnouncement.forLocalPeer(nickname, staticKey, signingKey)
+        val announcement = BridgeProtocolPacketFactory.identityAnnouncement(
+            nickname,
+            staticKey,
+            signingKey
+        )
         var tlvPayload = announcement.encode()
         if (tlvPayload == null) {
             Log.e(TAG, "Failed to encode peer announcement as TLV")
@@ -1622,7 +1689,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE,
             privateMessage
         ).encode()
-        val sealed = try { encryptionService.sealCourierPayload(typedPayload, recipientNoiseKey) } catch (_: Exception) { return emptyList() }
+        val sealed = try { com.bitchat.android.services.bridge.PrekeyManager.getInstance(context).seal(typedPayload, messageID, recipientNoiseKey, true) } catch (_: Exception) { return emptyList() }
         val now = System.currentTimeMillis()
         val couriers = courierPeerIDs.distinct().take(4)
         if (couriers.isEmpty()) return emptyList()
@@ -1633,7 +1700,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     com.bitchat.android.model.CourierEnvelope.epochDay(now)
                 ),
                 expiry = (now + com.bitchat.android.model.CourierEnvelope.MAX_LIFETIME_MS).toULong(),
-                ciphertext = sealed,
+                ciphertext = sealed.ciphertext,
+                prekeyID = sealed.prekeyId?.toUInt(),
                 copies = 4u
             )
             val payload = envelope.encode() ?: return@filter false
@@ -1674,7 +1742,15 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (envelope.expiry.toLong() <= now) return false
         val localKey = encryptionService.getStaticPublicKey() ?: return false
         if (envelope.matchesRecipient(localKey, now)) {
-            val (senderKey, typedPayload) = try { encryptionService.openCourierPayload(envelope.ciphertext) } catch (_: Exception) { return false }
+            val opened = try {
+                com.bitchat.android.services.bridge.PrekeyManager.getInstance(context)
+                    .open(envelope.ciphertext, envelope.prekeyID?.toLong())
+            } catch (_: Exception) { return false }
+            val senderKey = opened.senderStaticKey
+            val typedPayload = opened.payload
+            if (opened.consumedPrekey) {
+                com.bitchat.android.services.bridge.MeshBridgeService.refreshPrekeys()
+            }
             val noisePayload = com.bitchat.android.model.NoisePayload.decode(typedPayload) ?: return false
             if (noisePayload.type !in setOf(
                     com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE,

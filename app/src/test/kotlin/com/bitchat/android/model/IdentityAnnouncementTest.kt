@@ -68,6 +68,18 @@ class IdentityAnnouncementTest {
     }
 
     @Test
+    fun `oversized bridge cell is omitted without dropping announcement`() {
+        val encoded = IdentityAnnouncement(
+            nickname,
+            noiseKey,
+            signingKey,
+            bridgeGeohash = "u".repeat(13)
+        ).encode()!!
+
+        assertNull(IdentityAnnouncement.decode(encoded)?.bridgeGeohash)
+    }
+
+    @Test
     fun `unknown capability bits and TLVs survive decode and re-encode`() {
         val legacy = IdentityAnnouncement(nickname, noiseKey, signingKey).encode()!!
         val wire = legacy + byteArrayOf(
@@ -92,12 +104,13 @@ class IdentityAnnouncementTest {
         val encoded = IdentityAnnouncement.forLocalPeer(nickname, noiseKey, signingKey).encode()!!
 
         assertArrayEquals(
-            byteArrayOf(0x05, 0x02, 0x38, 0x01),
+            byteArrayOf(0x05, 0x02, 0x39, 0x01),
             encoded.takeLast(4).toByteArray()
         )
         val capabilities = IdentityAnnouncement.decode(encoded)!!.capabilities!!
         assertTrue(capabilities.contains(PeerCapabilities.PRIVATE_MEDIA))
         assertTrue(capabilities.contains(PeerCapabilities.GROUPS))
         assertTrue(capabilities.contains(PeerCapabilities.VOUCH))
+        assertTrue(capabilities.contains(PeerCapabilities.PREKEYS))
     }
 }
