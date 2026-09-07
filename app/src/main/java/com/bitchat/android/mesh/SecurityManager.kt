@@ -239,29 +239,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         return encryptionService.getCombinedPublicKeyData()
     }
     
-    /**
-     * Generate message ID for duplicate detection
-     */
-    /**
-     * Identity used for replay and duplicate detection.
-     *
-     * This was a 32-bit `contentHashCode()` over at most the first 64 bytes of
-     * the payload. Two packets from the same peer in the same millisecond that
-     * agreed on that prefix collided, and a collision here is a *dropped
-     * message* — the second packet is discarded as a duplicate and there is no
-     * signal that it happened.
-     *
-     * `PacketIdUtil` is the identity the rest of the stack already uses for
-     * exactly this question (gossip sync membership, message IDs in
-     * `MessageHandler`), and iOS derives it the same way: the first 16 bytes of
-     * SHA-256 over type, senderID, timestamp and the **whole** payload. Using
-     * it here makes the security path agree with the sync path instead of
-     * carrying a weaker private notion of "same packet".
-     *
-     * Peer scoping is kept: `PacketIdUtil` covers the packet's own senderID,
-     * while this key is scoped by the peer the packet was received from, and
-     * those are not the same thing for a relayed packet.
-     */
+    /** Deduplicates by peer and a hash of packet type, sender, timestamp, and full payload. */
     private fun generateMessageID(packet: BitchatPacket, peerID: String): String {
         return "$peerID-${PacketIdUtil.computeIdHex(packet)}"
     }
