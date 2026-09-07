@@ -6,7 +6,9 @@ import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.services.meshgraph.MeshGraphService
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
@@ -45,6 +47,7 @@ class CommandProcessorTest {
 
   @Before
   fun setup() {
+    MeshGraphService.resetForTesting()
     commandProcessor = CommandProcessor(
       state = chatState,
       messageManager = messageManager,

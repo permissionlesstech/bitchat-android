@@ -73,6 +73,20 @@ class BitchatApplication : Application() {
         // Initialize mesh service preferences
         try { com.bitchat.android.service.MeshServicePreferences.init(this) } catch (_: Exception) { }
 
+        // Bridge policy is process-scoped so rendezvous and courier delivery
+        // continue while the activity is backgrounded.
+        try {
+            com.bitchat.android.services.bridge.MeshBridgeService.initialize(this)
+            com.bitchat.android.mesh.BridgeMeshPort.install(
+                com.bitchat.android.services.bridge.MeshBridgeService
+            )
+        } catch (_: Exception) { }
+
+        com.bitchat.android.services.bridge.MeshGatewayService.initialize(this)
+        com.bitchat.android.groups.GroupRuntime.getInstance(this)
+        com.bitchat.android.services.PrivateMediaOutbox.initialize(this)
+        com.bitchat.android.model.PeerCapabilities.setPhoneFeaturesEnabled(true)
+
         // Proactively start the foreground service to keep mesh alive
         try { com.bitchat.android.service.MeshForegroundService.start(this) } catch (_: Exception) { }
 

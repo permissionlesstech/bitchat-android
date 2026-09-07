@@ -92,6 +92,13 @@ object NostrBackgroundRuntime {
         )
     }
 
+    fun receiveGatewayEvent(event: NostrEvent, geohash: String) {
+        if (!initialized || activeGeohash != geohash) return
+        val selected = (locationChannels.selectedChannel.value as? ChannelID.Location)?.channel ?: return
+        if (selected.geohash != geohash || !locationChannels.canUseSelectedLocationChannel(selected)) return
+        eventProcessor.onGeohashMessage(event, geohash)
+    }
+
     private fun subscribeAccountDm() {
         val identity = NostrIdentityBridge.getCurrentNostrIdentity(application) ?: return
         subscriptions.subscribeGiftWraps(
@@ -147,7 +154,10 @@ object NostrBackgroundRuntime {
             sinceMs = System.currentTimeMillis() - 3_600_000L,
             limit = 200,
             id = "geohash-$geohash",
-            handler = { event -> eventProcessor.onGeohashMessage(event, geohash) },
+            handler = { event ->
+                eventProcessor.onGeohashMessage(event, geohash)
+                com.bitchat.android.services.bridge.MeshGatewayService.rebroadcastRelayEvent(event, geohash, liveLocationToken)
+            },
             liveLocationToken = liveLocationToken
         )
         subscribeGeohashDm(geohash, "geo-dm-$geohash", liveLocationToken)

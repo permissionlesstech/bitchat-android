@@ -23,6 +23,9 @@ sealed class DeliveryStatus : Parcelable {
     object Sending : DeliveryStatus()
 
     @Parcelize
+    object Queued : DeliveryStatus()
+
+    @Parcelize
     object Sent : DeliveryStatus()
 
     @Parcelize
@@ -40,6 +43,7 @@ sealed class DeliveryStatus : Parcelable {
     fun getDisplayText(): String {
         return when (this) {
             is Sending -> "Sending..."
+            is Queued -> "Queued"
             is Sent -> "Sent"
             is Delivered -> "Delivered to ${this.to}"
             is Read -> "Read by ${this.by}"
@@ -77,7 +81,15 @@ data class BitchatMessage(
      * surfaces color the sender by the same stable key while [senderPeerID] remains available for
      * mesh IDs and private-chat routing aliases.
      */
-    val senderNostrPubkey: String? = null
+    val senderNostrPubkey: String? = null,
+    /** Rendered from a signed bridge rendezvous event rather than local radio. */
+    val isBridged: Boolean = false,
+    /**
+     * Untrusted radio-coordinate hint from the bridge event. It may merge a
+     * duplicate when the authenticated radio copy arrives, but never owns the
+     * bridge row's primary ID.
+     */
+    val bridgeRadioMessageIdHint: String? = null
 ) : Parcelable {
 
     /**
@@ -362,4 +374,3 @@ data class BitchatMessage(
         return result
     }
 }
-

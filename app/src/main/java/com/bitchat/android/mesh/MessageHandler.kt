@@ -9,6 +9,7 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.sync.PacketIdUtil
+import com.bitchat.android.nostr.MeshMessageIdentity
 import com.bitchat.android.util.toHexString
 import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.LiveVoiceScope
@@ -118,7 +119,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         // Notify delegate
                         delegate?.onMessageReceived(message)
                         
-                        // Send delivery ACK exactly like iOS
+                        // An ACK means durable admission, including a previously deleted duplicate.
+                        if (!com.bitchat.android.services.AppStateStore.hasPrivateTextReceipt(message)) return false
                         sendDeliveryAck(privateMessage.messageID, peerID)
                     }
                 }
@@ -128,7 +130,19 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     val file = com.bitchat.android.model.BitchatFilePacket.decode(noisePayload.data)
                     if (file != null) {
                         Log.d(TAG, "Encrypted file from $peerID: ${file.fileSize} bytes")
-                        val uniqueMsgId = java.util.UUID.randomUUID().toString().uppercase()
+                        val stableID = com.bitchat.android.model.PrivateMediaMessageIdentity.stableID(peerID, myPeerID, file.fileName)
+                        if (stableID != null) {
+                            when (com.bitchat.android.services.AppStateStore.privateMediaReceiptState(stableID)) {
+                                com.bitchat.android.services.PrivateMediaReceiptState.ACCEPTED,
+                                com.bitchat.android.services.PrivateMediaReceiptState.TOMBSTONED -> {
+                                    sendDeliveryAck(stableID, peerID)
+                                    return true
+                                }
+                                com.bitchat.android.services.PrivateMediaReceiptState.UNAVAILABLE -> return false
+                                com.bitchat.android.services.PrivateMediaReceiptState.ABSENT -> Unit
+                            }
+                        }
+                        val uniqueMsgId = stableID ?: java.util.UUID.randomUUID().toString().uppercase()
                         val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
                         val message = BitchatMessage(
                             id = uniqueMsgId,
@@ -146,8 +160,18 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                             delegate?.onMessageReceived(message)
                         }
 
-                        // Send delivery ACK with generated message ID
-                        sendDeliveryAck(uniqueMsgId, peerID)
+                        if (stableID == null) {
+                            sendDeliveryAck(uniqueMsgId, peerID)
+                        } else {
+                            val receipt = com.bitchat.android.services.AppStateStore.privateMediaReceiptState(stableID)
+                            if (receipt == com.bitchat.android.services.PrivateMediaReceiptState.ACCEPTED ||
+                                receipt == com.bitchat.android.services.PrivateMediaReceiptState.TOMBSTONED) {
+                                sendDeliveryAck(stableID, peerID)
+                            } else {
+                                com.bitchat.android.features.file.FileUtils.deleteStoredMediaPaths(appContext, listOf(savedPath))
+                                return false
+                            }
+                        }
                     } else {
                         Log.w(TAG, "Failed to decode encrypted file transfer from $peerID")
                     }
@@ -199,12 +223,55 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 com.bitchat.android.model.NoisePayloadType.VERIFY_RESPONSE -> {
                     delegate?.onVerifyResponseReceived(peerID, noisePayload.data, packet.timestamp.toLong())
                 }
+                com.bitchat.android.model.NoisePayloadType.GROUP_INVITE -> {
+                    delegate?.onGroupInviteReceived(
+                        peerID,
+                        decryption.authenticatedSession.remoteStaticKey.copyOf(),
+                        noisePayload.data
+                    )
+                }
+                com.bitchat.android.model.NoisePayloadType.GROUP_KEY_UPDATE -> {
+                    delegate?.onGroupKeyUpdateReceived(
+                        peerID,
+                        decryption.authenticatedSession.remoteStaticKey.copyOf(),
+                        noisePayload.data
+                    )
+                }
+                com.bitchat.android.model.NoisePayloadType.VOUCH -> {
+                    delegate?.onVouchPayloadReceived(peerID, noisePayload.data)
+                }
             }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing Noise encrypted message from $peerID: ${e.message}")
         }
         return true
+    }
+
+    /** Admit an already authenticated Noise X payload through the normal private-message path. */
+    suspend fun handleOpenedCourierPayload(routed: RoutedPacket): Boolean {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: return false
+        val noisePayload = com.bitchat.android.model.NoisePayload.decode(packet.payload) ?: return false
+        if (noisePayload.type == com.bitchat.android.model.NoisePayloadType.DELIVERED) {
+            val messageID = noisePayload.data.toString(Charsets.UTF_8)
+            if (messageID.isBlank()) return false
+            delegate?.onDeliveryAckReceived(messageID, peerID)
+            return true
+        }
+        if (noisePayload.type != com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE) return false
+        val privateMessage = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data) ?: return false
+        val message = BitchatMessage(
+            id = privateMessage.messageID,
+            sender = delegate?.getPeerNickname(peerID) ?: "Unknown",
+            content = privateMessage.content,
+            timestamp = Date(packet.timestamp.toLong()),
+            isPrivate = true,
+            recipientNickname = delegate?.getMyNickname(),
+            senderPeerID = peerID
+        )
+        delegate?.onMessageReceived(message)
+        return com.bitchat.android.services.AppStateStore.hasPrivateTextReceipt(message)
     }
 
     /**
@@ -229,6 +296,13 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         } else {
             consecutiveDecryptFailures[peerID] = failures
         }
+    }
+
+    fun handleGroupMessage(routed: RoutedPacket) {
+        delegate?.onGroupMessageReceived(
+            routed.packet.payload,
+            routed.packet.timestamp.toLong()
+        )
     }
     
     /**
@@ -348,6 +422,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             capabilities = announcement.capabilities
         ) ?: false
 
+        BridgeMeshPort.handleVerifiedAnnouncement(
+            peerID,
+            announcement
+        )
+
         // Update mesh graph from gossip neighbors (only if TLV present)
         try {
             val neighborsOrNull = com.bitchat.android.services.meshgraph.GossipTLV.decodeNeighborsFromAnnouncementPayload(packet.payload)
@@ -453,6 +532,12 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     private suspend fun handleBroadcastMessage(routed: RoutedPacket) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
+        if (packet.timestamp > Long.MAX_VALUE.toULong()) return
+        val ageMs = System.currentTimeMillis() - packet.timestamp.toLong()
+        if (ageMs !in
+            -com.bitchat.android.sync.GossipSyncManager.PUBLIC_PACKET_FUTURE_SKEW_MS..
+                com.bitchat.android.sync.GossipSyncManager.PUBLIC_MESSAGE_MAX_AGE_MS
+        ) return
         
         // Enforce: only accept public messages from verified peers we know
         val peerInfo = delegate?.getPeerInfo(peerID)
@@ -486,13 +571,18 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
 
             // Fallback: plain text
             val message = BitchatMessage(
-                id = PacketIdUtil.computeIdHex(packet).uppercase(),
+                id = MeshMessageIdentity.stableId(
+                    peerID,
+                    packet.timestamp.toLong(),
+                    String(packet.payload, Charsets.UTF_8)
+                ),
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
                 timestamp = Date(packet.timestamp.toLong())
             )
             delegate?.onMessageReceived(message)
+            BridgeMeshPort.handleAuthenticatedRadioMessage(message.id)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process broadcast message: ${e.message}")
         }
@@ -738,4 +828,16 @@ interface MessageHandlerDelegate {
     fun onReadReceiptReceived(messageID: String, peerID: String)
     fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long)
     fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long)
+    fun onGroupInviteReceived(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {}
+    fun onGroupKeyUpdateReceived(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {}
+    fun onGroupMessageReceived(payload: ByteArray, timestampMs: Long) {}
+    fun onVouchPayloadReceived(peerID: String, payload: ByteArray) {}
 }

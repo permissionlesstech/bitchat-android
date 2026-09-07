@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import android.app.Application
 import android.util.Log
+import com.bitchat.android.R
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -39,9 +40,24 @@ import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
+import com.bitchat.android.services.bridge.BridgeUiState
+import com.bitchat.android.services.bridge.MeshBridgeService
 import com.bitchat.android.features.voice.LiveVoicePreferences
 import com.bitchat.android.features.voice.LiveVoiceTarget
 import com.bitchat.android.features.voice.VoiceRecorder
+
+import com.bitchat.android.groups.BitchatGroup
+import com.bitchat.android.groups.GroupCommandResult
+import com.bitchat.android.groups.GroupCoordinator
+import com.bitchat.android.groups.GroupCoordinatorContext
+import com.bitchat.android.groups.GroupIds
+import com.bitchat.android.groups.GroupPeerIdentity
+import com.bitchat.android.groups.GroupStore
+import com.bitchat.android.groups.PeerGroupCapability
+
+import com.bitchat.android.board.BoardManager
+import com.bitchat.android.board.BoardSigningIdentity
+import com.bitchat.android.board.BoardStore
 
 private data class ConversationLiveIdentityState(
     val connectedPeerIDs: List<String>,
@@ -70,6 +86,9 @@ class ChatViewModel(
     companion object {
         private const val TAG = "ChatViewModel"
         private const val CONVERSATION_DISCONNECT_GRACE_MS = 3_000L
+        private const val GROUP_COMMAND_USAGE =
+            "usage: /group create <name> · invite @name[#identity] · " +
+                "remove @name[#identity] · leave · list"
     }
 
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
@@ -151,6 +170,10 @@ class ChatViewModel(
                 .select(com.bitchat.android.geohash.ChannelID.Mesh)
         }
     )
+    private val groupRuntime = com.bitchat.android.groups.GroupRuntime.getInstance(application)
+    private val groupStore = groupRuntime.store
+    private val groupCoordinator = groupRuntime.coordinator
+    val groups: StateFlow<List<BitchatGroup>> = groupStore.groups
 
     // Create Noise session delegate for clean dependency injection
     private val noiseSessionDelegate = object : NoiseSessionDelegate {
@@ -178,10 +201,86 @@ class ChatViewModel(
         privateChatManager,
         viewModelScope
     )
+    val boardManager = BoardManager(
+        store = BoardStore.getInstance(application.applicationContext),
+        scope = viewModelScope,
+        meshProvider = { mesh },
+        geoIdentityProvider = { geohash ->
+            runCatching {
+                NostrIdentityBridge.deriveIdentity(
+                    forGeohash = geohash,
+                    context = application.applicationContext
+                )
+            }.getOrNull()?.let { identity ->
+                BoardSigningIdentity.fromNostrPrivateKeyHex(identity.privateKeyHex)
+            }
+        },
+        onUrgentPosts = { geohash, posts ->
+            val text = if (posts.size == 1) {
+                val post = posts.single()
+                application.getString(
+                    R.string.notices_alert_urgent_single,
+                    post.authorNickname.trim().ifEmpty { "anon" },
+                    post.content.truncateNoticeAlert()
+                )
+            } else {
+                application.getString(
+                    R.string.notices_alert_urgent_collapsed,
+                    posts.size
+                )
+            }
+            if (geohash.isEmpty()) {
+                messageManager.addSystemMessage(text)
+            } else {
+                messageManager.addChannelMessage(
+                    "geo:$geohash",
+                    BitchatMessage(
+                        sender = "system",
+                        content = text,
+                        timestamp = Date(),
+                        isRelay = false
+                    )
+                )
+            }
+        }
+    )
     private val notificationManager = NotificationManager(
       application.applicationContext,
       NotificationManagerCompat.from(application.applicationContext)
     )
+
+    private val groupContext = object : com.bitchat.android.groups.GroupUiDelegate {
+        override val nickname get() = state.getNicknameValue()
+        override fun markGroupUnread(groupPeerID: String) {
+            state.setUnreadPrivateMessages(state.getUnreadPrivateMessagesValue() + groupPeerID)
+        }
+        override fun openGroupConversation(groupPeerID: String) {
+            privateChatManager.startPrivateChat(groupPeerID, mesh)
+            showPrivateChatSheet(groupPeerID)
+        }
+        override fun closeGroupConversation() { endPrivateChat() }
+    }
+
+    fun executeGroupCommand(arguments: List<String>, onResult: (GroupCommandResult) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = handleGroupCommand(arguments)
+            kotlinx.coroutines.withContext(Dispatchers.Main) { onResult(result) }
+        }
+    }
+
+    private fun handleGroupCommand(arguments: List<String>): GroupCommandResult {
+        val subcommand = arguments.firstOrNull()?.lowercase()
+            ?: return GroupCommandResult(false, GROUP_COMMAND_USAGE)
+        val value = arguments.drop(1).joinToString(" ")
+        return when (subcommand) {
+            "create" -> groupCoordinator.createGroup(value)
+            "invite" -> groupCoordinator.inviteMember(value)
+            "remove" -> groupCoordinator.removeMember(value)
+            "leave" -> groupCoordinator.leaveGroup()
+            "list" -> groupCoordinator.listGroups()
+            else -> GroupCommandResult(false, GROUP_COMMAND_USAGE)
+        }
+    }
 
     private val verificationHandler = VerificationHandler(
         context = application.applicationContext,
@@ -193,6 +292,7 @@ class ChatViewModel(
         messageManager = messageManager
     )
     val verifiedFingerprints = verificationHandler.verifiedFingerprints
+    val vouchedFingerprints = verificationHandler.vouchedFingerprints
 
     // Media file sending manager
     private val mediaSendingManager = MediaSendingManager(
@@ -410,6 +510,21 @@ class ChatViewModel(
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
     val teleportedGeo: StateFlow<Set<String>> = state.teleportedGeo
     val geohashParticipantCounts: StateFlow<Map<String, Int>> = state.geohashParticipantCounts
+    val bridgeUiState: StateFlow<BridgeUiState> = combine(
+        MeshBridgeService.isEnabled,
+        MeshBridgeService.nearbyOnly,
+        MeshBridgeService.bridgedParticipants
+    ) { enabled, nearbyOnly, participants ->
+        BridgeUiState(enabled, nearbyOnly, participants)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = BridgeUiState(
+            enabled = MeshBridgeService.isEnabled.value,
+            nearbyOnly = MeshBridgeService.nearbyOnly.value,
+            participants = MeshBridgeService.bridgedParticipants.value
+        )
+    )
     val meshServiceFacade: MeshService
         get() = mesh
     val myPeerID: String
@@ -425,6 +540,7 @@ class ChatViewModel(
 
     init {
         observeConversationPresenceWithDisconnectGrace()
+        groupRuntime.attach(groupContext)
         // Note: Mesh service delegate is now set by MainActivity
         loadAndInitialize()
         ContactDirectory.initialize(getApplication()) { mesh }
@@ -646,6 +762,7 @@ class ChatViewModel(
     }
     
     override fun onCleared() {
+        groupRuntime.detach(groupContext)
         if (favoriteRelationshipListenerRegistered) {
             runCatching {
                 FavoritesPersistenceService.shared.removeListener(
@@ -976,6 +1093,14 @@ class ChatViewModel(
         val currentChannelValue = state.getCurrentChannelValue()
         
         if (selectedPeer != null) {
+            if (GroupIds.isGroup(selectedPeer)) {
+                val groupPeer = selectedPeer
+                viewModelScope.launch(Dispatchers.IO) {
+                    val accepted = groupCoordinator.sendMessage(content, groupPeer)
+                    kotlinx.coroutines.withContext(Dispatchers.Main) { onAccepted(accepted) }
+                }
+                return
+            }
             // If the selected peer is a temporary Nostr alias or a noise-hex identity, resolve to a canonical target
             selectedPeer = ContactDirectory.canonicalConversationId(
                 com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
@@ -1019,6 +1144,11 @@ class ChatViewModel(
                         messageManager.updateMessageDeliveryStatus(
                             messageId,
                             com.bitchat.android.model.DeliveryStatus.Sent
+                        )
+                    } else if (route == com.bitchat.android.services.MessageRouter.RouteResult.QUEUED) {
+                        messageManager.updateMessageDeliveryStatus(
+                            messageId,
+                            com.bitchat.android.model.DeliveryStatus.Queued
                         )
                     }
                 }
@@ -1269,6 +1399,20 @@ class ChatViewModel(
         return verifiedFingerprints.contains(fingerprint)
     }
 
+    fun isFingerprintVouched(fingerprint: String): Boolean =
+        verificationHandler.isFingerprintVouched(fingerprint)
+
+    fun isNoisePublicKeyVouched(noisePublicKey: ByteArray): Boolean =
+        verificationHandler.isFingerprintVouched(
+            verificationHandler.fingerprintFromNoiseBytes(noisePublicKey)
+        )
+
+    fun vouchersForFingerprint(fingerprint: String) =
+        verificationHandler.vouchersForFingerprint(fingerprint)
+
+    fun voucherNamesForFingerprint(fingerprint: String): List<String> =
+        verificationHandler.voucherNamesForFingerprint(fingerprint)
+
     fun unverifyFingerprint(peerID: String) {
         verificationHandler.unverifyFingerprint(peerID)
     }
@@ -1330,6 +1474,14 @@ class ChatViewModel(
 
     fun showMeshPeerList() {
         state.setShowMeshPeerList(true)
+    }
+
+    fun setBridgeEnabled(enabled: Boolean) {
+        MeshBridgeService.setEnabled(enabled)
+    }
+
+    fun setBridgeNearbyOnly(enabled: Boolean) {
+        MeshBridgeService.setNearbyOnly(enabled)
     }
 
     fun hideMeshPeerList() {
@@ -1421,6 +1573,27 @@ class ChatViewModel(
 
     override fun didResolvePrivateMediaPolicy(peerID: String) {
         mediaSendingManager.retryPendingPrivateMedia(peerID)
+        groupCoordinator.handlePeerAuthenticated(peerID)
+    }
+
+    override fun didReceiveGroupInvite(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {
+        groupCoordinator.handleInvite(peerID, authenticatedRemoteStaticKey, payload)
+    }
+
+    override fun didReceiveGroupKeyUpdate(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {
+        groupCoordinator.handleKeyUpdate(peerID, authenticatedRemoteStaticKey, payload)
+    }
+
+    override fun didReceiveGroupMessage(payload: ByteArray, timestampMs: Long) {
+        groupCoordinator.handleMessage(payload, timestampMs)
     }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
@@ -1435,102 +1608,78 @@ class ChatViewModel(
         return meshDelegateHandler.isFavorite(peerID)
     }
     
+    private val _sharedDraft = MutableStateFlow<String?>(null)
+    val sharedDraft: StateFlow<String?> = _sharedDraft.asStateFlow()
+    fun receiveSharedText(text: String) { _sharedDraft.value = text.take(16_000) }
+    fun consumeSharedText() { _sharedDraft.value = null }
+
     // MARK: - Emergency Clear
 
-    private var panicClearInProgress = false
+    private val _panicWipeState = MutableStateFlow(PanicWipeState.IDLE)
+    val panicWipeState: StateFlow<PanicWipeState> = _panicWipeState.asStateFlow()
+    fun requestPanicClear() {
+        if (_panicWipeState.value != PanicWipeState.ERASING) _panicWipeState.value = PanicWipeState.CONFIRM
+    }
+    fun dismissPanicClear() {
+        if (_panicWipeState.value != PanicWipeState.ERASING) _panicWipeState.value = PanicWipeState.IDLE
+    }
 
     fun panicClearAllData() {
-        if (panicClearInProgress) return
-        panicClearInProgress = true
+        if (_panicWipeState.value == PanicWipeState.ERASING) return
+        _panicWipeState.value = PanicWipeState.ERASING
         viewModelScope.launch {
-            try {
-                performPanicClearAllData()
-            } finally {
-                panicClearInProgress = false
-            }
+            val completed = try { performPanicClearAllData() } catch (_: Exception) { false }
+            _panicWipeState.value = if (completed) PanicWipeState.COMPLETE else PanicWipeState.FAILED
         }
     }
 
-    private suspend fun performPanicClearAllData() {
-        Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
-        try {
-            com.bitchat.android.geohash.LocationChannelManager
-                .getInstance(getApplication())
-                .disableLocationServices()
-        } catch (_: Exception) { }
-
-        // A pending one-shot downgrade confirmation must not survive panic or
-        // become actionable against the fresh post-wipe identity.
-        mediaSendingManager.clearPendingPrivateMediaConsent()
-
-        // Stop all message admission before wiping storage. The AppStateStore gate also rejects
-        // any transport callback already in flight until the fresh identity is ready.
-        clearAllMeshServiceData()
-        val conversationsCleared =
-            com.bitchat.android.services.AppStateStore
-                .panicClearPrivateConversations()
-
-        // Clear all UI managers
-        com.bitchat.android.services.AppStateStore.clear()
-        messageManager.clearAllMessages()
-        channelManager.clearAllChannels()
-        privateChatManager.clearAllPrivateChats()
-        dataManager.clearAllData()
-        conversationListPreferences.clearAll()
-        
-        // Clear seen message store and MessageRouter outbox
-        try {
-            com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
-        } catch (_: Exception) { }
-        try {
-            com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
-        } catch (_: Exception) { }
-        
-        // Clear all cryptographic data
-        clearAllCryptographicData()
-        
-        // Clear all notifications
-        notificationManager.clearAllNotifications(removeConversationShortcuts = true)
-
-        // Clear all media files
-        com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())
-        
-        // Clear Nostr/geohash state, keys, connections, bookmarks, and reinitialize from scratch
-        try {
-            // Clear geohash bookmarks too (panic should remove everything)
-            try {
-                val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
-                store.clearAll()
-            } catch (_: Exception) { }
-
-            try {
-                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-                locationManager.clearPersistedChannel()
-            } catch (_: Exception) { }
-
-            geohashViewModel.panicReset()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
+    private suspend fun performPanicClearAllData(): Boolean {
+        var successful = true
+        suspend fun step(action: suspend () -> Unit) {
+            try { action() } catch (_: Exception) { successful = false }
         }
+        groupCoordinator.suspendForPanic()
+        step { com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication()).disableLocationServices() }
+        step { com.bitchat.android.services.bridge.MeshGatewayService.wipe() }
+        step { MeshBridgeService.wipe() }
+        step { mesh.stopServices(); mesh.clearAllInternalData() }
+        step { check(com.bitchat.android.services.AppStateStore.panicClearPrivateConversations()) }
+        step { com.bitchat.android.services.PrivateMediaOutbox.tryGetInstance()?.wipe() }
+        mediaSendingManager.clearPendingPrivateMediaConsent()
+        step {
+            com.bitchat.android.services.AppStateStore.clear()
+            messageManager.clearAllMessages()
+            channelManager.clearAllChannels()
+            privateChatManager.clearAllPrivateChats()
+            check(groupStore.wipe())
+            dataManager.clearAllData()
+            conversationListPreferences.clearAll()
+            boardManager.clearTransientState()
+        }
+        step { com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear() }
+        step { com.bitchat.android.services.MessageRouter.panicClear(getApplication()) }
+        step {
+            mesh.clearAllEncryptionData()
+            check(SecureIdentityStateManager(getApplication()).clearIdentityData())
+            FavoritesPersistenceService.shared.clearAllFavorites()
+        }
+        step { notificationManager.clearAllNotifications(removeConversationShortcuts = true) }
+        step { check(com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())) }
+        step { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication()).clearAll() }
+        step { com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication()).panicReset() }
+        step { com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication()).clearCustomRelays() }
+        step { geohashViewModel.panicReset() }
+        if (!successful) return false
 
-        // Reset nickname
         val newNickname = "anon${Random.nextInt(1000, 9999)}"
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
-
-        if (!conversationsCleared) {
-            // Privacy wins over availability: keep private-message admission and transports
-            // stopped if SQLite could not prove that the conversation history was erased.
-            Log.e(TAG, "🚨 PANIC MODE INCOMPLETE - conversation database wipe failed")
-            return
-        }
-
-        // Recreate mesh service with fresh identity
-        com.bitchat.android.services.AppStateStore
-            .resumePrivateConversationsAfterPanic()
         recreateMeshServiceAfterPanic()
-
-        Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")
+        com.bitchat.android.services.AppStateStore.resumePrivateConversationsAfterPanic()
+        groupCoordinator.resumeAfterPanic()
+        MeshBridgeService.resumeAfterPanic()
+        com.bitchat.android.services.PrivateMediaOutbox.tryGetInstance()?.resume()
+        return true
     }
 
     /**
@@ -1562,53 +1711,6 @@ class ChatViewModel(
         )
     }
     
-    /**
-     * Clear all mesh service related data
-     */
-    private fun clearAllMeshServiceData() {
-        try {
-            // Request mesh service to clear all its internal data
-            mesh.clearAllInternalData()
-            
-            Log.d(TAG, "✅ Cleared all mesh service data")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error clearing mesh service data: ${e.message}")
-        }
-    }
-    
-    /**
-     * Clear all cryptographic data including persistent identity
-     */
-    private fun clearAllCryptographicData() {
-        try {
-            // Clear encryption service persistent identity (Ed25519 signing keys)
-            mesh.clearAllEncryptionData()
-            
-            // Clear secure identity state (if used)
-            try {
-                val identityManager = SecureIdentityStateManager(getApplication())
-                identityManager.clearIdentityData()
-                // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
-                try {
-                    identityManager.clearSecureValues("favorite_relationships", "favorite_peerid_index")
-                } catch (_: Exception) { }
-                Log.d(TAG, "✅ Cleared secure identity state and secure favorites store")
-            } catch (e: Exception) {
-                Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
-            }
-
-            // Clear FavoritesPersistenceService persistent relationships
-            try {
-                FavoritesPersistenceService.shared.clearAllFavorites()
-                Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
-            } catch (_: Exception) { }
-            
-            Log.d(TAG, "✅ Cleared all cryptographic data")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error clearing cryptographic data: ${e.message}")
-        }
-    }
-
     /**
      * Get participant count for a specific geohash (5-minute activity window)
      */
@@ -1730,4 +1832,6 @@ class ChatViewModel(
     fun peerIdentityForNostrPubkey(pubkeyHex: String): PeerIdentity =
         geohashViewModel.peerIdentityForNostrPubkey(pubkeyHex)
 
+    private fun String.truncateNoticeAlert(): String =
+        if (length <= 120) this else take(120) + "…"
 }

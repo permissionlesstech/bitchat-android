@@ -188,12 +188,21 @@ object AppStateStore {
 
     fun addPublicMessage(msg: BitchatMessage) {
         synchronized(this) {
+            if (!msg.isBridged) {
+                _publicMessages.value = _publicMessages.value.filterNot {
+                    it.isBridged && it.bridgeRadioMessageIdHint == msg.id
+                }
+            }
             val publicKey = publicMessageKey(msg)
             if (seenMessageIds.contains(msg.id) || seenPublicMessageKeys.contains(publicKey)) return
             seenMessageIds.add(msg.id)
             seenPublicMessageKeys.add(publicKey)
             _publicMessages.value = _publicMessages.value + msg
         }
+    }
+
+    fun hasRadioPublicMessage(messageId: String): Boolean = synchronized(this) {
+        _publicMessages.value.any { !it.isBridged && it.id == messageId }
     }
 
     /** Replace a live media row by ID, or append it if the row was not admitted yet. */
@@ -263,6 +272,22 @@ object AppStateStore {
      * Persists an incoming private message before it is admitted to UI, unread, haptic, or
      * notification state. Transport callbacks invoke this from their background worker.
      */
+    suspend fun hasPrivateTextReceipt(message: BitchatMessage): Boolean {
+        val repository = synchronized(this) {
+            if (privateConversationWritesSuspended) return false
+            conversationRepository
+        } ?: return false
+        return repository.hasPrivateTextReceipt(message)
+    }
+
+    suspend fun privateMediaReceiptState(messageID: String): PrivateMediaReceiptState {
+        val repository = synchronized(this) {
+            if (privateConversationWritesSuspended) return PrivateMediaReceiptState.UNAVAILABLE
+            conversationRepository
+        } ?: return PrivateMediaReceiptState.UNAVAILABLE
+        return repository.privateMediaReceiptState(messageID)
+    }
+
     suspend fun addPrivateMessageDurably(
         peerID: String,
         msg: BitchatMessage,
@@ -408,13 +433,27 @@ object AppStateStore {
         messageID in seenMessageIds
     }
 
+    fun removePrivateConversation(peerID: String) {
+        synchronized(this) {
+            val conversationID = ContactDirectory.canonicalConversationId(peerID)
+            val map = _privateMessages.value.toMutableMap()
+            val removedPeer = map.remove(peerID) != null
+            val removedConversation = map.remove(conversationID) != null
+            val changed = removedPeer || removedConversation
+            if (changed) {
+                _privateMessages.value = map
+            }
+        }
+    }
+
     private fun statusPriority(status: DeliveryStatus?): Int = when (status) {
         null -> 0
         is DeliveryStatus.Sending -> 1
-        is DeliveryStatus.Sent -> 2
-        is DeliveryStatus.PartiallyDelivered -> 3
-        is DeliveryStatus.Delivered -> 4
-        is DeliveryStatus.Read -> 5
+        is DeliveryStatus.Queued -> 2
+        is DeliveryStatus.Sent -> 3
+        is DeliveryStatus.PartiallyDelivered -> 4
+        is DeliveryStatus.Delivered -> 5
+        is DeliveryStatus.Read -> 6
         is DeliveryStatus.Failed -> 0
     }
 

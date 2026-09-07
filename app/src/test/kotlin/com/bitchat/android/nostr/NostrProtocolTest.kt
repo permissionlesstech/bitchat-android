@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 
 class NostrProtocolTest {
     private val gson = Gson()
@@ -40,6 +41,54 @@ class NostrProtocolTest {
         val decrypted = NostrProtocol.decryptPrivateMessage(giftWrap, recipient)
 
         assertNull(decrypted)
+    }
+
+    @Test
+    fun createGeohashTextNote_addsExpirationAndUrgentTags() = runBlocking {
+        val identity = NostrIdentity.generate()
+
+        val event = NostrProtocol.createGeohashTextNote(
+            content = "road closed",
+            geohash = "u33dc",
+            senderIdentity = identity,
+            nickname = "alice",
+            expiresAt = 1_700_086_400,
+            urgent = true
+        )
+
+        assertEquals(NostrKind.TEXT_NOTE, event.kind)
+        assertTrue(event.tags.contains(listOf("g", "u33dc")))
+        assertTrue(event.tags.contains(listOf("n", "alice")))
+        assertTrue(event.tags.contains(listOf("expiration", "1700086400")))
+        assertTrue(event.tags.contains(listOf("t", "urgent")))
+        assertTrue(event.isValidSignature())
+    }
+
+    @Test
+    fun createDeleteEvent_isSignedNip09Request() = runBlocking {
+        val identity = NostrIdentity.generate()
+
+        val event = NostrProtocol.createDeleteEvent("event-id", identity)
+
+        assertEquals(NostrKind.DELETION, event.kind)
+        assertEquals(listOf(listOf("e", "event-id")), event.tags)
+        assertTrue(event.isValidSignature())
+    }
+
+    @Test
+    fun rejectsMalformedAuthenticatedEnvelopes() {
+        val sender = NostrIdentity.generate()
+        val recipient = NostrIdentity.generate()
+        val malformed = listOf(
+            forgedGiftWrap("hello", sender, sender, recipient, rumorKind = NostrKind.TEXT_NOTE),
+            forgedGiftWrap("hello", sender, sender, recipient, rumorTags = listOf(listOf("p", sender.publicKeyHex))),
+            forgedGiftWrap("hello", sender, sender, recipient, sealTags = listOf(listOf("p", recipient.publicKeyHex))),
+            forgedGiftWrap("hello", sender, sender, recipient, rumorTimestamp = 1),
+            forgedGiftWrap("hello", sender, sender, recipient, outerTags = emptyList())
+        )
+        malformed.forEach { assertNull(NostrProtocol.decryptPrivateMessage(it, recipient)) }
+        val ios = forgedGiftWrap("hello", sender, sender, recipient, rumorTags = emptyList())
+        assertEquals("hello", NostrProtocol.decryptPrivateMessage(ios, recipient)?.first)
     }
 
     @Test
@@ -92,13 +141,18 @@ class NostrProtocolTest {
         content: String,
         claimedSender: NostrIdentity,
         sealSigner: NostrIdentity,
-        recipient: NostrIdentity
+        recipient: NostrIdentity,
+        rumorKind: Int = NostrKind.DIRECT_MESSAGE,
+        rumorTags: List<List<String>> = listOf(listOf("p", recipient.publicKeyHex)),
+        sealTags: List<List<String>> = emptyList(),
+        rumorTimestamp: Int = (System.currentTimeMillis() / 1000).toInt(),
+        outerTags: List<List<String>> = listOf(listOf("p", recipient.publicKeyHex))
     ): NostrEvent {
         val rumorBase = NostrEvent(
             pubkey = claimedSender.publicKeyHex,
-            createdAt = (System.currentTimeMillis() / 1000).toInt(),
-            kind = NostrKind.DIRECT_MESSAGE,
-            tags = listOf(listOf("p", recipient.publicKeyHex)),
+            createdAt = rumorTimestamp,
+            kind = rumorKind,
+            tags = rumorTags,
             content = content
         )
         val rumor = rumorBase.copy(id = rumorBase.computeEventIdHex())
@@ -111,7 +165,7 @@ class NostrProtocolTest {
             pubkey = sealSigner.publicKeyHex,
             createdAt = NostrCrypto.randomizeTimestampUpToPast(),
             kind = NostrKind.SEAL,
-            tags = emptyList(),
+            tags = sealTags,
             content = sealContent
         ).sign(sealSigner.privateKeyHex)
 
@@ -125,7 +179,7 @@ class NostrProtocolTest {
             pubkey = wrapPublicKey,
             createdAt = NostrCrypto.randomizeTimestampUpToPast(),
             kind = NostrKind.GIFT_WRAP,
-            tags = listOf(listOf("p", recipient.publicKeyHex)),
+            tags = outerTags,
             content = giftWrapContent
         ).sign(wrapPrivateKey)
     }

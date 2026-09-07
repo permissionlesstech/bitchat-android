@@ -69,6 +69,28 @@ data class NostrFilter(
                 limit = limit
             )
         }
+
+        fun bridgeRendezvous(
+            cells: Collection<String>,
+            since: Long? = null,
+            limit: Int = 200
+        ): NostrFilter = NostrFilter(
+            kinds = listOf(NostrKind.EPHEMERAL_EVENT, NostrKind.GEOHASH_PRESENCE),
+            since = since?.let { (it / 1000).toInt() },
+            tagFilters = mapOf("r" to cells.toList()),
+            limit = limit
+        )
+
+        fun courierDrops(
+            recipientTagsHex: Collection<String>,
+            since: Long? = null,
+            limit: Int = 100
+        ): NostrFilter = NostrFilter(
+            kinds = listOf(NostrKind.COURIER_DROP),
+            since = since?.let { (it / 1000).toInt() },
+            tagFilters = mapOf("x" to recipientTagsHex.toList()),
+            limit = limit
+        )
         
         /**
          * Create filter for text notes from specific authors

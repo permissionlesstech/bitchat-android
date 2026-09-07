@@ -14,12 +14,19 @@ enum class MessageType(val value: UByte) {
     ANNOUNCE(0x01u),
     MESSAGE(0x02u),  // All user messages (private and broadcast)
     LEAVE(0x03u),
+    COURIER_ENVELOPE(0x04u), // Opaque Noise X store-and-forward envelope
     NOISE_HANDSHAKE(0x10u),  // Noise handshake
     NOISE_ENCRYPTED(0x11u),  // Noise encrypted transport message
     FRAGMENT(0x20u), // Fragmentation for large packets
     REQUEST_SYNC(0x21u), // GCS-based sync request
     FILE_TRANSFER(0x22u), // New: File transfer packet (BLE voice notes, etc.)
-    VOICE_FRAME(0x29u); // Ephemeral live push-to-talk frame; never added to gossip sync
+    VOICE_FRAME(0x29u), // Ephemeral live push-to-talk frame; never added to gossip sync
+    BOARD_POST(0x23u),
+    GROUP_MESSAGE(0x25u), // Opaque private-group ciphertext broadcast
+    PREKEY_BUNDLE(0x24u), // Signed batch of one-time courier prekeys
+    NOSTR_CARRIER(0x28u), // Signed bridge/gateway event carrier
+    PING(MeshDiagnosticsConstants.PING_TYPE),
+    PONG(MeshDiagnosticsConstants.PONG_TYPE);
 
     companion object {
         fun fromValue(value: UByte): MessageType? {
