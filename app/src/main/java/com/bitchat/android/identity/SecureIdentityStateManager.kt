@@ -493,6 +493,10 @@ class SecureIdentityStateManager {
     /**
      * Store a string value in secure preferences
      */
+    /** Synchronous durability barrier for protocol acknowledgements. Call from a worker. */
+    fun storeSecureValueAndWait(key: String, value: String): Boolean =
+        prefs.edit().putString(key, value).commit()
+
     fun storeSecureValue(key: String, value: String) {
         prefs.edit().putString(key, value).apply()
     }

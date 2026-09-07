@@ -24,7 +24,8 @@ object NostrEmbeddedBitChat {
         content: String,
         messageID: String,
         recipientPeerID: String,
-        senderPeerID: String
+        senderPeerID: String,
+        timestampMs: Long = System.currentTimeMillis()
     ): String? {
         try {
             // TLV-encode the private message
@@ -44,7 +45,7 @@ object NostrEmbeddedBitChat {
                 type = MessageType.NOISE_ENCRYPTED.value,
                 senderID = hexStringToByteArray(senderPeerID),
                 recipientID = hexStringToByteArray(recipientIDHex),
-                timestamp = System.currentTimeMillis().toULong(),
+                timestamp = timestampMs.toULong(),
                 payload = payload,
                 signature = null,
                 ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
@@ -65,7 +66,8 @@ object NostrEmbeddedBitChat {
         type: NoisePayloadType,
         messageID: String,
         recipientPeerID: String,
-        senderPeerID: String
+        senderPeerID: String,
+        timestampMs: Long = System.currentTimeMillis()
     ): String? {
         if (type != NoisePayloadType.DELIVERED && type != NoisePayloadType.READ_RECEIPT) {
             return null
@@ -84,7 +86,7 @@ object NostrEmbeddedBitChat {
                 type = MessageType.NOISE_ENCRYPTED.value,
                 senderID = hexStringToByteArray(senderPeerID),
                 recipientID = hexStringToByteArray(recipientIDHex),
-                timestamp = System.currentTimeMillis().toULong(),
+                timestamp = timestampMs.toULong(),
                 payload = payload,
                 signature = null,
                 ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
@@ -104,7 +106,8 @@ object NostrEmbeddedBitChat {
     fun encodeAckForNostrNoRecipient(
         type: NoisePayloadType,
         messageID: String,
-        senderPeerID: String
+        senderPeerID: String,
+        timestampMs: Long = System.currentTimeMillis()
     ): String? {
         if (type != NoisePayloadType.DELIVERED && type != NoisePayloadType.READ_RECEIPT) {
             return null
@@ -121,7 +124,7 @@ object NostrEmbeddedBitChat {
                 type = MessageType.NOISE_ENCRYPTED.value,
                 senderID = hexStringToByteArray(senderPeerID),
                 recipientID = null, // No recipient for geohash DMs
-                timestamp = System.currentTimeMillis().toULong(),
+                timestamp = timestampMs.toULong(),
                 payload = payload,
                 signature = null,
                 ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
@@ -141,7 +144,8 @@ object NostrEmbeddedBitChat {
     fun encodePMForNostrNoRecipient(
         content: String,
         messageID: String,
-        senderPeerID: String
+        senderPeerID: String,
+        timestampMs: Long = System.currentTimeMillis()
     ): String? {
         try {
             val pm = PrivateMessagePacket(messageID = messageID, content = content)
@@ -156,7 +160,7 @@ object NostrEmbeddedBitChat {
                 type = MessageType.NOISE_ENCRYPTED.value,
                 senderID = hexStringToByteArray(senderPeerID),
                 recipientID = null, // No recipient for geohash DMs
-                timestamp = System.currentTimeMillis().toULong(),
+                timestamp = timestampMs.toULong(),
                 payload = payload,
                 signature = null,
                 ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS

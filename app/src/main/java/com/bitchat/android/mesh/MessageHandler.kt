@@ -95,7 +95,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         // Handle favorite/unfavorite notifications embedded as PMs
                         val pmContent = privateMessage.content
                         if (FavoriteControlMessage.parse(pmContent) != null) {
-                            handleFavoriteNotificationFromMesh(pmContent, peerID)
+                            handleFavoriteNotificationFromMesh(pmContent, peerID, decryption.authenticatedSession.remoteStaticKey, packet.timestamp.toLong(), privateMessage.messageID)
                             // Acknowledge delivery for UX parity
                             sendDeliveryAck(privateMessage.messageID, peerID)
                             return true
@@ -119,7 +119,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         delegate?.onMessageReceived(message)
                         
                         // Send delivery ACK exactly like iOS
-                        sendDeliveryAck(privateMessage.messageID, peerID)
+                        if (delegate?.isPrivateMessageStored(message) == true) {
+                            sendDeliveryAck(privateMessage.messageID, peerID)
+                        }
                     }
                 }
                 
@@ -624,16 +626,18 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
      * Handle favorite/unfavorite notification received over mesh as a private message.
      * Content format: "[FAVORITED]:npub..." or "[UNFAVORITED]:npub..."
      */
-    private fun handleFavoriteNotificationFromMesh(content: String, fromPeerID: String) {
+    private fun handleFavoriteNotificationFromMesh(content: String, fromPeerID: String, authenticatedKey: ByteArray, timestamp: Long, messageID: String) {
         try {
             val control = FavoriteControlMessage.parse(content) ?: return
 
             val peerInfo = delegate?.getPeerInfo(fromPeerID)
-            val noiseKey = peerInfo?.noisePublicKey
-            if (noiseKey != null) {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, control.isFavorite)
+            val noiseKey = authenticatedKey
+            if (peerInfo != null) {
+                val fingerprint = com.bitchat.android.services.ContactIdentityResolver.fingerprintHex(noiseKey)
+                if (appContext.getSharedPreferences("bitchat_prefs", android.content.Context.MODE_PRIVATE)
+                        .getStringSet("blocked_users", emptySet())?.contains(fingerprint) == true) return
+                if (!com.bitchat.android.favorites.FavoritesPersistenceService.shared.applyRemoteFavorite(noiseKey, control.isFavorite, timestamp, messageID, control.npub)) return
                 if (control.npub != null) {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, control.npub)
                     com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(fromPeerID, control.npub)
                 }
 
@@ -675,8 +679,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     // Best-effort; public notice already delivered
                 }
             }
-        } catch (_: Exception) {
-            // Best-effort; ignore errors
+        } catch (error: Exception) {
+            // No delivery ACK until the authenticated control is durably stored.
+            throw error
         }
     }
 }
@@ -733,6 +738,7 @@ interface MessageHandlerDelegate {
 
     // Callbacks
     fun onMessageReceived(message: BitchatMessage)
+    suspend fun isPrivateMessageStored(message: BitchatMessage): Boolean = false
     fun onChannelLeave(channel: String, fromPeer: String)
     fun onDeliveryAckReceived(messageID: String, peerID: String)
     fun onReadReceiptReceived(messageID: String, peerID: String)

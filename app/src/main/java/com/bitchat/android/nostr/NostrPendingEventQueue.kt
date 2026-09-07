@@ -39,6 +39,10 @@ internal class NostrPendingEventQueue(
         if (pendingRelays.isEmpty()) return null
 
         return synchronized(lock) {
+            entries.firstOrNull { it.event.id == event.id && it.liveLocationToken == liveLocationToken }?.let { existing ->
+                existing.pendingRelayUrls.addAll(pendingRelays)
+                return@synchronized existing.queueId
+            }
             if (entries.size >= capacity) entries.removeFirst()
             val queueId = nextQueueId++
             entries.addLast(
@@ -70,6 +74,18 @@ internal class NostrPendingEventQueue(
                 entry.pendingRelayUrls.remove(relayUrl)
                 if (entry.pendingRelayUrls.isEmpty()) iterator.remove()
                 return
+            }
+        }
+    }
+
+    fun acknowledge(eventId: String, relayUrl: String) {
+        synchronized(lock) {
+            val iterator = entries.iterator()
+            while (iterator.hasNext()) {
+                val entry = iterator.next()
+                if (entry.event.id != eventId) continue
+                entry.pendingRelayUrls.remove(relayUrl)
+                if (entry.pendingRelayUrls.isEmpty()) iterator.remove()
             }
         }
     }

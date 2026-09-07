@@ -62,7 +62,9 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                         val persisted = AppStateStore.addPrivateMessageDurably(
                             peerID = conversationID,
                             msg = message,
-                            forceRead = true
+                            forceRead = true,
+                            queueForDelivery = true,
+                            outgoingJob = MessageRouter.deliveryJob(message, conversationID)
                         )
                         if (persisted) {
                             MessageRouter.getInstance(context.applicationContext, mesh)

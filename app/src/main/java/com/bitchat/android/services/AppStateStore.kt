@@ -259,6 +259,48 @@ object AppStateStore {
         }
     }
 
+    @Synchronized
+    fun privateConversationToken(): Long? = privateConversationGeneration.takeUnless { privateConversationWritesSuspended }
+
+    enum class PrivateAdmission { INSERTED, ALREADY_STORED, REJECTED, RETRYABLE_FAILURE }
+
+    fun incomingLocalID(conversation: String, wireID: String): String =
+        "incoming_" + java.security.MessageDigest.getInstance("SHA-256")
+            .digest("$conversation:$wireID".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+
+    suspend fun isIncomingPrivateStored(message: BitchatMessage): Boolean {
+        val conversation = message.senderPeerID?.let(ContactDirectory::canonicalConversationId) ?: return false
+        val repository = conversationRepository ?: return false
+        val wireID = message.wireMessageID ?: message.id
+        val stored = repository.storedMessage(conversation, incomingLocalID(conversation, wireID))
+            ?: repository.storedMessage(conversation, wireID)
+            ?: return false
+        return stored.content == message.content && stored.senderPeerID?.let(ContactDirectory::canonicalConversationId) == conversation
+    }
+
+    suspend fun admitIncomingPrivate(
+        message: BitchatMessage,
+        forceRead: Boolean = false,
+        receiptJob: PrivateDeliveryJob? = null
+    ): PrivateAdmission {
+        if (synchronized(this) { privateConversationWritesSuspended }) return PrivateAdmission.REJECTED
+        val conversation = message.senderPeerID?.let(ContactDirectory::canonicalConversationId) ?: return PrivateAdmission.REJECTED
+        val repository = conversationRepository ?: return PrivateAdmission.RETRYABLE_FAILURE
+        if (isIncomingPrivateStored(message)) {
+            if (receiptJob != null) repository.saveDelivery(receiptJob, replace = false)
+            return PrivateAdmission.ALREADY_STORED
+        }
+        val wireID = message.wireMessageID ?: message.id
+        val localID = incomingLocalID(conversation, wireID)
+        if (repository.isDeletedMessage(localID) || repository.isDeletedMessage(wireID) ||
+            repository.storedMessage(conversation, localID) != null) return PrivateAdmission.REJECTED
+        val local = message.copy(id = localID, senderPeerID = conversation, wireMessageID = wireID)
+        return if (addPrivateMessageDurably(conversation, local, forceRead, receiptJob = receiptJob)) {
+            PrivateAdmission.INSERTED
+        } else if (isIncomingPrivateStored(message)) PrivateAdmission.ALREADY_STORED else PrivateAdmission.RETRYABLE_FAILURE
+    }
+
     /**
      * Persists an incoming private message before it is admitted to UI, unread, haptic, or
      * notification state. Transport callbacks invoke this from their background worker.
@@ -266,7 +308,10 @@ object AppStateStore {
     suspend fun addPrivateMessageDurably(
         peerID: String,
         msg: BitchatMessage,
-        forceRead: Boolean = false
+        forceRead: Boolean = false,
+        queueForDelivery: Boolean = false,
+        receiptJob: PrivateDeliveryJob? = null,
+        outgoingJob: PrivateDeliveryJob? = null
     ): Boolean {
         val persistence = synchronized(this) {
             if (privateConversationWritesSuspended) return false
@@ -285,7 +330,10 @@ object AppStateStore {
             aliases = persistence.aliases,
             displayName = persistence.displayName,
             message = msg,
-            isRead = persistence.isRead
+            isRead = persistence.isRead,
+            queueForDelivery = queueForDelivery,
+            receiptJob = receiptJob?.copy(localMessageID = msg.id),
+            outgoingJob = outgoingJob
         )
         return synchronized(this) {
             reservedPrivateMessageIds.remove(msg.id)
@@ -324,7 +372,7 @@ object AppStateStore {
 
         val isRead = forceRead ||
             msg.sender == "system" ||
-            msg.sender == _nickname.value ||
+            (msg.senderNostrPubkey == null && msg.senderPeerID?.let(ContactDirectory::canonicalConversationId)?.let { it != conversationID } == true) ||
             _selectedPrivateChatPeer.value
                 ?.let(ContactDirectory::canonicalConversationId)
                 ?.equals(conversationID, ignoreCase = true) == true
@@ -367,7 +415,7 @@ object AppStateStore {
         val existingMessages = _privateMessages.value[conversationID].orEmpty()
         val isRead = forceRead ||
             msg.sender == "system" ||
-            msg.sender == _nickname.value ||
+            (msg.senderNostrPubkey == null && msg.senderPeerID?.let(ContactDirectory::canonicalConversationId)?.let { it != conversationID } == true) ||
             _selectedPrivateChatPeer.value
                 ?.let(ContactDirectory::canonicalConversationId)
                 ?.equals(conversationID, ignoreCase = true) == true
@@ -416,6 +464,27 @@ object AppStateStore {
         is DeliveryStatus.Delivered -> 4
         is DeliveryStatus.Read -> 5
         is DeliveryStatus.Failed -> 0
+    }
+
+    suspend fun acknowledgePrivateReceipt(conversationID: String, messageID: String, read: Boolean): Boolean {
+        val canonical = ContactDirectory.canonicalConversationId(conversationID)
+        val repository = conversationRepository ?: return false
+        val control = repository.deliveryJobs().firstOrNull {
+            it.kind == PrivateDeliveryJob.Kind.FAVORITE && it.messageID == messageID &&
+                ContactDirectory.canonicalConversationId(it.conversationID) == canonical
+        }
+        if (control != null) {
+            com.bitchat.android.favorites.FavoritesPersistenceService.shared.acknowledgeLocalControl(canonical, messageID)
+            repository.removeDelivery(control.id)
+            return true
+        }
+        val message = repository.storedMessage(canonical, messageID) ?: return false
+        val author = message.senderPeerID ?: return false
+        if (message.sender == "system" || ContactDirectory.canonicalConversationId(author) == canonical || message.senderNostrPubkey != null) return false
+        val status = if (read) DeliveryStatus.Read(canonical, java.util.Date()) else DeliveryStatus.Delivered(canonical, java.util.Date())
+        if (!repository.acknowledgeDelivery(canonical, messageID, status)) return false
+        updatePrivateMessageStatus(messageID, status)
+        return true
     }
 
     fun updatePrivateMessageStatus(messageID: String, status: DeliveryStatus) {
@@ -545,10 +614,13 @@ object AppStateStore {
         }
     }
 
-    fun markPrivateMessageRead(messageID: String) {
+    fun markPrivateMessageRead(messageID: String, receiptJob: PrivateDeliveryJob? = null) {
         synchronized(this) {
             if (privateConversationWritesSuspended) return
-            if (messageID in _readPrivateMessageIDs.value) return
+            if (messageID in _readPrivateMessageIDs.value) {
+                if (receiptJob != null) conversationRepository?.markRead(messageID, receiptJob.copy(localMessageID = messageID))
+                return
+            }
             canonicalizePrivateConversationStateLocked()
             _readPrivateMessageIDs.value = _readPrivateMessageIDs.value + messageID
             val conversationID = _privateMessages.value.entries
@@ -562,7 +634,7 @@ object AppStateStore {
                 }
                 _unreadPrivateMessageCounts.value = counts
             }
-            conversationRepository?.markRead(messageID)
+            conversationRepository?.markRead(messageID, receiptJob?.copy(localMessageID = messageID))
         }
     }
 
