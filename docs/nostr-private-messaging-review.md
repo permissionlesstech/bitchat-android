@@ -58,6 +58,10 @@ ciphertext. Outer signature/recipient, seal signature/author, and rumor kind, ID
 recipient validation are enforced. The wire message ID is unchanged across mesh and
 Nostr; incoming database IDs are local implementation details.
 
+New outbound seals and gift wraps use main's 22-hour maximum backdating window
+to leave slack within iOS's lookback. The receiver still retains two days of
+overlap for envelopes produced by older clients.
+
 The catch-up window is a product retention policy, not a promise that any relay
 retains 30 days of events. A relay that truncates below the requested limit without
 indicating it cannot be detected reliably. A saturated single second beyond the
