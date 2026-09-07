@@ -20,7 +20,8 @@ enum class MessageType(val value: UByte) {
     FRAGMENT(0x20u), // Fragmentation for large packets
     REQUEST_SYNC(0x21u), // GCS-based sync request
     FILE_TRANSFER(0x22u), // New: File transfer packet (BLE voice notes, etc.)
-    VOICE_FRAME(0x29u); // Ephemeral live push-to-talk frame; never added to gossip sync
+    VOICE_FRAME(0x29u), // Ephemeral live push-to-talk frame; never added to gossip sync
+    GROUP_MESSAGE(0x25u); // Opaque private-group ciphertext broadcast
 
     companion object {
         fun fromValue(value: UByte): MessageType? {

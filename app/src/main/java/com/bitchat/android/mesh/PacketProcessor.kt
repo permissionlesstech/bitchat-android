@@ -153,6 +153,7 @@ class PacketProcessor(private val myPeerID: String) {
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.VOICE_FRAME -> validPacket = delegate?.handleVoiceFrame(routed) ?: false
+            MessageType.GROUP_MESSAGE -> handleGroupMessage(routed)
             MessageType.LEAVE -> handleLeave(routed)
             MessageType.FRAGMENT -> handleFragment(routed)
             MessageType.REQUEST_SYNC -> handleRequestSync(routed)
@@ -211,6 +212,12 @@ class PacketProcessor(private val myPeerID: String) {
      */
     private suspend fun handleMessage(routed: RoutedPacket) {
         delegate?.handleMessage(routed)
+    }
+
+    private fun handleGroupMessage(routed: RoutedPacket) {
+        val peerID = routed.peerID ?: "unknown"
+        Log.d(TAG, "Processing private-group message from ${formatPeerForLog(peerID)}")
+        delegate?.handleGroupMessage(routed)
     }
     
     /**
@@ -316,6 +323,7 @@ interface PacketProcessorDelegate {
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean
     fun handleMessage(routed: RoutedPacket)
     fun handleVoiceFrame(routed: RoutedPacket): Boolean = false
+    fun handleGroupMessage(routed: RoutedPacket) {}
     fun handleLeave(routed: RoutedPacket)
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
     fun handleRequestSync(routed: RoutedPacket)

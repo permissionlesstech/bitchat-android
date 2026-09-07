@@ -199,6 +199,20 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 com.bitchat.android.model.NoisePayloadType.VERIFY_RESPONSE -> {
                     delegate?.onVerifyResponseReceived(peerID, noisePayload.data, packet.timestamp.toLong())
                 }
+                com.bitchat.android.model.NoisePayloadType.GROUP_INVITE -> {
+                    delegate?.onGroupInviteReceived(
+                        peerID,
+                        decryption.authenticatedSession.remoteStaticKey.copyOf(),
+                        noisePayload.data
+                    )
+                }
+                com.bitchat.android.model.NoisePayloadType.GROUP_KEY_UPDATE -> {
+                    delegate?.onGroupKeyUpdateReceived(
+                        peerID,
+                        decryption.authenticatedSession.remoteStaticKey.copyOf(),
+                        noisePayload.data
+                    )
+                }
             }
             
         } catch (e: Exception) {
@@ -255,6 +269,13 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         } else {
             consecutiveDecryptFailures[peerID] = failures
         }
+    }
+
+    fun handleGroupMessage(routed: RoutedPacket) {
+        delegate?.onGroupMessageReceived(
+            routed.packet.payload,
+            routed.packet.timestamp.toLong()
+        )
     }
     
     /**
@@ -770,4 +791,15 @@ interface MessageHandlerDelegate {
     fun onReadReceiptReceived(messageID: String, peerID: String)
     fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long)
     fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long)
+    fun onGroupInviteReceived(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {}
+    fun onGroupKeyUpdateReceived(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {}
+    fun onGroupMessageReceived(payload: ByteArray, timestampMs: Long) {}
 }

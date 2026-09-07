@@ -52,6 +52,7 @@ class GossipSyncManager(
     // Stored packets for sync:
     // - broadcast messages: keep up to seenCapacity() most recent, keyed by packetId
     private val messages = LinkedHashMap<String, BitchatPacket>()
+    private val groupMessages = LinkedHashMap<String, BitchatPacket>()
     private val fragments = LinkedHashMap<String, BitchatPacket>()
     private val archiveFile = context?.applicationContext?.filesDir?.let { File(it, ARCHIVE_FILE) }
     private var restoringArchive = false
@@ -97,6 +98,7 @@ class GossipSyncManager(
             messages.clear()
         }
         synchronized(fragments) { fragments.clear() }
+        synchronized(groupMessages) { groupMessages.clear() }
         latestAnnouncementByPeer.clear()
         archiveFile?.delete()
         Log.d(TAG, "Cleared all gossip sync messages and announcements")
@@ -120,17 +122,29 @@ class GossipSyncManager(
         // Only ANNOUNCE or broadcast MESSAGE
         val mt = MessageType.fromValue(packet.type)
         val isBroadcastMessage = (mt == MessageType.MESSAGE && (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST)))
+        val isGroupMessage = mt == MessageType.GROUP_MESSAGE &&
+            (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
         val isBroadcastFile = mt == MessageType.FILE_TRANSFER &&
             (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
         val isAnnouncement = (mt == MessageType.ANNOUNCE)
         val isFragment = (mt == MessageType.FRAGMENT || isBroadcastFile) &&
             (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
-        if (!isBroadcastMessage && !isAnnouncement && !isFragment) return
+        if (!isBroadcastMessage && !isAnnouncement && !isFragment && !isGroupMessage) return
 
         val idBytes = PacketIdUtil.computeIdBytes(packet)
         val id = idBytes.joinToString("") { b -> "%02x".format(b) }
 
-        if (isBroadcastMessage) {
+        if (isGroupMessage) {
+            val age = System.currentTimeMillis() - packet.timestamp.toLong()
+            if (age !in -PUBLIC_PACKET_FUTURE_SKEW_MS..PUBLIC_MESSAGE_MAX_AGE_MS) return
+            synchronized(groupMessages) {
+                groupMessages[id] = packet
+                while (groupMessages.size > 200) {
+                    val iterator = groupMessages.entries.iterator()
+                    iterator.next(); iterator.remove()
+                }
+            }
+        } else if (isBroadcastMessage) {
             val now = System.currentTimeMillis()
             val age = now - packet.timestamp.toLong()
             if (age !in -PUBLIC_PACKET_FUTURE_SKEW_MS..PUBLIC_MESSAGE_MAX_AGE_MS) return
@@ -178,7 +192,8 @@ class GossipSyncManager(
         listOf(
             SyncTypeFlags.PUBLIC_MESSAGES,
             SyncTypeFlags.FRAGMENT,
-            SyncTypeFlags.FILE_TRANSFER
+            SyncTypeFlags.FILE_TRANSFER,
+            SyncTypeFlags.GROUP_MESSAGE
         ).forEach { types ->
             val payload = buildGcsPayload(types)
             val packet = BitchatPacket(
@@ -194,7 +209,7 @@ class GossipSyncManager(
     }
 
     private fun sendRequestSyncToPeer(peerID: String) {
-        val types = SyncTypeFlags.PUBLIC_MESSAGES.union(SyncTypeFlags.FRAGMENTS_AND_FILES)
+        val types = SyncTypeFlags.PUBLIC_MESSAGES.union(SyncTypeFlags.FRAGMENTS_AND_FILES).union(SyncTypeFlags.GROUP_MESSAGE)
         val payload = buildGcsPayload(types)
 
         val packet = BitchatPacket(
@@ -249,6 +264,14 @@ class GossipSyncManager(
             }
         }
 
+        if (requestedTypes.contains(MessageType.GROUP_MESSAGE)) {
+            synchronized(groupMessages) { groupMessages.values.toList() }.forEach { packet ->
+                if ((sinceTimestamp == null || packet.timestamp >= sinceTimestamp) &&
+                    !mightContain(PacketIdUtil.computeIdBytes(packet))) {
+                    delegate?.sendPacketToPeer(fromPeerID, packet.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS))
+                }
+            }
+        }
         val toSendFragments = synchronized(fragments) { fragments.values.toList() }
         for (pkt in toSendFragments) {
             val type = MessageType.fromValue(pkt.type) ?: continue
@@ -289,6 +312,9 @@ class GossipSyncManager(
     internal fun buildGcsPayload(types: SyncTypeFlags): ByteArray {
         // Collect only the packet types represented by this filter.
         val list = ArrayList<BitchatPacket>()
+        if (types.contains(MessageType.GROUP_MESSAGE)) {
+            synchronized(groupMessages) { list.addAll(groupMessages.values) }
+        }
         if (types.contains(MessageType.ANNOUNCE)) {
             for ((_, pair) in latestAnnouncementByPeer) {
                 list.add(pair.second)

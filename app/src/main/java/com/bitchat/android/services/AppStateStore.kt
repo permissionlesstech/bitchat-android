@@ -408,6 +408,19 @@ object AppStateStore {
         messageID in seenMessageIds
     }
 
+    fun removePrivateConversation(peerID: String) {
+        synchronized(this) {
+            val conversationID = ContactDirectory.canonicalConversationId(peerID)
+            val map = _privateMessages.value.toMutableMap()
+            val removedPeer = map.remove(peerID) != null
+            val removedConversation = map.remove(conversationID) != null
+            val changed = removedPeer || removedConversation
+            if (changed) {
+                _privateMessages.value = map
+            }
+        }
+    }
+
     private fun statusPriority(status: DeliveryStatus?): Int = when (status) {
         null -> 0
         is DeliveryStatus.Sending -> 1

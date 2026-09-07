@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,6 +61,8 @@ import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.favorites.FavoriteRelationship
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.groups.BitchatGroup
+import com.bitchat.android.groups.GroupIds
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
@@ -96,6 +99,8 @@ fun MeshPeerListSheet(
     val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
+    val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
+    val groups by viewModel.groups.collectAsStateWithLifecycle()
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
@@ -447,6 +452,21 @@ fun MeshPeerListSheet(
                             }
                         }
                     }
+
+                    if (selectedLocationChannel !is ChannelID.Location && groups.isNotEmpty()) {
+                        item(key = "groups_section") {
+                            GroupSection(
+                                groups = groups,
+                                myFingerprint = viewModel.getMyFingerprint(),
+                                unreadConversationIDs = unreadPrivateMessages,
+                                colorScheme = colorScheme,
+                                onGroupClick = { groupPeerID ->
+                                    viewModel.showPrivateChatSheet(groupPeerID)
+                                    onDismiss()
+                                }
+                            )
+                        }
+                    }
                 }
 
                 // TopBar (animated)
@@ -567,6 +587,103 @@ fun MeshPeerListSheet(
 /** Icon size for trailing actions on peer rows (matches settings glyph scale). */
 private val PeerRowIconSize = 22.dp
 private const val CONVERSATION_SEARCH_THRESHOLD = 8
+
+@Composable
+private fun GroupSection(
+    groups: List<BitchatGroup>,
+    myFingerprint: String,
+    unreadConversationIDs: Set<String>,
+    colorScheme: ColorScheme,
+    onGroupClick: (String) -> Unit
+) {
+    Column(modifier = Modifier.padding(top = 16.dp)) {
+        Text(
+            text = stringResource(R.string.groups).uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            color = colorScheme.onSurface.copy(alpha = 0.7f),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(top = 8.dp, bottom = 4.dp)
+        )
+
+        groups.forEach { group ->
+            val isCreator = group.creatorFingerprint.equals(myFingerprint, ignoreCase = true)
+            val hasUnread = group.peerID in unreadConversationIDs
+            val memberCountLabel = stringResource(R.string.group_member_count, group.members.size)
+            val creatorLabel = stringResource(R.string.group_creator)
+            val unreadLabel = stringResource(R.string.cd_unread_private_messages)
+            val accessibilityDescription = buildList {
+                add(group.name)
+                add(memberCountLabel)
+                if (isCreator) add(creatorLabel)
+                if (hasUnread) add(unreadLabel)
+            }.joinToString()
+
+            Surface(
+                onClick = { onGroupClick(group.peerID) },
+                color = Color.Transparent,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 2.dp)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = accessibilityDescription
+                    }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Groups,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = colorScheme.primary
+                    )
+                    Text(
+                        text = "#${group.name}",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        color = colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = memberCountLabel,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    if (isCreator) {
+                        Icon(
+                            imageVector = Icons.Filled.WorkspacePremium,
+                            contentDescription = creatorLabel,
+                            modifier = Modifier.size(14.dp),
+                            tint = Color(0xFFFFD700)
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (hasUnread) {
+                        Icon(
+                            imageVector = Icons.Filled.Mail,
+                            contentDescription = unreadLabel,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color(0xFFFF9500)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun ChannelRow(
@@ -1687,6 +1804,9 @@ fun PrivateChatSheet(
     val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
     val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
     val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
+    val groups by viewModel.groups.collectAsStateWithLifecycle()
+    val group = remember(peerID, groups) { groups.firstOrNull { it.peerID == peerID } }
+    val isGroupConversation = GroupIds.isGroup(peerID)
 
     val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
     val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
@@ -1713,6 +1833,7 @@ fun PrivateChatSheet(
     val isConnected = activeMeshPeerID?.let { connectedPeers.contains(it) } == true || connectedPeers.contains(peerID) || isDirect
     val isNostrReachableFavorite =
         !isConnected && favoriteRelationship?.isMutual == true && favoriteRelationship.peerNostrPublicKey != null
+    val privateGroupLabel = stringResource(R.string.private_group)
 
     // Compute display name and title text reactively
     val displayName = remember(peerID, peerNicknames, favoriteRelationship) {
@@ -1722,8 +1843,10 @@ fun PrivateChatSheet(
             ?: favoriteRelationship?.peerNickname?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
             ?: viewModel.resolvePeerDisplayNameForFingerprint(peerID)
     }
-    val titleText = remember(peerID, peerNicknames, favoriteRelationship) {
-        if (isNostrPeer) {
+    val titleText = remember(peerID, peerNicknames, favoriteRelationship, group) {
+        if (isGroupConversation) {
+            group?.let { "#${it.name} (${it.members.size})" } ?: privateGroupLabel
+        } else if (isNostrPeer) {
             val gh = GeohashConversationRegistry.get(peerID) ?: "geohash"
             val fullPubkey = GeohashAliasRegistry.get(peerID) ?: ""
             val name = if (fullPubkey.isNotEmpty()) {
@@ -1737,7 +1860,7 @@ fun PrivateChatSheet(
         }
     }
 
-    val conversationID = contactResolution.conversationID
+    val conversationID = if (isGroupConversation) peerID else contactResolution.conversationID
     val messages = privateChats[conversationID] ?: privateChats[peerID] ?: emptyList()
     val sessionState = resolveConversationSessionState(
         conversationID = peerID,
@@ -1747,8 +1870,15 @@ fun PrivateChatSheet(
     val fingerprint = activeMeshPeerID?.let { peerFingerprints[it] }
         ?: peerFingerprints[peerID]
         ?: ContactIdentityResolver.fingerprintFromContactConversationId(peerID)
-    val isFavorite = remember(favoritePeers, fingerprint, peerID, favoriteRelationship) {
-        if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
+    val isFavorite = remember(
+        favoritePeers,
+        fingerprint,
+        peerID,
+        favoriteRelationship,
+        isGroupConversation
+    ) {
+        !isGroupConversation &&
+            if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
     }
     val theyFavoritedUs = remember(peerFavoritedUs, fingerprint, favoriteRelationship) {
         (fingerprint != null && peerFavoritedUs.contains(fingerprint)) ||
@@ -1834,8 +1964,33 @@ fun PrivateChatSheet(
                         onImageClick = { _, _, _ -> /* handle image click */ }
                     )
 
-                    // Input section. No divider here: ChatInputSection draws its own fade and
-                    // hairline.
+                    HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
+
+                    // Input section
+                    if (isGroupConversation) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                                .semantics(mergeDescendants = true) {},
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = Color(0xFFFF9500)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.group_encryption_caption),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFFF9500)
+                            )
+                        }
+                    }
+
                     var messageText by remember(peerID) {
                         mutableStateOf(
                             androidx.compose.ui.text.input.TextFieldValue(
@@ -1885,7 +2040,7 @@ fun PrivateChatSheet(
                         currentChannel = null,
                         nickname = nickname,
                         colorScheme = colorScheme,
-                        showMediaButtons = true
+                        showMediaButtons = !isGroupConversation
                     )
                 }
 
@@ -1910,6 +2065,7 @@ fun PrivateChatSheet(
                         },
                         title = titleText
                     ) {
+                        if (!isGroupConversation) {
                         ConversationHeaderAction(
                             onClick = { viewModel.toggleFavorite(peerID) },
                             contentDescription = if (isFavorite) {
@@ -1938,7 +2094,9 @@ fun PrivateChatSheet(
                             )
                         }
 
-                        if (isVerified) {
+                        }
+
+                        if (!isGroupConversation && isVerified) {
                             ConversationHeaderStatus {
                                 Icon(
                                     imageVector = Icons.Filled.Verified,
@@ -1953,7 +2111,7 @@ fun PrivateChatSheet(
 
                         // Keep the lock nearest the close action: from right to left the security
                         // cluster reads close, encryption, verification, then favorite.
-                        if (!isNostrPeer && !isNostrReachableFavorite) {
+                        if (!isGroupConversation && !isNostrPeer && !isNostrReachableFavorite) {
                             ConversationHeaderAction(
                                 onClick = { viewModel.showSecurityVerificationSheet() },
                                 contentDescription = stringResource(R.string.verify_title)

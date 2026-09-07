@@ -6,7 +6,10 @@ import com.bitchat.android.protocol.MessageType
 @JvmInline
 value class SyncTypeFlags private constructor(val rawValue: ULong) {
     companion object {
-        private const val KNOWN_TYPE_MASK: ULong = 0xffu
+        private const val KNOWN_TYPE_MASK: ULong = 0x4ffu
+
+        val GROUP_MESSAGE = fromMessageTypes(MessageType.GROUP_MESSAGE)
+        fun of(vararg types: MessageType) = fromMessageTypes(*types)
 
         val ANNOUNCE = fromMessageTypes(MessageType.ANNOUNCE)
         val MESSAGE = fromMessageTypes(MessageType.MESSAGE)
@@ -43,6 +46,7 @@ value class SyncTypeFlags private constructor(val rawValue: ULong) {
             MessageType.FRAGMENT -> 5
             MessageType.REQUEST_SYNC -> 6
             MessageType.FILE_TRANSFER -> 7
+            MessageType.GROUP_MESSAGE -> 10
             MessageType.COURIER_ENVELOPE,
             MessageType.VOICE_FRAME -> null
         }
@@ -54,6 +58,8 @@ value class SyncTypeFlags private constructor(val rawValue: ULong) {
     }
 
     fun union(other: SyncTypeFlags): SyncTypeFlags = fromRawValue(rawValue or other.rawValue)
+
+    fun encoded(): ByteArray? = encode()
 
     fun encode(): ByteArray? {
         if (rawValue == 0uL) return null
