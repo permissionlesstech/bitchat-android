@@ -1020,6 +1020,11 @@ class ChatViewModel(
                             messageId,
                             com.bitchat.android.model.DeliveryStatus.Sent
                         )
+                    } else if (route == com.bitchat.android.services.MessageRouter.RouteResult.QUEUED) {
+                        messageManager.updateMessageDeliveryStatus(
+                            messageId,
+                            com.bitchat.android.model.DeliveryStatus.Queued
+                        )
                     }
                 }
                 onAccepted(accepted)
@@ -1483,7 +1488,7 @@ class ChatViewModel(
             com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
         } catch (_: Exception) { }
         try {
-            com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
+            com.bitchat.android.services.MessageRouter.panicClear(getApplication())
         } catch (_: Exception) { }
         
         // Clear all cryptographic data

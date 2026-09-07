@@ -5,6 +5,7 @@ import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.noise.southernstorm.protocol.Noise
+import com.bitchat.android.noise.southernstorm.protocol.HandshakeState
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
@@ -18,7 +19,10 @@ import java.util.concurrent.ConcurrentHashMap
  * - Channel encryption using password-derived keys
  * - Peer fingerprint mapping and identity persistence
  */
-class NoiseEncryptionService(private val context: Context) {
+class NoiseEncryptionService(
+    private val context: Context,
+    private val identityStateManager: SecureIdentityStateManager = SecureIdentityStateManager(context)
+) {
     
     companion object {
         private const val TAG = "NoiseEncryptionService"
@@ -42,9 +46,6 @@ class NoiseEncryptionService(private val context: Context) {
     // Channel encryption for password-protected channels
     private val channelEncryption = NoiseChannelEncryption()
     
-    // Identity management for peer ID rotation support
-    private val identityStateManager: SecureIdentityStateManager
-    
     // Centralized fingerprint management - NO LOCAL STORAGE
     private val fingerprintManager = PeerFingerprintManager.getInstance()
     
@@ -53,9 +54,6 @@ class NoiseEncryptionService(private val context: Context) {
     var onHandshakeRequired: ((String) -> Unit)? = null // peerID needs handshake
     
     init {
-        // Initialize identity state manager for persistent storage
-        identityStateManager = SecureIdentityStateManager(context)
-        
         // Load or create keys - temporary placeholders
         staticIdentityPrivateKey = ByteArray(32)
         staticIdentityPublicKey = ByteArray(32)
@@ -145,6 +143,40 @@ class NoiseEncryptionService(private val context: Context) {
      */
     fun getPeerPublicKeyData(peerID: String): ByteArray? {
         return sessionManager.getRemoteStaticKey(peerID)
+    }
+
+    fun sealCourierPayload(payload: ByteArray, recipientStaticKey: ByteArray): ByteArray {
+        require(recipientStaticKey.size == 32 && recipientStaticKey.any { it != 0.toByte() })
+        val state = HandshakeState("Noise_X_25519_ChaChaPoly_SHA256", HandshakeState.INITIATOR)
+        return try {
+            state.getLocalKeyPair().setPrivateKey(staticIdentityPrivateKey, 0)
+            state.getRemotePublicKey().setPublicKey(recipientStaticKey, 0)
+            val prologue = "bitchat-courier-v1".toByteArray(Charsets.UTF_8)
+            state.setPrologue(prologue, 0, prologue.size)
+            state.start()
+            val output = ByteArray(payload.size + 128)
+            output.copyOf(state.writeMessage(output, 0, payload, 0, payload.size))
+        } finally {
+            state.destroy()
+        }
+    }
+
+    fun openCourierPayload(ciphertext: ByteArray): Pair<ByteArray, ByteArray> {
+        require(ciphertext.size >= 96)
+        val state = HandshakeState("Noise_X_25519_ChaChaPoly_SHA256", HandshakeState.RESPONDER)
+        return try {
+            state.getLocalKeyPair().setPrivateKey(staticIdentityPrivateKey, 0)
+            val prologue = "bitchat-courier-v1".toByteArray(Charsets.UTF_8)
+            state.setPrologue(prologue, 0, prologue.size)
+            state.start()
+            val payload = ByteArray(ciphertext.size)
+            val length = state.readMessage(ciphertext, 0, ciphertext.size, payload, 0)
+            val senderKey = ByteArray(32)
+            state.getRemotePublicKey().getPublicKey(senderKey, 0)
+            senderKey to payload.copyOf(length)
+        } finally {
+            state.destroy()
+        }
     }
 
     fun getAuthenticatedSession(peerID: String): AuthenticatedNoiseSession? =

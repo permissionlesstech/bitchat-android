@@ -64,6 +64,26 @@ class PacketProcessorAnnounceSideEffectTest {
         assertEquals(PEER_ID, withTimeout(1_000) { delegate.lastSeen.await() })
     }
 
+    @Test
+    fun `broadcast message within future skew is handled`() = runBlocking {
+        val delegate = RecordingDelegate(acceptAnnounce = true)
+        val processor = processor(delegate)
+
+        processor.processPacket(message(timestampOffsetMs = 60_000))
+
+        withTimeout(1_000) { delegate.messageHandled.await() }
+    }
+
+    @Test
+    fun `broadcast message beyond future skew is rejected`() = runBlocking {
+        val delegate = RecordingDelegate(acceptAnnounce = true)
+        val processor = processor(delegate)
+
+        processor.processPacket(message(timestampOffsetMs = 11 * 60_000L))
+
+        assertNull(withTimeoutOrNull(250) { delegate.messageHandled.await() })
+    }
+
     private fun processor(delegate: RecordingDelegate): PacketProcessor =
         PacketProcessor(MY_PEER_ID).also {
             it.delegate = delegate
@@ -96,12 +116,26 @@ class PacketProcessorAnnounceSideEffectTest {
         return RoutedPacket(packet, PEER_ID, "direct-link")
     }
 
+    private fun message(timestampOffsetMs: Long): RoutedPacket {
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = PEER_ID.hexToBytes(),
+            recipientID = SpecialRecipients.BROADCAST,
+            timestamp = (System.currentTimeMillis() + timestampOffsetMs).toULong(),
+            payload = byteArrayOf(0x01),
+            ttl = 7u
+        )
+        return RoutedPacket(packet, PEER_ID, "direct-link")
+    }
+
     private class RecordingDelegate(
         private val acceptAnnounce: Boolean,
         private val acceptHandshake: Boolean = false
     ) : PacketProcessorDelegate {
         val handled = CompletableDeferred<Unit>()
         val handshakeHandled = CompletableDeferred<Unit>()
+        val messageHandled = CompletableDeferred<Unit>()
         val lastSeen = CompletableDeferred<String>()
         @Volatile var relayCount = 0
 
@@ -121,7 +155,9 @@ class PacketProcessorAnnounceSideEffectTest {
             handled.complete(Unit)
             return acceptAnnounce
         }
-        override fun handleMessage(routed: RoutedPacket) = Unit
+        override fun handleMessage(routed: RoutedPacket) {
+            messageHandled.complete(Unit)
+        }
         override fun handleLeave(routed: RoutedPacket) = Unit
         override fun handleFragment(packet: BitchatPacket): BitchatPacket? = null
         override fun handleRequestSync(routed: RoutedPacket) = Unit
