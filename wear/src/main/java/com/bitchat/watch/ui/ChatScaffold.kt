@@ -28,14 +28,19 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumnState
 import androidx.wear.compose.foundation.lazy.items
@@ -50,13 +55,12 @@ import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlin.math.sign
 
 /**
  * The shared chat body for global chat and DM threads, following the classic messenger
  * pattern: a TransformingLazyColumn message list (native Wear center-scaling/fade, rotary,
  * scrollbar) with the header and action bar as floating overlays that get out of the way
- * while scrolling up into history and return on any downward scroll; at the newest message
+ * while scrolling up into history and return on a deliberate reverse scroll; at the newest message
  * they are always visible.
  *
  * The list's contentPadding is CONSTANT and both overlays are layout-neutral, so showing or
@@ -92,33 +96,38 @@ fun ChatScaffold(
     // Follow intent is changed only by an actual user scroll away from the newest item or by
     // reaching the end again. A new item temporarily makes canScrollForward true before layout;
     // treating that transient range change as user intent breaks automatic following.
-    var followNewest by remember { mutableStateOf(true) }
-    val controlsVisible = remember { mutableStateOf(true) }
+    var scrollIntent by remember { mutableStateOf(ChatScrollIntentState()) }
+    val density = LocalDensity.current
+    val scrollConnection = remember(columnState, density) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                // Both Wear rotary and touch dispatch consumed movement here. Positive list
+                // movement is toward newer messages. Layout changes never enter this path.
+                scrollIntent = updatedChatScrollIntent(
+                    current = scrollIntent,
+                    deltaDp = -consumed.y / density.density,
+                    isUserInput = source == NestedScrollSource.UserInput,
+                    atNewest = !columnState.canScrollForward
+                )
+                return Offset.Zero
+            }
+        }
+    }
     LaunchedEffect(columnState) {
-        var lastPosition = -1
-        var scrollIntent = ChatScrollIntentState()
         snapshotFlow {
-            val first = columnState.layoutInfo.visibleItems.firstOrNull()
-            ChatScrollSnapshot(
-                canScrollForward = columnState.canScrollForward,
-                isScrollInProgress = columnState.isScrollInProgress,
-                position = (first?.index ?: 0) * 100_000 + (first?.offset ?: 0)
-            )
-        }.collect { snapshot ->
-            scrollIntent = updatedChatScrollIntent(
-                current = scrollIntent,
-                snapshot = snapshot,
-                previousPosition = lastPosition
-            )
-            followNewest = scrollIntent.followsNewest
-            controlsVisible.value = scrollIntent.controlsVisible
-            lastPosition = snapshot.position
+            !columnState.canScrollForward && !columnState.isScrollInProgress
+        }.collect { atNewest ->
+            if (atNewest) scrollIntent = ChatScrollIntentState()
         }
     }
 
     // Stick to bottom when the user has not intentionally moved into history.
     LaunchedEffect(columnState, messages.size) {
-        if (messages.isNotEmpty() && followNewest) {
+        if (messages.isNotEmpty() && scrollIntent.followsNewest) {
             val expectedSingleMessageKey = messages.singleOrNull()?.id
             scrollToNewestAfterItemsMeasured(
                 expectedItemCount = messages.size,
@@ -137,7 +146,14 @@ fun ChatScaffold(
             ) {
                 // scrollBy to the end of the range: animateScrollToItem stops as soon as the
                 // item is partially visible, which left the last message cropped.
-                columnState.scroll { scrollBy(Float.MAX_VALUE) }
+                // Do not seize the list from an active drag/crown gesture, or follow an
+                // append whose measurement completed after the user entered history.
+                followNewestWhenIdle(
+                    scrolling = snapshotFlow { columnState.isScrollInProgress },
+                    shouldFollow = { scrollIntent.followsNewest }
+                ) {
+                    columnState.scroll { scrollBy(Float.MAX_VALUE) }
+                }
             }
         }
     }
@@ -149,10 +165,10 @@ fun ChatScaffold(
         voice = voice,
         onOpenImage = onOpenImage,
         columnState = columnState,
-        controlsVisible = controlsVisible.value,
+        controlsVisible = scrollIntent.controlsVisible,
         header = header,
         actionBar = actionBar,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize().nestedScroll(scrollConnection)
     )
 }
 
@@ -161,47 +177,30 @@ internal data class MeasuredChatLayout(
     val singleVisibleItemKey: Any?
 )
 
-internal data class ChatScrollSnapshot(
-    val canScrollForward: Boolean,
-    val isScrollInProgress: Boolean,
-    val position: Int
-)
-
 internal data class ChatScrollIntentState(
     val followsNewest: Boolean = true,
     val controlsVisible: Boolean = true,
-    val accumulatedDeltaPx: Int = 0
+    val reversalDp: Float = 0f
 )
 
 internal fun updatedChatScrollIntent(
     current: ChatScrollIntentState,
-    snapshot: ChatScrollSnapshot,
-    previousPosition: Int
+    deltaDp: Float,
+    isUserInput: Boolean,
+    atNewest: Boolean
 ): ChatScrollIntentState {
-    if (!snapshot.canScrollForward) return ChatScrollIntentState()
-    if (!snapshot.isScrollInProgress || previousPosition < 0) return current
-
-    val delta = snapshot.position - previousPosition
-    val accumulatedDelta = when {
-        delta == 0 -> current.accumulatedDeltaPx
-        current.accumulatedDeltaPx == 0 ||
-            current.accumulatedDeltaPx.sign == delta.sign ->
-            current.accumulatedDeltaPx + delta
-        else -> delta
-    }
-    val movedAway = accumulatedDelta <= -CHAT_SCROLL_DIRECTION_THRESHOLD_PX
-    val movedTowardNewest = accumulatedDelta >= CHAT_SCROLL_DIRECTION_THRESHOLD_PX
-
+    if (atNewest) return ChatScrollIntentState()
+    if (!isUserInput || !deltaDp.isFinite() || deltaDp == 0f) return current
+    // Hysteresis measures net travel opposite the current controls state, not the sum of
+    // tiny back-and-forth movements. Keep it across discrete crown ticks and idle periods.
+    val reversal = (current.reversalDp + if (current.controlsVisible) -deltaDp else deltaDp)
+        .coerceAtLeast(0f)
+    val threshold = if (current.controlsVisible) 12f else 24f
+    val toggle = reversal >= threshold
     return current.copy(
-        followsNewest = current.followsNewest && !movedAway,
-        controlsVisible = when {
-            movedAway -> false
-            movedTowardNewest -> true
-            else -> current.controlsVisible
-        },
-        // Keep sub-threshold movement across discrete rotary events. Once intent is clear,
-        // start a fresh accumulator so reversing direction gets the same threshold treatment.
-        accumulatedDeltaPx = if (movedAway || movedTowardNewest) 0 else accumulatedDelta
+        followsNewest = current.followsNewest && deltaDp >= 0f,
+        controlsVisible = if (toggle) !current.controlsVisible else current.controlsVisible,
+        reversalDp = if (toggle) 0f else reversal
     )
 }
 
@@ -217,6 +216,15 @@ internal suspend fun scrollToNewestAfterItemsMeasured(
                 layout.singleVisibleItemKey == expectedSingleMessageKey)
     }
     scrollToEnd()
+}
+
+internal suspend fun followNewestWhenIdle(
+    scrolling: Flow<Boolean>,
+    shouldFollow: () -> Boolean,
+    scrollToEnd: suspend () -> Unit
+) {
+    scrolling.first { !it }
+    if (shouldFollow()) scrollToEnd()
 }
 
 @Composable
@@ -236,6 +244,9 @@ private fun ChatBody(
     val context = LocalContext.current
     val transformationSpec = rememberTransformationSpec()
     val isScreenRound = LocalConfiguration.current.isScreenRound
+    val headerClearance = with(LocalDensity.current) {
+        maxOf(40.dp, 24.dp + (14f * 1.3f).sp.toDp() / 2 + 6.dp)
+    }
     // Slide-to-cancel: while recording, the finger's position is tracked globally; the
     // overlay's mic button reports its bounds and becomes the cancel target when the
     // finger hovers it (with generous slack so the snap engages on approach).
@@ -362,7 +373,7 @@ private fun ChatBody(
                 // duplicated padding and a shortened list viewport.
                 contentPadding = scaffoldPadding.withVerticalClearance(
                     layoutDirection = layoutDirection,
-                    top = CHAT_HEADER_CONTENT_CLEARANCE,
+                    top = headerClearance,
                     bottom = CHAT_ACTION_BAR_CLEARANCE
                 )
             ) {
@@ -437,8 +448,6 @@ private fun ChatBody(
 // Extra finger slack (px, ~28dp at watch density) around the cancel target so the snap
 // engages as the finger approaches, not only on exact contact.
 private const val CANCEL_HOVER_SLANT_PX = 56f
-private const val CHAT_SCROLL_DIRECTION_THRESHOLD_PX = 24
-private val CHAT_HEADER_CONTENT_CLEARANCE = 56.dp
 private val CHAT_ACTION_BAR_CLEARANCE = 64.dp
 private val CHAT_HEADER_EDGE_FADE = 36.dp
 private val CHAT_ACTION_BAR_EDGE_FADE = 72.dp

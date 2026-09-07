@@ -11,12 +11,16 @@ class WearDisplayGeometryTest {
     fun `header band corners stay inside the circle at supported text sizes`() {
         for (diameter in listOf(192f, 228f, 240f)) {
             for (scale in listOf(0.94f, 1f, 1.24f, 1.3f)) {
-                val lineHeight = 15f * 1.3f * scale
-                val top = 12f + (maxOf(48f, lineHeight) - lineHeight) / 2f
-                val width = roundBandWidth(diameter, diameter, top, top + lineHeight)
-                val radius = diameter / 2f
-                for (y in listOf(top, top + lineHeight)) {
-                    assertTrue((width / 2).pow(2) + (y - radius).pow(2) <= radius.pow(2) + 0.01f)
+                for (titleSize in listOf(12f, 13f, 14f)) {
+                    val lineHeight = titleSize * 1.3f * scale
+                    val top = (maxOf(48f, lineHeight) - lineHeight) / 2f
+                    val width = roundBandWidth(diameter, diameter, top, top + lineHeight)
+                    val radius = diameter / 2f
+                    for (y in listOf(top, top + lineHeight)) {
+                        assertTrue(
+                            (width / 2).pow(2) + (y - radius).pow(2) <= radius.pow(2) + 0.01f
+                        )
+                    }
                 }
             }
         }

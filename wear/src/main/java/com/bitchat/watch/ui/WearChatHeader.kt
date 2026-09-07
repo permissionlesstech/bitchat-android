@@ -1,6 +1,5 @@
 package com.bitchat.watch.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -8,11 +7,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -33,16 +32,22 @@ internal fun WearChatHeader(
     val configuration = LocalConfiguration.current
     val lineHeight = with(LocalDensity.current) { (fontSize * 1.3f).sp.toDp() }
     val rowHeight = maxOf(48.dp, lineHeight)
-    val top = 12.dp + (rowHeight - lineHeight) / 2
+    val top = (rowHeight - lineHeight) / 2
+    val background = MaterialTheme.colorScheme.background
+    // Follow the existing title animation without animating layout or the hit target.
+    val expansion = ((fontSize - 12f) / 2f).coerceIn(0f, 1f)
+    val fadeEnd = maxOf((36f + 8f * expansion).dp, top + lineHeight + 4.dp)
     BoxWithConstraints(
-        Modifier.fillMaxWidth()
-            .background(
+        Modifier.fillMaxWidth().drawWithCache {
+            val brush =
                 Brush.verticalGradient(
-                    0f to MaterialTheme.colorScheme.background,
-                    0.75f to MaterialTheme.colorScheme.background,
+                    0f to background,
+                    0.65f to background.copy(alpha = 0.95f),
                     1f to Color.Transparent,
+                    endY = fadeEnd.toPx(),
                 )
-            ),
+            onDrawBehind { drawRect(brush) }
+        },
         contentAlignment = Alignment.TopCenter,
     ) {
         val safeWidth =
@@ -59,8 +64,7 @@ internal fun WearChatHeader(
             }
         Row(
             modifier =
-                Modifier.padding(top = 12.dp)
-                    .width(safeWidth.coerceAtLeast(0.dp))
+                Modifier.width(safeWidth.coerceAtLeast(48.dp))
                     .height(rowHeight)
                     .clickable(role = Role.Button, onClickLabel = onClickLabel, onClick = onClick),
             horizontalArrangement = Arrangement.Center,

@@ -127,13 +127,13 @@ private fun ChatHeader(
         )
     val iconSize by
         androidx.compose.animation.core.animateDpAsState(
-            targetValue = if (expanded) 16.dp else 11.dp,
+            targetValue = if (expanded) 14.dp else 12.dp,
             animationSpec = spec,
             label = "hdrIcon",
         )
     val titleSize by
         androidx.compose.animation.core.animateFloatAsState(
-            targetValue = if (expanded) 15f else 12f,
+            targetValue = if (expanded) 14f else 12f,
             animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
             label = "hdrTitle",
         )
@@ -156,7 +156,7 @@ private fun ChatHeader(
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp),
+                modifier = Modifier.weight(1f, fill = false).padding(end = 2.dp),
             )
         }
         Icon(
