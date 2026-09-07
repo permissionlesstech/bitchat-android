@@ -457,15 +457,18 @@ class GossipSyncManager(
         if (!file.exists()) return
         try {
             restoringArchive = true
-            val input = java.io.DataInputStream(file.inputStream().buffered())
-            val count = input.readInt().coerceIn(0, configProvider.seenCapacity())
-            repeat(count) {
-                val length = input.readInt()
-                if (length <= 0 || length > com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH + 256) return@repeat
-                val packet = com.bitchat.android.protocol.BinaryProtocol.decode(input.readNBytes(length)) ?: return@repeat
-                onPublicPacketSeen(packet)
+            java.io.DataInputStream(file.inputStream().buffered()).use { input ->
+                val count = input.readInt()
+                require(count in 0..configProvider.seenCapacity())
+                repeat(count) {
+                    val length = input.readInt()
+                    require(length in 1..(com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH + 256))
+                    val bytes = ByteArray(length)
+                    input.readFully(bytes)
+                    val packet = com.bitchat.android.protocol.BinaryProtocol.decode(bytes) ?: return@repeat
+                    onPublicPacketSeen(packet)
+                }
             }
-            input.close()
         } catch (_: Exception) {
             synchronized(messages) { messages.clear() }
         } finally {

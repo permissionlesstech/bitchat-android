@@ -116,7 +116,8 @@ Physical Mesh Lab and Android-to-iOS interoperability are required separately:
 - One-time-prekey races and consumption persistence, plus iOS vectors on both
   real clients. Static screenshots cannot establish any of these properties.
 
-Full locale coverage, accessibility review and the physical matrix remain
+The updated panic-help sentence falls back to English where previous translations
+still promised immediate erasure; those stale claims are removed. Full locale coverage, accessibility review and the physical matrix remain
 release work. Manual-channel Nostr board publication still obeys the existing
 location-note privacy gate; this integration does not weaken it to force a
 successful publish. No claim is made that this large integration is ready to

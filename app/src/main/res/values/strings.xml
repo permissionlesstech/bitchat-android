@@ -184,7 +184,7 @@
   <string name="about_no_tracking_desc">No servers, accounts, or data collection.</string>
   <string name="about_ephemeral_title">Ephemeral Identity</string>
   <string name="about_ephemeral_desc">A new peer ID is generated regularly.</string>
-  <string name="about_panic_desc">Triple-tap the logo to instantly clear all data.</string>
+  <string name="about_panic_desc">Triple-tap the logo to review and confirm erasing local app data.</string>
 
   <!-- About sheet: settings labels -->
   <string name="about_tor_title">Tor Network</string>

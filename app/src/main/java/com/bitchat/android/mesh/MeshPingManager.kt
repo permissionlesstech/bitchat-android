@@ -80,7 +80,7 @@ internal class MeshPingManager(
                     times.lastOrNull()?.let { now - it >= MeshDiagnosticsConstants.INBOUND_RATE_WINDOW_MILLIS } != false
                 }
             }
-            if (inboundByLink.size >= 256 && link !in inboundByLink) return false
+            if (inboundByLink.size >= 256 && !inboundByLink.containsKey(link)) return false
             inboundByLink.putIfAbsent(link, ArrayDeque())
         }
         val timestamps = inboundByLink[link] ?: return false
