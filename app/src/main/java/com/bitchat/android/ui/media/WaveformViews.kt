@@ -98,8 +98,8 @@ fun WaveformPreview(
         modifier = modifier.semantics { stateDescription = description },
         samples = stateSamples.ifEmpty { List(40) { 0.08f } },
         fillProgress = if (stateSamples.isEmpty()) 0f else progress,
-        baseColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-        fillColor = progressColor ?: MaterialTheme.colorScheme.primary,
+        baseColor = Color(0x2200FF7F),
+        fillColor = progressColor ?: if (sendProgress != null) Color(0xFF1E88E5) else Color(0xFF00C851),
         onSeek = if (isLive) null else onSeek
     )
 }

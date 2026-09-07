@@ -96,7 +96,7 @@ private fun fixtureMessage(id: String, sender: String, peer: String, content: St
         timestamp = Date(0), isPrivate = privateChat,
         deliveryStatus = if (peer == "synthetic-self") DeliveryStatus.Sent else null)
 
-private fun syntheticWave(): ByteArray {
+internal fun syntheticWave(): ByteArray {
     val rate = 16_000
     val bytes = rate * 2
     return ByteBuffer.allocate(44 + bytes).order(ByteOrder.LITTLE_ENDIAN).apply {

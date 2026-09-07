@@ -79,8 +79,8 @@ internal fun MediaMessageLayout(
 }
 
 @Composable
-internal fun CancelMediaTransferButton(onClick: () -> Unit) {
-    IconButton(onClick = onClick) {
+internal fun CancelMediaTransferButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = modifier) {
         Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_cancel))
     }
 }

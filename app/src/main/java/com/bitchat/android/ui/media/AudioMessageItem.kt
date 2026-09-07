@@ -6,7 +6,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -47,17 +46,12 @@ fun AudioMessageItem(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                VoiceNotePlayer(
-                    path = message.content.trim(),
-                    isLive = isLive,
-                    progressOverride = progress,
-                    modifier = Modifier.weight(1f),
-                )
-                if (progress != null && onCancelTransfer != null) {
-                    CancelMediaTransferButton { onCancelTransfer(message) }
-                }
-            }
+            VoiceNotePlayer(
+                path = message.content.trim(),
+                isLive = isLive,
+                progressOverride = progress,
+                onCancelTransfer = onCancelTransfer?.let { cancel -> { cancel(message) } },
+            )
         }
     }
 }

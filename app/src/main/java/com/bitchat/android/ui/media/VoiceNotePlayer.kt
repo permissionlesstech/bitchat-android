@@ -26,7 +26,8 @@ fun VoiceNotePlayer(
     modifier: Modifier = Modifier,
     progressOverride: Float? = null,
     progressColor: Color? = null,
-    isLive: Boolean = false
+    isLive: Boolean = false,
+    onCancelTransfer: (() -> Unit)? = null,
 ) {
     var isPlaying by remember { mutableStateOf(false) }
     var isPrepared by remember { mutableStateOf(false) }
@@ -95,13 +96,14 @@ fun VoiceNotePlayer(
     ) {
         // Disable play/pause while showing send progress override (optional UX choice)
         val controlsEnabled = isPrepared && !isError && !isLive && progressOverride == null
-        FilledTonalIconButton(onClick = { if (controlsEnabled) isPlaying = !isPlaying }, enabled = controlsEnabled, modifier = Modifier.size(28.dp)) {
+        if (progressOverride != null && onCancelTransfer != null) {
+            CancelMediaTransferButton(onClick = onCancelTransfer, modifier = Modifier.size(28.dp))
+        } else FilledTonalIconButton(onClick = { if (controlsEnabled) isPlaying = !isPlaying }, enabled = controlsEnabled, modifier = Modifier.size(28.dp)) {
             Icon(
                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                 contentDescription = stringResource(if (isPlaying) R.string.cd_pause_voice else R.string.cd_play_voice)
             )
         }
-        val progressBarColor = progressColor ?: MaterialTheme.colorScheme.primary
         com.bitchat.android.ui.media.WaveformPreview(
             modifier = Modifier
                 .height(24.dp)
@@ -112,7 +114,7 @@ fun VoiceNotePlayer(
             playbackProgress = if (progressOverride == null) progress else null,
             onSeek = if (controlsEnabled) seekTo else null,
             isLive = isLive,
-            progressColor = progressBarColor
+            progressColor = progressColor
         )
         val locale = LocalConfiguration.current.locales[0]
         val durText = if (isError && !isLive) stringResource(R.string.voice_unavailable) else if (durationMs > 0) String.format(locale, "%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"

@@ -883,24 +883,15 @@ private fun BubbleTextMessageLayout(
                         )
 
                         if (isSelf) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
+                            MessageMetadata(
+                                message = message,
+                                timeFormatter = timeFormatter,
+                                showDeliveryStatus = message.isPrivate,
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
                                     .onSizeChanged { clusterSize = it }
                                     .graphicsLayer { alpha = if (metaPlan != null) 1f else 0f },
-                            ) {
-                                Text(
-                                    text = formatTextMessageMetadata(message, timeFormatter),
-                                    fontFamily = BitchatFontFamily,
-                                )
-                                if (message.isPrivate) {
-                                    message.deliveryStatus?.let { status ->
-                                        Spacer(Modifier.width(4.dp))
-                                        DeliveryStatusIcon(status = status)
-                                    }
-                                }
-                            }
+                            )
                         }
                     }
                 }
