@@ -136,6 +136,7 @@ object AppConstants {
         const val OUTBOX_TICK_MS: Long = 2_000L
         const val OUTBOX_MESSAGE_TTL_MS: Long = 86_400_000L // 24 hours
         const val OUTBOX_MAX_PER_PEER: Int = 100
+        const val MAX_COURIERS_PER_MESSAGE: Int = 3
         val HANDSHAKE_RETRY_BACKOFF_MS: LongArray = longArrayOf(5_000L, 15_000L, 30_000L, 60_000L)
     }
 

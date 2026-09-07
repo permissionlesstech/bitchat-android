@@ -367,6 +367,26 @@ class BluetoothConnectionManager(
         )
     }
 
+    suspend fun sendToPeerAndAwaitAcceptance(peerID: String, routed: RoutedPacket): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+        return packetBroadcaster.sendPacketToPeerAndAwaitAcceptance(
+            routed,
+            peerID,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
+    suspend fun sendToPeerAndAwaitCompletion(peerID: String, routed: RoutedPacket): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+        return packetBroadcaster.sendPacketToPeerAndAwaitCompletion(
+            routed,
+            peerID,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
     fun cancelTransfer(transferId: String): Boolean {
         return packetBroadcaster.cancelTransfer(transferId)
     }

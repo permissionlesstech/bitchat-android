@@ -9,6 +9,7 @@ import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.model.PrivateMessagePacket
 import com.bitchat.android.model.RequestSyncPacket
+import com.bitchat.android.sync.SyncTypeFlags
 import com.bitchat.android.model.UnknownAnnouncementTLV
 import com.bitchat.android.protocol.BinaryProtocol
 import com.bitchat.android.protocol.BitchatPacket
@@ -203,9 +204,14 @@ class ClientRewriteWireContractTest {
         val request = RequestSyncPacket(
             p = 19,
             m = 0x01020304L,
-            data = hex("aabb")
+            data = hex("aabb"),
+            types = SyncTypeFlags.FRAGMENTS_AND_FILES,
+            sinceTimestamp = 0x0102030405060708u
         )
-        val wire = hex("0100011302000401020304030002aabb")
+        val wire = hex(
+            "0100011302000401020304030002aabb" +
+                "040001a00500080102030405060708"
+        )
 
         assertArrayEquals(wire, request.encode())
         assertSyncRequestEquals(request, RequestSyncPacket.decode(wire))
@@ -297,5 +303,7 @@ class ClientRewriteWireContractTest {
         assertEquals(expected.p, actual!!.p)
         assertEquals(expected.m, actual.m)
         assertArrayEquals(expected.data, actual.data)
+        assertEquals(expected.types, actual.types)
+        assertEquals(expected.sinceTimestamp, actual.sinceTimestamp)
     }
 }

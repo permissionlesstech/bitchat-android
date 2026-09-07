@@ -85,6 +85,11 @@ class NostrRelayManager private constructor() {
     
     private val _isConnected = MutableStateFlow<Boolean>(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+    private data class PendingAcceptance(
+        val callback: () -> Unit,
+        val pendingRelays: MutableSet<String>
+    )
+    private val eventAcceptanceHandlers = java.util.concurrent.ConcurrentHashMap<String, PendingAcceptance>()
     
     // Internal state
     private val relaysList = mutableListOf<Relay>()
@@ -452,12 +457,14 @@ class NostrRelayManager private constructor() {
     fun sendEvent(
         event: NostrEvent,
         relayUrls: List<String>? = null,
-        liveLocationToken: Long? = null
-    ) {
+        liveLocationToken: Long? = null,
+        onAccepted: (() -> Unit)? = null
+    ): Boolean {
         val targetRelays = (relayUrls ?: relaysList.map { it.url })
             .filter { it.isNotBlank() }
             .distinct()
-        if (targetRelays.isEmpty()) return
+        if (targetRelays.isEmpty()) return false
+        var enqueued = false
 
         val queued = runNetworkAction(liveLocationToken) {
             val queueId = messageQueue.enqueue(
@@ -465,6 +472,13 @@ class NostrRelayManager private constructor() {
                 relayUrls = targetRelays,
                 liveLocationToken = liveLocationToken
             ) ?: return@runNetworkAction
+            enqueued = true
+            if (onAccepted != null) {
+                eventAcceptanceHandlers[event.id] = PendingAcceptance(
+                    onAccepted,
+                    targetRelays.map { it.trim().trimEnd('/') }.toMutableSet()
+                )
+            }
             scope.launch {
                 if (!isNetworkActionAllowed(liveLocationToken)) return@launch
                 targetRelays.forEach { relayUrl ->
@@ -477,7 +491,12 @@ class NostrRelayManager private constructor() {
                 }
             }
         }
-        if (!queued) return
+        return queued && enqueued
+    }
+
+    fun hasConnectedRelay(relayUrls: Collection<String>): Boolean {
+        val targets = relayUrls.map { it.trim().trimEnd('/') }.toSet()
+        return relaysList.any { it.isConnected && it.url.trim().trimEnd('/') in targets }
     }
     
     /**
@@ -673,6 +692,7 @@ class NostrRelayManager private constructor() {
 
             // Clear any queued messages waiting to be sent
             messageQueue.clear()
+            eventAcceptanceHandlers.clear()
 
             Log.i(TAG, "Cleared all Nostr subscriptions and routing caches")
         } catch (e: Exception) {
@@ -966,8 +986,14 @@ class NostrRelayManager private constructor() {
                 is NostrResponse.Ok -> {
                     val wasGiftWrap = pendingGiftWrapIDs.remove(response.eventId)
                     if (!response.accepted) {
+                        eventAcceptanceHandlers[response.eventId]?.let { pending ->
+                            pending.pendingRelays.remove(relayUrl.trim().trimEnd('/'))
+                            if (pending.pendingRelays.isEmpty()) eventAcceptanceHandlers.remove(response.eventId, pending)
+                        }
                         val level = if (wasGiftWrap) Log.WARN else Log.ERROR
                         Log.println(level, TAG, "Event rejected by relay: ${response.message ?: "no reason"}")
+                    } else {
+                        eventAcceptanceHandlers.remove(response.eventId)?.callback?.invoke()
                     }
                 }
 

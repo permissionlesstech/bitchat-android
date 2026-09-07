@@ -18,6 +18,7 @@ class GCSFilterTest {
 
         // Build filter with plenty of bytes (no trimming)
         val params = GCSFilter.buildFilter(ids, maxBytes = 400, targetFpr = 0.01)
+        assertEquals(ids.size, params.includedCount)
         val sorted = GCSFilter.decodeToSortedSet(params.p, params.m, params.data)
 
         for (id in ids) {
@@ -47,7 +48,7 @@ class GCSFilterTest {
         val sorted = GCSFilter.decodeToSortedSet(params.p, params.m, params.data)
 
         // Let's verify that the first trimmedN elements in ids are all matched
-        val trimmedN = (params.m ushr params.p).toInt()
+        val trimmedN = params.includedCount
         assertTrue("At least some elements should have been encoded", trimmedN > 0)
         
         val retainedIds = ids.take(trimmedN)
