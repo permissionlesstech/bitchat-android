@@ -5,38 +5,39 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import android.media.MediaPlayer
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 
 @Composable
 fun VoiceNotePlayer(
     path: String,
     modifier: Modifier = Modifier,
     progressOverride: Float? = null,
-    progressColor: Color? = null
+    progressColor: Color? = null,
+    isLive: Boolean = false
 ) {
     var isPlaying by remember { mutableStateOf(false) }
     var isPrepared by remember { mutableStateOf(false) }
     var isError by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf(0f) }
-    var durationMs by remember { mutableStateOf(0) }
+    var progress by remember { mutableFloatStateOf(0f) }
+    var durationMs by remember { mutableIntStateOf(0) }
     val player = remember { MediaPlayer() }
 
     // Seek function - position is a fraction from 0.0 to 1.0
     val seekTo: (Float) -> Unit = { position ->
-        if (isPrepared && durationMs > 0) {
+        if (isPrepared && !isError && !isLive && progressOverride == null && durationMs > 0) {
             val seekMs = (position * durationMs).toInt().coerceIn(0, durationMs)
             try {
                 player.seekTo(seekMs)
@@ -45,7 +46,7 @@ fun VoiceNotePlayer(
         }
     }
 
-    LaunchedEffect(path) {
+    LaunchedEffect(path, isLive) {
         isPrepared = false
         isError = false
         progress = 0f
@@ -66,6 +67,7 @@ fun VoiceNotePlayer(
                 isPlaying = false
                 true
             }
+            if (isLive) return@LaunchedEffect
             player.setDataSource(path)
             player.prepareAsync()
         } catch (_: Exception) {
@@ -92,11 +94,11 @@ fun VoiceNotePlayer(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Disable play/pause while showing send progress override (optional UX choice)
-        val controlsEnabled = isPrepared && !isError && progressOverride == null
+        val controlsEnabled = isPrepared && !isError && !isLive && progressOverride == null
         FilledTonalIconButton(onClick = { if (controlsEnabled) isPlaying = !isPlaying }, enabled = controlsEnabled, modifier = Modifier.size(28.dp)) {
             Icon(
                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (isPlaying) "Pause" else "Play"
+                contentDescription = stringResource(if (isPlaying) R.string.cd_pause_voice else R.string.cd_play_voice)
             )
         }
         val progressBarColor = progressColor ?: MaterialTheme.colorScheme.primary
@@ -108,9 +110,12 @@ fun VoiceNotePlayer(
             path = path,
             sendProgress = progressOverride,
             playbackProgress = if (progressOverride == null) progress else null,
-            onSeek = seekTo
+            onSeek = if (controlsEnabled) seekTo else null,
+            isLive = isLive,
+            progressColor = progressBarColor
         )
-        val durText = if (durationMs > 0) String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"
+        val locale = LocalConfiguration.current.locales[0]
+        val durText = if (isError && !isLive) stringResource(R.string.voice_unavailable) else if (durationMs > 0) String.format(locale, "%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"
         Text(text = durText, fontFamily = BitchatFontFamily, fontSize = 12.sp)
     }
 }

@@ -1,163 +1,94 @@
 package com.bitchat.android.ui.media
 
-import android.content.ActivityNotFoundException
-import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import androidx.core.content.FileProvider
 import com.bitchat.android.R
 import com.bitchat.android.features.file.FileUtils
-import com.bitchat.android.model.BitchatFilePacket
-import kotlinx.coroutines.launch
 import java.io.File
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-/**
- * Dialog for handling received file messages in modern chat style
- */
 @Composable
-fun FileViewerDialog(
-    packet: BitchatFilePacket,
-    onDismiss: () -> Unit,
-    onSaveToDevice: (ByteArray, String) -> Unit
-) {
+fun FileViewerDialog(attachment: FileAttachment, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-
-    Dialog(onDismissRequest = onDismiss) {
-        androidx.compose.material3.Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // File received header
-                Text(
-                    text = stringResource(R.string.file_viewer_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                // File info
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = stringResource(R.string.file_viewer_name, packet.fileName),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.file_viewer_size, FileUtils.formatFileSize(packet.fileSize)),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = stringResource(R.string.file_viewer_type, packet.mimeType),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Action buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Open/Save button
-                    Button(
-                        onClick = {
-                            coroutineScope.launch {
-                                // Try to save to Downloads first
-                                try {
-                                    onSaveToDevice(packet.content, packet.fileName)
-                                    onDismiss()
-                                } catch (e: Exception) {
-                                    // If save fails, try to open directly
-                                    tryOpenFile(context, packet)
-                                    onDismiss()
-                                }
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Text(stringResource(R.string.file_viewer_open_save))
+    val scope = rememberCoroutineScope()
+    var failed by remember(attachment.path) { mutableStateOf(false) }
+    var busy by remember(attachment.path) { mutableStateOf(false) }
+    val save = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(attachment.mimeType),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                busy = true
+                failed = false
+                try {
+                    withContext(Dispatchers.IO) {
+                        requireNotNull(context.contentResolver.openOutputStream(uri)).use(attachment::copyTo)
                     }
-
-                    // Dismiss button
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary
-                        )
-                    ) {
-                        Text(stringResource(R.string.close_with_emoji))
-                    }
+                    onDismiss()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    failed = true
+                } finally {
+                    busy = false
                 }
             }
         }
     }
-} 
-
-/**
- * Attempts to open a file using system viewers or save to device
- */
-private fun tryOpenFile(context: Context, packet: BitchatFilePacket) {
-    try {
-        // First try to save to temp file and open
-        val tempFile = File.createTempFile("bitchat_", ".${packet.fileName.substringAfterLast(".")}", context.cacheDir)
-        tempFile.writeBytes(packet.content)
-        tempFile.deleteOnExit()
-
-        val uri = androidx.core.content.FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            tempFile
-        )
-
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, packet.mimeType)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-
-        try {
-            context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            // No app can handle this file type - just show a message
-            // In a real app, you'd show a toast or snackbar
-        }
-    } catch (e: Exception) {
-        // Handle any errors gracefully
-    }
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(attachment.fileName) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.file_viewer_size, FileUtils.formatFileSize(attachment.fileSize)))
+                Text(stringResource(R.string.file_viewer_type, attachment.mimeType))
+                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (failed) Text(stringResource(R.string.attachment_failed), color = MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy, onClick = {
+                failed = false
+                try { save.launch(attachment.fileName) } catch (_: Exception) { failed = true }
+            }) { Text(stringResource(R.string.attachment_save)) }
+        },
+        dismissButton = {
+            Row {
+                TextButton(enabled = !busy, onClick = {
+                    scope.launch {
+                        busy = true
+                        failed = false
+                        try {
+                            val uri = withContext(Dispatchers.IO) {
+                                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(attachment.path))
+                            }
+                            context.startActivity(Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, attachment.mimeType)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
+                            onDismiss()
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            failed = true
+                        } finally { busy = false }
+                    }
+                }) { Text(stringResource(R.string.attachment_open)) }
+                TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.cancel_lower)) }
+            }
+        },
+    )
 }

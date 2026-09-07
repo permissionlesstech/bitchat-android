@@ -38,7 +38,7 @@ android {
             "\"$normalizedGithubReleaseCertSha256\""
         )
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.bitchat.android.ui.ChatUiTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -194,7 +194,10 @@ dependencies {
     testImplementation(libs.bundles.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.bundles.compose.testing)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.espresso.core)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
 // Robolectric resolves Android runtime jars itself (outside Gradle dependency resolution).
