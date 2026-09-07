@@ -7,13 +7,9 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -24,8 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.core.ui.component.text.AnnotatedClickableText
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.ui.DeliveryStatusIcon
-import com.bitchat.android.ui.formatTextMessageMetadata
+import com.bitchat.android.ui.MessageMetadata
 import com.bitchat.android.ui.formatTextMessageSender
 import com.bitchat.android.ui.isFromSelf
 import com.bitchat.android.ui.peerIdentityForMessage
@@ -134,21 +129,12 @@ fun MediaBubbleShell(
 
                 content()
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                MessageMetadata(
+                    message = message,
+                    timeFormatter = timeFormatter,
+                    showDeliveryStatus = isSelf && message.isPrivate,
                     modifier = Modifier.align(Alignment.End),
-                ) {
-                    Text(
-                        text = formatTextMessageMetadata(message, timeFormatter),
-                        fontFamily = BitchatFontFamily,
-                    )
-                    if (isSelf && message.isPrivate) {
-                        message.deliveryStatus?.let { status ->
-                            Spacer(Modifier.width(4.dp))
-                            DeliveryStatusIcon(status = status)
-                        }
-                    }
-                }
+                )
             }
         }
     }

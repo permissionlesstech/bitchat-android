@@ -6,8 +6,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.Animatable
@@ -40,12 +38,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -87,8 +83,6 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.ui.media.FileMessageItem
-import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.ChatUiModeManager
 import com.bitchat.android.ui.theme.ChatVisualTokens
@@ -424,7 +418,7 @@ fun MessageItem(
             ) {
                 // Provide a small end padding for own private messages so overlay doesn't cover text.
                 // Bubble mode draws the status beneath the bubble instead, so no inset is needed.
-                val endPad = if (!bubbles && message.isPrivate && message.sender == currentUserNickname) 16.dp else 0.dp
+                val endPad = if (!bubbles && message.isPrivate && message.isFromSelf(currentUserNickname, meshService.myPeerID)) 16.dp else 0.dp
                 // Create a custom layout that combines selectable text with clickable nickname areas
                 MessageTextWithClickableNicknames(
                     message = message,
@@ -448,7 +442,7 @@ fun MessageItem(
 
             // Delivery status for private messages (overlay, non-displacing). Bubble mode aligns
             // own messages to the end edge where this overlay lives, so it renders below instead.
-            if (!bubbles && message.isPrivate && message.sender == currentUserNickname) {
+            if (!bubbles && message.isPrivate && message.isFromSelf(currentUserNickname, meshService.myPeerID)) {
                 message.deliveryStatus?.let { status ->
                     Box(
                         modifier = Modifier
@@ -457,23 +451,6 @@ fun MessageItem(
                     ) {
                         DeliveryStatusIcon(status = status)
                     }
-                }
-            }
-        }
-
-        // Bubble mode: text and media bubbles carry the marker inline, trailing the timestamp.
-        // File rows have no bubble shell, so their marker stays beneath the end-aligned row.
-        if (bubbles && message.type == BitchatMessageType.File &&
-            message.isPrivate && message.sender == currentUserNickname
-        ) {
-            message.deliveryStatus?.let { status ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 2.dp, end = 4.dp),
-                    contentAlignment = Alignment.CenterEnd
-                ) {
-                    DeliveryStatusIcon(status = status)
                 }
             }
         }
@@ -508,8 +485,7 @@ fun MessageItem(
             message = message,
             messages = messages,
             currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
+            myPeerID = meshService.myPeerID,
             timeFormatter = timeFormatter,
             showSender = showSender,
             bubbles = bubbles,
@@ -527,8 +503,7 @@ fun MessageItem(
         com.bitchat.android.ui.media.AudioMessageItem(
             message = message,
             currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
+            myPeerID = meshService.myPeerID,
             timeFormatter = timeFormatter,
             showSender = showSender,
             bubbles = bubbles,
@@ -540,129 +515,11 @@ fun MessageItem(
         return
     }
 
-    // File special rendering
     if (message.type == BitchatMessageType.File) {
-        val path = message.content.trim()
-        // Derive sending progress if applicable
-        val (overrideProgress, _) = when (val st = message.deliveryStatus) {
-            is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {
-                if (st.total > 0 && st.reached < st.total) {
-                    (st.reached.toFloat() / st.total.toFloat()) to Color(0xFF1E88E5) // blue while sending
-                } else null to null
-            }
-            else -> null to null
-        }
-        Column(
-            modifier = modifier.fillMaxWidth(),
-            // Bubble mode aligns self-authored file rows to the end side, mirroring text bubbles.
-            horizontalAlignment = if (bubbles && message.isFromSelf(currentUserNickname, meshService.myPeerID)) {
-                Alignment.End
-            } else {
-                Alignment.Start
-            },
-        ) {
-            // Header: nickname + timestamp line above the file, identical styling to text messages
-            val headerText = formatMessageHeaderAnnotatedString(
-                message = message,
-                currentUserNickname = currentUserNickname,
-                myPeerID = meshService.myPeerID,
-                palette = palette,
-                contentColor = colorScheme.onSurface,
-                timeFormatter = timeFormatter,
-                includeSender = showSender
-            )
-            val haptic = LocalHapticFeedback.current
-            AnnotatedClickableText(
-                text = headerText,
-                annotationTags = listOf("nickname_click"),
-                onAnnotationClick = { tag, item ->
-                    if (tag == "nickname_click" && onNicknameClick != null) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onNicknameClick.invoke(item)
-                        true
-                    } else {
-                        false
-                    }
-                },
-                onLongPress = { onMessageLongPress?.invoke(message) },
-                fontFamily = BitchatFontFamily,
-                color = colorScheme.onSurface,
-            )
-
-            // Try to load the file packet from the path
-            val packet = try {
-                val file = java.io.File(path)
-                if (file.exists()) {
-                    // Create a temporary BitchatFilePacket for display
-                    // In a real implementation, this would be stored with the packet metadata
-                    com.bitchat.android.model.BitchatFilePacket(
-                        fileName = file.name,
-                        fileSize = file.length(),
-                        mimeType = com.bitchat.android.features.file.FileUtils.getMimeTypeFromExtension(file.name),
-                        content = file.readBytes()
-                    )
-                } else null
-            } catch (e: Exception) {
-                null
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = if (bubbles && message.isFromSelf(currentUserNickname, meshService.myPeerID)) {
-                    Arrangement.End
-                } else {
-                    Arrangement.Start
-                }
-            ) {
-                Box {
-                    if (packet != null) {
-                        if (overrideProgress != null) {
-                            // Show sending animation while in-flight
-                            com.bitchat.android.ui.media.FileSendingAnimation(
-                                fileName = packet.fileName,
-                                progress = overrideProgress,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        } else {
-                            // Static file display with open/save dialog
-                            FileMessageItem(
-                                packet = packet,
-                                onFileClick = {
-                                    // handled inside FileMessageItem via dialog
-                                }
-                            )
-                        }
-
-                        // Cancel button overlay during sending
-                        val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is DeliveryStatus.PartiallyDelivered)
-                        if (showCancel) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(4.dp)
-                                    .size(22.dp)
-                                    .background(colorScheme.surfaceVariant.copy(alpha = 0.85f), CircleShape)
-                                    .clickable { onCancelTransfer?.invoke(message) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = stringResource(R.string.cd_cancel),
-                                    tint = colorScheme.onSurface,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
-                    } else {
-                        Text(
-                            text = stringResource(R.string.file_unavailable),
-                            fontFamily = BitchatFontFamily,
-                            color = palette.textTertiary
-                        )
-                    }
-                }
-            }
-        }
+        com.bitchat.android.ui.media.FileAttachmentMessage(
+            message, currentUserNickname, meshService.myPeerID, timeFormatter,
+            showSender, bubbles, onNicknameClick, onMessageLongPress, onCancelTransfer, modifier,
+        )
         return
     }
 
@@ -1026,24 +883,15 @@ private fun BubbleTextMessageLayout(
                         )
 
                         if (isSelf) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
+                            MessageMetadata(
+                                message = message,
+                                timeFormatter = timeFormatter,
+                                showDeliveryStatus = message.isPrivate,
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
                                     .onSizeChanged { clusterSize = it }
                                     .graphicsLayer { alpha = if (metaPlan != null) 1f else 0f },
-                            ) {
-                                Text(
-                                    text = formatTextMessageMetadata(message, timeFormatter),
-                                    fontFamily = BitchatFontFamily,
-                                )
-                                if (message.isPrivate) {
-                                    message.deliveryStatus?.let { status ->
-                                        Spacer(Modifier.width(4.dp))
-                                        DeliveryStatusIcon(status = status)
-                                    }
-                                }
-                            }
+                            )
                         }
                     }
                 }

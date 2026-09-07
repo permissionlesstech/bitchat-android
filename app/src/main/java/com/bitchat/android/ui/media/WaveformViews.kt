@@ -5,8 +5,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.res.stringResource
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.sp
+import com.bitchat.android.R
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -18,9 +25,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
-import com.bitchat.android.features.voice.AudioWaveformExtractor
-import com.bitchat.android.features.voice.VoiceWaveformCache
-import com.bitchat.android.features.voice.resampleWave
 
 @Composable
 fun ScrollingWaveformRecorder(
@@ -51,35 +55,52 @@ fun WaveformPreview(
     sendProgress: Float?,
     playbackProgress: Float?,
     onLoaded: ((FloatArray) -> Unit)? = null,
-    onSeek: ((Float) -> Unit)? = null
+    onSeek: ((Float) -> Unit)? = null,
+    isLive: Boolean = false,
+    progressColor: Color? = null,
+    loadSamples: suspend (String) -> List<Float>? = { loadVoiceWaveform(it) },
 ) {
-    val cached = remember(path) { VoiceWaveformCache.get(path) }
-    val stateSamples = remember { mutableStateListOf<Float>() }
-    val progress = (sendProgress ?: playbackProgress)?.coerceIn(0f, 1f) ?: 0f
-    LaunchedEffect(cached) {
-        if (cached != null) {
-            val normalized = if (cached.size != 120) resampleWave(cached, 120) else cached
-            stateSamples.clear(); stateSamples.addAll(normalized.toList())
-        } else {
-            AudioWaveformExtractor.extractAsync(path, sampleCount = 120) { arr ->
-                if (arr != null) {
-                    VoiceWaveformCache.put(path, arr)
-                    stateSamples.clear(); stateSamples.addAll(arr.toList())
-                    onLoaded?.invoke(arr)
-                }
-            }
+    val latestOnLoaded by rememberUpdatedState(onLoaded)
+    // The live file is still being written. Decode only once it has been finalized.
+    // Both keys matter: finalization may replace the path or finish the same file.
+    val samples by produceState<List<Float>?>(null, path, isLive) {
+        value = null
+        if (!isLive) {
+            value = loadSamples(path).also { loaded ->
+                loaded?.let { latestOnLoaded?.invoke(it.toFloatArray()) }
+            } ?: emptyList()
         }
     }
+    val progress = (sendProgress ?: playbackProgress)?.coerceIn(0f, 1f) ?: 0f
+    val description = stringResource(when {
+        isLive -> R.string.voice_waveform_live
+        samples == null -> R.string.voice_waveform_loading
+        samples!!.isEmpty() -> R.string.voice_waveform_unavailable
+        else -> R.string.voice_waveform_ready
+    })
+    val stateSamples = samples.orEmpty()
+
+    if (!isLive && samples == null) {
+        LinearProgressIndicator(modifier = modifier.semantics { stateDescription = description })
+        return
+    }
+    if (!isLive && stateSamples.isEmpty()) {
+        Text(
+            text = description,
+            modifier = modifier.semantics { stateDescription = description },
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 10.sp,
+            maxLines = 1,
+        )
+        return
+    }
     WaveformCanvas(
-        modifier = modifier,
-        samples = stateSamples,
+        modifier = modifier.semantics { stateDescription = description },
+        samples = stateSamples.ifEmpty { List(40) { 0.08f } },
         fillProgress = if (stateSamples.isEmpty()) 0f else progress,
         baseColor = Color(0x2200FF7F),
-        fillColor = when {
-            sendProgress != null -> Color(0xFF1E88E5) // blue while sending
-            else -> Color(0xFF00C851) // green during playback
-        },
-        onSeek = onSeek
+        fillColor = progressColor ?: if (sendProgress != null) Color(0xFF1E88E5) else Color(0xFF00C851),
+        onSeek = if (isLive) null else onSeek
     )
 }
 
@@ -113,7 +134,6 @@ private fun WaveformCanvas(
         if (n <= 0) return@Canvas
         val stepX = w / n
         val midY = h / 2f
-        val radius = 2.dp.toPx()
         val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
         val filledUntil = (n * fillProgress).toInt()
         for (i in 0 until n) {
@@ -123,7 +143,7 @@ private fun WaveformCanvas(
             val yTop = midY - lineH / 2f
             val yBot = midY + lineH / 2f
             drawLine(
-                color = if (i <= filledUntil) fillColor else baseColor,
+                color = if (i < filledUntil) fillColor else baseColor,
                 start = Offset(x, yTop),
                 end = Offset(x, yBot),
                 strokeWidth = stroke.width,
