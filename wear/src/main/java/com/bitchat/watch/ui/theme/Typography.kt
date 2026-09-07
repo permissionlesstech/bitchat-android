@@ -37,7 +37,9 @@ object ChatVisualTokens {
     val SystemActionStyle = TextStyle(
         fontFamily = BitchatFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 14.sp,
+        fontSize = 12.sp,
+        lineHeight = 15.sp,
     )
+
+    val TimestampStyle = SystemActionStyle.copy(fontSize = 10.sp, lineHeight = 12.sp)
 }
