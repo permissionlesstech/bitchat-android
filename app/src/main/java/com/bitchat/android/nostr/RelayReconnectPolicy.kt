@@ -10,10 +10,10 @@ import kotlin.math.pow
  * A phone loses its data connection constantly — airplane mode, a tunnel, a
  * Wi-Fi to cellular handover, a dead zone — and every relay fails at once when
  * it does. The schedule therefore has to survive an outage of arbitrary length
- * and heal on its own, because nothing else will: the relay layer registers no
- * connectivity callback, the periodic subscription validator only repairs
- * subscriptions on sockets that are already open, and `connect()` runs once at
- * startup.
+ * and heal on its own. The connectivity callback also retries when a network
+ * becomes available, but it does not detect a relay recovering while the
+ * network stays connected. The periodic subscription validator only repairs
+ * subscriptions on sockets that are already open.
  *
  * So the backoff grows exponentially and then *saturates* rather than
  * terminating. Retrying forever at the ceiling costs one connection attempt per

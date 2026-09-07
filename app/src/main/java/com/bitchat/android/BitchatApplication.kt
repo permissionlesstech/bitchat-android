@@ -66,6 +66,8 @@ class BitchatApplication : Application() {
             com.bitchat.android.nostr.GeohashConversationRegistry.initialize(this)
         } catch (_: Exception) { }
 
+        com.bitchat.android.services.PrivateDeliveryCoordinator.getInstance(this).start()
+
         // Own relay connectivity, selected-channel subscriptions, and presence scheduling at the
         // process level so closing the Activity does not disconnect Nostr.
         try { com.bitchat.android.nostr.NostrBackgroundRuntime.initialize(this) } catch (_: Exception) { }

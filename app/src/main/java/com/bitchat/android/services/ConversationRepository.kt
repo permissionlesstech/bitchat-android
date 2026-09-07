@@ -129,15 +129,36 @@ class ConversationRepository internal constructor(
         }
     }
 
+    suspend fun deliveryJobs(): List<PrivateDeliveryJob> = withContext(dispatcher) { database.deliveryJobs() }
+    suspend fun saveDelivery(job: PrivateDeliveryJob, replace: Boolean = true): Boolean =
+        withContext(dispatcher) { database.saveDelivery(job, replace) }
+    suspend fun acknowledgeDelivery(conversationID: String, messageID: String, status: DeliveryStatus): Boolean =
+        withContext(dispatcher) { database.acknowledgeDelivery(conversationID, messageID, status) }
+
+    suspend fun updateDelivery(job: PrivateDeliveryJob): Boolean =
+        withContext(dispatcher) { database.updateDelivery(job) }
+
+    suspend fun removeDelivery(id: String) = withContext(dispatcher) { database.removeDelivery(id) }
+    suspend fun isDeletedMessage(messageID: String): Boolean =
+        withContext(dispatcher) { database.isDeletedMessage(messageID) }
+
+    suspend fun storedMessage(conversationID: String, messageID: String): BitchatMessage? =
+        withContext(dispatcher) { database.storedMessage(conversationID, messageID) }
+    suspend fun syncCheckpoint(identity: String): Long? = withContext(dispatcher) { database.syncCheckpoint(identity) }
+    suspend fun saveSyncCheckpoint(identity: String, time: Long) = withContext(dispatcher) { database.saveSyncCheckpoint(identity, time) }
+
     fun upsertMessage(
         conversationID: String,
         aliases: Set<String>,
         displayName: String?,
         message: BitchatMessage,
-        isRead: Boolean
+        isRead: Boolean,
+        queueForDelivery: Boolean = false,
+        receiptJob: PrivateDeliveryJob? = null,
+        outgoingJob: PrivateDeliveryJob? = null
     ) {
         scope.launch {
-            upsertMessageLocked(conversationID, aliases, displayName, message, isRead)
+            upsertMessageLocked(conversationID, aliases, displayName, message, isRead, queueForDelivery, receiptJob, outgoingJob)
         }
     }
 
@@ -146,9 +167,12 @@ class ConversationRepository internal constructor(
         aliases: Set<String>,
         displayName: String?,
         message: BitchatMessage,
-        isRead: Boolean
+        isRead: Boolean,
+        queueForDelivery: Boolean = false,
+        receiptJob: PrivateDeliveryJob? = null,
+        outgoingJob: PrivateDeliveryJob? = null
     ): Boolean = withContext(dispatcher) {
-        upsertMessageLocked(conversationID, aliases, displayName, message, isRead)
+        upsertMessageLocked(conversationID, aliases, displayName, message, isRead, queueForDelivery, receiptJob, outgoingJob)
     }
 
     private fun upsertMessageLocked(
@@ -156,14 +180,20 @@ class ConversationRepository internal constructor(
         aliases: Set<String>,
         displayName: String?,
         message: BitchatMessage,
-        isRead: Boolean
+        isRead: Boolean,
+        queueForDelivery: Boolean = false,
+        receiptJob: PrivateDeliveryJob? = null,
+        outgoingJob: PrivateDeliveryJob? = null
     ): Boolean = try {
         val result = database.upsertMessage(
             conversationID = conversationID,
             aliases = aliases,
             displayName = displayName,
             message = message,
-            isRead = isRead
+            isRead = isRead,
+            queueForDelivery = queueForDelivery,
+            receiptJob = receiptJob,
+            outgoingJob = outgoingJob
         )
         deleteStoredMedia(result.orphanedMediaPaths)
         _storeState.value = ConversationStoreState.Ready
@@ -186,10 +216,10 @@ class ConversationRepository internal constructor(
         }
     }
 
-    fun markRead(messageID: String) {
+    fun markRead(messageID: String, receiptJob: PrivateDeliveryJob? = null) {
         scope.launch {
             try {
-                database.markRead(messageID)
+                database.markRead(messageID, receiptJob)
             } catch (error: Exception) {
                 Log.e(TAG, "Unable to persist local read state: ${error.message}")
             }
@@ -391,7 +421,7 @@ internal class ConversationDatabase(
         const val MAX_MEDIA_BYTES = 256L * 1024L * 1024L
 
         internal const val DEFAULT_DATABASE_NAME = "private_conversations.db"
-        internal const val DATABASE_VERSION = 4
+        internal const val DATABASE_VERSION = 5
         private const val PRUNE_INTERVAL = 64
         private const val PRUNE_BATCH_SIZE = 256
     }
@@ -507,6 +537,7 @@ internal class ConversationDatabase(
             "CREATE INDEX idx_deleted_private_messages_time " +
                 "ON deleted_private_messages(deleted_at)"
         )
+        createDeliveryTables(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -542,9 +573,100 @@ internal class ConversationDatabase(
             }
             version = 4
         }
+        if (version == 4) {
+            createDeliveryTables(db)
+            // Old Sending rows have no recoverable delivery intent. Never resend historical Sent.
+            db.execSQL("UPDATE private_messages SET delivery_type = 5 WHERE delivery_type = 1")
+            version = 5
+        }
         check(version == newVersion) {
             "Missing conversation database migration from $version to $newVersion"
         }
+    }
+
+    private fun createDeliveryTables(db: SQLiteDatabase) {
+        db.execSQL("""CREATE TABLE private_delivery_jobs (
+            job_id TEXT PRIMARY KEY NOT NULL,
+            conversation_id TEXT COLLATE NOCASE NOT NULL,
+            message_id TEXT NOT NULL,
+            local_message_id TEXT,
+            kind TEXT NOT NULL,
+            next_attempt_at INTEGER NOT NULL,
+            payload_ciphertext BLOB NOT NULL
+        )""")
+        db.execSQL("CREATE INDEX idx_delivery_due ON private_delivery_jobs(next_attempt_at)")
+        db.execSQL("CREATE TABLE dm_sync_checkpoints (identity TEXT PRIMARY KEY NOT NULL, completed_at INTEGER NOT NULL)")
+    }
+
+    private val deliveryGson = com.google.gson.Gson()
+
+    fun deliveryJobs(): List<PrivateDeliveryJob> = readableDatabase.rawQuery(
+        "SELECT job_id, payload_ciphertext FROM private_delivery_jobs ORDER BY next_attempt_at", null
+    ).use { cursor ->
+        buildList {
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(0)
+                val json = storageCipher.decrypt(cursor.getBlob(1), "delivery:$id".toByteArray())
+                add(deliveryGson.fromJson(json.toString(Charsets.UTF_8), PrivateDeliveryJob::class.java))
+            }
+        }
+    }
+
+    fun saveDelivery(job: PrivateDeliveryJob, replace: Boolean = true): Boolean {
+        val db = writableDatabase
+        val existing = db.rawQuery("SELECT 1 FROM private_delivery_jobs WHERE job_id = ?", arrayOf(job.id))
+            .use { it.moveToFirst() }
+        if (!existing) {
+            val counts = db.rawQuery("SELECT COUNT(*), SUM(CASE WHEN conversation_id = ? THEN 1 ELSE 0 END) FROM private_delivery_jobs", arrayOf(job.conversationID))
+                .use { it.moveToFirst(); it.getInt(0) to it.getInt(1) }
+            check(counts.first < PrivateDeliveryJob.MAX_TOTAL && counts.second < PrivateDeliveryJob.MAX_PER_CONTACT) {
+                "Private delivery queue is full"
+            }
+        }
+        return db.insertWithOnConflict("private_delivery_jobs", null, ContentValues().apply {
+            put("job_id", job.id)
+            put("conversation_id", job.conversationID)
+            put("message_id", job.messageID)
+            put("local_message_id", job.localMessageID)
+            put("kind", job.kind.name)
+            put("next_attempt_at", job.nextAttemptAt)
+            put("payload_ciphertext", encryptText(deliveryGson.toJson(job), "delivery:${job.id}".toByteArray()))
+        }, if (replace) SQLiteDatabase.CONFLICT_REPLACE else SQLiteDatabase.CONFLICT_IGNORE) != -1L
+    }
+
+    fun acknowledgeDelivery(conversationID: String, messageID: String, status: DeliveryStatus): Boolean = writableDatabase.inTransaction {
+        if (storedMessage(conversationID, messageID) == null) return@inTransaction false
+        updateDeliveryStatus(messageID, status)
+        removeDelivery("message:$messageID")
+        true
+    }
+
+    fun updateDelivery(job: PrivateDeliveryJob): Boolean = writableDatabase.inTransaction {
+        val current = rawQuery("SELECT message_id FROM private_delivery_jobs WHERE job_id = ?", arrayOf(job.id))
+            .use { if (it.moveToFirst()) it.getString(0) else null }
+        if (current != job.messageID) false else saveDelivery(job)
+    }
+
+    fun removeDelivery(id: String) { writableDatabase.delete("private_delivery_jobs", "job_id = ?", arrayOf(id)) }
+
+    fun isDeletedMessage(messageID: String): Boolean = isDeletedMessageLocked(readableDatabase, messageID)
+
+    fun storedMessage(conversationID: String, messageID: String): BitchatMessage? =
+        readableDatabase.query("private_messages", MESSAGE_COLUMNS, "message_id = ?", arrayOf(messageID), null, null, null).use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            val stored = resolveStoredConversationLocked(readableDatabase, cursor.string("conversation_id"))
+            if (!stored.equals(resolveStoredConversationLocked(readableDatabase, conversationID), true)) return@use null
+            cursor.toMessage()
+        }
+
+    fun syncCheckpoint(identity: String): Long? = readableDatabase.rawQuery(
+        "SELECT completed_at FROM dm_sync_checkpoints WHERE identity = ?", arrayOf(identity)
+    ).use { if (it.moveToFirst()) it.getLong(0) else null }
+
+    fun saveSyncCheckpoint(identity: String, time: Long) {
+        writableDatabase.insertWithOnConflict("dm_sync_checkpoints", null, ContentValues().apply {
+            put("identity", identity); put("completed_at", time)
+        }, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
     private fun migrateVersion1To2(db: SQLiteDatabase) {
@@ -779,7 +901,10 @@ internal class ConversationDatabase(
         aliases: Set<String>,
         displayName: String?,
         message: BitchatMessage,
-        isRead: Boolean
+        isRead: Boolean,
+        queueForDelivery: Boolean = false,
+        receiptJob: PrivateDeliveryJob? = null,
+        outgoingJob: PrivateDeliveryJob? = null
     ): ConversationUpsertResult {
         val normalizedID = conversationID.trim()
         if (normalizedID.isBlank()) {
@@ -790,6 +915,10 @@ internal class ConversationDatabase(
         var messageInserted = false
         writableDatabase.inTransaction {
             if (isDeletedMessageLocked(this, message.id)) return@inTransaction
+            val existingOwner = rawQuery("SELECT conversation_id FROM private_messages WHERE message_id = ?", arrayOf(message.id))
+                .use { if (it.moveToFirst()) it.getString(0) else null }
+            if (existingOwner != null && !resolveStoredConversationLocked(this, existingOwner)
+                    .equals(resolveStoredConversationLocked(this, normalizedID), true)) return@inTransaction
             mergeAliasesLocked(
                 db = this,
                 targetConversationID = normalizedID,
@@ -807,6 +936,14 @@ internal class ConversationDatabase(
             messageInserted = inserted != -1L
             if (inserted != -1L) {
                 registerAttachmentLocked(this, message)
+                if (queueForDelivery && message.deliveryStatus == DeliveryStatus.Sending && message.type == BitchatMessageType.Message) {
+                    saveDelivery(outgoingJob ?: PrivateDeliveryJob(
+                        id = "message:${message.id}", conversationID = normalizedID,
+                        messageID = message.id, kind = PrivateDeliveryJob.Kind.MESSAGE,
+                        content = message.content, nickname = message.recipientNickname.orEmpty(),
+                        createdAt = message.timestamp.time
+                    ), replace = false)
+                }
             }
             if (inserted == -1L) {
                 val existingConversation = rawQuery(
@@ -825,13 +962,7 @@ internal class ConversationDatabase(
                         existingConversation.first
                     )
                     if (!canonicalExisting.equals(normalizedID, ignoreCase = true)) {
-                        mergeAliasesLocked(
-                            db = this,
-                            targetConversationID = normalizedID,
-                            aliases = aliases + canonicalExisting,
-                            displayName = displayName,
-                            now = now
-                        )
+                        return@inTransaction
                     }
                     if (isRead && !existingConversation.second) {
                         update(
@@ -843,6 +974,7 @@ internal class ConversationDatabase(
                     }
                 }
             }
+            if (receiptJob != null) saveDelivery(receiptJob, replace = false)
             updateConversationMetadataLocked(this, normalizedID, displayName, now)
             orphanedMediaPaths += pruneConversationLocked(this, normalizedID)
         }
@@ -907,13 +1039,15 @@ internal class ConversationDatabase(
         }
     }
 
-    fun markRead(messageID: String) {
-        writableDatabase.update(
-            "private_messages",
-            ContentValues().apply { put("is_read", 1) },
-            "message_id = ?",
-            arrayOf(messageID)
-        )
+    fun markRead(messageID: String, receiptJob: PrivateDeliveryJob? = null) {
+        writableDatabase.inTransaction {
+            if (isDeletedMessageLocked(this, messageID)) return@inTransaction
+            if (receiptJob != null && storedMessage(receiptJob.conversationID, messageID) != null) {
+                saveDelivery(receiptJob, replace = false)
+            }
+            update("private_messages", ContentValues().apply { put("is_read", 1) },
+                "message_id = ?", arrayOf(messageID))
+        }
     }
 
     fun setConversationRead(conversationID: String, isRead: Boolean): String? {
@@ -1007,6 +1141,7 @@ internal class ConversationDatabase(
                 }
             val attachmentCandidates = attachmentCandidatesLocked(this, messageIDs)
             ids.filter { it.isNotBlank() }.forEach { id ->
+                delete("private_delivery_jobs", "conversation_id = ? COLLATE NOCASE", arrayOf(id))
                 delete(
                     "conversations",
                     "conversation_id = ? COLLATE NOCASE",
@@ -1029,6 +1164,7 @@ internal class ConversationDatabase(
                 },
                 SQLiteDatabase.CONFLICT_REPLACE
             )
+            delete("private_delivery_jobs", "message_id = ? OR local_message_id = ?", arrayOf(messageID, messageID))
             delete("private_messages", "message_id = ?", arrayOf(messageID))
             delete(
                 "conversations",
@@ -1087,6 +1223,8 @@ internal class ConversationDatabase(
         // Destroy the only usable copy of the history key before attempting filesystem cleanup.
         storageCipher.destroyKey()
         writableDatabase.inTransaction {
+            delete("private_delivery_jobs", null, null)
+            delete("dm_sync_checkpoints", null, null)
             delete("conversation_aliases", null, null)
             delete("message_attachments", null, null)
             delete("private_messages", null, null)
@@ -1175,7 +1313,8 @@ internal class ConversationDatabase(
                 tombstoneMessagesLocked(this, candidates)
                 val attachmentCandidates = attachmentCandidatesLocked(this, candidates)
                 candidates.forEach { messageID ->
-                    delete("private_messages", "message_id = ?", arrayOf(messageID))
+                    delete("private_delivery_jobs", "message_id = ? OR local_message_id = ?", arrayOf(messageID, messageID))
+            delete("private_messages", "message_id = ?", arrayOf(messageID))
                 }
                 orphanedMediaPaths +=
                     unreferencedAttachmentPathsLocked(this, attachmentCandidates)
@@ -1379,6 +1518,7 @@ internal class ConversationDatabase(
             SELECT message_id
             FROM private_messages
             WHERE conversation_id = ? COLLATE NOCASE
+                AND message_id NOT IN (SELECT message_id FROM private_delivery_jobs WHERE kind = 'MESSAGE')
                 AND arrival_sequence < (
                     SELECT MAX(arrival_sequence)
                     FROM private_messages
@@ -1569,7 +1709,7 @@ internal class ConversationDatabase(
             """
             SELECT candidate.message_id
             FROM private_messages AS candidate
-            WHERE 1 = 1
+            WHERE candidate.message_id NOT IN (SELECT message_id FROM private_delivery_jobs WHERE kind = 'MESSAGE')
             $newerMessageClause
             $readClause
             ORDER BY candidate.arrival_sequence ASC
@@ -1739,7 +1879,8 @@ internal class ConversationDatabase(
             encryptedContent = payload.encryptedContent,
             isEncrypted = boolean("is_encrypted"),
             deliveryStatus = toDeliveryStatus(payload.deliveryText),
-            senderNostrPubkey = payload.senderNostrPubkey
+            senderNostrPubkey = payload.senderNostrPubkey,
+            wireMessageID = payload.wireMessageID
         )
     }
 
@@ -1823,6 +1964,7 @@ internal class ConversationDatabase(
             )
             putNullable("delivery_text", message.deliveryStatus.sensitiveText())
             putNullable("sender_nostr_pubkey", message.senderNostrPubkey)
+            putNullable("wire_message_id", message.wireMessageID)
         }
         return storageCipher.encrypt(
             json.toString().toByteArray(Charsets.UTF_8),
@@ -1850,7 +1992,8 @@ internal class ConversationDatabase(
                 Base64.decode(it, Base64.NO_WRAP)
             },
             deliveryText = json.optionalString("delivery_text"),
-            senderNostrPubkey = json.optionalString("sender_nostr_pubkey")
+            senderNostrPubkey = json.optionalString("sender_nostr_pubkey"),
+            wireMessageID = json.optionalString("wire_message_id")
         )
     }
 
@@ -1908,7 +2051,8 @@ internal class ConversationDatabase(
         val channel: String?,
         val encryptedContent: ByteArray?,
         val deliveryText: String?,
-        val senderNostrPubkey: String?
+        val senderNostrPubkey: String?,
+        val wireMessageID: String?
     )
 
     private val MESSAGE_COLUMNS = arrayOf(

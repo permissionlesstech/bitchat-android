@@ -28,30 +28,28 @@ class NostrPendingEventQueueTest {
     }
 
     @Test
-    fun `duplicate event publishes retain independent delivery state`() {
+    fun `same envelope retries consolidate pending relays until acknowledged`() {
         val queue = NostrPendingEventQueue(capacity = 4)
-        val signedEvent = event("same")
-        val firstId = requireNotNull(
-            queue.enqueue(signedEvent, listOf("relay-a", "relay-b"), liveLocationToken = null)
-        )
-        val secondId = requireNotNull(
-            queue.enqueue(signedEvent, listOf("relay-a"), liveLocationToken = null)
-        )
-        assertNotEquals(firstId, secondId)
-
-        queue.markDelivered(firstId, "relay-a")
-
-        assertEquals(
-            listOf(secondId),
-            queue.pendingForRelay("relay-a").map { it.queueId }
-        )
-        assertEquals(
-            listOf(firstId),
-            queue.pendingForRelay("relay-b").map { it.queueId }
-        )
-
-        queue.markDelivered(firstId, "relay-b")
+        val envelope = event("same")
+        val first = queue.enqueue(envelope, listOf("relay-a", "relay-b"), null)
+        assertEquals(first, queue.enqueue(envelope, listOf("relay-a"), null))
         assertEquals(1, queue.size())
+        queue.acknowledge(envelope.id, "relay-a")
+        assertEquals(0, queue.pendingForRelay("relay-a").size)
+        assertEquals(1, queue.pendingForRelay("relay-b").size)
+        queue.acknowledge(envelope.id, "relay-b")
+        assertEquals(0, queue.size())
+    }
+
+    @Test
+    fun `same event with different privacy provenance remains independently revocable`() {
+        val queue = NostrPendingEventQueue(capacity = 4)
+        val envelope = event("same")
+        queue.enqueue(envelope, listOf("relay"), null)
+        queue.enqueue(envelope, listOf("relay"), 42L)
+        queue.removeLiveLocationEvents()
+        assertEquals(1, queue.size())
+        assertNull(queue.pendingForRelay("relay").single().liveLocationToken)
     }
 
     @Test

@@ -238,10 +238,10 @@ object NostrCrypto {
     }
 
     /**
-     * NIP-44 v2 encryption using XChaCha20-Poly1305
+     * Legacy Bitchat DM encryption (not the standardized NIP-44 v2 codec)
      * Output format: "v2:" + base64url(nonce24 || ciphertext || tag)
      */
-    fun encryptNIP44(
+    fun encryptLegacyBitchatDm(
         plaintext: String,
         recipientPublicKeyHex: String,
         senderPrivateKeyHex: String
@@ -266,7 +266,7 @@ object NostrCrypto {
      * Only accepts the exact "v2:" base64url format.
      * Tries both even/odd Y parities for x-only pubkeys.
      */
-    fun decryptNIP44(ciphertext: String, senderPublicKeyHex: String, recipientPrivateKeyHex: String): String {
+    fun decryptLegacyBitchatDm(ciphertext: String, senderPublicKeyHex: String, recipientPrivateKeyHex: String): String {
         try {
             require(ciphertext.startsWith("v2:")) { "Invalid NIP-44 version prefix" }
             val encoded = ciphertext.substring(3)
@@ -293,6 +293,14 @@ object NostrCrypto {
             throw RuntimeException("NIP-44 v2 decryption failed: ${e.message}", e)
         }
     }
+
+    // Source compatibility for callers of the historically misnamed helpers. Wire bytes remain
+    // unchanged; switching to standard NIP-44 requires a negotiated cross-client migration.
+    fun encryptNIP44(plaintext: String, recipientPublicKeyHex: String, senderPrivateKeyHex: String): String =
+        encryptLegacyBitchatDm(plaintext, recipientPublicKeyHex, senderPrivateKeyHex)
+
+    fun decryptNIP44(ciphertext: String, senderPublicKeyHex: String, recipientPrivateKeyHex: String): String =
+        decryptLegacyBitchatDm(ciphertext, senderPublicKeyHex, recipientPrivateKeyHex)
 
     private fun base64UrlNoPad(data: ByteArray): String {
         val b64 = android.util.Base64.encodeToString(data, android.util.Base64.NO_WRAP)

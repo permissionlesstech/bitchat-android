@@ -54,6 +54,7 @@ object AppShutdownCoordinator {
                 app.sendBroadcast(intent, com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH)
             } catch (_: Exception) { }
 
+            com.bitchat.android.services.PrivateDeliveryCoordinator.getInstance(app).stop()
             // Stop mesh (best-effort)
             try { mesh?.stopServices() } catch (_: Exception) { }
             try { com.bitchat.android.nostr.NostrRelayManager.shared.disconnect() } catch (_: Exception) { }

@@ -130,7 +130,9 @@ class MessageManager(private val state: ChatState) {
             com.bitchat.android.services.AppStateStore.addPrivateMessageDurably(
                 peerID = conversationID,
                 msg = message,
-                forceRead = forceRead
+                forceRead = forceRead,
+                queueForDelivery = message.deliveryStatus == DeliveryStatus.Sending,
+                outgoingJob = com.bitchat.android.services.MessageRouter.deliveryJob(message, peerID)
             )
         } catch (_: Exception) {
             false

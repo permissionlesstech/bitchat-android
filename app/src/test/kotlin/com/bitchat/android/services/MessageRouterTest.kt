@@ -1,217 +1,128 @@
 package com.bitchat.android.services
 
 import android.content.Context
-import android.os.Build
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerInfo
+import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.nostr.NostrTransport
+import kotlinx.coroutines.*
+import kotlinx.coroutines.test.*
 import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.kotlin.any
-import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.clearInvocations
-import org.mockito.kotlin.eq
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
-import org.mockito.kotlin.times
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.whenever
+import org.mockito.kotlin.*
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.Date
 import java.util.UUID
 
+/** Routing contracts exercise the persisted worker, rather than the removed in-memory queue. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [Build.VERSION_CODES.P], manifest = Config.NONE)
+@Config(manifest = Config.NONE)
+@OptIn(ExperimentalCoroutinesApi::class)
 class MessageRouterTest {
+    private lateinit var context: Context
+    private lateinit var repository: ConversationRepository
+    private lateinit var favorites: FavoritesPersistenceService
+    private lateinit var databaseName: String
+    private val cipher = InMemoryConversationStorageCipher()
+    private val conversation = "contact_" + "11".repeat(32)
+    private val peer = "1122334455667788"
 
-    private val myPeerID = "1111222233334444"
-    private val peerID = "aaaabbbbccccdddd"
-    private val noiseKey = ByteArray(32) { 0x0B }
-
-    private lateinit var mesh: MeshService
-    private lateinit var router: MessageRouter
-    private var fakeTime = 1_000_000L
-    private val expired = mutableListOf<String>()
-
-    @Before
-    fun setup() {
-        val context = RuntimeEnvironment.getApplication()
-        val prefs = context.getSharedPreferences(
-            "message-router-test-${UUID.randomUUID()}",
-            Context.MODE_PRIVATE
-        )
-        val identityManager = SecureIdentityStateManager(prefs, testOnly = true)
-        ContactDirectory.identityManagerProvider = { identityManager }
-
-        mesh = mock()
-        whenever(mesh.myPeerID).thenReturn(myPeerID)
-        whenever(mesh.getPeerNicknames()).thenReturn(mapOf(peerID to "peer"))
-
-        ContactDirectory.initialize(context) { mesh }
-
-        MessageRouter.disableSchedulerForTesting = true
-        MessageRouter.resetForTesting()
-        fakeTime = 1_000_000L
-        expired.clear()
-
-        router = MessageRouter.getInstance(context, mesh)
-        router.clock = { fakeTime }
-        router.onMessageExpired = { expired.add(it) }
+    @Before fun setup() {
+        context = RuntimeEnvironment.getApplication()
+        databaseName = "delivery-test-${UUID.randomUUID()}.db"
+        repository = ConversationRepository(context, Dispatchers.Unconfined, databaseName, cipher)
+        favorites = FavoritesPersistenceService(context, SecureIdentityStateManager(context.getSharedPreferences("test-${UUID.randomUUID()}", 0), true))
+        AppStateStore.resumePrivateConversationsAfterPanic()
+        AppStateStore.clear()
+        AppStateStore.setConversationRepositoryForTest(repository)
+    }
+    @After fun cleanup() {
+        AppStateStore.clear()
+        AppStateStore.setConversationRepositoryForTest(null)
+        repository.closeForTest()
+        context.deleteDatabase(databaseName)
     }
 
-    @After
-    fun tearDown() {
-        MessageRouter.resetForTesting()
-        MessageRouter.disableSchedulerForTesting = false
-        ContactDirectory.identityManagerProvider = { SecureIdentityStateManager(it) }
+    private suspend fun queue() {
+        assertTrue(AppStateStore.addPrivateMessageDurably(conversation, BitchatMessage(
+            id = "message", sender = "self", content = "fixture", timestamp = Date(), isPrivate = true,
+            senderPeerID = "9988776655443322", deliveryStatus = DeliveryStatus.Sending
+        ), queueForDelivery = true))
     }
 
-    @Test
-    fun `queued message flushes after peer returns and session establishes`() {
-        peerOffline()
-        val result = router.sendPrivate("hello", peerID, "peer", "msg-1")
-
-        assertEquals(MessageRouter.RouteResult.QUEUED, result)
-        verify(mesh, never()).sendPrivateMessage(any(), any(), any(), anyOrNull())
-        verify(mesh, never()).initiateNoiseHandshake(any())
-
-        // Peer reappears without a session: handshake kicked immediately
-        peerConnectedNoSession()
-        router.onPeersUpdated(listOf(peerID))
-        verify(mesh, times(1)).initiateNoiseHandshake(peerID)
-        verify(mesh, never()).sendPrivateMessage(any(), any(), any(), anyOrNull())
-
-        // Session established: queued message is sent
-        peerReady()
-        router.onSessionEstablished(peerID)
-        verify(mesh, times(1)).sendPrivateMessage("hello", peerID, "peer", "msg-1")
+    @Test fun `unacknowledged mesh message falls back with the original ID`() = runTest {
+        queue()
+        val mesh = mock<MeshService>()
+        whenever(mesh.myPeerID).thenReturn("9988776655443322")
+        val peerInfo = mock<PeerInfo>()
+        whenever(peerInfo.isConnected).thenReturn(true)
+        whenever(mesh.getPeerInfo(peer)).thenReturn(peerInfo)
+        whenever(mesh.hasEstablishedSession(peer)).thenReturn(true)
+        val transport = mock<NostrTransport>()
+        whenever(transport.prepare(any())).thenAnswer { it.arguments[0] }
+        whenever(transport.publish(any())).thenReturn(true)
+        val base = System.currentTimeMillis()
+        val worker = PrivateDeliveryCoordinator(context, backgroundScope, { repository }, { transport }, { favorites },
+            { ContactDirectory.ContactResolution(conversation, peer, null, "ab".repeat(32), "peer", true) }, { base + testScheduler.currentTime })
+        worker.bindMesh(mesh)
+        runCurrent()
+        verify(mesh).sendPrivateMessage("fixture", peer, "", "message")
+        verify(transport, never()).publish(any())
+        advanceTimeBy(32_000)
+        runCurrent()
+        verify(transport).publish(check { assertEquals("message", it.messageID) })
+        assertEquals(DeliveryStatus.Sent, repository.storedMessage(conversation, "message")!!.deliveryStatus)
+        assertEquals(1, repository.deliveryJobs().size) // Relay acceptance is not recipient delivery.
+        worker.stop()
     }
 
-    @Test
-    fun `scheduler retries handshake with capped backoff`() {
-        peerConnectedNoSession()
-        val result = router.sendPrivate("hello", peerID, "peer", "msg-1")
-        assertEquals(MessageRouter.RouteResult.QUEUED, result)
-        verify(mesh, times(1)).initiateNoiseHandshake(peerID) // immediate kick at enqueue
-        clearInvocations(mesh)
-
-        router.tickOutbox() // backoff (5s) not yet elapsed
-        verify(mesh, never()).initiateNoiseHandshake(any())
-
-        fakeTime += 6_000
-        router.tickOutbox() // attempt 2, next in 15s
-        verify(mesh, times(1)).initiateNoiseHandshake(peerID)
-
-        fakeTime += 7_000
-        router.tickOutbox() // too early
-        verify(mesh, times(1)).initiateNoiseHandshake(peerID)
-
-        fakeTime += 9_000
-        router.tickOutbox() // attempt 3, next in 30s
-        verify(mesh, times(2)).initiateNoiseHandshake(peerID)
-
-        fakeTime += 31_000
-        router.tickOutbox() // attempt 4, next in 60s
-        verify(mesh, times(3)).initiateNoiseHandshake(peerID)
-
-        fakeTime += 61_000
-        router.tickOutbox() // attempt 5, capped at 60s
-        verify(mesh, times(4)).initiateNoiseHandshake(peerID)
+    @Test fun `recipient receipt removes durable work and never downgrades read`() = runTest {
+        queue()
+        assertTrue(AppStateStore.acknowledgePrivateReceipt(conversation, "message", true))
+        assertTrue(repository.deliveryJobs().isEmpty())
+        assertTrue(AppStateStore.acknowledgePrivateReceipt(conversation, "message", false))
+        assertTrue(repository.storedMessage(conversation, "message")!!.deliveryStatus is DeliveryStatus.Read)
+        assertFalse(AppStateStore.acknowledgePrivateReceipt("unrelated", "message", true))
     }
 
-    @Test
-    fun `expired entries are dropped and reported`() {
-        peerOffline()
-        router.sendPrivate("old message", peerID, "peer", "msg-old")
-
-        fakeTime += 86_400_001L
-        router.tickOutbox()
-
-        assertEquals(listOf("msg-old"), expired)
-
-        // Nothing left to flush even when the peer becomes reachable
-        peerReady()
-        router.tickOutbox()
-        verify(mesh, never()).sendPrivateMessage(any(), any(), any(), anyOrNull())
+    @Test fun `outgoing echo and work survive reopening the database`() = runTest {
+        queue()
+        repository.closeForTest()
+        repository = ConversationRepository(context, Dispatchers.Unconfined, databaseName, cipher)
+        AppStateStore.setConversationRepositoryForTest(repository)
+        val jobs = repository.deliveryJobs()
+        assertEquals("message", jobs.single().messageID)
+        assertNotNull(repository.storedMessage(conversation, "message"))
+        // Deleting a conversation removes the unsent message and its work in the same database.
+        repository.deleteConversationAndWait(conversation, setOf(conversation))
+        assertTrue(repository.deliveryJobs().isEmpty())
     }
-
-    @Test
-    fun `outbox cap evicts oldest and preserves order`() {
-        peerOffline()
-        repeat(101) { i ->
-            router.sendPrivate("content-$i", peerID, "peer", "msg-$i")
+    @Test fun `full outbox rolls back outgoing echo instead of losing delivery intent`() = runTest {
+        repeat(PrivateDeliveryJob.MAX_PER_CONTACT) { index ->
+            repository.saveDelivery(PrivateDeliveryJob("fixture:$index", conversation, "$index", PrivateDeliveryJob.Kind.READ))
         }
-
-        assertEquals(listOf("msg-0"), expired)
-
-        peerReady()
-        router.onSessionEstablished(peerID)
-        verify(mesh, times(100)).sendPrivateMessage(any(), eq(peerID), any(), any())
-        verify(mesh, times(1)).sendPrivateMessage("content-1", peerID, "peer", "msg-1")
-        verify(mesh, times(1)).sendPrivateMessage("content-100", peerID, "peer", "msg-100")
-        verify(mesh, never()).sendPrivateMessage(eq("content-0"), any(), any(), anyOrNull())
+        assertFalse(AppStateStore.addPrivateMessageDurably(conversation, BitchatMessage(
+            id = "overflow", sender = "self", content = "fixture", timestamp = Date(), isPrivate = true,
+            senderPeerID = "9988776655443322", deliveryStatus = DeliveryStatus.Sending
+        ), queueForDelivery = true))
+        assertNull(repository.storedMessage(conversation, "overflow"))
+        assertEquals(PrivateDeliveryJob.MAX_PER_CONTACT, repository.deliveryJobs().size)
     }
 
-    @Test
-    fun `peer reappearance without pending messages does not kick handshake`() {
-        peerConnectedNoSession()
-        router.onPeersUpdated(listOf(peerID))
-        verify(mesh, never()).initiateNoiseHandshake(any())
+    @Test fun `completed delivery cannot be resurrected by a stale publish retry`() = runTest {
+        queue()
+        val stale = repository.deliveryJobs().single()
+        assertTrue(AppStateStore.acknowledgePrivateReceipt(conversation, "message", false))
+        assertFalse(repository.updateDelivery(stale.copy(attempts = 1)))
+        assertTrue(repository.deliveryJobs().isEmpty())
     }
 
-    @Test
-    fun `established session flushes directly without handshake retry state`() {
-        peerReady()
-        val result = router.sendPrivate("direct", peerID, "peer", "msg-direct")
-        assertEquals(MessageRouter.RouteResult.MESH, result)
-        verify(mesh, times(1)).sendPrivateMessage("direct", peerID, "peer", "msg-direct")
-        verify(mesh, never()).initiateNoiseHandshake(any())
-    }
-
-    @Test
-    fun `scheduler stops with the mesh service and restarts on rebind`() {
-        MessageRouter.disableSchedulerForTesting = false
-        MessageRouter.resetForTesting()
-        val context = RuntimeEnvironment.getApplication()
-        val running = MessageRouter.getInstance(context, mesh)
-        assertTrue(running.isSchedulerRunning)
-
-        running.stopOutboxScheduler()
-        assertFalse(running.isSchedulerRunning)
-
-        val rebound = MessageRouter.getInstance(context, mesh)
-        assertTrue(rebound.isSchedulerRunning)
-    }
-
-    private fun peerOffline() {
-        whenever(mesh.getPeerInfo(peerID)).thenReturn(peerInfo(isConnected = false))
-        whenever(mesh.hasEstablishedSession(peerID)).thenReturn(false)
-    }
-
-    private fun peerConnectedNoSession() {
-        whenever(mesh.getPeerInfo(peerID)).thenReturn(peerInfo(isConnected = true))
-        whenever(mesh.hasEstablishedSession(peerID)).thenReturn(false)
-    }
-
-    private fun peerReady() {
-        whenever(mesh.getPeerInfo(peerID)).thenReturn(peerInfo(isConnected = true))
-        whenever(mesh.hasEstablishedSession(peerID)).thenReturn(true)
-    }
-
-    private fun peerInfo(isConnected: Boolean) = PeerInfo(
-        id = peerID,
-        nickname = "peer",
-        isConnected = isConnected,
-        isDirectConnection = true,
-        noisePublicKey = noiseKey,
-        signingPublicKey = ByteArray(32) { 0x0A },
-        isVerifiedNickname = false,
-        lastSeen = System.currentTimeMillis()
-    )
 }
