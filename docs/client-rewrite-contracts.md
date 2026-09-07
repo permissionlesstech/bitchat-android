@@ -18,7 +18,7 @@ The remaining implementation work and milestone progress are tracked in
 | Store and forward | Courier type `0x04`, rotating HMAC recipient tags, Noise X seals, copy-budget and prekey-ID TLVs, 24-hour expiry, bounded tiered custody | `CourierEnvelopeTest`, `NoiseCourierTest`, `MessageRouterTest` |
 | Identity/security | Announcement extensions, capability bitfield endianness, Noise static-key binding, handshake identity binding, signatures | `IdentityAnnouncementTest`, `NoiseSessionManagerIdentityBindingTest`, `ClientRewritePrimitiveContractTest` |
 | Sync/routing | Stable packet IDs, GCS bitstream, type-scoped filters, bounded-history cursors, replay collapse, TTL handling, relay choice, confirmed graph edges | `ClientRewriteWireContractTest`, `ClientRewritePrimitiveContractTest`, `GCSFilterTest`, `GossipSyncManagerTest`, `PacketRelayManagerTest`, `MeshGraphServiceTest`, `TransportBridgeServiceTest` |
-| Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
+| Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals, 22h outbound envelope randomization | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
 | Application state | Peer unions, canonical private conversations, chronological history, delivery/read behavior, media migration policy | `AppStateStoreTest`, `PrivateChatManagerTest`, `MediaSendingManagerMigrationTest` |
 
 ## Golden-vector policy
@@ -31,6 +31,11 @@ together.
 Round-trip tests remain useful but are not sufficient on their own: an encoder
 and decoder can share the same defect. Each critical wire format therefore has
 at least one literal vector.
+
+NIP-17 receivers should reserve safety slack beyond the maximum timestamp
+randomization used by senders. Android caps outbound seal and gift-wrap
+randomization at 22h, leaving 2 hours of slack inside iOS's 24-hour
+subscription window, while retaining its 48-hour receive lookback.
 
 ## Rewrite acceptance gate
 

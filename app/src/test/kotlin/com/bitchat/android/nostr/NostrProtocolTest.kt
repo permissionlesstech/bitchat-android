@@ -91,6 +91,52 @@ class NostrProtocolTest {
         assertEquals("hello", NostrProtocol.decryptPrivateMessage(ios, recipient)?.first)
     }
 
+    @Test
+    fun createPrivateMessage_reservesSlackInsideIosLookback() {
+        val sender = NostrIdentity.generate()
+        val recipient = NostrIdentity.generate()
+
+        assertEquals(
+            IOS_DM_LOOKBACK_SECONDS - TIMESTAMP_SAFETY_SLACK_SECONDS,
+            NostrCrypto.NIP17_DEFAULT_MAX_PAST_SECONDS
+        )
+
+        repeat(20) {
+            val beforeCreation = (System.currentTimeMillis() / 1000).toInt()
+            val giftWrap = NostrProtocol.createPrivateMessage(
+                content = "bitchat1:test",
+                recipientPubkey = recipient.publicKeyHex,
+                senderIdentity = sender
+            ).single()
+            val afterCreation = (System.currentTimeMillis() / 1000).toInt()
+            val sealJson = NostrCrypto.decryptNIP44(
+                ciphertext = giftWrap.content,
+                senderPublicKeyHex = giftWrap.pubkey,
+                recipientPrivateKeyHex = recipient.privateKeyHex
+            )
+            val seal = gson.fromJson(sealJson, NostrEvent::class.java)
+
+            assertTimestampWithinIosLookback("gift wrap", giftWrap.createdAt, beforeCreation, afterCreation)
+            assertTimestampWithinIosLookback("seal", seal.createdAt, beforeCreation, afterCreation)
+        }
+    }
+
+    private fun assertTimestampWithinIosLookback(
+        envelope: String,
+        createdAt: Int,
+        beforeCreation: Int,
+        afterCreation: Int
+    ) {
+        assertTrue(
+            "$envelope timestamp must leave 2 hours inside the iOS lookback",
+            createdAt >= beforeCreation - MAX_OUTBOUND_BACKDATE_SECONDS
+        )
+        assertTrue(
+            "$envelope timestamp must not be in the future",
+            createdAt <= afterCreation
+        )
+    }
+
     private fun forgedGiftWrap(
         content: String,
         claimedSender: NostrIdentity,
@@ -136,5 +182,12 @@ class NostrProtocolTest {
             tags = outerTags,
             content = giftWrapContent
         ).sign(wrapPrivateKey)
+    }
+
+    private companion object {
+        const val IOS_DM_LOOKBACK_SECONDS = 86_400
+        const val TIMESTAMP_SAFETY_SLACK_SECONDS = 7_200
+        const val MAX_OUTBOUND_BACKDATE_SECONDS =
+            IOS_DM_LOOKBACK_SECONDS - TIMESTAMP_SAFETY_SLACK_SECONDS
     }
 }
