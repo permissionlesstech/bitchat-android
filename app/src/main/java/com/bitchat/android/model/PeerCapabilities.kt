@@ -1,6 +1,7 @@
 package com.bitchat.android.model
 
 import android.os.Parcelable
+import com.bitchat.android.protocol.MeshDiagnosticsConstants
 import kotlinx.parcelize.Parcelize
 
 /**
@@ -54,9 +55,10 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
         /** Publishes signed one-time prekeys for forward-secret courier mail. */
         val PREKEYS = PeerCapabilities(1L shl 0)
 
+
         /** Capabilities implemented by this Android build. */
         @Deprecated("Use localSupported() so runtime bridge state is included")
-        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or PREKEYS.rawValue or GROUPS.rawValue or BOARD.rawValue or VOUCH.rawValue)
+        val LOCAL_SUPPORTED = PeerCapabilities(PRIVATE_MEDIA.rawValue or PREKEYS.rawValue or GROUPS.rawValue or BOARD.rawValue or VOUCH.rawValue or MESH_DIAGNOSTICS.rawValue)
 
         @Volatile
         private var bridgeEnabled: Boolean = false

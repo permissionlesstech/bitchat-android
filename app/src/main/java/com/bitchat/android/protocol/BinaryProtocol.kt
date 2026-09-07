@@ -24,7 +24,9 @@ enum class MessageType(val value: UByte) {
     BOARD_POST(0x23u),
     GROUP_MESSAGE(0x25u), // Opaque private-group ciphertext broadcast
     PREKEY_BUNDLE(0x24u), // Signed batch of one-time courier prekeys
-    NOSTR_CARRIER(0x28u); // Signed bridge/gateway event carrier
+    NOSTR_CARRIER(0x28u), // Signed bridge/gateway event carrier
+    PING(MeshDiagnosticsConstants.PING_TYPE),
+    PONG(MeshDiagnosticsConstants.PONG_TYPE);
 
     companion object {
         fun fromValue(value: UByte): MessageType? {

@@ -306,7 +306,8 @@ fun AboutSheet(
     bridgeEnabled: Boolean,
     onBridgeEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    onShowDebug: (() -> Unit)? = null
+    onShowDebug: (() -> Unit)? = null,
+    onShowMeshTopology: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
 
@@ -1268,6 +1269,16 @@ fun AboutSheet(
                                         fontSize = 13.sp,
                                         fontFamily = BitchatFontFamily,
                                         color = colorScheme.primary
+                                    )
+                                }
+                            }
+                            if (onShowMeshTopology != null) {
+                                TextButton(onClick = onShowMeshTopology) {
+                                    Text(
+                                        text = "network → mesh topology",
+                                        fontSize = 13.sp,
+                                        fontFamily = BitchatFontFamily,
+                                        color = colorScheme.primary,
                                     )
                                 }
                             }

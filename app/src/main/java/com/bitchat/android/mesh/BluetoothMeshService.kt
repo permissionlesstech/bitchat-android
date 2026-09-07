@@ -124,6 +124,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private val packetProcessor = PacketProcessor(myPeerID)
     private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
     private val voiceFrameQueue = Channel<VoiceFrameRequest>(capacity = 128)
+    private val meshPingManager = MeshPingManager(myPeerID, serviceScope) { packet ->
+        broadcastRoutedPacket(RoutedPacket(packet))
+    }
     private lateinit var gossipSyncManager: GossipSyncManager
     // Service-level notification manager for background (no-UI) DMs
     private val serviceNotificationManager = com.bitchat.android.ui.NotificationManager(
@@ -741,6 +744,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     ?: return false
                 return boardStore.ingestRemoteForRelay(wire, routed.packet)
             }
+            override fun handlePing(routed: RoutedPacket) = meshPingManager.handlePing(routed)
+
+            override fun handlePong(routed: RoutedPacket) = meshPingManager.handlePong(routed)
         }
         
         // BluetoothConnectionManager delegates
@@ -829,6 +835,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 }
             }
         }
+    }
+
+    fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit) {
+        meshPingManager.ping(peerID, callback)
     }
 
     /**

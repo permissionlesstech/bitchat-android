@@ -134,6 +134,7 @@ class MeshCore(
             send = ::sendVouchPayload
         )
     }
+    private val meshPingManager = MeshPingManager(myPeerID, scope, ::dispatchUnsignedDiagnostic)
 
     val gossipSyncManager: GossipSyncManager =
         sharedGossipManager ?: GossipSyncManager(myPeerID = myPeerID, scope = scope, configProvider = gossipConfigProvider)
@@ -591,7 +592,18 @@ class MeshCore(
                     ?: return false
                 return boardStore.ingestRemoteForRelay(wire, routed.packet)
             }
+            override fun handlePing(routed: RoutedPacket) = meshPingManager.handlePing(routed)
+
+            override fun handlePong(routed: RoutedPacket) = meshPingManager.handlePong(routed)
         }
+    }
+
+    private fun dispatchUnsignedDiagnostic(packet: BitchatPacket) {
+        dispatchGlobal(RoutedPacket(packet))
+    }
+
+    fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit) {
+        meshPingManager.ping(peerID, callback)
     }
 
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {

@@ -180,6 +180,8 @@ class PacketProcessor(private val myPeerID: String) {
                         MessageType.NOISE_HANDSHAKE -> validPacket = handleNoiseHandshake(routed)
                         MessageType.NOISE_ENCRYPTED -> validPacket = handleNoiseEncrypted(routed)
                         MessageType.COURIER_ENVELOPE -> validPacket = delegate?.handleCourierEnvelope(routed) ?: false
+                        MessageType.PING -> delegate?.handlePing(routed)
+                        MessageType.PONG -> delegate?.handlePong(routed)
                         MessageType.FILE_TRANSFER -> handleMessage(routed)
                         else -> {
                             validPacket = false
@@ -361,6 +363,8 @@ interface PacketProcessorDelegate {
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
     fun handleRequestSync(routed: RoutedPacket)
     fun handleBoardPost(routed: RoutedPacket): Boolean = false
+    fun handlePing(routed: RoutedPacket) {}
+    fun handlePong(routed: RoutedPacket) {}
     
     // Communication
     fun sendAnnouncementToPeer(peerID: String)

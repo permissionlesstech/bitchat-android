@@ -50,6 +50,8 @@ value class SyncTypeFlags private constructor(val rawValue: ULong) {
             MessageType.BOARD_POST -> 8
             MessageType.PREKEY_BUNDLE -> 9
             MessageType.GROUP_MESSAGE -> 10
+            MessageType.PING,
+            MessageType.PONG,
             MessageType.NOSTR_CARRIER,
             MessageType.COURIER_ENVELOPE,
             MessageType.VOICE_FRAME -> null
