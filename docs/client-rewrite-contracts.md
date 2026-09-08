@@ -36,6 +36,24 @@ randomization used by senders. Android caps outbound seal and gift-wrap
 randomization at 22h, leaving 2 hours of slack inside iOS's 24-hour
 subscription window, while retaining its 48-hour receive lookback.
 
+Geohash relay selection is part of the cross-client contract. Both platforms
+read `relays/online_relays_gps.csv` from the bitchat repo, key each row by its
+host string (lowercased, an explicit port kept unless it is 443, the wss
+default), deduplicate by that key, and order candidates by distance with ties
+broken by the same key. Clients that select differently can end up on disjoint
+relay sets for the same geohash and silently fail to exchange messages.
+`RelayDirectoryTest` covers the Android side; iOS implements the same rules in
+`GeoRelayDirectory`.
+
+Directory acceptance is part of the same contract. Both platforms validate a
+directory file with the same rules (exact header, per-row host and coordinate
+checks, size, row, and entry caps, and a minimum overlap with the previous
+entries for downloads) and reject a violating file whole, keeping the previous
+copy. A file one platform accepts and the other rejects splits the two relay
+selections at every geohash at once. `RelayDirectoryValidationTest` covers the
+Android side; iOS implements the same rules in
+`GeoRelayDirectory.validatedEntries`.
+
 ## Rewrite acceptance gate
 
 From a configured Android development environment, run:
