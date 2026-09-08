@@ -20,6 +20,18 @@ class PacketProcessor(private val myPeerID: String) {
     
     companion object {
         private const val TAG = "PacketProcessor"
+
+        /**
+         * Live per-peer actors to retain.
+         *
+         * Every distinct sender ID used to allocate a coroutine and an
+         * unbounded channel that were only released at shutdown. Peer IDs are
+         * ephemeral and rotate, and the ID is read straight off the wire, so
+         * the set of keys grows without limit during ordinary use and can be
+         * grown deliberately by anyone in radio range. Bounded here, evicting
+         * least-recently-used, which is the peer least likely to be mid-session.
+         */
+        internal const val MAX_PEER_ACTORS = 128
     }
     
     // Delegate for callbacks
@@ -40,8 +52,6 @@ class PacketProcessor(private val myPeerID: String) {
     // Per-peer actors to serialize packet processing
     // Each peer gets its own actor that processes packets sequentially
     // This prevents race conditions in session management
-    private val peerActors = mutableMapOf<String, CompletableDeferred<Unit>>()
-    
     @OptIn(ObsoleteCoroutinesApi::class)
     private fun getOrCreateActorForPeer(peerID: String) = processorScope.actor<RoutedPacket>(
         capacity = Channel.UNLIMITED
@@ -51,8 +61,34 @@ class PacketProcessor(private val myPeerID: String) {
         }
     }
     
-    // Cache actors to reuse them
-    private val actors = mutableMapOf<String, kotlinx.coroutines.channels.SendChannel<RoutedPacket>>()
+    // Cache actors to reuse them.
+    //
+    // Access is serialized on [actorsLock]. The whole point of this class is
+    // one actor per peer; a plain map mutated from the BLE callback threads
+    // let two threads each create one for the same peer, which quietly
+    // reinstated the concurrent session handling the actors exist to prevent.
+    //
+    // Access-ordered so the eldest entry is the least recently *used* rather
+    // than the least recently created — evicting by insertion order would
+    // drop a long-lived active peer in favour of a burst of new IDs.
+    private val actorsLock = Any()
+    private val actors =
+        object : LinkedHashMap<String, kotlinx.coroutines.channels.SendChannel<RoutedPacket>>(
+            16, 0.75f, true
+        ) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, kotlinx.coroutines.channels.SendChannel<RoutedPacket>>
+            ): Boolean {
+                if (size <= MAX_PEER_ACTORS) return false
+                // Closing lets the actor drain what it already holds and then
+                // finish, rather than cancelling mid-packet.
+                eldest.value.close()
+                // Deliberately not formatPeerForLog: that reaches into the
+                // delegate, and this runs under actorsLock.
+                Log.d(TAG, "Evicting least-recently-used peer actor for ${eldest.key}")
+                return true
+            }
+        }
     
     init {
         // Set up the packet relay manager delegate immediately
@@ -72,7 +108,9 @@ class PacketProcessor(private val myPeerID: String) {
         }
         
         // Get or create actor for this peer
-        val actor = actors.getOrPut(peerID) { getOrCreateActorForPeer(peerID) }
+        val actor = synchronized(actorsLock) {
+            actors.getOrPut(peerID) { getOrCreateActorForPeer(peerID) }
+        }
         
         // Send packet to peer's dedicated actor for serialized processing
         processorScope.launch {
@@ -239,18 +277,26 @@ class PacketProcessor(private val myPeerID: String) {
 //    }
     
     /**
+     * Number of live per-peer actors. Test seam; `getDebugInfo` reports the
+     * same number alongside the cap.
+     */
+    internal val activePeerActorCount: Int
+        get() = synchronized(actorsLock) { actors.size }
+
+    /**
      * Get debug information
      */
     fun getDebugInfo(): String {
         return buildString {
             appendLine("=== Packet Processor Debug Info ===")
             appendLine("Processor Scope Active: ${processorScope.isActive}")
-            appendLine("Active Peer Actors: ${actors.size}")
+            val peerIDs = synchronized(actorsLock) { actors.keys.toList() }
+            appendLine("Active Peer Actors: ${peerIDs.size} (cap $MAX_PEER_ACTORS)")
             appendLine("My Peer ID: $myPeerID")
-            
-            if (actors.isNotEmpty()) {
+
+            if (peerIDs.isNotEmpty()) {
                 appendLine("Peer Actors:")
-                actors.keys.forEach { peerID ->
+                peerIDs.forEach { peerID ->
                     appendLine("  - $peerID")
                 }
             }
@@ -261,13 +307,15 @@ class PacketProcessor(private val myPeerID: String) {
      * Shutdown the processor and all peer actors
      */
     fun shutdown() {
-        Log.d(TAG, "Shutting down PacketProcessor and ${actors.size} peer actors")
-        
-        // Close all peer actors gracefully
-        actors.values.forEach { actor ->
-            actor.close()
+        synchronized(actorsLock) {
+            Log.d(TAG, "Shutting down PacketProcessor and ${actors.size} peer actors")
+
+            // Close all peer actors gracefully
+            actors.values.forEach { actor ->
+                actor.close()
+            }
+            actors.clear()
         }
-        actors.clear()
         
         // Shutdown the relay manager
         packetRelayManager.shutdown()
