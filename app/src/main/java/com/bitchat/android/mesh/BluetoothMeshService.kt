@@ -579,6 +579,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 val result = messageHandler.handleAnnounceWithResult(routed)
                 if (result !is AnnounceHandlingResult.Accepted) return false
 
+                routed.relayAddress?.let { deviceAddress ->
+                    connectionManager.noteVerifiedAnnounceReceived(deviceAddress)
+                }
+
                 DirectLinkAnnouncementPolicy.observationFor(routed, MAX_TTL)?.let { observation ->
                     if (connectionManager.observePeerIfCurrent(
                             observation.relayAddress,

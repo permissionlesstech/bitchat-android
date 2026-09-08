@@ -30,6 +30,9 @@ class BluetoothConnectionTracker(
     val addressPeerMap = ConcurrentHashMap<String, String>()
     // Track whether we have seen the first ANNOUNCE on a given device connection
     private val firstAnnounceSeen = ConcurrentHashMap<String, Boolean>()
+    // CCCD writes that arrived before a verified ANNOUNCE. Grant the feed later
+    // rather than rejecting the descriptor — Android clients do not retry it.
+    private val pendingBroadcastSubscriptions = ConcurrentHashMap<String, BluetoothDevice>()
     // RSSI tracking from scan results (for devices we discover but may connect as servers)
     private val scanRSSI = ConcurrentHashMap<String, Int>()
     private val connectionStateLock = Any()
@@ -85,6 +88,7 @@ class BluetoothConnectionTracker(
         removePendingConnection(deviceAddress)
         // Mark as awaiting first ANNOUNCE on this connection
         firstAnnounceSeen[deviceAddress] = false
+        pendingBroadcastSubscriptions.remove(deviceAddress)
     }
     
     /**
@@ -276,6 +280,7 @@ class BluetoothConnectionTracker(
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
             firstAnnounceSeen.remove(deviceAddress)
+            pendingBroadcastSubscriptions.remove(deviceAddress)
         }
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
     }
@@ -292,6 +297,7 @@ class BluetoothConnectionTracker(
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
             firstAnnounceSeen.remove(deviceAddress)
+            pendingBroadcastSubscriptions.remove(deviceAddress)
             Log.d(TAG, "Cleaned up device connection for $deviceAddress")
             true
         } else {
@@ -330,13 +336,47 @@ class BluetoothConnectionTracker(
         pendingConnections.clear()
         scanRSSI.clear()
         firstAnnounceSeen.clear()
+        pendingBroadcastSubscriptions.clear()
     }
 
     /**
-     * Mark that we have received the first ANNOUNCE over this device connection.
+     * Record a CCCD enable. Grants the broadcast feed immediately when a verified
+     * ANNOUNCE already arrived on this connection; otherwise defers until it does.
+     *
+     * @return true if the feed was granted now
+     */
+    fun requestBroadcastSubscription(device: BluetoothDevice): Boolean {
+        synchronized(connectionStateLock) {
+            val action = GattNotificationEligibility.action(
+                firstAnnounceSeen[device.address] == true
+            )
+            if (action == GattSubscriptionAction.GRANT) {
+                pendingBroadcastSubscriptions.remove(device.address)
+                addSubscribedDeviceIfAbsent(device)
+                return true
+            }
+            pendingBroadcastSubscriptions[device.address] = device
+            return false
+        }
+    }
+
+    /**
+     * Mark that we have received the first ANNOUNCE over this device connection
+     * and grant any CCCD write that was waiting on it.
      */
     fun noteAnnounceReceived(deviceAddress: String) {
-        firstAnnounceSeen[deviceAddress] = true
+        synchronized(connectionStateLock) {
+            firstAnnounceSeen[deviceAddress] = true
+            pendingBroadcastSubscriptions.remove(deviceAddress)?.let { device ->
+                addSubscribedDeviceIfAbsent(device)
+            }
+        }
+    }
+
+    private fun addSubscribedDeviceIfAbsent(device: BluetoothDevice) {
+        if (subscribedDevices.none { it.address == device.address }) {
+            subscribedDevices.add(device)
+        }
     }
 
     /**
