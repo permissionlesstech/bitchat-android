@@ -23,11 +23,15 @@ data class NostrFilter(
          * Create filter for NIP-17 gift wraps
          */
         fun giftWrapsFor(pubkey: String, since: Long? = null): NostrFilter {
+            // Each delivered+read DM is typically three gift wraps (message, delivery
+            // ack, read receipt). A limit of 100 therefore covers only ~33 messages
+            // inside the lookback, and NIP-01 returns the newest-by-created_at which
+            // is randomized — so loss is permanent. Match the geohash fetch budget.
             return NostrFilter(
                 kinds = listOf(NostrKind.GIFT_WRAP),
                 since = since?.let { (it / 1000).toInt() },
                 tagFilters = mapOf("p" to listOf(pubkey)),
-                limit = 100
+                limit = 1000
             )
         }
         
