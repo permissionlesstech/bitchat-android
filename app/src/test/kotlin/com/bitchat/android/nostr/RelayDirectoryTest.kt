@@ -1,7 +1,7 @@
 package com.bitchat.android.nostr
 
-import java.io.ByteArrayInputStream
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -17,11 +17,17 @@ import org.junit.Test
  * 3. Distance ties order by that key, the way iOS orders them. Rows are geocoded to
  *    city centroids, so whole tie groups sit at one coordinate and tie order decides
  *    most selections.
+ *
+ * Parsing goes through the validator ported from GeoRelayDirectory.validatedEntries;
+ * RelayDirectoryValidationTest pins its acceptance rules. These tests parse files the
+ * validator accepts.
  */
 class RelayDirectoryTest {
 
     private fun parse(csv: String) =
-        RelayDirectory.parseCsv(ByteArrayInputStream(csv.toByteArray()))
+        requireNotNull(RelayDirectory.validatedEntries(csv.toByteArray(), minimumEntries = 1)) {
+            "fixture unexpectedly rejected"
+        }
 
     private val header = "Relay URL,Latitude,Longitude\n"
 
@@ -34,11 +40,13 @@ class RelayDirectoryTest {
     }
 
     @Test
-    fun `canonical host matches the key ios builds`() {
-        assertEquals("relay.example.com", RelayDirectory.canonicalHost("wss://relay.example.com"))
-        assertEquals("relay.example.com", RelayDirectory.canonicalHost("wss://relay.example.com:443"))
-        assertEquals("relay.example.com:8443", RelayDirectory.canonicalHost("wss://relay.example.com:8443"))
-        assertEquals("relay.example.com", RelayDirectory.canonicalHost("wss://Relay.Example.Com/"))
+    fun `validated addresses match the key ios builds`() {
+        assertEquals("relay.example.com", RelayDirectory.validatedDirectoryAddress("wss://relay.example.com"))
+        assertEquals("relay.example.com", RelayDirectory.validatedDirectoryAddress("wss://relay.example.com:443"))
+        assertEquals("relay.example.com:8443", RelayDirectory.validatedDirectoryAddress("wss://relay.example.com:8443"))
+        assertEquals("relay.example.com", RelayDirectory.validatedDirectoryAddress("wss://Relay.Example.Com/"))
+        assertEquals("relay.example.com", RelayDirectory.validatedDirectoryAddress("relay.example.com"))
+        assertEquals("relay.example.com", RelayDirectory.validatedDirectoryAddress("https://relay.example.com"))
     }
 
     @Test
@@ -67,14 +75,17 @@ class RelayDirectoryTest {
     }
 
     @Test
-    fun `first row wins when an endpoint is listed twice`() {
-        val entries = parse(
-            header +
+    fun `an endpoint listed at two different coordinates rejects the file`() {
+        // One endpoint cannot truthfully occupy two coordinates. iOS rejects the
+        // whole file rather than letting row order choose which location clients
+        // trust; the earlier first-row-wins behavior is gone with it.
+        val rejected = RelayDirectory.validatedEntries(
+            (header +
                 "relay.example.com,10.0,20.0\n" +
-                "relay.example.com:443,50.0,60.0\n"
+                "relay.example.com:443,50.0,60.0\n").toByteArray(),
+            minimumEntries = 1
         )
-        assertEquals(1, entries.size)
-        assertEquals(10.0, entries[0].latitude, 0.0)
+        assertNull(rejected)
     }
 
     @Test
