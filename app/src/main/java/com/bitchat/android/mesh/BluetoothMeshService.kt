@@ -852,6 +852,34 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         return reusable
     }
     
+
+    /**
+     * Mesh timeline stays UTF-8 for iOS interop. Channel messages use the shared
+     * [BitchatMessage] binary envelope so receivers can route by `channel`.
+     */
+    private fun encodePublicOrChannelPayload(
+        content: String,
+        mentions: List<String>,
+        channel: String?
+    ): ByteArray {
+        if (channel == null) return content.toByteArray(Charsets.UTF_8)
+        val nickname = try {
+            com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID)
+        } catch (_: Exception) {
+            myPeerID
+        }
+        val encoded = BitchatMessage(
+            sender = nickname,
+            content = content,
+            timestamp = java.util.Date(),
+            isRelay = false,
+            senderPeerID = myPeerID,
+            mentions = mentions.takeIf { it.isNotEmpty() },
+            channel = channel
+        ).toBinaryPayload()
+        return encoded ?: content.toByteArray(Charsets.UTF_8)
+    }
+
     /**
      * Send public message
      */
@@ -859,13 +887,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (content.isEmpty()) return
         
         serviceScope.launch {
+            val payloadBytes = encodePublicOrChannelPayload(content, mentions, channel)
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.MESSAGE.value,
                 senderID = hexStringToByteArray(myPeerID),
                 recipientID = SpecialRecipients.BROADCAST,
                 timestamp = System.currentTimeMillis().toULong(),
-                payload = content.toByteArray(Charsets.UTF_8),
+                payload = payloadBytes,
                 signature = null,
                 ttl = MAX_TTL
             )
