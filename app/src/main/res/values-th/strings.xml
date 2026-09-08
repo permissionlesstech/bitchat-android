@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">ข้อความ %1$d จาก %2$d คน</string>
     <string name="notification_more_conversations">และการสนทนาอีก %1$d รายการ</string>
     <string name="notification_active_peers_title">มีผู้ใช้ใกล้คุณ!</string>
-    <string name="notification_active_peers_one">มี 1 คนใกล้คุณ</string>
-    <string name="notification_active_peers_many">มี %1$d คนใกล้คุณ</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">มี 1 คนใกล้คุณ</item>
+        <item quantity="other">มี %1$d คนใกล้คุณ</item>
+    </plurals>
     <string name="notification_new_messages">ข้อความใหม่</string>
     <string name="notification_new_location_messages">ข้อความตำแหน่งใหม่</string>
     <string name="notification_mentions_in">ถูกกล่าวถึงใน %1$s</string>

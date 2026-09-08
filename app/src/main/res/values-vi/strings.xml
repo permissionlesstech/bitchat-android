@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%1$d tin nhắn từ %2$d người</string>
     <string name="notification_more_conversations">và %1$d cuộc trò chuyện khác</string>
     <string name="notification_active_peers_title">bitchatter gần đó!</string>
-    <string name="notification_active_peers_one">1 người gần đó</string>
-    <string name="notification_active_peers_many">%1$d người gần đó</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">1 người gần đó</item>
+        <item quantity="other">%1$d người gần đó</item>
+    </plurals>
     <string name="notification_new_messages">Tin nhắn mới</string>
     <string name="notification_new_location_messages">Tin nhắn vị trí mới</string>
     <string name="notification_mentions_in">Được nhắc đến trong %1$s</string>

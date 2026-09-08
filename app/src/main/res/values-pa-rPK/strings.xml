@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%2$d لوکان کولوں %1$d پیغام</string>
     <string name="notification_more_conversations">تے %1$d ہور گلاں</string>
     <string name="notification_active_peers_title">نیڑے bitchatter!</string>
-    <string name="notification_active_peers_one">نیڑے 1 بندہ</string>
-    <string name="notification_active_peers_many">نیڑے %1$d بندے</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">نیڑے 1 بندہ</item>
+        <item quantity="other">نیڑے %1$d بندے</item>
+    </plurals>
     <string name="notification_new_messages">نویں پیغام</string>
     <string name="notification_new_location_messages">نویں لوکیشن پیغام</string>
     <string name="notification_mentions_in">%1$s وچ ذکر ہویا</string>

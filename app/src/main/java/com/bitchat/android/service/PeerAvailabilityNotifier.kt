@@ -145,11 +145,11 @@ private class AndroidPeerAvailabilityTextProvider(
     }
 
     override fun body(peerCount: Int): String {
-        return if (peerCount == 1) {
-            context.getString(R.string.notification_active_peers_one)
-        } else {
-            context.getString(R.string.notification_active_peers_many, peerCount)
-        }
+        return context.resources.getQuantityString(
+            R.plurals.notification_active_peers_body,
+            peerCount,
+            peerCount
+        )
     }
 }
 

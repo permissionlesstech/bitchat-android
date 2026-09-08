@@ -95,8 +95,10 @@
     <string name="notification_messages_from_people">%1$d wiadomości od %2$d osób</string>
     <string name="notification_more_conversations">i jeszcze %1$d rozmów</string>
     <string name="notification_active_peers_title">👥 bitchatowicze w pobliżu!</string>
-    <string name="notification_active_peers_one">1 osoba w pobliżu</string>
-    <string name="notification_active_peers_many">%1$d osób w pobliżu</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">1 osoba w pobliżu</item>
+        <item quantity="other">%1$d osób w pobliżu</item>
+    </plurals>
     <string name="notification_new_messages">Nowe wiadomości</string>
     <string name="notification_new_location_messages">Nowe wiadomości lokalizacyjne</string>
     <string name="notification_mentions_in">Wzmianka w %1$s</string>

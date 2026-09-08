@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%1$d berichten van %2$d personen</string>
     <string name="notification_more_conversations">en %1$d meer conversaties</string>
     <string name="notification_active_peers_title">bitchatters in de buurt!</string>
-    <string name="notification_active_peers_one">1 persoon in de buurt</string>
-    <string name="notification_active_peers_many">%1$d personen in de buurt</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">1 persoon in de buurt</item>
+        <item quantity="other">%1$d personen in de buurt</item>
+    </plurals>
     <string name="notification_new_messages">Nieuwe berichten</string>
     <string name="notification_new_location_messages">Nieuwe locatieberichten</string>
     <string name="notification_mentions_in">Vermeld in %1$s</string>

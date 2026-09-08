@@ -79,8 +79,10 @@
   <string name="notification_messages_from_people">%2$d நபர்களிடமிருந்து %1$d செய்திகள்</string>
   <string name="notification_more_conversations">மற்றும் %1$d மேலும் உரையாடல்கள்</string>
   <string name="notification_active_peers_title">👥 அருகில் bitchatters!</string>
-  <string name="notification_active_peers_one">1 நபர் அருகில் உள்ளார்</string>
-  <string name="notification_active_peers_many">%1$d நபர்கள் அருகில் உள்ளனர்</string>
+  <plurals name="notification_active_peers_body">
+      <item quantity="one">1 நபர் அருகில் உள்ளார்</item>
+      <item quantity="other">%1$d நபர்கள் அருகில் உள்ளனர்</item>
+  </plurals>
   <string name="notification_new_messages">புதிய செய்திகள்</string>
   <string name="notification_new_location_messages">புதிய இருப்பிட செய்திகள்</string>
   <string name="notification_mentions_in">%1$s இல் குறிப்பிடப்பட்டது</string>

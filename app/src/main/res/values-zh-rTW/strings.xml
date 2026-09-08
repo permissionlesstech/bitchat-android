@@ -93,8 +93,10 @@
   <string name="notification_messages_from_people">來自 %2$d 位使用者的 %1$d 則訊息</string>
   <string name="notification_more_conversations">還有 %1$d 個對話</string>
   <string name="notification_active_peers_title">👥 附近有 bitchat 使用者！</string>
-  <string name="notification_active_peers_one">附近有 1 人</string>
-  <string name="notification_active_peers_many">附近有 %1$d 人</string>
+  <plurals name="notification_active_peers_body">
+      <item quantity="one">附近有 1 人</item>
+      <item quantity="other">附近有 %1$d 人</item>
+  </plurals>
   <string name="notification_new_messages">新訊息</string>
   <string name="notification_new_location_messages">新位置訊息</string>
   <string name="notification_mentions_in">在 %1$s 中被提及</string>
