@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,6 +33,7 @@ import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
+import com.bitchat.android.util.TrackingUrlDetector
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
@@ -76,6 +78,7 @@ fun LocationNotesSheet(
     
     // Input field state
     var draft by remember { mutableStateOf("") }
+    var pendingTrackedText by rememberSaveable { mutableStateOf<String?>(null) }
     val sendButtonEnabled = draft.trim().isNotEmpty() && state != LocationNotesManager.State.NO_RELAYS
     
     // Scroll state
@@ -216,14 +219,32 @@ fun LocationNotesSheet(
                         onSend = {
                             val content = draft.trim()
                             if (content.isNotEmpty()) {
-                                notesManager.send(content, nickname)
-                                draft = ""
+                                if (TrackingUrlDetector.containsTrackingUrl(content)) {
+                                    pendingTrackedText = content
+                                } else {
+                                    notesManager.send(content, nickname)
+                                    draft = ""
+                                }
                             }
                         }
                     )
                 }
             }
         }
+    }
+
+    pendingTrackedText?.let { content ->
+        TrackingWarningDialog(
+            message = R.string.tracking_link_send_warning,
+            onConfirm = {
+                pendingTrackedText = null
+                if (content.isNotEmpty()) {
+                    notesManager.send(content, nickname)
+                    draft = ""
+                }
+            },
+            onDismiss = { pendingTrackedText = null },
+        )
     }
 }
 

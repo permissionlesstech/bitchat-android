@@ -80,6 +80,69 @@ class NotificationManager(
                 NotificationManagerCompat.from(context).cancel(canonicalID.hashCode())
             }
         }
+
+        fun showTrackingReplyWarning(
+            context: Context,
+            conversationID: String,
+            senderNickname: String,
+        ) {
+            val intent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(EXTRA_OPEN_PRIVATE_CHAT, true)
+                putExtra(EXTRA_PEER_ID, conversationID)
+                putExtra(EXTRA_SENDER_NICKNAME, senderNickname)
+            }
+            val contentIntent = PendingIntent.getActivity(
+                context,
+                NOTIFICATION_REQUEST_CODE + conversationID.hashCode(),
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val notificationID = conversationID.hashCode()
+            val previousGroup = runCatching {
+                val manager = context.getSystemService(
+                    Context.NOTIFICATION_SERVICE,
+                ) as AndroidNotificationManager
+                manager.activeNotifications
+                    .firstOrNull { it.id == notificationID }
+                    ?.notification
+                    ?.group
+            }.getOrNull()
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(context.getString(R.string.tracking_link_warning_title))
+                .setContentText(context.getString(R.string.tracking_link_reply_saved))
+                .setContentIntent(contentIntent)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(
+                    NotificationCompat.Builder(context, CHANNEL_ID)
+                        .setSmallIcon(R.drawable.ic_notification)
+                        .setContentTitle(context.getString(R.string.notification_private_message))
+                        .setContentText(context.getString(R.string.notification_content_hidden))
+                        .build(),
+                )
+                .apply {
+                    val shouldGroup = synchronized(liveManagers) {
+                        liveManagers.any { it.pendingNotifications.size > 1 }
+                    }
+                    if (previousGroup != null || shouldGroup) {
+                        setGroup(previousGroup ?: GROUP_KEY_DM)
+                    }
+                }
+                .build()
+
+            if (
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                NotificationManagerCompat.from(context).notify(notificationID, notification)
+            }
+        }
     }
 
     private val systemNotificationManager =

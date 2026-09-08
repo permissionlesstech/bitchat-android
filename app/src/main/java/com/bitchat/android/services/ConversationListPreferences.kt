@@ -73,9 +73,11 @@ internal class ConversationListPreferences private constructor(
     fun isPinned(conversationID: String): Boolean =
         normalize(conversationID) in _pinned.value
 
+    @Synchronized
     fun draftFor(conversationID: String): String? =
         _drafts.value[normalize(conversationID)]
 
+    @Synchronized
     fun setDraft(conversationID: String, text: String) {
         val key = normalize(conversationID)
         val updated = _drafts.value.toMutableMap()
@@ -83,6 +85,21 @@ internal class ConversationListPreferences private constructor(
         updated.remove(key)
         val bounded = text.take(MAX_DRAFT_CHARS)
         if (bounded.isNotBlank()) updated[key] = bounded
+        val retained = boundDrafts(updated)
+        _drafts.value = retained
+        saveDrafts(retained)
+    }
+
+    @Synchronized
+    fun appendDraft(conversationID: String, text: String) {
+        val key = normalize(conversationID)
+        val updated = _drafts.value.toMutableMap()
+        updated.remove(key)
+        updated[key] = mergeConversationDrafts(
+            existingDraft = _drafts.value[key],
+            appendedText = text,
+            maxChars = MAX_DRAFT_CHARS,
+        )
         val retained = boundDrafts(updated)
         _drafts.value = retained
         saveDrafts(retained)
@@ -191,4 +208,19 @@ internal class ConversationListPreferences private constructor(
         return retained
     }
 
+}
+
+internal fun mergeConversationDrafts(
+    existingDraft: String?,
+    appendedText: String,
+    maxChars: Int,
+): String {
+    val boundedAppend = appendedText.takeLast(maxChars)
+    val existing = existingDraft?.takeIf(String::isNotBlank) ?: return boundedAppend
+    val existingLimit = (maxChars - boundedAppend.length - 1).coerceAtLeast(0)
+    return if (existingLimit == 0) {
+        boundedAppend
+    } else {
+        existing.take(existingLimit) + "\n" + boundedAppend
+    }
 }

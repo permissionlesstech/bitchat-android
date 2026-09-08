@@ -110,6 +110,7 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/util/ByteArrayExtensions.kt",
     "com/bitchat/android/util/ByteArrayWrapper.kt",
     "com/bitchat/android/util/BinaryEncodingUtils.kt",
+    "com/bitchat/android/util/TrackingUrlDetector.kt",
 )
 val sharedSourceExcludes = listOf(
     "com/bitchat/android/model/FileSharingManager.kt",
@@ -146,6 +147,7 @@ val syncSharedAppTests = tasks.register<Sync>("syncSharedAppTests") {
         include(
             "android/**",
             "com/bitchat/android/mesh/**",
+            "com/bitchat/android/util/TrackingUrlDetectorTest.kt",
             "com/bitchat/FileTransferTest.kt",
         )
     }
