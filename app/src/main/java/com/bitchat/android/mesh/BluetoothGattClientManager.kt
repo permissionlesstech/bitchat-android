@@ -27,7 +27,8 @@ class BluetoothGattClientManager(
     private val connectionTracker: BluetoothConnectionTracker,
     private val permissionManager: BluetoothPermissionManager,
     private val powerManager: PowerManager,
-    private val delegate: BluetoothConnectionManagerDelegate?
+    private val delegate: BluetoothConnectionManagerDelegate?,
+    private val myPeerID: String
 ) {
     
     companion object {
@@ -534,6 +535,20 @@ class BluetoothGattClientManager(
                                 ) { it.copy(characteristic = characteristic) }
                             ) {
                                 // Characteristic stored on the current device connection
+                            }
+
+                            // OPTIONAL: Signal our identity to the server (if they support it)
+                            val identityChar = service.getCharacteristic(AppConstants.Mesh.Gatt.IDENTITY_CHARACTERISTIC_UUID)
+                            if (identityChar != null) {
+                                try {
+                                    val idBytes = myPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray().take(8).toByteArray()
+                                    identityChar.value = idBytes
+                                    identityChar.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                                    gatt.writeCharacteristic(identityChar)
+                                    Log.d(TAG, "Client: Signaled identity to server $deviceAddress")
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "Client: Failed to write identity: ${e.message}")
+                                }
                             }
                             
                             gatt.setCharacteristicNotification(characteristic, true)
