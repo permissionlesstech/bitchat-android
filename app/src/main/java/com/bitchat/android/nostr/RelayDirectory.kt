@@ -33,6 +33,8 @@ object RelayDirectory {
     // Reading different files made the selections diverge. Selecting from the same
     // file, with rows keyed and ordered the same way, keeps them aligned.
     internal const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv"
+    // Download cache of ASSET_FILE_URL above, and the bundled list the weekly job
+    // refreshes from it; the file names predate the source's move to online_relays_gps.csv.
     private const val ASSET_FILE = "nostr_relays.csv"
     private const val DOWNLOADED_FILE = "nostr_relays_latest.csv"
     private const val PREFS_NAME = "relay_directory_prefs"
