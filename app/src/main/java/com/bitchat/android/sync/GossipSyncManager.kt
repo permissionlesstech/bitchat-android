@@ -6,8 +6,10 @@ import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.floor
 
 /**
  * Gossip-based synchronization manager using on-demand GCS filters.
@@ -17,7 +19,8 @@ import java.util.concurrent.ConcurrentHashMap
 class GossipSyncManager(
     private val myPeerID: String,
     private val scope: CoroutineScope,
-    private val configProvider: ConfigProvider
+    private val configProvider: ConfigProvider,
+    private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     interface Delegate {
         fun sendPacket(packet: BitchatPacket)
@@ -46,6 +49,25 @@ class GossipSyncManager(
     private val messages = LinkedHashMap<String, BitchatPacket>()
     // - announcements: only keep latest per sender peerID
     private val latestAnnouncementByPeer = ConcurrentHashMap<String, Pair<String, BitchatPacket>>()
+
+    /**
+     * Per-requester token buckets. `requestTokens` bounds how often we are willing to decode a
+     * peer's filter and hash our stored packets against it; `responseTokens` bounds how many
+     * packets that peer can pull out of us. Both refill with elapsed time.
+     */
+    private class RequesterBudget(
+        var requestTokens: Double,
+        var responseTokens: Double,
+        var lastRefillMs: Long
+    )
+
+    // Access-ordered so the eldest entry is the least recently seen requester.
+    private val requesterBudgets =
+        object : LinkedHashMap<String, RequesterBudget>(16, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, RequesterBudget>
+            ): Boolean = size > AppConstants.Sync.MAX_TRACKED_REQUESTERS
+        }
 
     private var periodicJob: Job? = null
     private var cleanupJob: Job? = null
@@ -85,6 +107,9 @@ class GossipSyncManager(
             messages.clear()
         }
         latestAnnouncementByPeer.clear()
+        synchronized(requesterBudgets) {
+            requesterBudgets.clear()
+        }
         Log.d(TAG, "Cleared all gossip sync messages and announcements")
     }
 
@@ -174,7 +199,80 @@ class GossipSyncManager(
         delegate?.sendPacketToPeer(peerID, signed)
     }
 
-    fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
+    /**
+     * Charges [budgetKey] for one request and returns how many packets may be sent in response,
+     * or 0 when the request must be dropped. Called before any decoding or hashing so a flood
+     * costs us the admission check and nothing else.
+     */
+    private fun admitRequest(budgetKey: String): Int {
+        val capacity = try {
+            configProvider.seenCapacity()
+        } catch (_: Exception) {
+            0
+        }.coerceAtLeast(1).toDouble()
+        val now = nowMs()
+
+        synchronized(requesterBudgets) {
+            val budget = requesterBudgets.getOrPut(budgetKey) {
+                RequesterBudget(
+                    requestTokens = AppConstants.Sync.REQUEST_BURST.toDouble(),
+                    responseTokens = capacity,
+                    lastRefillMs = now
+                )
+            }
+
+            // A clock that jumped backwards must not hand out free tokens.
+            val elapsedMs = (now - budget.lastRefillMs).coerceAtLeast(0L).toDouble()
+            budget.lastRefillMs = now
+            budget.requestTokens = (
+                budget.requestTokens + elapsedMs / AppConstants.Sync.REQUEST_INTERVAL_MS
+                ).coerceAtMost(AppConstants.Sync.REQUEST_BURST.toDouble())
+            budget.responseTokens = (
+                budget.responseTokens +
+                    capacity * elapsedMs / AppConstants.Sync.RESPONSE_REFILL_WINDOW_MS
+                ).coerceAtMost(capacity)
+
+            if (budget.requestTokens < 1.0) return 0
+            val allowance = floor(budget.responseTokens).toInt()
+            if (allowance <= 0) return 0
+
+            budget.requestTokens -= 1.0
+            return allowance
+        }
+    }
+
+    internal fun trackedRequesterCount(): Int = synchronized(requesterBudgets) {
+        requesterBudgets.size
+    }
+
+    private fun chargeResponses(budgetKey: String, sent: Int) {
+        if (sent <= 0) return
+        synchronized(requesterBudgets) {
+            val budget = requesterBudgets[budgetKey] ?: return
+            budget.responseTokens = (budget.responseTokens - sent).coerceAtLeast(0.0)
+        }
+    }
+
+    /**
+     * @param ingressLinkID locally-assigned identity of the link the request arrived on. REQUEST_SYNC
+     *   is not in the set of types `SecurityManager.verifyPacketSignature` authenticates, so the
+     *   sender ID on the wire is unauthenticated and free to rotate — budgeting by it would let a
+     *   peer mint a fresh allowance per request. This value is assigned by the transport and never
+     *   serialized onto the mesh, so a flooder is bounded by the links it can actually hold open.
+     */
+    fun handleRequestSync(
+        fromPeerID: String,
+        request: RequestSyncPacket,
+        ingressLinkID: String? = null
+    ) {
+        val budgetKey = ingressLinkID ?: fromPeerID
+        var remaining = admitRequest(budgetKey)
+        if (remaining <= 0) {
+            Log.d(TAG, "Dropping REQUEST_SYNC from $fromPeerID: over budget")
+            return
+        }
+        val allowance = remaining
+
         // Decode GCS into sorted set for membership checks
         val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
         fun mightContain(id: ByteArray): Boolean {
@@ -185,12 +283,14 @@ class GossipSyncManager(
 
         // 1) Announcements: send latest per peerID if remote doesn't have them
         for ((_, pair) in latestAnnouncementByPeer.entries) {
+            if (remaining <= 0) break
             val (id, pkt) = pair
             val idBytes = hexToBytes(id)
             if (!mightContain(idBytes)) {
                 // Send original packet unchanged to requester only (keep local TTL)
                 val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
+                remaining--
                 Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
         }
@@ -198,13 +298,17 @@ class GossipSyncManager(
         // 2) Broadcast messages: send all they lack
         val toSendMsgs = synchronized(messages) { messages.values.toList() }
         for (pkt in toSendMsgs) {
+            if (remaining <= 0) break
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
             if (!mightContain(idBytes)) {
                 val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
+                remaining--
                 Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
         }
+
+        chargeResponses(budgetKey, allowance - remaining)
     }
 
     private fun hexStringToByteArray(hexString: String): ByteArray {
