@@ -4,6 +4,7 @@ import android.util.Log
 import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.PeerCapabilities
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -108,6 +109,7 @@ class PeerManager {
 
     // Coroutines
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val cleanupSignal = Channel<Unit>(Channel.CONFLATED)
     
     init {
         startPeriodicCleanup()
@@ -191,6 +193,7 @@ class PeerManager {
                 .takeIf { announcementMatchesAuthenticatedState }
         )
         peers[peerID] = replacement
+        cleanupSignal.trySend(Unit)
         if (existing == null || existing != replacement) notifyPeerListUpdate()
     }
 
@@ -240,6 +243,7 @@ class PeerManager {
         )
         
         peers[peerID] = peerInfo
+        cleanupSignal.trySend(Unit)
         
         // Update derived state only
         // No legacy maps; peers map is the single source of truth
@@ -310,6 +314,7 @@ class PeerManager {
         if (peerID != "unknown") {
             peers[peerID]?.let { info ->
                 peers[peerID] = info.copy(lastSeen = System.currentTimeMillis())
+                cleanupSignal.trySend(Unit)
             }
         }
     }
@@ -357,6 +362,7 @@ class PeerManager {
                 lastSeen = now
             )
         }
+        cleanupSignal.trySend(Unit)
         
         // Handle first announcement
         if (isFirstAnnounce) {
@@ -542,8 +548,11 @@ class PeerManager {
     private fun startPeriodicCleanup() {
         managerScope.launch {
             while (isActive) {
-                delay(com.bitchat.android.util.AppConstants.Mesh.PEER_CLEANUP_INTERVAL_MS)
-                cleanupStalePeers()
+                if (cleanupSignal.receiveCatching().getOrNull() == null) break
+                while (isActive && peers.isNotEmpty()) {
+                    delay(com.bitchat.android.util.AppConstants.Mesh.PEER_CLEANUP_INTERVAL_MS)
+                    cleanupStalePeers()
+                }
             }
         }
     }
@@ -649,6 +658,7 @@ class PeerManager {
      * Shutdown the manager
      */
     fun shutdown() {
+        cleanupSignal.close()
         managerScope.cancel()
         clearAllPeers()
     }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.protocol.MessageType
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
@@ -15,9 +16,10 @@ import kotlinx.coroutines.flow.combine
  * Coordinates smaller, focused components for better maintainability
  */
 class BluetoothConnectionManager(
-    private val context: Context, 
+    private val context: Context,
     private val myPeerID: String,
-    private val fragmentManager: FragmentManager? = null
+    private val fragmentManager: FragmentManager? = null,
+    private val runtimePolicy: BleRuntimePolicy = DefaultBleRuntimePolicy
 ) {
     
     companion object {
@@ -37,7 +39,9 @@ class BluetoothConnectionManager(
     
     // Component managers
     private val permissionManager = BluetoothPermissionManager(context)
-    private val connectionTracker = BluetoothConnectionTracker(connectionScope, powerManager)
+    private val connectionTracker = BluetoothConnectionTracker(connectionScope, powerManager) {
+        connectionScope.launch { applyPowerPolicy() }
+    }
     private val packetBroadcaster = BluetoothPacketBroadcaster(connectionScope, connectionTracker, fragmentManager, myPeerID)
     
     // Delegate for component managers to call back to main manager
@@ -64,11 +68,13 @@ class BluetoothConnectionManager(
         override fun onDeviceConnected(device: BluetoothDevice) {
             // Trigger limit enforcement immediately upon any new connection
             enforceStrictLimits()
+            applyPowerPolicy()
             delegate?.onDeviceConnected(device)
         }
 
         override fun onDeviceDisconnected(device: BluetoothDevice, linkID: String?, peerID: String?) {
             packetBroadcaster.onLinkDisconnected(device.address, linkID)
+            applyPowerPolicy()
             delegate?.onDeviceDisconnected(device, linkID, peerID)
         }
 
@@ -86,10 +92,25 @@ class BluetoothConnectionManager(
     }
     
     private val serverManager = BluetoothGattServerManager(
-        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, myPeerID
+        context,
+        connectionScope,
+        connectionTracker,
+        permissionManager,
+        powerManager,
+        componentDelegate,
+        myPeerID,
+        runtimePolicy,
+        ::effectiveConnectionLimits
     )
     private val clientManager = BluetoothGattClientManager(
-        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
+        context,
+        connectionScope,
+        connectionTracker,
+        permissionManager,
+        powerManager,
+        componentDelegate,
+        runtimePolicy,
+        ::effectiveConnectionLimits
     )
     
     // Service state
@@ -127,16 +148,9 @@ class BluetoothConnectionManager(
 
     init {
         connectionScope.launch {
-            var previousMode: PowerManager.PowerMode? = null
             powerManager.profile.collect { profile ->
-                val modeChanged = previousMode != null && previousMode != profile.mode
-                previousMode = profile.mode
                 if (!isActive || !isBleTransportEnabled()) return@collect
-
-                if (modeChanged && isGattServerEnabled()) {
-                    serverManager.restartAdvertising()
-                }
-                clientManager.applyPowerProfile(profile)
+                applyPowerPolicy(profile)
             }
         }
         // Observe debug settings to enforce role state while active
@@ -188,18 +202,23 @@ class BluetoothConnectionManager(
      */
     private fun enforceStrictLimits() {
         if (!isActive) return
-        
+
         try {
-            val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
-            val maxOverall = dbg.maxConnectionsOverall.value
-            val maxServer = dbg.maxServerConnections.value
-            val maxClient = dbg.maxClientConnections.value
-            
+            val limits = effectiveConnectionLimits()
+
             // Get list of connections to evict to satisfy all constraints
-            val toEvict = connectionTracker.getConnectionsToEvict(maxOverall, maxServer, maxClient)
-            
+            val toEvict = connectionTracker.getConnectionsToEvict(
+                limits.overall,
+                limits.server,
+                limits.client
+            )
+
             if (toEvict.isNotEmpty()) {
-                Log.i(TAG, "Enforcing limits (max: $maxOverall, s: $maxServer, c: $maxClient) - evicting ${toEvict.size} connections")
+                Log.i(
+                    TAG,
+                    "Enforcing limits (max: ${limits.overall}, s: ${limits.server}, " +
+                        "c: ${limits.client}) - evicting ${toEvict.size} connections"
+                )
                 
                 toEvict.forEach { conn ->
                     if (conn.isClient) {
@@ -212,6 +231,29 @@ class BluetoothConnectionManager(
         } catch (e: Exception) {
             Log.e(TAG, "Error enforcing limits: ${e.message}")
         }
+    }
+
+    private fun effectiveConnectionLimits(): BleConnectionLimits {
+        val requested = try {
+            val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            BleConnectionLimits(
+                overall = dbg.maxConnectionsOverall.value,
+                server = dbg.maxServerConnections.value,
+                client = dbg.maxClientConnections.value
+            )
+        } catch (_: Exception) {
+            val overall = powerManager.getMaxConnections()
+            BleConnectionLimits(overall, overall, overall)
+        }
+        return runtimePolicy.connectionLimits(requested)
+    }
+
+    private fun applyPowerPolicy(
+        profile: PowerManager.RuntimePerformanceProfile = powerManager.profile.value
+    ) {
+        if (!isActive || !isBleTransportEnabled()) return
+        clientManager.applyPowerProfile(profile)
+        serverManager.applyPowerProfile(profile)
     }
     
     /**
@@ -278,6 +320,8 @@ class BluetoothConnectionManager(
                 } else {
                     Log.i(TAG, "GATT Client disabled by debug settings; not starting")
                 }
+
+                applyPowerPolicy()
                 
                 Log.i(TAG, "Bluetooth services started successfully")
             }
@@ -339,6 +383,9 @@ class BluetoothConnectionManager(
      */
     fun broadcastPacket(routed: RoutedPacket): Boolean {
         if (!isActive || !isBleTransportEnabled()) return false
+        if (routed.transferId != null || routed.packet.type == MessageType.FRAGMENT.value) {
+            clientManager.requestTransferPriority()
+        }
 
         return packetBroadcaster.broadcastPacket(
             routed,
@@ -359,6 +406,9 @@ class BluetoothConnectionManager(
 
     fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
         if (!isActive || !isBleTransportEnabled()) return false
+        if (routed.transferId != null || routed.packet.type == MessageType.FRAGMENT.value) {
+            clientManager.requestTransferPriority()
+        }
         return packetBroadcaster.sendToPeer(
             peerID,
             routed,
@@ -386,6 +436,7 @@ class BluetoothConnectionManager(
 
     fun sendPacketToLink(deviceAddress: String, linkID: String, packet: BitchatPacket): Boolean {
         if (!isActive || !isBleTransportEnabled()) return false
+        if (packet.type == MessageType.FRAGMENT.value) clientManager.requestTransferPriority()
         return packetBroadcaster.sendPacketToLink(
             RoutedPacket(packet),
             deviceAddress,
@@ -460,6 +511,28 @@ class BluetoothConnectionManager(
      * Get connected device count
      */
     fun getConnectedDeviceCount(): Int = connectionTracker.getConnectedDeviceCount()
+
+    fun getPowerSnapshot(): BlePowerSnapshot {
+        val profile = powerManager.profile.value
+        val limits = effectiveConnectionLimits()
+        val client = clientManager.getPowerSnapshot()
+        val server = serverManager.getPowerSnapshot()
+        return BlePowerSnapshot(
+            activeConnections = connectionTracker.getConnectedDeviceCount(),
+            pendingConnections = connectionTracker.getPendingConnectionCount(),
+            connectionLimit = limits.overall,
+            scanning = client.scanning,
+            scanStarts = client.scanStarts,
+            scanResults = client.scanResults,
+            scanActiveMs = client.scanActiveMs,
+            advertising = server.advertising,
+            advertiseStarts = server.advertiseStarts,
+            advertiseActiveMs = server.advertiseActiveMs,
+            rssiReads = client.rssiReads,
+            background = profile.isBackground,
+            batteryBand = profile.batteryBand
+        )
+    }
     
     /**
      * Get debug information including power management

@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Watch mesh service: composes the shared BLE transport (BluetoothConnectionManager) with the
@@ -52,6 +53,7 @@ class WearMeshService private constructor(private val context: Context) {
     private val bleTransport = BleTransport()
     private val meshCore: MeshCore
     private var connectionManager: BluetoothConnectionManager
+    private val initialSyncLinkIDs = ConcurrentHashMap.newKeySet<String>()
 
     @Volatile
     var nickname: String = loadNickname()
@@ -76,6 +78,8 @@ class WearMeshService private constructor(private val context: Context) {
                 override fun seenCapacity(): Int = 500
                 override fun gcsMaxBytes(): Int = 400
                 override fun gcsTargetFpr(): Double = 0.01
+                override fun periodicSyncIntervalMs(): Long? = null
+                override fun cleanupIntervalMs(): Long? = null
             },
             hooks = MeshCore.Hooks(
                 onMessageReceived = { message -> handleMessageReceived(message) },
@@ -90,23 +94,22 @@ class WearMeshService private constructor(private val context: Context) {
                         )
                         if (observed) {
                             meshCore.setDirectConnection(obs.peerID, true)
-                            try {
+                            if (initialSyncLinkIDs.add(obs.ingressLinkID)) try {
                                 meshCore.gossipSyncManager.scheduleInitialSyncToPeer(obs.peerID, 1_000)
                             } catch (_: Exception) { }
                         }
-                    }
-                    routed.peerID?.let { pid ->
-                        maybeAutoHandshake(pid)
-                        try {
-                            meshCore.gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000)
-                        } catch (_: Exception) { }
                     }
                 },
                 announcementNicknameProvider = { nickname },
                 leavePayloadProvider = { nickname.toByteArray(Charsets.UTF_8) }
             )
         )
-        connectionManager = BluetoothConnectionManager(context, myPeerID, meshCore.fragmentManager)
+        connectionManager = BluetoothConnectionManager(
+            context,
+            myPeerID,
+            meshCore.fragmentManager,
+            WearBleRuntimePolicy
+        )
         bleTransport.connectionManager = connectionManager
         wireBluetoothDelegate()
     }
@@ -148,15 +151,6 @@ class WearMeshService private constructor(private val context: Context) {
                 device: BluetoothDevice?,
                 ingressLinkID: String
             ) {
-                try {
-                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
-                        packet = packet,
-                        fromPeerID = peerID,
-                        fromNickname = null,
-                        fromDeviceAddress = device?.address,
-                        myPeerID = myPeerID
-                    )
-                } catch (_: Exception) { }
                 meshCore.processIncoming(packet, peerID, device?.address, ingressLinkID)
             }
 
@@ -174,6 +168,7 @@ class WearMeshService private constructor(private val context: Context) {
                 peerID: String?
             ) {
                 Log.i(TAG, "Device disconnected: ${device.address} (peerID: $peerID)")
+                linkID?.let(initialSyncLinkIDs::remove)
                 try { meshCore.refreshPeerList() } catch (_: Exception) { }
                 if (peerID != null) {
                     meshCore.setDirectConnection(peerID, false)
@@ -199,31 +194,6 @@ class WearMeshService private constructor(private val context: Context) {
                 connectionManager.addressPeerMap[deviceAddress]?.let { peerID ->
                     meshCore.updatePeerRSSI(peerID, rssi)
                 }
-            }
-        }
-    }
-
-    /**
-     * Proactively establish a Noise session with peers we have no session for (throttled to
-     * one attempt per peer per 60 s). Peers may hold a stale session after we restart — the
-     * protocol has no decrypt-failure kick path, so our fresh handshake replaces it and
-     * restores encrypted DM/file delivery.
-     */
-    private val handshakeAttempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
-
-    private fun maybeAutoHandshake(peerID: String) {
-        if (peerID == myPeerID || hasEstablishedSession(peerID)) return
-        val now = System.currentTimeMillis()
-        val last = handshakeAttempts[peerID] ?: 0L
-        if (now - last < 60_000) return
-        handshakeAttempts[peerID] = now
-        serviceScope.launch {
-            delay(1_500)
-            if (!hasEstablishedSession(peerID)) {
-                try {
-                    Log.d(TAG, "Auto-initiating Noise handshake with ${peerID.take(8)}")
-                    initiateNoiseHandshake(peerID)
-                } catch (_: Exception) { }
             }
         }
     }
@@ -261,7 +231,12 @@ class WearMeshService private constructor(private val context: Context) {
             // API marks such managers single-use, so build a fresh one instead of starting
             // a zombie mesh that reports active while scanning nothing.
             Log.i(TAG, "Recreating BluetoothConnectionManager after terminal stop")
-            connectionManager = BluetoothConnectionManager(context, myPeerID, meshCore.fragmentManager)
+            connectionManager = BluetoothConnectionManager(
+                context,
+                myPeerID,
+                meshCore.fragmentManager,
+                WearBleRuntimePolicy
+            )
             bleTransport.connectionManager = connectionManager
             wireBluetoothDelegate()
         }
@@ -282,6 +257,7 @@ class WearMeshService private constructor(private val context: Context) {
     fun stopServices() {
         if (!isActive) return
         isActive = false
+        initialSyncLinkIDs.clear()
         meshCore.stopCore()
         connectionManager.stopServices()
         Log.i(TAG, "Mesh services stopped")
@@ -423,6 +399,8 @@ class WearMeshService private constructor(private val context: Context) {
     fun getPeerRSSI(): Map<String, Int> = meshCore.getPeerRSSI()
 
     fun getPeerNickname(peerID: String): String? = meshCore.getPeerNickname(peerID)
+
+    fun getBlePowerSnapshot() = connectionManager.getPowerSnapshot()
 
     fun getDebugStatus(): String = meshCore.getDebugStatus(
         transportInfo = connectionManager.getDebugInfo(),

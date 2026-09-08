@@ -73,6 +73,7 @@ object WearTestHookDriver {
             "file_recv" -> fileRecv(context, intent)
             "ptt_recv" -> pttRecv(context, intent)
             "ptt_send" -> pttSend(context, intent)
+            "power" -> power(context)
             "state" -> state(context)
             "clear_results" -> clearResults(context)
             else -> err(cmd, "unknown command: $cmd")
@@ -489,6 +490,24 @@ object WearTestHookDriver {
 
     // MARK: - State
 
+    private fun power(context: Context): JSONObject {
+        val snapshot = mesh(context).getBlePowerSnapshot()
+        return ok("power")
+            .put("active_connections", snapshot.activeConnections)
+            .put("pending_connections", snapshot.pendingConnections)
+            .put("connection_limit", snapshot.connectionLimit)
+            .put("scanning", snapshot.scanning)
+            .put("scan_starts", snapshot.scanStarts)
+            .put("scan_results", snapshot.scanResults)
+            .put("scan_active_ms", snapshot.scanActiveMs)
+            .put("advertising", snapshot.advertising)
+            .put("advertise_starts", snapshot.advertiseStarts)
+            .put("advertise_active_ms", snapshot.advertiseActiveMs)
+            .put("rssi_reads", snapshot.rssiReads)
+            .put("background", snapshot.background)
+            .put("battery_band", snapshot.batteryBand.name)
+    }
+
     private fun state(context: Context): JSONObject {
         val mesh = mesh(context)
         val peersJson = peerInfosJson(mesh, AppStateStore.peers.value)
@@ -503,6 +522,7 @@ object WearTestHookDriver {
             .put("direct_peers", JSONArray(AppStateStore.directPeers.value.toList()))
             .put("sessions", sessions)
             .put("device_map", JSONObject(mesh.getDeviceAddressToPeerMapping() as Map<*, *>))
+            .put("power", power(context))
             .put("debug_status", mesh.getDebugStatus())
     }
 

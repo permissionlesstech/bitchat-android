@@ -9,7 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +35,7 @@ import com.bitchat.watch.ui.theme.LocalBitchatPalette
 @Composable
 fun VerificationCodeScreen(peerID: String) {
     val mesh = WearMeshService.peek()
-    val revision by WearPeerIdentityState.revision.collectAsState()
+    val revision by WearPeerIdentityState.revision.collectAsStateWithLifecycle()
     val identity = androidx.compose.runtime.remember(peerID, revision) {
         WearPeerIdentityState.snapshot(peerID, mesh)
     }
