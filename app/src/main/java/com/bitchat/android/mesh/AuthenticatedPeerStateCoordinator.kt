@@ -20,10 +20,16 @@ internal interface AuthenticatedPeerStateStore {
         onCommitted: () -> Unit
     ): Boolean
     fun isPrivateMediaPinned(fingerprint: String): Boolean
+    /** Fingerprint of the persisted authenticated state whose peer ID this is; survives the live registry. */
+    fun persistedFingerprintFor(peerID: String): String? = null
+    /** Nickname persisted for a fingerprint; only meaningful next to a persisted signing key. */
+    fun persistedNickname(fingerprint: String): String? = null
 }
 
-internal class SecureAuthenticatedPeerStateStore(context: Context) : AuthenticatedPeerStateStore {
-    private val identityState = SecureIdentityStateManager(context.applicationContext)
+internal class SecureAuthenticatedPeerStateStore(
+    context: Context,
+    private val identityState: SecureIdentityStateManager = SecureIdentityStateManager(context.applicationContext)
+) : AuthenticatedPeerStateStore {
 
     override fun load(fingerprint: String): AuthenticatedPeerState? =
         identityState.getAuthenticatedPeerState(fingerprint)
@@ -36,6 +42,12 @@ internal class SecureAuthenticatedPeerStateStore(context: Context) : Authenticat
 
     override fun isPrivateMediaPinned(fingerprint: String): Boolean =
         identityState.isPrivateMediaCapable(fingerprint)
+
+    override fun persistedFingerprintFor(peerID: String): String? =
+        identityState.findAuthenticatedFingerprintByPeerID(peerID)
+
+    override fun persistedNickname(fingerprint: String): String? =
+        identityState.getCachedFingerprintNickname(fingerprint)
 }
 
 internal sealed interface AuthenticatedPeerStateStatus {
@@ -217,6 +229,28 @@ internal class AuthenticatedPeerStateCoordinator(
     fun persistedSigningKeyFor(noisePublicKey: ByteArray): ByteArray? {
         if (noisePublicKey.size != 32) return null
         return store.load(fingerprint(noisePublicKey))?.signingPublicKey?.copyOf()
+    }
+
+    /**
+     * Signing key persisted for a peer ID this device authenticated before. The live registry
+     * forgets a peer on LEAVE or timeout; the persisted identity does not, so a packet the peer
+     * signed while present can still be verified after it has gone. A peer ID is the prefix
+     * of its own fingerprint, so no separate map is needed.
+     */
+    fun persistedSigningKeyFor(peerID: String): ByteArray? {
+        val fingerprint = store.persistedFingerprintFor(peerID) ?: return null
+        return store.load(fingerprint)?.signingPublicKey?.copyOf()
+    }
+
+    /**
+     * Display name for a peer ID whose persisted signing key vouches for it: the nickname
+     * cached while the peer was present, else the peer ID itself, as the registry does. Null
+     * when no signing key is persisted, so a cached name alone never names a sender.
+     */
+    fun persistedNicknameFor(peerID: String): String? {
+        val fingerprint = store.persistedFingerprintFor(peerID) ?: return null
+        if (store.load(fingerprint)?.signingPublicKey == null) return null
+        return store.persistedNickname(fingerprint)?.takeIf { it.isNotBlank() } ?: peerID
     }
 
     fun isPrivateMediaPinned(peerID: String): Boolean {

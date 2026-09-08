@@ -21,6 +21,9 @@ import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Assert.assertEquals
+import org.mockito.kotlin.argumentCaptor
+import com.bitchat.android.model.BitchatMessage
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
@@ -483,4 +486,135 @@ class MessageHandlerTest {
         isVerifiedNickname = true,
         lastSeen = System.currentTimeMillis()
     )
+
+    @Test
+    fun `a broadcast from a departed peer with a persisted identity is delivered under its persisted nickname`() = runBlocking {
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(null)
+        whenever(delegate.getPeerNickname(peerID)).thenReturn(null)
+        whenever(delegate.getPersistedPeerNickname(peerID)).thenReturn("relay-a")
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = peerID.hexToBytes(),
+            recipientID = null,
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = "hello from earlier".toByteArray(),
+            signature = ByteArray(64) { 1 },
+            ttl = 0u
+        )
+
+        handler.handleMessage(RoutedPacket(packet, peerID, "direct-link"))
+
+        val captor = argumentCaptor<BitchatMessage>()
+        verify(delegate).onMessageReceived(captor.capture())
+        assertEquals("relay-a", captor.firstValue.sender)
+        assertEquals(peerID, captor.firstValue.senderPeerID)
+    }
+
+    @Test
+    fun `a broadcast from an unknown peer with no persisted identity is still dropped`() = runBlocking {
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(null)
+        whenever(delegate.getPersistedPeerNickname(peerID)).thenReturn(null)
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = peerID.hexToBytes(),
+            recipientID = null,
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = "hello".toByteArray(),
+            signature = ByteArray(64) { 1 },
+            ttl = 0u
+        )
+
+        handler.handleMessage(RoutedPacket(packet, peerID, "direct-link"))
+
+        verify(delegate, never()).onMessageReceived(any())
+    }
+
+    @Test
+    fun `a broadcast file from a departed peer with a persisted identity is delivered under its persisted nickname`() = runBlocking {
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(null)
+        whenever(delegate.getPeerNickname(peerID)).thenReturn(null)
+        whenever(delegate.getPersistedPeerNickname(peerID)).thenReturn("relay-a")
+        val file = BitchatFilePacket(
+            fileName = "earlier.jpg",
+            fileSize = 3,
+            mimeType = "image/jpeg",
+            content = byteArrayOf(1, 2, 3)
+        )
+        val packet = BitchatPacket(
+            version = 2u,
+            type = MessageType.FILE_TRANSFER.value,
+            senderID = peerID.hexToBytes(),
+            recipientID = null,
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = file.encode()!!,
+            signature = ByteArray(64) { 1 },
+            ttl = 0u
+        )
+
+        handler.handleMessage(RoutedPacket(packet, peerID, "direct-link"))
+
+        val captor = argumentCaptor<BitchatMessage>()
+        verify(delegate).onMessageReceived(captor.capture())
+        assertEquals("relay-a", captor.firstValue.sender)
+    }
+
+    @Test
+    fun `a broadcast from a live peer whose nickname is unverified is still dropped despite a persisted nickname`() = runBlocking {
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(
+            PeerInfo(
+                id = peerID, nickname = peerID, isConnected = true, isDirectConnection = true,
+                noisePublicKey = noiseKey, signingPublicKey = signingKey, isVerifiedNickname = false,
+                lastSeen = System.currentTimeMillis()
+            )
+        )
+        whenever(delegate.getPersistedPeerNickname(peerID)).thenReturn("relay-a")
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = peerID.hexToBytes(),
+            recipientID = null,
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = "hello".toByteArray(),
+            signature = ByteArray(64) { 1 },
+            ttl = 0u
+        )
+
+        handler.handleMessage(RoutedPacket(packet, peerID, "direct-link"))
+
+        verify(delegate, never()).onMessageReceived(any())
+    }
+
+    @Test
+    fun `a re-served announce past the skew window restores no key but the message still lands on a persisted identity`() = runBlocking {
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(null)
+        whenever(delegate.getPeerNickname(peerID)).thenReturn(null)
+        whenever(delegate.getPersistedPeerNickname(peerID)).thenReturn("relay-a")
+
+        val staleAnnounce = announcePacket(ageMs = announceClockSkewToleranceMs + 60_000)
+        assertFalse(handler.handleAnnounce(RoutedPacket(staleAnnounce, peerID, "direct-link")))
+        verify(delegate, never()).updatePeerInfoFromVerifiedAnnouncement(any(), any(), any(), any(), any(), anyOrNull())
+
+        val message = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = peerID.hexToBytes(),
+            recipientID = null,
+            timestamp = (System.currentTimeMillis() - announceClockSkewToleranceMs - 60_000).toULong(),
+            payload = "from before they left".toByteArray(),
+            signature = ByteArray(64) { 1 },
+            ttl = 0u
+        )
+        handler.handleMessage(RoutedPacket(message, peerID, "direct-link"))
+
+        val captor = argumentCaptor<BitchatMessage>()
+        verify(delegate).onMessageReceived(captor.capture())
+        assertEquals("relay-a", captor.firstValue.sender)
+    }
 }
