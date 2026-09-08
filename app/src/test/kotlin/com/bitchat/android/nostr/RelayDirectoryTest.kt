@@ -54,16 +54,16 @@ class RelayDirectoryTest {
 
     @Test
     fun `a nonstandard port is a different server and stays`() {
-        // Real case from the live directory: bendernostur.duckdns.org is listed bare
-        // and on 8443. iOS keeps both too; it drops only an explicit 443.
+        // The live directory lists some relays bare and on a nonstandard port.
+        // iOS keeps both too; it drops only an explicit 443.
         val entries = parse(
             header +
-                "bendernostur.duckdns.org,1.0,1.0\n" +
-                "bendernostur.duckdns.org:8443,1.0,1.0\n"
+                "port-variant.relay.example,1.0,1.0\n" +
+                "port-variant.relay.example:8443,1.0,1.0\n"
         )
         assertEquals(2, entries.size)
-        assertEquals("wss://bendernostur.duckdns.org", entries[0].url)
-        assertEquals("wss://bendernostur.duckdns.org:8443", entries[1].url)
+        assertEquals("wss://port-variant.relay.example", entries[0].url)
+        assertEquals("wss://port-variant.relay.example:8443", entries[1].url)
     }
 
     @Test
@@ -90,17 +90,17 @@ class RelayDirectoryTest {
 
     @Test
     fun `distance ties order by host the way ios orders them`() {
-        // The directory's dominant shape: a whole tie group at one city centroid
-        // (the live file has 137 rows at a single coordinate). File order is
+        // The directory's dominant shape: a whole tie group at one shared coordinate
+        // (the live file has 137 rows at a single point). File order is
         // deliberately not alphabetical; the selection must not depend on it.
         val csv = header +
-            "delta.example.com,43.6532,-79.3832\n" +
-            "foxtrot.example.com,43.6532,-79.3832\n" +
-            "alpha.example.com:443,43.6532,-79.3832\n" +
-            "echo.example.com,43.6532,-79.3832\n" +
-            "bravo.example.com,43.6532,-79.3832\n" +
-            "charlie.example.com,43.6532,-79.3832\n"
-        val five = RelayDirectory.closestRelays(parse(csv), 43.6532, -79.3832, 5)
+            "delta.example.com,12.34,56.78\n" +
+            "foxtrot.example.com,12.34,56.78\n" +
+            "alpha.example.com:443,12.34,56.78\n" +
+            "echo.example.com,12.34,56.78\n" +
+            "bravo.example.com,12.34,56.78\n" +
+            "charlie.example.com,12.34,56.78\n"
+        val five = RelayDirectory.closestRelays(parse(csv), 12.34, 56.78, 5)
         assertEquals(
             listOf(
                 "wss://alpha.example.com",
@@ -115,18 +115,18 @@ class RelayDirectoryTest {
 
     @Test
     fun `five nearest means five distinct servers`() {
-        // The shape measured for London on Aug 11 2026: the nearest relay listed twice
+        // A shape the live directory produces: the nearest relay listed twice
         // (bare and :443), which used to occupy two of the five selection slots and
         // push out the fifth distinct server.
         val csv = header +
-            "nearest.example.com,51.50,-0.12\n" +
-            "nearest.example.com:443,51.50,-0.12\n" +
-            "second.example.com,51.60,-0.10\n" +
-            "third.example.com,51.70,-0.10\n" +
-            "fourth.example.com,51.80,-0.10\n" +
-            "fifth.example.com,51.90,-0.10\n" +
-            "faraway.example.com,40.0,30.0\n"
-        val five = RelayDirectory.closestRelays(parse(csv), 51.5074, -0.1278, 5)
+            "nearest.example.com,10.10,20.20\n" +
+            "nearest.example.com:443,10.10,20.20\n" +
+            "second.example.com,10.20,20.20\n" +
+            "third.example.com,10.30,20.20\n" +
+            "fourth.example.com,10.40,20.20\n" +
+            "fifth.example.com,10.50,20.20\n" +
+            "faraway.example.com,80.0,120.0\n"
+        val five = RelayDirectory.closestRelays(parse(csv), 10.10, 20.20, 5)
         assertEquals(5, five.size)
         assertEquals("every selected relay is a distinct server", 5, five.toSet().size)
         assertTrue("the fifth distinct server makes the cut", five.contains("wss://fifth.example.com"))
