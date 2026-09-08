@@ -3,11 +3,6 @@
    <configuration>
       <verify-metadata>true</verify-metadata>
       <verify-signatures>false</verify-signatures>
-      <trusted-artifacts>
-         <trust file=".*-javadoc[.]jar" regex="true" reason="IDE documentation attachments are not build inputs"/>
-         <trust file=".*-sources[.]jar" regex="true" reason="IDE source attachments are not build inputs"/>
-         <trust file=".*-src[.]zip" regex="true" reason="Gradle IDE source attachments are not build inputs"/>
-      </trusted-artifacts>
    </configuration>
    <components>
       <component group="androidx.activity" name="activity" version="1.13.0">

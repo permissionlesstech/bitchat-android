@@ -74,6 +74,8 @@ import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.util.sdp
+import com.bitchat.android.util.ssp
 import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -237,13 +239,13 @@ fun LocationChannelsSheet(
                                 iconRes = R.drawable.ic_spec_range,
                                 title = stringResource(R.string.mesh_title),
                                 subtitle = stringResource(R.string.mesh_section_subtitle),
-                                modifier = Modifier.padding(top = 8.dp)
+                                modifier = Modifier.padding(top = 8.sdp())
                             )
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = AboutHorizontalPadding)
-                                    .padding(top = 10.dp),
+                                    .padding(top = 10.sdp()),
                                 color = colorScheme.surface,
                                 shape = AboutCardShape
                             ) {
@@ -1049,7 +1051,7 @@ private fun ChannelSettingsToggleRow(
                 Text(
                     text = title,
                     fontFamily = BitchatFontFamily,
-                    fontSize = 14.sp,
+                    fontSize = 14.ssp(),
                     fontWeight = FontWeight.Medium,
                     color = if (enabled) colorScheme.onSurface else palette.textTertiary
                 )
@@ -1058,12 +1060,12 @@ private fun ChannelSettingsToggleRow(
             Text(
                 text = subtitle,
                 fontFamily = BitchatFontFamily,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
+                fontSize = 12.ssp(),
+                lineHeight = 17.ssp(),
                 color = if (enabled) colorScheme.onSurfaceVariant else palette.textTertiary
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(16.sdp()))
         Switch(
             checked = checked,
             onCheckedChange = { if (enabled) onCheckedChange(it) },
