@@ -1480,9 +1480,9 @@ private fun PeerItem(
         isDirect = isDirect
     )
     // Split display name for hashtag suffix support (iOS-compatible)
-    val (baseNameRaw, suffixRaw) = splitSuffix(displayName)
+    val (baseNameRaw, _) = splitSuffix(displayName)
     val baseName = truncateNickname(baseNameRaw)
-    val suffix = if (showHashSuffix) suffixRaw else ""
+    val suffix = meshIdentitySuffix(peerID, displayName, showHashSuffix)
     val isMe = displayName == "You" || peerID == currentNickname
 
     // Get consistent peer color (iOS-compatible)
