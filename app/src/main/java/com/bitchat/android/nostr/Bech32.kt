@@ -22,14 +22,30 @@ object Bech32 {
     /**
      * Decode bech32 string
      * Returns (hrp, data) pair
+     *
+     * Per BIP-173 a bech32 string is either all lowercase or all uppercase;
+     * the uppercase form is what QR encoders emit, since it fits the compact
+     * alphanumeric mode. Mixed case is invalid and is rejected.
      */
     fun decode(bech32String: String): Pair<String, ByteArray> {
-        val separatorIndex = bech32String.lastIndexOf('1')
+        // BIP-173 restricts every character to printable US-ASCII, 33..126.
+        // This has to run before the case test and before lowercase(): a
+        // non-ASCII uppercase homoglyph such as U+212A KELVIN SIGN reads as
+        // uppercase, so an otherwise all-uppercase string carrying one shows no
+        // mixed case, and lowercase() then folds it into an ASCII 'k'.
+        require(bech32String.all { it.code in 33..126 }) { "Invalid character" }
+
+        val hasLower = bech32String.any { it.isLowerCase() }
+        val hasUpper = bech32String.any { it.isUpperCase() }
+        require(!(hasLower && hasUpper)) { "Mixed case" }
+        val normalized = bech32String.lowercase()
+
+        val separatorIndex = normalized.lastIndexOf('1')
         require(separatorIndex >= 0) { "No separator found" }
-        
-        val hrp = bech32String.substring(0, separatorIndex)
-        val dataString = bech32String.substring(separatorIndex + 1)
-        
+
+        val hrp = normalized.substring(0, separatorIndex)
+        val dataString = normalized.substring(separatorIndex + 1)
+
         // Validate HRP contains only ASCII
         require(hrp.all { it.code < 128 }) { "Invalid HRP characters" }
         
