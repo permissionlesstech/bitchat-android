@@ -197,8 +197,15 @@ class FragmentManager {
             synchronized(fragmentStateLock) {
                 fragmentMetadata[fragmentIDString]?.let { (expectedType, expectedTotal, _) ->
                     if (expectedTotal != fragmentPayload.total || expectedType != fragmentPayload.originalType) {
+                        // Reject the fragment, keep the stream. Fragment packets
+                        // are unauthenticated and both halves of the key are
+                        // attacker-choosable, so discarding the set here let one
+                        // crafted packet destroy a legitimate in-flight
+                        // reassembly. Nothing from a conflicting header is ever
+                        // stored, so keeping the set stays inside the same
+                        // memory bound; a stream that genuinely stalls is reaped
+                        // by the timeout sweep.
                         Log.w(TAG, "Rejecting fragment for $fragmentIDString: inconsistent metadata")
-                        removeFragmentSetLocked(fragmentIDString)
                         return null
                     }
                 }
@@ -234,12 +241,30 @@ class FragmentManager {
                     return null
                 }
 
-                val oldEntrySize = fragmentMap[fragmentPayload.index]?.size ?: 0
+                val heldEntry = fragmentMap[fragmentPayload.index]
+                if (heldEntry != null && !heldEntry.contentEquals(fragmentPayload.data)) {
+                    // Duplicate delivery is normal in a mesh, but one index of a
+                    // stream must always carry the same bytes. Overwriting
+                    // last-wins let a crafted duplicate replace bytes already
+                    // received from the real sender. This protects indices
+                    // already held; an index still empty when the injected
+                    // fragment arrives is filled by whichever copy wins the
+                    // race, and nothing here can tell them apart.
+                    Log.w(TAG, "Rejecting fragment for $fragmentIDString: index ${fragmentPayload.index} already holds different bytes")
+                    return null
+                }
+                val oldEntrySize = heldEntry?.size ?: 0
                 val newSize = currentSize - oldEntrySize + fragmentPayload.data.size
                 val maxTotalBytes = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_TOTAL_BYTES
                 if (newSize > maxTotalBytes) {
                     Log.w(TAG, "Rejecting fragment for $fragmentIDString: cumulative size $newSize exceeds cap $maxTotalBytes")
-                    removeFragmentSetLocked(fragmentIDString)
+                    // Only a set this fragment itself created has nothing worth
+                    // preserving. An oversized fragment must not be able to
+                    // destroy an assembly it did not start — same reasoning the
+                    // global-cap branch below already applies.
+                    if (isNewSet) {
+                        removeFragmentSetLocked(fragmentIDString)
+                    }
                     return null
                 }
 
