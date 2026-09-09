@@ -8,13 +8,13 @@ object TorPreferenceManager {
     private const val PREFS_NAME = "bitchat_settings"
     private const val KEY_TOR_MODE = "tor_mode"
 
-    private val _modeFlow = MutableStateFlow(TorMode.OFF)
+    private val _modeFlow = MutableStateFlow(TorMode.ON)
     val modeFlow: StateFlow<TorMode> = _modeFlow
 
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val saved = prefs.getString(KEY_TOR_MODE, TorMode.OFF.name)
-        val mode = runCatching { TorMode.valueOf(saved ?: TorMode.OFF.name) }.getOrDefault(TorMode.OFF)
+        val saved = prefs.getString(KEY_TOR_MODE, TorMode.ON.name)
+        val mode = runCatching { TorMode.valueOf(saved ?: TorMode.ON.name) }.getOrDefault(TorMode.ON)
         _modeFlow.value = mode
     }
 
@@ -26,8 +26,8 @@ object TorPreferenceManager {
 
     fun get(context: Context): TorMode {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val saved = prefs.getString(KEY_TOR_MODE, TorMode.OFF.name)
-        return runCatching { TorMode.valueOf(saved ?: TorMode.OFF.name) }.getOrDefault(TorMode.OFF)
+        val saved = prefs.getString(KEY_TOR_MODE, TorMode.ON.name)
+        return runCatching { TorMode.valueOf(saved ?: TorMode.ON.name) }.getOrDefault(TorMode.ON)
     }
 }
 

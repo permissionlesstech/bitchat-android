@@ -22,7 +22,7 @@ class NostrEventDeduplicator(
 ) {
     companion object {
         private const val TAG = "NostrDeduplicator"
-        private const val DEFAULT_CAPACITY = 10000
+        private const val DEFAULT_CAPACITY = com.bitchat.android.util.AppConstants.Nostr.DEFAULT_DEDUP_CAPACITY
         
         @Volatile
         private var INSTANCE: NostrEventDeduplicator? = null
@@ -79,9 +79,9 @@ class NostrEventDeduplicator(
      * @return true if the event is a duplicate (already seen), false if it's new
      */
     fun isDuplicate(eventId: String): Boolean {
-        totalChecks++
-        
         synchronized(lruLock) {
+            totalChecks++
+
             val existingNode = nodeMap[eventId]
             
             if (existingNode != null) {

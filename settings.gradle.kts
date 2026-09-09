@@ -10,11 +10,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // Guardian Project raw GitHub Maven (hosts info.guardianproject:arti-mobile-ex)
-        maven { url = uri("https://raw.githubusercontent.com/guardianproject/gpmaven/master") }
     }
 }
 
 rootProject.name = "bitchat-android"
 include(":app")
+include(":wear")
 // Using published Arti AAR; local module not included

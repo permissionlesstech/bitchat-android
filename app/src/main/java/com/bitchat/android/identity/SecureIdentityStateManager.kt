@@ -1,23 +1,27 @@
 package com.bitchat.android.identity
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.security.MessageDigest
-import java.security.SecureRandom
+import android.util.Base64
 import android.util.Log
+import com.bitchat.android.model.AuthenticatedPeerState
+import com.bitchat.android.model.PeerCapabilities
+import com.bitchat.android.util.hexEncodedString
+import androidx.core.content.edit
 
 /**
  * Manages persistent identity storage and peer ID rotation - 100% compatible with iOS implementation
  * 
  * Handles:
  * - Static identity key persistence across app sessions
- * - Peer ID rotation timing (5-15 minute random intervals)
  * - Secure storage using Android EncryptedSharedPreferences
  * - Fingerprint calculation and identity validation
  */
-class SecureIdentityStateManager(private val context: Context) {
+class SecureIdentityStateManager {
     
     companion object {
         private const val TAG = "SecureIdentityStateManager"
@@ -26,18 +30,30 @@ class SecureIdentityStateManager(private val context: Context) {
         private const val KEY_STATIC_PUBLIC_KEY = "static_public_key"
         private const val KEY_SIGNING_PRIVATE_KEY = "signing_private_key"
         private const val KEY_SIGNING_PUBLIC_KEY = "signing_public_key"
-        private const val KEY_LAST_ROTATION = "last_rotation"
-        private const val KEY_NEXT_ROTATION_INTERVAL = "next_rotation_interval"
-        
-        // Rotation intervals (same as iOS)
-        private const val MIN_ROTATION_INTERVAL = 5 * 60 * 1000L  // 5 minutes
-        private const val MAX_ROTATION_INTERVAL = 15 * 60 * 1000L // 15 minutes
+        private const val KEY_VERIFIED_FINGERPRINTS = "verified_fingerprints"
+        private const val KEY_CACHED_PEER_FINGERPRINTS = "cached_peer_fingerprints"
+        private const val KEY_CACHED_PEER_NOISE_KEYS = "cached_peer_noise_keys"
+        private const val KEY_CACHED_NOISE_FINGERPRINTS = "cached_noise_fingerprints"
+        private const val KEY_CACHED_FINGERPRINT_NICKNAMES = "cached_fingerprint_nicknames"
+        private const val KEY_PRIVATE_MEDIA_CAPABILITY_PINS = "private_media_capability_pins_v1"
+        private const val KEY_AUTHENTICATED_PEER_STATES = "authenticated_peer_states_v1"
+
+        // BLE, Wi-Fi Aware, and Noise services each hold their own manager
+        // instance over the same encrypted preferences. Serialize pin updates
+        // process-wide so concurrent promotions cannot lose one another or
+        // race a panic wipe.
+        private val privateMediaPinsLock = Any()
+        private var privateMediaPinsEpoch = 0L
     }
     
     private val prefs: SharedPreferences
-    private val random = SecureRandom()
-    
-    init {
+    private val lock = Any()
+    private var privateMediaPinsEpochAtCreation: Long
+
+    constructor(context: Context) {
+        privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
+            privateMediaPinsEpoch
+        }
         // Create master key for encryption
         val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -51,6 +67,15 @@ class SecureIdentityStateManager(private val context: Context) {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
+    }
+
+    /** Test-only storage injection; production always uses encrypted prefs. */
+    internal constructor(prefs: SharedPreferences, testOnly: Boolean) {
+        require(testOnly) { "Plain SharedPreferences are test-only" }
+        privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
+            privateMediaPinsEpoch
+        }
+        this.prefs = prefs
     }
     
     // MARK: - Static Key Management
@@ -177,7 +202,7 @@ class SecureIdentityStateManager(private val context: Context) {
     fun generateFingerprint(publicKeyData: ByteArray): String {
         val digest = MessageDigest.getInstance("SHA-256")
         val hash = digest.digest(publicKeyData)
-        return hash.joinToString("") { "%02x".format(it) }
+        return hash.hexEncodedString()
     }
     
     /**
@@ -187,71 +212,188 @@ class SecureIdentityStateManager(private val context: Context) {
         // SHA-256 fingerprint should be 64 hex characters
         return fingerprint.matches(Regex("^[a-fA-F0-9]{64}$"))
     }
-    
-    // MARK: - Peer ID Rotation Management
-    
-    /**
-     * Check if peer ID should be rotated based on random interval
-     */
-    fun shouldRotatePeerID(): Boolean {
-        val lastRotation = prefs.getLong(KEY_LAST_ROTATION, 0L)
-        val nextInterval = prefs.getLong(KEY_NEXT_ROTATION_INTERVAL, 0L)
-        val now = System.currentTimeMillis()
-        
-        if (lastRotation == 0L || nextInterval == 0L) {
-            // First run or missing data - schedule next rotation and don't rotate now
-            scheduleNextRotation()
-            return false
+
+    // MARK: - Verified Fingerprints
+
+    fun getVerifiedFingerprints(): Set<String> {
+        return prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun isVerifiedFingerprint(fingerprint: String): Boolean {
+        return getVerifiedFingerprints().contains(fingerprint)
+    }
+
+    fun setVerifiedFingerprint(fingerprint: String, verified: Boolean) {
+        if (!isValidFingerprint(fingerprint)) return
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            if (verified) {
+                current.add(fingerprint)
+            } else {
+                current.remove(fingerprint)
+            }
+            prefs.edit { putStringSet(KEY_VERIFIED_FINGERPRINTS, current) }
         }
-        
-        val shouldRotate = (now - lastRotation) >= nextInterval
-        if (shouldRotate) {
-            Log.d(TAG, "Peer ID rotation due: ${(now - lastRotation) / 1000}s since last rotation")
+    }
+
+    fun getCachedPeerFingerprint(peerID: String): String? {
+        val pid = peerID.lowercase()
+        // Reading is safe without lock for SharedPreferences, but synchronizing ensures memory visibility
+        // if we are paranoid, but SharedPreferences is generally thread-safe for reads.
+        // However, to ensure we don't read a partial update (unlikely with SP), we can leave it.
+        // The critical part is the write.
+        val entries = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet()) ?: return null
+        val entry = entries.firstOrNull { it.startsWith("$pid:") } ?: return null
+        return entry.substringAfter(':').takeIf { isValidFingerprint(it) }
+    }
+
+    fun cachePeerFingerprint(peerID: String, fingerprint: String) {
+        if (!isValidFingerprint(fingerprint)) return
+        val pid = peerID.lowercase()
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            current.removeAll { it.startsWith("$pid:") }
+            current.add("$pid:$fingerprint")
+            prefs.edit { putStringSet(KEY_CACHED_PEER_FINGERPRINTS, current) }
         }
-        
-        return shouldRotate
     }
+
+    fun getCachedNoiseKey(peerID: String): String? {
+        val pid = peerID.lowercase()
+        val entries = prefs.getStringSet(KEY_CACHED_PEER_NOISE_KEYS, emptySet()) ?: return null
+        val entry = entries.firstOrNull { it.startsWith("$pid=") } ?: return null
+        return entry.substringAfter('=').takeIf { it.matches(Regex("^[a-fA-F0-9]{64}$")) }
+    }
+
+    fun cachePeerNoiseKey(peerID: String, noiseKeyHex: String) {
+        if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
+        val pid = peerID.lowercase()
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_CACHED_PEER_NOISE_KEYS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            current.removeAll { it.startsWith("$pid=") }
+            current.add("$pid=${noiseKeyHex.lowercase()}")
+            prefs.edit { putStringSet(KEY_CACHED_PEER_NOISE_KEYS, current) }
+        }
+    }
+
+    fun getCachedNoiseFingerprint(noiseKeyHex: String): String? {
+        val key = noiseKeyHex.lowercase()
+        val entries = prefs.getStringSet(KEY_CACHED_NOISE_FINGERPRINTS, emptySet()) ?: return null
+        val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
+        return entry.substringAfter('=').takeIf { isValidFingerprint(it) }
+    }
+
+    fun cacheNoiseFingerprint(noiseKeyHex: String, fingerprint: String) {
+        if (!isValidFingerprint(fingerprint)) return
+        if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
+        val key = noiseKeyHex.lowercase()
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_CACHED_NOISE_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            current.removeAll { it.startsWith("$key=") }
+            current.add("$key=$fingerprint")
+            prefs.edit { putStringSet(KEY_CACHED_NOISE_FINGERPRINTS, current) }
+        }
+    }
+
+    fun getCachedFingerprintNickname(fingerprint: String): String? {
+        if (!isValidFingerprint(fingerprint)) return null
+        val key = fingerprint.lowercase()
+        val entries = prefs.getStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, emptySet()) ?: return null
+        val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
+        val encoded = entry.substringAfter('=')
+        return runCatching {
+            val bytes = Base64.decode(encoded, Base64.NO_WRAP)
+            String(bytes, Charsets.UTF_8)
+        }.getOrNull()
+    }
+
+    fun cacheFingerprintNickname(fingerprint: String, nickname: String) {
+        if (!isValidFingerprint(fingerprint)) return
+        val key = fingerprint.lowercase()
+        val encoded = Base64.encodeToString(nickname.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, emptySet())?.toMutableSet() ?: mutableSetOf()
+            current.removeAll { it.startsWith("$key=") }
+            current.add("$key=$encoded")
+            prefs.edit { putStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, current) }
+        }
+    }
+
+    // MARK: - Authenticated private-media capability pins
+
+    fun isPrivateMediaCapable(fingerprint: String): Boolean {
+        if (!isValidFingerprint(fingerprint)) return false
+        return synchronized(privateMediaPinsLock) {
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) {
+                return@synchronized false
+            }
+            prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())
+                ?.any { it.equals(fingerprint, ignoreCase = true) } == true
+        }
+    }
+
+    /** Persist capabilities and Ed25519 key from a decoded Noise 0x21 proof in one edit. */
+    @SuppressLint("UseKtx")
+    fun storeAuthenticatedPeerState(
+        fingerprint: String,
+        state: AuthenticatedPeerState,
+        onCommitted: () -> Unit = {}
+    ): Boolean {
+        if (!isValidFingerprint(fingerprint) || state.signingPublicKey.size != 32) return false
+        val normalizedFingerprint = fingerprint.lowercase()
+        return synchronized(privateMediaPinsLock) {
+            // A controller that survived panic must not republish pre-wipe proof state.
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return@synchronized false
+            val records = prefs.getStringSet(KEY_AUTHENTICATED_PEER_STATES, emptySet())
+                ?.toMutableSet() ?: mutableSetOf()
+            records.removeAll { it.startsWith("$normalizedFingerprint:") }
+            val capabilitiesHex = java.lang.Long.toUnsignedString(state.capabilities.rawValue, 16)
+            records.add(
+                "$normalizedFingerprint:$capabilitiesHex:${state.signingPublicKey.hexEncodedString()}"
+            )
+
+            val editor = prefs.edit().putStringSet(KEY_AUTHENTICATED_PEER_STATES, records)
+            if (state.capabilities.contains(PeerCapabilities.PRIVATE_MEDIA)) {
+                val pins = prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())
+                    ?.mapTo(mutableSetOf()) { it.lowercase() } ?: mutableSetOf()
+                pins.add(normalizedFingerprint)
+                editor.putStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, pins)
+            }
+            // This result is a security boundary: do not publish the Ed key in memory unless the
+            // encrypted identity record and its HSTS pin were durably committed together.
+            editor.commit().also { committed ->
+                if (committed) onCommitted()
+            }
+        }
+    }
+
+    fun getAuthenticatedPeerState(fingerprint: String): AuthenticatedPeerState? {
+        if (!isValidFingerprint(fingerprint)) return null
+        return synchronized(privateMediaPinsLock) {
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return@synchronized null
+            val prefix = "${fingerprint.lowercase()}:"
+            val record = prefs.getStringSet(KEY_AUTHENTICATED_PEER_STATES, emptySet())
+                ?.firstOrNull { it.startsWith(prefix) } ?: return@synchronized null
+            val fields = record.split(':', limit = 3)
+            if (fields.size != 3) return@synchronized null
+            val capabilities = runCatching {
+                PeerCapabilities(java.lang.Long.parseUnsignedLong(fields[1], 16))
+            }.getOrNull() ?: return@synchronized null
+            val signingKeyHex = fields[2]
+            if (!signingKeyHex.matches(Regex("^[0-9a-f]{64}$"))) return@synchronized null
+            val signingKey = runCatching {
+                signingKeyHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            }.getOrNull() ?: return@synchronized null
+            AuthenticatedPeerState(capabilities, signingKey)
+        }
+    }
+
+    fun getAuthenticatedSigningKey(fingerprint: String): ByteArray? =
+        getAuthenticatedPeerState(fingerprint)?.signingPublicKey?.copyOf()
     
-    /**
-     * Mark rotation as completed and schedule next one
-     */
-    fun markRotationCompleted() {
-        val now = System.currentTimeMillis()
-        prefs.edit()
-            .putLong(KEY_LAST_ROTATION, now)
-            .apply()
-        
-        scheduleNextRotation()
-        
-        Log.d(TAG, "Peer ID rotation marked as completed")
-    }
-    
-    /**
-     * Schedule the next rotation with random interval (5-15 minutes)
-     */
-    private fun scheduleNextRotation() {
-        val nextInterval = MIN_ROTATION_INTERVAL + random.nextLong(MAX_ROTATION_INTERVAL - MIN_ROTATION_INTERVAL)
-        
-        prefs.edit()
-            .putLong(KEY_NEXT_ROTATION_INTERVAL, nextInterval)
-            .apply()
-        
-        Log.d(TAG, "Next peer ID rotation scheduled in ${nextInterval / 60000} minutes")
-    }
-    
-    /**
-     * Get time until next rotation (for debugging)
-     */
-    fun getTimeUntilNextRotation(): Long {
-        val lastRotation = prefs.getLong(KEY_LAST_ROTATION, 0L)
-        val nextInterval = prefs.getLong(KEY_NEXT_ROTATION_INTERVAL, 0L)
-        val now = System.currentTimeMillis()
-        
-        if (lastRotation == 0L || nextInterval == 0L) return -1
-        
-        val elapsed = now - lastRotation
-        return maxOf(0L, nextInterval - elapsed)
-    }
+    // MARK: - Peer ID Rotation Management (removed)
+    // Android now derives peer ID from the persisted Noise identity fingerprint.
+    // No timed peer ID rotation is performed here.
     
     // MARK: - Identity Validation
     
@@ -305,14 +447,6 @@ class SecureIdentityStateManager(private val context: Context) {
         appendLine("Has identity: $hasIdentity")
         
         if (hasIdentity) {
-            val lastRotation = prefs.getLong(KEY_LAST_ROTATION, 0L)
-            val nextInterval = prefs.getLong(KEY_NEXT_ROTATION_INTERVAL, 0L)
-            val timeUntilNext = getTimeUntilNextRotation()
-            
-            appendLine("Last rotation: ${if (lastRotation > 0) "${(System.currentTimeMillis() - lastRotation) / 1000}s ago" else "never"}")
-            appendLine("Next rotation in: ${if (timeUntilNext >= 0) "${timeUntilNext / 1000}s" else "not scheduled"}")
-            appendLine("Rotation interval: ${nextInterval / 1000}s")
-            
             try {
                 val keyPair = loadStaticKey()
                 if (keyPair != null) {
@@ -331,9 +465,16 @@ class SecureIdentityStateManager(private val context: Context) {
     /**
      * Clear all identity data (for panic mode)
      */
+    @SuppressLint("UseKtx")
     fun clearIdentityData() {
         try {
-            prefs.edit().clear().apply()
+            synchronized(privateMediaPinsLock) {
+                privateMediaPinsEpoch += 1
+                privateMediaPinsEpochAtCreation = privateMediaPinsEpoch
+                if (!prefs.edit().clear().commit()) {
+                    Log.e(TAG, "Identity preference wipe could not be committed")
+                }
+            }
             Log.w(TAG, "All identity data cleared")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear identity data: ${e.message}")
@@ -386,5 +527,12 @@ class SecureIdentityStateManager(private val context: Context) {
             editor.remove(key)
         }
         editor.apply()
+    }
+
+    /** Use for panic paths that must finish the disk mutation before identity reset continues. */
+    fun clearSecureValuesSynchronously(vararg keys: String): Boolean {
+        val editor = prefs.edit()
+        keys.forEach(editor::remove)
+        return editor.commit()
     }
 }

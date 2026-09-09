@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.bitchat.android.R
 
 /**
  * Centralized permission management for bitchat app
@@ -18,9 +19,47 @@ class PermissionManager(private val context: Context) {
         private const val TAG = "PermissionManager"
         private const val PREFS_NAME = "bitchat_permissions"
         private const val KEY_FIRST_TIME_COMPLETE = "first_time_onboarding_complete"
+        private const val KEY_OPTIONAL_PERMISSION_REQUESTED_PREFIX =
+            "optional_permission_requested_"
     }
 
     private val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun shouldRequireWifiAwarePermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+        val enabled = try {
+            com.bitchat.android.ui.debug.DebugPreferenceManager.getWifiAwareEnabled(false)
+        } catch (_: Exception) {
+            false
+        }
+        if (!enabled) return false
+
+        return try {
+            com.bitchat.android.wifiaware.WifiAwareSupport.isSupported(context)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Runtime permissions for the Wi‑Fi Aware transport, version-gated because neither exists
+     * at minSdk 26 — requesting an unknown permission comes back permanently denied.
+     *
+     * ACCESS_LOCAL_NETWORK is defensive: Android 17 gates local network access, and the
+     * transport reaches peers over link-local IPv6 sockets. It is granted separately from
+     * NEARBY_WIFI_DEVICES but shares its permission group, so the two prompt only once.
+     */
+    fun wifiAwarePermissions(): List<String> {
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
+        // API 37 == Android 17; no named VERSION_CODES constant is available yet.
+        if (Build.VERSION.SDK_INT >= 37) {
+            permissions.add(Manifest.permission.ACCESS_LOCAL_NETWORK)
+        }
+        return permissions
+    }
 
     /**
      * Check if this is the first time the user is launching the app
@@ -40,7 +79,10 @@ class PermissionManager(private val context: Context) {
     }
 
     /**
-     * Get all permissions required by the app
+     * Get required permissions that can be requested together.
+     * Background location is handled separately to ensure correct request order.
+     * Note: Notification permission is optional and not included here,
+     * so the app works without notification access.
      */
     fun getRequiredPermissions(): List<String> {
         val permissions = mutableListOf<String>()
@@ -65,12 +107,74 @@ class PermissionManager(private val context: Context) {
             Manifest.permission.ACCESS_FINE_LOCATION
         ))
 
-        // Notification permission (Android 13+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        // Wi‑Fi Aware: Android 13+ requires NEARBY_WIFI_DEVICES runtime permission
+        if (shouldRequireWifiAwarePermission()) {
+            permissions.addAll(wifiAwarePermissions())
         }
 
+        // Notification permission intentionally excluded to keep it optional
+
         return permissions
+    }
+
+    /**
+     * Background location permission is required on Android 10+ for background BLE scanning.
+     * Must be requested after foreground location permissions are granted.
+     */
+    fun needsBackgroundLocationPermission(): Boolean {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    }
+
+    fun getBackgroundLocationPermission(): String? {
+        return if (needsBackgroundLocationPermission()) {
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        } else {
+            null
+        }
+    }
+
+    fun isBackgroundLocationGranted(): Boolean {
+        val permission = getBackgroundLocationPermission() ?: return true
+        return isPermissionGranted(permission)
+    }
+
+    /**
+     * Get optional permissions that improve the experience but aren't required.
+     * Currently includes POST_NOTIFICATIONS on Android 13+.
+     */
+    fun getOptionalPermissions(): List<String> {
+        val optional = mutableListOf<String>()
+        // Notifications on Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            optional.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        return optional
+    }
+
+    /**
+     * Optional permissions are prompted once. A denial must not trap returning users in
+     * onboarding, while users upgrading to a notification-permission Android version
+     * should still receive one contextual request.
+     */
+    fun getUnrequestedOptionalPermissions(): List<String> {
+        return getOptionalPermissions().filter { permission ->
+            !isPermissionGranted(permission) &&
+                !sharedPrefs.getBoolean(optionalPermissionRequestKey(permission), false)
+        }
+    }
+
+    fun markOptionalPermissionsRequested(permissions: Collection<String>) {
+        if (permissions.isEmpty()) return
+
+        sharedPrefs.edit().apply {
+            permissions.forEach { permission ->
+                putBoolean(optionalPermissionRequestKey(permission), true)
+            }
+        }.apply()
+    }
+
+    private fun optionalPermissionRequestKey(permission: String): String {
+        return KEY_OPTIONAL_PERMISSION_REQUESTED_PREFIX + permission
     }
 
     /**
@@ -81,9 +185,13 @@ class PermissionManager(private val context: Context) {
     }
 
     /**
-     * Check if all required permissions are granted
+     * Check if all required permissions are granted (background location is optional).
      */
     fun areAllPermissionsGranted(): Boolean {
+        return areRequiredPermissionsGranted()
+    }
+
+    fun areRequiredPermissionsGranted(): Boolean {
         return getRequiredPermissions().all { isPermissionGranted(it) }
     }
 
@@ -117,6 +225,11 @@ class PermissionManager(private val context: Context) {
      */
     fun getMissingPermissions(): List<String> {
         return getRequiredPermissions().filter { !isPermissionGranted(it) }
+    }
+
+    fun getMissingBackgroundLocationPermission(): List<String> {
+        val permission = getBackgroundLocationPermission() ?: return emptyList()
+        return if (isPermissionGranted(permission)) emptyList() else listOf(permission)
     }
 
     /**
@@ -165,6 +278,33 @@ class PermissionManager(private val context: Context) {
             )
         )
 
+        // Wi‑Fi Aware category (Android 13+)
+        if (shouldRequireWifiAwarePermission()) {
+            val wifiAwarePermissions = wifiAwarePermissions()
+            categories.add(
+                PermissionCategory(
+                    type = PermissionType.WIFI_AWARE,
+                    description = "Enable Wi‑Fi Aware to discover and connect to nearby bitchat users over Wi‑Fi.",
+                    permissions = wifiAwarePermissions,
+                    isGranted = wifiAwarePermissions.all { isPermissionGranted(it) },
+                    systemDescription = "Allow bitchat to discover nearby Wi‑Fi devices"
+                )
+            )
+        }
+
+        if (needsBackgroundLocationPermission()) {
+            val backgroundPermission = listOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            categories.add(
+                PermissionCategory(
+                    type = PermissionType.BACKGROUND_LOCATION,
+                    description = context.getString(R.string.perm_background_location_desc),
+                    permissions = backgroundPermission,
+                    isGranted = backgroundPermission.all { isPermissionGranted(it) },
+                    systemDescription = context.getString(R.string.perm_background_location_system)
+                )
+            )
+        }
+
         // Notifications category (if applicable)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             categories.add(
@@ -177,6 +317,8 @@ class PermissionManager(private val context: Context) {
                 )
             )
         }
+
+        // Microphone category removed from onboarding
 
         // Battery optimization category (if applicable)
         if (isBatteryOptimizationSupported()) {
@@ -202,7 +344,7 @@ class PermissionManager(private val context: Context) {
             appendLine("Permission Diagnostics:")
             appendLine("Android SDK: ${Build.VERSION.SDK_INT}")
             appendLine("First time launch: ${isFirstTimeLaunch()}")
-            appendLine("All permissions granted: ${areAllPermissionsGranted()}")
+            appendLine("Required permissions granted: ${areAllPermissionsGranted()}")
             appendLine()
             
             getCategorizedPermissions().forEach { category ->
@@ -214,7 +356,7 @@ class PermissionManager(private val context: Context) {
                 appendLine()
             }
             
-            val missing = getMissingPermissions()
+            val missing = getMissingPermissions() + getMissingBackgroundLocationPermission()
             if (missing.isNotEmpty()) {
                 appendLine("Missing permissions:")
                 missing.forEach { permission ->
@@ -246,7 +388,10 @@ data class PermissionCategory(
 enum class PermissionType(val nameValue: String) {
     NEARBY_DEVICES("Nearby Devices"),
     PRECISE_LOCATION("Precise Location"),
+    BACKGROUND_LOCATION("Background Location"),
+    MICROPHONE("Microphone"),
     NOTIFICATIONS("Notifications"),
+    WIFI_AWARE("Wi‑Fi Aware"),
     BATTERY_OPTIMIZATION("Battery Optimization"),
     OTHER("Other")
 }

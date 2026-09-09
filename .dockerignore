@@ -1,0 +1,6 @@
+.git
+.gradle
+.reproducible-build
+**/build
+local.properties
+tools/arti-build/.arti-source

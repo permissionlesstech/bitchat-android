@@ -1,18 +1,30 @@
 package com.bitchat.android.ui
 
+import android.Manifest
 import android.app.NotificationChannel
-import android.app.NotificationManager
+import android.app.NotificationManager as AndroidNotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.RemoteInput
+import androidx.core.content.ContextCompat
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.content.LocusIdCompat
+import androidx.core.graphics.drawable.IconCompat
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
-import com.bitchat.android.util.NotificationIntervalManager
+import com.bitchat.android.service.ConversationNotificationReceiver
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ConversationListPreferences
+import java.util.Collections
+import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -23,12 +35,10 @@ import java.util.concurrent.ConcurrentHashMap
  * - Support for mention notifications in geohash chats
  * - Support for first message notifications in geohash chats
  * - Proper notification management and cleanup
- * - Active peers notification
  */
 class NotificationManager(
   private val context: Context,
-  private val notificationManager: NotificationManagerCompat,
-  private val notificationIntervalManager: NotificationIntervalManager
+  private val notificationManager: NotificationManagerCompat
 ) {
 
     companion object {
@@ -41,8 +51,7 @@ class NotificationManager(
         private const val GEOHASH_NOTIFICATION_REQUEST_CODE = 2000
         private const val SUMMARY_NOTIFICATION_ID = 999
       private const val GEOHASH_SUMMARY_NOTIFICATION_ID = 998
-        private const val ACTIVE_PEERS_NOTIFICATION_ID = 997
-        private const val ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL = 300_000L
+        private const val MAX_MESSAGES_IN_NOTIFICATION = 25
 
         // Intent extras for notification handling
         const val EXTRA_OPEN_PRIVATE_CHAT = "open_private_chat"
@@ -50,9 +59,33 @@ class NotificationManager(
         const val EXTRA_PEER_ID = "peer_id"
         const val EXTRA_SENDER_NICKNAME = "sender_nickname"
         const val EXTRA_GEOHASH = "geohash"
+        const val ACTION_REPLY_TO_CONVERSATION =
+            "com.bitchat.android.action.REPLY_TO_CONVERSATION"
+        const val ACTION_MARK_CONVERSATION_READ =
+            "com.bitchat.android.action.MARK_CONVERSATION_READ"
+        const val KEY_TEXT_REPLY = "conversation_reply_text"
+
+        private val liveManagers: MutableSet<NotificationManager> =
+            Collections.newSetFromMap(WeakHashMap<NotificationManager, Boolean>())
+
+        /**
+         * Synchronizes notification action receivers with every manager instance in this process.
+         * Without this, an old in-memory MessagingStyle history could reappear on the next DM.
+         */
+        fun acknowledgeConversation(context: Context, conversationID: String) {
+            val canonicalID = ContactDirectory.canonicalConversationId(conversationID)
+            val managers = synchronized(liveManagers) { liveManagers.toList() }
+            managers.forEach { it.clearNotificationsForSender(canonicalID) }
+            if (managers.isEmpty()) {
+                NotificationManagerCompat.from(context).cancel(canonicalID.hashCode())
+            }
+        }
     }
 
-    private val systemNotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val systemNotificationManager =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as AndroidNotificationManager
+    private val conversationPreferences =
+        ConversationListPreferences.getInstance(context.applicationContext)
     
     // Track pending notifications per sender to enable grouping
     private val pendingNotifications = ConcurrentHashMap<String, MutableList<PendingNotification>>()
@@ -87,15 +120,17 @@ class NotificationManager(
     )
 
     init {
+        synchronized(liveManagers) { liveManagers.add(this) }
         createNotificationChannel()
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // DM notifications channel
-            val dmName = "Direct Messages"
-            val dmDescriptionText = "Notifications for private messages from other users"
-            val dmImportance = NotificationManager.IMPORTANCE_HIGH
+            val dmName = context.getString(R.string.notification_channel_direct_messages)
+            val dmDescriptionText =
+                context.getString(R.string.notification_channel_direct_messages_description)
+            val dmImportance = AndroidNotificationManager.IMPORTANCE_HIGH
             val dmChannel = NotificationChannel(CHANNEL_ID, dmName, dmImportance).apply {
                 description = dmDescriptionText
                 enableVibration(true)
@@ -104,9 +139,10 @@ class NotificationManager(
             systemNotificationManager.createNotificationChannel(dmChannel)
 
             // Geohash notifications channel
-            val geohashName = "Geohash Chats"
-            val geohashDescriptionText = "Notifications for mentions and messages in geohash location channels"
-            val geohashImportance = NotificationManager.IMPORTANCE_HIGH
+            val geohashName = context.getString(R.string.notification_channel_geohash)
+            val geohashDescriptionText =
+                context.getString(R.string.notification_channel_geohash_description)
+            val geohashImportance = AndroidNotificationManager.IMPORTANCE_HIGH
             val geohashChannel = NotificationChannel(GEOHASH_CHANNEL_ID, geohashName, geohashImportance).apply {
                 description = geohashDescriptionText
                 enableVibration(true)
@@ -128,8 +164,8 @@ class NotificationManager(
      * Update current private chat peer - affects notification logic
      */
     fun setCurrentPrivateChatPeer(peerID: String?) {
-        currentPrivateChatPeer = peerID
-        Log.d(TAG, "Current private chat peer changed: $peerID")
+        currentPrivateChatPeer = peerID?.let { ContactDirectory.canonicalConversationId(it) }
+        Log.d(TAG, "Current private chat peer changed: $currentPrivateChatPeer")
     }
 
     /**
@@ -137,55 +173,45 @@ class NotificationManager(
      */
     fun setCurrentGeohash(geohash: String?) {
         currentGeohash = geohash
-        Log.d(TAG, "Current geohash changed: $geohash")
+        Log.d(TAG, "Current geohash changed")
     }
 
     /**
      * Show a notification for a private message with proper grouping and state awareness
      */
     fun showPrivateMessageNotification(senderPeerID: String, senderNickname: String, messageContent: String) {
+        val conversationID = ContactDirectory.canonicalConversationId(senderPeerID)
+        if (conversationPreferences.isMuted(conversationID)) {
+            Log.d(TAG, "Skipping muted conversation notification")
+            return
+        }
         // Only show notifications if app is in background OR user is not viewing this specific chat
-        val shouldNotify = isAppInBackground || (!isAppInBackground && currentPrivateChatPeer != senderPeerID)
+        val shouldNotify = isAppInBackground ||
+            (!isAppInBackground && currentPrivateChatPeer != conversationID)
         
         if (!shouldNotify) {
             Log.d(TAG, "Skipping notification - app in foreground and viewing chat with $senderNickname")
             return
         }
 
-        Log.d(TAG, "Showing notification for message from $senderNickname (peerID: $senderPeerID)")
+        Log.d(TAG, "Showing notification for message from $senderNickname (conversationID: $conversationID)")
 
         val notification = PendingNotification(
-            senderPeerID = senderPeerID,
+            senderPeerID = conversationID,
             senderNickname = senderNickname,
             messageContent = messageContent,
             timestamp = System.currentTimeMillis()
         )
 
         // Add to pending notifications for this sender
-        pendingNotifications.computeIfAbsent(senderPeerID) { mutableListOf() }.add(notification)
+        pendingNotifications.computeIfAbsent(conversationID) { mutableListOf() }.add(notification)
 
         // Create or update notification for this sender
-        showNotificationForSender(senderPeerID)
+        showNotificationForSender(conversationID)
         
         // Update summary notification if we have multiple senders
         if (pendingNotifications.size > 1) {
             showSummaryNotification()
-        }
-    }
-
-    fun showActiveUserNotification(peers: List<String>) {
-        val currentTime = System.currentTimeMillis()
-        val activePeerNotificationIntervalExceeded =
-          (currentTime - notificationIntervalManager.lastNetworkNotificationTime) > ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL
-        val newPeers = peers - notificationIntervalManager.recentlySeenPeers
-        if (isAppInBackground && activePeerNotificationIntervalExceeded && newPeers.isNotEmpty()) {
-            Log.d(TAG, "Showing notification for active peers")
-            showNotificationForActivePeers(peers.size)
-            notificationIntervalManager.setLastNetworkNotificationTime(currentTime)
-            notificationIntervalManager.recentlySeenPeers.addAll(newPeers)
-        } else {
-            Log.d(TAG, "Skipping notification - app in foreground or it has been less than 5 minutes since last active peer notification")
-            return
         }
     }
 
@@ -216,6 +242,12 @@ class NotificationManager(
             .setName(latestNotification.senderNickname)
             .setKey(senderPeerID)
             .build()
+        val shortcutID = conversationShortcutID(senderPeerID)
+        publishConversationShortcut(
+            shortcutID = shortcutID,
+            person = person,
+            contentIntent = intent
+        )
 
         // Build notification content
         val contentText = if (messageCount == 1) {
@@ -239,79 +271,144 @@ class NotificationManager(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .addPerson(person)
+            .setShortcutId(shortcutID)
+            .setLocusId(LocusIdCompat(shortcutID))
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setShowWhen(true)
             .setWhen(latestNotification.timestamp)
+
+        val markReadIntent = Intent(context, ConversationNotificationReceiver::class.java).apply {
+            action = ACTION_MARK_CONVERSATION_READ
+            putExtra(EXTRA_PEER_ID, senderPeerID)
+        }
+        val markReadPendingIntent = PendingIntent.getBroadcast(
+            context,
+            NOTIFICATION_REQUEST_CODE + senderPeerID.hashCode() + 1,
+            markReadIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val replyIntent = Intent(context, ConversationNotificationReceiver::class.java).apply {
+            action = ACTION_REPLY_TO_CONVERSATION
+            putExtra(EXTRA_PEER_ID, senderPeerID)
+            putExtra(EXTRA_SENDER_NICKNAME, latestNotification.senderNickname)
+        }
+        val replyPendingIntent = PendingIntent.getBroadcast(
+            context,
+            NOTIFICATION_REQUEST_CODE + senderPeerID.hashCode() + 2,
+            replyIntent,
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val remoteInput = RemoteInput.Builder(KEY_TEXT_REPLY)
+            .setLabel(context.getString(R.string.notification_reply))
+            .build()
+        builder
+            .addAction(
+                NotificationCompat.Action.Builder(
+                    R.drawable.ic_notification,
+                    context.getString(R.string.notification_mark_read),
+                    markReadPendingIntent
+                ).build()
+            )
+            .addAction(
+                NotificationCompat.Action.Builder(
+                    R.drawable.ic_notification,
+                    context.getString(R.string.notification_reply),
+                    replyPendingIntent
+                )
+                    .addRemoteInput(remoteInput)
+                    .setAllowGeneratedReplies(true)
+                    .build()
+            )
+            .setPublicVersion(
+                NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setContentTitle(context.getString(R.string.notification_private_message))
+                    .setContentText(context.getString(R.string.notification_content_hidden))
+                    .build()
+            )
 
         // Add to notification group if we have multiple senders
         if (pendingNotifications.size > 1) {
             builder.setGroup(GROUP_KEY_DM)
         }
 
-        // Add style for multiple messages
-        if (messageCount > 1) {
-            val style = NotificationCompat.InboxStyle()
-                .setBigContentTitle(contentTitle)
-            
-            // Show last few messages in expanded view
-            notifications.takeLast(5).forEach { notif ->
-                style.addLine(notif.messageContent)
-            }
-            
-            if (messageCount > 5) {
-                style.setSummaryText("and ${messageCount - 5} more")
-            }
-            
-            builder.setStyle(style)
-        } else {
-            // Single message - use BigTextStyle for long messages
-            builder.setStyle(
-                NotificationCompat.BigTextStyle()
-                    .bigText(latestNotification.messageContent)
+        val self = Person.Builder()
+            .setName(context.getString(R.string.you))
+            .setKey("bitchat-self")
+            .build()
+        val messagingStyle = NotificationCompat.MessagingStyle(self)
+            .setGroupConversation(false)
+        notifications.takeLast(MAX_MESSAGES_IN_NOTIFICATION).forEach { notification ->
+            messagingStyle.addMessage(
+                notification.messageContent,
+                notification.timestamp,
+                person
             )
         }
+        builder.setStyle(messagingStyle)
 
         // Use sender peer ID hash as notification ID to group messages from same sender
         val notificationId = senderPeerID.hashCode()
-        notificationManager.notify(notificationId, builder.build())
+        notifySafely(notificationId, builder.build())
 
         Log.d(TAG, "Displayed notification for $contentTitle with ID $notificationId")
     }
 
-    private fun showNotificationForActivePeers(peersSize: Int) {
-        // Create intent to open the app
+    private fun conversationShortcutID(conversationID: String): String =
+        "dm_" + java.util.UUID.nameUUIDFromBytes(
+            conversationID.lowercase().toByteArray(Charsets.UTF_8)
+        ).toString()
+
+    private fun publishConversationShortcut(
+        shortcutID: String,
+        person: Person,
+        contentIntent: Intent
+    ) {
+        val shortcut = ShortcutInfoCompat.Builder(context, shortcutID)
+            .setShortLabel(person.name?.toString()?.take(40).orEmpty())
+            .setLongLived(true)
+            .setPerson(person)
+            .setLocusId(LocusIdCompat(shortcutID))
+            .setIcon(IconCompat.createWithResource(context, R.drawable.ic_notification))
+            .setIntent(Intent(contentIntent).apply { action = Intent.ACTION_VIEW })
+            .build()
+        ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
+    }
+
+    fun showVerificationNotification(title: String, body: String, peerID: String? = null) {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (peerID != null) {
+                putExtra(EXTRA_OPEN_PRIVATE_CHAT, true)
+                putExtra(EXTRA_PEER_ID, peerID)
+                putExtra(EXTRA_SENDER_NICKNAME, body)
+            }
         }
 
         val pendingIntent = PendingIntent.getActivity(
-          context,
-          ACTIVE_PEERS_NOTIFICATION_ID,
-          intent,
-          PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            context,
+            (System.currentTimeMillis() and 0x7FFFFFFF).toInt(),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // Build notification content
-        val contentTitle = "👥 bitchatters nearby!"
-        val contentText = if (peersSize == 1) {
-            "1 person around"
-        } else {
-            "$peersSize people around"
-        }
-
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-          .setSmallIcon(R.drawable.ic_notification)
-          .setContentTitle(contentTitle)
-          .setContentText(contentText)
-          .setContentIntent(pendingIntent)
-          .setAutoCancel(true)
-          .setPriority(NotificationCompat.PRIORITY_MIN)
-          .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-          .setShowWhen(true)
-          .setWhen(System.currentTimeMillis())
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setShowWhen(true)
+            .setWhen(System.currentTimeMillis())
 
-        notificationManager.notify(ACTIVE_PEERS_NOTIFICATION_ID, builder.build())
-        Log.d(TAG, "Displayed notification for $contentTitle with ID $ACTIVE_PEERS_NOTIFICATION_ID")
+        notifySafely(
+            (System.currentTimeMillis() and 0x7FFFFFFF).toInt(),
+            builder.build()
+        )
     }
+
     private fun showSummaryNotification() {
         if (pendingNotifications.isEmpty()) return
 
@@ -331,8 +428,8 @@ class NotificationManager(
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("bitchat")
-            .setContentText("$totalMessages messages from $senderCount people")
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(context.getString(R.string.notification_messages_from_people, totalMessages, senderCount))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -342,7 +439,7 @@ class NotificationManager(
 
         // Add inbox style showing recent senders
         val style = NotificationCompat.InboxStyle()
-            .setBigContentTitle("New Messages")
+            .setBigContentTitle(context.getString(R.string.notification_new_location_messages))
             
         pendingNotifications.entries.take(5).forEach { (peerID, notifications) ->
             val latestNotif = notifications.last()
@@ -356,12 +453,12 @@ class NotificationManager(
         }
         
         if (pendingNotifications.size > 5) {
-            style.setSummaryText("and ${pendingNotifications.size - 5} more conversations")
+            style.setSummaryText(context.getString(R.string.notification_more_conversations, pendingNotifications.size - 5))
         }
         
         builder.setStyle(style)
 
-        notificationManager.notify(SUMMARY_NOTIFICATION_ID, builder.build())
+        notifySafely(SUMMARY_NOTIFICATION_ID, builder.build())
 
         Log.d(TAG, "Displayed summary notification for $senderCount senders")
     }
@@ -370,11 +467,15 @@ class NotificationManager(
      * Clear notifications for a specific sender (e.g., when user opens their chat)
      */
     fun clearNotificationsForSender(senderPeerID: String) {
-        pendingNotifications.remove(senderPeerID)
-        
-        // Cancel the individual notification
-        val notificationId = senderPeerID.hashCode()
-        notificationManager.cancel(notificationId)
+        val conversationID = ContactDirectory.canonicalConversationId(senderPeerID)
+        val matchingKeys = pendingNotifications.keys.filter { key ->
+            ContactDirectory.canonicalConversationId(key) == conversationID
+        }
+        matchingKeys.forEach { key ->
+            pendingNotifications.remove(key)
+            notificationManager.cancel(key.hashCode())
+        }
+        notificationManager.cancel(conversationID.hashCode())
 
         // Update or remove summary notification
         if (pendingNotifications.isEmpty()) {
@@ -387,7 +488,16 @@ class NotificationManager(
             showSummaryNotification()
         }
         
-        Log.d(TAG, "Cleared notifications for sender: $senderPeerID")
+        Log.d(TAG, "Cleared notifications for conversation: $conversationID")
+    }
+
+    fun removeConversationShortcut(conversationID: String) {
+        val shortcutIDs = listOf(conversationShortcutID(conversationID))
+        ShortcutManagerCompat.removeDynamicShortcuts(context, shortcutIDs)
+        ShortcutManagerCompat.removeLongLivedShortcuts(
+            context,
+            shortcutIDs
+        )
     }
 
     /**
@@ -405,11 +515,11 @@ class NotificationManager(
         val shouldNotify = isAppInBackground || (!isAppInBackground && currentGeohash != geohash)
 
         if (!shouldNotify) {
-            Log.d(TAG, "Skipping geohash notification - app in foreground and viewing geohash $geohash")
+            Log.d(TAG, "Skipping geohash notification while viewing the channel")
             return
         }
 
-        Log.d(TAG, "Showing geohash notification for $geohash from $senderNickname (mention: $isMention, first: $isFirstMessage)")
+        Log.d(TAG, "Showing geohash notification (mention: $isMention, first: $isFirstMessage)")
 
         val notification = GeohashNotification(
             geohash = geohash,
@@ -459,15 +569,15 @@ class NotificationManager(
         // Build notification content with location name if available
         val geohashDisplay = latestNotification.locationName?.let { "$it (#$geohash)" } ?: "#$geohash"
         val contentTitle = when {
-            mentionCount > 0 && firstMessageCount > 0 && messageCount > 1 -> "Mentioned in $geohashDisplay (+${messageCount - 1} more)"
-            mentionCount > 0 -> if (mentionCount == 1) "Mentioned in $geohashDisplay" else "$mentionCount mentions in $geohashDisplay"
-            firstMessageCount > 0 -> "New activity in $geohashDisplay"
-            else -> "Messages in $geohashDisplay"
+            mentionCount > 0 && firstMessageCount > 0 && messageCount > 1 -> context.getString(R.string.notification_mentions_in_more, geohashDisplay, messageCount - 1)
+            mentionCount > 0 -> if (mentionCount == 1) context.getString(R.string.notification_mentions_in, geohashDisplay) else context.getString(R.string.notification_mentions_in_plural, mentionCount, geohashDisplay)
+            firstMessageCount > 0 -> context.getString(R.string.notification_new_activity_in, geohashDisplay)
+            else -> context.getString(R.string.notification_messages_in, geohashDisplay)
         }
 
         val contentText = when {
             latestNotification.isMention -> "${latestNotification.senderNickname}: ${latestNotification.messageContent}"
-            latestNotification.isFirstMessage -> "${latestNotification.senderNickname} joined the conversation"
+            latestNotification.isFirstMessage -> context.getString(R.string.notification_joined_conversation, latestNotification.senderNickname)
             else -> "${latestNotification.senderNickname}: ${latestNotification.messageContent}"
         }
 
@@ -503,7 +613,8 @@ class NotificationManager(
             }
 
             if (messageCount > 5) {
-                style.setSummaryText("and ${messageCount - 5} more")
+                val extra = messageCount - 5
+                style.setSummaryText(context.resources.getQuantityString(R.plurals.notification_and_more, extra, extra))
             }
 
             builder.setStyle(style)
@@ -517,7 +628,7 @@ class NotificationManager(
 
         // Use geohash hash as notification ID to group messages from same geohash
         val notificationId = 3000 + geohash.hashCode()
-        notificationManager.notify(notificationId, builder.build())
+        notifySafely(notificationId, builder.build())
 
         Log.d(TAG, "Displayed geohash notification for $contentTitle with ID $notificationId")
     }
@@ -543,12 +654,12 @@ class NotificationManager(
         )
 
         val contentTitle = if (totalMentions > 0) {
-            "bitchat - $totalMentions mentions"
+            context.getString(R.string.notification_geohash_summary_title_mentions, totalMentions)
         } else {
-            "bitchat - location chats"
+            context.getString(R.string.notification_geohash_summary_title)
         }
 
-        val contentText = "$totalMessages messages from $geohashCount locations"
+        val contentText = context.getString(R.string.notification_geohash_summary_text, totalMessages, geohashCount)
 
         val builder = NotificationCompat.Builder(context, GEOHASH_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
@@ -563,7 +674,7 @@ class NotificationManager(
 
         // Add inbox style showing recent geohashes
         val style = NotificationCompat.InboxStyle()
-            .setBigContentTitle("New Location Messages")
+            .setBigContentTitle(context.getString(R.string.notification_new_messages))
 
         pendingGeohashNotifications.entries.take(5).forEach { (geohash, notifications) ->
             val mentionCount = notifications.count { it.isMention }
@@ -579,12 +690,12 @@ class NotificationManager(
         }
 
         if (pendingGeohashNotifications.size > 5) {
-            style.setSummaryText("and ${pendingGeohashNotifications.size - 5} more locations")
+            style.setSummaryText(context.getString(R.string.notification_more_locations, pendingGeohashNotifications.size - 5))
         }
 
         builder.setStyle(style)
 
-        notificationManager.notify(GEOHASH_SUMMARY_NOTIFICATION_ID, builder.build())
+        notifySafely(GEOHASH_SUMMARY_NOTIFICATION_ID, builder.build())
 
         Log.d(TAG, "Displayed geohash summary notification for $geohashCount locations")
     }
@@ -610,7 +721,7 @@ class NotificationManager(
             showGeohashSummaryNotification()
         }
 
-        Log.d(TAG, "Cleared notifications for geohash: $geohash")
+        Log.d(TAG, "Cleared notifications for geohash")
     }
 
     /**
@@ -676,9 +787,9 @@ class NotificationManager(
 
         // Build notification content
         val contentTitle = if (messageCount == 1) {
-            "Mentioned in Mesh Chat"
+            context.getString(R.string.notification_mesh_mention_title_singular)
         } else {
-            "$messageCount mentions in Mesh Chat"
+            context.getString(R.string.notification_mesh_mention_title_plural, messageCount)
         }
 
         val contentText = "${latestNotification.senderNickname}: ${latestNotification.messageContent}"
@@ -710,7 +821,8 @@ class NotificationManager(
             }
 
             if (messageCount > 5) {
-                style.setSummaryText("and ${messageCount - 5} more")
+                val extra = messageCount - 5
+                style.setSummaryText(context.resources.getQuantityString(R.plurals.notification_and_more, extra, extra))
             }
 
             builder.setStyle(style)
@@ -724,7 +836,7 @@ class NotificationManager(
 
         // Use a special notification ID for mesh mentions
         val notificationId = 4000 // Different from DM and geohash IDs
-        notificationManager.notify(notificationId, builder.build())
+        notifySafely(notificationId, builder.build())
 
         Log.d(TAG, "Displayed mesh mention notification: $contentTitle")
     }
@@ -756,11 +868,35 @@ class NotificationManager(
     /**
      * Clear all pending notifications
      */
-    fun clearAllNotifications() {
+    fun clearAllNotifications(removeConversationShortcuts: Boolean = false) {
         pendingNotifications.clear()
         notificationManager.cancelAll()
         pendingGeohashNotifications.clear()
+        if (removeConversationShortcuts) {
+            val shortcutIDs = ShortcutManagerCompat.getDynamicShortcuts(context).map { it.id }
+            ShortcutManagerCompat.removeAllDynamicShortcuts(context)
+            if (shortcutIDs.isNotEmpty()) {
+                ShortcutManagerCompat.removeLongLivedShortcuts(context, shortcutIDs)
+            }
+        }
         Log.d(TAG, "Cleared all notifications")
+    }
+
+    private fun notifySafely(notificationID: Int, notification: android.app.Notification) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        try {
+            notificationManager.notify(notificationID, notification)
+        } catch (error: SecurityException) {
+            Log.w(TAG, "Notification permission was revoked: ${error.message}")
+        }
     }
 
     /**

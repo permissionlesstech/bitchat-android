@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <!-- คำอธิบายสิทธิ์ -->
+    <string name="permission_bluetooth_rationale">จำเป็นต้องมีสิทธิ์บลูทูธเพื่อแชทโดยตรงกับผู้อื่นโดยไม่ใช้อินเทอร์เน็ต</string>
+    <string name="permission_location_rationale">จำเป็นต้องมีสิทธิ์ตำแหน่งเพื่อค้นหาอุปกรณ์ใกล้เคียงผ่านบลูทูธ</string>
+    <string name="permission_notification_rationale">จำเป็นต้องมีสิทธิ์การแจ้งเตือนเพื่อแจ้งเตือนคุณเมื่อมีข้อความใหม่</string>
+
+    <!-- ตัวยึดตำแหน่ง / UI พื้นฐาน -->
+    <string name="nickname_hint">ชื่อเล่น</string>
+    <string name="message_hint">พิมพ์ข้อความ…</string>
+    <string name="channel_password_hint">รหัสผ่าน</string>
+    <string name="join_channel">เข้าร่วมช่อง</string>
+    <string name="leave_channel">ออก</string>
+    <string name="send_message">ส่ง</string>
+    <string name="show_commands">แสดงคำสั่ง</string>
+    <string name="back">กลับ</string>
+    <string name="people">ผู้คน</string>
+    <string name="channels">ช่อง</string>
+    <string name="online_users">ผู้ใช้ที่ออนไลน์</string>
+    <string name="no_one_connected">ไม่มีการเชื่อมต่อ</string>
+    <string name="emergency_clear_hint">แตะสามครั้งเพื่อลบข้อมูลทั้งหมด</string>
+    <string name="your_network">เครือข่ายของคุณ</string>
+
+    <!-- การเพิ่มประสิทธิภาพแบตเตอรี่ -->
+    <string name="battery_optimization_detected">ตรวจพบการเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="battery_optimization_disabled">ปิดการเพิ่มประสิทธิภาพแบตเตอรี่แล้ว</string>
+    <string name="battery_optimization_not_required">ไม่จำเป็นต้องเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="battery_optimization_checking">กำลังตรวจสอบการเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="battery_optimization_why_disable">ทำไมต้องปิดการเพิ่มประสิทธิภาพแบตเตอรี่?</string>
+    <string name="battery_optimization_explanation">bitchat ทำงานเบื้องหลังเพื่อคงการเชื่อมต่อแบบเมชกับอุปกรณ์ใกล้เคียง การเพิ่มประสิทธิภาพแบตเตอรี่อาจขัดจังหวะการเชื่อมต่อเหล่านี้ ทำให้ข้อความล่าช้าหรือสูญหาย\n\nการปิดการเพิ่มประสิทธิภาพแบตเตอรี่ช่วยให้การสื่อสารแบบเพียร์ทูเพียร์เชื่อถือได้</string>
+    <string name="battery_optimization_disable_button">ปิดการเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="battery_optimization_note">หมายเหตุ: คุณสามารถเปลี่ยนได้ภายหลังที่ การตั้งค่า Android &gt; แอป &gt; bitchat &gt; แบตเตอรี่</string>
+    <string name="battery_optimization_not_supported_explanation">อุปกรณ์ของคุณไม่ต้องการการตั้งค่าการเพิ่มประสิทธิภาพแบตเตอรี่ bitchat จะทำงานตามปกติ</string>
+    <string name="battery_optimization_not_supported_message">อุปกรณ์ของคุณไม่ต้องการการตั้งค่าการเพิ่มประสิทธิภาพแบตเตอรี่ bitchat จะทำงานตามปกติ</string>
+    <string name="battery_optimization_success_message">bitchat สามารถทำงานเบื้องหลังได้อย่างเชื่อถือได้</string>
+    <string name="battery_optimization_benefits">• ส่งข้อความได้อย่างเชื่อถือ\n• รักษาการเชื่อมต่อแบบเมช\n• ส่งต่อข้อความเบื้องหลัง\n• ป้องกันการหลุดการเชื่อมต่อ</string>
+    <string name="battery_optimization_check_again">ตรวจสอบอีกครั้ง</string>
+    <string name="battery_optimization_skip">ข้ามตอนนี้</string>
+    <string name="battery_optimization_continue">ดำเนินการต่อ</string>
+    <string name="retry">ลองอีกครั้ง</string>
+    <string name="skip">ข้าม</string>
+
+    <!-- การแจ้งเตือน -->
+    <string name="notification_summary_more">และอีก %1$d</string>
+    <string name="notification_messages_from_people">ข้อความ %1$d จาก %2$d คน</string>
+    <string name="notification_more_conversations">และการสนทนาอีก %1$d รายการ</string>
+    <string name="notification_active_peers_title">มีผู้ใช้ใกล้คุณ!</string>
+    <string name="notification_active_peers_one">มี 1 คนใกล้คุณ</string>
+    <string name="notification_active_peers_many">มี %1$d คนใกล้คุณ</string>
+    <string name="notification_new_messages">ข้อความใหม่</string>
+    <string name="notification_new_location_messages">ข้อความตำแหน่งใหม่</string>
+    <string name="notification_mentions_in">ถูกกล่าวถึงใน %1$s</string>
+    <string name="notification_mentions_in_more">ถูกกล่าวถึงใน %1$s (+%2$d)</string>
+    <string name="notification_mentions_in_plural">มี %1$d การกล่าวถึงใน %2$s</string>
+    <string name="notification_new_activity_in">กิจกรรมใหม่ใน %1$s</string>
+    <string name="notification_messages_in">ข้อความใน %1$s</string>
+    <string name="notification_joined_conversation">%1$s ได้เข้าร่วมการสนทนา</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d การกล่าวถึง</string>
+    <string name="notification_geohash_summary_title">bitchat – แชทตามตำแหน่ง</string>
+    <string name="notification_geohash_summary_text">%1$d ข้อความจาก %2$d พื้นที่</string>
+    <string name="notification_mesh_mention_title_singular">ถูกกล่าวถึงในแชทเมช</string>
+    <string name="notification_mesh_mention_title_plural">ถูกกล่าวถึง %1$d ครั้งในแชทเมช</string>
+    <string name="notification_more_locations">และอีก %1$d พื้นที่</string>
+    <string name="notification_and_more">และอีก %1$d</string>
+
+    <!-- การช่วยสำหรับการเข้าถึงรายการโปรด -->
+    <string name="cd_add_favorite">เพิ่มในรายการโปรด</string>
+    <string name="cd_remove_favorite">เอาออกจากรายการโปรด</string>
+    <string name="cd_add_bookmark">เพิ่มที่คั่นหน้า</string>
+
+    <!-- ส่วนหัวแชท &amp; การช่วยสำหรับการเข้าถึง -->
+    <string name="cd_nostr_reachable">ติดต่อได้ผ่าน Nostr</string>
+    <string name="cd_unread_private_messages">ข้อความส่วนตัวยังไม่ได้อ่าน</string>
+    <string name="cd_teleported">เทเลพอร์ตแล้ว</string>
+    <string name="cd_open_location_channels">เปิดการตั้งค่าตำแหน่งและช่อง</string>
+    <string name="cd_connected_peers">เพียร์ที่เชื่อมต่อ</string>
+    <string name="cd_geohash_participants">ผู้เข้าร่วม geohash</string>
+    <string name="cd_ready_for_handshake">พร้อมสำหรับการจับมือ</string>
+    <string name="cd_handshake_in_progress">กำลังจับมือ</string>
+    <string name="cd_encrypted">เข้ารหัสจากปลายทางถึงปลายทาง</string>
+    <string name="cd_handshake_failed">การจับมือล้มเหลว</string>
+
+    <!-- กล่องโต้ตอบตัวดูไฟล์ -->
+    <string name="file_viewer_title">📎 รับไฟล์แล้ว</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 ขนาด: %1$s</string>
+    <string name="file_viewer_type">🏷️ ประเภท: %1$s</string>
+    <string name="file_viewer_open_save">📂 เปิด / บันทึก</string>
+    <string name="close_with_emoji">❌ ปิด</string>
+    <string name="pick_image">เลือกภาพ</string>
+
+    <!-- แผ่นข้อมูลเกี่ยวกับ -->
+    <string name="about_offline_mesh_title">แชทเมชออฟไลน์</string>
+    <string name="about_offline_mesh_desc">สื่อสารโดยตรงผ่าน Bluetooth LE โดยไม่ใช้อินเทอร์เน็ตหรือเซิร์ฟเวอร์ ข้อความจะถูกส่งต่อผ่านอุปกรณ์ใกล้เคียงเพื่อขยายระยะ</string>
+    <string name="about_online_geohash_title">ช่อง geohash ออนไลน์</string>
+    <string name="about_online_geohash_desc">เชื่อมต่อกับผู้คนใกล้คุณผ่านช่องที่อ้างอิง geohash ขยายเมชผ่านรีเลย์อินเทอร์เน็ตสาธารณะ</string>
+    <string name="about_e2e_title">การเข้ารหัสแบบปลายทางถึงปลายทาง</string>
+    <string name="about_e2e_desc">ข้อความส่วนตัวถูกเข้ารหัส ข้อความในช่องเป็นสาธารณะ</string>
+    <string name="about_system">ระบบ</string>
+    <string name="about_light">สว่าง</string>
+    <string name="about_dark">มืด</string>
+    <string name="about_pow">พิสูจน์ผลงาน (Proof of Work)</string>
+    <string name="about_pow_off">ปิด PoW</string>
+    <string name="about_pow_on">เปิด PoW</string>
+    <string name="about_pow_tip">เพิ่ม Proof of Work ให้ข้อความ geohash เพื่อยากต่อการสแปม</string>
+    <string name="about_pow_difficulty">ความยาก: %1$d บิต (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">ความยาก %1$d ต้องใช้การลองแฮชประมาณ %2$s ครั้ง</string>
+    <string name="about_pow_desc_none">ไม่ต้องใช้ Proof of Work</string>
+    <string name="about_pow_desc_very_low">ต่ำมาก – ป้องกันสแปมน้อยที่สุด</string>
+    <string name="about_pow_desc_low">ต่ำ – ป้องกันสแปมพื้นฐาน</string>
+    <string name="about_pow_desc_medium">ปานกลาง – ป้องกันสแปมได้ดี</string>
+    <string name="about_pow_desc_high">สูง – ป้องกันสแปมอย่างแข็งแรง</string>
+    <string name="about_pow_desc_very_high">สูงมาก – อาจทำให้เกิดความล่าช้า</string>
+    <string name="about_pow_desc_extreme">สูงสุด – ต้องใช้ทรัพยากรคำนวณมาก</string>
+    <string name="about_network">เครือข่าย</string>
+    <string name="about_tor_off">ปิด Tor</string>
+    <string name="about_tor_on">เปิด Tor</string>
+    <string name="about_tor_route">กำหนดเส้นทางทราฟฟิกอินเทอร์เน็ตผ่าน Tor เพื่อเพิ่มความเป็นส่วนตัว</string>
+    <string name="about_tor_status">สถานะ Tor: %1$s, การบูต %2$d%%</string>
+    <string name="about_last">ล่าสุด: %1$s</string>
+    <string name="about_emergency_title">ลบข้อมูลฉุกเฉิน</string>
+    <string name="about_debug_settings">การตั้งค่าดีบัก</string>
+    <string name="about_footer">โอเพนซอร์ส • ความเป็นส่วนตัวมาก่อน • กระจายศูนย์</string>
+    <string name="close_plain">ปิด</string>
+    <string name="cancel_lower">ยกเลิก</string>
+
+    <!-- คำอธิบายเนื้อหาทั่วไป -->
+    <string name="cd_warning">คำเตือน</string>
+    <string name="cd_location_services">บริการตำแหน่ง</string>
+    <string name="cd_privacy">ความเป็นส่วนตัว</string>
+    <string name="cd_error">ข้อผิดพลาด</string>
+    <string name="cd_battery_optimization">การเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="cd_benefits">ประโยชน์</string>
+    <string name="cd_checking_battery_optimization">กำลังตรวจสอบการเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="cd_not_supported_battery_optimization">ไม่รองรับการเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_unread_message">ข้อความที่ยังไม่ได้อ่าน</string>
+    <string name="cd_open_map">เปิดแผนที่</string>
+    <string name="cd_remove_bookmark">เอาที่คั่นหน้าออก</string>
+    <string name="cd_teleport">เทเลพอร์ต</string>
+    <string name="cd_leave_channel">ออกจากช่อง</string>
+    <string name="cd_reachable_via_nostr">ติดต่อได้ผ่าน Nostr</string>
+    <string name="cd_offline_favorite">รายการโปรด (ออฟไลน์)</string>
+    <string name="cd_decrease_precision">ลดความแม่นยำ</string>
+    <string name="cd_increase_precision">เพิ่มความแม่นยำ</string>
+    <string name="cd_select_geohash">เลือก geohash</string>
+    <string name="cd_scroll_to_bottom">เลื่อนไปด้านล่างสุด</string>
+    <string name="cd_file">ไฟล์</string>
+    <string name="cd_image">รูปภาพ</string>
+    <string name="cd_cancel">ยกเลิก</string>
+    <string name="cd_link">ลิงก์</string>
+    <string name="cd_pick_media">เลือกมีเดีย</string>
+    <string name="cd_pick_file">เลือกไฟล์</string>
+    <string name="cd_save_current_image">บันทึกรูปภาพปัจจุบัน</string>
+    <string name="cd_close">ปิด</string>
+    <string name="cd_image_index_of">รูปภาพ %1$d จาก %2$d</string>
+    <string name="cd_privacy_protected">คุ้มครองความเป็นส่วนตัว</string>
+    <string name="cd_record_voice">บันทึกบันทึกเสียง</string>
+    <string name="cd_offline_mesh_chat">แชทเมชออฟไลน์</string>
+    <string name="cd_online_geohash_channels">ช่อง geohash ออนไลน์</string>
+    <string name="cd_end_to_end_encryption">การเข้ารหัสแบบปลายทางถึงปลายทาง</string>
+
+    <!-- รูปภาพ &amp; ไฟล์ -->
+    <string name="image_page_of">รูปภาพ %1$d จาก %2$d</string>
+    <string name="image_unavailable">ไม่สามารถใช้รูปภาพได้</string>
+    <string name="image_saved_to_downloads">บันทึกรูปภาพไว้ใน "ดาวน์โหลด" แล้ว</string>
+    <string name="image_save_failed">ไม่สามารถบันทึกรูปภาพได้</string>
+    <string name="toast_image_saved">บันทึกรูปภาพไว้ใน "ดาวน์โหลด" แล้ว</string>
+    <string name="toast_failed_to_save_image">ไม่สามารถบันทึกรูปภาพได้</string>
+    <string name="pick_file">เลือกไฟล์</string>
+    <string name="file_unavailable">[ไม่สามารถใช้ไฟล์ได้]</string>
+    <string name="unknown">ไม่ทราบ</string>
+
+    <!-- แผ่นการทำงานของผู้ใช้ -->
+    <string name="choose_action_message_or_user">เลือกการทำงานสำหรับข้อความนี้หรือผู้ใช้นี้</string>
+    <string name="choose_action_user">เลือกการทำงานสำหรับผู้ใช้นี้</string>
+    <string name="action_copy_message_title">คัดลอกข้อความ</string>
+    <string name="action_copy_message_subtitle">คัดลอกข้อความนี้ไปยังคลิปบอร์ด</string>
+    <string name="action_slap_title">ตบ %1$s</string>
+    <string name="action_slap_subtitle">ส่งตบแบบขำ ๆ</string>
+    <string name="action_hug_title">กอด %1$s</string>
+    <string name="action_hug_subtitle">ส่งกอดแบบเป็นมิตร</string>
+    <string name="action_block_title">บล็อก %1$s</string>
+    <string name="action_block_subtitle">บล็อกข้อความทั้งหมดจากผู้ใช้นี้</string>
+
+    <!-- แผ่นช่อง geohash -->
+    <string name="location_channels_title">#ช่องตามตำแหน่ง</string>
+    <string name="location_channels_desc">แชทกับผู้คนใกล้คุณผ่านช่อง geohash จะแชร์เฉพาะ geohash โดยคร่าว ๆ เท่านั้น ไม่ใช่ข้อมูล GPS ที่แม่นยำ เพื่อคุ้มครองความเป็นส่วนตัวของคุณ โปรดอย่าถ่ายภาพหน้าจอหรือแชร์หน้าจอนี้</string>
+    <string name="grant_location_permission">ให้สิทธิ์ตำแหน่ง</string>
+    <string name="location_permission_denied">ปฏิเสธสิทธิ์ตำแหน่ง เปิดใช้งานในการตั้งค่าเพื่อใช้ช่องตามตำแหน่ง</string>
+    <string name="open_settings">เปิดการตั้งค่า</string>
+    <string name="location_permission_granted">\u2713 อนุญาตตำแหน่งแล้ว</string>
+    <string name="checking_permissions">กำลังตรวจสอบสิทธิ์…</string>
+    <string name="finding_nearby_channels">กำลังค้นหาช่องใกล้เคียง…</string>
+    <string name="bookmarked">มีที่คั่นหน้า</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">geohash ไม่ถูกต้อง</string>
+    <string name="teleport">เทเลพอร์ต</string>
+    <string name="disable_location_services">ปิดบริการตำแหน่ง</string>
+    <string name="enable_location_services">เปิดบริการตำแหน่ง</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">บล็อก</string>
+    <string name="location_level_neighborhood">ละแวกใกล้เคียง</string>
+    <string name="location_level_city">เมือง</string>
+    <string name="location_level_province">จังหวัด</string>
+    <string name="location_level_region">ภูมิภาค</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <!-- ดีบัก / วินิจฉัย -->
+    <string name="debug_tools">เครื่องมือดีบัก</string>
+    <string name="debug_tools_desc">เครื่องมือสำหรับนักพัฒนาสำหรับการวินิจฉัยและควบคุม</string>
+    <string name="debug_verbose_logging">การบันทึกแบบละเอียด</string>
+    <string name="debug_verbose_hint">บันทึกการเข้าร่วม/ออกของเพียร์ ทิศทางการเชื่อมต่อ การส่งต่อแพ็กเก็ต และรีเลย์</string>
+    <string name="debug_bluetooth_roles">บทบาทบลูทูธ</string>
+    <string name="debug_gatt_server">เซิร์ฟเวอร์ GATT</string>
+    <string name="debug_connections_fmt">การเชื่อมต่อ: %1$d / %2$d</string>
+    <string name="debug_max_server">สูงสุดของเซิร์ฟเวอร์</string>
+    <string name="debug_gatt_client">ไคลเอนต์ GATT</string>
+    <string name="debug_max_client">สูงสุดของไคลเอนต์</string>
+    <string name="debug_overall_connections_fmt">การเชื่อมต่อ: %1$d / %2$d</string>
+    <string name="debug_max_overall">รวมสูงสุด</string>
+    <string name="debug_packet_relay">การส่งต่อแพ็กเก็ต</string>
+    <string name="debug_since_start_fmt">ตั้งแต่เริ่มต้น: %1$d</string>
+    <string name="debug_roles_hint">สลับบทบาทและปิดการเชื่อมต่อทั้งหมดเมื่อปิดใช้งาน</string>
+    <string name="debug_sync_settings">การตั้งค่าการซิงค์</string>
+    <string name="debug_max_packets_per_sync_fmt">แพ็กเก็ตสูงสุดต่อการซิงค์: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">ขนาดตัวกรอง GCS สูงสุด: %1$d ไบต์ (128–1024)</string>
+    <string name="debug_target_fpr_fmt">อัตราบวกเทียมเป้าหมาย: %1$.2f%%</string>
+    <string name="debug_connected_devices">อุปกรณ์ที่เชื่อมต่อ</string>
+    <string name="debug_our_device_id_fmt">รหัสอุปกรณ์ของเรา: %1$s</string>
+    <string name="debug_none">ไม่มี</string>
+    <string name="debug_disconnect">ตัดการเชื่อมต่อ</string>
+    <string name="debug_recent_scan_results">อุปกรณ์ที่สแกนล่าสุด</string>
+    <string name="debug_connect">เชื่อมต่อ</string>
+    <string name="debug_debug_console">คอนโซลดีบัก</string>
+    <string name="debug_clear">ล้าง</string>
+    <string name="debug_relays_window_fmt">10 วิ ล่าสุด: %1$d • 1 นาที: %2$d • 15 นาที: %3$d</string>
+    <string name="debug_derived_p_fmt">P ที่ได้มา: %1$s • จำนวนรายการสูงสุดโดยประมาณ: %2$s</string>
+    <string name="debug_direct_suffix"> • โดยตรง</string>
+    <string name="debug_role_server">ในบทบาทเซิร์ฟเวอร์ (เราเป็นโฮสต์)</string>
+    <string name="debug_role_client">ในบทบาทไคลเอนต์ (เราเชื่อมต่อ)</string>
+
+    <!-- หน้าจอเริ่มต้นใช้งาน -->
+    <string name="location_services_required">ต้องใช้บริการตำแหน่ง</string>
+    <string name="privacy_first">ความเป็นส่วนตัวมาก่อน</string>
+    <string name="location_explanation">bitchat ไม่ติดตามตำแหน่งของคุณ\n\nต้องใช้บริการตำแหน่งสำหรับการสแกนบลูทูธและคุณสมบัติแชท geohash</string>
+    <string name="location_needs_for">bitchat ต้องใช้บริการตำแหน่งสำหรับ:</string>
+    <string name="location_needs_bullets">• สแกนอุปกรณ์บลูทูธ\n• ค้นพบผู้ใช้ใกล้เคียงในเครือข่ายเมช\n• คุณสมบัติแชท geohash\n• ไม่มีการติดตามหรือเก็บตำแหน่ง</string>
+    <string name="open_location_settings">เปิดการตั้งค่าตำแหน่ง</string>
+    <string name="check_again">ตรวจสอบอีกครั้ง</string>
+    <string name="location_services_unavailable">ไม่สามารถใช้บริการตำแหน่งได้</string>
+    <string name="location_unavailable_explanation">บริการตำแหน่งไม่สามารถใช้ได้ในอุปกรณ์นี้ ซึ่งผิดปกติเนื่องจากโดยทั่วไปแล้วอุปกรณ์ Android จะมีบริการตำแหน่ง\n\nต้องใช้บริการตำแหน่งเพื่อให้การสแกนบลูทูธทำงานได้อย่างถูกต้อง (ข้อกำหนดของ Android) หากไม่มี แอปจะไม่สามารถค้นพบผู้ใช้ใกล้เคียงได้</string>
+    <string name="checking_location_services">กำลังตรวจสอบบริการตำแหน่ง…</string>
+    <string name="bluetooth_required">ต้องใช้บลูทูธ</string>
+    <string name="bluetooth_needs_for">bitchat ต้องใช้บลูทูธสำหรับ:</string>
+    <string name="bluetooth_needs_bullets">• ค้นพบผู้ใช้ใกล้เคียง\n• สร้างการเชื่อมต่อเครือข่ายเมช\n• ส่งและรับข้อความ\n• ทำงานโดยไม่ใช้อินเทอร์เน็ตหรือเซิร์ฟเวอร์</string>
+    <string name="enable_bluetooth">เปิดบลูทูธ</string>
+    <string name="bluetooth_not_supported">ไม่รองรับบลูทูธ</string>
+    <string name="bluetooth_unsupported_explanation">อุปกรณ์นี้ไม่รองรับ Bluetooth Low Energy (BLE) ซึ่งจำเป็นสำหรับการทำงานของ bitchat\n\nต้องใช้ BLE เพื่อสร้างเครือข่ายเมชและสื่อสารกับอุปกรณ์ใกล้เคียงโดยไม่ใช้อินเทอร์เน็ต</string>
+    <string name="checking_bluetooth_status">กำลังตรวจสอบสถานะบลูทูธ…</string>
+    <string name="battery_optimization_detected_title">ตรวจพบการเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="battery_optimization_enabled_title">เปิดใช้การเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="battery_optimization_explanation_short">bitchat ต้องทำงานเบื้องหลังเพื่อคงการเชื่อมต่อแบบเมช การเพิ่มประสิทธิภาพแบตเตอรี่อาจขัดจังหวะการเชื่อมต่อเหล่านี้</string>
+    <string name="benefits_of_disabling">ประโยชน์ของการปิดใช้งาน</string>
+    <string name="battery_benefits_short">• ส่งข้อความได้อย่างเชื่อถือ\n• รักษาการเชื่อมต่อแบบเมช\n• ป้องกันการหลุดการเชื่อมต่อ</string>
+    <string name="disable_battery_optimization">ปิดการเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="battery_optimization_disabled_title">ปิดการเพิ่มประสิทธิภาพแบตเตอรี่แล้ว</string>
+    <string name="continue_btn">ดำเนินการต่อ</string>
+    <string name="initializing_mesh_network">กำลังเริ่มต้นเครือข่ายเมช</string>
+    <string name="setting_up_bluetooth">กำลังตั้งค่าเครือข่ายเมช Bluetooth…</string>
+    <string name="should_take_seconds">ควรใช้เวลาเพียงไม่กี่วินาที</string>
+    <string name="setup_not_complete">ตั้งค่าไม่เสร็จสมบูรณ์</string>
+    <string name="try_again">ลองอีกครั้ง</string>
+    <string name="privacy_protected">ความเป็นส่วนตัวของคุณได้รับการคุ้มครอง</string>
+    <string name="privacy_bullets">• ไม่มีการติดตามหรือเก็บข้อมูล\n• แชทเมชบลูทูธทำงานแบบออฟไลน์ทั้งหมด\n• แชท geohash ใช้อินเทอร์เน็ต</string>
+    <string name="permissions_header">สิทธิ์</string>
+    <string name="grant_permissions">ให้สิทธิ์</string>
+    <string name="location_tracking_warning">bitchat ไม่ติดตามตำแหน่งของคุณ</string>
+    <string name="nobody_around">ไม่มีใครอยู่ใกล้…</string>
+    <string name="you_suffix"> (คุณ)</string>
+    <string name="pan_zoom_instruction">ลาก/ซูมเพื่อเลือก geohash</string>
+    <string name="select">เลือก</string>
+    <string name="type_a_message_placeholder">พิมพ์ข้อความ…</string>
+    <string name="mention">กล่าวถึง</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">รูปภาพ</string>
+    <string name="media_type_file">ไฟล์</string>
+
+    <!-- ตัวช่วยข้อความการแจ้งเตือน -->
+    <string name="notification_sent_image">📷 ส่งรูปภาพแล้ว</string>
+    <string name="notification_sent_voice">🎤 ส่งบันทึกเสียงแล้ว</string>
+    <string name="notification_sent_file">📎 ส่งไฟล์แล้ว</string>
+
+    <!-- การช่วยสำหรับการเข้าถึงของเครื่องเล่นเสียง -->
+    <string name="cd_play_voice">เล่น</string>
+    <string name="cd_pause_voice">หยุดชั่วคราว</string>
+
+    <!-- คำอธิบายสิทธิ์ -->
+    <string name="perm_nearby_devices_desc">จำเป็นสำหรับการค้นหาผู้ใช้ bitchat ผ่านบลูทูธ</string>
+    <string name="perm_nearby_devices_system">อนุญาตให้ bitchat เชื่อมต่อกับอุปกรณ์ใกล้เคียง</string>
+    <string name="perm_location_desc">ข้อกำหนดของ Android สำหรับการค้นหาผู้ใช้ bitchat ใกล้เคียงผ่านบลูทูธ</string>
+    <string name="perm_location_system">bitchat ต้องใช้สิ่งนี้เพื่อสแกนอุปกรณ์ใกล้เคียง</string>
+    <string name="perm_notifications_desc">รับการแจ้งเตือนเมื่อคุณได้รับข้อความส่วนตัว</string>
+    <string name="perm_notifications_system">อนุญาตให้ bitchat ส่งการแจ้งเตือนถึงคุณ</string>
+    <string name="perm_battery_desc">ปิดการเพิ่มประสิทธิภาพแบตเตอรี่เพื่อให้ bitchat ทำงานได้อย่างเชื่อถือในเบื้องหลังและคงการเชื่อมต่อแบบเมช</string>
+    <string name="perm_battery_system">อนุญาตให้ bitchat ทำงานโดยไม่มีข้อจำกัดของแบตเตอรี่</string>
+
+    <!-- ประเภทสิทธิ์ -->
+    <string name="perm_type_nearby_devices">อุปกรณ์ใกล้เคียง</string>
+    <string name="perm_type_precise_location">ตำแหน่งที่แม่นยำ</string>
+    <string name="perm_type_microphone">ไมโครโฟน</string>
+    <string name="perm_type_notifications">การแจ้งเตือน</string>
+    <string name="perm_type_battery_optimization">การเพิ่มประสิทธิภาพแบตเตอรี่</string>
+    <string name="perm_type_other">อื่น ๆ</string>
+
+    <!-- กล่องโต้ตอบรหัสผ่าน -->
+    <string name="pwd_prompt_title">ป้อนรหัสผ่านของช่อง</string>
+    <string name="pwd_prompt_message">ช่อง %1$s มีการป้องกันด้วยรหัสผ่าน ป้อนรหัสผ่านเพื่อเข้าร่วม</string>
+    <string name="pwd_label">รหัสผ่าน</string>
+    <string name="join">เข้าร่วม</string>
+    <string name="cancel">ยกเลิก</string>
+
+    <!-- พหูพจน์ -->
+    <plurals name="notification_and_more">
+        <item quantity="one">และอีก %d</item>
+        <item quantity="other">และอีก %d</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">1 คน</item>
+        <item quantity="other">%d คน</item>
+    </plurals>
+
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
+    <string name="mesh_service_notification_content">Mesh กำลังทำงาน — %1$d เพื่อน</string>
+
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_scan_someone">scan someone elses qr</string>
+  <string name="verify_show_my_qr">show my qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="verify_paste_label">paste verification url</string>
+  <string name="verify_validate">validate</string>
+  <string name="verify_scanned">verification requested</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_label">verified</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">เปิดเกี่ยวกับ</string>
+  <string name="nearby_notes_reveal">ดูว่ามีโน้ตทิ้งไว้ที่นี่หรือไม่</string>
+  <string name="nearby_notes_one">มี 1 โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
+  <string name="nearby_notes_many">มี %d โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
+    <string name="about_language">ภาษา</string>
+    <string name="about_app_language">ภาษาของแอป</string>
+    <string name="about_system_default">ค่าเริ่มต้นของระบบ</string>
+    <string name="about_select_language">เลือกภาษา</string>
+</resources>

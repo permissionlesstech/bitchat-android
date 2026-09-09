@@ -1,9 +1,13 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.PeerFingerprintManager
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ContactIdentityResolver
+
 import java.util.*
 import android.util.Log
 
@@ -17,22 +21,28 @@ interface NoiseSessionDelegate {
     fun getMyPeerID(): String
 }
 
+enum class PrivateMessageOrigin {
+    MESH,
+    NOSTR
+}
+
 /**
- * Handles private chat functionality including peer management and blocking
- * Now uses centralized PeerFingerprintManager for all fingerprint operations
+ * Handles private chat functionality including peer management and blocking.
  */
 class PrivateChatManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val dataManager: DataManager,
-    private val noiseSessionDelegate: NoiseSessionDelegate
+    private val noiseSessionDelegate: NoiseSessionDelegate,
+    private val trackUnreadMessages: Boolean = true,
+    private val hasReadReceiptBeenSent: (messageID: String) -> Boolean = { false },
+    private val markMessageReadLocally: (messageID: String) -> Unit = {}
 ) {
 
     companion object {
         private const val TAG = "PrivateChatManager"
     }
 
-    // Use centralized fingerprint management - NO LOCAL STORAGE
     private val fingerprintManager = PeerFingerprintManager.getInstance()
 
     // Track received private messages that need read receipts
@@ -40,9 +50,17 @@ class PrivateChatManager(
 
     // MARK: - Private Chat Lifecycle
 
-    fun startPrivateChat(peerID: String, meshService: BluetoothMeshService): Boolean {
+    fun startPrivateChat(
+        peerID: String,
+        meshService: MeshService,
+        unreadAliases: Set<String> = emptySet()
+    ): Boolean {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val route = ContactDirectory.resolve(conversationID)
+        val meshPeerID = route.meshPeerID ?: peerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
+
         if (isPeerBlocked(peerID)) {
-            val peerNickname = getPeerNickname(peerID, meshService)
+            val peerNickname = route.displayName ?: getPeerNickname(peerID, meshService)
             val systemMessage = BitchatMessage(
                 sender = "system",
                 content = "cannot start chat with $peerNickname: user is blocked.",
@@ -53,24 +71,24 @@ class PrivateChatManager(
             return false
         }
 
-        // Establish Noise session if needed before starting the chat
-        establishNoiseSessionIfNeeded(peerID, meshService)
+        if (meshPeerID != null && meshService.getPeerInfo(meshPeerID)?.isConnected == true) {
+            establishNoiseSessionIfNeeded(meshPeerID, meshService)
+        }
 
-        // Consolidate any temporary Nostr conversation for this peer into the stable/current peerID
         try {
-            consolidateNostrTempConversationIfNeeded(peerID)
+            consolidateNostrTempConversationIfNeeded(conversationID, meshService)
         } catch (_: Exception) { }
 
-        state.setSelectedPrivateChatPeer(peerID)
+        state.setSelectedPrivateChatPeer(conversationID)
 
         // Clear unread
-        messageManager.clearPrivateUnreadMessages(peerID)
+        messageManager.clearPrivateUnreadMessages(conversationID, unreadAliases)
 
         // Initialize chat if needed
-        messageManager.initializePrivateChat(peerID)
+        messageManager.initializePrivateChat(conversationID)
 
         // Send read receipts for all unread messages from this peer
-        sendReadReceiptsForPeer(peerID, meshService)
+        sendReadReceiptsForPeer(conversationID, meshPeerID, meshService)
 
         return true
     }
@@ -87,6 +105,7 @@ class PrivateChatManager(
         myPeerID: String,
         onSendMessage: (String, String, String, String) -> Unit
     ): Boolean {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
         if (isPeerBlocked(peerID)) {
             val systemMessage = BitchatMessage(
                 sender = "system",
@@ -109,9 +128,53 @@ class PrivateChatManager(
             deliveryStatus = DeliveryStatus.Sending
         )
 
-        messageManager.addPrivateMessage(peerID, message)
-        onSendMessage(content, peerID, recipientNickname ?: "", message.id)
+        messageManager.addPrivateMessage(conversationID, message)
+        onSendMessage(content, conversationID, recipientNickname ?: "", message.id)
 
+        return true
+    }
+
+    /**
+     * Persists the local echo before handing the payload to a transport.
+     *
+     * A failed database write deliberately aborts the send: otherwise the remote peer could
+     * receive a message that disappears from the sender's conversation after process death.
+     */
+    suspend fun sendPrivateMessageDurably(
+        content: String,
+        peerID: String,
+        recipientNickname: String?,
+        senderNickname: String?,
+        myPeerID: String,
+        onSendMessage: (String, String, String, String) -> Unit
+    ): Boolean {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        if (isPeerBlocked(peerID)) {
+            val systemMessage = BitchatMessage(
+                sender = "system",
+                content = "cannot send message to $recipientNickname: user is blocked.",
+                timestamp = Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+            return false
+        }
+
+        val message = BitchatMessage(
+            sender = senderNickname ?: myPeerID,
+            content = content,
+            timestamp = Date(),
+            isRelay = false,
+            isPrivate = true,
+            recipientNickname = recipientNickname,
+            senderPeerID = myPeerID,
+            deliveryStatus = DeliveryStatus.Sending
+        )
+
+        if (!messageManager.addPrivateMessageDurably(conversationID, message, forceRead = true)) {
+            return false
+        }
+        onSendMessage(content, conversationID, recipientNickname ?: "", message.id)
         return true
     }
 
@@ -119,25 +182,43 @@ class PrivateChatManager(
 
     fun isPeerBlocked(peerID: String): Boolean {
         val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
+            ?: ContactIdentityResolver.fingerprintFromContactConversationId(ContactDirectory.canonicalConversationId(peerID))
+            ?: ContactDirectory.resolve(peerID).noisePublicKey?.let { ContactIdentityResolver.fingerprintHex(it) }
         return fingerprint != null && dataManager.isUserBlocked(fingerprint)
     }
 
     fun toggleFavorite(peerID: String) {
-        val fingerprint = fingerprintManager.getFingerprintForPeer(peerID) ?: return
+        var fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
+            ?: ContactIdentityResolver.fingerprintFromContactConversationId(ContactDirectory.canonicalConversationId(peerID))
+
+        if (fingerprint == null && ContactIdentityResolver.isNoiseKeyHex(peerID)) {
+            try {
+                val pubBytes = ContactIdentityResolver.bytesFromHex(peerID) ?: return
+                fingerprint = ContactIdentityResolver.fingerprintHex(pubBytes)
+                Log.d(TAG, "Computed fingerprint from noise key hex for offline toggle: $fingerprint")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to compute fingerprint from noise key hex: ${e.message}")
+            }
+        }
+
+        if (fingerprint == null) {
+            Log.w(TAG, "toggleFavorite: no fingerprint for peerID=$peerID; ignoring toggle")
+            return
+        }
 
         Log.d(TAG, "toggleFavorite called for peerID: $peerID, fingerprint: $fingerprint")
 
-        val wasFavorite = dataManager.isFavorite(fingerprint)
+        val wasFavorite = dataManager.isFavorite(fingerprint!!)
         Log.d(TAG, "Current favorite status: $wasFavorite")
 
         val currentFavorites = state.getFavoritePeersValue()
         Log.d(TAG, "Current UI state favorites: $currentFavorites")
 
         if (wasFavorite) {
-            dataManager.removeFavorite(fingerprint)
+            dataManager.removeFavorite(fingerprint!!)
             Log.d(TAG, "Removed from favorites: $fingerprint")
         } else {
-            dataManager.addFavorite(fingerprint)
+            dataManager.addFavorite(fingerprint!!)
             Log.d(TAG, "Added to favorites: $fingerprint")
         }
 
@@ -149,11 +230,28 @@ class PrivateChatManager(
         Log.d(TAG, "All peer fingerprints: ${fingerprintManager.getAllPeerFingerprints()}")
     }
 
+
     fun isFavorite(peerID: String): Boolean {
-        val fingerprint = fingerprintManager.getFingerprintForPeer(peerID) ?: return false
-        val isFav = dataManager.isFavorite(fingerprint)
-        Log.d(TAG, "isFavorite check: peerID=$peerID, fingerprint=$fingerprint, result=$isFav")
-        return isFav
+        val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
+            ?: ContactIdentityResolver.fingerprintFromContactConversationId(ContactDirectory.canonicalConversationId(peerID))
+            ?: if (ContactIdentityResolver.isNoiseKeyHex(peerID)) {
+                ContactIdentityResolver.bytesFromHex(peerID)?.let { ContactIdentityResolver.fingerprintHex(it) }
+            } else {
+                null
+            }
+
+        if (fingerprint != null && dataManager.isFavorite(fingerprint)) {
+            Log.d(TAG, "isFavorite check: peerID=$peerID, fingerprint=$fingerprint, result=true")
+            return true
+        }
+
+        val persistedFavorite = try {
+            FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isFavorite == true
+        } catch (_: Exception) {
+            false
+        }
+        Log.d(TAG, "isFavorite check: peerID=$peerID, fingerprint=$fingerprint, result=$persistedFavorite")
+        return persistedFavorite
     }
 
     fun getPeerFingerprint(peerID: String): String? {
@@ -166,7 +264,7 @@ class PrivateChatManager(
 
     // MARK: - Block/Unblock Operations
 
-    fun blockPeer(peerID: String, meshService: BluetoothMeshService): Boolean {
+    fun blockPeer(peerID: String, meshService: MeshService): Boolean {
         val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
         if (fingerprint != null) {
             dataManager.addBlockedUser(fingerprint)
@@ -190,7 +288,7 @@ class PrivateChatManager(
         return false
     }
 
-    fun unblockPeer(peerID: String, meshService: BluetoothMeshService): Boolean {
+    fun unblockPeer(peerID: String, meshService: MeshService): Boolean {
         val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
         if (fingerprint != null && dataManager.isUserBlocked(fingerprint)) {
             dataManager.removeBlockedUser(fingerprint)
@@ -208,7 +306,7 @@ class PrivateChatManager(
         return false
     }
 
-    fun blockPeerByNickname(targetName: String, meshService: BluetoothMeshService): Boolean {
+    fun blockPeerByNickname(targetName: String, meshService: MeshService): Boolean {
         val peerID = getPeerIDForNickname(targetName, meshService)
 
         if (peerID != null) {
@@ -225,7 +323,7 @@ class PrivateChatManager(
         }
     }
 
-    fun unblockPeerByNickname(targetName: String, meshService: BluetoothMeshService): Boolean {
+    fun unblockPeerByNickname(targetName: String, meshService: MeshService): Boolean {
         val peerID = getPeerIDForNickname(targetName, meshService)
 
         if (peerID != null) {
@@ -266,61 +364,166 @@ class PrivateChatManager(
     // MARK: - Message Handling
 
     fun handleIncomingPrivateMessage(message: BitchatMessage) {
-        handleIncomingPrivateMessage(message, suppressUnread = false)
+        handleIncomingPrivateMessage(
+            message = message,
+            suppressUnread = false,
+            origin = PrivateMessageOrigin.MESH
+        )
     }
 
-    fun handleIncomingPrivateMessage(message: BitchatMessage, suppressUnread: Boolean) {
-        message.senderPeerID?.let { senderPeerID ->
+    fun handleIncomingPrivateMessage(
+        message: BitchatMessage,
+        suppressUnread: Boolean,
+        origin: PrivateMessageOrigin = PrivateMessageOrigin.MESH
+    ) {
+        val senderPeerID = message.senderPeerID
+        if (senderPeerID != null) {
+            val conversationID = ContactDirectory.canonicalConversationId(senderPeerID)
+            // Mesh-origin private message: AppStateStore updates the list; avoid double-add here.
             if (!isPeerBlocked(senderPeerID)) {
-                // Add to private messages
-                if (suppressUnread) {
-                    messageManager.addPrivateMessageNoUnread(senderPeerID, message)
-                } else {
-                    messageManager.addPrivateMessage(senderPeerID, message)
+                // Ensure chat exists
+                messageManager.initializePrivateChat(conversationID)
+
+                // Mesh messages are already reflected through AppStateStore by the mesh service.
+                // Nostr messages originate here and must be added explicitly, even after their
+                // sender alias has canonicalized to a contact_* conversation ID.
+                if (origin == PrivateMessageOrigin.NOSTR) {
+                    if (suppressUnread || !trackUnreadMessages) {
+                        messageManager.addPrivateMessageNoUnread(conversationID, message)
+                    } else {
+                        messageManager.addPrivateMessage(conversationID, message)
+                    }
                 }
 
-                // Track as unread for read receipt purposes
-                var unreadCount = 0
-                if (!suppressUnread) {
-                    val unreadList = unreadReceivedMessages.getOrPut(senderPeerID) { mutableListOf() }
+                // Track as unread for read receipt purposes if not focused
+                if (trackUnreadMessages &&
+                    !suppressUnread &&
+                    state.getSelectedPrivateChatPeerValue() != conversationID
+                ) {
+                    val unreadList = unreadReceivedMessages.getOrPut(conversationID) { mutableListOf() }
                     unreadList.add(message)
-                    unreadCount = unreadList.size
+                    Log.d(TAG, "Queued unread from $conversationID (count=${unreadList.size})")
+                    val currentUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
+                    currentUnread.add(conversationID)
+                    state.setUnreadPrivateMessages(currentUnread)
                 }
-
-                Log.d(
-                    TAG,
-                    "Added received message ${message.id} from $senderPeerID to unread list (${unreadCount} unread)"
-                )
             }
+            return
         }
+        // Non-mesh path (e.g., Nostr): add to UI state using existing logic
+        val inferredPeer = state.getSelectedPrivateChatPeerValue() ?: return
+        if (suppressUnread) {
+            messageManager.addPrivateMessageNoUnread(inferredPeer, message)
+        } else {
+            messageManager.addPrivateMessage(inferredPeer, message)
+        }
+    }
+
+    /**
+     * Durable admission for transports that do not pass through the mesh admission pipeline.
+     *
+     * Nostr acknowledgements are emitted by the caller only after this returns true, which lets a
+     * failed write be retried rather than silently acknowledging a message that was never saved.
+     */
+    suspend fun handleIncomingPrivateMessageDurably(
+        message: BitchatMessage,
+        suppressUnread: Boolean,
+        origin: PrivateMessageOrigin
+    ): Boolean {
+        val senderPeerID = message.senderPeerID
+        val conversationID = senderPeerID
+            ?.let(ContactDirectory::canonicalConversationId)
+            ?: state.getSelectedPrivateChatPeerValue()
+            ?: return false
+
+        if (senderPeerID != null && isPeerBlocked(senderPeerID)) return false
+        messageManager.initializePrivateChat(conversationID)
+
+        val shouldPersistHere = origin == PrivateMessageOrigin.NOSTR || senderPeerID == null
+        if (shouldPersistHere) {
+            val accepted = messageManager.addPrivateMessageDurably(
+                peerID = conversationID,
+                message = message,
+                forceRead = suppressUnread || !trackUnreadMessages
+            )
+            if (!accepted) return false
+        }
+
+        if (
+            senderPeerID != null &&
+            trackUnreadMessages &&
+            !suppressUnread &&
+            state.getSelectedPrivateChatPeerValue() != conversationID
+        ) {
+            val unreadList = unreadReceivedMessages.getOrPut(conversationID) { mutableListOf() }
+            unreadList.add(message)
+            val currentUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
+            currentUnread.add(conversationID)
+            state.setUnreadPrivateMessages(currentUnread)
+        }
+        return true
     }
 
     /**
      * Send read receipts for all unread messages from a specific peer
      * Called when the user focuses on a private chat
      */
-    fun sendReadReceiptsForPeer(peerID: String, meshService: BluetoothMeshService) {
-        val unreadList = unreadReceivedMessages[peerID]
-        if (unreadList.isNullOrEmpty()) {
-            Log.d(TAG, "No unread messages to send read receipts for peer $peerID")
-            return
+    fun sendReadReceiptsForPeer(
+        conversationID: String,
+        meshPeerID: String?,
+        meshService: MeshService
+    ) {
+        val canonicalConversationID = ContactDirectory.canonicalConversationId(conversationID)
+
+        // Collect candidate messages: all incoming messages from this peer in the conversation
+        val chats = try { state.getPrivateChatsValue() } catch (_: Exception) { emptyMap<String, List<BitchatMessage>>() }
+        val messages = chats[canonicalConversationID].orEmpty()
+
+        if (messages.isEmpty()) {
+            Log.d(TAG, "No messages found for conversation $canonicalConversationID to send read receipts")
         }
 
-        Log.d(TAG, "Sending read receipts for ${unreadList.size} unread messages from $peerID")
-
-        // Send read receipt for each unread message - now using direct method call
-        unreadList.forEach { message ->
-            try {
-                val myNickname = state.getNicknameValue() ?: "unknown"
-                meshService.sendReadReceipt(message.id, peerID, myNickname)
-                Log.d(TAG, "Sent read receipt for message ${message.id} to $peerID")
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to send read receipt for message ${message.id}: ${e.message}")
+        val myNickname = state.getNicknameValue() ?: "unknown"
+        val hasMesh = meshPeerID != null && try {
+            meshService.getPeerInfo(meshPeerID)?.isConnected == true &&
+                meshService.hasEstablishedSession(meshPeerID)
+        } catch (_: Exception) {
+            false
+        }
+        var sentCount = 0
+        messages.forEach { msg ->
+            val senderPeerID = msg.senderPeerID
+            val isFromTarget = senderPeerID != null && (
+                senderPeerID == meshPeerID ||
+                    ContactDirectory.canonicalConversationId(senderPeerID) == canonicalConversationID
+                )
+            if (isFromTarget) {
+                try {
+                    markMessageReadLocally(msg.id)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to persist local read for message ${msg.id}: ${e.message}")
+                }
+            }
+            if (isFromTarget && meshPeerID != null && !hasReadReceiptBeenSent(msg.id)) {
+                try {
+                    if (hasMesh) {
+                        meshService.sendReadReceipt(msg.id, meshPeerID, myNickname)
+                        sentCount += 1
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to send read receipt for message ${msg.id}: ${e.message}")
+                }
             }
         }
 
-        // Clear the unread list since we've sent read receipts
-        unreadReceivedMessages.remove(peerID)
+        // Clear any locally tracked unread queue for this peer
+        unreadReceivedMessages.remove(canonicalConversationID)
+        // Also clear UI unread marker for this peer now that chat is focused/read
+        try { messageManager.clearPrivateUnreadMessages(canonicalConversationID) } catch (_: Exception) { }
+        Log.d(
+            TAG,
+            "Sent $sentCount read receipts for conversation $canonicalConversationID via mesh peer $meshPeerID"
+        )
     }
 
     fun cleanupDisconnectedPeer(peerID: String) {
@@ -340,7 +543,7 @@ class PrivateChatManager(
      * Establish Noise session if needed before starting private chat
      * Uses same lexicographical logic as MessageHandler.handleNoiseIdentityAnnouncement
      */
-    private fun establishNoiseSessionIfNeeded(peerID: String, meshService: BluetoothMeshService) {
+    private fun establishNoiseSessionIfNeeded(peerID: String, meshService: MeshService) {
         if (noiseSessionDelegate.hasEstablishedSession(peerID)) {
             Log.d(TAG, "Noise session already established with $peerID")
             return
@@ -365,152 +568,55 @@ class PrivateChatManager(
                 "Our peer ID lexicographically >= target peer ID, sending identity announcement to prompt handshake from $peerID"
             )
             meshService.sendAnnouncementToPeer(peerID)
+            Log.d(TAG, "Sent identity announcement to $peerID – starting handshake now from our side")
+            noiseSessionDelegate.initiateHandshake(peerID)
         }
 
-    }
-
-//    /**
-//     * Legacy reflection-based implementation for backward compatibility
-//     */
-//    private fun establishNoiseSessionIfNeededLegacy(peerID: String, meshService: Any) {
-//        try {
-//            // Check if we already have an established Noise session with this peer
-//            val hasSessionMethod = meshService::class.java.getDeclaredMethod("hasEstablishedSession", String::class.java)
-//            val hasSession = hasSessionMethod.invoke(meshService, peerID) as Boolean
-//
-//            if (hasSession) {
-//                Log.d(TAG, "Noise session already established with $peerID")
-//                return
-//            }
-//
-//            Log.d(TAG, "No Noise session with $peerID, determining who should initiate handshake")
-//
-//            // Get our peer ID from mesh service for lexicographical comparison
-//            val myPeerIDField = meshService::class.java.getField("myPeerID")
-//            val myPeerID = myPeerIDField.get(meshService) as String
-//
-//            // Use lexicographical comparison to decide who initiates (same logic as MessageHandler)
-//            if (myPeerID < peerID) {
-//                // We should initiate the handshake
-//                Log.d(TAG, "Our peer ID lexicographically < target peer ID, initiating Noise handshake with $peerID")
-//                initiateHandshakeWithPeer(peerID, meshService)
-//            } else {
-//                // They should initiate, we send a Noise identity announcement
-//                Log.d(TAG, "Our peer ID lexicographically >= target peer ID, sending Noise identity announcement to prompt handshake from $peerID")
-//                sendNoiseIdentityAnnouncement(meshService)
-//            }
-//
-//        } catch (e: Exception) {
-//            Log.e(TAG, "Failed to establish Noise session with $peerID: ${e.message}")
-//        }
-//    }
-
-    /**
-     * Initiate handshake with specific peer using the existing delegate pattern
-     */
-    private fun initiateHandshakeWithPeer(peerID: String, meshService: Any) {
-        try {
-            // Use the existing MessageHandler delegate approach to initiate handshake
-            // This calls the same code that's in MessageHandler's delegate.initiateNoiseHandshake()
-            val messageHandler = meshService::class.java.getDeclaredField("messageHandler")
-            messageHandler.isAccessible = true
-            val handler = messageHandler.get(meshService)
-
-            val delegate = handler::class.java.getDeclaredField("delegate")
-            delegate.isAccessible = true
-            val handlerDelegate = delegate.get(handler)
-
-            val method =
-                handlerDelegate::class.java.getMethod("initiateNoiseHandshake", String::class.java)
-            method.invoke(handlerDelegate, peerID)
-
-            Log.d(TAG, "Successfully initiated Noise handshake with $peerID using delegate pattern")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initiate Noise handshake with $peerID: ${e.message}")
-        }
-    }
-
-    /**
-     * Send Noise identity announcement to prompt other peer to initiate handshake
-     * This follows the same pattern as broadcastNoiseIdentityAnnouncement() in BluetoothMeshService
-     */
-    private fun sendNoiseIdentityAnnouncement(meshService: Any) {
-        try {
-            // Call broadcastNoiseIdentityAnnouncement which sends a NoiseIdentityAnnouncement
-            val method =
-                meshService::class.java.getDeclaredMethod("broadcastNoiseIdentityAnnouncement")
-            method.invoke(meshService)
-            Log.d(TAG, "Successfully sent Noise identity announcement")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to send Noise identity announcement: ${e.message}")
-        }
     }
 
     // MARK: - Utility Functions
 
-    private fun getPeerIDForNickname(nickname: String, meshService: BluetoothMeshService): String? {
+    private fun getPeerIDForNickname(nickname: String, meshService: MeshService): String? {
         return meshService.getPeerNicknames().entries.find { it.value == nickname }?.key
     }
 
-    private fun getPeerNickname(peerID: String, meshService: BluetoothMeshService): String {
+    private fun getPeerNickname(peerID: String, meshService: MeshService): String {
         return meshService.getPeerNicknames()[peerID] ?: peerID
     }
 
     // MARK: - Consolidation
 
-    private fun consolidateNostrTempConversationIfNeeded(targetPeerID: String) {
-        // If target is a mesh/noise-based peerID, merge any messages from its temp Nostr key
-        if (targetPeerID.startsWith("nostr_")) return
+    private fun consolidateNostrTempConversationIfNeeded(targetPeerID: String, meshService: MeshService) {
+        val targetConversationID = ContactDirectory.canonicalConversationId(targetPeerID)
+        if (ContactIdentityResolver.isNostrAlias(targetPeerID)) return
 
-        // Find favorites mapping and corresponding temp key
         val tryMergeKeys = mutableListOf<String>()
-
-        // If we know the sender's Nostr pubkey for this peer via favorites, derive temp key
-        try {
-            val noiseKeyBytes = targetPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-            val npub = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(noiseKeyBytes)
-            if (npub != null) {
-                // Normalize to hex to match how we formed temp keys (nostr_<pub16>)
-                val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npub)
-                if (hrp == "npub") {
-                    val pubHex = data.joinToString("") { "%02x".format(it) }
-                    tryMergeKeys.add("nostr_${pubHex.take(16)}")
-                }
-            }
-        } catch (_: Exception) { }
-
-        // Also merge any directly-addressed temp key used by incoming messages (without mapping yet)
-        // Search existing chats for keys that begin with "nostr_" and have messages from the same nickname
-        state.getPrivateChatsValue().keys.filter { it.startsWith("nostr_") }.forEach { tempKey ->
-            if (!tryMergeKeys.contains(tempKey)) tryMergeKeys.add(tempKey)
+        val noiseKey = when {
+            ContactIdentityResolver.isNoiseKeyHex(targetPeerID) ->
+                ContactIdentityResolver.bytesFromHex(targetPeerID)
+            ContactIdentityResolver.isMeshPeerId(targetPeerID) ->
+                meshService.getPeerInfo(targetPeerID)?.noisePublicKey
+            else -> null
         }
 
-        if (tryMergeKeys.isEmpty()) return
-
-        val currentChats = state.getPrivateChatsValue().toMutableMap()
-        val targetList = currentChats[targetPeerID]?.toMutableList() ?: mutableListOf()
-
-        var didMerge = false
-        tryMergeKeys.forEach { tempKey ->
-            val tempList = currentChats[tempKey]
-            if (!tempList.isNullOrEmpty()) {
-                targetList.addAll(tempList)
-                currentChats.remove(tempKey)
-                didMerge = true
+        if (noiseKey != null) {
+            val noiseHex = ContactIdentityResolver.noiseKeyHex(noiseKey)
+            if (!noiseHex.equals(targetPeerID, ignoreCase = true)) {
+                tryMergeKeys.add(noiseHex)
             }
+            try {
+                FavoritesPersistenceService.shared.findNostrPubkey(noiseKey)
+                    ?.let { ContactIdentityResolver.nostrAliasForPubkey(it) }
+                    ?.let { tryMergeKeys.add(it) }
+            } catch (_: Exception) { }
         }
 
-        if (didMerge) {
-            currentChats[targetPeerID] = targetList
-            state.setPrivateChats(currentChats)
-
-            // Also remove unread flag from temp keys and apply to target
-            val unread = state.getUnreadPrivateMessagesValue().toMutableSet()
-            val hadUnread = tryMergeKeys.any { unread.remove(it) }
-            if (hadUnread) {
-                unread.add(targetPeerID)
-                state.setUnreadPrivateMessages(unread)
-            }
+        if (tryMergeKeys.isNotEmpty()) {
+            com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(
+                state = state,
+                targetPeerID = targetConversationID,
+                keysToMerge = tryMergeKeys
+            )
         }
     }
 

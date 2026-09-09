@@ -4,17 +4,19 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import kotlinx.coroutines.launch
+import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.model.BitchatMessage
 
 /**
@@ -34,23 +36,17 @@ fun ChatUserSheet(
     val coroutineScope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
     
-    // Bottom sheet state
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true
-    )
-    
-    // iOS system colors (matches LocationChannelsSheet exactly)
     val colorScheme = MaterialTheme.colorScheme
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D) // iOS green
-    val standardBlue = Color(0xFF007AFF) // iOS blue
-    val standardRed = Color(0xFFFF3B30) // iOS red
-    val standardGrey = if (isDark) Color(0xFF8E8E93) else Color(0xFF6D6D70) // iOS grey
+    val palette = LocalBitchatPalette.current
+    val standardGreen = colorScheme.primary
+    val standardBlue = colorScheme.secondary
+    val standardPurple = palette.accentPurple
+    val standardRed = colorScheme.error
+    val standardGrey = colorScheme.onSurfaceVariant
     
     if (isPresented) {
-        ModalBottomSheet(
+        BitchatBottomSheet(
             onDismissRequest = onDismiss,
-            sheetState = sheetState,
             modifier = modifier
         ) {
             Column(
@@ -61,17 +57,17 @@ fun ChatUserSheet(
             ) {
                 // Header
                 Text(
-                    text = "@$targetNickname",
+                    text = stringResource(R.string.at_nickname, targetNickname),
                     fontSize = 18.sp,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 
                 Text(
-                    text = if (selectedMessage != null) "choose an action for this message or user" else "choose an action for this user",
+                    text = if (selectedMessage != null) stringResource(R.string.choose_action_message_or_user) else stringResource(R.string.choose_action_user),
                     fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
                 
@@ -83,8 +79,8 @@ fun ChatUserSheet(
                     selectedMessage?.let { message ->
                         item {
                             UserActionRow(
-                                title = "copy message",
-                                subtitle = "copy this message to clipboard",
+                                title = stringResource(R.string.action_copy_message_title),
+                                subtitle = stringResource(R.string.action_copy_message_subtitle),
                                 titleColor = standardGrey,
                                 onClick = {
                                     // Copy the message content to clipboard
@@ -97,11 +93,38 @@ fun ChatUserSheet(
                     
                     // Only show user actions for other users' messages or when no message is selected
                     if (selectedMessage?.sender != viewModel.nickname.value) {
+                        // Send private message action
+                        item {
+                            UserActionRow(
+                                title = stringResource(R.string.action_private_message_title, targetNickname),
+                                subtitle = stringResource(R.string.action_private_message_subtitle),
+                                titleColor = standardPurple,
+                                onClick = {
+                                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
+                                    if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+                                        if (selectedMessage?.senderPeerID?.startsWith("nostr:") == true) {
+                                            val shortId = selectedMessage.senderPeerID!!.substring(6)
+                                            viewModel.startGeohashDMByShortId(shortId)
+                                        } else {
+                                            viewModel.startGeohashDMByNickname(targetNickname)
+                                        }
+                                    } else {
+                                        // Mesh chat
+                                        val peerID = selectedMessage?.senderPeerID ?: viewModel.getPeerIDForNickname(targetNickname)
+                                        if (peerID != null) {
+                                            viewModel.showPrivateChatSheet(peerID)
+                                        }
+                                    }
+                                    onDismiss()
+                                }
+                            )
+                        }
+
                         // Slap action
                         item {
                             UserActionRow(
-                                title = "slap $targetNickname",
-                                subtitle = "send a playful slap message",
+                                title = stringResource(R.string.action_slap_title, targetNickname),
+                                subtitle = stringResource(R.string.action_slap_subtitle),
                                 titleColor = standardBlue,
                                 onClick = {
                                     // Send slap command
@@ -114,8 +137,8 @@ fun ChatUserSheet(
                         // Hug action  
                         item {
                             UserActionRow(
-                                title = "hug $targetNickname",
-                                subtitle = "send a friendly hug message",
+                                title = stringResource(R.string.action_hug_title, targetNickname),
+                                subtitle = stringResource(R.string.action_hug_subtitle),
                                 titleColor = standardGreen,
                                 onClick = {
                                     // Send hug command
@@ -128,8 +151,8 @@ fun ChatUserSheet(
                         // Block action
                         item {
                             UserActionRow(
-                                title = "block $targetNickname",
-                                subtitle = "block all messages from this user",
+                                title = stringResource(R.string.action_block_title, targetNickname),
+                                subtitle = stringResource(R.string.action_block_subtitle),
                                 titleColor = standardRed,
                                 onClick = {
                                     // Check if we're in a geohash channel
@@ -158,9 +181,9 @@ fun ChatUserSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "cancel",
+                        text = stringResource(R.string.cancel_lower),
                         fontSize = BASE_FONT_SIZE.sp,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = BitchatFontFamily
                     )
                 }
             }
@@ -191,7 +214,7 @@ private fun UserActionRow(
             Text(
                 text = title,
                 fontSize = BASE_FONT_SIZE.sp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Medium,
                 color = titleColor
             )
@@ -199,7 +222,7 @@ private fun UserActionRow(
             Text(
                 text = subtitle,
                 fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
         }

@@ -1,37 +1,38 @@
 package com.bitchat.android.onboarding
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.ui.theme.BitchatFontFamily
+import com.bitchat.android.R
 
 /**
  * Screen shown when checking Bluetooth status or requesting Bluetooth enable
  */
 @Composable
 fun BluetoothCheckScreen(
+    modifier: Modifier,
     status: BluetoothStatus,
     onEnableBluetooth: () -> Unit,
     onRetry: () -> Unit,
+    onSkip: () -> Unit,
     isLoading: Boolean = false
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier = modifier.padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         when (status) {
@@ -39,13 +40,15 @@ fun BluetoothCheckScreen(
                 BluetoothDisabledContent(
                     onEnableBluetooth = onEnableBluetooth,
                     onRetry = onRetry,
+                    onSkip = onSkip,
                     colorScheme = colorScheme,
                     isLoading = isLoading
                 )
             }
             BluetoothStatus.NOT_SUPPORTED -> {
                 BluetoothNotSupportedContent(
-                    colorScheme = colorScheme
+                    colorScheme = colorScheme,
+                    onSkip = onSkip
                 )
             }
             BluetoothStatus.ENABLED -> {
@@ -61,6 +64,7 @@ fun BluetoothCheckScreen(
 private fun BluetoothDisabledContent(
     onEnableBluetooth: () -> Unit,
     onRetry: () -> Unit,
+    onSkip: () -> Unit,
     colorScheme: ColorScheme,
     isLoading: Boolean
 ) {
@@ -71,15 +75,15 @@ private fun BluetoothDisabledContent(
         // Bluetooth icon - using Bluetooth outlined icon in app's green color
         Icon(
             imageVector = Icons.Outlined.Bluetooth,
-            contentDescription = "Bluetooth",
+            contentDescription = stringResource(R.string.cd_bluetooth),
             modifier = Modifier.size(64.dp),
             tint = Color(0xFF00C851) // App's main green color
         )
 
         Text(
-            text = "Bluetooth Required",
+            text = stringResource(R.string.bluetooth_recommended),
             style = MaterialTheme.typography.headlineSmall.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold,
                 color = colorScheme.primary
             ),
@@ -97,8 +101,8 @@ private fun BluetoothDisabledContent(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "bitchat needs Bluetooth to:",
+                    Text(
+                        text = stringResource(R.string.bluetooth_needs_for),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Medium,
                         color = colorScheme.onSurface
@@ -107,13 +111,10 @@ private fun BluetoothDisabledContent(
                     modifier = Modifier.fillMaxWidth()
                 )
                 
-                Text(
-                    text = "• Discover nearby users\n" +
-                            "• Create mesh network connections\n" +
-                            "• Send and receive messages\n" +
-                            "• Work without internet or servers",
+                    Text(
+                        text = stringResource(R.string.bluetooth_needs_bullets),
                     style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         color = colorScheme.onSurface.copy(alpha = 0.8f)
                     )
                 )
@@ -134,30 +135,27 @@ private fun BluetoothDisabledContent(
                         containerColor = Color(0xFF00C851) // App's main green color
                     )
                 ) {
-                    Text(
-                        text = "Enable Bluetooth",
+                        Text(
+                            text = stringResource(R.string.enable_bluetooth),
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontWeight = FontWeight.Bold
                         ),
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
 
-                //Since we are automatically checking bluetooth state -- commented
-
-//                OutlinedButton(
-//                    onClick = onRetry,
-//                    modifier = Modifier.fillMaxWidth()
-//                ) {
-//                    Text(
-//                        text = "Check Again",
-//                        style = MaterialTheme.typography.bodyMedium.copy(
-//                            fontFamily = FontFamily.Monospace
-//                        ),
-//                        modifier = Modifier.padding(vertical = 4.dp)
-//                    )
-//                }
+                TextButton(
+                    onClick = onSkip,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(R.string.skip),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    )
+                }
             }
         }
     }
@@ -165,7 +163,8 @@ private fun BluetoothDisabledContent(
 
 @Composable
 private fun BluetoothNotSupportedContent(
-    colorScheme: ColorScheme
+    colorScheme: ColorScheme,
+    onSkip: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -179,16 +178,16 @@ private fun BluetoothNotSupportedContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Text(
-                text = "❌",
+                text = stringResource(R.string.warning_emoji),
                 style = MaterialTheme.typography.headlineLarge,
                 modifier = Modifier.padding(16.dp)
             )
         }
 
         Text(
-            text = "Bluetooth Not Supported",
+            text = stringResource(R.string.bluetooth_not_supported),
             style = MaterialTheme.typography.headlineSmall.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold,
                 color = colorScheme.error
             ),
@@ -203,14 +202,24 @@ private fun BluetoothNotSupportedContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Text(
-                text = "This device doesn't support Bluetooth Low Energy (BLE), which is required for bitchat to function.\n\nbitchat needs BLE to create mesh networks and communicate with nearby devices without internet.",
+                text = stringResource(R.string.bluetooth_unsupported_explanation),
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     color = colorScheme.onSurface
                 ),
                 modifier = Modifier.padding(16.dp),
                 textAlign = TextAlign.Center
             )
+        }
+
+        Button(
+            onClick = onSkip,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorScheme.secondary
+            )
+        ) {
+            Text(text = stringResource(R.string.continue_btn))
         }
     }
 }
@@ -224,9 +233,9 @@ private fun BluetoothCheckingContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "bitchat",
+            text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.headlineLarge.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold,
                 color = colorScheme.primary
             ),
@@ -236,9 +245,9 @@ private fun BluetoothCheckingContent(
         BluetoothLoadingIndicator()
 
         Text(
-            text = "Checking Bluetooth status...",
+            text = stringResource(R.string.checking_bluetooth_status),
             style = MaterialTheme.typography.bodyLarge.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 color = colorScheme.onSurface.copy(alpha = 0.7f)
             )
         )

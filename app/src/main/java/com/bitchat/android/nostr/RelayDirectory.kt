@@ -92,7 +92,7 @@ object RelayDirectory {
             val c = com.bitchat.android.geohash.Geohash.decodeToCenter(geohash)
             c
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to decode geohash '$geohash': ${e.message}")
+            Log.e(TAG, "Failed to decode geohash")
             return emptyList()
         }
 
@@ -300,4 +300,3 @@ object RelayDirectory {
         }
     }
 }
-

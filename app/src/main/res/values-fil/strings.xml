@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <!-- Mga dahilan ng permiso -->
+    <string name="permission_bluetooth_rationale">Kailangan ang permiso sa Bluetooth para sa direktang pag‑usap kahit walang internet.</string>
+    <string name="permission_location_rationale">Kailangan ang permiso sa Lokasyon para mahanap ang mga kalapit na device gamit ang Bluetooth.</string>
+    <string name="permission_notification_rationale">Kailangan ang permiso sa Abiso para ipaalam ang mga bagong mensahe.</string>
+
+    <!-- Mga placeholder / batayang UI -->
+    <string name="nickname_hint">palayaw</string>
+    <string name="message_hint">magtype ng mensahe…</string>
+    <string name="channel_password_hint">Password</string>
+    <string name="join_channel">Sumali sa Channel</string>
+    <string name="leave_channel">Umalis</string>
+    <string name="send_message">Ipadala</string>
+    <string name="show_commands">Ipakita ang mga utos</string>
+    <string name="back">Bumalik</string>
+    <string name="people">Tao</string>
+    <string name="channels">Mga Channel</string>
+    <string name="online_users">Mga Online na User</string>
+    <string name="no_one_connected">Walang nakakonekta</string>
+    <string name="emergency_clear_hint">I‑tap nang tatlong beses para burahin ang lahat ng data</string>
+    <string name="your_network">Network</string>
+
+    <!-- Pag‑optimize ng baterya -->
+    <string name="battery_optimization_detected">Natukoy ang pag‑optimize ng baterya</string>
+    <string name="battery_optimization_disabled">Naka‑disable ang pag‑optimize ng baterya</string>
+    <string name="battery_optimization_not_required">Hindi kailangan ang pag‑optimize ng baterya</string>
+    <string name="battery_optimization_checking">Sinusuri ang pag‑optimize ng baterya</string>
+    <string name="battery_optimization_why_disable">Bakit i‑disable ang pag‑optimize?</string>
+    <string name="battery_optimization_explanation">Tumatakbo ang bitchat sa background upang mapanatili ang mesh na koneksyon sa mga kalapit na device. Maaaring maputol ito ng pag‑optimize ng baterya na nagdudulot ng pagkaantala o pagkawala ng mensahe.\n\nAng pag‑disable nito ay tinitiyak ang maaasahang peer‑to‑peer na pagmemensahe.</string>
+    <string name="battery_optimization_disable_button">I‑disable ang pag‑optimize</string>
+    <string name="battery_optimization_note">Tandaan: Maaari itong baguhin sa Android Settings &gt; Apps &gt; bitchat &gt; Battery</string>
+    <string name="battery_optimization_not_supported_explanation">Hindi kailangan ng iyong device ng mga setting ng pag‑optimize ng baterya. Normal na gagana ang bitchat.</string>
+    <string name="battery_optimization_not_supported_message">Hindi kailangan ng iyong device ng mga setting ng pag‑optimize ng baterya. Normal na gagana ang bitchat.</string>
+    <string name="battery_optimization_success_message">Maaasahang tatakbo ang bitchat sa background</string>
+    <string name="battery_optimization_benefits">• Maaasahang paghatid ng mensahe\n• Pinananatili ang mesh na koneksyon\n• Background relay ng mensahe\n• Iwas putol ng koneksyon</string>
+    <string name="battery_optimization_check_again">Suriin muli</string>
+    <string name="battery_optimization_skip">Laktawan muna</string>
+    <string name="battery_optimization_continue">Magpatuloy</string>
+    <string name="retry">Subukang muli</string>
+    <string name="skip">Laktawan</string>
+
+    <!-- Mga Abiso -->
+    <string name="notification_summary_more">at %1$d pa</string>
+    <string name="notification_messages_from_people">%1$d mensahe mula sa %2$d tao</string>
+    <string name="notification_more_conversations">at %1$d pang usapan</string>
+    <string name="notification_active_peers_title">mga bitchatter na malapit!</string>
+    <string name="notification_active_peers_one">1 tao sa paligid</string>
+    <string name="notification_active_peers_many">%1$d tao sa paligid</string>
+    <string name="notification_new_messages">Mga bagong mensahe</string>
+    <string name="notification_new_location_messages">Mga mensahe sa lokasyon</string>
+    <string name="notification_mentions_in">Nabanggit sa %1$s</string>
+    <string name="notification_mentions_in_more">Nabanggit sa %1$s (+%2$d pa)</string>
+    <string name="notification_mentions_in_plural">%1$d banggit sa %2$s</string>
+    <string name="notification_new_activity_in">Bagong aktibidad sa %1$s</string>
+    <string name="notification_messages_in">Mga mensahe sa %1$s</string>
+    <string name="notification_joined_conversation">Sumali si %1$s sa usapan</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d banggit</string>
+    <string name="notification_geohash_summary_title">bitchat – mga chat sa lokasyon</string>
+    <string name="notification_geohash_summary_text">%1$d mensahe mula sa %2$d lokasyon</string>
+    <string name="notification_mesh_mention_title_singular">Nabanggit sa Mesh Chat</string>
+    <string name="notification_mesh_mention_title_plural">%1$d banggit sa Mesh Chat</string>
+    <string name="notification_more_locations">at %1$d pang lokasyon</string>
+    <string name="notification_and_more">at %1$d pa</string>
+
+    <!-- Paborito / Accessibility -->
+    <string name="cd_add_favorite">Idagdag sa paborito</string>
+    <string name="cd_remove_favorite">Alisin sa paborito</string>
+    <string name="cd_add_bookmark">Mag‑bookmark</string>
+
+    <!-- Header at accessibility -->
+    <string name="cd_nostr_reachable">Maabot sa Nostr</string>
+    <string name="cd_unread_private_messages">Hindi nabasang pribadong mensahe</string>
+    <string name="cd_teleported">Naiteleport</string>
+    <string name="cd_open_location_channels">Buksan ang mga setting ng lokasyon at channel</string>
+    <string name="cd_connected_peers">Nakakonektang peers</string>
+    <string name="cd_geohash_participants">Mga kalahok sa geohash</string>
+    <string name="cd_ready_for_handshake">Handa para sa handshake</string>
+    <string name="cd_handshake_in_progress">Isinasagawa ang handshake</string>
+    <string name="cd_encrypted">End‑to‑end naka‑encrypt</string>
+    <string name="cd_handshake_failed">Bigo ang handshake</string>
+
+    <!-- Dialog ng file -->
+    <string name="file_viewer_title">📎 Nakakuha ng file</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Laki: %1$s</string>
+    <string name="file_viewer_type">🏷️ Uri: %1$s</string>
+    <string name="file_viewer_open_save">📂 Buksan / I‑save</string>
+    <string name="close_with_emoji">❌ Isara</string>
+    <string name="pick_image">Pumili ng larawan</string>
+
+    <!-- About sheet -->
+    <string name="about_offline_mesh_title">Offline Mesh Chat</string>
+    <string name="about_offline_mesh_desc">Makipag‑usap direkta sa Bluetooth LE nang walang internet o server. Ang mga mensahe ay nire‑relay ng mga kalapit na device.</string>
+    <string name="about_online_geohash_title">Online na Geohash na mga Channel</string>
+    <string name="about_online_geohash_desc">Makipag‑ugnayan sa mga tao sa paligid gamit ang geohash‑based na mga channel. Palawakin ang mesh sa pampublikong internet relays.</string>
+    <string name="about_e2e_title">End‑to‑End Encryption</string>
+    <string name="about_e2e_desc">Ang mga pribadong mensahe ay naka‑encrypt. Ang mga mensahe sa channel ay publiko.</string>
+    <string name="about_system">system</string>
+    <string name="about_light">light</string>
+    <string name="about_dark">dark</string>
+    <string name="about_pow">proof of work</string>
+    <string name="about_pow_off">pow off</string>
+    <string name="about_pow_on">pow on</string>
+    <string name="about_pow_tip">magdagdag ng proof of work sa mga geohash na mensahe para iwas spam.</string>
+    <string name="about_pow_difficulty">hirap: %1$d bits (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">ang hirap na %1$d ay ~%2$s hash attempts</string>
+    <string name="about_pow_desc_none">walang proof of work na kailangan</string>
+    <string name="about_pow_desc_very_low">napakababa – minimal na proteksyon</string>
+    <string name="about_pow_desc_low">mababa – batayang proteksyon</string>
+    <string name="about_pow_desc_medium">katamtaman – magandang proteksyon</string>
+    <string name="about_pow_desc_high">mataas – matibay na proteksyon</string>
+    <string name="about_pow_desc_very_high">napakataas – posibleng may pagkaantala</string>
+    <string name="about_pow_desc_extreme">matindi – malaking komputasyon ang kailangan</string>
+    <string name="about_network">network</string>
+    <string name="about_tor_off">tor off</string>
+    <string name="about_tor_on">tor on</string>
+    <string name="about_tor_route">iruta ang internet sa Tor para sa mas mataas na privacy.</string>
+    <string name="about_tor_status">katayuan ng Tor: %1$s, bootstrap %2$d%%</string>
+    <string name="about_last">Huli: %1$s</string>
+    <string name="about_emergency_title">Emergency Data Deletion</string>
+    <string name="about_debug_settings">Debug Settings</string>
+    <string name="about_footer">Open Source • Privacy First • Desentralisado</string>
+    <string name="close_plain">Isara</string>
+    <string name="cancel_lower">kanselahin</string>
+
+    <!-- Generic CD -->
+    <string name="cd_warning">Babala</string>
+    <string name="cd_location_services">Mga serbisyo sa lokasyon</string>
+    <string name="cd_privacy">Privacy</string>
+    <string name="cd_error">Error</string>
+    <string name="cd_battery_optimization">Pag‑optimize ng baterya</string>
+    <string name="cd_benefits">Mga benepisyo</string>
+    <string name="cd_checking_battery_optimization">Sinusuri ang pag‑optimize</string>
+    <string name="cd_not_supported_battery_optimization">Hindi suportado</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_unread_message">Hindi nabasang mensahe</string>
+    <string name="cd_open_map">Buksan ang mapa</string>
+    <string name="cd_remove_bookmark">Alisin ang bookmark</string>
+    <string name="cd_teleport">Teleport</string>
+    <string name="cd_leave_channel">Umalis sa channel</string>
+    <string name="cd_reachable_via_nostr">Maabot sa Nostr</string>
+    <string name="cd_offline_favorite">Paborito (offline)</string>
+    <string name="cd_decrease_precision">Bawasan ang precision</string>
+    <string name="cd_increase_precision">Dagdagan ang precision</string>
+    <string name="cd_select_geohash">Piliin ang geohash</string>
+    <string name="cd_scroll_to_bottom">Mag‑scroll pababa</string>
+    <string name="cd_file">File</string>
+    <string name="cd_image">Larawan</string>
+    <string name="cd_cancel">Kanselahin</string>
+    <string name="cd_link">Link</string>
+    <string name="cd_pick_media">Pumili ng media</string>
+    <string name="cd_record_voice">Mag‑record ng voice note</string>
+    <string name="cd_offline_mesh_chat">Offline Mesh Chat</string>
+    <string name="cd_online_geohash_channels">Online na Geohash Channels</string>
+    <string name="cd_end_to_end_encryption">End‑to‑End Encryption</string>
+
+    <!-- Larawan / File -->
+    <string name="image_page_of">Larawan %1$d ng %2$d</string>
+    <string name="image_unavailable">Hindi available ang larawan</string>
+    <string name="image_saved_to_downloads">Na‑save ang larawan sa "Downloads"</string>
+    <string name="image_save_failed">Nabigo ang pag‑save ng larawan</string>
+    <string name="pick_file">Pumili ng file</string>
+    <string name="file_unavailable">[hindi available ang file]</string>
+    <string name="unknown">hindi kilala</string>
+
+    <!-- User action sheet -->
+    <string name="choose_action_message_or_user">pumili ng aksyon para sa mensaheng ito o user</string>
+    <string name="choose_action_user">pumili ng aksyon para sa user na ito</string>
+    <string name="action_copy_message_title">kopyahin ang mensahe</string>
+    <string name="action_copy_message_subtitle">kopyahin ang mensaheng ito sa clipboard</string>
+    <string name="action_slap_title">sapakin si %1$s</string>
+    <string name="action_slap_subtitle">magpadala ng birong sampal</string>
+    <string name="action_hug_title">yakapin si %1$s</string>
+    <string name="action_hug_subtitle">magpadala ng magiliw na yakap</string>
+    <string name="action_block_title">harangan si %1$s</string>
+    <string name="action_block_subtitle">harangan ang lahat ng mensahe mula sa user na ito</string>
+
+    <!-- Location channels sheet -->
+    <string name="location_channels_title">#mga channel sa lokasyon</string>
+    <string name="location_channels_desc">makipag‑usap sa mga tao sa paligid gamit ang mga geohash na channel. tanging malabong geohash ang ibinabahagi, hindi eksaktong gps. huwag mag‑screenshot o ibahagi ang screen na ito para sa privacy.</string>
+    <string name="grant_location_permission">payagan ang lokasyon</string>
+    <string name="location_permission_denied">tinanggihan ang permiso sa lokasyon. i‑enable sa settings para magamit ang mga channel sa lokasyon.</string>
+    <string name="open_settings">Buksan ang Settings</string>
+    <string name="location_permission_granted">\u2713 pinayagan ang lokasyon</string>
+    <string name="checking_permissions">sini‑siyasat ang mga permiso…</string>
+    <string name="finding_nearby_channels">naghahanap ng kalapit na channel…</string>
+    <string name="bookmarked">na‑bookmark</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">maling geohash</string>
+    <string name="teleport">teleport</string>
+    <string name="disable_location_services">i‑disable ang location services</string>
+    <string name="enable_location_services">i‑enable ang location services</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">bloke</string>
+    <string name="location_level_neighborhood">barangay</string>
+    <string name="location_level_city">lungsod</string>
+    <string name="location_level_province">probinsya</string>
+    <string name="location_level_region">rehiyon</string>
+
+    <!-- Debug / Diagnostics -->
+    <string name="debug_tools">mga kasangkapan sa debug</string>
+    <string name="debug_verbose_logging">masalitang pag‑log</string>
+    <string name="debug_bluetooth_roles">mga tungkulin sa Bluetooth</string>
+    <string name="debug_gatt_server">GATT server</string>
+    <string name="debug_connections_fmt">mga koneksyon: %1$d / %2$d</string>
+    <string name="debug_max_server">max server</string>
+    <string name="debug_gatt_client">GATT client</string>
+    <string name="debug_max_client">max client</string>
+    <string name="debug_overall_connections_fmt">mga koneksyon: %1$d / %2$d</string>
+    <string name="debug_max_overall">max kabuuan</string>
+    <string name="debug_packet_relay">packet relay</string>
+    <string name="debug_since_start_fmt">mula umpisa: %1$d</string>
+    <string name="debug_sync_settings">mga setting ng sync</string>
+    <string name="debug_max_packets_per_sync_fmt">max packet bawat sync: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">max laki ng GCS filter: %1$d bytes (128–1024)</string>
+    <string name="debug_target_fpr_fmt">target FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">mga nakakonektang device</string>
+    <string name="debug_our_device_id_fmt">ID ng aming device: %1$s</string>
+    <string name="debug_none">wala</string>
+    <string name="debug_disconnect">i‑disconnect</string>
+    <string name="debug_recent_scan_results">mga huling resulta ng scan</string>
+    <string name="debug_connect">kumonekta</string>
+    <string name="debug_debug_console">debug console</string>
+    <string name="debug_clear">limasin</string>
+    <string name="debug_relays_window_fmt">huling 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
+    <string name="debug_derived_p_fmt">hinangong P: %1$s • tantyang max na elemento: %2$s</string>
+    <string name="debug_direct_suffix"> • direkta</string>
+    <string name="debug_question_mark">?</string>
+    <string name="debug_role_server">bilang server (kami ang nagho‑host)</string>
+    <string name="debug_role_client">bilang client (kami ang kumokonekta)</string>
+
+    <!-- Onboarding screens -->
+    <string name="location_services_required">Kailangang‑kailangan ang Location Services</string>
+    <string name="privacy_first">Privacy muna</string>
+    <string name="location_explanation">HINDI sinusubaybayan ng bitchat ang iyong lokasyon.\n\nKailangan ang location services para sa Bluetooth scanning at Geohash chat.</string>
+    <string name="location_needs_for">Kailangan ng bitchat ang location services para sa:</string>
+    <string name="location_needs_bullets">• Bluetooth device scanning\n• Pagtuklas ng kalapit na user sa mesh\n• Geohash chat\n• Walang tracking o koleksiyon ng lokasyon</string>
+    <string name="open_location_settings">Buksan ang Location Settings</string>
+    <string name="check_again">Suriin muli</string>
+    <string name="location_services_unavailable">Hindi available ang Location Services</string>
+    <string name="location_unavailable_explanation">Hindi available ang location services sa device na ito. Hindi ito karaniwan dahil standard ito sa Android.\n\nKailangan ito para maayos ang Bluetooth scanning. Kung wala ito, hindi matutuklasan ang mga kalapit na user.</string>
+    <string name="checking_location_services">Sinusuri ang location services…</string>
+    <string name="bluetooth_required">Kailangan ang Bluetooth</string>
+    <string name="bluetooth_needs_for">Kailangan ng bitchat ang Bluetooth para sa:</string>
+    <string name="bluetooth_needs_bullets">• Tuklasin ang mga kalapit na user\n• Gumawa ng mesh na koneksyon\n• Magpadala at tumanggap ng mensahe\n• Gumana kahit walang internet o server</string>
+    <string name="enable_bluetooth">I‑enable ang Bluetooth</string>
+    <string name="bluetooth_not_supported">Hindi suportado ang Bluetooth</string>
+    <string name="bluetooth_unsupported_explanation">Hindi sinusuportahan ng device na ito ang Bluetooth Low Energy (BLE) na kailangan para gumana ang bitchat.\n\nKailangan ang BLE para bumuo ng mesh at makipag‑ugnayan sa kalapit na device kahit walang internet.</string>
+    <string name="checking_bluetooth_status">Sinusuri ang status ng Bluetooth…</string>
+    <string name="battery_optimization_detected_title">natukoy ang pag‑optimize ng baterya</string>
+    <string name="battery_optimization_enabled_title">Naka‑enable ang pag‑optimize</string>
+    <string name="battery_optimization_explanation_short">kailangang tumakbo ang bitchat sa background para sa mesh; maaaring putulin ito ng pag‑optimize.</string>
+    <string name="benefits_of_disabling">Mga benepisyo ng pag‑disable</string>
+    <string name="battery_benefits_short">• maaasahang paghatid\n• panatilihin ang koneksyon\n• iwas putol</string>
+    <string name="disable_battery_optimization">I‑disable ang pag‑optimize</string>
+    <string name="battery_optimization_disabled_title">na‑disable ang pag‑optimize</string>
+    <string name="continue_btn">Magpatuloy</string>
+    <string name="initializing_mesh_network">Ine‑initialize ang mesh network</string>
+    <string name="dot">.</string>
+    <string name="setting_up_bluetooth">Ise‑set up ang Bluetooth mesh…</string>
+    <string name="should_take_seconds">Ilang segundo lang ito</string>
+    <string name="warning_emoji">⚠️</string>
+    <string name="setup_not_complete">Hindi kumpleto ang setup</string>
+    <string name="try_again">Subukang muli</string>
+    <string name="privacy_protected">Protektado ang iyong privacy</string>
+    <string name="privacy_bullets">• walang tracking o koleksiyon\n• offline ang mesh chat sa Bluetooth\n• gumagamit ng internet ang geohash chat</string>
+    <string name="permissions_header">mga permiso</string>
+    <string name="grant_permissions">Payagan</string>
+    <string name="location_tracking_warning">HINDI sinusubaybayan ng bitchat ang lokasyon mo</string>
+    <string name="at_symbol">@</string>
+    <string name="channel_count_prefix"> · ⧉ </string>
+    <string name="nobody_around">walang tao sa paligid…</string>
+    <string name="you_suffix"> (ikaw)</string>
+    <string name="pan_zoom_instruction">i‑pan at i‑zoom para pumili ng geohash</string>
+    <string name="select">piliin</string>
+    <string name="type_a_message_placeholder">magtype ng mensahe…</string>
+    <string name="mention_suggestion_at">@%1$s</string>
+    <string name="mention">banggit</string>
+    <string name="image_counter">%1$d / %2$d</string>
+    <string name="at_nickname">@%1$s</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="hash_symbol">#</string>
+    <string name="underscore">_</string>
+    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+    <string name="progress_filled">█</string>
+    <string name="progress_empty">░</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">Larawan</string>
+    <string name="media_type_file">File</string>
+
+    <!-- Mga status ng mensahe -->
+
+    <!-- Tulong na text sa abiso -->
+    <string name="notification_sent_image">📷 nagpadala ng larawan</string>
+    <string name="notification_sent_voice">🎤 nagpadala ng voice message</string>
+    <string name="notification_sent_file">📎 nagpadala ng file</string>
+    <string name="notification_file_pdf">📄</string>
+    <string name="notification_file_zip">🗜️</string>
+    <string name="notification_file_doc">📄</string>
+    <string name="notification_file_xls">📊</string>
+    <string name="notification_file_ppt">📈</string>
+    <string name="notification_file_generic">📎</string>
+
+    <!-- Voice player a11y -->
+    <string name="cd_play_voice">I‑play</string>
+    <string name="cd_pause_voice">I‑pause</string>
+
+    <!-- Mga paglalarawan ng permiso -->
+    <string name="perm_nearby_devices_desc">Kailangan upang makakita ng mga bitchat user sa Bluetooth</string>
+    <string name="perm_nearby_devices_system">Payagan ang bitchat na kumonekta sa kalapit na device</string>
+    <string name="perm_location_desc">Kailangan ng Android para sa pagtuklas ng user sa Bluetooth</string>
+    <string name="perm_location_system">Kailangan ito ng bitchat para mag‑scan</string>
+    <string name="perm_notifications_desc">Tumanggap ng abiso sa mga pribadong mensahe</string>
+    <string name="perm_notifications_system">Payagan ang bitchat na magpadala ng abiso</string>
+    <string name="perm_battery_desc">I‑disable ang pag‑optimize upang tumakbo nang maaasahan at mapanatili ang mesh na koneksyon</string>
+    <string name="perm_battery_system">Payagan ang bitchat na tumakbo nang walang limitasyong baterya</string>
+
+    <!-- Mga uri ng permiso -->
+    <string name="perm_type_nearby_devices">Kalapit na device</string>
+    <string name="perm_type_precise_location">Eksaktong lokasyon</string>
+    <string name="perm_type_microphone">Mikropono</string>
+    <string name="perm_type_notifications">Mga abiso</string>
+    <string name="perm_type_battery_optimization">Pag‑optimize ng baterya</string>
+    <string name="perm_type_other">Iba pa</string>
+
+    <!-- Dialog ng password -->
+    <string name="pwd_prompt_title">Ilagay ang password ng channel</string>
+    <string name="pwd_prompt_message">Ang channel na %1$s ay protektado. Ilagay ang password para sumali.</string>
+    <string name="pwd_label">Password</string>
+    <string name="join">Sumali</string>
+    <string name="cancel">Kanselahin</string>
+
+    <!-- Plurals -->
+    <plurals name="notification_and_more">
+        <item quantity="one">at %d pa</item>
+        <item quantity="other">at %d pa</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">1 tao</item>
+        <item quantity="other">%d tao</item>
+    </plurals>
+
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
+    <string name="mesh_service_notification_content">Tumatakbo ang Mesh — %1$d na peer</string>
+
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_scan_someone">scan someone elses qr</string>
+  <string name="verify_show_my_qr">show my qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="verify_paste_label">paste verification url</string>
+  <string name="verify_validate">validate</string>
+  <string name="verify_scanned">verification requested</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_label">verified</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Buksan ang Tungkol</string>
+  <string name="nearby_notes_reveal">tingnan kung may mga note na naiwan dito</string>
+  <string name="nearby_notes_one">1 note ang naiwan dito — i-tap para basahin</string>
+  <string name="nearby_notes_many">%d note ang naiwan dito — i-tap para basahin</string>
+    <string name="about_language">Wika</string>
+    <string name="about_app_language">Wika ng app</string>
+    <string name="about_system_default">Default ng system</string>
+    <string name="about_select_language">Pumili ng wika</string>
+</resources>

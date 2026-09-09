@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "commit": "0000000000000000000000000000000000000000",
+  "clients": {
+    "android-current": {
+      "version": "replace-with-release-candidate",
+      "commit": "0000000000000000000000000000000000000000"
+    },
+    "android-legacy": {
+      "version": "replace-with-last-supported-release"
+    },
+    "ios-current": {
+      "version": "replace-with-current-ios-release"
+    }
+  },
+  "lab_capabilities": ["local-relay", "tor"],
+  "devices": [
+    {
+      "alias": "android-low",
+      "platform": "android",
+      "model": "replace-with-model",
+      "manufacturer_class": "manufacturer-a",
+      "api_level": 28,
+      "physical": true,
+      "capabilities": ["ble-central", "ble-peripheral"]
+    },
+    {
+      "alias": "android-current",
+      "platform": "android",
+      "model": "replace-with-model",
+      "manufacturer_class": "manufacturer-b",
+      "api_level": 35,
+      "physical": true,
+      "capabilities": ["ble-central", "ble-peripheral", "wifi-aware"]
+    },
+    {
+      "alias": "android-relay",
+      "platform": "android",
+      "model": "replace-with-model",
+      "manufacturer_class": "manufacturer-c",
+      "api_level": 33,
+      "physical": true,
+      "capabilities": ["ble-central", "ble-peripheral"]
+    },
+    {
+      "alias": "android-aware",
+      "platform": "android",
+      "model": "replace-with-model",
+      "manufacturer_class": "manufacturer-b",
+      "api_level": 35,
+      "physical": true,
+      "capabilities": ["ble-central", "ble-peripheral", "wifi-aware"]
+    },
+    {
+      "alias": "android-legacy",
+      "platform": "android",
+      "model": "replace-with-model",
+      "manufacturer_class": "manufacturer-a",
+      "api_level": 28,
+      "physical": true,
+      "capabilities": ["ble-central", "ble-peripheral"]
+    },
+    {
+      "alias": "ios-current",
+      "platform": "ios",
+      "model": "replace-with-model",
+      "manufacturer_class": "apple",
+      "physical": true,
+      "capabilities": ["ble-central", "ble-peripheral"]
+    }
+  ]
+}

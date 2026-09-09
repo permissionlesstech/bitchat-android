@@ -1,20 +1,396 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">bitchat</string>
-    <string name="permission_bluetooth_rationale">Se requiere permiso de Bluetooth para la mensajería peer-to-peer sin internet.</string>
-    <string name="permission_location_rationale">Se requiere permiso de ubicación para descubrir dispositivos cercanos por Bluetooth.</string>
-    <string name="permission_notification_rationale">Se requiere permiso de notificación para avisarte de nuevos mensajes.</string>
-    <string name="nickname_hint">apodo</string>
+
+    <!-- Justificaciones de permisos -->
+    <string name="permission_bluetooth_rationale">El permiso de Bluetooth es necesario para chatear directamente con otros sin internet.</string>
+    <string name="permission_location_rationale">El permiso de ubicación es necesario para encontrar dispositivos cercanos a través de Bluetooth.</string>
+    <string name="permission_notification_rationale">El permiso de notificaciones es necesario para alertarte sobre nuevos mensajes.</string>
+
+    <!-- Placeholders / UI básica -->
+    <string name="nickname_hint">Apodo</string>
     <string name="message_hint">Escribe un mensaje…</string>
     <string name="channel_password_hint">Contraseña</string>
     <string name="join_channel">Unirse al canal</string>
     <string name="leave_channel">Salir</string>
     <string name="send_message">Enviar</string>
+    <string name="show_commands">Mostrar comandos</string>
     <string name="back">Atrás</string>
     <string name="people">Personas</string>
     <string name="channels">Canales</string>
     <string name="online_users">Usuarios en línea</string>
     <string name="no_one_connected">Nadie conectado</string>
-    <string name="emergency_clear_hint">Tres toques para borrar todos los datos</string>
+    <string name="emergency_clear_hint">Toca tres veces para borrar todos los datos</string>
     <string name="your_network">Tu red</string>
+
+    <!-- Optimización de batería -->
+    <string name="battery_optimization_detected">Optimización de batería detectada</string>
+    <string name="battery_optimization_disabled">Optimización de batería deshabilitada</string>
+    <string name="battery_optimization_not_required">Optimización de batería no requerida</string>
+    <string name="battery_optimization_checking">Verificando optimización de batería</string>
+    <string name="battery_optimization_why_disable">¿Por qué deshabilitar la optimización de batería?</string>
+    <string name="battery_optimization_explanation">bitchat funciona en segundo plano para mantener conexiones de red mesh con dispositivos cercanos. La optimización de batería puede interrumpir estas conexiones, causando que los mensajes lleguen tarde o se pierdan.\n\nDeshabilitar la optimización de batería asegura una comunicación peer-to-peer confiable.</string>
+    <string name="battery_optimization_disable_button">Deshabilitar optimización de batería</string>
+    <string name="battery_optimization_note">Nota: Puedes cambiar esto más tarde en Configuración de Android > Apps > bitchat > Batería.</string>
+    <string name="battery_optimization_not_supported_explanation">Tu dispositivo no requiere configuraciones de optimización de batería. bitchat funcionará normalmente.</string>
+    <string name="battery_optimization_not_supported_message">Tu dispositivo no requiere configuraciones de optimización de batería. bitchat funcionará normalmente.</string>
+    <string name="battery_optimization_success_message">bitchat puede funcionar de manera confiable en segundo plano</string>
+    <string name="battery_optimization_benefits">• Entrega confiable de mensajes\n• Mantiene conexión de red mesh\n• Retransmisión de mensajes en segundo plano\n• Previene desconexiones</string>
+    <string name="battery_optimization_check_again">Verificar de nuevo</string>
+    <string name="battery_optimization_skip">Omitir por ahora</string>
+    <string name="battery_optimization_continue">Continuar</string>
+    <string name="retry">Reintentar</string>
+    <string name="skip">Omitir</string>
+
+    <!-- Notificaciones -->
+    <string name="notification_summary_more">y %1$d más</string>
+    <string name="notification_messages_from_people">%1$d mensajes de %2$d personas</string>
+    <string name="notification_more_conversations">y %1$d conversaciones más</string>
+    <string name="notification_active_peers_title">¡bitchatters cerca!</string>
+    <string name="notification_active_peers_one">1 persona cerca</string>
+    <string name="notification_active_peers_many">%1$d personas cerca</string>
+    <string name="notification_new_messages">Nuevos mensajes</string>
+    <string name="notification_new_location_messages">Nuevos mensajes de ubicación</string>
+    <string name="notification_mentions_in">Mencionado en %1$s</string>
+    <string name="notification_mentions_in_more">Mencionado en %1$s (+%2$d más)</string>
+    <string name="notification_mentions_in_plural">%1$d menciones en %2$s</string>
+    <string name="notification_new_activity_in">Nueva actividad en %1$s</string>
+    <string name="notification_messages_in">Mensajes en %1$s</string>
+    <string name="notification_joined_conversation">%1$s se unió a la conversación</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d menciones</string>
+    <string name="notification_geohash_summary_title">bitchat – Chats de ubicación</string>
+    <string name="notification_geohash_summary_text">%1$d mensajes desde %2$d ubicaciones</string>
+    <string name="notification_mesh_mention_title_singular">Mencionado en chat mesh</string>
+    <string name="notification_mesh_mention_title_plural">%1$d menciones en chat mesh</string>
+    <string name="notification_more_locations">y %1$d ubicaciones más</string>
+    <string name="notification_and_more">y %1$d más</string>
+
+    <!-- Accesibilidad de favoritos -->
+    <string name="cd_add_favorite">Agregar a favoritos</string>
+    <string name="cd_remove_favorite">Quitar de favoritos</string>
+    <string name="cd_add_bookmark">Agregar marcador</string>
+
+    <!-- Encabezado de chat y accesibilidad -->
+    <string name="cd_nostr_reachable">Accesible vía Nostr</string>
+    <string name="cd_unread_private_messages">Mensajes privados sin leer</string>
+    <string name="cd_teleported">Teletransportado</string>
+    <string name="cd_open_location_channels">Abrir ajustes de ubicación y canales</string>
+    <string name="cd_connected_peers">Pares conectados</string>
+    <string name="cd_geohash_participants">Participantes geohash</string>
+    <string name="cd_ready_for_handshake">Listo para handshake</string>
+    <string name="cd_handshake_in_progress">Handshake en progreso</string>
+    <string name="cd_encrypted">Cifrado de extremo a extremo</string>
+    <string name="cd_handshake_failed">Handshake fallido</string>
+
+    <!-- Diálogo de visor de archivos -->
+    <string name="file_viewer_title">📎 Archivo recibido</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Tamaño: %1$s</string>
+    <string name="file_viewer_type">🏷️ Tipo: %1$s</string>
+    <string name="file_viewer_open_save">📂 Abrir / Guardar</string>
+    <string name="close_with_emoji">❌ Cerrar</string>
+    <string name="pick_image">Elegir imagen</string>
+
+    <!-- Hoja Acerca de -->
+    <string name="about_offline_mesh_title">Chat mesh sin conexión</string>
+    <string name="about_offline_mesh_desc">Comunícate directamente a través de Bluetooth LE sin internet o servidores. Los mensajes se retransmiten a través de dispositivos cercanos para extender el alcance.</string>
+    <string name="about_online_geohash_title">Canales geohash en línea</string>
+    <string name="about_online_geohash_desc">Conéctate con personas cerca de ti a través de canales basados en geohash. Extiende la red mesh a través de repetidores de internet público.</string>
+    <string name="about_e2e_title">Cifrado de extremo a extremo</string>
+    <string name="about_e2e_desc">Los mensajes privados están cifrados. Los mensajes de canal son públicos.</string>
+    <string name="about_system">Sistema</string>
+    <string name="about_light">Claro</string>
+    <string name="about_dark">Oscuro</string>
+    <string name="about_pow">Prueba de trabajo</string>
+    <string name="about_pow_off">PoW desactivado</string>
+    <string name="about_pow_on">PoW activado</string>
+    <string name="about_pow_tip">Agregar prueba de trabajo a mensajes geohash para hacer el spam más difícil.</string>
+    <string name="about_pow_difficulty">Dificultad: %1$d bits (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">Dificultad %1$d requiere ~%2$s intentos de hash</string>
+    <string name="about_pow_desc_none">no se requiere prueba de trabajo</string>
+    <string name="about_pow_desc_very_low">muy bajo – protección mínima contra spam</string>
+    <string name="about_pow_desc_low">bajo – protección básica contra spam</string>
+    <string name="about_pow_desc_medium">medio – buena protección contra spam</string>
+    <string name="about_pow_desc_high">alto – protección fuerte contra spam</string>
+    <string name="about_pow_desc_very_high">muy alto – puede causar retrasos</string>
+    <string name="about_pow_desc_extreme">extremo – requiere potencia computacional significativa</string>
+    <string name="about_network">Red</string>
+    <string name="about_tor_off">Tor desactivado</string>
+    <string name="about_tor_on">Tor activado</string>
+    <string name="about_tor_route">Enrutar tráfico de internet a través de Tor para mayor privacidad.</string>
+    <string name="about_tor_status">Estado de Tor: %1$s, bootstrap %2$d%%</string>
+    <string name="about_last">Último: %1$s</string>
+    <string name="about_emergency_title">Borrado de datos de emergencia</string>
+    <string name="about_debug_settings">Configuraciones de depuración</string>
+    <string name="about_footer">Código abierto • Privacidad primero • Descentralizado</string>
+    <string name="close_plain">Cerrar</string>
+    <string name="cancel_lower">cancelar</string>
+
+    <!-- Descripciones de contenido generales -->
+    <string name="cd_warning">Advertencia</string>
+    <string name="cd_location_services">Servicios de ubicación</string>
+    <string name="cd_privacy">Privacidad</string>
+    <string name="cd_error">Error</string>
+    <string name="cd_battery_optimization">Optimización de batería</string>
+    <string name="cd_benefits">Beneficios</string>
+    <string name="cd_checking_battery_optimization">Verificando optimización de batería</string>
+    <string name="cd_not_supported_battery_optimization">Optimización de batería no soportada</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_unread_message">Mensaje sin leer</string>
+    <string name="cd_open_map">Abrir mapa</string>
+    <string name="cd_remove_bookmark">Quitar marcador</string>
+    <string name="cd_teleport">Teletransportar</string>
+    <string name="cd_leave_channel">Salir del canal</string>
+    <string name="cd_reachable_via_nostr">Accesible vía Nostr</string>
+    <string name="cd_offline_favorite">Favorito (sin conexión)</string>
+    <string name="cd_decrease_precision">Disminuir precisión</string>
+    <string name="cd_increase_precision">Aumentar precisión</string>
+    <string name="cd_select_geohash">Seleccionar geohash</string>
+    <string name="cd_scroll_to_bottom">Desplazar al final</string>
+    <string name="cd_file">Archivo</string>
+    <string name="cd_image">Imagen</string>
+    <string name="cd_cancel">Cancelar</string>
+    <string name="cd_link">Enlace</string>
+    <string name="cd_pick_media">Elegir medios</string>
+    <string name="cd_pick_file">Elegir archivo</string>
+    <string name="cd_save_current_image">Guardar imagen actual</string>
+    <string name="cd_close">Cerrar</string>
+    <string name="cd_image_index_of">Imagen %1$d de %2$d</string>
+    <string name="cd_privacy_protected">Privacidad protegida</string>
+    <string name="cd_record_voice">Grabar nota de voz</string>
+    <string name="cd_offline_mesh_chat">Chat mesh sin conexión</string>
+    <string name="cd_online_geohash_channels">Canales geohash en línea</string>
+    <string name="cd_end_to_end_encryption">Cifrado de extremo a extremo</string>
+
+    <!-- Imágenes y archivos -->
+    <string name="image_page_of">Imagen %1$d de %2$d</string>
+    <string name="image_unavailable">Imagen no disponible</string>
+    <string name="image_saved_to_downloads">Imagen guardada en "Descargas"</string>
+    <string name="image_save_failed">No se pudo guardar la imagen</string>
+    <string name="toast_image_saved">Imagen guardada en "Descargas"</string>
+    <string name="toast_failed_to_save_image">No se pudo guardar la imagen</string>
+    <string name="pick_file">Elegir archivo</string>
+    <string name="file_unavailable">[Archivo no disponible]</string>
+    <string name="unknown">desconocido</string>
+
+    <!-- Hoja de acciones de usuario -->
+    <string name="choose_action_message_or_user">Elegir acción para este mensaje o usuario</string>
+    <string name="choose_action_user">Elegir acción para este usuario</string>
+    <string name="action_copy_message_title">Copiar mensaje</string>
+    <string name="action_copy_message_subtitle">Copiar este mensaje al portapapeles</string>
+    <string name="action_slap_title">Abofetear a %1$s</string>
+    <string name="action_slap_subtitle">Enviar una bofetada juguetona</string>
+    <string name="action_hug_title">Abrazar a %1$s</string>
+    <string name="action_hug_subtitle">Enviar un abrazo amistoso</string>
+    <string name="action_block_title">Bloquear a %1$s</string>
+    <string name="action_block_subtitle">Bloquear todos los mensajes de este usuario</string>
+
+    <!-- Hoja de canales geohash -->
+    <string name="location_channels_title">#Canales de ubicación</string>
+    <string name="location_channels_desc">Chatea con personas cerca de ti a través de canales geohash. Solo se comparte un geohash aproximado, nunca datos GPS exactos. Para preservar tu privacidad, no tomes capturas de pantalla ni compartas esta pantalla.</string>
+    <string name="grant_location_permission">Otorgar permiso de ubicación</string>
+    <string name="location_permission_denied">Permiso de ubicación denegado. Habilítalo en configuraciones para usar canales de ubicación.</string>
+    <string name="open_settings">Abrir configuraciones</string>
+    <string name="location_permission_granted">\u2713 Permiso de ubicación otorgado</string>
+    <string name="checking_permissions">Verificando permisos…</string>
+    <string name="finding_nearby_channels">Buscando canales cercanos…</string>
+    <string name="bookmarked">Marcado</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">Geohash inválido</string>
+    <string name="teleport">teletransportar</string>
+    <string name="disable_location_services">Deshabilitar servicios de ubicación</string>
+    <string name="enable_location_services">Habilitar servicios de ubicación</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">Cuadra</string>
+    <string name="location_level_neighborhood">Barrio</string>
+    <string name="location_level_city">Ciudad</string>
+    <string name="location_level_province">Provincia</string>
+    <string name="location_level_region">Región</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <!-- Debug / Diagnóstico -->
+    <string name="debug_tools">Herramientas de depuración</string>
+    <string name="debug_tools_desc">Herramientas de desarrollador para diagnóstico y control</string>
+    <string name="debug_verbose_logging">registro detallado</string>
+    <string name="debug_verbose_hint">Registra uniones/salidas de pares, dirección de conexión, retransmisión de paquetes y repetidores</string>
+    <string name="debug_bluetooth_roles">Roles de Bluetooth</string>
+    <string name="debug_gatt_server">Servidor GATT</string>
+    <string name="debug_connections_fmt">Conexiones: %1$d / %2$d</string>
+    <string name="debug_max_server">máx. servidor</string>
+    <string name="debug_gatt_client">Cliente GATT</string>
+    <string name="debug_max_client">máx. cliente</string>
+    <string name="debug_overall_connections_fmt">Conexiones: %1$d / %2$d</string>
+    <string name="debug_max_overall">máx. general</string>
+    <string name="debug_packet_relay">Retransmisión de paquetes</string>
+    <string name="debug_since_start_fmt">desde inicio: %1$d</string>
+    <string name="debug_roles_hint">Alternar roles activado/desactivado y cerrar todas las conexiones al desactivar</string>
+    <string name="debug_sync_settings">Configuraciones de sincronización</string>
+    <string name="debug_max_packets_per_sync_fmt">máx. paquetes por sincronización: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">máx. tamaño del filtro GCS: %1$d bytes (128–1024)</string>
+    <string name="debug_target_fpr_fmt">FPR objetivo: %1$.2f%%</string>
+    <string name="debug_connected_devices">dispositivos conectados</string>
+    <string name="debug_our_device_id_fmt">nuestro ID de dispositivo: %1$s</string>
+    <string name="debug_none">ninguno</string>
+    <string name="debug_disconnect">desconectar</string>
+    <string name="debug_recent_scan_results">dispositivos escaneados recientemente</string>
+    <string name="debug_connect">conectar</string>
+    <string name="debug_debug_console">Consola de depuración</string>
+    <string name="debug_clear">limpiar</string>
+    <string name="debug_relays_window_fmt">últimos 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
+    <string name="debug_derived_p_fmt">P derivado: %1$s • máx. elementos estimados: %2$s</string>
+    <string name="debug_direct_suffix"> • directo</string>
+    <string name="debug_role_server">como servidor (nosotros hospedamos)</string>
+    <string name="debug_role_client">como cliente (nosotros conectamos)</string>
+
+    <!-- Pantallas de incorporación -->
+    <string name="location_services_required">Servicios de ubicación requeridos</string>
+    <string name="privacy_first">Privacidad primero</string>
+    <string name="location_explanation">bitchat NO rastrea tu ubicación.\n\nLos servicios de ubicación son requeridos para el escaneo Bluetooth y la función de chat geohash.</string>
+    <string name="location_needs_for">bitchat necesita servicios de ubicación para:</string>
+    <string name="location_needs_bullets">• Escaneo de dispositivos Bluetooth\n• Descubrir usuarios cercanos en la red mesh\n• Función de chat geohash\n• Sin rastreo o recolección de ubicación</string>
+    <string name="open_location_settings">Abrir configuraciones de ubicación</string>
+    <string name="check_again">Verificar de nuevo</string>
+    <string name="location_services_unavailable">Servicios de ubicación no disponibles</string>
+    <string name="location_unavailable_explanation">Los servicios de ubicación no están disponibles en este dispositivo. Esto es inusual ya que los servicios de ubicación son estándar en dispositivos Android.\n\nbitchat requiere servicios de ubicación para el funcionamiento adecuado del escaneo Bluetooth (requisito de Android). Sin esto, la app no puede descubrir usuarios cercanos.</string>
+    <string name="checking_location_services">Verificando servicios de ubicación…</string>
+    <string name="bluetooth_required">Bluetooth requerido</string>
+    <string name="bluetooth_needs_for">bitchat necesita Bluetooth para:</string>
+    <string name="bluetooth_needs_bullets">• Descubrir usuarios cercanos\n• Crear conexiones de red mesh\n• Enviar y recibir mensajes\n• Funcionar sin internet o servidores</string>
+    <string name="enable_bluetooth">Habilitar Bluetooth</string>
+    <string name="bluetooth_not_supported">Bluetooth no soportado</string>
+    <string name="bluetooth_unsupported_explanation">Este dispositivo no soporta Bluetooth Low Energy (BLE), que es requerido para que bitchat funcione.\n\nbitchat requiere BLE para crear redes mesh y comunicarse con dispositivos cercanos sin internet.</string>
+    <string name="checking_bluetooth_status">Verificando estado de Bluetooth…</string>
+    <string name="battery_optimization_detected_title">Optimización de batería detectada</string>
+    <string name="battery_optimization_enabled_title">Optimización de batería habilitada</string>
+    <string name="battery_optimization_explanation_short">bitchat necesita funcionar en segundo plano para mantener conexiones mesh. La optimización de batería puede interrumpir estas conexiones.</string>
+    <string name="benefits_of_disabling">Beneficios de deshabilitar</string>
+    <string name="battery_benefits_short">• entrega confiable de mensajes\n• mantiene conectividad mesh\n• previene desconexiones</string>
+    <string name="disable_battery_optimization">Deshabilitar optimización de batería</string>
+    <string name="battery_optimization_disabled_title">Optimización de batería deshabilitada</string>
+    <string name="continue_btn">Continuar</string>
+    <string name="initializing_mesh_network">Inicializando red mesh</string>
+    <string name="setting_up_bluetooth">Configurando red mesh Bluetooth…</string>
+    <string name="should_take_seconds">Esto debería tomar solo unos segundos</string>
+    <string name="setup_not_complete">Configuración no completada</string>
+    <string name="try_again">Intentar de nuevo</string>
+    <string name="privacy_protected">Tu privacidad está protegida</string>
+    <string name="privacy_bullets">• sin rastreo o recolección de datos\n• chats mesh Bluetooth son completamente offline\n• chats geohash usan internet</string>
+    <string name="permissions_header">Permisos</string>
+    <string name="grant_permissions">Otorgar permisos</string>
+    <string name="location_tracking_warning">bitchat NO rastrea tu ubicación</string>
+    <string name="nobody_around">nadie por aquí…</string>
+    <string name="you_suffix"> (tú)</string>
+    <string name="pan_zoom_instruction">desplaza y hace zoom para seleccionar un geohash</string>
+    <string name="select">seleccionar</string>
+    <string name="type_a_message_placeholder">Escribe un mensaje…</string>
+    <string name="mention">mencionar</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">Imagen</string>
+    <string name="media_type_file">Archivo</string>
+
+    <!-- Ayudantes de texto de notificación -->
+    <string name="notification_sent_image">📷 envió una imagen</string>
+    <string name="notification_sent_voice">🎤 envió una nota de voz</string>
+    <string name="notification_sent_file">📎 envió un archivo</string>
+
+    <!-- Accesibilidad del reproductor de voz -->
+    <string name="cd_play_voice">Reproducir</string>
+    <string name="cd_pause_voice">Pausar</string>
+
+    <!-- Descripciones de permisos -->
+    <string name="perm_nearby_devices_desc">Requerido para descubrir usuarios bitchat a través de Bluetooth</string>
+    <string name="perm_nearby_devices_system">Permitir que bitchat se conecte con dispositivos cercanos</string>
+    <string name="perm_location_desc">Requerido por Android para descubrir usuarios bitchat cercanos a través de Bluetooth</string>
+    <string name="perm_location_system">bitchat necesita esto para escanear dispositivos cercanos</string>
+    <string name="perm_notifications_desc">Recibir notificaciones cuando recibas mensajes privados</string>
+    <string name="perm_notifications_system">Permitir que bitchat te envíe notificaciones</string>
+    <string name="perm_battery_desc">Deshabilitar optimización de batería para asegurar que bitchat funcione de manera confiable en segundo plano y mantenga conexiones de red mesh</string>
+    <string name="perm_battery_system">Permitir que bitchat funcione sin restricciones de batería</string>
+
+    <!-- Tipos de permisos -->
+    <string name="perm_type_nearby_devices">Dispositivos cercanos</string>
+    <string name="perm_type_precise_location">Ubicación precisa</string>
+    <string name="perm_type_microphone">Micrófono</string>
+    <string name="perm_type_notifications">Notificaciones</string>
+    <string name="perm_type_battery_optimization">Optimización de batería</string>
+    <string name="perm_type_other">Otro</string>
+
+    <!-- Diálogo de contraseña -->
+    <string name="pwd_prompt_title">Ingresar contraseña del canal</string>
+    <string name="pwd_prompt_message">El canal %1$s está protegido con contraseña. Ingresa la contraseña para unirte.</string>
+    <string name="pwd_label">Contraseña</string>
+    <string name="join">Unirse</string>
+    <string name="cancel">Cancelar</string>
+
+    <!-- Plurales -->
+    <plurals name="notification_and_more">
+        <item quantity="one">y %d más</item>
+        <item quantity="other">y %d más</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">1 persona</item>
+        <item quantity="other">%d personas</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d nota</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notas</item>
+  </plurals>
+  <string name="location_notes_description">agrega notas cortas y permanentes a este lugar para que otros visitantes las encuentren.</string>
+  <string name="location_notes_relays_unavailable">relés geográficos no disponibles; notas en pausa</string>
+  <string name="location_notes_no_relays_title">no hay relés geográficos cercanos</string>
+  <string name="location_notes_no_relays_desc">las notas dependen de relés geográficos. verifica la conexión e inténtalo de nuevo.</string>
+  <string name="loading_location_notes">cargando notas…</string>
+  <string name="location_notes_empty_title">aún no hay notas</string>
+  <string name="location_notes_empty_desc">sé el primero en añadir una para este sitio.</string>
+  <string name="dismiss">cerrar</string>
+  <string name="location_notes_input_placeholder">agrega una nota para este lugar</string>
+    <string name="bluetooth_recommended">Bluetooth recomendado</string>
+    <string name="mesh_service_notification_content">Mesh en ejecución — %1$d pares</string>
+
+  <string name="verify_title">verificar</string>
+  <string name="verify_my_qr_title">escanear para verificarme</string>
+  <string name="verify_scan_prompt_friend">escanear qr de otro</string>
+  <string name="verify_scan_someone">escanear qr de otro</string>
+  <string name="verify_show_my_qr">mostrar mi qr</string>
+  <string name="verify_remove">eliminar verificación</string>
+  <string name="verify_qr_unavailable">qr no disponible</string>
+  <string name="verify_camera_permission">se necesita permiso de cámara</string>
+  <string name="verify_request_camera">activar cámara</string>
+  <string name="verify_paste_label">pegar url de verificación</string>
+  <string name="verify_validate">validar</string>
+  <string name="verify_scanned">verificación solicitada</string>
+  <string name="security_verification_title">verificación de seguridad</string>
+  <string name="fingerprint_their">su huella digital</string>
+  <string name="fingerprint_yours">tu huella digital</string>
+  <string name="fingerprint_pending">intercambio pendiente</string>
+  <string name="fingerprint_no_peer">abrir chat privado para ver</string>
+  <string name="fingerprint_status_verified">cifrado y verificado</string>
+  <string name="fingerprint_status_encrypted">cifrado</string>
+  <string name="fingerprint_status_handshaking">negociando</string>
+  <string name="fingerprint_status_failed">falló negociación</string>
+  <string name="fingerprint_status_uninitialized">no cifrado</string>
+  <string name="fingerprint_verified_label">verificado</string>
+  <string name="fingerprint_verified_message">has verificado esta identidad.</string>
+  <string name="fingerprint_not_verified_label">no verificado</string>
+  <string name="fingerprint_not_verified_message_fmt">compara huellas con %1$s por canal seguro.</string>
+  <string name="fingerprint_mark_verified">marcar verificado</string>
+  <string name="fingerprint_start_handshake">iniciar handshake</string>
+  <string name="fingerprint_copy">copiar</string>
+  <string name="verify_mutual_match_title">Verificación mutua</string>
+  <string name="verify_mutual_match_body">Tú y %1$s se verificaron</string>
+  <string name="verify_mutual_system_message">verificación mutua con %1$s</string>
+  <string name="verify_success_title">Verificado</string>
+  <string name="verify_success_body">Verificaste a %1$s</string>
+  <string name="verify_success_system_message">verificado %1$s</string>
+    <string name="cd_open_about">Abrir Acerca de</string>
+  <string name="nearby_notes_reveal">buscar notas dejadas aquí</string>
+  <string name="nearby_notes_one">1 nota dejada aquí — toca para leer</string>
+  <string name="nearby_notes_many">%d notas dejadas aquí — toca para leer</string>
+    <string name="about_language">Idioma</string>
+    <string name="about_app_language">Idioma de la app</string>
+    <string name="about_system_default">Predeterminado del sistema</string>
+    <string name="about_select_language">Seleccionar idioma</string>
 </resources>

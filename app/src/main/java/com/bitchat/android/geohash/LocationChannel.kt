@@ -5,6 +5,7 @@ package com.bitchat.android.geohash
  * Direct port from iOS implementation for 100% compatibility
  */
 enum class GeohashChannelLevel(val precision: Int, val displayName: String) {
+    BUILDING(8, "Building"), // iOS: precision 8 for building-level (used for Location Notes)
     BLOCK(7, "Block"),
     NEIGHBORHOOD(6, "Neighborhood"),
     CITY(5, "City"),
@@ -35,7 +36,18 @@ data class GeohashChannel(
  */
 sealed class ChannelID {
     object Mesh : ChannelID()
-    data class Location(val channel: GeohashChannel) : ChannelID()
+    data class Location(val channel: GeohashChannel) : ChannelID() {
+        companion object {
+            fun fromPersisted(levelName: String, geohash: String): Location? {
+                return try {
+                    val level = GeohashChannelLevel.valueOf(levelName)
+                    Location(GeohashChannel(level, geohash))
+                } catch (_: IllegalArgumentException) {
+                    null
+                }
+            }
+        }
+    }
     
     /**
      * Human readable name for UI.

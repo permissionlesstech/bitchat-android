@@ -7,11 +7,13 @@ build/
 !*/build/intermediates/
 local.properties
 .gradle/
+.kotlin/
 captures/
 .externalNativeBuild/
 debug_keystore/
 *.keystore
 debug.keystore
+app/release
 
 # Gradle
 /build/
@@ -39,15 +41,24 @@ dependency-reduced-pom.xml
 # Linters
 .lint/
 
+# Python test tooling
+**/__pycache__/
+*.py[cod]
+release-gate-results/
+
 # Other
 *.log
 .cxx/
-*build/
+# Gradle/Android build directories (but not tools/arti-build/)
+**/build/
+!tools/arti-build/
 out/
 gen/
 *~
 *.swp
 *.lock
+!tools/arti-build/Cargo.lock
+.goosehints
 
 # Google services
 google-services.json
@@ -55,3 +66,11 @@ google-services.json
 # Keystore files
 *.jks
 *.keystore
+
+# Arti build artifacts (cloned repo and Rust build cache)
+tools/arti-build/.arti-source/
+tools/arti-build/target/
+.reproducible-build/
+
+# JVM heap dumps (a Gradle daemon OOM drops these in the repo root)
+*.hprof

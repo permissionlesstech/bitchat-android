@@ -2,15 +2,17 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.model.NoisePayloadType
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ContactIdentityResolver
 import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
- * Minimal Nostr transport for offline sending
- * Direct port from iOS NostrTransport for 100% compatibility
+ * Nostr transport for offline private messages and receipts.
  */
 class NostrTransport(
     private val context: Context,
@@ -19,7 +21,7 @@ class NostrTransport(
     
     companion object {
         private const val TAG = "NostrTransport"
-        private const val READ_ACK_INTERVAL = 350L // ~3 per second (0.35s interval like iOS)
+        private const val READ_ACK_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.READ_ACK_INTERVAL_MS // ~3 per second (0.35s interval like iOS)
         
         @Volatile
         private var INSTANCE: NostrTransport? = null
@@ -53,12 +55,7 @@ class NostrTransport(
     ) {
         transportScope.launch {
             try {
-                // Resolve favorite by full noise key or by short peerID fallback
-                var recipientNostrPubkey: String? = null
-                
-                // Try to resolve from favorites persistence service
-                // This would need integration with the existing favorites system
-                recipientNostrPubkey = resolveNostrPublicKey(to)
+                val recipientNostrPubkey = resolveNostrPublicKey(to)
                 
                 if (recipientNostrPubkey == null) {
                     Log.w(TAG, "No Nostr public key found for peerID: $to")
@@ -71,27 +68,27 @@ class NostrTransport(
                     return@launch
                 }
                 
-                Log.d(TAG, "NostrTransport: preparing PM to ${recipientNostrPubkey.take(16)}... for peerID ${to.take(8)}... id=${messageID.take(8)}...")
-                
-                // Convert recipient npub -> hex (x-only)
-                val recipientHex = try {
-                    val (hrp, data) = Bech32.decode(recipientNostrPubkey)
-                    if (hrp != "npub") {
-                        Log.e(TAG, "NostrTransport: recipient key not npub (hrp=$hrp)")
-                        return@launch
-                    }
-                    data.joinToString("") { "%02x".format(it) }
-                } catch (e: Exception) {
-                    Log.e(TAG, "NostrTransport: failed to decode npub -> hex: $e")
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
+                if (recipientHex == null) {
+                    Log.e(TAG, "NostrTransport: recipient key is not a valid Nostr pubkey")
                     return@launch
                 }
-                
+
+                val recipientPeerIDForEmbed = try {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                        .findPeerIDForNostrPubkey(recipientNostrPubkey)
+                } catch (_: Exception) { null }
+                if (recipientPeerIDForEmbed.isNullOrBlank()) {
+                    Log.e(TAG, "NostrTransport: no peerID stored for recipient npub; cannot embed PM")
+                    return@launch
+                }
                 val embedded = NostrEmbeddedBitChat.encodePMForNostr(
                     content = content,
                     messageID = messageID,
-                    recipientPeerID = to,
+                    recipientPeerID = recipientPeerIDForEmbed,
                     senderPeerID = senderPeerID
                 )
+                
                 
                 if (embedded == null) {
                     Log.e(TAG, "NostrTransport: failed to embed PM packet")
@@ -105,10 +102,10 @@ class NostrTransport(
                 )
                 
                 giftWraps.forEach { event ->
-                    Log.d(TAG, "NostrTransport: sending PM giftWrap id=${event.id.take(16)}...")
+                    NostrRelayManager.registerPendingGiftWrap(event.id)
                     NostrRelayManager.getInstance(context).sendEvent(event)
                 }
-                
+
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send private message via Nostr: ${e.message}")
             }
@@ -138,10 +135,7 @@ class NostrTransport(
         
         transportScope.launch {
             try {
-                var recipientNostrPubkey: String? = null
-                
-                // Try to resolve from favorites persistence service
-                recipientNostrPubkey = resolveNostrPublicKey(item.peerID)
+                val recipientNostrPubkey = resolveNostrPublicKey(item.peerID)
                 
                 if (recipientNostrPubkey == null) {
                     Log.w(TAG, "No Nostr public key found for read receipt to: ${item.peerID}")
@@ -156,17 +150,8 @@ class NostrTransport(
                     return@launch
                 }
                 
-                Log.d(TAG, "NostrTransport: preparing READ ack for id=${item.receipt.originalMessageID.take(8)}... to ${recipientNostrPubkey.take(16)}...")
-                
-                // Convert recipient npub -> hex
-                val recipientHex = try {
-                    val (hrp, data) = Bech32.decode(recipientNostrPubkey)
-                    if (hrp != "npub") {
-                        scheduleNextReadAck()
-                        return@launch
-                    }
-                    data.joinToString("") { "%02x".format(it) }
-                } catch (e: Exception) {
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
+                if (recipientHex == null) {
                     scheduleNextReadAck()
                     return@launch
                 }
@@ -191,10 +176,10 @@ class NostrTransport(
                 )
                 
                 giftWraps.forEach { event ->
-                    Log.d(TAG, "NostrTransport: sending READ ack giftWrap id=${event.id.take(16)}...")
+                    NostrRelayManager.registerPendingGiftWrap(event.id)
                     NostrRelayManager.getInstance(context).sendEvent(event)
                 }
-                
+
                 scheduleNextReadAck()
                 
             } catch (e: Exception) {
@@ -215,10 +200,7 @@ class NostrTransport(
     fun sendFavoriteNotification(to: String, isFavorite: Boolean) {
         transportScope.launch {
             try {
-                var recipientNostrPubkey: String? = null
-                
-                // Try to resolve from favorites persistence service
-                recipientNostrPubkey = resolveNostrPublicKey(to)
+                val recipientNostrPubkey = resolveNostrPublicKey(to)
                 
                 if (recipientNostrPubkey == null) {
                     Log.w(TAG, "No Nostr public key found for favorite notification to: $to")
@@ -231,20 +213,10 @@ class NostrTransport(
                     return@launch
                 }
                 
-                val content = if (isFavorite) {
-                    "[FAVORITED]:${senderIdentity.npub}"
-                } else {
-                    "[UNFAVORITED]:${senderIdentity.npub}"
-                }
-                
-                Log.d(TAG, "NostrTransport: preparing FAVORITE($isFavorite) to ${recipientNostrPubkey.take(16)}...")
-                
-                // Convert recipient npub -> hex
-                val recipientHex = try {
-                    val (hrp, data) = Bech32.decode(recipientNostrPubkey)
-                    if (hrp != "npub") return@launch
-                    data.joinToString("") { "%02x".format(it) }
-                } catch (e: Exception) {
+                val content = FavoriteControlMessage.encode(isFavorite, senderIdentity.npub)
+
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
+                if (recipientHex == null) {
                     return@launch
                 }
                 
@@ -267,10 +239,10 @@ class NostrTransport(
                 )
                 
                 giftWraps.forEach { event ->
-                    Log.d(TAG, "NostrTransport: sending favorite giftWrap id=${event.id.take(16)}...")
+                    NostrRelayManager.registerPendingGiftWrap(event.id)
                     NostrRelayManager.getInstance(context).sendEvent(event)
                 }
-                
+
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send favorite notification via Nostr: ${e.message}")
             }
@@ -280,10 +252,7 @@ class NostrTransport(
     fun sendDeliveryAck(messageID: String, to: String) {
         transportScope.launch {
             try {
-                var recipientNostrPubkey: String? = null
-                
-                // Try to resolve from favorites persistence service
-                recipientNostrPubkey = resolveNostrPublicKey(to)
+                val recipientNostrPubkey = resolveNostrPublicKey(to)
                 
                 if (recipientNostrPubkey == null) {
                     Log.w(TAG, "No Nostr public key found for delivery ack to: $to")
@@ -296,16 +265,11 @@ class NostrTransport(
                     return@launch
                 }
                 
-                Log.d(TAG, "NostrTransport: preparing DELIVERED ack for id=${messageID.take(8)}... to ${recipientNostrPubkey.take(16)}...")
-                
-                val recipientHex = try {
-                    val (hrp, data) = Bech32.decode(recipientNostrPubkey)
-                    if (hrp != "npub") return@launch
-                    data.joinToString("") { "%02x".format(it) }
-                } catch (e: Exception) {
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
+                if (recipientHex == null) {
                     return@launch
                 }
-                
+
                 val ack = NostrEmbeddedBitChat.encodeAckForNostr(
                     type = NoisePayloadType.DELIVERED,
                     messageID = messageID,
@@ -325,10 +289,10 @@ class NostrTransport(
                 )
                 
                 giftWraps.forEach { event ->
-                    Log.d(TAG, "NostrTransport: sending DELIVERED ack giftWrap id=${event.id.take(16)}...")
+                    NostrRelayManager.registerPendingGiftWrap(event.id)
                     NostrRelayManager.getInstance(context).sendEvent(event)
                 }
-                
+
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send delivery ack via Nostr: ${e.message}")
             }
@@ -344,8 +308,6 @@ class NostrTransport(
     ) {
         transportScope.launch {
             try {
-                Log.d(TAG, "GeoDM: send DELIVERED -> recip=${toRecipientHex.take(8)}... mid=${messageID.take(8)}... from=${fromIdentity.publicKeyHex.take(8)}...")
-                
                 val embedded = NostrEmbeddedBitChat.encodeAckForNostrNoRecipient(
                     type = NoisePayloadType.DELIVERED,
                     messageID = messageID,
@@ -379,8 +341,6 @@ class NostrTransport(
     ) {
         transportScope.launch {
             try {
-                Log.d(TAG, "GeoDM: send READ -> recip=${toRecipientHex.take(8)}... mid=${messageID.take(8)}... from=${fromIdentity.publicKeyHex.take(8)}...")
-                
                 val embedded = NostrEmbeddedBitChat.encodeAckForNostrNoRecipient(
                     type = NoisePayloadType.READ_RECEIPT,
                     messageID = messageID,
@@ -412,39 +372,52 @@ class NostrTransport(
     fun sendPrivateMessageGeohash(
         content: String,
         toRecipientHex: String,
-        fromIdentity: NostrIdentity,
-        messageID: String
+        messageID: String,
+        sourceGeohash: String? = null
     ) {
+        // Use provided geohash or derive from current location
+        val geohash = sourceGeohash ?: run {
+            val selected = try {
+                com.bitchat.android.geohash.LocationChannelManager.getInstance(context).selectedChannel.value
+            } catch (_: Exception) { null }
+            if (selected !is com.bitchat.android.geohash.ChannelID.Location) {
+                Log.w(TAG, "NostrTransport: cannot send geohash PM - not in a location channel and no geohash provided")
+                return
+            }
+            selected.channel.geohash
+        }
+        
+        val fromIdentity = try {
+            NostrIdentityBridge.deriveIdentity(geohash, context)
+        } catch (e: Exception) {
+            Log.e(TAG, "NostrTransport: cannot derive geohash identity for $geohash: ${e.message}")
+            return
+        }
+        
         transportScope.launch {
             try {
                 if (toRecipientHex.isEmpty()) return@launch
-                
-                Log.d(TAG, "GeoDM: send PM -> recip=${toRecipientHex.take(8)}... mid=${messageID.take(8)}... from=${fromIdentity.publicKeyHex.take(8)}...")
-                
+
                 // Build embedded BitChat packet without recipient peer ID
                 val embedded = NostrEmbeddedBitChat.encodePMForNostrNoRecipient(
                     content = content,
                     messageID = messageID,
                     senderPeerID = senderPeerID
-                )
-                
-                if (embedded == null) {
+                ) ?: run {
                     Log.e(TAG, "NostrTransport: failed to embed geohash PM packet")
                     return@launch
                 }
-                
+
                 val giftWraps = NostrProtocol.createPrivateMessage(
                     content = embedded,
                     recipientPubkey = toRecipientHex,
                     senderIdentity = fromIdentity
                 )
-                
+
                 giftWraps.forEach { event ->
-                    Log.d(TAG, "NostrTransport: sending geohash PM giftWrap id=${event.id.take(16)}...")
                     NostrRelayManager.registerPendingGiftWrap(event.id)
                     NostrRelayManager.getInstance(context).sendEvent(event)
                 }
-                
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash private message: ${e.message}")
             }
@@ -458,15 +431,17 @@ class NostrTransport(
      */
     private fun resolveNostrPublicKey(peerID: String): String? {
         try {
-            // Try to resolve from favorites persistence service
-            val noiseKey = hexStringToByteArray(peerID)
-            val favoriteStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
-            if (favoriteStatus?.peerNostrPublicKey != null) {
-                return favoriteStatus.peerNostrPublicKey
+            ContactDirectory.resolve(peerID).nostrPubkey?.let { return it }
+
+            com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkeyForPeerID(peerID)?.let { return it }
+
+            if (ContactIdentityResolver.isNoiseKeyHex(peerID)) {
+                val noiseKey = ContactIdentityResolver.bytesFromHex(peerID) ?: return null
+                val favoriteStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                if (favoriteStatus?.peerNostrPublicKey != null) return favoriteStatus.peerNostrPublicKey
             }
-            
-            // Fallback: try with 16-hex peerID lookup
-            if (peerID.length == 16) {
+
+            if (ContactIdentityResolver.isMeshPeerId(peerID)) {
                 val fallbackStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
                 return fallbackStatus?.peerNostrPublicKey
             }
@@ -476,14 +451,6 @@ class NostrTransport(
             Log.e(TAG, "Failed to resolve Nostr public key for $peerID: ${e.message}")
             return null
         }
-    }
-    
-    /**
-     * Convert full hex string to byte array
-     */
-    private fun hexStringToByteArray(hexString: String): ByteArray {
-        val clean = if (hexString.length % 2 == 0) hexString else "0$hexString"
-        return clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
     
     fun cleanup() {

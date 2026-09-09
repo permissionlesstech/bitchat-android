@@ -1,8 +1,15 @@
 package com.bitchat.android.crypto
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.util.Base64
 import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.bitchat.android.noise.NoiseEncryptionService
+import com.bitchat.android.noise.NoiseHandshakeProcessingResult
+import com.bitchat.android.noise.AuthenticatedNoiseSession
+import com.bitchat.android.noise.NoiseDecryptionResult
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair
 import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator
 import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters
@@ -11,6 +18,7 @@ import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
+import androidx.core.content.edit
 
 /**
  * Encryption service that now uses NoiseEncryptionService internally
@@ -19,29 +27,55 @@ import java.util.concurrent.ConcurrentHashMap
  * This is the main interface for all encryption/decryption operations in bitchat.
  * It now uses the Noise protocol for secure transport encryption with proper session management.
  */
-class EncryptionService(private val context: Context) {
+open class EncryptionService(private val context: Context) {
     
     companion object {
         private const val TAG = "EncryptionService"
         private const val ED25519_PRIVATE_KEY_PREF = "ed25519_signing_private_key"
+        private const val OLD_PREFS_NAME = "bitchat_crypto"
+        private const val SECURE_PREFS_NAME = "bitchat_crypto_secure"
     }
     
     // Core Noise encryption service
-    private val noiseService: NoiseEncryptionService = NoiseEncryptionService(context)
+    private val noiseService: NoiseEncryptionService by lazy { NoiseEncryptionService(context) }
     
     // Session tracking for established connections
     private val establishedSessions = ConcurrentHashMap<String, String>() // peerID -> fingerprint
     
     // Ed25519 signing keys (separate from Noise static keys)
-    private val ed25519PrivateKey: Ed25519PrivateKeyParameters
-    private val ed25519PublicKey: Ed25519PublicKeyParameters
+    private lateinit var ed25519PrivateKey: Ed25519PrivateKeyParameters
+    private lateinit var ed25519PublicKey: Ed25519PublicKeyParameters
     
     // Callbacks for UI state updates
     var onSessionEstablished: ((String) -> Unit)? = null // peerID
     var onSessionLost: ((String) -> Unit)? = null // peerID
     var onHandshakeRequired: ((String) -> Unit)? = null // peerID
+    private lateinit var prefs: SharedPreferences
     
     init {
+        initialize()
+    }
+
+    private fun setUpEncryptedPrefs() {
+        val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+
+        // Create encrypted shared preferences
+        prefs = EncryptedSharedPreferences.create(
+            context,
+            SECURE_PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    /**
+     * Initialization logic moved to method to allow overriding in tests
+     */
+    protected open fun initialize() {
+        setUpEncryptedPrefs()
         // Initialize or load Ed25519 signing keys
         val keyPair = loadOrCreateEd25519KeyPair()
         ed25519PrivateKey = keyPair.private as Ed25519PrivateKeyParameters
@@ -135,9 +169,14 @@ class EncryptionService(private val context: Context) {
         
         // Clear Ed25519 signing key from preferences
         try {
-            val prefs = context.getSharedPreferences("bitchat_crypto", Context.MODE_PRIVATE)
-            prefs.edit().remove(ED25519_PRIVATE_KEY_PREF).apply()
+            prefs.edit { remove(ED25519_PRIVATE_KEY_PREF) }
             Log.d(TAG, "🗑️ Cleared Ed25519 signing keys from preferences")
+
+            // Generate new keys immediately
+            val keyPair = loadOrCreateEd25519KeyPair()
+            ed25519PrivateKey = keyPair.private as Ed25519PrivateKeyParameters
+            ed25519PublicKey = keyPair.public as Ed25519PublicKeyParameters
+            Log.d(TAG, "✅ Rotated Ed25519 signing keys in memory")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to clear Ed25519 keys: ${e.message}")
         }
@@ -154,6 +193,13 @@ class EncryptionService(private val context: Context) {
         }
         return encrypted
     }
+
+    @Throws(Exception::class)
+    fun encryptForSession(
+        data: ByteArray,
+        peerID: String,
+        expectedSession: AuthenticatedNoiseSession
+    ): ByteArray = noiseService.encryptForSession(data, peerID, expectedSession)
     
     /**
      * Decrypt data from a specific peer using Noise transport encryption
@@ -165,6 +211,12 @@ class EncryptionService(private val context: Context) {
             throw Exception("Failed to decrypt from $peerID")
         }
         return decrypted
+    }
+
+    @Throws(Exception::class)
+    fun decryptWithSession(data: ByteArray, peerID: String): NoiseDecryptionResult {
+        return noiseService.decryptWithSession(data, peerID)
+            ?: throw Exception("Failed generation-bound decryption from $peerID")
     }
     
     /**
@@ -218,6 +270,25 @@ class EncryptionService(private val context: Context) {
     fun getPeerFingerprint(peerID: String): String? {
         return noiseService.getPeerFingerprint(peerID)
     }
+
+    /**
+     * Return the remote static key authenticated by the live Noise handshake.
+     * This deliberately bypasses announcement and PeerFingerprintManager
+     * caches; callers making downgrade decisions must bind to live channel
+     * authentication, not a self-certified identity payload.
+     */
+    fun getAuthenticatedRemoteStaticKey(peerID: String): ByteArray? {
+        return getAuthenticatedSession(peerID)?.remoteStaticKey?.copyOf()
+    }
+
+    fun getAuthenticatedSession(peerID: String): AuthenticatedNoiseSession? =
+        noiseService.getAuthenticatedSession(peerID)
+
+    fun withAuthenticatedSession(
+        peerID: String,
+        expectedSession: AuthenticatedNoiseSession,
+        action: () -> Boolean
+    ): Boolean = noiseService.withAuthenticatedSession(peerID, expectedSession, action)
     
     /**
      * Get current peer ID for a fingerprint (for peer ID rotation)
@@ -229,9 +300,9 @@ class EncryptionService(private val context: Context) {
     /**
      * Initiate a Noise handshake with a peer
      */
-    fun initiateHandshake(peerID: String): ByteArray? {
+    fun initiateHandshake(peerID: String, replaceEstablished: Boolean = false): ByteArray? {
         Log.d(TAG, "🤝 Initiating Noise handshake with $peerID")
-        return noiseService.initiateHandshake(peerID)
+        return noiseService.initiateHandshake(peerID, replaceEstablished)
     }
     
     /**
@@ -241,11 +312,24 @@ class EncryptionService(private val context: Context) {
         Log.d(TAG, "🤝 Processing handshake message from $peerID")
         return noiseService.processHandshakeMessage(data, peerID)
     }
+
+    /**
+     * Process one Noise handshake frame while preserving whether this exact call authenticated a
+     * new session. Unlike the response-only compatibility API, binding failures are propagated.
+     */
+    @Throws(Exception::class)
+    open fun processHandshakeMessageWithResult(
+        data: ByteArray,
+        peerID: String
+    ): NoiseHandshakeProcessingResult {
+        Log.d(TAG, "🤝 Processing typed handshake message from $peerID")
+        return noiseService.processHandshakeMessageWithResult(data, peerID)
+    }
     
     /**
      * Remove a peer session (called when peer disconnects)
      */
-    fun removePeer(peerID: String) {
+    open fun removePeer(peerID: String) {
         establishedSessions.remove(peerID)
         noiseService.removePeer(peerID)
         onSessionLost?.invoke(peerID)
@@ -356,7 +440,7 @@ class EncryptionService(private val context: Context) {
     /**
      * Verify Ed25519 signature against data using a public key
      */
-    fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKeyBytes: ByteArray): Boolean {
+    open fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKeyBytes: ByteArray): Boolean {
         return try {
             val publicKey = Ed25519PublicKeyParameters(publicKeyBytes, 0)
             val verifier = Ed25519Signer()
@@ -377,13 +461,14 @@ class EncryptionService(private val context: Context) {
      * Load existing Ed25519 key pair from preferences or create a new one
      */
     private fun loadOrCreateEd25519KeyPair(): AsymmetricCipherKeyPair {
+        // Migrate legacy plaintext Ed25519 key to encrypted storage if present
+        migrateOldEd25519KeyIfNeeded()
         try {
-            val prefs = context.getSharedPreferences("bitchat_crypto", Context.MODE_PRIVATE)
             val storedKey = prefs.getString(ED25519_PRIVATE_KEY_PREF, null)
-            
+
             if (storedKey != null) {
                 // Load existing key
-                val privateKeyBytes = android.util.Base64.decode(storedKey, android.util.Base64.DEFAULT)
+                val privateKeyBytes = Base64.decode(storedKey, Base64.DEFAULT)
                 val privateKey = Ed25519PrivateKeyParameters(privateKeyBytes, 0)
                 val publicKey = privateKey.generatePublicKey()
                 Log.d(TAG, "✅ Loaded existing Ed25519 signing key pair")
@@ -394,23 +479,47 @@ class EncryptionService(private val context: Context) {
         }
         
         // Create new key pair
+        return generateAndSaveEd25519KeyPair()
+    }
+
+    fun generateAndSaveEd25519KeyPair(): AsymmetricCipherKeyPair {
         val keyGen = Ed25519KeyPairGenerator()
         keyGen.init(Ed25519KeyGenerationParameters(SecureRandom()))
         val keyPair = keyGen.generateKeyPair()
-        
+
         // Store private key in preferences
         try {
             val privateKey = keyPair.private as Ed25519PrivateKeyParameters
             val privateKeyBytes = privateKey.encoded
-            val encodedKey = android.util.Base64.encodeToString(privateKeyBytes, android.util.Base64.DEFAULT)
-            
-            val prefs = context.getSharedPreferences("bitchat_crypto", Context.MODE_PRIVATE)
-            prefs.edit().putString(ED25519_PRIVATE_KEY_PREF, encodedKey).apply()
+            val encodedKey = Base64.encodeToString(privateKeyBytes, Base64.DEFAULT)
+
+            prefs.edit { putString(ED25519_PRIVATE_KEY_PREF, encodedKey) }
             Log.d(TAG, "✅ Created and stored new Ed25519 signing key pair")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to store Ed25519 private key: ${e.message}")
         }
         
         return keyPair
+    }
+
+    private fun migrateOldEd25519KeyIfNeeded() {
+        try {
+            // old existing plain text preference
+            val oldPrefs = context.getSharedPreferences(OLD_PREFS_NAME, Context.MODE_PRIVATE)
+
+            val oldKey = oldPrefs.getString(ED25519_PRIVATE_KEY_PREF, null)
+
+            if (oldKey != null && !prefs.contains(ED25519_PRIVATE_KEY_PREF)) {
+                prefs.edit {
+                    putString(ED25519_PRIVATE_KEY_PREF, oldKey)
+                }
+                oldPrefs.edit {
+                    remove(ED25519_PRIVATE_KEY_PREF)
+                }
+                Log.d(TAG, "🔁 Migrated Ed25519 key to EncryptedSharedPreferences")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Failed to migrate Ed25519 key; generating new identity: ${e.message}")
+        }
     }
 }

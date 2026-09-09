@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "scenario_version": "1.0",
+  "scenarios": [
+    {
+      "id": "TRN-001",
+      "category": "transport",
+      "title": "Complete the physical BLE, GATT, MTU, Wi-Fi Aware, and failover matrix",
+      "participants": ["android-low", "android-current", "android-aware"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral", "wifi-aware"],
+      "evidence": ["matrix-check-count", "mtu-case-count", "failure-injection-count", "shutdown-check-count"]
+    },
+    {
+      "id": "AND-001",
+      "category": "android-platform",
+      "title": "Complete API-level, manufacturer, permission-revocation, and background gates",
+      "participants": ["android-low", "android-current", "android-aware"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral", "wifi-aware"],
+      "evidence": ["api-level-count", "manufacturer-count", "permission-revocation-count", "background-case-count"]
+    },
+    {
+      "id": "A2A-001",
+      "category": "android-to-android",
+      "title": "Discover, connect, announce, disconnect, and reconnect",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["connection-transitions", "packet-correlation-count", "failure-reasons"]
+    },
+    {
+      "id": "A2A-002",
+      "category": "android-to-android",
+      "title": "Exchange public and private messages in both directions",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["message-counts", "packet-correlation-count"]
+    },
+    {
+      "id": "A2A-003",
+      "category": "android-to-android",
+      "title": "Advance delivery and read receipts",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["receipt-transitions"]
+    },
+    {
+      "id": "A2A-004",
+      "category": "android-to-android",
+      "title": "Transfer image, audio, and generic files at multiple sizes",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["fixture-digests", "transfer-progress", "delivery-digests"]
+    },
+    {
+      "id": "A2A-005",
+      "category": "android-to-android",
+      "title": "Relay across three Android devices",
+      "participants": ["android-low", "android-current", "android-relay"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["route-transitions", "ttl-values", "packet-correlation-count"]
+    },
+    {
+      "id": "A2A-006",
+      "category": "android-to-android",
+      "title": "Partition and recover store-and-forward delivery",
+      "participants": ["android-low", "android-current", "android-relay"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["partition-window", "queue-counts", "delivery-counts"]
+    },
+    {
+      "id": "A2A-007",
+      "category": "android-to-android",
+      "title": "Toggle Bluetooth during active transfers",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["radio-transitions", "transfer-terminal-state"]
+    },
+    {
+      "id": "A2A-008",
+      "category": "android-to-android",
+      "title": "Lock screens and background both apps during mesh operation",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["lifecycle-transitions", "service-state", "delivery-counts"]
+    },
+    {
+      "id": "A2A-009",
+      "category": "android-to-android",
+      "title": "Kill and recreate one process",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["process-generation", "restored-state", "reconnect-count"]
+    },
+    {
+      "id": "A2A-010",
+      "category": "android-to-android",
+      "title": "Resolve simultaneous and duplicate links",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["candidate-links", "canonical-link-count"]
+    },
+    {
+      "id": "A2A-011",
+      "category": "android-to-android",
+      "title": "Fail over through Wi-Fi Aware",
+      "participants": ["android-current", "android-aware"],
+      "required": true,
+      "capabilities": ["wifi-aware"],
+      "evidence": ["transport-selection", "failover-window", "delivery-counts"]
+    },
+    {
+      "id": "XCL-001",
+      "category": "cross-client",
+      "title": "Current Android interoperates with current iOS",
+      "participants": ["android-current", "ios-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["client-versions", "payload-counts"]
+    },
+    {
+      "id": "XCL-002",
+      "category": "cross-client",
+      "title": "Current rewrite contracts interoperate with the last supported Android",
+      "participants": ["android-current", "android-legacy"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["client-versions", "payload-counts"]
+    },
+    {
+      "id": "XCL-003",
+      "category": "cross-client",
+      "title": "Legacy announcements without capabilities remain compatible",
+      "participants": ["android-current", "android-legacy"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["announcement-version", "peer-state"]
+    },
+    {
+      "id": "XCL-004",
+      "category": "cross-client",
+      "title": "Older clients safely ignore current capability announcements",
+      "participants": ["android-current", "android-legacy"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["announcement-version", "peer-state"]
+    },
+    {
+      "id": "XCL-005",
+      "category": "cross-client",
+      "title": "Canonical private media and prerelease decode-only alias interoperate",
+      "participants": ["android-current", "ios-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["wire-type", "delivery-digests", "downgrade-decision"]
+    },
+    {
+      "id": "XCL-006",
+      "category": "cross-client",
+      "title": "Golden vectors match across implementations",
+      "participants": ["android-current", "ios-current", "android-legacy"],
+      "required": true,
+      "capabilities": [],
+      "evidence": ["vector-manifest-digest", "comparison-counts"]
+    },
+    {
+      "id": "XCL-007",
+      "category": "cross-client",
+      "title": "Malformed and unauthenticated inputs are rejected consistently",
+      "participants": ["android-current", "ios-current", "android-legacy"],
+      "required": true,
+      "capabilities": [],
+      "evidence": ["corpus-digest", "rejection-counts", "crash-count"]
+    },
+    {
+      "id": "XCL-008",
+      "category": "cross-client",
+      "title": "Nostr fallback messages and receipts interoperate",
+      "participants": ["android-current", "ios-current"],
+      "required": true,
+      "capabilities": ["local-relay", "tor"],
+      "evidence": ["relay-fixture", "event-id-count", "receipt-counts"]
+    },
+    {
+      "id": "END-001",
+      "category": "endurance",
+      "title": "Multi-hour discovery, connect, and disconnect soak",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "minimum_duration_minutes": 240,
+      "evidence": ["duration-minutes", "connection-counts", "failure-counts"]
+    },
+    {
+      "id": "END-002",
+      "category": "endurance",
+      "title": "Repeated large-transfer and cancellation cycles",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "minimum_cycles": 50,
+      "evidence": ["cycle-count", "delivery-counts", "cancellation-counts"]
+    },
+    {
+      "id": "END-003",
+      "category": "endurance",
+      "title": "Resource growth remains bounded",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["memory-samples", "thread-samples", "fd-samples", "wakelock-samples", "battery-samples"]
+    },
+    {
+      "id": "END-004",
+      "category": "endurance",
+      "title": "Foreground service survives with screens off",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["service-state", "screen-state", "delivery-counts"]
+    },
+    {
+      "id": "END-005",
+      "category": "endurance",
+      "title": "Nostr survives network and Tor availability changes",
+      "participants": ["android-current"],
+      "required": true,
+      "capabilities": ["local-relay", "tor"],
+      "evidence": ["network-transitions", "tor-transitions", "receipt-counts"]
+    },
+    {
+      "id": "END-006",
+      "category": "endurance",
+      "title": "Shutdown releases radios, sockets, jobs, and wake locks",
+      "participants": ["android-low", "android-current"],
+      "required": true,
+      "capabilities": ["ble-central", "ble-peripheral"],
+      "evidence": ["resource-terminal-state", "late-callback-count"]
+    }
+  ]
+}

@@ -1,20 +1,396 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">بيتشات</string>
-    <string name="permission_bluetooth_rationale">يعد إذن البلوتوث ضروريًا للمراسلة عبر الإنترنت.</string>
-    <string name="permission_location_rationale">تحتاج إلى إذن بالترجمة لاكتشاف الأجهزة التالية عبر Bluetooth.</string>
-    <string name="permission_notification_rationale">يلزم الحصول على إذن الإشعارات لتنبيه الرسائل الجديدة.</string>
-    <string name="nickname_hint">اسم العائلة</string>
-    <string name="message_hint">رقمي رسالة...</string>
+    <string name="app_name">bitchat</string>
+
+    <!-- مبررات الأذونات -->
+    <string name="permission_bluetooth_rationale">إذن البلوتوث مطلوب للدردشة مباشرة مع الآخرين بدون إنترنت.</string>
+    <string name="permission_location_rationale">إذن الموقع مطلوب للعثور على الأجهزة القريبة عبر البلوتوث.</string>
+    <string name="permission_notification_rationale">إذن الإشعارات مطلوب لتنبيهك بالرسائل الجديدة.</string>
+
+    <!-- عناصر نائبة / واجهة أساسية -->
+    <string name="nickname_hint">اسم مستعار</string>
+    <string name="message_hint">اكتب رسالة…</string>
     <string name="channel_password_hint">كلمة المرور</string>
-    <string name="join_channel">انضمام إلى قناة</string>
+    <string name="join_channel">الانضمام إلى القناة</string>
     <string name="leave_channel">مغادرة</string>
     <string name="send_message">إرسال</string>
+    <string name="show_commands">عرض الأوامر</string>
     <string name="back">رجوع</string>
     <string name="people">أشخاص</string>
-    <string name="channels">قنوات</string>
+    <string name="channels">القنوات</string>
     <string name="online_users">مستخدمون متصلون</string>
     <string name="no_one_connected">لا أحد متصل</string>
     <string name="emergency_clear_hint">انقر ثلاث مرات لمسح جميع البيانات</string>
     <string name="your_network">شبكتك</string>
+
+    <!-- تحسين البطارية -->
+    <string name="battery_optimization_detected">تم اكتشاف تحسين البطارية</string>
+    <string name="battery_optimization_disabled">تحسين البطارية معطّل</string>
+    <string name="battery_optimization_not_required">لا حاجة لتحسين البطارية</string>
+    <string name="battery_optimization_checking">جارٍ التحقق من تحسين البطارية</string>
+    <string name="battery_optimization_why_disable">لماذا تعطيل تحسين البطارية؟</string>
+    <string name="battery_optimization_explanation">تعمل bitchat في الخلفية للحفاظ على اتصالات الشبكة المتشابكة مع الأجهزة القريبة. قد يقطع تحسين البطارية هذه الاتصالات مما يؤدي إلى تأخير الرسائل أو فقدانها.\n\nيساعد تعطيل تحسين البطارية في ضمان اتصال موثوق بين النظراء.</string>
+    <string name="battery_optimization_disable_button">تعطيل تحسين البطارية</string>
+    <string name="battery_optimization_note">ملاحظة: يمكنك تغيير ذلك لاحقًا من إعدادات أندرويد &gt; التطبيقات &gt; bitchat &gt; البطارية.</string>
+    <string name="battery_optimization_not_supported_explanation">جهازك لا يحتاج إلى إعدادات تحسين البطارية. ستعمل bitchat بشكل طبيعي.</string>
+    <string name="battery_optimization_not_supported_message">جهازك لا يحتاج إلى إعدادات تحسين البطارية. ستعمل bitchat بشكل طبيعي.</string>
+    <string name="battery_optimization_success_message">يمكن لـ bitchat العمل بشكل موثوق في الخلفية</string>
+    <string name="battery_optimization_benefits">• تسليم موثوق للرسائل\n• الحفاظ على اتصال الشبكة المتشابكة\n• تمرير الرسائل في الخلفية\n• منع انقطاع الاتصال</string>
+    <string name="battery_optimization_check_again">التحقق مرة أخرى</string>
+    <string name="battery_optimization_skip">تخطي الآن</string>
+    <string name="battery_optimization_continue">متابعة</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="skip">تخطي</string>
+
+    <!-- الإشعارات -->
+    <string name="notification_summary_more">و%1$d إضافية</string>
+    <string name="notification_messages_from_people">%1$d رسالة من %2$d أشخاص</string>
+    <string name="notification_more_conversations">و%1$d محادثات أخرى</string>
+    <string name="notification_active_peers_title">مستخدمون قريبون!</string>
+    <string name="notification_active_peers_one">شخص واحد قريب</string>
+    <string name="notification_active_peers_many">%1$d أشخاص قريبون</string>
+    <string name="notification_new_messages">رسائل جديدة</string>
+    <string name="notification_new_location_messages">رسائل موقع جديدة</string>
+    <string name="notification_mentions_in">تم ذكرك في %1$s</string>
+    <string name="notification_mentions_in_more">تم ذكرك في %1$s (+%2$d أخرى)</string>
+    <string name="notification_mentions_in_plural">%1$d من الإشارات في %2$s</string>
+    <string name="notification_new_activity_in">نشاط جديد في %1$s</string>
+    <string name="notification_messages_in">رسائل في %1$s</string>
+    <string name="notification_joined_conversation">%1$s انضم إلى المحادثة</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d إشارات</string>
+    <string name="notification_geohash_summary_title">bitchat – محادثات المواقع</string>
+    <string name="notification_geohash_summary_text">%1$d رسائل من %2$d مواقع</string>
+    <string name="notification_mesh_mention_title_singular">تم ذكرك في محادثة الشبكة</string>
+    <string name="notification_mesh_mention_title_plural">%1$d من الإشارات في محادثة الشبكة</string>
+    <string name="notification_more_locations">و%1$d مواقع أخرى</string>
+    <string name="notification_and_more">و%1$d إضافية</string>
+
+    <!-- سهولة الوصول للمفضلة -->
+    <string name="cd_add_favorite">إضافة إلى المفضلة</string>
+    <string name="cd_remove_favorite">إزالة من المفضلة</string>
+    <string name="cd_add_bookmark">إضافة إشارة مرجعية</string>
+
+    <!-- ترويسة الدردشة وسهولة الوصول -->
+    <string name="cd_nostr_reachable">يمكن الوصول عبر Nostr</string>
+    <string name="cd_unread_private_messages">رسائل خاصة غير مقروءة</string>
+    <string name="cd_teleported">تم الانتقال</string>
+    <string name="cd_open_location_channels">فتح إعدادات الموقع والقنوات</string>
+    <string name="cd_connected_peers">الأقران المتصلون</string>
+    <string name="cd_geohash_participants">مشاركو geohash</string>
+    <string name="cd_ready_for_handshake">جاهز للمصافحة</string>
+    <string name="cd_handshake_in_progress">المصافحة جارية</string>
+    <string name="cd_encrypted">تشفير طرف إلى طرف</string>
+    <string name="cd_handshake_failed">فشلت المصافحة</string>
+
+    <!-- مربع عرض الملفات -->
+    <string name="file_viewer_title">📎 تم استلام ملف</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 الحجم: %1$s</string>
+    <string name="file_viewer_type">🏷️ النوع: %1$s</string>
+    <string name="file_viewer_open_save">📂 فتح / حفظ</string>
+    <string name="close_with_emoji">❌ إغلاق</string>
+    <string name="pick_image">اختيار صورة</string>
+
+    <!-- ورقة حول التطبيق -->
+    <string name="about_offline_mesh_title">دردشة شبكية دون اتصال</string>
+    <string name="about_offline_mesh_desc">تواصل مباشرة عبر Bluetooth LE بدون إنترنت أو خوادم. تُعاد توجيه الرسائل عبر الأجهزة القريبة لتوسيع النطاق.</string>
+    <string name="about_online_geohash_title">قنوات geohash عبر الإنترنت</string>
+    <string name="about_online_geohash_desc">تواصل مع أشخاص بالقرب منك عبر قنوات تعتمد على geohash. وسّع الشبكة عبر مرحلات الإنترنت العامة.</string>
+    <string name="about_e2e_title">تشفير طرف إلى طرف</string>
+    <string name="about_e2e_desc">الرسائل الخاصة مشفّرة. رسائل القنوات عامة.</string>
+    <string name="about_system">النظام</string>
+    <string name="about_light">فاتح</string>
+    <string name="about_dark">داكن</string>
+    <string name="about_pow">برهان العمل</string>
+    <string name="about_pow_off">PoW معطّل</string>
+    <string name="about_pow_on">PoW مفعّل</string>
+    <string name="about_pow_tip">أضف برهان العمل لرسائل geohash للحد من الرسائل المزعجة.</string>
+    <string name="about_pow_difficulty">الصعوبة: %1$d بت (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">الصعوبة %1$d تتطلب ~%2$s من محاولات الهاش</string>
+    <string name="about_pow_desc_none">لا حاجة لبرهان العمل</string>
+    <string name="about_pow_desc_very_low">منخفض جدًا – حماية دنيا من الرسائل المزعجة</string>
+    <string name="about_pow_desc_low">منخفض – حماية أساسية</string>
+    <string name="about_pow_desc_medium">متوسط – حماية جيدة</string>
+    <string name="about_pow_desc_high">عالٍ – حماية قوية</string>
+    <string name="about_pow_desc_very_high">عالٍ جدًا – قد يسبب تأخيرًا</string>
+    <string name="about_pow_desc_extreme">شديد – يتطلب قدرة حوسبية كبيرة</string>
+    <string name="about_network">الشبكة</string>
+    <string name="about_tor_off">Tor معطّل</string>
+    <string name="about_tor_on">Tor مفعّل</string>
+    <string name="about_tor_route">توجيه حركة الإنترنت عبر Tor لمزيد من الخصوصية.</string>
+    <string name="about_tor_status">حالة Tor: %1$s، التمهيد %2$d%%</string>
+    <string name="about_last">آخر: %1$s</string>
+    <string name="about_emergency_title">مسح البيانات الطارئ</string>
+    <string name="about_debug_settings">إعدادات التصحيح</string>
+    <string name="about_footer">مفتوح المصدر • الخصوصية أولاً • لامركزي</string>
+    <string name="close_plain">إغلاق</string>
+    <string name="cancel_lower">إلغاء</string>
+
+    <!-- أوصاف عامة للمحتوى -->
+    <string name="cd_warning">تحذير</string>
+    <string name="cd_location_services">خدمات الموقع</string>
+    <string name="cd_privacy">الخصوصية</string>
+    <string name="cd_error">خطأ</string>
+    <string name="cd_battery_optimization">تحسين البطارية</string>
+    <string name="cd_benefits">الفوائد</string>
+    <string name="cd_checking_battery_optimization">جارٍ التحقق من تحسين البطارية</string>
+    <string name="cd_not_supported_battery_optimization">تحسين البطارية غير مدعوم</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_unread_message">رسالة غير مقروءة</string>
+    <string name="cd_open_map">فتح الخريطة</string>
+    <string name="cd_remove_bookmark">إزالة الإشارة المرجعية</string>
+    <string name="cd_teleport">انتقال</string>
+    <string name="cd_leave_channel">مغادرة القناة</string>
+    <string name="cd_reachable_via_nostr">يمكن الوصول عبر Nostr</string>
+    <string name="cd_offline_favorite">مفضل (غير متصل)</string>
+    <string name="cd_decrease_precision">خفض الدقة</string>
+    <string name="cd_increase_precision">رفع الدقة</string>
+    <string name="cd_select_geohash">اختر geohash</string>
+    <string name="cd_scroll_to_bottom">التمرير إلى الأسفل</string>
+    <string name="cd_file">ملف</string>
+    <string name="cd_image">صورة</string>
+    <string name="cd_cancel">إلغاء</string>
+    <string name="cd_link">رابط</string>
+    <string name="cd_pick_media">اختيار وسائط</string>
+    <string name="cd_pick_file">اختيار ملف</string>
+    <string name="cd_save_current_image">حفظ الصورة الحالية</string>
+    <string name="cd_close">إغلاق</string>
+    <string name="cd_image_index_of">صورة %1$d من %2$d</string>
+    <string name="cd_privacy_protected">الخصوصية محمية</string>
+    <string name="cd_record_voice">تسجيل مذكرة صوتية</string>
+    <string name="cd_offline_mesh_chat">دردشة شبكية دون اتصال</string>
+    <string name="cd_online_geohash_channels">قنوات geohash عبر الإنترنت</string>
+    <string name="cd_end_to_end_encryption">تشفير طرف إلى طرف</string>
+
+    <!-- الصور والملفات -->
+    <string name="image_page_of">صورة %1$d من %2$d</string>
+    <string name="image_unavailable">الصورة غير متاحة</string>
+    <string name="image_saved_to_downloads">تم حفظ الصورة في "التنزيلات"</string>
+    <string name="image_save_failed">تعذّر حفظ الصورة</string>
+    <string name="toast_image_saved">تم حفظ الصورة في "التنزيلات"</string>
+    <string name="toast_failed_to_save_image">تعذّر حفظ الصورة</string>
+    <string name="pick_file">اختيار ملف</string>
+    <string name="file_unavailable">[الملف غير متاح]</string>
+    <string name="unknown">غير معروف</string>
+
+    <!-- ورقة إجراءات المستخدم -->
+    <string name="choose_action_message_or_user">اختر إجراءً لهذه الرسالة أو هذا المستخدم</string>
+    <string name="choose_action_user">اختر إجراءً لهذا المستخدم</string>
+    <string name="action_copy_message_title">نسخ الرسالة</string>
+    <string name="action_copy_message_subtitle">انسخ هذه الرسالة إلى الحافظة</string>
+    <string name="action_slap_title">صفع %1$s</string>
+    <string name="action_slap_subtitle">إرسال صفعة ودّية</string>
+    <string name="action_hug_title">عناق %1$s</string>
+    <string name="action_hug_subtitle">إرسال عناق ودي</string>
+    <string name="action_block_title">حظر %1$s</string>
+    <string name="action_block_subtitle">حظر جميع رسائل هذا المستخدم</string>
+
+    <!-- ورقة قنوات geohash -->
+    <string name="location_channels_title">#قنوات الموقع</string>
+    <string name="location_channels_desc">دردش مع أشخاص قريبين منك عبر قنوات geohash. تتم مشاركة geohash تقريبي فقط، وليس بيانات GPS الدقيقة. للحفاظ على خصوصيتك، لا تلتقط لقطات شاشة ولا تشارك هذه الشاشة.</string>
+    <string name="grant_location_permission">منح إذن الموقع</string>
+    <string name="location_permission_denied">تم رفض إذن الموقع. فعّله من الإعدادات لاستخدام قنوات الموقع.</string>
+    <string name="open_settings">فتح الإعدادات</string>
+    <string name="location_permission_granted">\u2713 تم منح إذن الموقع</string>
+    <string name="checking_permissions">جارٍ التحقق من الأذونات…</string>
+    <string name="finding_nearby_channels">البحث عن قنوات قريبة…</string>
+    <string name="bookmarked">محفوظة</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">geohash غير صالح</string>
+    <string name="teleport">انتقال</string>
+    <string name="disable_location_services">تعطيل خدمات الموقع</string>
+    <string name="enable_location_services">تمكين خدمات الموقع</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">مربّع سكني</string>
+    <string name="location_level_neighborhood">حيّ</string>
+    <string name="location_level_city">مدينة</string>
+    <string name="location_level_province">إقليم</string>
+    <string name="location_level_region">منطقة</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <!-- التصحيح / التشخيص -->
+    <string name="debug_tools">أدوات التصحيح</string>
+    <string name="debug_tools_desc">أدوات المطوّر للتشخيص والتحكم</string>
+    <string name="debug_verbose_logging">سجل تفصيلي</string>
+    <string name="debug_verbose_hint">تسجّل انضمام/مغادرة الأقران، اتجاه الاتصال، تمرير الحزم والمرحلين</string>
+    <string name="debug_bluetooth_roles">أدوار البلوتوث</string>
+    <string name="debug_gatt_server">خادم GATT</string>
+    <string name="debug_connections_fmt">الاتصالات: %1$d / %2$d</string>
+    <string name="debug_max_server">الحد الأقصى للخادم</string>
+    <string name="debug_gatt_client">عميل GATT</string>
+    <string name="debug_max_client">الحد الأقصى للعميل</string>
+    <string name="debug_overall_connections_fmt">الاتصالات: %1$d / %2$d</string>
+    <string name="debug_max_overall">الحد الأقصى الكلي</string>
+    <string name="debug_packet_relay">تمرير الحزم</string>
+    <string name="debug_since_start_fmt">منذ البدء: %1$d</string>
+    <string name="debug_roles_hint">تبديل الأدوار وإغلاق جميع الاتصالات عند التعطيل</string>
+    <string name="debug_sync_settings">إعدادات المزامنة</string>
+    <string name="debug_max_packets_per_sync_fmt">الحد الأقصى للحزم لكل مزامنة: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">الحد الأقصى لحجم مرشح GCS: %1$d بايت (128–1024)</string>
+    <string name="debug_target_fpr_fmt">نسبة الإيجابيات الكاذبة المستهدفة: %1$.2f%%</string>
+    <string name="debug_connected_devices">الأجهزة المتصلة</string>
+    <string name="debug_our_device_id_fmt">معرّف جهازنا: %1$s</string>
+    <string name="debug_none">لا شيء</string>
+    <string name="debug_disconnect">قطع الاتصال</string>
+    <string name="debug_recent_scan_results">الأجهزة التي تم فحصها مؤخرًا</string>
+    <string name="debug_connect">اتصال</string>
+    <string name="debug_debug_console">وحدة تصحيح</string>
+    <string name="debug_clear">مسح</string>
+    <string name="debug_relays_window_fmt">آخر 10 ثوان: %1$d • 1 دقيقة: %2$d • 15 دقيقة: %3$d</string>
+    <string name="debug_derived_p_fmt">قيمة P المشتقة: %1$s • الحد الأقصى للعناصر المقدّر: %2$s</string>
+    <string name="debug_direct_suffix"> • مباشر</string>
+    <string name="debug_role_server">كخادم (نحن نستضيف)</string>
+    <string name="debug_role_client">كعميل (نحن نتصل)</string>
+
+    <!-- شاشات البدء -->
+    <string name="location_services_required">خدمات الموقع مطلوبة</string>
+    <string name="privacy_first">الخصوصية أولاً</string>
+    <string name="location_explanation">bitchat لا يتتبع موقعك.\n\nخدمات الموقع مطلوبة لمسح البلوتوث وميزة دردشة geohash.</string>
+    <string name="location_needs_for">bitchat يحتاج خدمات الموقع من أجل:</string>
+    <string name="location_needs_bullets">• مسح أجهزة البلوتوث\n• اكتشاف المستخدمين القريبين في شبكة mesh\n• ميزة دردشة geohash\n• بدون تتبع أو جمع للموقع</string>
+    <string name="open_location_settings">فتح إعدادات الموقع</string>
+    <string name="check_again">التحقق مرة أخرى</string>
+    <string name="location_services_unavailable">خدمات الموقع غير متاحة</string>
+    <string name="location_unavailable_explanation">خدمات الموقع غير متاحة على هذا الجهاز. هذا غير معتاد لأن خدمات الموقع قياسية في أجهزة أندرويد.\n\nتتطلب bitchat خدمات الموقع لعمل مسح البلوتوث بشكل صحيح (متطلب أندرويد). بدون ذلك لا يمكن للتطبيق اكتشاف المستخدمين القريبين.</string>
+    <string name="checking_location_services">جارٍ التحقق من خدمات الموقع…</string>
+    <string name="bluetooth_required">البلوتوث مطلوب</string>
+    <string name="bluetooth_needs_for">bitchat يحتاج البلوتوث من أجل:</string>
+    <string name="bluetooth_needs_bullets">• اكتشاف المستخدمين القريبين\n• إنشاء اتصالات شبكة mesh\n• إرسال واستقبال الرسائل\n• العمل بدون إنترنت أو خوادم</string>
+    <string name="enable_bluetooth">تفعيل البلوتوث</string>
+    <string name="bluetooth_not_supported">البلوتوث غير مدعوم</string>
+    <string name="bluetooth_unsupported_explanation">هذا الجهاز لا يدعم Bluetooth Low Energy (BLE) المطلوب لعمل bitchat.\n\nتحتاج bitchat إلى BLE لإنشاء شبكات mesh والتواصل مع الأجهزة القريبة بدون إنترنت.</string>
+    <string name="checking_bluetooth_status">جارٍ التحقق من حالة البلوتوث…</string>
+    <string name="battery_optimization_detected_title">تم اكتشاف تحسين البطارية</string>
+    <string name="battery_optimization_enabled_title">تحسين البطارية مفعّل</string>
+    <string name="battery_optimization_explanation_short">تحتاج bitchat للعمل في الخلفية للحفاظ على اتصالات mesh. قد يقطع تحسين البطارية هذه الاتصالات.</string>
+    <string name="benefits_of_disabling">فوائد التعطيل</string>
+    <string name="battery_benefits_short">• تسليم موثوق للرسائل\n• يحافظ على اتصال mesh\n• يمنع انقطاع الاتصال</string>
+    <string name="disable_battery_optimization">تعطيل تحسين البطارية</string>
+    <string name="battery_optimization_disabled_title">تم تعطيل تحسين البطارية</string>
+    <string name="continue_btn">متابعة</string>
+    <string name="initializing_mesh_network">جارٍ تهيئة شبكة mesh</string>
+    <string name="setting_up_bluetooth">جارٍ إعداد شبكة Bluetooth mesh…</string>
+    <string name="should_take_seconds">يجب أن يستغرق ذلك بضع ثوانٍ فقط</string>
+    <string name="setup_not_complete">الإعداد غير مكتمل</string>
+    <string name="try_again">حاول مرة أخرى</string>
+    <string name="privacy_protected">خصوصيتك محمية</string>
+    <string name="privacy_bullets">• بدون تتبع أو جمع للبيانات\n• دردشات Bluetooth mesh تعمل دون اتصال بالكامل\n• دردشات geohash تستخدم الإنترنت</string>
+    <string name="permissions_header">الأذونات</string>
+    <string name="grant_permissions">منح الأذونات</string>
+    <string name="location_tracking_warning">bitchat لا يتتبع موقعك</string>
+    <string name="nobody_around">لا أحد هنا…</string>
+    <string name="you_suffix"> (أنت)</string>
+    <string name="pan_zoom_instruction">حرّك وقرّب لاختيار geohash</string>
+    <string name="select">اختيار</string>
+    <string name="type_a_message_placeholder">اكتب رسالة…</string>
+    <string name="mention">إشارة</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">صورة</string>
+    <string name="media_type_file">ملف</string>
+
+    <!-- مساعدو نص الإشعارات -->
+    <string name="notification_sent_image">📷 أرسل صورة</string>
+    <string name="notification_sent_voice">🎤 أرسل مذكرة صوتية</string>
+    <string name="notification_sent_file">📎 أرسل ملفًا</string>
+
+    <!-- سهولة استخدام مشغّل الصوت -->
+    <string name="cd_play_voice">تشغيل</string>
+    <string name="cd_pause_voice">إيقاف مؤقت</string>
+
+    <!-- أوصاف الأذونات -->
+    <string name="perm_nearby_devices_desc">مطلوب لاكتشاف مستخدمي bitchat عبر البلوتوث</string>
+    <string name="perm_nearby_devices_system">اسمح لـ bitchat بالاتصال بالأجهزة القريبة</string>
+    <string name="perm_location_desc">مطلوب من أندرويد لاكتشاف مستخدمي bitchat القريبين عبر البلوتوث</string>
+    <string name="perm_location_system">bitchat يحتاج ذلك لمسح الأجهزة القريبة</string>
+    <string name="perm_notifications_desc">تلقي إشعارات عند استلام رسائل خاصة</string>
+    <string name="perm_notifications_system">اسمح لـ bitchat بإرسال الإشعارات إليك</string>
+    <string name="perm_battery_desc">تعطيل تحسين البطارية لضمان أن bitchat يعمل بشكل موثوق في الخلفية ويحافظ على اتصالات الشبكة المتشابكة</string>
+    <string name="perm_battery_system">اسمح لـ bitchat بالعمل بدون قيود البطارية</string>
+
+    <!-- أنواع الأذونات -->
+    <string name="perm_type_nearby_devices">الأجهزة القريبة</string>
+    <string name="perm_type_precise_location">موقع دقيق</string>
+    <string name="perm_type_microphone">ميكروفون</string>
+    <string name="perm_type_notifications">إشعارات</string>
+    <string name="perm_type_battery_optimization">تحسين البطارية</string>
+    <string name="perm_type_other">أخرى</string>
+
+    <!-- مربع كلمة المرور -->
+    <string name="pwd_prompt_title">أدخل كلمة مرور القناة</string>
+    <string name="pwd_prompt_message">القناة %1$s محمية بكلمة مرور. أدخل كلمة المرور للانضمام.</string>
+    <string name="pwd_label">كلمة المرور</string>
+    <string name="join">انضمام</string>
+    <string name="cancel">إلغاء</string>
+
+    <!-- صيغ الجمع -->
+    <plurals name="notification_and_more">
+        <item quantity="one">و%d إضافية</item>
+        <item quantity="other">و%d إضافية</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">شخص واحد</item>
+        <item quantity="other">%d أشخاص</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d ملاحظة</item>
+    <item quantity="other">#%1$s ± 1 • %2$d ملاحظات</item>
+  </plurals>
+  <string name="location_notes_description">أضف ملاحظات قصيرة ودائمة إلى هذا المكان ليتمكن الزوار الآخرون من العثور عليها.</string>
+  <string name="location_notes_relays_unavailable">قنوات الترحيل الجغرافية غير متاحة؛ تم إيقاف الملاحظات</string>
+  <string name="location_notes_no_relays_title">لا توجد قنوات ترحيل جغرافية قريبة</string>
+  <string name="location_notes_no_relays_desc">تعتمد الملاحظات على قنوات الترحيل الجغرافية. تحقق من الاتصال ثم أعد المحاولة.</string>
+  <string name="loading_location_notes">جارٍ تحميل الملاحظات…</string>
+  <string name="location_notes_empty_title">لا توجد ملاحظات بعد</string>
+  <string name="location_notes_empty_desc">كن أول من يضيف ملاحظة لهذا المكان.</string>
+  <string name="dismiss">إغلاق</string>
+  <string name="location_notes_input_placeholder">أضف ملاحظة لهذا المكان</string>
+    <string name="bluetooth_recommended">بلوتوث موصى به</string>
+    <string name="mesh_service_notification_content">الشبكة تعمل — %1$d أقران</string>
+
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_scan_someone">scan someone elses qr</string>
+  <string name="verify_show_my_qr">show my qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="verify_paste_label">paste verification url</string>
+  <string name="verify_validate">validate</string>
+  <string name="verify_scanned">verification requested</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_label">verified</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">فتح قسم حول</string>
+  <string name="nearby_notes_reveal">تحقّق من الملاحظات المتروكة هنا</string>
+  <string name="nearby_notes_one">تُركت ملاحظة واحدة هنا — انقر للقراءة</string>
+  <string name="nearby_notes_many">تُركت %d ملاحظات هنا — انقر للقراءة</string>
+    <string name="about_language">اللغة</string>
+    <string name="about_app_language">لغة التطبيق</string>
+    <string name="about_system_default">إعداد النظام الافتراضي</string>
+    <string name="about_select_language">اختر اللغة</string>
 </resources>

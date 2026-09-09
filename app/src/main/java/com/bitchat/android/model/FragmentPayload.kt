@@ -83,6 +83,9 @@ data class FragmentPayload(
      * Matches iOS implementation exactly
      */
     fun encode(): ByteArray {
+        require(index in 0..0xFFFF) { "Fragment index would truncate UInt16: $index" }
+        require(total in 1..0xFFFF) { "Fragment total would truncate UInt16: $total" }
+        require(index < total) { "Fragment index $index must be below total $total" }
         val payload = ByteArray(HEADER_SIZE + data.size)
         
         // Fragment ID (8 bytes)

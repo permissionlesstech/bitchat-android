@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <!-- অনুমতির যৌক্তিকতা -->
+    <string name="permission_bluetooth_rationale">ইন্টারনেট ছাড়াই অন্যদের সাথে সরাসরি চ্যাট করার জন্য ব্লুটুথ অনুমতি প্রয়োজন।</string>
+    <string name="permission_location_rationale">ব্লুটুথের মাধ্যমে কাছাকাছি ডিভাইস খুঁজে পেতে অবস্থান অনুমতি প্রয়োজন।</string>
+    <string name="permission_notification_rationale">নতুন বার্তা সম্পর্কে আপনাকে জানাতে বিজ্ঞপ্তি অনুমতি প্রয়োজন।</string>
+
+    <!-- প্লেসহোল্ডার / মৌলিক UI -->
+    <string name="nickname_hint">ডাকনাম</string>
+    <string name="message_hint">বার্তা টাইপ করুন…</string>
+    <string name="channel_password_hint">পাসওয়ার্ড</string>
+    <string name="join_channel">চ্যানেলে যোগ দিন</string>
+    <string name="leave_channel">ছেড়ে দিন</string>
+    <string name="send_message">পাঠান</string>
+    <string name="show_commands">কমান্ড দেখান</string>
+    <string name="back">ফিরে যান</string>
+    <string name="people">মানুষ</string>
+    <string name="channels">চ্যানেল</string>
+    <string name="online_users">অনলাইন ব্যবহারকারী</string>
+    <string name="no_one_connected">কেউ সংযুক্ত নেই</string>
+    <string name="emergency_clear_hint">সমস্ত ডেটা সাফ করতে তিনবার ট্যাপ করুন</string>
+    <string name="your_network">নেটওয়ার্ক</string>
+
+    <!-- ব্যাটারি অপ্টিমাইজেশন -->
+    <string name="battery_optimization_detected">ব্যাটারি অপ্টিমাইজেশন সনাক্ত</string>
+    <string name="battery_optimization_disabled">ব্যাটারি অপ্টিমাইজেশন নিষ্ক্রিয়</string>
+    <string name="battery_optimization_not_required">ব্যাটারি অপ্টিমাইজেশন প্রয়োজন নেই</string>
+    <string name="battery_optimization_checking">ব্যাটারি অপ্টিমাইজেশন পরীক্ষা করা হচ্ছে</string>
+    <string name="battery_optimization_why_disable">কেন ব্যাটারি অপ্টিমাইজেশন নিষ্ক্রিয় করবেন?</string>
+    <string name="battery_optimization_explanation">bitchat ব্যাকগ্রাউন্ডে চলে কাছাকাছি ডিভাইসগুলির সাথে মেশ সংযোগ বজায় রাখতে। ব্যাটারি অপ্টিমাইজেশন এই সংযোগগুলি বাধাগ্রস্ত করতে পারে, যার ফলে বার্তা বিলম্বিত বা হারিয়ে যেতে পারে।\n\nব্যাটারি অপ্টিমাইজেশন নিষ্ক্রিয় করা নির্ভরযোগ্য পিয়ার-টু-পিয়ার যোগাযোগ নিশ্চিত করে।</string>
+    <string name="battery_optimization_disable_button">ব্যাটারি অপ্টিমাইজেশন নিষ্ক্রিয় করুন</string>
+    <string name="battery_optimization_note">নোট: আপনি পরে Android Settings &gt; Apps &gt; bitchat &gt; Battery এ এটি পরিবর্তন করতে পারেন।</string>
+    <string name="battery_optimization_not_supported_explanation">আপনার ডিভাইসে ব্যাটারি অপ্টিমাইজেশন সেটিংসের প্রয়োজন নেই। bitchat স্বাভাবিকভাবে চলবে।</string>
+    <string name="battery_optimization_not_supported_message">আপনার ডিভাইসে ব্যাটারি অপ্টিমাইজেশন সেটিংসের প্রয়োজন নেই। bitchat স্বাভাবিকভাবে চলবে।</string>
+    <string name="battery_optimization_success_message">bitchat নির্ভরযোগ্যভাবে ব্যাকগ্রাউন্ডে চলতে পারে</string>
+    <string name="battery_optimization_benefits">• নির্ভরযোগ্য বার্তা ডেলিভারি\n• মেশ সংযোগ বজায় রাখা\n• ব্যাকগ্রাউন্ড বার্তা রিলে\n• সংযোগ বিচ্ছিন্নতা প্রতিরোধ</string>
+    <string name="battery_optimization_check_again">আবার পরীক্ষা করুন</string>
+    <string name="battery_optimization_skip">এখন এড়িয়ে যান</string>
+    <string name="battery_optimization_continue">চালিয়ে যান</string>
+    <string name="retry">আবার চেষ্টা করুন</string>
+    <string name="skip">এড়িয়ে যান</string>
+
+    <!-- বিজ্ঞপ্তি -->
+    <string name="notification_summary_more">এবং %1$d আরো</string>
+    <string name="notification_messages_from_people">%2$d জন থেকে %1$d বার্তা</string>
+    <string name="notification_more_conversations">এবং %1$d আরো কথোপকথন</string>
+    <string name="notification_active_peers_title">কাছাকাছি bitchatter!</string>
+    <string name="notification_active_peers_one">কাছাকাছি ১ জন</string>
+    <string name="notification_active_peers_many">কাছাকাছি %1$d জন</string>
+    <string name="notification_new_messages">নতুন বার্তা</string>
+    <string name="notification_new_location_messages">নতুন অবস্থান বার্তা</string>
+    <string name="notification_mentions_in">%1$s এ উল্লিখিত</string>
+    <string name="notification_mentions_in_more">%1$s এ উল্লিখিত (+%2$d আরো)</string>
+    <string name="notification_mentions_in_plural">%2$s এ %1$d উল্লেখ</string>
+    <string name="notification_new_activity_in">%1$s এ নতুন কার্যকলাপ</string>
+    <string name="notification_messages_in">%1$s এ বার্তা</string>
+    <string name="notification_joined_conversation">%1$s কথোপকথনে যোগ দিয়েছে</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d উল্লেখ</string>
+    <string name="notification_geohash_summary_title">bitchat – অবস্থান চ্যাট</string>
+    <string name="notification_geohash_summary_text">%2$d অবস্থান থেকে %1$d বার্তা</string>
+    <string name="notification_mesh_mention_title_singular">মেশ চ্যাটে উল্লিখিত</string>
+    <string name="notification_mesh_mention_title_plural">মেশ চ্যাটে %1$d উল্লেখ</string>
+    <string name="notification_more_locations">এবং %1$d আরো অবস্থান</string>
+    <string name="notification_and_more">এবং %1$d আরো</string>
+
+    <!-- প্রিয় অ্যাক্সেসিবিলিটি -->
+    <string name="cd_add_favorite">প্রিয়তে যোগ করুন</string>
+    <string name="cd_remove_favorite">প্রিয় থেকে সরান</string>
+    <string name="cd_add_bookmark">বুকমার্ক যোগ করুন</string>
+
+    <!-- চ্যাট হেডার ও অ্যাক্সেসিবিলিটি -->
+    <string name="cd_nostr_reachable">Nostr এর মাধ্যমে পৌঁছানো যায়</string>
+    <string name="cd_unread_private_messages">অপঠিত ব্যক্তিগত বার্তা</string>
+    <string name="cd_teleported">টেলিপোর্ট করা হয়েছে</string>
+    <string name="cd_open_location_channels">অবস্থান ও চ্যানেল সেটিংস খুলুন</string>
+    <string name="cd_connected_peers">সংযুক্ত পিয়ার</string>
+    <string name="cd_geohash_participants">জিওহ্যাশ অংশগ্রহণকারী</string>
+    <string name="cd_ready_for_handshake">হ্যান্ডশেকের জন্য প্রস্তুত</string>
+    <string name="cd_handshake_in_progress">হ্যান্ডশেক চলছে</string>
+    <string name="cd_encrypted">এন্ড-টু-এন্ড এনক্রিপ্ট করা</string>
+    <string name="cd_handshake_failed">হ্যান্ডশেক ব্যর্থ</string>
+
+    <!-- ফাইল ভিউয়ার ডায়ালগ -->
+    <string name="file_viewer_title">📎 ফাইল প্রাপ্ত</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 আকার: %1$s</string>
+    <string name="file_viewer_type">🏷️ ধরণ: %1$s</string>
+    <string name="file_viewer_open_save">📂 খুলুন / সংরক্ষণ করুন</string>
+    <string name="close_with_emoji">❌ বন্ধ করুন</string>
+    <string name="pick_image">ছবি নির্বাচন করুন</string>
+
+    <!-- সম্পর্কে শিট -->
+    <string name="about_offline_mesh_title">অফলাইন মেশ চ্যাট</string>
+    <string name="about_offline_mesh_desc">ইন্টারনেট বা সার্ভার ছাড়াই Bluetooth LE এর মাধ্যমে সরাসরি যোগাযোগ করুন। পরিসর বাড়ানোর জন্য কাছাকাছি ডিভাইসের মাধ্যমে বার্তা রিলে করা হয়।</string>
+    <string name="about_online_geohash_title">অনলাইন জিওহ্যাশ চ্যানেল</string>
+    <string name="about_online_geohash_desc">জিওহ্যাশ-ভিত্তিক চ্যানেলের মাধ্যমে আপনার এলাকার মানুষদের সাথে সংযুক্ত হন। পাবলিক ইন্টারনেট রিলেগুলির মাধ্যমে মেশ বিস্তৃত করুন।</string>
+    <string name="about_e2e_title">এন্ড-টু-এন্ড এনক্রিপশন</string>
+    <string name="about_e2e_desc">ব্যক্তিগত বার্তাগুলি এনক্রিপ্ট করা। চ্যানেল বার্তাগুলি পাবলিক।</string>
+    <string name="about_system">সিস্টেম</string>
+    <string name="about_light">হালকা</string>
+    <string name="about_dark">অন্ধকার</string>
+    <string name="about_pow">প্রুফ অফ ওয়ার্ক</string>
+    <string name="about_pow_off">PoW বন্ধ</string>
+    <string name="about_pow_on">PoW চালু</string>
+    <string name="about_pow_tip">স্প্যাম কঠিন করতে জিওহ্যাশ বার্তায় প্রুফ অফ ওয়ার্ক যোগ করুন।</string>
+    <string name="about_pow_difficulty">কঠিনতা: %1$d বিট (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">কঠিনতা %1$d প্রয়োজন ~%2$s হ্যাশ প্রচেষ্টা</string>
+    <string name="about_pow_desc_none">কোন প্রুফ অফ ওয়ার্ক প্রয়োজন নেই</string>
+    <string name="about_pow_desc_very_low">খুব কম – ন্যূনতম স্প্যাম সুরক্ষা</string>
+    <string name="about_pow_desc_low">কম – মৌলিক স্প্যাম সুরক্ষা</string>
+    <string name="about_pow_desc_medium">মাঝারি – ভাল স্প্যাম সুরক্ষা</string>
+    <string name="about_pow_desc_high">উচ্চ – শক্তিশালী স্প্যাম সুরক্ষা</string>
+    <string name="about_pow_desc_very_high">খুব উচ্চ – বিলম্ব ঘটাতে পারে</string>
+    <string name="about_pow_desc_extreme">চরম – উল্লেখযোগ্য কম্পিউটিং পাওয়ার প্রয়োজন</string>
+    <string name="about_network">নেটওয়ার্ক</string>
+    <string name="about_tor_off">Tor বন্ধ</string>
+    <string name="about_tor_on">Tor চালু</string>
+    <string name="about_tor_route">আরো গোপনীয়তার জন্য Tor এর মাধ্যমে ইন্টারনেট ট্রাফিক রুট করুন।</string>
+    <string name="about_tor_status">Tor অবস্থা: %1$s, বুটস্ট্র্যাপ %2$d%%</string>
+    <string name="about_last">শেষ: %1$s</string>
+    <string name="about_emergency_title">জরুরী ডেটা ক্লিয়ার</string>
+    <string name="about_debug_settings">ডিবাগ সেটিংস</string>
+    <string name="about_footer">ওপেন সোর্স • গোপনীয়তা প্রথম • বিকেন্দ্রীভূত</string>
+    <string name="close_plain">বন্ধ করুন</string>
+    <string name="cancel_lower">বাতিল</string>
+
+    <!-- সাধারণ বিষয়বস্তু বিবরণ -->
+    <string name="cd_warning">সতর্কতা</string>
+    <string name="cd_location_services">অবস্থান সেবা</string>
+    <string name="cd_privacy">গোপনীয়তা</string>
+    <string name="cd_error">ত্রুটি</string>
+    <string name="cd_battery_optimization">ব্যাটারি অপ্টিমাইজেশন</string>
+    <string name="cd_benefits">সুবিধা</string>
+    <string name="cd_checking_battery_optimization">ব্যাটারি অপ্টিমাইজেশন পরীক্ষা করা হচ্ছে</string>
+    <string name="cd_not_supported_battery_optimization">ব্যাটারি অপ্টিমাইজেশন সমর্থিত নয়</string>
+    <string name="cd_bluetooth">ব্লুটুথ</string>
+    <string name="cd_unread_message">অপঠিত বার্তা</string>
+    <string name="cd_open_map">মানচিত্র খুলুন</string>
+    <string name="cd_remove_bookmark">বুকমার্ক সরান</string>
+    <string name="cd_teleport">টেলিপোর্ট</string>
+    <string name="cd_leave_channel">চ্যানেল ছেড়ে দিন</string>
+    <string name="cd_reachable_via_nostr">Nostr এর মাধ্যমে পৌঁছানো যায়</string>
+    <string name="cd_offline_favorite">প্রিয় (অফলাইন)</string>
+    <string name="cd_decrease_precision">নির্ভুলতা কমান</string>
+    <string name="cd_increase_precision">নির্ভুলতা বাড়ান</string>
+    <string name="cd_select_geohash">জিওহ্যাশ নির্বাচন করুন</string>
+    <string name="cd_scroll_to_bottom">নিচে স্ক্রল করুন</string>
+    <string name="cd_file">ফাইল</string>
+    <string name="cd_image">ছবি</string>
+    <string name="cd_cancel">বাতিল</string>
+    <string name="cd_link">লিঙ্ক</string>
+    <string name="cd_pick_media">মিডিয়া নির্বাচন করুন</string>
+    <string name="cd_pick_file">ফাইল নির্বাচন করুন</string>
+    <string name="cd_save_current_image">বর্তমান ছবি সংরক্ষণ করুন</string>
+    <string name="cd_close">বন্ধ করুন</string>
+    <string name="cd_image_index_of">ছবি %1$d এর %2$d</string>
+    <string name="cd_privacy_protected">গোপনীয়তা সুরক্ষিত</string>
+    <string name="cd_record_voice">ভয়েস বার্তা রেকর্ড করুন</string>
+    <string name="cd_offline_mesh_chat">অফলাইন মেশ চ্যাট</string>
+    <string name="cd_online_geohash_channels">অনলাইন জিওহ্যাশ চ্যানেল</string>
+    <string name="cd_end_to_end_encryption">এন্ড-টু-এন্ড এনক্রিপশন</string>
+
+    <!-- ছবি ও ফাইল -->
+    <string name="image_page_of">ছবি %1$d এর %2$d</string>
+    <string name="image_unavailable">ছবি অনুপলব্ধ</string>
+    <string name="image_saved_to_downloads">ছবি \"Downloads\" এ সংরক্ষিত</string>
+    <string name="image_save_failed">ছবি সংরক্ষণ করতে ব্যর্থ</string>
+    <string name="toast_image_saved">ছবি \"Downloads\" এ সংরক্ষিত</string>
+    <string name="toast_failed_to_save_image">ছবি সংরক্ষণ করতে ব্যর্থ</string>
+    <string name="pick_file">ফাইল নির্বাচন করুন</string>
+    <string name="file_unavailable">[ফাইল অনুপলব্ধ]</string>
+    <string name="unknown">অজানা</string>
+
+    <!-- ব্যবহারকারী অ্যাকশন শিট -->
+    <string name="choose_action_message_or_user">এই বার্তা বা ব্যবহারকারীর জন্য অ্যাকশন নির্বাচন করুন</string>
+    <string name="choose_action_user">এই ব্যবহারকারীর জন্য অ্যাকশন নির্বাচন করুন</string>
+    <string name="action_copy_message_title">বার্তা কপি করুন</string>
+    <string name="action_copy_message_subtitle">এই বার্তাটি ক্লিপবোর্ডে কপি করুন</string>
+    <string name="action_slap_title">%1$s কে চড় দিন</string>
+    <string name="action_slap_subtitle">একটি কৌতুকপূর্ণ চড় পাঠান</string>
+    <string name="action_hug_title">%1$s কে আলিঙ্গন করুন</string>
+    <string name="action_hug_subtitle">একটি বন্ধুত্বপূর্ণ আলিঙ্গন পাঠান</string>
+    <string name="action_block_title">%1$s কে ব্লক করুন</string>
+    <string name="action_block_subtitle">এই ব্যবহারকারীর সমস্ত বার্তা ব্লক করুন</string>
+
+    <!-- জিওহ্যাশ চ্যানেল শিট -->
+    <string name="location_channels_title">#অবস্থান চ্যানেল</string>
+    <string name="location_channels_desc">জিওহ্যাশ চ্যানেলের মাধ্যমে আপনার কাছাকাছি মানুষদের সাথে চ্যাট করুন। শুধুমাত্র রূঢ় জিওহ্যাশ শেয়ার করা হয়, সঠিক GPS ডেটা নয়। গোপনীয়তার জন্য দয়া করে এই ভিউ স্ক্রিনশট করবেন না বা শেয়ার করবেন না।</string>
+    <string name="grant_location_permission">অবস্থান অনুমতি দিন</string>
+    <string name="location_permission_denied">অবস্থান অনুমতি প্রত্যাখ্যাত। অবস্থান চ্যানেল ব্যবহার করতে সেটিংসে সক্ষম করুন।</string>
+    <string name="open_settings">সেটিংস খুলুন</string>
+    <string name="location_permission_granted">\u2713 অবস্থান অনুমতি দেওয়া হয়েছে</string>
+    <string name="checking_permissions">অনুমতি পরীক্ষা করা হচ্ছে …</string>
+    <string name="finding_nearby_channels">কাছাকাছি চ্যানেল খোঁজা হচ্ছে …</string>
+    <string name="bookmarked">বুকমার্ক করা</string>
+    <string name="geohash_placeholder">জিওহ্যাশ</string>
+    <string name="invalid_geohash">অবৈধ জিওহ্যাশ</string>
+    <string name="teleport">টেলিপোর্ট</string>
+    <string name="disable_location_services">অবস্থান সেবা নিষ্ক্রিয় করুন</string>
+    <string name="enable_location_services">অবস্থান সেবা সক্রিয় করুন</string>
+    <string name="mesh_label">মেশ</string>
+    <string name="location_level_block">ব্লক</string>
+    <string name="location_level_neighborhood">আশপাশ</string>
+    <string name="location_level_city">শহর</string>
+    <string name="location_level_province">প্রদেশ</string>
+    <string name="location_level_region">অঞ্চল</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <!-- ডিবাগ / ডায়াগনস্টিক -->
+    <string name="debug_tools">ডিবাগ টুল</string>
+    <string name="debug_tools_desc">ডায়াগনস্টিক এবং নিয়ন্ত্রণের জন্য ডেভেলপার টুল</string>
+    <string name="debug_verbose_logging">বিস্তারিত লগিং</string>
+    <string name="debug_verbose_hint">পিয়ার জয়েন/লিভ, সংযোগ দিক, প্যাকেট ফরওয়ার্ডিং এবং রিলে লগ করে</string>
+    <string name="debug_bluetooth_roles">ব্লুটুথ ভূমিকা</string>
+    <string name="debug_gatt_server">GATT সার্ভার</string>
+    <string name="debug_connections_fmt">সংযোগ: %1$d / %2$d</string>
+    <string name="debug_max_server">সর্বোচ্চ সার্ভার</string>
+    <string name="debug_gatt_client">GATT ক্লায়েন্ট</string>
+    <string name="debug_max_client">সর্বোচ্চ ক্লায়েন্ট</string>
+    <string name="debug_overall_connections_fmt">সংযোগ: %1$d / %2$d</string>
+    <string name="debug_max_overall">সর্বোচ্চ সামগ্রিক</string>
+    <string name="debug_packet_relay">প্যাকেট রিলে</string>
+    <string name="debug_since_start_fmt">শুরু থেকে: %1$d</string>
+    <string name="debug_roles_hint">ভূমিকা চালু/বন্ধ করুন এবং নিষ্ক্রিয় করার সময় সমস্ত সংযোগ বন্ধ করুন</string>
+    <string name="debug_sync_settings">সিঙ্ক সেটিংস</string>
+    <string name="debug_max_packets_per_sync_fmt">প্রতি সিঙ্কে সর্বোচ্চ প্যাকেট: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">সর্বোচ্চ GCS ফিল্টার আকার: %1$d বাইট (128–1024)</string>
+    <string name="debug_target_fpr_fmt">লক্ষ্য FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">সংযুক্ত ডিভাইস</string>
+    <string name="debug_our_device_id_fmt">আমাদের ডিভাইস ID: %1$s</string>
+    <string name="debug_none">কোনটি নেই</string>
+    <string name="debug_disconnect">সংযোগ বিচ্ছিন্ন করুন</string>
+    <string name="debug_recent_scan_results">সাম্প্রতিক স্ক্যান করা ডিভাইস</string>
+    <string name="debug_connect">সংযোগ করুন</string>
+    <string name="debug_debug_console">ডিবাগ কনসোল</string>
+    <string name="debug_clear">সাফ করুন</string>
+    <string name="debug_relays_window_fmt">শেষ 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
+    <string name="debug_derived_p_fmt">উৎপন্ন P: %1$s • আনুমানিক সর্বোচ্চ উপাদান: %2$s</string>
+    <string name="debug_direct_suffix"> • সরাসরি</string>
+    <string name="debug_role_server">সার্ভার হিসেবে (আমরা হোস্ট করি)</string>
+    <string name="debug_role_client">ক্লায়েন্ট হিসেবে (আমরা সংযোগ করি)</string>
+
+    <!-- অনবোর্ডিং স্ক্রিন -->
+    <string name="location_services_required">অবস্থান সেবা প্রয়োজন</string>
+    <string name="privacy_first">গোপনীয়তা প্রথম</string>
+    <string name="location_explanation">bitchat আপনার অবস্থান ট্র্যাক করে না।\n\nব্লুটুথ স্ক্যানিং এবং জিওহ্যাশ চ্যাট বৈশিষ্ট্যের জন্য অবস্থান সেবা প্রয়োজন।</string>
+    <string name="location_needs_for">bitchat এর জন্য অবস্থান সেবা প্রয়োজন:</string>
+    <string name="location_needs_bullets">• ব্লুটুথ ডিভাইস স্ক্যানিং\n• মেশ নেটওয়ার্কে কাছাকাছি ব্যবহারকারী আবিষ্কার\n• জিওহ্যাশ চ্যাট বৈশিষ্ট্য\n• কোন ট্র্যাকিং বা অবস্থান সংগ্রহ নেই</string>
+    <string name="open_location_settings">অবস্থান সেটিংস খুলুন</string>
+    <string name="check_again">আবার পরীক্ষা করুন</string>
+    <string name="location_services_unavailable">অবস্থান সেবা অনুপলব্ধ</string>
+    <string name="location_unavailable_explanation">এই ডিভাইসে অবস্থান সেবা উপলব্ধ নেই। এটি অস্বাভাবিক কারণ অবস্থান সেবা Android ডিভাইসে স্ট্যান্ডার্ড।\n\nব্লুটুথ স্ক্যানিং সঠিকভাবে কাজ করার জন্য bitchat এর অবস্থান সেবা প্রয়োজন (Android প্রয়োজনীয়তা)। এটি ছাড়া অ্যাপ কাছাকাছি ব্যবহারকারী আবিষ্কার করতে পারে না।</string>
+    <string name="checking_location_services">অবস্থান সেবা পরীক্ষা করা হচ্ছে …</string>
+    <string name="bluetooth_required">ব্লুটুথ প্রয়োজন</string>
+    <string name="bluetooth_needs_for">bitchat এর জন্য ব্লুটুথ প্রয়োজন:</string>
+    <string name="bluetooth_needs_bullets">• কাছাকাছি ব্যবহারকারী আবিষ্কার\n• মেশ নেটওয়ার্ক সংযোগ তৈরি\n• বার্তা পাঠানো এবং গ্রহণ\n• ইন্টারনেট বা সার্ভার ছাড়া কাজ</string>
+    <string name="enable_bluetooth">ব্লুটুথ সক্রিয় করুন</string>
+    <string name="bluetooth_not_supported">ব্লুটুথ সমর্থিত নয়</string>
+    <string name="bluetooth_unsupported_explanation">এই ডিভাইস Bluetooth Low Energy (BLE) সমর্থন করে না, যা bitchat কাজ করার জন্য প্রয়োজন।\n\nbitchat এর মেশ নেটওয়ার্ক তৈরি এবং ইন্টারনেট ছাড়াই কাছাকাছি ডিভাইসের সাথে যোগাযোগের জন্য BLE প্রয়োজন।</string>
+    <string name="checking_bluetooth_status">ব্লুটুথ অবস্থা পরীক্ষা করা হচ্ছে …</string>
+    <string name="battery_optimization_detected_title">ব্যাটারি অপ্টিমাইজেশন সনাক্ত</string>
+    <string name="battery_optimization_enabled_title">ব্যাটারি অপ্টিমাইজেশন সক্রিয়</string>
+    <string name="battery_optimization_explanation_short">মেশ সংযোগ বজায় রাখতে bitchat অবশ্যই ব্যাকগ্রাউন্ডে চলতে হবে। ব্যাটারি অপ্টিমাইজেশন এই সংযোগগুলি বাধাগ্রস্ত করতে পারে।</string>
+    <string name="benefits_of_disabling">নিষ্ক্রিয় করার সুবিধা</string>
+    <string name="battery_benefits_short">• নির্ভরযোগ্য বার্তা ডেলিভারি\n• মেশ সংযোগ বজায় রাখা\n• সংযোগ বিচ্ছিন্নতা প্রতিরোধ</string>
+    <string name="disable_battery_optimization">ব্যাটারি অপ্টিমাইজেশন নিষ্ক্রিয় করুন</string>
+    <string name="battery_optimization_disabled_title">ব্যাটারি অপ্টিমাইজেশন নিষ্ক্রিয়</string>
+    <string name="continue_btn">চালিয়ে যান</string>
+    <string name="initializing_mesh_network">মেশ নেটওয়ার্ক শুরু করা হচ্ছে</string>
+    <string name="setting_up_bluetooth">ব্লুটুথ মেশ নেটওয়ার্ক সেটআপ করা হচ্ছে …</string>
+    <string name="should_take_seconds">এটি মাত্র কয়েক সেকেন্ড সময় নেওয়া উচিত</string>
+    <string name="setup_not_complete">সেটআপ সম্পূর্ণ নয়</string>
+    <string name="try_again">আবার চেষ্টা করুন</string>
+    <string name="privacy_protected">আপনার গোপনীয়তা সুরক্ষিত</string>
+    <string name="privacy_bullets">• কোন ট্র্যাকিং বা ডেটা সংগ্রহ নেই\n• ব্লুটুথ মেশ চ্যাট সম্পূর্ণ অফলাইন\n• জিওহ্যাশ চ্যাট ইন্টারনেট ব্যবহার করে</string>
+    <string name="permissions_header">অনুমতি</string>
+    <string name="grant_permissions">অনুমতি দিন</string>
+    <string name="location_tracking_warning">bitchat আপনার অবস্থান ট্র্যাক করে না</string>
+    <string name="nobody_around">কেউ আশেপাশে নেই …</string>
+    <string name="you_suffix"> (আপনি)</string>
+    <string name="pan_zoom_instruction">জিওহ্যাশ নির্বাচন করতে প্যান এবং জুম করুন</string>
+    <string name="select">নির্বাচন করুন</string>
+    <string name="type_a_message_placeholder">বার্তা টাইপ করুন …</string>
+    <string name="mention">উল্লেখ</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">ছবি</string>
+    <string name="media_type_file">ফাইল</string>
+
+    <!-- বিজ্ঞপ্তি টেক্সট সহায়ক -->
+    <string name="notification_sent_image">📷 একটি ছবি পাঠিয়েছে</string>
+    <string name="notification_sent_voice">🎤 একটি ভয়েস বার্তা পাঠিয়েছে</string>
+    <string name="notification_sent_file">📎 একটি ফাইল পাঠিয়েছে</string>
+
+    <!-- ভয়েস প্লেয়ার অ্যাক্সেসিবিলিটি -->
+    <string name="cd_play_voice">প্লে করুন</string>
+    <string name="cd_pause_voice">বিরাম</string>
+
+    <!-- অনুমতি বিবরণ -->
+    <string name="perm_nearby_devices_desc">ব্লুটুথের মাধ্যমে bitchat ব্যবহারকারী আবিষ্কার করতে প্রয়োজন</string>
+    <string name="perm_nearby_devices_system">bitchat কে কাছাকাছি ডিভাইসের সাথে সংযোগ করার অনুমতি দিন</string>
+    <string name="perm_location_desc">ব্লুটুথের মাধ্যমে কাছাকাছি bitchat ব্যবহারকারী আবিষ্কার করার জন্য Android এর প্রয়োজন</string>
+    <string name="perm_location_system">bitchat এর কাছাকাছি ডিভাইস স্ক্যান করার জন্য এটি প্রয়োজন</string>
+    <string name="perm_notifications_desc">ব্যক্তিগত বার্তা পেলে বিজ্ঞপ্তি পান</string>
+    <string name="perm_notifications_system">bitchat কে আপনাকে বিজ্ঞপ্তি পাঠানোর অনুমতি দিন</string>
+    <string name="perm_battery_desc">bitchat নির্ভরযোগ্যভাবে ব্যাকগ্রাউন্ডে চলে এবং মেশ নেটওয়ার্ক সংযোগ বজায় রাখে তা নিশ্চিত করতে ব্যাটারি অপ্টিমাইজেশন নিষ্ক্রিয় করুন</string>
+    <string name="perm_battery_system">bitchat কে ব্যাটারি সীমাবদ্ধতা ছাড়াই চলার অনুমতি দিন</string>
+
+    <!-- অনুমতির ধরণ -->
+    <string name="perm_type_nearby_devices">কাছাকাছি ডিভাইস</string>
+    <string name="perm_type_precise_location">সঠিক অবস্থান</string>
+    <string name="perm_type_microphone">মাইক্রোফোন</string>
+    <string name="perm_type_notifications">বিজ্ঞপ্তি</string>
+    <string name="perm_type_battery_optimization">ব্যাটারি অপ্টিমাইজেশন</string>
+    <string name="perm_type_other">অন্যান্য</string>
+
+    <!-- পাসওয়ার্ড ডায়ালগ -->
+    <string name="pwd_prompt_title">চ্যানেল পাসওয়ার্ড লিখুন</string>
+    <string name="pwd_prompt_message">চ্যানেল %1$s পাসওয়ার্ড দিয়ে সুরক্ষিত। যোগ দিতে পাসওয়ার্ড লিখুন।</string>
+    <string name="pwd_label">পাসওয়ার্ড</string>
+    <string name="join">যোগ দিন</string>
+    <string name="cancel">বাতিল</string>
+
+    <!-- বহুবচন -->
+    <plurals name="notification_and_more">
+        <item quantity="one">এবং %d আরো</item>
+        <item quantity="other">এবং %d আরো</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">১ জন</item>
+        <item quantity="other">%d জন</item>
+    </plurals>
+
+    <string name="bluetooth_recommended">ব্লুটুথ প্রস্তাবিত</string>
+    <string name="mesh_service_notification_content">মেশ চলছে — %1$d পিয়ার</string>
+
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_scan_someone">scan someone elses qr</string>
+  <string name="verify_show_my_qr">show my qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="verify_paste_label">paste verification url</string>
+  <string name="verify_validate">validate</string>
+  <string name="verify_scanned">verification requested</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_label">verified</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">পরিচিতি খুলুন</string>
+  <string name="nearby_notes_reveal">এখানে রাখা নোট আছে কি না দেখুন</string>
+  <string name="nearby_notes_one">এখানে 1টি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
+  <string name="nearby_notes_many">এখানে %dটি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
+    <string name="about_language">ভাষা</string>
+    <string name="about_app_language">অ্যাপের ভাষা</string>
+    <string name="about_system_default">সিস্টেম ডিফল্ট</string>
+    <string name="about_select_language">ভাষা নির্বাচন করুন</string>
+</resources>

@@ -7,6 +7,14 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.*
 
+@Parcelize
+enum class BitchatMessageType : Parcelable {
+    Message,
+    Audio,
+    Image,
+    File
+}
+
 /**
  * Delivery status for messages - exact same as iOS version
  */
@@ -49,6 +57,7 @@ data class BitchatMessage(
     val id: String = UUID.randomUUID().toString().uppercase(),
     val sender: String,
     val content: String,
+    val type: BitchatMessageType = BitchatMessageType.Message,
     val timestamp: Date,
     val isRelay: Boolean = false,
     val originalSender: String? = null,
@@ -59,7 +68,16 @@ data class BitchatMessage(
     val channel: String? = null,
     val encryptedContent: ByteArray? = null,
     val isEncrypted: Boolean = false,
-    val deliveryStatus: DeliveryStatus? = null
+    val deliveryStatus: DeliveryStatus? = null,
+    val powDifficulty: Int? = null,
+    /**
+     * Full canonical Nostr public key supplied by the local Nostr bridge.
+     *
+     * This is local identity metadata, not part of the Bitchat binary wire format. It lets UI
+     * surfaces color the sender by the same stable key while [senderPeerID] remains available for
+     * mesh IDs and private-chat routing aliases.
+     */
+    val senderNostrPubkey: String? = null
 ) : Parcelable {
 
     /**
@@ -278,6 +296,7 @@ data class BitchatMessage(
                     id = id,
                     sender = sender,
                     content = content,
+                    type = BitchatMessageType.Message,
                     timestamp = timestamp,
                     isRelay = isRelay,
                     originalSender = originalSender,
@@ -305,6 +324,7 @@ data class BitchatMessage(
         if (id != other.id) return false
         if (sender != other.sender) return false
         if (content != other.content) return false
+        if (type != other.type) return false
         if (timestamp != other.timestamp) return false
         if (isRelay != other.isRelay) return false
         if (originalSender != other.originalSender) return false
@@ -327,6 +347,7 @@ data class BitchatMessage(
         var result = id.hashCode()
         result = 31 * result + sender.hashCode()
         result = 31 * result + content.hashCode()
+        result = 31 * result + type.hashCode()
         result = 31 * result + timestamp.hashCode()
         result = 31 * result + isRelay.hashCode()
         result = 31 * result + (originalSender?.hashCode() ?: 0)
@@ -341,5 +362,4 @@ data class BitchatMessage(
         return result
     }
 }
-
 

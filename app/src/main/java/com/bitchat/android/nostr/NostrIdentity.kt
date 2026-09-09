@@ -2,9 +2,11 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Manages Nostr identity (secp256k1 keypair) for NIP-17 private messaging
@@ -99,7 +101,7 @@ object NostrIdentityBridge {
     private const val DEVICE_SEED_KEY = "nostr_device_seed"
     
     // Cache for derived geohash identities to avoid repeated crypto operations
-    private val geohashIdentityCache = mutableMapOf<String, NostrIdentity>()
+    private val geohashIdentityCache = ConcurrentHashMap<String, NostrIdentity>()
     
     /**
      * Get or create the current Nostr identity
@@ -131,8 +133,7 @@ object NostrIdentityBridge {
      * Uses HMAC-SHA256(deviceSeed, geohash) as private key material with fallback rehashing
      * if the candidate is not a valid secp256k1 private key.
      * 
-     * Direct port from iOS implementation for 100% compatibility
-     * OPTIMIZED: Cached for UI responsiveness
+     * Cached for UI responsiveness.
      */
     fun deriveIdentity(forGeohash: String, context: Context): NostrIdentity {
         // Check cache first for immediate response
@@ -157,7 +158,7 @@ object NostrIdentityBridge {
                 // Cache the result for future UI responsiveness
                 geohashIdentityCache[forGeohash] = identity
                 
-                Log.d(TAG, "Derived geohash identity for $forGeohash (iteration $i)")
+                Log.d(TAG, "Derived geohash identity")
                 return identity
             }
         }
@@ -172,7 +173,7 @@ object NostrIdentityBridge {
         // Cache the fallback result too
         geohashIdentityCache[forGeohash] = fallbackIdentity
         
-        Log.d(TAG, "Used fallback identity derivation for $forGeohash")
+        Log.d(TAG, "Used fallback geohash identity derivation")
         return fallbackIdentity
     }
     
@@ -188,12 +189,8 @@ object NostrIdentityBridge {
      * Associate a Nostr identity with a Noise public key (for favorites)
      */
     fun associateNostrIdentity(nostrPubkey: String, noisePublicKey: ByteArray, context: Context) {
-        val stateManager = SecureIdentityStateManager(context)
-        
-        // We'll use the existing signing key storage mechanism for associations
-        // For now, we'll store this as a preference since it's just for favorites mapping
-        // In a full implementation, you'd want a proper association storage system
-        
+        FavoritesPersistenceService.initialize(context)
+        FavoritesPersistenceService.shared.updateNostrPublicKey(noisePublicKey, nostrPubkey)
         Log.d(TAG, "Associated Nostr pubkey ${nostrPubkey.take(16)}... with Noise key")
     }
     
@@ -201,9 +198,8 @@ object NostrIdentityBridge {
      * Get Nostr public key associated with a Noise public key
      */
     fun getNostrPublicKey(noisePublicKey: ByteArray, context: Context): String? {
-        // This would need proper implementation based on your favorites storage system
-        // For now, return null as we don't have the full association system
-        return null
+        FavoritesPersistenceService.initialize(context)
+        return FavoritesPersistenceService.shared.findNostrPubkey(noisePublicKey)
     }
     
     /**
@@ -223,6 +219,10 @@ object NostrIdentityBridge {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear Nostr data: ${e.message}")
         }
+    }
+
+    fun clearGeohashIdentityCache(geohashes: Collection<String>) {
+        geohashes.forEach(geohashIdentityCache::remove)
     }
     
     // MARK: - Private Methods

@@ -2,9 +2,10 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * High-level Nostr client that manages identity, connections, and messaging
@@ -30,11 +31,11 @@ class NostrClient private constructor(private val context: Context) {
     private var currentIdentity: NostrIdentity? = null
     
     // Client state
-    private val _isInitialized = MutableLiveData<Boolean>()
-    val isInitialized: LiveData<Boolean> = _isInitialized
+    private val _isInitialized = MutableStateFlow(false)
+    val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
     
-    private val _currentNpub = MutableLiveData<String>()
-    val currentNpub: LiveData<String> = _currentNpub
+    private val _currentNpub = MutableStateFlow<String?>(null)
+    val currentNpub: StateFlow<String?> = _currentNpub.asStateFlow()
     
     // Message processing
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -53,21 +54,21 @@ class NostrClient private constructor(private val context: Context) {
                 currentIdentity = NostrIdentityBridge.getCurrentNostrIdentity(context)
                 
                 if (currentIdentity != null) {
-                    _currentNpub.postValue(currentIdentity!!.npub)
+                    _currentNpub.value = currentIdentity!!.npub
                     Log.i(TAG, "✅ Nostr identity loaded: ${currentIdentity!!.getShortNpub()}")
                     
                     // Connect to relays
                     relayManager.connect()
                     
-                    _isInitialized.postValue(true)
+                    _isInitialized.value = true
                     Log.i(TAG, "✅ Nostr client initialized successfully")
                 } else {
                     Log.e(TAG, "❌ Failed to load/create Nostr identity")
-                    _isInitialized.postValue(false)
+                    _isInitialized.value = false
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Failed to initialize Nostr client: ${e.message}")
-                _isInitialized.postValue(false)
+                _isInitialized.value = false
             }
         }
     }
@@ -78,7 +79,7 @@ class NostrClient private constructor(private val context: Context) {
     fun shutdown() {
         Log.d(TAG, "Shutting down Nostr client")
         relayManager.disconnect()
-        _isInitialized.postValue(false)
+        _isInitialized.value = false
     }
     
     /**
@@ -169,7 +170,7 @@ class NostrClient private constructor(private val context: Context) {
                 // Derive geohash-specific identity
                 val geohashIdentity = NostrIdentityBridge.deriveIdentity(geohash, context)
                 
-                // Create ephemeral event
+                // Create ephemeral event (with PoW if enabled)
                 val event = NostrProtocol.createEphemeralGeohashEvent(
                     content = content,
                     geohash = geohash,
@@ -179,7 +180,7 @@ class NostrClient private constructor(private val context: Context) {
                 
                 relayManager.sendEvent(event)
                 
-                Log.i(TAG, "📤 Sent geohash message to #$geohash")
+                Log.i(TAG, "📤 Sent geohash message")
                 onSuccess?.invoke()
                 
             } catch (e: Exception) {
@@ -208,7 +209,7 @@ class NostrClient private constructor(private val context: Context) {
             }
         })
         
-        Log.i(TAG, "🌍 Subscribed to geohash channel: #$geohash")
+        Log.i(TAG, "🌍 Subscribed to geohash channel")
     }
     
     /**
@@ -216,7 +217,7 @@ class NostrClient private constructor(private val context: Context) {
      */
     fun unsubscribeFromGeohash(geohash: String) {
         relayManager.unsubscribe("geohash-$geohash")
-        Log.i(TAG, "Unsubscribed from geohash channel: #$geohash")
+        Log.i(TAG, "Unsubscribed from geohash channel")
     }
     
     /**
@@ -227,12 +228,12 @@ class NostrClient private constructor(private val context: Context) {
     /**
      * Get relay connection status
      */
-    val relayConnectionStatus: LiveData<Boolean> = relayManager.isConnected
+    val relayConnectionStatus: StateFlow<Boolean> = relayManager.isConnected
     
     /**
      * Get relay information
      */
-    val relayInfo: LiveData<List<NostrRelayManager.Relay>> = relayManager.relays
+    val relayInfo: StateFlow<List<NostrRelayManager.Relay>> = relayManager.relays
     
     // MARK: - Private Methods
     
@@ -281,6 +282,21 @@ class NostrClient private constructor(private val context: Context) {
         handler: (content: String, senderPubkey: String, nickname: String?, timestamp: Int) -> Unit
     ) {
         try {
+            if (!event.isValidSignature()) {
+                Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... with invalid signature")
+                return
+            }
+
+            // Check Proof of Work validation for incoming geohash events
+            val powSettings = PoWPreferenceManager.getCurrentSettings()
+            if (powSettings.enabled && powSettings.difficulty > 0) {
+                if (!NostrProofOfWork.validateDifficulty(event, powSettings.difficulty)) {
+                    Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... due to insufficient PoW (required: ${powSettings.difficulty})")
+                    return
+                }
+                Log.v(TAG, "✅ PoW validation passed for geohash event ${event.id.take(8)}...")
+            }
+            
             // Extract nickname from tags
             val nickname = event.tags.find { it.size >= 2 && it[0] == "n" }?.get(1)
             

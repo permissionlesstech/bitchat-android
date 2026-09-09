@@ -16,10 +16,10 @@ class StoreForwardManager {
     
     companion object {
         private const val TAG = "StoreForwardManager"
-        private const val MESSAGE_CACHE_TIMEOUT = 43200000L  // 12 hours for regular peers
-        private const val MAX_CACHED_MESSAGES = 100  // For regular peers
-        private const val MAX_CACHED_MESSAGES_FAVORITES = 1000  // For favorites
-        private const val CLEANUP_INTERVAL = 600000L // 10 minutes
+        private const val MESSAGE_CACHE_TIMEOUT = com.bitchat.android.util.AppConstants.StoreForward.MESSAGE_CACHE_TIMEOUT_MS  // 12 hours for regular peers
+        private const val MAX_CACHED_MESSAGES = com.bitchat.android.util.AppConstants.StoreForward.MAX_CACHED_MESSAGES  // For regular peers
+        private const val MAX_CACHED_MESSAGES_FAVORITES = com.bitchat.android.util.AppConstants.StoreForward.MAX_CACHED_MESSAGES_FAVORITES  // For favorites
+        private const val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.StoreForward.CLEANUP_INTERVAL_MS // 10 minutes
     }
     
     /**
@@ -165,7 +165,7 @@ class StoreForwardManager {
             
             // Send with delays to avoid overwhelming the connection
             messagesToSend.forEachIndexed { index, storedMessage ->
-                delay(index * 100L) // 100ms between messages
+                delay(index * 10L) // 10ms between messages
                 delegate?.sendPacket(storedMessage.packet)
             }
             
