@@ -1,5 +1,10 @@
 package com.bitchat.android.ui
 
+import android.Manifest
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -33,6 +38,7 @@ fun LocationNotesSheetPresenter(
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
     val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
+    val systemLocationEnabled by locationManager.systemLocationEnabled.collectAsStateWithLifecycle()
     val isLoadingLocation by locationManager.isLoadingLocation.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     
@@ -57,7 +63,8 @@ fun LocationNotesSheetPresenter(
         // No building geohash available - show error state (matches iOS)
         LocationNotesErrorSheet(
             onDismiss = onDismiss,
-            locationManager = locationManager
+            locationManager = locationManager,
+            systemLocationEnabled = systemLocationEnabled
         )
     }
 }
@@ -106,8 +113,19 @@ private fun LocationNotesAcquiringSheet(
 @Composable
 private fun LocationNotesErrorSheet(
     onDismiss: () -> Unit,
-    locationManager: LocationChannelManager
+    locationManager: LocationChannelManager,
+    systemLocationEnabled: Boolean
 ) {
+    val context = LocalContext.current
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        locationManager.syncPermissionState()
+        locationManager.enableLocationServices()
+        locationManager.enableLocationChannels()
+        locationManager.refreshChannels()
+    }
+
     BitchatBottomSheet(
         onDismissRequest = onDismiss,
     ) {
@@ -127,19 +145,34 @@ private fun LocationNotesErrorSheet(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "Location permission is required for notes",
+                    text = stringResource(R.string.location_notes_location_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(onClick = {
-                    // UNIFIED FIX: Enable location services first (user toggle)
-                    locationManager.enableLocationServices()
-                    // Then request location channels (which will also request permission if needed)
-                    locationManager.enableLocationChannels()
-                    locationManager.refreshChannels()
+                    when {
+                        !systemLocationEnabled -> {
+                            runCatching {
+                                context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                            }
+                        }
+                        locationManager.syncPermissionState() != LocationChannelManager.PermissionState.AUTHORIZED -> {
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        }
+                        else -> {
+                            locationManager.enableLocationServices()
+                            locationManager.enableLocationChannels()
+                            locationManager.refreshChannels()
+                        }
+                    }
                 }) {
-                    Text("Enable Location")
+                    Text(stringResource(R.string.enable_location_services))
                 }
             }
 
@@ -155,3 +188,4 @@ private fun LocationNotesErrorSheet(
         }
     }
 }
+
