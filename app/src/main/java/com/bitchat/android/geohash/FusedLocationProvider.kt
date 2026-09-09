@@ -17,14 +17,27 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
         private const val TAG = "FusedLocationProvider"
     }
 
-    private val fusedLocationClient: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
-    
-    // Map to keep track of callbacks to remove them later
-    private val activeCallbacks = mutableMapOf<(Location) -> Unit, LocationCallback>()
-    private val activeCurrentLocationRequests = mutableSetOf<CancellationTokenSource>()
+    private val fusedLocationClient: FusedLocationProviderClient =
+        LocationServices.getFusedLocationProviderClient(context)
+    private val systemFallback = SystemLocationProvider(context)
+
+    private val activeCallbacks = mutableMapOf<(Location) -> Unit, UpdateRegistration>()
+    private val activeOneShotRequests = mutableSetOf<PendingOneShot>()
+
+    private class PendingOneShot {
+        val cancellation = CancellationTokenSource()
+        var fallbackStarted = false
+    }
+
+    private class UpdateRegistration(
+        val fusedCallback: LocationCallback,
+        val systemCallback: (Location) -> Unit
+    ) {
+        var fallbackStarted = false
+    }
 
     private fun hasLocationPermission(): Boolean {
-        return LiveLocationPrivacyGate.isEnabled &&
+        return LiveLocationPrivacyGate.captureToken() != null &&
             (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
             )
@@ -40,15 +53,19 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
         try {
             fusedLocationClient.lastLocation
                 .addOnSuccessListener { location ->
-                    callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
+                    if (location != null && hasLocationPermission()) {
+                        callback(location)
+                    } else {
+                        systemFallback.getLastKnownLocation(callback)
+                    }
                 }
-                .addOnFailureListener { e ->
+                .addOnFailureListener {
                     Log.e(TAG, "Error getting last-known fused location")
-                    callback(null)
+                    systemFallback.getLastKnownLocation(callback)
                 }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception getting last-known fused location")
-            callback(null)
+            Log.e(TAG, "Exception getting last-known fused location", e)
+            systemFallback.getLastKnownLocation(callback)
         }
     }
 
@@ -59,33 +76,82 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
             return
         }
 
+        val pending = PendingOneShot()
+        synchronized(activeOneShotRequests) {
+            activeOneShotRequests += pending
+        }
+
         try {
             val request = CurrentLocationRequest.Builder()
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-                .setDurationMillis(30000)
+                .setDurationMillis(30_000L)
                 .build()
-            val cancellation = CancellationTokenSource()
 
-            synchronized(activeCurrentLocationRequests) {
-                activeCurrentLocationRequests.add(cancellation)
-            }
-
-            fusedLocationClient.getCurrentLocation(request, cancellation.token)
+            fusedLocationClient.getCurrentLocation(request, pending.cancellation.token)
                 .addOnSuccessListener { location ->
-                    callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
-                }
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Error getting fresh fused location")
-                    callback(null)
-                }
-                .addOnCompleteListener {
-                    synchronized(activeCurrentLocationRequests) {
-                        activeCurrentLocationRequests.remove(cancellation)
+                    if (location != null && hasLocationPermission()) {
+                        completeOneShot(pending, callback, location)
+                    } else {
+                        startSystemOneShotFallback(pending, callback)
                     }
                 }
+                .addOnFailureListener {
+                    Log.w(TAG, "Fused fresh location failed; using system fallback")
+                    startSystemOneShotFallback(pending, callback)
+                }
+                .addOnCanceledListener {
+                    startSystemOneShotFallback(pending, callback)
+                }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception getting fresh fused location")
-            callback(null)
+            Log.w(TAG, "Fused fresh location could not start; using system fallback", e)
+            startSystemOneShotFallback(pending, callback)
+        }
+    }
+
+    private fun startSystemOneShotFallback(
+        pending: PendingOneShot,
+        callback: (Location?) -> Unit
+    ) {
+        var deliverNull = false
+        var fallbackStartFailed = false
+
+        synchronized(activeOneShotRequests) {
+            if (!activeOneShotRequests.contains(pending)) {
+                return
+            }
+
+            if (!hasLocationPermission()) {
+                activeOneShotRequests.remove(pending)
+                deliverNull = true
+            } else if (!pending.fallbackStarted) {
+                pending.fallbackStarted = true
+                try {
+                    systemFallback.requestFreshLocation { location ->
+                        completeOneShot(pending, callback, location)
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "System location fallback could not start", e)
+                    fallbackStartFailed = true
+                }
+            }
+        }
+
+        when {
+            deliverNull -> callback(null)
+            fallbackStartFailed -> completeOneShot(pending, callback, null)
+        }
+    }
+
+    private fun completeOneShot(
+        pending: PendingOneShot,
+        callback: (Location?) -> Unit,
+        location: Location?
+    ) {
+        val shouldDeliver = synchronized(activeOneShotRequests) {
+            activeOneShotRequests.remove(pending)
+        }
+        if (shouldDeliver) {
+            callback(location.takeIf { hasLocationPermission() })
         }
     }
 
@@ -97,66 +163,129 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
     ) {
         if (!hasLocationPermission()) return
 
+        removeLocationUpdates(callback)
+
+        lateinit var registration: UpdateRegistration
+        val fusedCallback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                if (isCurrentRegistration(callback, registration) && hasLocationPermission()) {
+                    result.lastLocation?.let(callback)
+                }
+            }
+        }
+        val systemCallback: (Location) -> Unit = { location ->
+            if (isCurrentRegistration(callback, registration) && hasLocationPermission()) {
+                callback(location)
+            }
+        }
+        registration = UpdateRegistration(
+            fusedCallback = fusedCallback,
+            systemCallback = systemCallback
+        )
+
         try {
             val request = LocationRequest.Builder(intervalMs)
                 .setMinUpdateDistanceMeters(minDistanceMeters)
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                 .build()
 
-            val locationCallback = object : LocationCallback() {
-                override fun onLocationResult(result: LocationResult) {
-                    if (LiveLocationPrivacyGate.isEnabled) {
-                        result.lastLocation?.let { callback(it) }
-                    }
-                }
-            }
-
             synchronized(activeCallbacks) {
-                activeCallbacks[callback] = locationCallback
+                activeCallbacks[callback] = registration
+                fusedLocationClient.requestLocationUpdates(
+                    request,
+                    fusedCallback,
+                    Looper.getMainLooper()
+                )
+                    .addOnSuccessListener {
+                        Log.d(TAG, "Registered fused updates")
+                    }
+                    .addOnFailureListener {
+                        Log.w(TAG, "Fused updates unavailable; using system location provider")
+                        startSystemUpdatesFallback(
+                            callback = callback,
+                            registration = registration,
+                            intervalMs = intervalMs,
+                            minDistanceMeters = minDistanceMeters
+                        )
+                    }
             }
-
-            fusedLocationClient.requestLocationUpdates(
-                request,
-                locationCallback,
-                Looper.getMainLooper()
-            )
-            Log.d(TAG, "Registered fused updates")
-
         } catch (e: Exception) {
-            Log.e(TAG, "Error requesting fused updates")
+            Log.w(TAG, "Unable to register fused updates; using system location provider", e)
+            startSystemUpdatesFallback(
+                callback = callback,
+                registration = registration,
+                intervalMs = intervalMs,
+                minDistanceMeters = minDistanceMeters
+            )
         }
     }
 
-    override fun removeLocationUpdates(callback: (Location) -> Unit) {
-        try {
-            val locationCallback = synchronized(activeCallbacks) {
+    private fun startSystemUpdatesFallback(
+        callback: (Location) -> Unit,
+        registration: UpdateRegistration,
+        intervalMs: Long,
+        minDistanceMeters: Float
+    ) {
+        synchronized(activeCallbacks) {
+            if (activeCallbacks[callback] !== registration || registration.fallbackStarted) {
+                return
+            }
+            if (!hasLocationPermission()) {
                 activeCallbacks.remove(callback)
+                return
             }
 
-            if (locationCallback != null) {
-                fusedLocationClient.removeLocationUpdates(locationCallback)
-                Log.d(TAG, "Removed fused updates")
+            registration.fallbackStarted = true
+            try {
+                systemFallback.requestLocationUpdates(
+                    intervalMs = intervalMs,
+                    minDistanceMeters = minDistanceMeters,
+                    callback = registration.systemCallback
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Unable to register system location fallback", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error removing fused updates")
+        }
+    }
+
+    private fun isCurrentRegistration(
+        callback: (Location) -> Unit,
+        registration: UpdateRegistration
+    ): Boolean = synchronized(activeCallbacks) {
+        activeCallbacks[callback] === registration
+    }
+
+    override fun removeLocationUpdates(callback: (Location) -> Unit) {
+        val registration = synchronized(activeCallbacks) {
+            activeCallbacks.remove(callback)?.also {
+                if (it.fallbackStarted) {
+                    systemFallback.removeLocationUpdates(it.systemCallback)
+                }
+            }
+        }
+
+        if (registration != null) {
+            runCatching { fusedLocationClient.removeLocationUpdates(registration.fusedCallback) }
+                .onFailure { Log.w(TAG, "Unable to remove fused updates", it) }
         }
     }
 
     override fun cancel() {
-        try {
-            synchronized(activeCallbacks) {
-                for ((_, locationCallback) in activeCallbacks) {
-                    fusedLocationClient.removeLocationUpdates(locationCallback)
-                }
-                activeCallbacks.clear()
-            }
-            synchronized(activeCurrentLocationRequests) {
-                activeCurrentLocationRequests.forEach { it.cancel() }
-                activeCurrentLocationRequests.clear()
-            }
-            Log.d(TAG, "Cancelled all fused updates")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error cancelling fused provider")
+        val registrations = synchronized(activeCallbacks) {
+            activeCallbacks.values.toList().also { activeCallbacks.clear() }
         }
+        registrations.forEach { registration ->
+            runCatching { fusedLocationClient.removeLocationUpdates(registration.fusedCallback) }
+                .onFailure { Log.w(TAG, "Unable to remove fused updates", it) }
+        }
+
+        synchronized(activeOneShotRequests) {
+            activeOneShotRequests.forEach { it.cancellation.cancel() }
+            activeOneShotRequests.clear()
+            // This instance owns the fallback provider, so it is safe to cancel all of its work here.
+            systemFallback.cancel()
+        }
+        Log.d(TAG, "Cancelled all fused location requests")
     }
 }
+
