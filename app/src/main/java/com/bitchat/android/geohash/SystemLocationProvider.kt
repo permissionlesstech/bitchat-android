@@ -376,9 +376,13 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
 
         removeLocationUpdates(callback)
 
-        val listener = object : LocationListener {
+        lateinit var listener: LocationListener
+        listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                if (hasLocationPermission()) callback(location)
+                val isCurrentListener = synchronized(activeListeners) {
+                    activeListeners[callback] === listener
+                }
+                if (isCurrentListener && hasLocationPermission()) callback(location)
             }
 
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
