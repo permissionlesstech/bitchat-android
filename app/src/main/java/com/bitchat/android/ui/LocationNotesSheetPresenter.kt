@@ -127,7 +127,7 @@ private fun LocationNotesErrorSheet(
 ) {
     val context = LocalContext.current
     var locationPermissionRequestAttempted by rememberSaveable { mutableStateOf(false) }
-    var awaitingSystemLocationSettings by rememberSaveable { mutableStateOf(false) }
+    var awaitingLocationSettingsRecovery by rememberSaveable { mutableStateOf(false) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissionResults ->
@@ -143,12 +143,12 @@ private fun LocationNotesErrorSheet(
         }
     }
 
-    LifecycleResumeEffect(awaitingSystemLocationSettings, systemLocationEnabled) {
-        if (awaitingSystemLocationSettings &&
+    LifecycleResumeEffect(awaitingLocationSettingsRecovery, systemLocationEnabled) {
+        if (awaitingLocationSettingsRecovery &&
             systemLocationEnabled &&
             locationManager.syncPermissionState() == LocationChannelManager.PermissionState.AUTHORIZED
         ) {
-            awaitingSystemLocationSettings = false
+            awaitingLocationSettingsRecovery = false
             locationManager.enableLocationServices()
             locationManager.enableLocationChannels()
             locationManager.refreshChannels()
@@ -184,7 +184,7 @@ private fun LocationNotesErrorSheet(
                 Button(onClick = {
                     when {
                         !systemLocationEnabled -> {
-                            awaitingSystemLocationSettings = runCatching {
+                            awaitingLocationSettingsRecovery = runCatching {
                                 context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                             }.isSuccess
                         }
@@ -192,7 +192,7 @@ private fun LocationNotesErrorSheet(
                             if (locationPermissionRequestAttempted &&
                                 hasPermanentlyDeniedLocationPermission(context)
                             ) {
-                                openAppLocationSettings(context)
+                                awaitingLocationSettingsRecovery = openAppLocationSettings(context)
                             } else {
                                 locationPermissionRequestAttempted = true
                                 locationPermissionLauncher.launch(
@@ -239,12 +239,12 @@ private fun hasPermanentlyDeniedLocationPermission(context: Context): Boolean {
     }
 }
 
-private fun openAppLocationSettings(context: Context) {
-    runCatching {
+private fun openAppLocationSettings(context: Context): Boolean {
+    return runCatching {
         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.fromParts("package", context.packageName, null)
         })
-    }
+    }.isSuccess
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
