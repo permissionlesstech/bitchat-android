@@ -23,9 +23,14 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
 
     private val activeCallbacks = mutableMapOf<(Location) -> Unit, UpdateRegistration>()
     private val activeOneShotRequests = mutableSetOf<PendingOneShot>()
+    private val activeLastKnownRequests = mutableSetOf<PendingLastKnown>()
 
     private class PendingOneShot {
         val cancellation = CancellationTokenSource()
+        var fallbackStarted = false
+    }
+
+    private class PendingLastKnown {
         var fallbackStarted = false
     }
 
@@ -50,22 +55,76 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
             return
         }
 
+        val pending = PendingLastKnown()
+        synchronized(activeLastKnownRequests) {
+            activeLastKnownRequests += pending
+        }
+
         try {
             fusedLocationClient.lastLocation
                 .addOnSuccessListener { location ->
                     if (location != null && hasLocationPermission()) {
-                        callback(location)
+                        completeLastKnown(pending, callback, location)
                     } else {
-                        systemFallback.getLastKnownLocation(callback)
+                        startSystemLastKnownFallback(pending, callback)
                     }
                 }
                 .addOnFailureListener {
                     Log.e(TAG, "Error getting last-known fused location")
-                    systemFallback.getLastKnownLocation(callback)
+                    startSystemLastKnownFallback(pending, callback)
                 }
         } catch (e: Exception) {
             Log.e(TAG, "Exception getting last-known fused location", e)
-            systemFallback.getLastKnownLocation(callback)
+            startSystemLastKnownFallback(pending, callback)
+        }
+    }
+
+    private fun startSystemLastKnownFallback(
+        pending: PendingLastKnown,
+        callback: (Location?) -> Unit
+    ) {
+        var deliverNull = false
+        var shouldStartFallback = false
+
+        synchronized(activeLastKnownRequests) {
+            when {
+                !activeLastKnownRequests.contains(pending) -> return
+                !hasLocationPermission() -> {
+                    activeLastKnownRequests.remove(pending)
+                    deliverNull = true
+                }
+                !pending.fallbackStarted -> {
+                    pending.fallbackStarted = true
+                    shouldStartFallback = true
+                }
+            }
+        }
+
+        when {
+            deliverNull -> callback(null)
+            shouldStartFallback -> {
+                try {
+                    systemFallback.getLastKnownLocation { location ->
+                        completeLastKnown(pending, callback, location)
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "System last-known location fallback failed", e)
+                    completeLastKnown(pending, callback, null)
+                }
+            }
+        }
+    }
+
+    private fun completeLastKnown(
+        pending: PendingLastKnown,
+        callback: (Location?) -> Unit,
+        location: Location?
+    ) {
+        val shouldDeliver = synchronized(activeLastKnownRequests) {
+            activeLastKnownRequests.remove(pending)
+        }
+        if (shouldDeliver) {
+            callback(location.takeIf { hasLocationPermission() })
         }
     }
 
@@ -282,9 +341,12 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
         synchronized(activeOneShotRequests) {
             activeOneShotRequests.forEach { it.cancellation.cancel() }
             activeOneShotRequests.clear()
-            // This instance owns the fallback provider, so it is safe to cancel all of its work here.
-            systemFallback.cancel()
         }
+        synchronized(activeLastKnownRequests) {
+            activeLastKnownRequests.clear()
+        }
+        // This instance owns the fallback provider, so it is safe to cancel all of its work here.
+        systemFallback.cancel()
         Log.d(TAG, "Cancelled all fused location requests")
     }
 }
