@@ -119,11 +119,17 @@ private fun LocationNotesErrorSheet(
     val context = LocalContext.current
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) {
-        locationManager.syncPermissionState()
-        locationManager.enableLocationServices()
-        locationManager.enableLocationChannels()
-        locationManager.refreshChannels()
+    ) { permissionResults ->
+        val locationGranted =
+            permissionResults[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissionResults[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        val permissionState = locationManager.syncPermissionState()
+
+        if (locationGranted && permissionState == LocationChannelManager.PermissionState.AUTHORIZED) {
+            locationManager.enableLocationServices()
+            locationManager.enableLocationChannels()
+            locationManager.refreshChannels()
+        }
     }
 
     BitchatBottomSheet(
