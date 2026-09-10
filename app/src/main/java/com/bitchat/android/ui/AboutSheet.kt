@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -98,27 +99,41 @@ private fun ThemeChip(
 
     // Cross-fade the chip so switching theme does not read as two separate flashes (the chip
     // recolouring plus the whole app recolouring underneath it).
+    //
+    // Selection is a tinted container with a primary outline rather than a solid primary fill.
+    // Several chip rows sit on the settings screen at once, and saturated green on every selected
+    // one made them read as a row of primary buttons competing with the settings themselves.
     val containerColor by animateColorAsState(
-        targetValue = if (selected) colorScheme.primary else colorScheme.surfaceVariant,
+        targetValue = if (selected) colorScheme.primaryContainer else colorScheme.surfaceVariant,
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "themeChipContainer"
     )
     val labelColor by animateColorAsState(
-        targetValue = if (selected) Color.White else colorScheme.onSurfaceVariant,
+        targetValue = if (selected) {
+            colorScheme.onPrimaryContainer
+        } else {
+            colorScheme.onSurfaceVariant
+        },
         animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
         label = "themeChipLabel"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (selected) colorScheme.primary else Color.Transparent,
+        animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
+        label = "themeChipBorder"
     )
 
     Surface(
         modifier = modifier,
         onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
-        color = containerColor
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        border = BorderStroke(1.dp, borderColor)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp),
+                .padding(vertical = 11.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -390,7 +405,6 @@ fun AboutContent(
                 Column {
                     AboutSectionLabel(text = stringResource(R.string.about_section_theme))
                     val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
-                    val chatUiMode by com.bitchat.android.ui.theme.ChatUiModeManager.modeFlow.collectAsState()
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -427,6 +441,30 @@ fun AboutContent(
                                     modifier = Modifier.weight(1f)
                                 )
                             }
+                        }
+                    }
+                }
+            }
+
+            // Transcript layout is not a theme - it changes how a message is laid out, not what
+            // colour anything is. Sharing one card and one THEME label with light/dark left the
+            // Bubbles/Matrix row unlabelled and looking like the second half of the theme setting.
+            item(key = "transcript") {
+                Column {
+                    AboutSectionLabel(text = stringResource(R.string.about_section_transcript))
+                    val chatUiMode by com.bitchat.android.ui.theme.ChatUiModeManager.modeFlow.collectAsState()
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AboutHorizontalPadding),
+                        color = colorScheme.surface,
+                        shape = AboutCardShape
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp)
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
