@@ -81,9 +81,9 @@ object ConversationAliasResolver {
             }
             
             // Switch sheet peer if currently viewing an alias that got merged
-            val sheetPeer = state.getPrivateChatSheetPeerValue()
+            val sheetPeer = state.getOpenPrivateChatPeerValue()
             if (sheetPeer != null && mergeKeys.contains(sheetPeer)) {
-                state.setPrivateChatSheetPeer(targetConversationID)
+                state.setOpenPrivateChatPeer(targetConversationID)
             }
         }
     }

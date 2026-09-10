@@ -19,6 +19,11 @@ import androidx.compose.ui.platform.LocalView
 
 // Standard UI semantics live in Material so stock components and custom Bitchat composables
 // share one source of truth. LocalBitchatPalette below only supplies app-specific extra colors.
+//
+// The neutrals are true greys. Green survives only as the accent - primary, and the peer hues -
+// because a green cast on every surface is what made the app read as a terminal rather than a
+// chat client. The surfaceContainer* roles are spelled out because M3's defaults for them are
+// derived from its purple baseline, which shows up in dialogs, snackbars and the nav bar.
 internal val DarkBitchatColorScheme = darkColorScheme(
     primary = Color(0xFF32D74B),
     onPrimary = Color.Black,
@@ -30,14 +35,19 @@ internal val DarkBitchatColorScheme = darkColorScheme(
     onSecondaryContainer = Color(0xFFC2E0FF),
     tertiary = DarkBitchatPalette.accentOrange,
     onTertiary = Color.Black,
-    background = Color(0xFF000000),
-    onBackground = Color(0xFFF5F5F5),
-    surface = Color(0xFF0E150E),
-    onSurface = Color(0xFFF5F5F5),
-    surfaceVariant = Color(0xFF182118),
-    onSurfaceVariant = Color(0xFF9AA69A),
-    outline = Color(0xFF2A3A2A),
-    outlineVariant = Color(0xFF1C271C),
+    background = Color(0xFF0B0B0D),
+    onBackground = Color(0xFFF3F3F5),
+    surface = Color(0xFF16161A),
+    onSurface = Color(0xFFF3F3F5),
+    surfaceVariant = Color(0xFF1F1F24),
+    onSurfaceVariant = Color(0xFF9C9CA6),
+    surfaceContainerLowest = Color(0xFF08080A),
+    surfaceContainerLow = Color(0xFF121215),
+    surfaceContainer = Color(0xFF16161A),
+    surfaceContainerHigh = Color(0xFF1F1F24),
+    surfaceContainerHighest = Color(0xFF29292F),
+    outline = Color(0xFF2E2E34),
+    outlineVariant = Color(0xFF212126),
     error = Color(0xFFFF453A),
     onError = Color.Black
 )
@@ -54,13 +64,18 @@ internal val LightBitchatColorScheme = lightColorScheme(
     tertiary = LightBitchatPalette.accentOrange,
     onTertiary = Color.Black,
     background = Color(0xFFFFFFFF),
-    onBackground = Color(0xFF131A13),
-    surface = Color(0xFFF2F6F2),
-    onSurface = Color(0xFF131A13),
-    surfaceVariant = Color(0xFFE7EDE7),
-    onSurfaceVariant = Color(0xFF4C574C),
-    outline = Color(0xFFCBD6CB),
-    outlineVariant = Color(0xFFDEE6DE),
+    onBackground = Color(0xFF15151A),
+    surface = Color(0xFFF4F4F6),
+    onSurface = Color(0xFF15151A),
+    surfaceVariant = Color(0xFFEAEAEE),
+    onSurfaceVariant = Color(0xFF55555F),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF8F8FA),
+    surfaceContainer = Color(0xFFF4F4F6),
+    surfaceContainerHigh = Color(0xFFEEEEF2),
+    surfaceContainerHighest = Color(0xFFE7E7EC),
+    outline = Color(0xFFD6D6DC),
+    outlineVariant = Color(0xFFE6E6EB),
     error = Color(0xFFD70015),
     onError = Color.White
 )

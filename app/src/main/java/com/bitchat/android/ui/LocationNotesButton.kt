@@ -23,7 +23,7 @@ import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
 
 /**
- * Location Notes button for MainHeader.
+ * Location Notes button for MainHeader - the entry point for reading and writing notes here.
  * Mesh-only with location authorized. Tor health tints the glyph with muted colours
  * and a slow glow while connecting (via [rememberTorConnectionVisual]).
  */
@@ -44,12 +44,10 @@ fun LocationNotesButton(
     val locationPermissionGranted = permissionState == LocationChannelManager.PermissionState.AUTHORIZED
     val locationEnabled = locationPermissionGranted && locationServicesEnabled
 
-    val notesManager = remember { LocationNotesManager.getInstance() }
-    val notes by notesManager.notes.collectAsStateWithLifecycle()
-    val notesCount = notes.size
-
-    // Keep the header quiet until there is at least one nearby note worth opening.
-    if (selectedLocationChannel is ChannelID.Mesh && locationEnabled && notesCount > 0) {
+    // Shown whenever notes are usable here, not only once notes exist. Gating on a non-empty list
+    // kept the header tidy but left writing the first note with no affordance at all - the only
+    // way in was a row below the fold of the channels sheet.
+    if (selectedLocationChannel is ChannelID.Mesh && locationEnabled) {
         val contentDescription = stringResource(R.string.cd_location_notes)
         val torVisual = rememberTorConnectionVisual(normal = colorScheme.primary)
 

@@ -23,6 +23,11 @@
     <string name="no_one_connected">No one connected</string>
     <string name="emergency_clear_hint">Triple tap to clear all data</string>
     <string name="your_network">Network</string>
+
+    <!-- Bottom tab bar -->
+    <string name="tab_chats">Chats</string>
+    <string name="tab_public">Public</string>
+    <string name="time_now">now</string>
     
     <!-- Battery Optimization Strings -->
     <string name="battery_optimization_detected">Battery Optimization Detected</string>
@@ -171,7 +176,14 @@
   <!-- About sheet: section labels -->
   <string name="about_section_about">About</string>
   <string name="about_section_theme">Theme</string>
+  <string name="about_section_clock">Clock</string>
   <string name="about_section_settings">Settings</string>
+
+  <!-- Settings: transcript clock -->
+  <string name="clock_12_hour">12-hour</string>
+  <string name="clock_24_hour">24-hour</string>
+  <string name="clock_show_seconds">Show seconds</string>
+  <string name="clock_show_seconds_subtitle">Add seconds to message timestamps, e.g. 13:45:40</string>
 
   <!-- About sheet: feature list -->
   <string name="about_no_tracking_title">No Tracking</string>
@@ -475,6 +487,9 @@
   <string name="debug_recent_scan_results">Recent scan results</string>
 
   <string name="verify_title">Verify</string>
+  <string name="verify_scan_requires_connection">Verifies someone already on your mesh. Both phones need Bluetooth on and to be in range — scanning does not connect you.</string>
+  <string name="verify_scan_invalid">Not a valid bitchat code, or it expired. Codes are good for 5 minutes — ask them to reopen theirs.</string>
+  <string name="verify_scan_peer_not_connected">That person is not connected to you yet. Wait for them to appear under People, then scan again.</string>
   <string name="verify_my_qr_title">Scan to verify me</string>
   <string name="verify_scan_prompt_friend">Scan someone else\'s QR</string>
   <string name="verify_scan_someone">Scan someone else\'s QR</string>

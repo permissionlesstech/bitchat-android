@@ -408,7 +408,14 @@ fun MessageItem(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val timeFormatter = remember { SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()) }
+    val context = LocalContext.current
+    val timeFormat by com.bitchat.android.ui.theme.TimeFormatPreferenceManager.formatFlow
+        .collectAsState()
+    val showSeconds by com.bitchat.android.ui.theme.TimeFormatPreferenceManager.showSecondsFlow
+        .collectAsState()
+    val timeFormatter = remember(context, timeFormat, showSeconds) {
+        chatTimeFormatter(context, timeFormat, showSeconds)
+    }
 
     Column(
         modifier = modifier
