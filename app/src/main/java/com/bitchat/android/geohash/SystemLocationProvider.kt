@@ -10,6 +10,7 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
 import android.os.CancellationSignal
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.ActivityCompat
 
@@ -17,19 +18,41 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
 
     companion object {
         private const val TAG = "SystemLocationProvider"
+        private const val FRESH_LOCATION_TIMEOUT_MS = 30_000L
     }
 
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
-    
-    // Map to keep track of listeners to unregister them later
+
+    // Map to keep track of listeners to unregister them later.
     private val activeListeners = mutableMapOf<(Location) -> Unit, LocationListener>()
-    private val activeOneShotListeners = mutableMapOf<(Location?) -> Unit, LocationListener>()
-    private val activeOneShotRunnables = mutableMapOf<(Location?) -> Unit, Runnable>()
-    private val activeOneShotCancellationSignals = mutableMapOf<(Location?) -> Unit, CancellationSignal>()
+    private val activeOneShotRequests = mutableSetOf<PendingOneShot>()
+
+    private class PendingOneShot(
+        val callback: (Location?) -> Unit,
+        val providers: List<String>,
+        val deadlineElapsedRealtime: Long
+    ) {
+        var nextProviderIndex = 0
+        var cancellationSignal: CancellationSignal? = null
+        var listener: LocationListener? = null
+        var timeoutRunnable: Runnable? = null
+        var completed = false
+    }
+
+    private data class ProviderAttempt(
+        val provider: String,
+        val timeoutMs: Long
+    )
+
+    private data class OneShotResources(
+        val cancellationSignal: CancellationSignal?,
+        val listener: LocationListener?,
+        val timeoutRunnable: Runnable?
+    )
 
     private fun hasLocationPermission(): Boolean {
-        return LiveLocationPrivacyGate.isEnabled &&
+        return LiveLocationPrivacyGate.captureToken() != null &&
             (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
             )
@@ -53,7 +76,7 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
                     }
                 }
             }
-            callback(bestLocation.takeIf { LiveLocationPrivacyGate.isEnabled })
+            callback(bestLocation.takeIf { hasLocationPermission() })
         } catch (e: Exception) {
             Log.e(TAG, "Error getting last-known location")
             callback(null)
@@ -67,100 +90,279 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
             return
         }
 
-        try {
-            val providers = listOf(
+        val request = PendingOneShot(
+            callback = callback,
+            providers = listOf(
                 LocationManager.GPS_PROVIDER,
-                LocationManager.NETWORK_PROVIDER,
-                LocationManager.PASSIVE_PROVIDER
-            )
+                LocationManager.NETWORK_PROVIDER
+            ),
+            deadlineElapsedRealtime = SystemClock.elapsedRealtime() + FRESH_LOCATION_TIMEOUT_MS
+        )
 
-            var providerFound = false
-            for (provider in providers) {
-                if (locationManager.isProviderEnabled(provider)) {
-                    Log.d(TAG, "Requesting fresh location from $provider")
-                    
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        val cancellationSignal = CancellationSignal()
-                        synchronized(activeOneShotCancellationSignals) {
-                            activeOneShotCancellationSignals[callback] = cancellationSignal
-                        }
-                        try {
-                            locationManager.getCurrentLocation(
-                                provider,
-                                cancellationSignal,
-                                context.mainExecutor
-                            ) { location ->
-                                synchronized(activeOneShotCancellationSignals) {
-                                    activeOneShotCancellationSignals.remove(callback)
-                                }
-                                callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
-                            }
-                        } catch (e: Exception) {
-                            synchronized(activeOneShotCancellationSignals) {
-                                activeOneShotCancellationSignals.remove(callback)
-                            }
-                            cancellationSignal.cancel()
-                            throw e
-                        }
-                    } else {
-                        // For older versions, use requestSingleUpdate with timeout mechanism
-                        val timeoutRunnable = Runnable {
-                            Log.w(TAG, "Location request timed out")
-                            synchronized(activeOneShotListeners) {
-                                val listener = activeOneShotListeners.remove(callback)
-                                activeOneShotRunnables.remove(callback)
-                                if (listener != null) {
-                                    try {
-                                        locationManager.removeUpdates(listener)
-                                    } catch (e: Exception) {
-                                        Log.e(TAG, "Error removing timed-out listener")
-                                    }
-                                }
-                            }
-                            callback(null)
-                        }
+        synchronized(activeOneShotRequests) {
+            activeOneShotRequests += request
+        }
+        startNextOneShotProvider(request)
+    }
 
-                        val listener = object : LocationListener {
-                            override fun onLocationChanged(location: Location) {
-                                synchronized(activeOneShotListeners) {
-                                    activeOneShotListeners.remove(callback)
-                                    val runnable = activeOneShotRunnables.remove(callback)
-                                    if (runnable != null) {
-                                        handler.removeCallbacks(runnable)
-                                    }
-                                }
-                                try {
-                                    locationManager.removeUpdates(this)
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "Error removing updates in callback")
-                                }
-                                callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
-                            }
-                            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-                            override fun onProviderEnabled(provider: String) {}
-                            override fun onProviderDisabled(provider: String) {}
+    private fun startNextOneShotProvider(request: PendingOneShot) {
+        var shouldFinish = false
+        val attempt = synchronized(activeOneShotRequests) {
+            if (!isOneShotActiveLocked(request)) {
+                null
+            } else if (!hasLocationPermission()) {
+                shouldFinish = true
+                null
+            } else {
+                val remainingMs = request.deadlineElapsedRealtime - SystemClock.elapsedRealtime()
+                if (remainingMs <= 0L) {
+                    shouldFinish = true
+                    null
+                } else {
+                    var nextAttempt: ProviderAttempt? = null
+                    while (request.nextProviderIndex < request.providers.size && nextAttempt == null) {
+                        val provider = request.providers[request.nextProviderIndex++]
+                        if (isProviderEnabled(provider)) {
+                            val remainingEnabledProviders = 1 + request.providers
+                                .drop(request.nextProviderIndex)
+                                .count(::isProviderEnabled)
+                            nextAttempt = ProviderAttempt(
+                                provider = provider,
+                                timeoutMs = maxOf(1L, remainingMs / remainingEnabledProviders)
+                            )
                         }
-
-                        synchronized(activeOneShotListeners) {
-                            activeOneShotListeners[callback] = listener
-                            activeOneShotRunnables[callback] = timeoutRunnable
-                        }
-                        
-                        locationManager.requestSingleUpdate(provider, listener, null)
-                        handler.postDelayed(timeoutRunnable, 30000L) // 30s timeout
                     }
-                    providerFound = true
-                    break
+                    if (nextAttempt == null) {
+                        shouldFinish = true
+                    }
+                    nextAttempt
+                }
+            }
+        }
+
+        when {
+            attempt != null -> requestOneShotFromProvider(request, attempt)
+            shouldFinish -> finishOneShot(request, null)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun requestOneShotFromProvider(
+        request: PendingOneShot,
+        attempt: ProviderAttempt
+    ) {
+        Log.d(TAG, "Requesting fresh location from ${attempt.provider}")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            requestCurrentLocation(request, attempt)
+        } else {
+            requestSingleLocationUpdate(request, attempt)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun requestCurrentLocation(
+        request: PendingOneShot,
+        attempt: ProviderAttempt
+    ) {
+        val cancellationSignal = CancellationSignal()
+        val timeout = Runnable {
+            val resources = detachCurrentProvider(
+                request = request,
+                expectedCancellationSignal = cancellationSignal
+            ) ?: return@Runnable
+            Log.w(TAG, "Location request timed out for ${attempt.provider}")
+            releaseOneShotResources(resources)
+            startNextOneShotProvider(request)
+        }
+
+        if (!attachCurrentProvider(request, cancellationSignal, null, timeout)) return
+        handler.postDelayed(timeout, attempt.timeoutMs)
+
+        try {
+            locationManager.getCurrentLocation(
+                attempt.provider,
+                cancellationSignal,
+                context.mainExecutor
+            ) { location ->
+                val resources = detachCurrentProvider(
+                    request = request,
+                    expectedCancellationSignal = cancellationSignal
+                ) ?: return@getCurrentLocation
+                releaseOneShotResources(resources)
+
+                if (location != null && hasLocationPermission()) {
+                    finishOneShot(request, location)
+                } else {
+                    startNextOneShotProvider(request)
+                }
+            }
+        } catch (e: Exception) {
+            val resources = detachCurrentProvider(
+                request = request,
+                expectedCancellationSignal = cancellationSignal
+            )
+            if (resources != null) {
+                Log.w(TAG, "Unable to request ${attempt.provider} location", e)
+                releaseOneShotResources(resources)
+                startNextOneShotProvider(request)
+            }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun requestSingleLocationUpdate(
+        request: PendingOneShot,
+        attempt: ProviderAttempt
+    ) {
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                val resources = detachCurrentProvider(
+                    request = request,
+                    expectedListener = this
+                ) ?: return
+                releaseOneShotResources(resources)
+
+                if (hasLocationPermission()) {
+                    finishOneShot(request, location)
+                } else {
+                    startNextOneShotProvider(request)
                 }
             }
 
-            if (!providerFound) {
-                Log.w(TAG, "No location providers available for fresh location")
-                callback(null)
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
+            override fun onProviderEnabled(provider: String) = Unit
+            override fun onProviderDisabled(provider: String) = Unit
+        }
+        val timeout = Runnable {
+            val resources = detachCurrentProvider(
+                request = request,
+                expectedListener = listener
+            ) ?: return@Runnable
+            Log.w(TAG, "Location request timed out for ${attempt.provider}")
+            releaseOneShotResources(resources)
+            startNextOneShotProvider(request)
+        }
+
+        if (!attachCurrentProvider(request, null, listener, timeout)) return
+        handler.postDelayed(timeout, attempt.timeoutMs)
+
+        try {
+            locationManager.requestSingleUpdate(attempt.provider, listener, null)
+            if (!isCurrentProviderRequest(request, expectedListener = listener)) {
+                runCatching { locationManager.removeUpdates(listener) }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error requesting fresh location")
-            callback(null)
+            val resources = detachCurrentProvider(
+                request = request,
+                expectedListener = listener
+            )
+            if (resources != null) {
+                Log.w(TAG, "Unable to request ${attempt.provider} location", e)
+                releaseOneShotResources(resources)
+                startNextOneShotProvider(request)
+            }
+        }
+    }
+
+    private fun isProviderEnabled(provider: String): Boolean {
+        return try {
+            locationManager.isProviderEnabled(provider)
+        } catch (e: Exception) {
+            Log.w(TAG, "Unable to inspect $provider provider", e)
+            false
+        }
+    }
+
+    private fun attachCurrentProvider(
+        request: PendingOneShot,
+        cancellationSignal: CancellationSignal?,
+        listener: LocationListener?,
+        timeoutRunnable: Runnable
+    ): Boolean = synchronized(activeOneShotRequests) {
+        if (!isOneShotActiveLocked(request) || !hasLocationPermission()) {
+            false
+        } else {
+            request.cancellationSignal = cancellationSignal
+            request.listener = listener
+            request.timeoutRunnable = timeoutRunnable
+            true
+        }
+    }
+
+    private fun isCurrentProviderRequest(
+        request: PendingOneShot,
+        expectedCancellationSignal: CancellationSignal? = null,
+        expectedListener: LocationListener? = null
+    ): Boolean = synchronized(activeOneShotRequests) {
+        if (!isOneShotActiveLocked(request)) {
+            false
+        } else {
+            (expectedCancellationSignal == null || request.cancellationSignal === expectedCancellationSignal) &&
+                (expectedListener == null || request.listener === expectedListener)
+        }
+    }
+
+    private fun detachCurrentProvider(
+        request: PendingOneShot,
+        expectedCancellationSignal: CancellationSignal? = null,
+        expectedListener: LocationListener? = null
+    ): OneShotResources? = synchronized(activeOneShotRequests) {
+        if (!isCurrentProviderRequestLocked(request, expectedCancellationSignal, expectedListener)) {
+            null
+        } else {
+            OneShotResources(
+                cancellationSignal = request.cancellationSignal,
+                listener = request.listener,
+                timeoutRunnable = request.timeoutRunnable
+            ).also {
+                request.cancellationSignal = null
+                request.listener = null
+                request.timeoutRunnable = null
+            }
+        }
+    }
+
+    private fun isOneShotActiveLocked(request: PendingOneShot): Boolean =
+        !request.completed && activeOneShotRequests.contains(request)
+
+    private fun isCurrentProviderRequestLocked(
+        request: PendingOneShot,
+        expectedCancellationSignal: CancellationSignal?,
+        expectedListener: LocationListener?
+    ): Boolean =
+        isOneShotActiveLocked(request) &&
+            (expectedCancellationSignal == null || request.cancellationSignal === expectedCancellationSignal) &&
+            (expectedListener == null || request.listener === expectedListener)
+
+    private fun finishOneShot(request: PendingOneShot, location: Location?) {
+        val resources = synchronized(activeOneShotRequests) {
+            if (!isOneShotActiveLocked(request)) {
+                null
+            } else {
+                request.completed = true
+                activeOneShotRequests.remove(request)
+                OneShotResources(
+                    cancellationSignal = request.cancellationSignal,
+                    listener = request.listener,
+                    timeoutRunnable = request.timeoutRunnable
+                ).also {
+                    request.cancellationSignal = null
+                    request.listener = null
+                    request.timeoutRunnable = null
+                }
+            }
+        } ?: return
+
+        releaseOneShotResources(resources)
+        request.callback(location.takeIf { hasLocationPermission() })
+    }
+
+    private fun releaseOneShotResources(resources: OneShotResources) {
+        resources.timeoutRunnable?.let(handler::removeCallbacks)
+        resources.cancellationSignal?.cancel()
+        resources.listener?.let { listener ->
+            runCatching { locationManager.removeUpdates(listener) }
+                .onFailure { Log.w(TAG, "Unable to remove one-shot location listener", it) }
         }
     }
 
@@ -172,26 +374,29 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
     ) {
         if (!hasLocationPermission()) return
 
-        try {
-            val listener = object : LocationListener {
-                override fun onLocationChanged(location: Location) {
-                    if (LiveLocationPrivacyGate.isEnabled) callback(location)
+        removeLocationUpdates(callback)
+
+        lateinit var listener: LocationListener
+        listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                val isCurrentListener = synchronized(activeListeners) {
+                    activeListeners[callback] === listener
                 }
-                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-                override fun onProviderEnabled(provider: String) {}
-                override fun onProviderDisabled(provider: String) {}
+                if (isCurrentListener && hasLocationPermission()) callback(location)
             }
 
-            // Store the listener so we can remove it later
-            synchronized(activeListeners) {
-                activeListeners[callback] = listener
-            }
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
+            override fun onProviderEnabled(provider: String) = Unit
+            override fun onProviderDisabled(provider: String) = Unit
+        }
 
-            val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-            var registered = false
-            
-            for (provider in providers) {
-                if (locationManager.isProviderEnabled(provider)) {
+        var registered = false
+        var shouldCleanUp = false
+        synchronized(activeListeners) {
+            activeListeners[callback] = listener
+            for (provider in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
+                if (!isProviderEnabled(provider)) continue
+                try {
                     locationManager.requestLocationUpdates(
                         provider,
                         intervalMs,
@@ -200,62 +405,57 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
                     )
                     registered = true
                     Log.d(TAG, "Registered updates for $provider")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Unable to register updates for $provider", e)
                 }
             }
-            
-            if (!registered) {
-                Log.w(TAG, "No providers enabled for continuous updates")
-            }
 
-        } catch (e: Exception) {
-            Log.e(TAG, "Error requesting location updates")
+            shouldCleanUp = !registered || activeListeners[callback] !== listener
+            if (shouldCleanUp && activeListeners[callback] === listener) {
+                activeListeners.remove(callback)
+            }
+        }
+
+        if (shouldCleanUp) {
+            runCatching { locationManager.removeUpdates(listener) }
+            Log.w(TAG, "No system providers accepted continuous location updates")
         }
     }
 
     override fun removeLocationUpdates(callback: (Location) -> Unit) {
-        try {
-            val listener = synchronized(activeListeners) {
-                activeListeners.remove(callback)
-            }
-            
-            if (listener != null) {
-                locationManager.removeUpdates(listener)
-                Log.d(TAG, "Removed location updates")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error removing updates")
+        val listener = synchronized(activeListeners) {
+            activeListeners.remove(callback)
+        }
+
+        if (listener != null) {
+            runCatching { locationManager.removeUpdates(listener) }
+                .onFailure { Log.w(TAG, "Unable to remove location updates", it) }
         }
     }
 
     override fun cancel() {
-        try {
-            // Cancel continuous updates
-            synchronized(activeListeners) {
-                for ((_, listener) in activeListeners) {
-                    try { locationManager.removeUpdates(listener) } catch (_: Exception) {}
-                }
-                activeListeners.clear()
-            }
-
-            // Cancel one-shot requests
-            synchronized(activeOneShotListeners) {
-                for ((_, listener) in activeOneShotListeners) {
-                    try { locationManager.removeUpdates(listener) } catch (_: Exception) {}
-                }
-                activeOneShotListeners.clear()
-                
-                for ((_, runnable) in activeOneShotRunnables) {
-                    handler.removeCallbacks(runnable)
-                }
-                activeOneShotRunnables.clear()
-            }
-            synchronized(activeOneShotCancellationSignals) {
-                activeOneShotCancellationSignals.values.forEach { it.cancel() }
-                activeOneShotCancellationSignals.clear()
-            }
-            Log.d(TAG, "Cancelled all system location requests")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error cancelling system provider")
+        val listeners = synchronized(activeListeners) {
+            activeListeners.values.toList().also { activeListeners.clear() }
         }
+        listeners.forEach { listener ->
+            runCatching { locationManager.removeUpdates(listener) }
+                .onFailure { Log.w(TAG, "Unable to remove location updates", it) }
+        }
+
+        val oneShotResources = synchronized(activeOneShotRequests) {
+            activeOneShotRequests.map { request ->
+                request.completed = true
+                OneShotResources(
+                    cancellationSignal = request.cancellationSignal,
+                    listener = request.listener,
+                    timeoutRunnable = request.timeoutRunnable
+                )
+            }.also {
+                activeOneShotRequests.clear()
+            }
+        }
+        oneShotResources.forEach(::releaseOneShotResources)
+        Log.d(TAG, "Cancelled all system location requests")
     }
 }
+
