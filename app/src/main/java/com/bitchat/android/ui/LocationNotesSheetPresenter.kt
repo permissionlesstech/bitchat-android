@@ -1,21 +1,30 @@
 package com.bitchat.android.ui
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.core.app.ActivityCompat
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
@@ -117,6 +126,8 @@ private fun LocationNotesErrorSheet(
     systemLocationEnabled: Boolean
 ) {
     val context = LocalContext.current
+    var locationPermissionRequestAttempted by rememberSaveable { mutableStateOf(false) }
+    var awaitingSystemLocationSettings by rememberSaveable { mutableStateOf(false) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissionResults ->
@@ -130,6 +141,20 @@ private fun LocationNotesErrorSheet(
             locationManager.enableLocationChannels()
             locationManager.refreshChannels()
         }
+    }
+
+    LifecycleResumeEffect(awaitingSystemLocationSettings, systemLocationEnabled) {
+        if (awaitingSystemLocationSettings &&
+            systemLocationEnabled &&
+            locationManager.syncPermissionState() == LocationChannelManager.PermissionState.AUTHORIZED
+        ) {
+            awaitingSystemLocationSettings = false
+            locationManager.enableLocationServices()
+            locationManager.enableLocationChannels()
+            locationManager.refreshChannels()
+        }
+
+        onPauseOrDispose {}
     }
 
     BitchatBottomSheet(
@@ -159,17 +184,24 @@ private fun LocationNotesErrorSheet(
                 Button(onClick = {
                     when {
                         !systemLocationEnabled -> {
-                            runCatching {
+                            awaitingSystemLocationSettings = runCatching {
                                 context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                            }
+                            }.isSuccess
                         }
                         locationManager.syncPermissionState() != LocationChannelManager.PermissionState.AUTHORIZED -> {
-                            locationPermissionLauncher.launch(
-                                arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                            if (locationPermissionRequestAttempted &&
+                                hasPermanentlyDeniedLocationPermission(context)
+                            ) {
+                                openAppLocationSettings(context)
+                            } else {
+                                locationPermissionRequestAttempted = true
+                                locationPermissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
                                 )
-                            )
+                            }
                         }
                         else -> {
                             locationManager.enableLocationServices()
@@ -193,5 +225,31 @@ private fun LocationNotesErrorSheet(
             )
         }
     }
+}
+
+private fun hasPermanentlyDeniedLocationPermission(context: Context): Boolean {
+    val activity = context.findActivity() ?: return false
+    val locationPermissions = listOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    )
+    return locationPermissions.all { permission ->
+        ActivityCompat.checkSelfPermission(context, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+            !ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)
+    }
+}
+
+private fun openAppLocationSettings(context: Context) {
+    runCatching {
+        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+        })
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
