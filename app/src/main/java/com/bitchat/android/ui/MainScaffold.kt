@@ -1,11 +1,6 @@
 package com.bitchat.android.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -105,11 +100,11 @@ fun MainScaffold(viewModel: ChatViewModel, modifier: Modifier = Modifier) {
         // so the Scaffold must not pad the top. The bottom bar still reports its own height.
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            AnimatedVisibility(
-                visible = !inConversation,
-                enter = slideInVertically { it } + fadeIn(),
-                exit = slideOutVertically { it } + fadeOut()
-            ) {
+            // Shown or hidden in the same frame the screen swaps, deliberately not animated. A
+            // slide/fade AnimatedVisibility keeps its full layout slot for the whole exit and only
+            // then collapses to zero, so the conversation opened above a blank strip and lurched
+            // down by the bar's height a few hundred milliseconds later.
+            if (!inConversation) {
                 BitchatNavigationBar(
                     viewModel = viewModel,
                     selected = tab,
