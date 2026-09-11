@@ -183,8 +183,18 @@ internal fun MessageArrivalTracker.arrivals(messages: List<BitchatMessage>): Set
     val isWholesaleReplacement =
         messages.isNotEmpty() && known.isNotEmpty() && messages.none { it.id in known }
 
+    // History backfill inserts messages *older* than ones already on screen: opening a DM shows its
+    // compacted summary (the latest message only), then loads the stored history in behind it.
+    // Those rows are not arrivals - only messages after the newest already-known one are. Without
+    // this, a short conversation's whole history (anything under the burst cap) slid in on every
+    // open, which read as the transcript flickering.
+    val lastKnownIndex = messages.indexOfLast { it.id in known }
+
     // `HashSet.add` reports whether the id was new, so this both diffs and updates in one pass.
-    val added = messages.filter { known.add(it.id) }
+    // The add runs first so backfilled ids are still recorded as known.
+    val added = messages.filterIndexed { index, message ->
+        known.add(message.id) && index > lastKnownIndex
+    }
 
     if (known.size > messages.size) {
         // Messages disappeared (/clear, channel switch). Drop the stale ids so the set cannot
@@ -408,7 +418,14 @@ fun MessageItem(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val timeFormatter = remember { SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()) }
+    val context = LocalContext.current
+    val timeFormat by com.bitchat.android.ui.theme.TimeFormatPreferenceManager.formatFlow
+        .collectAsState()
+    val showSeconds by com.bitchat.android.ui.theme.TimeFormatPreferenceManager.showSecondsFlow
+        .collectAsState()
+    val timeFormatter = remember(context, timeFormat, showSeconds) {
+        chatTimeFormatter(context, timeFormat, showSeconds)
+    }
 
     Column(
         modifier = modifier

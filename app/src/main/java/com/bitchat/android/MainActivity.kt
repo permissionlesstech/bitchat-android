@@ -39,7 +39,7 @@ import com.bitchat.android.onboarding.OnboardingCoordinator
 import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.PermissionManager
-import com.bitchat.android.ui.ChatScreen
+import com.bitchat.android.ui.MainScaffold
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
@@ -330,7 +330,7 @@ class MainActivity : OrientationAwareActivity() {
 
                 // Add the callback - this will be automatically removed when the activity is destroyed
                 onBackPressedDispatcher.addCallback(this, backCallback)
-                ChatScreen(viewModel = chatViewModel)
+                MainScaffold(viewModel = chatViewModel)
             }
             
             OnboardingState.ERROR -> {
@@ -810,9 +810,8 @@ class MainActivity : OrientationAwareActivity() {
                 if (peerID != null) {
                     Log.d("MainActivity", "Opening private chat with $senderNickname (peerID: $peerID) from notification")
                     
-                    // Open the private chat sheet with this peer
-                    chatViewModel.showMeshPeerList()
-                    chatViewModel.showPrivateChatSheet(peerID)
+                    // Open the conversation; the shell switches to the Chats tab behind it
+                    chatViewModel.openPrivateChat(peerID)
                     
                     // Clear notifications for this sender since user is now viewing the chat
                     chatViewModel.clearNotificationsForSender(peerID)
