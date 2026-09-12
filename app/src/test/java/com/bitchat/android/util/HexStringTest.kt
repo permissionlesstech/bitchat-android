@@ -49,6 +49,13 @@ class HexStringTest {
     }
 
     @Test
+    fun `rejects signed byte chunks and non-ascii digits`() {
+        for (invalid in listOf("0x-1", "0x+1", "-1", "+1", "00-1", "0X+100", "０１")) {
+            assertNull(invalid.dataFromHexString())
+        }
+    }
+
+    @Test
     fun `round-trips with hexEncodedString`() {
         val original = byteArrayOf(0x00, 0x7f, 0xff.toByte())
         val encoded = original.hexEncodedString()

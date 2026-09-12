@@ -27,7 +27,8 @@ fun String.dataFromHexString(): ByteArray? {
     if (hex.isEmpty()) {
         return ByteArray(0)
     }
-    if (hex.length % 2 != 0) {
+    // Radix parsing accepts signs and Unicode digits; encoded bytes require ASCII hex.
+    if (hex.length % 2 != 0 || hex.any { it !in '0'..'9' && it !in 'a'..'f' && it !in 'A'..'F' }) {
         return null
     }
 
