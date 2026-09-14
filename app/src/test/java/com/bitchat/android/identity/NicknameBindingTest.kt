@@ -22,12 +22,12 @@ class NicknameBindingTest {
         // Eve is verified while announcing "ravi", then announces "medic". Every
         // device that trusts the real medic would otherwise show a second
         // trusted-looking medic.
-        assertFalse(NicknameBinding.sealApplies("ravi", "medic"))
+        assertFalse(NicknameBinding.sealAppliesToAnnounced("ravi", "medic"))
     }
 
     @Test
     fun `the seal stands while the name is unchanged`() {
-        assertTrue(NicknameBinding.sealApplies("ravi", "ravi"))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced("ravi", "ravi"))
     }
 
     // ---- what counts as the same name -------------------------------------
@@ -36,8 +36,8 @@ class NicknameBindingTest {
     fun `recasing your own nickname is not a rename`() {
         // A rename is meant to break the binding; a recase is not. Without the
         // case fold, changing "Ravi" to "ravi" silently dropped the seal.
-        assertTrue(NicknameBinding.sealApplies("Ravi", "ravi"))
-        assertTrue(NicknameBinding.sealApplies("ravi", "RAVI"))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced("Ravi", "ravi"))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced("ravi", "RAVI"))
     }
 
     @Test
@@ -45,7 +45,7 @@ class NicknameBindingTest {
         val precomposed = "José"        // José
         val decomposed = "José"        // Jose + combining acute
         assertEquals(NicknameBinding.bindingKey(precomposed), NicknameBinding.bindingKey(decomposed))
-        assertTrue(NicknameBinding.sealApplies(precomposed, decomposed))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced(precomposed, decomposed))
     }
 
     @Test
@@ -63,9 +63,9 @@ class NicknameBindingTest {
         // so it is a different name and must break the binding — folding
         // look-alikes is a different question, and answering it here would let
         // a verification for one name quietly cover another.
-        assertFalse(NicknameBinding.sealApplies("Medic", "Ｍedic"))
+        assertFalse(NicknameBinding.sealAppliesToAnnounced("Medic", "Ｍedic"))
         // ...and so does a Cyrillic М.
-        assertFalse(NicknameBinding.sealApplies("Medic", "Меdic"))
+        assertFalse(NicknameBinding.sealAppliesToAnnounced("Medic", "Меdic"))
     }
 
     // ---- the collision suffix ---------------------------------------------
@@ -75,7 +75,7 @@ class NicknameBindingTest {
         // Two peers claiming one nickname render as "medic#a1b2" and
         // "medic#c3d4". Comparing the decorated string would drop the seal of
         // the peer being impersonated, at exactly the moment it matters most.
-        assertTrue(NicknameBinding.sealApplies("medic", "medic#a1b2"))
+        assertTrue(NicknameBinding.sealAppliesToRendered("medic", "medic#a1b2"))
         assertEquals("medic", NicknameBinding.withoutCollisionSuffix("medic#a1b2"))
     }
 
@@ -98,9 +98,9 @@ class NicknameBindingTest {
         // splitSuffix strips every "@" in the string — right for parsing a
         // mention, wrong for comparing a name, since "ravi@hq" would then
         // compare unequal to itself.
-        assertTrue(NicknameBinding.sealApplies("ravi@hq", "ravi@hq"))
-        assertTrue(NicknameBinding.sealApplies("ravi@hq", "ravi@hq#a1b2"))
-        assertFalse(NicknameBinding.sealApplies("ravi@hq", "ravi"))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced("ravi@hq", "ravi@hq"))
+        assertTrue(NicknameBinding.sealAppliesToRendered("ravi@hq", "ravi@hq#a1b2"))
+        assertFalse(NicknameBinding.sealAppliesToAnnounced("ravi@hq", "ravi"))
     }
 
     // ---- failing open ------------------------------------------------------
@@ -110,17 +110,47 @@ class NicknameBindingTest {
         // Peers verified by builds from before this existed have no baseline.
         // Dropping their seals on upgrade would teach people to ignore the
         // signal, which costs more than the narrow case it would catch.
-        assertTrue(NicknameBinding.sealApplies(null, "medic"))
-        assertTrue(NicknameBinding.sealApplies("", "medic"))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced(null, "medic"))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced("", "medic"))
     }
 
     @Test
     fun `an empty current name never suppresses`() {
         // A row with no name to show yet is not evidence of a rename.
-        assertTrue(NicknameBinding.sealApplies("medic", null))
-        assertTrue(NicknameBinding.sealApplies("medic", ""))
-        // ...including one that is nothing BUT a suffix.
-        assertTrue(NicknameBinding.sealApplies("medic", "#a1b2"))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced("medic", null))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced("medic", ""))
+        // A row whose name is nothing BUT a decoration leaves nothing to
+        // compare, so it fails open too. Note this is a RENDERED-name case: a
+        // peer that actually announces "#a1b2" has renamed, and says so.
+        assertTrue(NicknameBinding.sealAppliesToRendered("medic", "#a1b2"))
+        assertFalse(NicknameBinding.sealAppliesToAnnounced("medic", "#a1b2"))
+    }
+
+    // ---- announced vs rendered: the split that was missing -----------------
+
+    @Test
+    fun `an announced suffix is not a UI decoration`() {
+        // The first version of this patch stripped a trailing #abcd from the
+        // LIVE announced name, which is wrong in both directions at once. A
+        // peer announces whatever string it likes, and "#" plus four hex is a
+        // legal thing to announce — this app's own splitSuffix exists because
+        // announced names carry them.
+        //
+        // Stripping let the attack straight through...
+        assertFalse(NicknameBinding.sealAppliesToAnnounced("medic", "medic#cafe"))
+        // ...and dropped the seal of a key honestly verified under a name that
+        // simply ends that way.
+        assertTrue(NicknameBinding.sealAppliesToAnnounced("medic#cafe", "medic#cafe"))
+    }
+
+    @Test
+    fun `a rendered row tries the raw name before undecorating it`() {
+        // On a row the list may have appended #abcd to tell two namesakes
+        // apart, so that has to come off — but only after the raw name has had
+        // its chance, or a name that genuinely ends in a suffix loses its seal.
+        assertTrue(NicknameBinding.sealAppliesToRendered("medic", "medic#a1b2"))
+        assertTrue(NicknameBinding.sealAppliesToRendered("medic#cafe", "medic#cafe"))
+        assertFalse(NicknameBinding.sealAppliesToRendered("medic", "zebra#a1b2"))
     }
 
     // ---- the key itself ----------------------------------------------------
@@ -135,8 +165,8 @@ class NicknameBindingTest {
 
     @Test
     fun `unrelated names do not match`() {
-        assertFalse(NicknameBinding.sealApplies("medic", "zebra"))
-        assertFalse(NicknameBinding.sealApplies("medic", "medic2"))
-        assertFalse(NicknameBinding.sealApplies("medic", "medi"))
+        assertFalse(NicknameBinding.sealAppliesToAnnounced("medic", "zebra"))
+        assertFalse(NicknameBinding.sealAppliesToAnnounced("medic", "medic2"))
+        assertFalse(NicknameBinding.sealAppliesToAnnounced("medic", "medi"))
     }
 }

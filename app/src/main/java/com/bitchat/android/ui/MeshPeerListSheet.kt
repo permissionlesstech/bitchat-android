@@ -709,7 +709,14 @@ fun PeopleSection(
             }
         }
 
-        val peerVerifiedStates = remember(verifiedFingerprints, peerFingerprints, connectedPeers) {
+        // `peerNicknames` is a key because the verification check now reads the
+        // peer's announced name. Without it a rename repaints the NAME from the
+        // state flow while this cached `true` — and the seal — survives until
+        // some unrelated key happens to change. That is the live impersonation
+        // still showing a seal, which is the whole case this is meant to stop.
+        val peerVerifiedStates = remember(
+            verifiedFingerprints, peerFingerprints, connectedPeers, peerNicknames
+        ) {
             connectedPeers.associateWith { peerID ->
                 viewModel.isPeerVerified(peerID, verifiedFingerprints)
             }
@@ -1790,7 +1797,8 @@ fun PrivateChatSheet(
         }
     }
 
-    val isVerified = remember(peerID, verifiedFingerprints) {
+    // Keyed on the announced nickname as well — see PeopleSection above.
+    val isVerified = remember(peerID, verifiedFingerprints, peerNicknames[peerID]) {
         viewModel.isPeerVerified(peerID, verifiedFingerprints)
     }
 

@@ -63,19 +63,49 @@ object NicknameBinding {
         return name.substring(0, name.length - 5)
     }
 
+    /** Two nicknames that are the same name, by [bindingKey]. */
+    private fun sameName(a: String, b: String): Boolean = bindingKey(a) == bindingKey(b)
+
     /**
-     * Does a seal earned under [pinned] still apply to a peer announcing
-     * [current]?
+     * Does a seal earned under [pinned] still apply to a peer ANNOUNCING
+     * [announced]?
      *
-     * Fails **open** when nothing was pinned. Peers verified by builds from
-     * before this existed have no baseline, and dropping their seals on upgrade
-     * would teach people to ignore the signal — which costs more than the
-     * narrow case it would catch.
+     * No suffix stripping. What a peer announces is its own string, and a `#`
+     * plus four hex is a perfectly legal thing to announce — this app's own
+     * `splitSuffix` exists because announced names carry them. Stripping here
+     * would let a key pinned as `medic` rename to `medic#cafe` and keep its
+     * seal, and would drop the seal of a key honestly verified as `medic#cafe`.
+     *
+     * Fails **open** when nothing was pinned, or when there is no announced
+     * name yet. Peers verified by builds from before this existed have no
+     * baseline, and dropping their seals on upgrade would teach people to
+     * ignore the signal — which costs more than the narrow case it would catch.
      */
-    fun sealApplies(pinned: String?, current: String?): Boolean {
-        if (pinned.isNullOrEmpty()) return true
-        val shown = withoutCollisionSuffix(current.orEmpty())
-        if (shown.isEmpty()) return true
-        return bindingKey(pinned) == bindingKey(shown)
+    fun sealAppliesToAnnounced(pinned: String?, announced: String?): Boolean {
+        if (pinned.isNullOrEmpty() || announced.isNullOrEmpty()) return true
+        return sameName(pinned, announced)
+    }
+
+    /**
+     * Does a seal earned under [pinned] still apply beside [rendered] — a name
+     * as it appears on a row, which the list may have decorated?
+     *
+     * Two peers claiming one nickname are told apart with a `#abcd` the UI
+     * appends, so comparing the decorated string alone would drop the seal of
+     * the peer being impersonated at exactly the moment it matters. A raw match
+     * is tried first, so a name that genuinely ends in a suffix still matches
+     * itself; only then is one suffix removed.
+     *
+     * This is deliberately a SECOND function rather than a flag. The first
+     * version of this patch had one, stripping unconditionally, and it was
+     * wrong in both directions at once — which is what happens when one
+     * predicate is asked two questions.
+     */
+    fun sealAppliesToRendered(pinned: String?, rendered: String?): Boolean {
+        if (pinned.isNullOrEmpty() || rendered.isNullOrEmpty()) return true
+        if (sameName(pinned, rendered)) return true
+        val undecorated = withoutCollisionSuffix(rendered)
+        if (undecorated.isEmpty()) return true
+        return sameName(pinned, undecorated)
     }
 }

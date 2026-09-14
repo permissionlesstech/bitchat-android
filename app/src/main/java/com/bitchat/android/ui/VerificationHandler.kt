@@ -383,7 +383,8 @@ class VerificationHandler(
      * them: the row has to be checked against its own name.
      */
     fun sealAppliesToName(fingerprint: String, renderedName: String?): Boolean =
-        NicknameBinding.sealApplies(identityManager.getVerifiedNickname(fingerprint), renderedName)
+        NicknameBinding.sealAppliesToRendered(
+            identityManager.getVerifiedNickname(fingerprint), renderedName)
 
     private fun resolvePeerDisplayName(peerID: String): String {
         val nick = try { meshService.getPeerInfo(peerID)?.nickname } catch (_: Exception) { null }

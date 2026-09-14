@@ -286,8 +286,8 @@ class SecureIdentityStateManager {
      * before this existed have none, and dropping their seals on upgrade would
      * teach people to ignore the signal.
      */
-    fun verifiedNicknameMismatch(fingerprint: String, currentNickname: String?): Boolean =
-        !NicknameBinding.sealApplies(getVerifiedNickname(fingerprint), currentNickname)
+    fun verifiedNicknameMismatch(fingerprint: String, announcedNickname: String?): Boolean =
+        !NicknameBinding.sealAppliesToAnnounced(getVerifiedNickname(fingerprint), announcedNickname)
 
     private fun pinVerifiedNickname(fingerprint: String, nickname: String) {
         val key = fingerprint.lowercase()
