@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import android.content.Context
 import com.bitchat.android.R
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.identity.NicknameBinding
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
@@ -52,12 +53,17 @@ class VerificationHandler(
     fun isPeerVerified(peerID: String): Boolean {
         if (peerID.startsWith("nostr_") || peerID.startsWith("nostr:")) return false
         val fingerprint = getPeerFingerprintForDisplay(peerID)
-        return fingerprint != null && _verifiedFingerprints.value.contains(fingerprint)
+        if (fingerprint == null || !_verifiedFingerprints.value.contains(fingerprint)) return false
+        // Gated like the ChatViewModel entry point. These two have no callers
+        // today; leaving them ungated would hand the next caller the answer this
+        // change exists to stop giving.
+        return !verifiedNicknameMismatch(peerID)
     }
 
-    fun isNoisePublicKeyVerified(noisePublicKey: ByteArray): Boolean {
+    fun isNoisePublicKeyVerified(noisePublicKey: ByteArray, renderedName: String? = null): Boolean {
         val fingerprint = fingerprintFromNoiseBytes(noisePublicKey)
-        return _verifiedFingerprints.value.contains(fingerprint)
+        if (!_verifiedFingerprints.value.contains(fingerprint)) return false
+        return sealAppliesToName(fingerprint, renderedName)
     }
 
     fun unverifyFingerprint(peerID: String) {
@@ -148,7 +154,11 @@ class VerificationHandler(
 
             pendingQRVerifications.remove(peerID)
             val fp = meshService.getPeerFingerprint(peerID) ?: return@launch
-            identityManager.setVerifiedFingerprint(fp, true)
+            // Bind the seal to the name this key is announcing right now.
+            // `announcedNickname` and not `resolvePeerDisplayName`: the latter
+            // falls back to a truncated peerID, which is not a name anyone
+            // announced and must never become a baseline.
+            identityManager.setVerifiedFingerprint(fp, true, announcedNickname(peerID))
             val current = _verifiedFingerprints.value.toMutableSet()
             current.add(fp)
             _verifiedFingerprints.value = current
@@ -296,7 +306,8 @@ class VerificationHandler(
 
     fun verifyFingerprintValue(fingerprint: String) {
         if (fingerprint.isBlank()) return
-        identityManager.setVerifiedFingerprint(fingerprint, true)
+        identityManager.setVerifiedFingerprint(fingerprint, true,
+                                               announcedNicknameForFingerprint(fingerprint))
         val current = _verifiedFingerprints.value.toMutableSet()
         current.add(fingerprint)
         _verifiedFingerprints.value = current
@@ -321,6 +332,58 @@ class VerificationHandler(
         )
         messageManager.addPrivateMessageNoUnread(peerID, msg)
     }
+
+    /**
+     * The nickname this peer is ANNOUNCING, or null when we have not seen one.
+     *
+     * Deliberately not `resolvePeerDisplayName`, which falls back to a
+     * truncated peerID: that is an identifier, not a claimed name, and pinning
+     * it as a verification baseline would mismatch against the peer's first
+     * real announce and drop a seal that was legitimately earned.
+     */
+    private fun announcedNickname(peerID: String): String? =
+        try { meshService.getPeerInfo(peerID)?.nickname?.takeIf { it.isNotBlank() } }
+        catch (_: Exception) { null }
+
+    /**
+     * The announced nickname of whichever known peer holds [fingerprint].
+     *
+     * `verifyFingerprintValue` is reached from the fingerprint sheet, which
+     * knows only a fingerprint, so the name has to be found by walking the peer
+     * list. Returns null when no peer matches — a fingerprint verified with
+     * nobody around to announce a name pins nothing and fails open, which is
+     * the same rule as everywhere else here.
+     */
+    private fun announcedNicknameForFingerprint(fingerprint: String): String? {
+        val nicknames = try { meshService.getPeerNicknames() } catch (_: Exception) { return null }
+        for ((peerID, nickname) in nicknames) {
+            if (nickname.isBlank()) continue
+            val fp = try { meshService.getPeerFingerprint(peerID) } catch (_: Exception) { null }
+            if (fp != null && fp.equals(fingerprint, ignoreCase = true)) return nickname
+        }
+        return null
+    }
+
+    /**
+     * Whether this peer now announces a different nickname than the one its
+     * verification was earned under. Every seal is suppressed in that case: the
+     * seal attests to a key, but it is read as a name.
+     */
+    fun verifiedNicknameMismatch(peerID: String): Boolean {
+        val fp = try { meshService.getPeerFingerprint(peerID) } catch (_: Exception) { null }
+            ?: return false
+        return identityManager.verifiedNicknameMismatch(fp, announcedNickname(peerID))
+    }
+
+    /**
+     * Whether a seal drawn beside [renderedName] still applies to [fingerprint].
+     *
+     * Offline favourite rows show a name frozen in the favourites record rather
+     * than a live announce, so the live check above is the wrong question for
+     * them: the row has to be checked against its own name.
+     */
+    fun sealAppliesToName(fingerprint: String, renderedName: String?): Boolean =
+        NicknameBinding.sealApplies(identityManager.getVerifiedNickname(fingerprint), renderedName)
 
     private fun resolvePeerDisplayName(peerID: String): String {
         val nick = try { meshService.getPeerInfo(peerID)?.nickname } catch (_: Exception) { null }
