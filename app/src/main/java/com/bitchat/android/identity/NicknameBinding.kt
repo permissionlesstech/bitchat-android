@@ -88,24 +88,29 @@ object NicknameBinding {
 
     /**
      * Does a seal earned under [pinned] still apply beside [rendered] — a name
-     * as it appears on a row, which the list may have decorated?
+     * as it appears on a row?
      *
-     * Two peers claiming one nickname are told apart with a `#abcd` the UI
-     * appends, so comparing the decorated string alone would drop the seal of
-     * the peer being impersonated at exactly the moment it matters. A raw match
-     * is tried first, so a name that genuinely ends in a suffix still matches
-     * itself; only then is one suffix removed.
+     * On this platform that is the same question as [sealAppliesToAnnounced],
+     * and the answer is the same comparison, because **nothing decorates a mesh
+     * nickname here.** `splitSuffix` only separates a suffix the peer itself
+     * announced, and `showHashSuffix` decides whether to display it; the one
+     * place a `#abcd` is synthesised is `GeohashPeopleList`, for Nostr people,
+     * and `isPeerVerified` refuses those outright. iOS is the one that appends
+     * `#` plus four hex of the peerID in `PeerDisplayNameResolver`, and it has
+     * to remove exactly that suffix and no other.
      *
-     * This is deliberately a SECOND function rather than a flag. The first
-     * version of this patch had one, stripping unconditionally, and it was
-     * wrong in both directions at once — which is what happens when one
-     * predicate is asked two questions.
+     * It is kept as a separate function anyway, named for the question it
+     * answers, so that the day a row here does start carrying a decoration
+     * there is one place to change — and so nobody reads the single comparison
+     * as the two questions having merged.
+     *
+     * The first version of this stripped any trailing `#` plus four hex. That
+     * is a fail-OPEN on this platform: a key pinned as `medic` renaming to
+     * `medic#cafe` had the suffix removed and kept its seal, and `#cafe` reads
+     * as the disambiguator the app generates elsewhere, which is a better
+     * disguise than an unrelated name rather than a worse one.
      */
-    fun sealAppliesToRendered(pinned: String?, rendered: String?): Boolean {
-        if (pinned.isNullOrEmpty() || rendered.isNullOrEmpty()) return true
-        if (sameName(pinned, rendered)) return true
-        val undecorated = withoutCollisionSuffix(rendered)
-        if (undecorated.isEmpty()) return true
-        return sameName(pinned, undecorated)
-    }
+    fun sealAppliesToRendered(pinned: String?, rendered: String?): Boolean =
+        sealAppliesToAnnounced(pinned, rendered)
+
 }

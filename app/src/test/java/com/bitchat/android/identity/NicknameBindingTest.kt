@@ -75,7 +75,7 @@ class NicknameBindingTest {
         // Two peers claiming one nickname render as "medic#a1b2" and
         // "medic#c3d4". Comparing the decorated string would drop the seal of
         // the peer being impersonated, at exactly the moment it matters most.
-        assertTrue(NicknameBinding.sealAppliesToRendered("medic", "medic#a1b2"))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced("medic", "medic"))
         assertEquals("medic", NicknameBinding.withoutCollisionSuffix("medic#a1b2"))
     }
 
@@ -99,7 +99,7 @@ class NicknameBindingTest {
         // mention, wrong for comparing a name, since "ravi@hq" would then
         // compare unequal to itself.
         assertTrue(NicknameBinding.sealAppliesToAnnounced("ravi@hq", "ravi@hq"))
-        assertTrue(NicknameBinding.sealAppliesToRendered("ravi@hq", "ravi@hq#a1b2"))
+        assertTrue(NicknameBinding.sealAppliesToAnnounced("ravi@hq", "ravi@hq"))
         assertFalse(NicknameBinding.sealAppliesToAnnounced("ravi@hq", "ravi"))
     }
 
@@ -119,11 +119,10 @@ class NicknameBindingTest {
         // A row with no name to show yet is not evidence of a rename.
         assertTrue(NicknameBinding.sealAppliesToAnnounced("medic", null))
         assertTrue(NicknameBinding.sealAppliesToAnnounced("medic", ""))
-        // A row whose name is nothing BUT a decoration leaves nothing to
-        // compare, so it fails open too. Note this is a RENDERED-name case: a
-        // peer that actually announces "#a1b2" has renamed, and says so.
-        assertTrue(NicknameBinding.sealAppliesToRendered("medic", "#a1b2"))
+        // A peer that announces "#a1b2" has renamed, and says so — on either
+        // path, since a mesh row shows what was announced.
         assertFalse(NicknameBinding.sealAppliesToAnnounced("medic", "#a1b2"))
+        assertFalse(NicknameBinding.sealAppliesToRendered("medic", "#a1b2"))
     }
 
     // ---- announced vs rendered: the split that was missing -----------------
@@ -144,11 +143,12 @@ class NicknameBindingTest {
     }
 
     @Test
-    fun `a rendered row tries the raw name before undecorating it`() {
-        // On a row the list may have appended #abcd to tell two namesakes
-        // apart, so that has to come off — but only after the raw name has had
-        // its chance, or a name that genuinely ends in a suffix loses its seal.
-        assertTrue(NicknameBinding.sealAppliesToRendered("medic", "medic#a1b2"))
+    fun `a rendered mesh row carries no decoration to remove`() {
+        // Nothing decorates a mesh nickname on this platform: splitSuffix only
+        // separates a suffix the peer announced, and the one synthesised #abcd
+        // is for Nostr people, which isPeerVerified refuses outright. So a row
+        // name IS the announced name, and stripping would be a fail-open.
+        assertFalse(NicknameBinding.sealAppliesToRendered("medic", "medic#cafe"))
         assertTrue(NicknameBinding.sealAppliesToRendered("medic#cafe", "medic#cafe"))
         assertFalse(NicknameBinding.sealAppliesToRendered("medic", "zebra#a1b2"))
     }
