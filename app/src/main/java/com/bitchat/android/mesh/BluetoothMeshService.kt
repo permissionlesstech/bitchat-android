@@ -171,9 +171,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
         )
 
-        com.bitchat.android.service.MeshServiceHolder.registerLivenessProbe("BLE") { peerID ->
-            peerManager.getPeerInfo(peerID) != null
-        }
         com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager) { packet ->
             signPacketBeforeBroadcast(packet)
         }
@@ -769,6 +766,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             connectionManager.disableTransport()
             TransportBridgeService.unregister("BLE")
             com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
+            com.bitchat.android.service.MeshServiceHolder.unregisterLivenessProbe("BLE")
             try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
             try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
             return
@@ -784,6 +782,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (connectionManager.startServices()) {
             isActive = true
             TransportBridgeService.register("BLE", this)
+            com.bitchat.android.service.MeshServiceHolder.registerLivenessProbe("BLE") { peerID ->
+                peerManager.getPeerInfo(peerID) != null
+            }
             
             // Start periodic syncs
             com.bitchat.android.service.MeshServiceHolder.startSharedGossip("BLE")
@@ -807,6 +808,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         Log.i(TAG, "Disabling BLE mesh transport")
         isActive = false
         com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
+        com.bitchat.android.service.MeshServiceHolder.unregisterLivenessProbe("BLE")
         TransportBridgeService.unregister("BLE")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
@@ -826,6 +828,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         Log.i(TAG, "Stopping Bluetooth mesh service")
         isActive = false
         TransportBridgeService.unregister("BLE")
+        com.bitchat.android.service.MeshServiceHolder.unregisterLivenessProbe("BLE")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
         

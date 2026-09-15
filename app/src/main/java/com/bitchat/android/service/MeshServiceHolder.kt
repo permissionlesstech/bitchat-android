@@ -22,10 +22,10 @@ object MeshServiceHolder {
 
     // One liveness probe per transport, keyed like the gossip owners above. The shared gossip
     // manager archives a broadcast only when its sender is in a live peer registry, and every
-    // transport keeps its own registry: Bluetooth registers its lookup, Wi-Fi Aware registers
-    // its own while it runs. A sender known to any transport is live. The Bluetooth service
-    // registers before any delegate exists, so the empty map is never consulted in practice;
-    // if it were, the answer is true, which archives as the manager did before the guard.
+    // transport keeps its own registry. Each transport registers its lookup when it starts and
+    // removes it when it stops, beside its gossip owner. A sender known to any running transport
+    // is live. With no transport running no sender is, so a registry that is stopped or gone
+    // never answers for a sender.
     private val livenessProbes = ConcurrentHashMap<String, (String) -> Boolean>()
 
     @Synchronized
@@ -52,9 +52,9 @@ object MeshServiceHolder {
         livenessProbes.remove(owner)
     }
 
-    /** True when any transport's live peer registry holds this peer. */
+    /** True when a running transport's live peer registry holds this peer; false when none runs. */
     fun hasLivePeer(peerID: String): Boolean {
-        if (livenessProbes.isEmpty()) return true
+        if (livenessProbes.isEmpty()) return false
         return livenessProbes.values.any { probe ->
             try { probe(peerID) } catch (_: Exception) { false }
         }

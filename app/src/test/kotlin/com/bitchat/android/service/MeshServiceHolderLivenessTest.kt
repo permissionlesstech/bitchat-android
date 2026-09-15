@@ -112,4 +112,34 @@ class MeshServiceHolderLivenessTest {
         assertEquals("the Wi-Fi-only sender's message must be served", 1, sent.size)
         assertTrue(sent[0].payload.contentEquals(original.payload))
     }
+
+    @Test
+    fun `with no transport probe registered no sender counts as live`() {
+        val delegate = manager.delegate!!
+        MeshServiceHolder.unregisterLivenessProbe("BLE")
+
+        assertFalse("with no probe registered no sender is live", delegate.hasLivePeer(blePeer))
+        assertFalse(delegate.hasLivePeer(wifiPeer))
+        assertFalse(delegate.hasLivePeer(stranger))
+    }
+
+    @Test
+    fun `a broadcast seen while no transport is running is not archived or served`() {
+        MeshServiceHolder.unregisterLivenessProbe("BLE")
+        val original = broadcastFromWifiSender()
+
+        manager.onPublicPacketSeen(original)
+
+        val sent = mutableListOf<BitchatPacket>()
+        manager.delegate = object : GossipSyncManager.Delegate {
+            override fun sendPacket(packet: BitchatPacket) = Unit
+            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
+                sent += packet
+            }
+            override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket = packet
+        }
+        manager.handleRequestSync(requester, requestForNothingHeld())
+
+        assertEquals("nothing is archived from a registry that is not running", 0, sent.size)
+    }
 }

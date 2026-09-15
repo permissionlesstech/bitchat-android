@@ -145,7 +145,7 @@ class MeshCore(
 
                 override fun hasLivePeer(peerID: String): Boolean = peerManager.getPeerInfo(peerID) != null
 
-        override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
+                override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
                     return signPacketBeforeBroadcast(packet)
                 }
             }
