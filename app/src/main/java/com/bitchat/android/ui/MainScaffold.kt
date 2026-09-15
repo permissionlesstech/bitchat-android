@@ -1,6 +1,5 @@
 package com.bitchat.android.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,11 +32,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -47,49 +44,23 @@ import com.bitchat.android.R
 import com.bitchat.android.ui.theme.BitchatFontFamily
 
 /**
- * The app's four destinations, in bar order.
- *
- * `Public` is the mesh/geohash timeline the app used to be entirely made of; the other three were
- * modal bottom sheets before this became a tabbed app.
- */
-enum class AppTab(
-    val labelRes: Int,
-    val iconRes: Int? = null,
-    val iconVector: ImageVector? = null
-) {
-    Public(R.string.tab_public, iconRes = R.drawable.ic_spec_globe),
-    Chats(R.string.tab_chats, iconRes = R.drawable.ic_spec_envelope),
-    People(R.string.people, iconRes = R.drawable.ic_spec_people),
-    Settings(R.string.about_tab_settings, iconVector = Icons.Outlined.Settings)
-}
-
-/**
  * Tab shell hosting the whole app.
  *
- * A `when` over a saveable enum rather than a NavHost: four fixed destinations sharing one
- * ChatViewModel need no route DSL, no argument encoding and no graph. The one nested destination -
- * an open conversation - is a nullable peer id held by the Chats tab.
+ * A `when` over an enum rather than a NavHost: four fixed destinations sharing one ChatViewModel
+ * need no route DSL, no argument encoding and no graph. The one nested destination - an open
+ * conversation - is a nullable peer id that overlays every tab.
  */
 @Composable
 fun MainScaffold(viewModel: ChatViewModel, modifier: Modifier = Modifier) {
-    // Public leads the bar and is the default: a first-run user has no conversations, and the mesh
-    // timeline is the thing the app exists for.
-    var tab by rememberSaveable { mutableStateOf(AppTab.Public) }
-
-    // Which conversation is open is the ViewModel's business, not the shell's: notification taps,
-    // deep links and alias re-resolution all set it from outside compose. The shell only reads it.
+    // Tab and open conversation are both ViewModel state, not shell state: channel switches and
+    // notification taps change them from outside compose, and back unwinds them in one place
+    // (ChatViewModel.handleBackPressed, via the activity's back callback). The shell only reads.
+    val tab by viewModel.selectedTab.collectAsStateWithLifecycle()
     val openConversation by viewModel.openPrivateChatPeer.collectAsStateWithLifecycle()
 
     val openConversationFor: (String) -> Unit = { peerID ->
         viewModel.openPrivateChat(peerID)
-        tab = AppTab.Chats
-    }
-
-    // Closing a conversation is already handled by the activity's back callback via
-    // ChatViewModel.handleBackPressed, so this only covers the remaining case: returning to the
-    // default tab before back is allowed to leave the app.
-    BackHandler(enabled = openConversation == null && tab != AppTab.Public) {
-        tab = AppTab.Public
+        viewModel.showTab(AppTab.Chats)
     }
 
     val inConversation = openConversation != null
@@ -108,7 +79,7 @@ fun MainScaffold(viewModel: ChatViewModel, modifier: Modifier = Modifier) {
                 BitchatNavigationBar(
                     viewModel = viewModel,
                     selected = tab,
-                    onSelect = { tab = it }
+                    onSelect = viewModel::showTab
                 )
             }
         }
@@ -141,7 +112,7 @@ fun MainScaffold(viewModel: ChatViewModel, modifier: Modifier = Modifier) {
 
                     AppTab.Public -> ChatScreen(
                         viewModel = viewModel,
-                        onOpenPeopleTab = { tab = AppTab.People }
+                        onOpenPeopleTab = { viewModel.showTab(AppTab.People) }
                     )
 
                     AppTab.People -> TabScreen(
@@ -311,7 +282,14 @@ private fun BitchatNavigationBar(
         tonalElevation = 0.dp
     ) {
         AppTab.entries.forEach { entry ->
-            val label = stringResource(entry.labelRes)
+            val label = stringResource(
+                when (entry) {
+                    AppTab.Public -> R.string.tab_public
+                    AppTab.Chats -> R.string.tab_chats
+                    AppTab.People -> R.string.people
+                    AppTab.Settings -> R.string.about_tab_settings
+                }
+            )
             NavigationBarItem(
                 selected = entry == selected,
                 onClick = { onSelect(entry) },
@@ -328,15 +306,21 @@ private fun BitchatNavigationBar(
                             }
                         }
                     ) {
-                        if (entry.iconVector != null) {
+                        val iconRes = when (entry) {
+                            AppTab.Public -> R.drawable.ic_spec_globe
+                            AppTab.Chats -> R.drawable.ic_spec_envelope
+                            AppTab.People -> R.drawable.ic_spec_people
+                            AppTab.Settings -> null // no spec glyph for settings
+                        }
+                        if (iconRes != null) {
                             Icon(
-                                imageVector = entry.iconVector,
+                                painter = painterResource(iconRes),
                                 contentDescription = label,
                                 modifier = Modifier.size(22.dp)
                             )
                         } else {
                             Icon(
-                                painter = painterResource(entry.iconRes!!),
+                                imageVector = Icons.Outlined.Settings,
                                 contentDescription = label,
                                 modifier = Modifier.size(22.dp)
                             )

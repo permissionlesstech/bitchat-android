@@ -113,6 +113,14 @@ class ChannelManager(
         state.setSelectedPrivateChatPeer(null)
         state.setSelectedLocationChannel(ChannelID.Mesh)
         onSwitchToMeshLocation()
+
+        // A channel only renders on the Public tab. Every way into one - a channel row in Chats,
+        // the password prompt (which can be answered from any tab), /join - funnels through here,
+        // so this is the one place that has to bring the timeline on screen. Leaving a channel
+        // (null) returns to the mesh timeline without moving the user off their current tab.
+        if (channel != null) {
+            state.setSelectedTab(AppTab.Public)
+        }
         
         // Clear unread count
         channel?.let { ch ->

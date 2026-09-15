@@ -14,6 +14,15 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
+ * The app's four destinations, in bar order.
+ *
+ * `Public` is the mesh/geohash timeline the app used to be entirely made of; the other three were
+ * modal bottom sheets before this became a tabbed app. Labels and icons are mapped in the
+ * navigation bar, keeping this plain state.
+ */
+enum class AppTab { Public, Chats, People, Settings }
+
+/**
  * Centralized state definitions and data classes for the chat system
  */
 
@@ -126,6 +135,12 @@ class ChatState(
     private val _openPrivateChatPeer = MutableStateFlow<String?>(null)
     val openPrivateChatPeer: StateFlow<String?> = _openPrivateChatPeer.asStateFlow()
 
+    // Lives here rather than in the shell's composition so that anything which changes what the
+    // timeline shows - a channel switch, a notification tap - can also bring the timeline on
+    // screen, and so back navigation has a single unwind path in ChatViewModel.handleBackPressed.
+    private val _selectedTab = MutableStateFlow(AppTab.Public)
+    val selectedTab: StateFlow<AppTab> = _selectedTab.asStateFlow()
+
     private val _showVerificationSheet = MutableStateFlow(false)
     val showVerificationSheet: StateFlow<Boolean> = _showVerificationSheet.asStateFlow()
 
@@ -190,6 +205,7 @@ class ChatState(
     fun getPeerSessionStatesValue() = _peerSessionStates.value
     fun getPeerFingerprintsValue() = _peerFingerprints.value
     fun getShowAppInfoValue() = _showAppInfo.value
+    fun getSelectedTabValue() = _selectedTab.value
     fun getGeohashPeopleValue() = _geohashPeople.value
 
     fun getOpenPrivateChatPeerValue() = _openPrivateChatPeer.value
@@ -315,6 +331,10 @@ class ChatState(
     
     fun setShowAppInfo(show: Boolean) {
         _showAppInfo.value = show
+    }
+
+    fun setSelectedTab(tab: AppTab) {
+        _selectedTab.value = tab
     }
 
     fun setShowVerificationSheet(show: Boolean) {

@@ -400,6 +400,7 @@ class ChatViewModel(
     val peerDirect: StateFlow<Map<String, Boolean>> = state.peerDirect
     val showAppInfo: StateFlow<Boolean> = state.showAppInfo
     val openPrivateChatPeer: StateFlow<String?> = state.openPrivateChatPeer
+    val selectedTab: StateFlow<AppTab> = state.selectedTab
     val showVerificationSheet: StateFlow<Boolean> = state.showVerificationSheet
     val showSecurityVerificationSheet: StateFlow<Boolean> = state.showSecurityVerificationSheet
     val legacyPrivateMediaConsent: StateFlow<LegacyPrivateMediaConsentRequest?> =
@@ -1648,6 +1649,10 @@ class ChatViewModel(
 
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
         geohashViewModel.selectLocationChannel(channel)
+        // Its caller is a geohash notification tap, which can arrive on any tab; the channel only
+        // renders on Public. (The channels sheet selects through the location manager directly,
+        // and is only reachable from Public already.)
+        state.setSelectedTab(AppTab.Public)
     }
 
     /**
@@ -1672,6 +1677,10 @@ class ChatViewModel(
         state.setPasswordPromptChannel(null)
     }
 
+    fun showTab(tab: AppTab) {
+        state.setSelectedTab(tab)
+    }
+
     /**
      * Handle Android back navigation
      * Returns true if the back press was handled, false if it should be passed to the system
@@ -1692,6 +1701,13 @@ class ChatViewModel(
             // Exit private chat
             state.getSelectedPrivateChatPeerValue() != null || state.getOpenPrivateChatPeerValue() != null -> {
                 endPrivateChat()
+                true
+            }
+            // Return to the timeline tab. Kept in this one unwind path rather than in a separate
+            // BackHandler in the shell, so the order - dialogs, conversation, tab, channel, exit -
+            // is decided in a single place.
+            state.getSelectedTabValue() != AppTab.Public -> {
+                showTab(AppTab.Public)
                 true
             }
             // Exit channel view

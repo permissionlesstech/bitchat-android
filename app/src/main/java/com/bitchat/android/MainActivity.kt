@@ -810,7 +810,7 @@ class MainActivity : OrientationAwareActivity() {
                 if (peerID != null) {
                     Log.d("MainActivity", "Opening private chat with $senderNickname (peerID: $peerID) from notification")
                     
-                    // Open the conversation; the shell switches to the Chats tab behind it
+                    // Open the conversation; it overlays whichever tab is showing
                     chatViewModel.openPrivateChat(peerID)
                     
                     // Clear notifications for this sender since user is now viewing the chat
