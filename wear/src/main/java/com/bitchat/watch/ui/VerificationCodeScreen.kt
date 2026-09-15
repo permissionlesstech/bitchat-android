@@ -36,7 +36,9 @@ import com.bitchat.watch.ui.theme.LocalBitchatPalette
 fun VerificationCodeScreen(peerID: String) {
     val mesh = WearMeshService.peek()
     val revision by WearPeerIdentityState.revision.collectAsState()
-    val identity = androidx.compose.runtime.remember(peerID, revision) {
+    // Keyed on the announced nickname too — see DmScreen.
+    val announcedNickname = mesh?.getPeerNickname(peerID)
+    val identity = androidx.compose.runtime.remember(peerID, revision, announcedNickname) {
         WearPeerIdentityState.snapshot(peerID, mesh)
     }
     val myFingerprint = WearPeerIdentityState.myFingerprint(mesh)

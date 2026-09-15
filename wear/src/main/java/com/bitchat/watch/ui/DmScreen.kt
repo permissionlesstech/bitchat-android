@@ -75,7 +75,12 @@ fun DmScreen(
 
     val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
     val identityRevision by WearPeerIdentityState.revision.collectAsState()
-    val identity = remember(peerID, identityRevision) {
+    // Keyed on the announced nickname too: the snapshot now reads it to
+    // decide whether the seal still applies, and `revision` is bumped by
+    // favourites and verification changes, never by a peer renaming. Without
+    // this the name repaints while the cached "verified" — and its seal —
+    // survives, which is the live impersonation the binding exists to stop.
+    val identity = remember(peerID, identityRevision, nickname) {
         WearPeerIdentityState.snapshot(peerID, mesh)
     }
     var sessionEstablished by remember {
