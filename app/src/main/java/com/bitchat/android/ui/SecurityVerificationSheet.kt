@@ -146,7 +146,7 @@ fun SecurityVerificationSheet(
                 )
 
                 SecurityVerificationActions(
-                    isVerified = isVerified,
+                    isVerified = nameBound && isVerified,
                     fingerprint = fingerprint,
                     displayName = displayName,
                     accent = accent,
@@ -190,16 +190,24 @@ private fun buildStatusInfo(
     sessionState: String?,
     accent: Color
 ): SecurityStatusInfo {
-    // The glyph is the seal; the text is the explanation. They part company for
-    // exactly one state: verified key, different name. The icon and tint fall
-    // back to the session's own state (a padlock on an encrypted session), so
-    // the sheet stops asserting the name while the word "verified" still tells
-    // the truth about the key. Adding a sentence that says both would need a
-    // new string in all 34 locales, and machine-translating a security warning
-    // is not something to do in passing.
+    // Everything here demotes together: glyph, tint and text.
+    //
+    // The first revision kept the word "verified" on the grounds that the key
+    // genuinely is verified, and that was wrong for a reason review put better
+    // than I had: this status sits directly beside `displayName`, so it is not
+    // a claim about a bare key, it is a claim about THIS NAME — and that claim
+    // is false. Worse, it is the screen someone opens *because* a seal vanished
+    // from a row, so the one surface they consult to resolve the doubt was the
+    // one endorsing the rename.
+    //
+    // It needs no new string. An established session falls through to
+    // "encrypted" with a padlock, which is true and asserts nothing about
+    // identity, and the actions block below already names the current nickname
+    // in its not-verified copy and offers to verify it — which is exactly the
+    // recovery: re-verifying re-pins the baseline to the name on screen.
     val sealed = isVerified && nameBound
     val text = when {
-        isVerified -> stringResource(R.string.fingerprint_status_verified)
+        sealed -> stringResource(R.string.fingerprint_status_verified)
         sessionState == "established" -> stringResource(R.string.fingerprint_status_encrypted)
         sessionState == "handshaking" -> stringResource(R.string.fingerprint_status_handshaking)
         sessionState == "failed" -> stringResource(R.string.fingerprint_status_failed)

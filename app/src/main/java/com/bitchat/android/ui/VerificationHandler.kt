@@ -60,7 +60,7 @@ class VerificationHandler(
         return !verifiedNicknameMismatch(peerID)
     }
 
-    fun isNoisePublicKeyVerified(noisePublicKey: ByteArray, renderedName: String? = null): Boolean {
+    fun isNoisePublicKeyVerified(noisePublicKey: ByteArray, renderedName: String?): Boolean {
         val fingerprint = fingerprintFromNoiseBytes(noisePublicKey)
         if (!_verifiedFingerprints.value.contains(fingerprint)) return false
         return sealAppliesToName(fingerprint, renderedName)

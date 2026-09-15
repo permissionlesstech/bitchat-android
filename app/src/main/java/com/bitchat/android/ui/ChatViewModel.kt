@@ -1276,11 +1276,16 @@ class ChatViewModel(
      *   rows display a name held in the favourites record rather than a live
      *   announce, so they must be checked against their own name — asking about
      *   a "current" name a peer is not announcing would answer nothing.
+     *
+     *   Deliberately has no default. A missing name fails OPEN, by design, so a
+     *   defaulted parameter would let any future caller reinstate the rename
+     *   attack by simply not passing one — silently, and without touching this
+     *   file. Make it a decision at the call site.
      */
     fun isNoisePublicKeyVerified(
         noisePublicKey: ByteArray,
         verifiedFingerprints: Set<String>,
-        renderedName: String? = null,
+        renderedName: String?,
     ): Boolean {
         val fingerprint = verificationHandler.fingerprintFromNoiseBytes(noisePublicKey)
         if (!verifiedFingerprints.contains(fingerprint)) return false
