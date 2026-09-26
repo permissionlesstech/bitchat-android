@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -44,7 +43,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -55,7 +53,6 @@ import androidx.wear.compose.material3.Text
 import com.bitchat.android.features.voice.AudioWaveformExtractor
 import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.roundContentSide
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.delay
 import java.io.File
@@ -95,7 +92,7 @@ fun FullScreenImageViewer(path: String, onClose: () -> Unit) {
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        BoxWithConstraints(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
@@ -104,16 +101,11 @@ fun FullScreenImageViewer(path: String, onClose: () -> Unit) {
         ) {
             val bitmap = remember(path) { BitmapFactory.decodeFile(path) }
             if (bitmap != null) {
-                val imageModifier = if (LocalConfiguration.current.isScreenRound) {
-                    Modifier.size(roundContentSide(maxWidth.value, maxHeight.value).dp)
-                } else {
-                    Modifier.fillMaxSize()
-                }
                 Image(
                     painter = BitmapPainter(bitmap.asImageBitmap()),
                     contentDescription = "image fullscreen",
                     contentScale = ContentScale.Fit,
-                    modifier = imageModifier
+                    modifier = Modifier.fillMaxSize()
                 )
             }
             Icon(
@@ -122,7 +114,7 @@ fun FullScreenImageViewer(path: String, onClose: () -> Unit) {
                 tint = Color.White.copy(alpha = 0.7f),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 8.dp)
+                    .padding(top = 24.dp)
                     .size(20.dp)
             )
         }

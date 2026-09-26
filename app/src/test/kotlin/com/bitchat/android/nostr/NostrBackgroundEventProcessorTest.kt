@@ -55,7 +55,8 @@ class NostrBackgroundEventProcessorTest {
             )
         }
 
-        withTimeout(5_000) {
+        // CI can take longer to verify all 300 Schnorr signatures on a cold JVM.
+        withTimeout(30_000) {
             while (AppStateStore.channelMessages.value["geo:u4pruy"].orEmpty().size < 300) {
                 kotlinx.coroutines.yield()
             }

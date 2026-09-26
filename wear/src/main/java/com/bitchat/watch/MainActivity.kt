@@ -18,6 +18,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -35,7 +39,7 @@ import androidx.core.content.ContextCompat
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import androidx.wear.compose.material3.OutlinedButton
+import androidx.wear.compose.material3.TextButton
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.service.WearMeshForegroundService
@@ -46,7 +50,6 @@ import com.bitchat.watch.ui.PeopleScreen
 import com.bitchat.watch.ui.UserDetailScreen
 import com.bitchat.watch.ui.VerificationCodeScreen
 import com.bitchat.watch.ui.WearChatState
-import com.bitchat.watch.ui.WearFormScreen
 import com.bitchat.watch.ui.sendPrivateMessage
 import com.bitchat.watch.ui.sendPublicMessage
 import com.bitchat.watch.ui.theme.BitchatWearTheme
@@ -457,110 +460,104 @@ internal fun WearNavHost(
 
 @Composable
 fun NotificationPermissionScreen(onResult: (Boolean) -> Unit, onSkip: () -> Unit) {
-    val launcher =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            onResult(granted)
-        }
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> onResult(granted) }
 
-    WearFormScreen {
-        item {
-            Text(
-                text = "Message alerts",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-        item {
-            Text(
-                text = "Alerts for encrypted direct messages",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 6.dp, bottom = 10.dp),
-            )
-        }
-        item {
-            Button(
-                onClick = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        onResult(true)
-                    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Message alerts",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = "Alerts for encrypted direct messages",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 6.dp, bottom = 10.dp)
+        )
+        Button(
+            onClick = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    onResult(true)
                 }
-            ) {
-                Text("Enable")
             }
+        ) {
+            Text("Enable")
         }
-        item {
-            OutlinedButton(onClick = onSkip) {
-                Text("Not now")
-            }
+        TextButton(onClick = onSkip) {
+            Text("Not now")
         }
     }
 }
 
 @Composable
 fun PermissionRequestScreen(onGranted: () -> Unit) {
-    val launcher =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            onGranted()
-        }
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { onGranted() }
 
-    WearFormScreen {
-        item {
-            Text(
-                text = "bitchat",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-        item {
-            Text(
-                text = "Needs Bluetooth to mesh with nearby devices",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
-            )
-        }
-        item {
-            Button(
-                onClick = {
-                    launcher.launch(MainActivity.requiredPermissions().toTypedArray())
-                }
-            ) {
-                Text("Grant access", textAlign = TextAlign.Center)
-            }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "bitchat",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = "Needs Bluetooth to mesh with nearby devices",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 6.dp, bottom = 12.dp)
+        )
+        Button(onClick = {
+            launcher.launch(MainActivity.requiredPermissions().toTypedArray())
+        }) {
+            Text("Grant access")
         }
     }
 }
 
 @Composable
 fun BluetoothEnableScreen(onEnabled: () -> Unit) {
-    val launcher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            onEnabled()
-        }
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { onEnabled() }
 
-    WearFormScreen {
-        item {
-            Text(
-                text = "Bluetooth is off",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            )
-        }
-        item {
-            Button(
-                onClick = { launcher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) },
-                modifier = Modifier.padding(top = 10.dp),
-            ) {
-                Text("Turn on")
-            }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Bluetooth is off",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Button(
+            onClick = { launcher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) },
+            modifier = Modifier.padding(top = 10.dp)
+        ) {
+            Text("Turn on")
         }
     }
 }

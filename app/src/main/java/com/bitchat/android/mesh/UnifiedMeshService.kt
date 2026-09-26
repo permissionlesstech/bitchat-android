@@ -116,6 +116,22 @@ class UnifiedMeshService(
         }
     }
 
+    override fun getPeerInfos(): List<PeerInfo> = bluetooth.getPeerInfos()
+
+    override fun sendCourierMessage(
+        content: String,
+        messageID: String,
+        recipientNoiseKey: ByteArray,
+        courierPeerIDs: List<String>
+    ): List<String> = bluetooth.sendCourierMessage(content, messageID, recipientNoiseKey, courierPeerIDs)
+
+    override fun sendBridgeCourierMessage(
+        content: String,
+        messageID: String,
+        recipientNoiseKey: ByteArray,
+        onAccepted: () -> Unit
+    ): Boolean = bluetooth.sendBridgeCourierMessage(content, messageID, recipientNoiseKey, onAccepted)
+
     override fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
         when {
             isBleReady(recipientPeerID) -> bluetooth.sendReadReceipt(messageID, recipientPeerID, readerNickname)

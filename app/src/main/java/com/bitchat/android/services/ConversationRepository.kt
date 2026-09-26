@@ -317,7 +317,6 @@ class ConversationRepository internal constructor(
             true
         } catch (error: Exception) {
             Log.e(TAG, "Unable to synchronously clear private conversations", error)
-            database.destroyStorage()
             _storeState.value = ConversationStoreState.Error(
                 error.message ?: "Unable to erase conversations"
             )
@@ -1098,22 +1097,6 @@ internal class ConversationDatabase(
         writableDatabase.rawQuery("PRAGMA incremental_vacuum", null).use { }
     }
 
-    /**
-     * Last-resort panic cleanup when [clearAll] throws: drop the encrypted database
-     * files so a later reload cannot resurrect erased conversations (#699).
-     */
-    fun destroyStorage() {
-        try {
-            clearAll()
-        } catch (error: Exception) {
-            Log.e(TAG, "clearAll failed during destroyStorage; deleting database files", error)
-        }
-        try {
-            close()
-        } catch (_: Exception) { }
-        applicationContext.deleteDatabase(databaseName)
-    }
-
     fun pruneToRetentionLimits(): Set<String> {
         val db = writableDatabase
         val orphanedMediaPaths = linkedSetOf<String>()
@@ -1684,6 +1667,7 @@ internal class ConversationDatabase(
             null -> put("delivery_type", 0)
             DeliveryStatus.Sending -> put("delivery_type", 1)
             DeliveryStatus.Sent -> put("delivery_type", 2)
+            DeliveryStatus.Queued -> put("delivery_type", 7)
             is DeliveryStatus.Delivered -> {
                 put("delivery_type", 3)
                 if (includeSensitiveText) put("delivery_text", status.to) else putNull("delivery_text")
@@ -1710,10 +1694,11 @@ internal class ConversationDatabase(
         null -> 0
         is DeliveryStatus.Failed -> 0
         DeliveryStatus.Sending -> 1
-        DeliveryStatus.Sent -> 2
-        is DeliveryStatus.PartiallyDelivered -> 3
-        is DeliveryStatus.Delivered -> 4
-        is DeliveryStatus.Read -> 5
+        DeliveryStatus.Queued -> 2
+        DeliveryStatus.Sent -> 3
+        is DeliveryStatus.PartiallyDelivered -> 4
+        is DeliveryStatus.Delivered -> 5
+        is DeliveryStatus.Read -> 6
     }
 
     private fun Cursor.toMessage(): BitchatMessage {
@@ -1781,6 +1766,7 @@ internal class ConversationDatabase(
             reached = nullableInt("delivery_reached") ?: 0,
             total = nullableInt("delivery_total") ?: 0
         )
+        7 -> DeliveryStatus.Queued
         else -> null
     }
 

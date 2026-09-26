@@ -23,6 +23,9 @@ sealed class DeliveryStatus : Parcelable {
     object Sending : DeliveryStatus()
 
     @Parcelize
+    object Queued : DeliveryStatus()
+
+    @Parcelize
     object Sent : DeliveryStatus()
 
     @Parcelize
@@ -40,6 +43,7 @@ sealed class DeliveryStatus : Parcelable {
     fun getDisplayText(): String {
         return when (this) {
             is Sending -> "Sending..."
+            is Queued -> "Queued"
             is Sent -> "Sent"
             is Delivered -> "Delivered to ${this.to}"
             is Read -> "Read by ${this.by}"
@@ -362,4 +366,3 @@ data class BitchatMessage(
         return result
     }
 }
-

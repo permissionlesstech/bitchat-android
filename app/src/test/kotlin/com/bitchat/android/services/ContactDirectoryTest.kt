@@ -6,6 +6,7 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -55,5 +56,17 @@ class ContactDirectoryTest {
         val resolution = ContactDirectory.resolve("contact_$fingerprint")
 
         assertNull(resolution.displayName)
+    }
+
+    @Test
+    fun `offline contact resolves a fingerprint-validated cached Noise key`() {
+        val noiseKey = ByteArray(32) { it.toByte() }
+        val fingerprint = ContactIdentityResolver.fingerprintHex(noiseKey)
+        val peerID = ContactIdentityResolver.peerIdForNoiseKey(noiseKey)
+        identityManager.cachePeerNoiseKey(peerID, ContactIdentityResolver.noiseKeyHex(noiseKey))
+
+        val resolution = ContactDirectory.resolve("contact_$fingerprint")
+
+        assertTrue(resolution.noisePublicKey!!.contentEquals(noiseKey))
     }
 }

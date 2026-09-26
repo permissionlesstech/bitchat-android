@@ -14,6 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.clearInvocations
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -36,6 +37,7 @@ class MessageRouterTest {
 
     private lateinit var mesh: MeshService
     private lateinit var router: MessageRouter
+    private lateinit var identityManager: SecureIdentityStateManager
     private var fakeTime = 1_000_000L
     private val expired = mutableListOf<String>()
 
@@ -46,7 +48,7 @@ class MessageRouterTest {
             "message-router-test-${UUID.randomUUID()}",
             Context.MODE_PRIVATE
         )
-        val identityManager = SecureIdentityStateManager(prefs, testOnly = true)
+        identityManager = SecureIdentityStateManager(prefs, testOnly = true)
         ContactDirectory.identityManagerProvider = { identityManager }
 
         mesh = mock()
@@ -56,11 +58,19 @@ class MessageRouterTest {
         ContactDirectory.initialize(context) { mesh }
 
         MessageRouter.disableSchedulerForTesting = true
+        MessageRouter.outboxStoreFactory = { testContext ->
+            MessageOutboxStore(testContext, object : ConversationStorageCipher {
+                override fun encrypt(plaintext: ByteArray, associatedData: ByteArray) = plaintext
+                override fun decrypt(envelope: ByteArray, associatedData: ByteArray) = envelope
+                override fun destroyKey() = Unit
+            })
+        }
         MessageRouter.resetForTesting()
         fakeTime = 1_000_000L
         expired.clear()
 
         router = MessageRouter.getInstance(context, mesh)
+        router.clearAll()
         router.clock = { fakeTime }
         router.onMessageExpired = { expired.add(it) }
     }
@@ -69,6 +79,7 @@ class MessageRouterTest {
     fun tearDown() {
         MessageRouter.resetForTesting()
         MessageRouter.disableSchedulerForTesting = false
+        MessageRouter.outboxStoreFactory = ::MessageOutboxStore
         ContactDirectory.identityManagerProvider = { SecureIdentityStateManager(it) }
     }
 
@@ -172,6 +183,159 @@ class MessageRouterTest {
         assertEquals(MessageRouter.RouteResult.MESH, result)
         verify(mesh, times(1)).sendPrivateMessage("direct", peerID, "peer", "msg-direct")
         verify(mesh, never()).initiateNoiseHandshake(any())
+    }
+
+    @Test
+    fun `direct send remains retained until delivery acknowledgement`() {
+        peerReady()
+        router.sendPrivate("direct", peerID, "peer", "msg-direct")
+        clearInvocations(mesh)
+
+        fakeTime += 31_000
+        router.tickOutbox()
+        verify(mesh, times(1)).sendPrivateMessage("direct", peerID, "peer", "msg-direct")
+
+        router.onMessageAcknowledged("msg-direct", peerID)
+        clearInvocations(mesh)
+        router.tickOutbox()
+        verify(mesh, never()).sendPrivateMessage(any(), any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `queued message survives router recreation`() {
+        peerOffline()
+        router.sendPrivate("durable", peerID, "peer", "msg-durable")
+
+        MessageRouter.resetForTesting()
+        router = MessageRouter.getInstance(RuntimeEnvironment.getApplication(), mesh)
+        router.clock = { fakeTime }
+        peerReady()
+        router.onSessionEstablished(peerID)
+
+        verify(mesh).sendPrivateMessage("durable", peerID, "peer", "msg-durable")
+    }
+
+    @Test
+    fun `offline cached contact deposits once with a verified peer courier`() {
+        val recipientNoiseKey = ByteArray(32) { 0x2A }
+        val recipientPeerID = ContactIdentityResolver.peerIdForNoiseKey(recipientNoiseKey)
+        val courierPeerID = "9999aaaabbbbcccc"
+        val courierNoiseKey = ByteArray(32) { 0x3B }
+        identityManager.cachePeerNoiseKey(
+            recipientPeerID,
+            ContactIdentityResolver.noiseKeyHex(recipientNoiseKey)
+        )
+        whenever(mesh.getPeerInfo(recipientPeerID)).thenReturn(
+            PeerInfo(
+                id = recipientPeerID,
+                nickname = "offline contact",
+                isConnected = false,
+                isDirectConnection = false,
+                noisePublicKey = recipientNoiseKey,
+                signingPublicKey = ByteArray(32) { 0x0A },
+                isVerifiedNickname = false,
+                lastSeen = fakeTime
+            )
+        )
+        whenever(mesh.getPeerInfos()).thenReturn(
+            listOf(
+                PeerInfo(
+                    id = courierPeerID,
+                    nickname = "verified courier",
+                    isConnected = true,
+                    isDirectConnection = true,
+                    noisePublicKey = courierNoiseKey,
+                    signingPublicKey = ByteArray(32) { 0x0C },
+                    isVerifiedNickname = false,
+                    lastSeen = fakeTime,
+                    hasVerifiedAnnouncement = true
+                )
+            )
+        )
+        whenever(mesh.sendCourierMessage(any(), any(), any(), any())).thenReturn(listOf(courierPeerID))
+
+        val result = router.sendPrivate("courier payload", recipientPeerID, "offline contact", "msg-courier")
+
+        assertEquals(MessageRouter.RouteResult.QUEUED, result)
+        verify(mesh).sendCourierMessage(
+            eq("courier payload"),
+            eq("msg-courier"),
+            argThat { contentEquals(recipientNoiseKey) },
+            eq(listOf(courierPeerID))
+        )
+
+        router.tickOutbox()
+
+        verify(mesh, times(1)).sendCourierMessage(
+            eq("courier payload"),
+            eq("msg-courier"),
+            argThat { contentEquals(recipientNoiseKey) },
+            eq(listOf(courierPeerID))
+        )
+    }
+
+    @Test
+    fun `courier acknowledgement clears an offline contact outbox entry before direct reconnect`() {
+        val recipientNoiseKey = ByteArray(32) { 0x4A }
+        val recipientPeerID = ContactIdentityResolver.peerIdForNoiseKey(recipientNoiseKey)
+        identityManager.cachePeerNoiseKey(
+            recipientPeerID,
+            ContactIdentityResolver.noiseKeyHex(recipientNoiseKey)
+        )
+        whenever(mesh.getPeerNicknames()).thenReturn(mapOf(recipientPeerID to "offline contact"))
+        whenever(mesh.getPeerInfo(recipientPeerID)).thenReturn(
+            PeerInfo(
+                id = recipientPeerID,
+                nickname = "offline contact",
+                isConnected = false,
+                isDirectConnection = false,
+                noisePublicKey = recipientNoiseKey,
+                signingPublicKey = ByteArray(32) { 0x0A },
+                isVerifiedNickname = false,
+                lastSeen = fakeTime
+            )
+        )
+
+        assertEquals(
+            MessageRouter.RouteResult.QUEUED,
+            router.sendPrivate("courier payload", recipientPeerID, "offline contact", "msg-courier-ack")
+        )
+        router.onMessageAcknowledged("msg-courier-ack", recipientPeerID)
+
+        whenever(mesh.getPeerInfo(recipientPeerID)).thenReturn(
+            PeerInfo(
+                id = recipientPeerID,
+                nickname = "offline contact",
+                isConnected = true,
+                isDirectConnection = true,
+                noisePublicKey = recipientNoiseKey,
+                signingPublicKey = ByteArray(32) { 0x0A },
+                isVerifiedNickname = false,
+                lastSeen = fakeTime
+            )
+        )
+        whenever(mesh.hasEstablishedSession(recipientPeerID)).thenReturn(true)
+
+        router.tickOutbox()
+
+        verify(mesh, never()).sendPrivateMessage(
+            eq("courier payload"),
+            eq(recipientPeerID),
+            any(),
+            eq("msg-courier-ack")
+        )
+    }
+
+    @Test
+    fun `outbox stops transport retries after eight attempts`() {
+        peerReady()
+        router.sendPrivate("bounded", peerID, "peer", "msg-bounded")
+        repeat(10) {
+            fakeTime += 10 * 60_000L + 1
+            router.tickOutbox()
+        }
+
+        verify(mesh, times(8)).sendPrivateMessage("bounded", peerID, "peer", "msg-bounded")
     }
 
     @Test

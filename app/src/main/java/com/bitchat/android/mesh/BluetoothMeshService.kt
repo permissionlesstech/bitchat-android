@@ -49,6 +49,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     
     // Core components - each handling specific responsibilities
     private val encryptionService = EncryptionService(context)
+    private val courierStore = CourierStore(context)
+    private val bridgeCourierService by lazy {
+        com.bitchat.android.nostr.BridgeCourierService(context, encryptionService) { envelope ->
+            handleLocalCourierEnvelope(envelope)
+        }
+    }
 
     // My peer identification - derived from persisted Noise identity fingerprint (first 16 hex chars)
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
@@ -156,10 +162,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         gossipSyncManager = GossipSyncManager(
             myPeerID = myPeerID,
             scope = serviceScope,
+            context = context,
             configProvider = object : GossipSyncManager.ConfigProvider {
                 override fun seenCapacity(): Int = try {
-                    com.bitchat.android.ui.debug.DebugPreferenceManager.getSeenPacketCapacity(500)
-                } catch (_: Exception) { 500 }
+                    com.bitchat.android.ui.debug.DebugPreferenceManager.getSeenPacketCapacity(1000)
+                } catch (_: Exception) { 1000 }
 
                 override fun gcsMaxBytes(): Int = try {
                     com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsMaxFilterBytes(400)
@@ -177,6 +184,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (isBleTransportEnabled()) {
             TransportBridgeService.register("BLE", this)
         }
+        bridgeCourierService.start()
         
         // Inject dynamic direct connection check into PeerManager
         // Matches iOS logic: checks if we have an active hardware mapping for this peer
@@ -198,6 +206,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     override fun sendToPeer(peerID: String, packet: BitchatPacket) {
         if (!isBleTransportEnabled()) return
         connectionManager.sendPacketToPeer(peerID, packet)
+    }
+
+    override fun sendToPeerAndReport(peerID: String, packet: BitchatPacket): Boolean {
+        if (!isBleTransportEnabled()) return false
+        return connectionManager.sendPacketToPeer(peerID, packet)
     }
 
     private fun broadcastRoutedPacket(routed: RoutedPacket): Boolean {
@@ -514,6 +527,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
+                try { com.bitchat.android.services.MessageRouter.tryGetInstance()?.onMessageAcknowledged(messageID, peerID) } catch (_: Exception) { }
                 // Status events can arrive while MainActivity has detached the UI delegate.
                 // Persist first so the next UI collector observes the advancement.
                 try {
@@ -526,6 +540,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
+                try { com.bitchat.android.services.MessageRouter.tryGetInstance()?.onMessageAcknowledged(messageID, peerID) } catch (_: Exception) { }
                 try {
                     com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
                         messageID,
@@ -574,6 +589,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
                 return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
             }
+
+            override fun handleCourierEnvelope(routed: RoutedPacket): Boolean {
+                return handleCourierEnvelopePacket(routed)
+            }
             
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
                 val result = messageHandler.handleAnnounceWithResult(routed)
@@ -599,6 +618,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     }
                 }
                 try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
+                handleCourierAnnounce(routed)
                 return true
             }
             
@@ -608,7 +628,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 try {
                     val pkt = routed.packet
                     val isBroadcast = (pkt.recipientID == null || pkt.recipientID.contentEquals(SpecialRecipients.BROADCAST))
-                    if (isBroadcast && pkt.type == MessageType.MESSAGE.value) {
+                    if (isBroadcast && pkt.type in setOf(MessageType.MESSAGE.value, MessageType.FILE_TRANSFER.value)) {
                         gossipSyncManager.onPublicPacketSeen(pkt)
                     }
                 } catch (_: Exception) { }
@@ -809,6 +829,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      * Stop all mesh services
      */
     fun stopServices() {
+        if (bridgeCourierService.isStarted) bridgeCourierService.stop()
         if (!isActive) {
             Log.w(TAG, "Mesh service not active, ignoring stop request")
             return
@@ -1442,6 +1463,209 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         return peerManager.getPeerInfo(peerID)
     }
 
+    fun getPeerInfos(): List<PeerInfo> = peerManager.getAllPeerNicknames().keys.mapNotNull(peerManager::getPeerInfo)
+
+    fun sendCourierMessage(
+        content: String,
+        messageID: String,
+        recipientNoiseKey: ByteArray,
+        courierPeerIDs: List<String>
+    ): List<String> {
+        val privateMessage = com.bitchat.android.model.PrivateMessagePacket(messageID, content).encode() ?: return emptyList()
+        val typedPayload = com.bitchat.android.model.NoisePayload(
+            com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE,
+            privateMessage
+        ).encode()
+        val sealed = try { encryptionService.sealCourierPayload(typedPayload, recipientNoiseKey) } catch (_: Exception) { return emptyList() }
+        val now = System.currentTimeMillis()
+        val couriers = courierPeerIDs.distinct().take(4)
+        if (couriers.isEmpty()) return emptyList()
+        return couriers.filter { courierID ->
+            val envelope = com.bitchat.android.model.CourierEnvelope(
+                recipientTag = com.bitchat.android.model.CourierEnvelope.recipientTag(
+                    recipientNoiseKey,
+                    com.bitchat.android.model.CourierEnvelope.epochDay(now)
+                ),
+                expiry = (now + com.bitchat.android.model.CourierEnvelope.MAX_LIFETIME_MS).toULong(),
+                ciphertext = sealed,
+                copies = 4u
+            )
+            val payload = envelope.encode() ?: return@filter false
+            val packet = BitchatPacket(
+                type = MessageType.COURIER_ENVELOPE.value,
+                senderID = hexStringToByteArray(myPeerID),
+                recipientID = hexStringToByteArray(courierID),
+                timestamp = now.toULong(),
+                payload = payload,
+                ttl = MAX_TTL
+            )
+            TransportBridgeService.sendToPeerFromLocalAndReport(courierID, signPacketBeforeBroadcast(packet))
+        }
+    }
+
+    fun sendBridgeCourierMessage(
+        content: String,
+        messageID: String,
+        recipientNoiseKey: ByteArray,
+        onAccepted: () -> Unit = {}
+    ): Boolean = bridgeCourierService.deposit(content, messageID, recipientNoiseKey, onAccepted)
+
+    private fun handleLocalCourierEnvelope(envelope: com.bitchat.android.model.CourierEnvelope) {
+        val packet = BitchatPacket(
+            type = MessageType.COURIER_ENVELOPE.value,
+            senderID = ByteArray(8),
+            recipientID = hexStringToByteArray(myPeerID),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = envelope.encode() ?: return,
+            ttl = MAX_TTL
+        )
+        handleCourierEnvelopePacket(RoutedPacket(packet, peerID = "bridge"))
+    }
+
+    private fun handleCourierEnvelopePacket(routed: RoutedPacket): Boolean {
+        val envelope = com.bitchat.android.model.CourierEnvelope.decode(routed.packet.payload) ?: return false
+        val now = System.currentTimeMillis()
+        if (envelope.expiry.toLong() <= now) return false
+        val localKey = encryptionService.getStaticPublicKey() ?: return false
+        if (envelope.matchesRecipient(localKey, now)) {
+            val (senderKey, typedPayload) = try { encryptionService.openCourierPayload(envelope.ciphertext) } catch (_: Exception) { return false }
+            val noisePayload = com.bitchat.android.model.NoisePayload.decode(typedPayload) ?: return false
+            if (noisePayload.type !in setOf(
+                    com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE,
+                    com.bitchat.android.model.NoisePayloadType.DELIVERED
+                )
+            ) return false
+            val senderPeerID = com.bitchat.android.services.ContactIdentityResolver.peerIdForNoiseKey(senderKey)
+            val synthetic = routed.copy(
+            packet = routed.packet.copy(
+                    type = MessageType.NOISE_ENCRYPTED.value,
+                    senderID = hexStringToByteArray(senderPeerID),
+                    payload = typedPayload,
+                    timestamp = System.currentTimeMillis().toULong()
+                ),
+                peerID = senderPeerID
+            )
+            val delivered = runBlocking { messageHandler.handleOpenedCourierPayload(synthetic) }
+            if (delivered && noisePayload.type == com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE) {
+                val messageID = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data)?.messageID
+                if (messageID != null) sendCourierDeliveryAck(messageID, senderKey, routed)
+            }
+            return delivered
+        }
+        val peerID = routed.peerID ?: return false
+        if (!DirectCourierDepositPolicy.accepts(
+                routed,
+                MAX_TTL,
+                connectionManager::getCurrentLinkID,
+                connectionManager.addressPeerMap::get
+            )
+        ) return false
+        val depositor = peerManager.getPeerInfo(peerID) ?: return false
+        val key = depositor.noisePublicKey ?: return false
+        val favorite = try {
+            com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(key)?.isMutual == true
+        } catch (_: Exception) { false }
+        val tier = if (favorite) CourierDepositTier.FAVORITE
+        else if (depositor.hasVerifiedAnnouncement) CourierDepositTier.VERIFIED
+        else return false
+        return courierStore.deposit(envelope, key, tier)
+    }
+
+    private fun sendCourierDeliveryAck(messageID: String, senderNoiseKey: ByteArray, ingress: RoutedPacket) {
+        val typedPayload = com.bitchat.android.model.NoisePayload(
+            com.bitchat.android.model.NoisePayloadType.DELIVERED,
+            messageID.toByteArray(Charsets.UTF_8)
+        ).encode()
+        if (ingress.peerID == "bridge") {
+            bridgeCourierService.depositPayload(typedPayload, senderNoiseKey)
+            return
+        }
+        val courierPeerID = ingress.peerID ?: return
+        val now = System.currentTimeMillis()
+        val sealed = try { encryptionService.sealCourierPayload(typedPayload, senderNoiseKey) } catch (_: Exception) { return }
+        val envelope = com.bitchat.android.model.CourierEnvelope(
+            recipientTag = com.bitchat.android.model.CourierEnvelope.recipientTag(
+                senderNoiseKey,
+                com.bitchat.android.model.CourierEnvelope.epochDay(now)
+            ),
+            expiry = (now + com.bitchat.android.model.CourierEnvelope.MAX_LIFETIME_MS).toULong(),
+            ciphertext = sealed,
+            copies = 4u
+        )
+        val packet = BitchatPacket(
+            type = MessageType.COURIER_ENVELOPE.value,
+            senderID = hexStringToByteArray(myPeerID),
+            recipientID = hexStringToByteArray(courierPeerID),
+            timestamp = now.toULong(),
+            payload = envelope.encode() ?: return,
+            ttl = MAX_TTL
+        )
+        TransportBridgeService.sendToPeerFromLocalAndReport(courierPeerID, signPacketBeforeBroadcast(packet))
+    }
+
+    private fun handleCourierAnnounce(routed: RoutedPacket) {
+        val peerID = routed.peerID ?: return
+        val info = peerManager.getPeerInfo(peerID) ?: return
+        val noiseKey = info.noisePublicKey ?: return
+        val direct = routed.packet.ttl >= MAX_TTL
+        val envelopes = if (direct) courierStore.copiesForRecipient(noiseKey) else courierStore.copiesForRemoteHandover(noiseKey)
+        envelopes.forEach { envelope ->
+            val packet = BitchatPacket(
+                type = MessageType.COURIER_ENVELOPE.value,
+                senderID = hexStringToByteArray(myPeerID),
+                recipientID = hexStringToByteArray(peerID),
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = envelope.encode() ?: return@forEach,
+                ttl = MAX_TTL
+            )
+            if (direct) {
+                serviceScope.launch {
+                    if (connectionManager.sendToPeerAndAwaitCompletion(
+                            peerID,
+                            RoutedPacket(signPacketBeforeBroadcast(packet))
+                        )
+                    ) {
+                        courierStore.remove(envelope)
+                    }
+                }
+            } else TransportBridgeService.broadcastFromLocal(RoutedPacket(signPacketBeforeBroadcast(packet)))
+        }
+        if (direct) {
+            courierStore.sprayCopiesFor(noiseKey).forEach { envelope ->
+                val payload = envelope.encode()
+                if (payload == null) {
+                    courierStore.cancelSpray(envelope, noiseKey)
+                    return@forEach
+                }
+                val packet = BitchatPacket(
+                    type = MessageType.COURIER_ENVELOPE.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(peerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = payload,
+                    ttl = MAX_TTL
+                )
+                serviceScope.launch {
+                    var committed = false
+                    try {
+                        if (connectionManager.sendToPeerAndAwaitCompletion(
+                                peerID,
+                                RoutedPacket(signPacketBeforeBroadcast(packet))
+                            )
+                        ) {
+                            committed = courierStore.commitSpray(envelope, noiseKey)
+                        }
+                    } finally {
+                        if (!committed) courierStore.cancelSpray(envelope, noiseKey)
+                    }
+                }.invokeOnCompletion {
+                    // A coroutine cancelled before its body starts never reaches finally.
+                    courierStore.cancelSpray(envelope, noiseKey)
+                }
+            }
+        }
+    }
+
     /**
      * Update peer information with verification data
      */
@@ -1620,19 +1844,21 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      */
     fun clearAllInternalData() {
         Log.w(TAG, "Clearing all mesh service internal data")
-        try {
-            // Stop services to cease broadcasting old ID immediately
-            stopServices()
-
-            // Clear all managers
-            fragmentManager.clearAllFragments()
-            storeForwardManager.clearAllCache()
-            securityManager.clearAllData()
-            peerManager.clearAllPeers()
-            peerManager.clearAllFingerprints()
-            try { gossipSyncManager.clear() } catch (_: Exception) { }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error clearing mesh service internal data: ${e.message}")
+        val operations = listOf<() -> Unit>(
+            ::stopServices,
+            fragmentManager::clearAllFragments,
+            storeForwardManager::clearAllCache,
+            securityManager::clearAllData,
+            peerManager::clearAllPeers,
+            peerManager::clearAllFingerprints,
+            courierStore::wipe,
+            bridgeCourierService::stop,
+            gossipSyncManager::clear
+        )
+        operations.forEach { operation ->
+            try { operation() } catch (e: Exception) {
+                Log.e(TAG, "Error clearing mesh service internal data: ${e.message}")
+            }
         }
     }
     

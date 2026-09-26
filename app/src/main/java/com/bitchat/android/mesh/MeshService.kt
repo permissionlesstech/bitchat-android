@@ -41,6 +41,19 @@ interface MeshService {
     fun initiateNoiseHandshake(peerID: String)
     fun getPeerFingerprint(peerID: String): String?
     fun getPeerInfo(peerID: String): PeerInfo?
+    fun getPeerInfos(): List<PeerInfo> = getPeerNicknames().keys.mapNotNull(::getPeerInfo)
+    fun sendCourierMessage(
+        content: String,
+        messageID: String,
+        recipientNoiseKey: ByteArray,
+        courierPeerIDs: List<String>
+    ): List<String> = emptyList()
+    fun sendBridgeCourierMessage(
+        content: String,
+        messageID: String,
+        recipientNoiseKey: ByteArray,
+        onAccepted: () -> Unit = {}
+    ): Boolean = false
     fun updatePeerInfo(
         peerID: String,
         nickname: String,

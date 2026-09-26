@@ -468,6 +468,8 @@ class MeshCore(
                 return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
             }
 
+            override fun handleCourierEnvelope(routed: RoutedPacket): Boolean = false
+
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
                 val result = messageHandler.handleAnnounceWithResult(routed)
                 if (result !is AnnounceHandlingResult.Accepted) return false
@@ -481,7 +483,7 @@ class MeshCore(
                 try {
                     val pkt = routed.packet
                     val isBroadcast = (pkt.recipientID == null || pkt.recipientID.contentEquals(SpecialRecipients.BROADCAST))
-                    if (isBroadcast && pkt.type == MessageType.MESSAGE.value) {
+                    if (isBroadcast && pkt.type in setOf(MessageType.MESSAGE.value, MessageType.FILE_TRANSFER.value)) {
                         gossipSyncManager.onPublicPacketSeen(pkt)
                     }
                 } catch (_: Exception) { }

@@ -67,11 +67,10 @@ fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
         )
     }
 
-    ScreenScaffold(scrollState = listState) { scaffoldPadding ->
+    ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = scaffoldPadding
+            modifier = Modifier.fillMaxSize()
         ) {
             item {
                 ListHeader {

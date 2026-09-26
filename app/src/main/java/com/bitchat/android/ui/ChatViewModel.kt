@@ -140,17 +140,7 @@ class ChatViewModel(
     private val conversationListPreferences =
         com.bitchat.android.services.ConversationListPreferences.getInstance(getApplication())
     private val messageManager = MessageManager(state)
-    private val channelManager = ChannelManager(
-        state,
-        messageManager,
-        dataManager,
-        viewModelScope,
-        onSwitchToMeshLocation = {
-            com.bitchat.android.geohash.LocationChannelManager
-                .getInstance(getApplication())
-                .select(com.bitchat.android.geohash.ChannelID.Mesh)
-        }
-    )
+    private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
 
     // Create Noise session delegate for clean dependency injection
     private val noiseSessionDelegate = object : NoiseSessionDelegate {
@@ -1020,6 +1010,11 @@ class ChatViewModel(
                             messageId,
                             com.bitchat.android.model.DeliveryStatus.Sent
                         )
+                    } else if (route == com.bitchat.android.services.MessageRouter.RouteResult.QUEUED) {
+                        messageManager.updateMessageDeliveryStatus(
+                            messageId,
+                            com.bitchat.android.model.DeliveryStatus.Queued
+                        )
                     }
                 }
                 onAccepted(accepted)
@@ -1483,7 +1478,7 @@ class ChatViewModel(
             com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
         } catch (_: Exception) { }
         try {
-            com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
+            com.bitchat.android.services.MessageRouter.panicClear(getApplication())
         } catch (_: Exception) { }
         
         // Clear all cryptographic data

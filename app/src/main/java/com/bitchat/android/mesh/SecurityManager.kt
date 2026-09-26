@@ -3,7 +3,6 @@ package com.bitchat.android.mesh
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.protocol.BitchatPacket
-import com.bitchat.android.sync.PacketIdUtil
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.AuthenticatedNoiseSession
@@ -239,9 +238,21 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         return encryptionService.getCombinedPublicKeyData()
     }
     
-    /** Deduplicates by peer and a hash of packet type, sender, timestamp, and full payload. */
+    /**
+     * Generate message ID for duplicate detection
+     */
     private fun generateMessageID(packet: BitchatPacket, peerID: String): String {
-        return "$peerID-${PacketIdUtil.computeIdHex(packet)}"
+        return when (MessageType.fromValue(packet.type)) {
+            MessageType.FRAGMENT -> {
+                // For fragments, include the payload hash to distinguish different fragments
+                "${packet.timestamp}-$peerID-${packet.type}-${packet.payload.contentHashCode()}"
+            }
+            else -> {
+                // For other messages, use a truncated payload hash
+                val payloadHash = packet.payload.sliceArray(0 until minOf(64, packet.payload.size)).contentHashCode()
+                "${packet.timestamp}-$peerID-$payloadHash"
+            }
+        }
     }
     
     /**
@@ -257,6 +268,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                     MessageType.ANNOUNCE,
                     MessageType.MESSAGE,
                     MessageType.FILE_TRANSFER,
+                    MessageType.COURIER_ENVELOPE,
                     MessageType.VOICE_FRAME,
                     MessageType.LEAVE
                 )) {
