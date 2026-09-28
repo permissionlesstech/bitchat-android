@@ -15,11 +15,10 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * The LEAVE and stale purges remove a sender's announcement and messages together. A
- * message accepted on a persisted key alone, from a sender the live registry no longer
- * holds, must not re-enter the archive behind that purge: nothing would prune it and every
- * requester would be served it again. Present peers and this device's own broadcasts are
- * archived exactly as before.
+ * A message accepted from an absent sender must not refill the archive after its announcement
+ * is purged. Without that announcement, announcement-age pruning cannot remove the message;
+ * it could be served to requesters missing it until capacity eviction or explicit removal.
+ * The guard checks current registry presence and exempts our own broadcasts.
  */
 class GossipSyncArchiveGuardTest {
 

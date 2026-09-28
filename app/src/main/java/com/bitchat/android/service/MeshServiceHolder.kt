@@ -20,12 +20,10 @@ object MeshServiceHolder {
 
     private val activeGossipOwners = mutableSetOf<String>()
 
-    // One liveness probe per transport, keyed like the gossip owners above. The shared gossip
-    // manager archives a broadcast only when its sender is in a live peer registry, and every
-    // transport keeps its own registry. Each transport registers its lookup when it starts and
-    // removes it when it stops, beside its gossip owner. A sender known to any running transport
-    // is live. With no transport running no sender is, so a registry that is stopped or gone
-    // never answers for a sender.
+    // Each transport has its own peer registry. Shared gossip uses their registered lookups
+    // to decide whether to archive broadcasts from other senders; our own broadcasts bypass
+    // that check. Pair registration and removal with transport start and stop. An empty probe
+    // map reports no live peers.
     private val livenessProbes = ConcurrentHashMap<String, (String) -> Boolean>()
 
     @Synchronized
@@ -52,7 +50,7 @@ object MeshServiceHolder {
         livenessProbes.remove(owner)
     }
 
-    /** True when a running transport's live peer registry holds this peer; false when none runs. */
+    /** True when a registered transport lookup reports this peer present. */
     fun hasLivePeer(peerID: String): Boolean {
         if (livenessProbes.isEmpty()) return false
         return livenessProbes.values.any { probe ->

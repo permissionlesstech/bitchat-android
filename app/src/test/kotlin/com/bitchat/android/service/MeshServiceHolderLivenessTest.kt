@@ -17,8 +17,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * The shared gossip manager archives a broadcast only when its sender is in a live peer
- * registry, and every transport keeps its own registry. A sender known only to the Wi-Fi
+ * The shared gossip manager archives another sender's broadcast only when a registered
+ * transport lookup reports that sender present. A sender known only to the Wi-Fi
  * Aware registry must count as live, or its broadcasts would never be archived for sync.
  */
 class MeshServiceHolderLivenessTest {
@@ -124,7 +124,7 @@ class MeshServiceHolderLivenessTest {
     }
 
     @Test
-    fun `a broadcast seen while no transport is running is not archived or served`() {
+    fun `another sender's broadcast seen with no transport probes registered is not archived or served`() {
         MeshServiceHolder.unregisterLivenessProbe("BLE")
         val original = broadcastFromWifiSender()
 
@@ -140,6 +140,22 @@ class MeshServiceHolderLivenessTest {
         }
         manager.handleRequestSync(requester, requestForNothingHeld())
 
-        assertEquals("nothing is archived from a registry that is not running", 0, sent.size)
+        assertEquals("another sender's broadcast is not archived with no probes registered", 0, sent.size)
     }
+
+    @Test
+    fun `clearing the holder removes probes before a replacement manager is installed`() {
+        MeshServiceHolder.registerLivenessProbe("WIFI") { it == wifiPeer }
+        assertTrue(manager.delegate!!.hasLivePeer(wifiPeer))
+
+        MeshServiceHolder.clear()
+        val replacement = GossipSyncManager(
+            myPeerID = "1122334455667788", scope = scope, configProvider = config
+        )
+        MeshServiceHolder.setGossipManager(replacement) { it }
+
+        assertFalse(replacement.delegate!!.hasLivePeer(blePeer))
+        assertFalse(replacement.delegate!!.hasLivePeer(wifiPeer))
+    }
+
 }

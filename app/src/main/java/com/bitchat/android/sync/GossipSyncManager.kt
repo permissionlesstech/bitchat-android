@@ -20,7 +20,7 @@ class GossipSyncManager(
     private val configProvider: ConfigProvider
 ) {
     interface Delegate {
-        /** True when the live peer registry holds this sender; the default keeps today's archiving for every implementor. */
+        /** Reports sender presence; delegates that do not override this method report every sender present. */
         fun hasLivePeer(peerID: String): Boolean = true
         fun sendPacket(packet: BitchatPacket)
         fun sendPacketToPeer(peerID: String, packet: BitchatPacket)
@@ -115,11 +115,11 @@ class GossipSyncManager(
         val id = idBytes.joinToString("") { b -> "%02x".format(b) }
 
         if (isBroadcastMessage) {
-            // A message from a sender the live registry no longer holds is never archived: the
-            // LEAVE and stale purges remove that sender's announcement and messages together, and
-            // a message accepted on a persisted key alone must not re-enter the archive behind
-            // that purge, or it would be re-served with nothing left to prune it. Present peers
-            // and this device's own broadcasts are archived exactly as before.
+            // Do not re-archive another sender's message while the registry lookup reports it
+            // absent. After its announcement is purged, announcement-age pruning cannot remove
+            // a reinserted message, though capacity eviction and explicit removal still can.
+            // This is a presence check at receipt time; a returning sender can be archived again.
+            // Our own broadcasts bypass the check.
             val sender = packet.senderID.joinToString("") { b -> "%02x".format(b) }
             if (sender != myPeerID && delegate?.hasLivePeer(sender) == false) {
                 Log.d(TAG, "Not archiving message from ${sender.take(8)}: sender not in the live registry")
