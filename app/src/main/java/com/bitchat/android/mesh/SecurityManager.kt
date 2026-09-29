@@ -18,11 +18,17 @@ import kotlin.collections.mutableSetOf
  * replay attack protection, and key exchange handling
  * Extracted from BluetoothMeshService for better separation of concerns
  */
-class SecurityManager(private val encryptionService: EncryptionService, private val myPeerID: String) {
+class SecurityManager(
+    private val encryptionService: EncryptionService,
+    private val myPeerID: String,
+    private val wallClock: () -> Long = System::currentTimeMillis
+) {
     
     companion object {
         private const val TAG = "SecurityManager"
         private const val MESSAGE_TIMEOUT = com.bitchat.android.util.AppConstants.Security.MESSAGE_TIMEOUT_MS // 5 minutes (same as iOS)
+        private const val PUBLIC_MESSAGE_MAX_SKEW = com.bitchat.android.util.AppConstants.Freshness.PUBLIC_MESSAGE_MAX_SKEW_MS
+        private const val PUBLIC_MESSAGE_MAX_AGE = com.bitchat.android.util.AppConstants.Freshness.SYNC_PUBLIC_MESSAGE_MAX_AGE_MS
         private const val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.Security.CLEANUP_INTERVAL_MS // 5 minutes
         private const val MAX_PROCESSED_MESSAGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_MESSAGES
         private const val MAX_PROCESSED_KEY_EXCHANGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_KEY_EXCHANGES
@@ -48,14 +54,14 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     /**
      * Validate packet security (timestamp, replay attacks, duplicates, signatures)
      */
-    fun validatePacket(packet: BitchatPacket, peerID: String): Boolean {
+    fun validatePacket(packet: BitchatPacket, peerID: String, relayAddress: String? = null): Boolean {
         // Skip validation for our own packets
         if (peerID == myPeerID) {
             return false
         }
         
         // Replay attack protection (same 5-minute window as iOS)
-        val currentTime = System.currentTimeMillis()
+        val currentTime = wallClock()
         val messageType = MessageType.fromValue(packet.type)
 
         // LEAVE mutates presence immediately and cannot be safely replayed after the in-memory
@@ -72,6 +78,12 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                 Log.w(TAG, "Dropping stale or future-dated LEAVE from $peerID")
                 return false
             }
+        }
+
+        if (messageType == MessageType.MESSAGE && isBroadcast(packet) &&
+            !isFreshPublicMessage(packet, peerID, relayAddress, currentTime)
+        ) {
+            return false
         }
 
         // Duplicate detection
@@ -103,6 +115,44 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         return true
     }
     
+    private fun isBroadcast(packet: BitchatPacket): Boolean =
+        packet.recipientID == null ||
+            packet.recipientID.contentEquals(com.bitchat.android.protocol.SpecialRecipients.BROADCAST)
+
+    private fun isFreshPublicMessage(
+        packet: BitchatPacket,
+        peerID: String,
+        relayAddress: String?,
+        nowMs: Long
+    ): Boolean {
+        val now = nowMs.coerceAtLeast(0).toULong()
+        val skew = if (packet.timestamp >= now) packet.timestamp - now else now - packet.timestamp
+        // The future bound also applies to requested history.
+        if (packet.timestamp > now && skew > PUBLIC_MESSAGE_MAX_SKEW.toULong()) return false
+        val solicitedBy = relayAddress?.let { delegate?.peerIDForRelayAddress(it) }
+            ?.takeIf { delegate?.isValidSyncResponse(it) == true }
+        val withinSyncAge = packet.timestamp >= now || skew <= PUBLIC_MESSAGE_MAX_AGE.toULong()
+        if (packet.isRSR) {
+            if (solicitedBy == null) {
+                Log.w(TAG, "Dropping unsolicited sync response from $peerID")
+                return false
+            }
+            if (!withinSyncAge) {
+                Log.w(TAG, "Dropping sync response from $peerID older than the sync age cap")
+                return false
+            }
+            return true
+        }
+        // Unmarked TTL-zero replies retain compatibility with older clients.
+        val receivedTtl = packet.reassembledOriginalTtl ?: packet.ttl
+        if (receivedTtl == 0u.toUByte() && solicitedBy != null && withinSyncAge) return true
+        if (skew > PUBLIC_MESSAGE_MAX_SKEW.toULong()) {
+            Log.w(TAG, "Dropping public message from $peerID outside the freshness window")
+            return false
+        }
+        return true
+    }
+
     /**
      * Handle Noise handshake packet - SIMPLIFIED iOS-compatible version
      * Single handshake type with automatic response handling
@@ -471,6 +521,8 @@ interface SecurityManagerDelegate {
     fun sendHandshakeResponse(peerID: String, response: ByteArray)
     fun getPeerInfo(peerID: String): PeerInfo? // NEW: For signature verification
     fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? = null
-    /** Signing key from a previously authenticated peer, used when no live signing key is available. */
+    // Fallback key from a previously authenticated peer.
     fun getPersistedSigningKey(peerID: String): ByteArray? = null
+    fun peerIDForRelayAddress(relayAddress: String): String? = null
+    fun isValidSyncResponse(neighborPeerID: String): Boolean = false
 }

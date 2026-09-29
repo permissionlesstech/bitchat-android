@@ -28,6 +28,8 @@ interface MeshTransport {
 
     fun cancelTransfer(transferId: String): Boolean = false
 
+    fun peerIDForRelayAddress(relayAddress: String): String? = null
+
     fun getDeviceAddressForPeer(peerID: String): String? = null
 
     fun getDeviceAddressToPeerMapping(): Map<String, String> = emptyMap()

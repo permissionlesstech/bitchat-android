@@ -110,11 +110,7 @@ class GossipSyncRsrFlagTest {
         ttl = 7u
     )
 
-    /**
-     * The announce replay site must mark what it serves too: a dropped announce takes the
-     * author's message history with it. The message-path tests leave the announce archive empty
-     * and would stay green with this site unmarked.
-     */
+    // Message-path tests do not exercise announcement replay marking.
     @Test
     fun replayedAnnouncesAreMarkedAsSolicitedSyncResponses() {
         manager.onPublicPacketSeen(announce(ageMillis = 150_000L))

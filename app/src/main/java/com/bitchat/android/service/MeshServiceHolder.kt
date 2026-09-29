@@ -91,6 +91,9 @@ object MeshServiceHolder {
         override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
             return signer(packet)
         }
+
+        override fun connectedPeerIDs(): List<String> =
+            try { com.bitchat.android.services.AppStateStore.getDirectPeers().toList() } catch (_: Exception) { emptyList() }
     }
 
     @Volatile

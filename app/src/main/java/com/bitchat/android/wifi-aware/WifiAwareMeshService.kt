@@ -1653,6 +1653,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             return connectionTracker.getSocketForPeer(peerID)?.let { resolveScopedAddress(it.rawSocket) }
         }
 
+        override fun peerIDForRelayAddress(relayAddress: String): String? =
+            connectionTracker.canonicalPeerId(relayAddress)
+                .takeIf { connectionTracker.isConnected(it) }
+
         override fun getDeviceAddressToPeerMapping(): Map<String, String> {
             val map = mutableMapOf<String, String>()
             connectionTracker.peerSockets.forEach { (pid, sock) ->

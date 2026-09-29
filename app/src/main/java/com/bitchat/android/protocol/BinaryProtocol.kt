@@ -95,7 +95,10 @@ data class BitchatPacket(
     // Also deliberately outside equals/hashCode below, unlike ttl: a packet is the same packet
     // whether or not it was served as a sync response, which is the view PacketIdUtil takes
     // when it computes identity from type, sender, timestamp and payload alone.
-    var isRSR: Boolean = false
+    var isRSR: Boolean = false,
+    // Keep the inner TTL for legacy-response classification after relay suppression.
+    // This metadata is excluded from serialization and packet identity.
+    @IgnoredOnParcel val reassembledOriginalTtl: UByte? = null
 ) : Parcelable {
 
     constructor(

@@ -326,6 +326,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             override fun getPersistedSigningKey(peerID: String): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(peerID)
+            override fun peerIDForRelayAddress(relayAddress: String): String? =
+                connectionManager.addressPeerMap[relayAddress]
+            override fun isValidSyncResponse(neighborPeerID: String): Boolean =
+                gossipSyncManager.isValidSyncResponse(neighborPeerID)
         }
         
         // StoreForwardManager delegates
@@ -552,8 +556,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         // PacketProcessor delegates
         packetProcessor.delegate = object : PacketProcessorDelegate {
-            override fun validatePacketSecurity(packet: BitchatPacket, peerID: String): Boolean {
-                return securityManager.validatePacket(packet, peerID)
+            override fun validatePacketSecurity(packet: BitchatPacket, peerID: String, relayAddress: String?): Boolean {
+                return securityManager.validatePacket(packet, peerID, relayAddress)
             }
             
             override fun updatePeerLastSeen(peerID: String) {

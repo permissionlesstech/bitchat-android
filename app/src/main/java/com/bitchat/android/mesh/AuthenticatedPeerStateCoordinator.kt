@@ -245,7 +245,7 @@ internal class AuthenticatedPeerStateCoordinator(
     /**
      * Display name for a peer ID whose persisted signing key vouches for it: the nickname
      * cached while the peer was present, else the peer ID itself, as the registry does. Null
-     * when no signing key is persisted, so a cached name alone never names a sender.
+     * when no signing key is persisted, so a cached name alone does not name a sender.
      */
     fun persistedNicknameFor(peerID: String): String? {
         val fingerprint = store.persistedFingerprintFor(peerID) ?: return null
