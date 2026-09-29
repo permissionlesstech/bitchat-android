@@ -20,6 +20,8 @@ class GossipSyncManager(
     private val configProvider: ConfigProvider
 ) {
     interface Delegate {
+        /** Reports sender presence; delegates that do not override this method report every sender present. */
+        fun hasLivePeer(peerID: String): Boolean = true
         fun sendPacket(packet: BitchatPacket)
         fun sendPacketToPeer(peerID: String, packet: BitchatPacket)
         fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket
@@ -113,6 +115,16 @@ class GossipSyncManager(
         val id = idBytes.joinToString("") { b -> "%02x".format(b) }
 
         if (isBroadcastMessage) {
+            // Do not re-archive another sender's message while the registry lookup reports it
+            // absent. After its announcement is purged, announcement-age pruning cannot remove
+            // a reinserted message, though capacity eviction and explicit removal still can.
+            // This is a presence check at receipt time; a returning sender can be archived again.
+            // Our own broadcasts bypass the check.
+            val sender = packet.senderID.joinToString("") { b -> "%02x".format(b) }
+            if (sender != myPeerID && delegate?.hasLivePeer(sender) == false) {
+                Log.d(TAG, "Not archiving message from ${sender.take(8)}: sender not in the live registry")
+                return
+            }
             synchronized(messages) {
                 messages[id] = packet
                 // Enforce capacity (remove oldest when exceeded)
