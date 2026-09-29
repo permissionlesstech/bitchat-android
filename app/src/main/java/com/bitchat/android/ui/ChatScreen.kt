@@ -348,8 +348,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     // Setting the field in code does not run onMessageTextChange, so
                     // the popups have to be re-synced with the new text here. The
                     // inserted mention ends with a space, which hides an open popup.
-                    // The draft write is skipped the same way; without it, switching
-                    // conversations restores the field without the tapped-in mention.
+                    // Match the typing handler: setConversationDraft returns before
+                    // updating storage when selectedPrivatePeer is null or blank.
                     viewModel.setConversationDraft(selectedPrivatePeer, newText)
                     viewModel.updateCommandSuggestions(newText)
                     viewModel.updateMentionSuggestions(newText)
@@ -442,9 +442,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         text = commandText,
                         selection = TextRange(commandText.length)
                     )
-                    // A code-driven edit skips onMessageTextChange: persist the
-                    // draft and re-sync both popups, same as the other
-                    // programmatic-edit sites.
+                    // A code-driven edit skips onMessageTextChange; call the same
+                    // draft and popup handlers here.
                     viewModel.setConversationDraft(selectedPrivatePeer, commandText)
                     viewModel.updateCommandSuggestions(commandText)
                     viewModel.updateMentionSuggestions(commandText)
@@ -455,9 +454,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         text = mentionText,
                         selection = TextRange(mentionText.length)
                     )
-                    // A code-driven edit skips onMessageTextChange: persist the
-                    // draft and re-sync both popups, same as the other
-                    // programmatic-edit sites.
+                    // A code-driven edit skips onMessageTextChange; call the same
+                    // draft and popup handlers here.
                     viewModel.setConversationDraft(selectedPrivatePeer, mentionText)
                     viewModel.updateCommandSuggestions(mentionText)
                     viewModel.updateMentionSuggestions(mentionText)
