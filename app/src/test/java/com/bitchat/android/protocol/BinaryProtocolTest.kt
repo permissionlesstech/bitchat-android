@@ -1674,9 +1674,7 @@ class BinaryProtocolTest {
      * Marking an already-signed archived packet as a sync response must not invalidate its
      * signature: the signing preimage excludes the flag, exactly as it excludes TTL.
      *
-     * This is the case that would make the change worse than the bug it fixes. A replayed
-     * packet is signed once, when first sent, and marked later when served from the archive.
-     * If the flag reached the preimage, every replayed packet would fail verification.
+     * This case compares the signing bytes before and after setting the response flag.
      */
     @Test
     fun markingAPacketAsRsrDoesNotChangeTheSigningPreimage() {
@@ -1692,7 +1690,7 @@ class BinaryProtocolTest {
     }
 
     /**
-     * End to end: a packet signed when it was first sent still verifies after it is marked as a
+     * Component round trip: a packet signed when it was first sent still verifies after it is marked as a
      * sync response and put back on the wire.
      *
      * The preimage test above proves the bytes match; this walks the path the archive takes,

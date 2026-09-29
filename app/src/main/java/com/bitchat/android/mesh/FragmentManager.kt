@@ -151,9 +151,8 @@ class FragmentManager {
                     payload = fragmentPayload.encode(),
                     route = packet.route,
                     signature = null, // iOS: signature: nil
-                    // Fragments carry the original packet's timestamp, so a receiver applying a
-                    // freshness window judges each fragment on it. A replayed archive packet
-                    // large enough to fragment would be dropped without this.
+                    // Fragments carry the original timestamp. Preserve the response mark so a
+                    // receiver can apply its solicited-replay policy to old fragments too.
                     isRSR = packet.isRSR
                 )
 

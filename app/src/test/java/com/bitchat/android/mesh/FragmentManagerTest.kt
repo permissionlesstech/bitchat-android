@@ -296,6 +296,35 @@ class FragmentManagerTest {
         assertTrue("no fragment may be marked", fragments.none { it.isRSR })
     }
 
+    @Test
+    fun `sync response mark survives fragment encoding and reassembly`() {
+        val payload = ByteArray(4000).also { Random(925L).nextBytes(it) }
+        val packet = BitchatPacket(
+            version = 1u, type = MessageType.MESSAGE.value,
+            senderID = hexStringToByteArray(senderID), recipientID = null,
+            timestamp = 1_700_000_000_000uL, payload = payload,
+            signature = ByteArray(64) { 0x55 }, ttl = 0u, isRSR = true
+        )
+        val fragments = fragmentManager.createFragments(packet)
+        assertTrue(fragments.size > 1)
+        val receiver = FragmentManager()
+        try {
+            var restored: BitchatPacket? = null
+            for (fragment in fragments.reversed()) {
+                val received = BitchatPacket.fromBinaryData(fragment.toBinaryData()!!)!!
+                assertTrue(received.isRSR)
+                receiver.handleFragment(received)?.let { restored = it }
+            }
+            assertNotNull(restored)
+            assertTrue(restored!!.isRSR)
+            assertEquals(0u.toUByte(), restored!!.ttl)
+            org.junit.Assert.assertArrayEquals(payload, restored!!.payload)
+            org.junit.Assert.assertArrayEquals(packet.signature, restored!!.signature)
+        } finally {
+            receiver.shutdown()
+        }
+    }
+
     private fun hexStringToByteArray(hexString: String): ByteArray {
         val result = ByteArray(8)
         for (i in 0 until 8) {

@@ -122,10 +122,8 @@ data class BitchatPacket(
      * Create binary representation for signing (without signature and TTL fields)
      * TTL is excluded because it changes during packet relay operations
      *
-     * isRSR is excluded for the same reason: a packet is marked as a sync response when it is
-     * replayed from the archive, long after it was signed. It is omitted from the constructor
-     * call below and so defaults to false on both the signing and verifying side. Do not pass
-     * it through here; threading it in would invalidate the signature on every replayed packet.
+     * isRSR defaults to false in the copy below, on both the signing and verifying paths.
+     * Excluding it keeps the signing bytes unchanged when a stored packet is marked for replay.
      */
     fun toBinaryDataForSigning(): ByteArray? {
         // Create a copy without signature and with fixed TTL for signing
@@ -230,10 +228,8 @@ object BinaryProtocol {
         const val IS_COMPRESSED: UByte = 0x04u
         const val HAS_ROUTE: UByte = 0x08u
 
-        // Marks a packet as a solicited REQUEST_SYNC response. A peer replaying its archive
-        // sends the original timestamps, so a receiver that applies a freshness window needs
-        // to know the packet was asked for. Like TTL, this changes in transit and is excluded
-        // from the signing preimage (see BitchatPacket.toBinaryDataForSigning).
+        // Identifies a REQUEST_SYNC response without proving it was requested.
+        // Excluded from the signing preimage so marking a stored packet preserves its signature.
         const val IS_RSR: UByte = 0x10u
     }
 
