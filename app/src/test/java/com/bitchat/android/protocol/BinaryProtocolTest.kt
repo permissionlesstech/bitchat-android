@@ -1,6 +1,12 @@
 package com.bitchat.android.protocol
 
 import com.bitchat.android.model.BitchatFilePacket
+import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator
+import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
+import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
+import org.bouncycastle.crypto.signers.Ed25519Signer
+import java.security.SecureRandom
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
@@ -1617,6 +1623,193 @@ class BinaryProtocolTest {
         if (paddingLength <= 0 || paddingLength > data.size) return false
         val start = data.size - paddingLength
         return data.copyOfRange(start, data.size).all { (it.toInt() and 0xFF) == paddingLength }
+    }
+
+    // MARK: - RSR flag (0x10)
+
+    /**
+     * A packet marked as a solicited sync response survives the round-trip with the flag set,
+     * and an unmarked packet decodes with it clear.
+     */
+    @Test
+    fun rsrFlagSurvivesEncodeDecodeRoundTrip() {
+        val payload = "sync replay".toByteArray()
+
+        val flagged = makePacket(payload = payload).apply { isRSR = true }
+        val decodedFlagged = BinaryProtocol.decode(BinaryProtocol.encode(flagged, padding = false)!!)
+        assertNotNull("flagged packet should decode", decodedFlagged)
+        assertTrue("isRSR must survive the round-trip", decodedFlagged!!.isRSR)
+
+        val plain = makePacket(payload = payload)
+        val decodedPlain = BinaryProtocol.decode(BinaryProtocol.encode(plain, padding = false)!!)
+        assertFalse("an unmarked packet must decode with isRSR clear", decodedPlain!!.isRSR)
+    }
+
+    /**
+     * The flag occupies bit 0x10 of the flags byte and nothing else moves.
+     *
+     * Pins the wire position against iOS, which defines the same bit. If this drifts, the two
+     * platforms stop agreeing on what a sync response looks like.
+     */
+    @Test
+    fun rsrFlagOccupiesBit0x10OnTheWire() {
+        val payload = "wire position".toByteArray()
+        val plain = BinaryProtocol.encode(makePacket(payload = payload), padding = false)!!
+        val flagged = BinaryProtocol.encode(
+            makePacket(payload = payload).apply { isRSR = true },
+            padding = false
+        )!!
+
+        assertEquals("frames must be the same length", plain.size, flagged.size)
+        val flagsIndex = 11 // version(1) + type(1) + ttl(1) + timestamp(8)
+        val diff = (plain[flagsIndex].toInt() and 0xFF) xor (flagged[flagsIndex].toInt() and 0xFF)
+        assertEquals("only bit 0x10 may differ", 0x10, diff)
+        for (i in plain.indices) {
+            if (i == flagsIndex) continue
+            assertEquals("byte $i must be unchanged", plain[i], flagged[i])
+        }
+    }
+
+    /**
+     * Marking an already-signed archived packet as a sync response must not invalidate its
+     * signature: the signing preimage excludes the flag, exactly as it excludes TTL.
+     *
+     * This is the case that would make the change worse than the bug it fixes. A replayed
+     * packet is signed once, when first sent, and marked later when served from the archive.
+     * If the flag reached the preimage, every replayed packet would fail verification.
+     */
+    @Test
+    fun markingAPacketAsRsrDoesNotChangeTheSigningPreimage() {
+        val payload = "archived message".toByteArray()
+        val asSigned = makePacket(payload = payload, ttl = 7u)
+        val asReplayed = makePacket(payload = payload, ttl = 7u).apply { isRSR = true }
+
+        assertArrayEquals(
+            "signing preimage must be identical with and without the RSR flag",
+            asSigned.toBinaryDataForSigning(),
+            asReplayed.toBinaryDataForSigning()
+        )
+    }
+
+    /**
+     * End to end: a packet signed when it was first sent still verifies after it is marked as a
+     * sync response and put back on the wire.
+     *
+     * The preimage test above proves the bytes match; this walks the path the archive takes,
+     * with a real Ed25519 key: sign, mark, encode, decode, verify.
+     */
+    @Test
+    fun aSignedPacketStillVerifiesAfterBeingMarkedAndRoundTripped() {
+        val keyPair = Ed25519KeyPairGenerator().apply {
+            init(Ed25519KeyGenerationParameters(SecureRandom()))
+        }.generateKeyPair()
+        val privateKey = keyPair.private as Ed25519PrivateKeyParameters
+        val publicKey = keyPair.public as Ed25519PublicKeyParameters
+
+        // 1. Signed once, when the message is first broadcast (unmarked, real TTL).
+        val outgoing = makePacket(payload = "signed when sent".toByteArray(), ttl = 7u)
+        val signedBytes = outgoing.toBinaryDataForSigning()
+        assertNotNull("signing preimage must exist", signedBytes)
+        val signature = Ed25519Signer().run {
+            init(true, privateKey)
+            update(signedBytes!!, 0, signedBytes.size)
+            generateSignature()
+        }
+        outgoing.signature = signature
+
+        // 2. Later served from the archive: marked, TTL dropped, signature untouched.
+        val replayed = outgoing.copy(ttl = 0u, isRSR = true)
+
+        // 3. Over the wire and back.
+        val decoded = BinaryProtocol.decode(BinaryProtocol.encode(replayed, padding = false)!!)
+        assertNotNull("replayed packet must decode", decoded)
+        assertTrue("the mark must survive the wire", decoded!!.isRSR)
+
+        // 4. Verified by the receiver, from the decoded packet.
+        val verifier = Ed25519Signer().apply { init(false, publicKey) }
+        val preimageAtReceiver = decoded.toBinaryDataForSigning()
+        assertNotNull(preimageAtReceiver)
+        verifier.update(preimageAtReceiver!!, 0, preimageAtReceiver.size)
+        assertTrue(
+            "a marked, replayed packet must still verify against the original signature",
+            verifier.verifySignature(decoded.signature!!)
+        )
+    }
+
+    /**
+     * The archive path after the wire-payload change: a packet that arrived on the wire is
+     * decoded, capturing its original payload bytes, later served as a sync response, and
+     * re-encoded. The re-encoding must reuse the stored bytes instead of recompressing, so
+     * the only bytes that differ between the original frame and the replayed frame are the
+     * TTL byte and the flags byte carrying the mark, and the original signature must still
+     * verify on the far side.
+     */
+    @Test
+    fun aMarkedReplayOfADecodedPacketReusesTheWireBytesAndStillVerifies() {
+        val keyPair = Ed25519KeyPairGenerator().apply {
+            init(Ed25519KeyGenerationParameters(SecureRandom()))
+        }.generateKeyPair()
+        val privateKey = keyPair.private as Ed25519PrivateKeyParameters
+        val publicKey = keyPair.public as Ed25519PublicKeyParameters
+
+        // 1. A compressible packet, signed when first broadcast (unmarked, real TTL).
+        val outgoing = makePacket(payload = "repeat ".repeat(120).toByteArray(), ttl = 7u)
+        val signedBytes = outgoing.toBinaryDataForSigning()
+        assertNotNull("signing preimage must exist", signedBytes)
+        outgoing.signature = Ed25519Signer().run {
+            init(true, privateKey)
+            update(signedBytes!!, 0, signedBytes.size)
+            generateSignature()
+        }
+        val originalFrame = BinaryProtocol.encode(outgoing, padding = false)!!
+
+        // 2. Received and archived: decode captures the wire payload.
+        val archived = BinaryProtocol.decode(originalFrame)
+        assertNotNull("archived packet must decode", archived)
+        assertNotNull("decode must capture the wire payload", archived!!.wirePayload)
+
+        // 3. Served from the archive: marked, TTL dropped, re-encoded.
+        val replayedFrame =
+            BinaryProtocol.encode(archived.copy(ttl = 0u, isRSR = true), padding = false)!!
+
+        // 4. Byte reuse: the frames differ only at the TTL byte and the flags byte.
+        assertEquals("frame length must not change", originalFrame.size, replayedFrame.size)
+        val changed = originalFrame.indices.filter { originalFrame[it] != replayedFrame[it] }
+        assertEquals("only the TTL byte and the flags byte may change", listOf(2, 11), changed)
+
+        // 5. The receiver still verifies the original signature.
+        val decoded = BinaryProtocol.decode(replayedFrame)
+        assertNotNull(decoded)
+        assertTrue("the mark must survive the replay", decoded!!.isRSR)
+        val preimage = decoded.toBinaryDataForSigning()
+        assertNotNull(preimage)
+        val verifier = Ed25519Signer().apply { init(false, publicKey) }
+        verifier.update(preimage!!, 0, preimage.size)
+        assertTrue(
+            "a replay reusing the wire bytes must verify against the original signature",
+            verifier.verifySignature(decoded.signature!!)
+        )
+    }
+
+    /**
+     * The decoder ignores flag bits it does not recognize instead of failing on them.
+     *
+     * This pins the property older builds rely on when they meet a marked packet, using an
+     * undefined bit because 0x10 is known to this decoder. It is a regression pin for the
+     * property and not evidence about any particular older build.
+     */
+    @Test
+    fun unrecognizedFlagBitsAreIgnoredOnDecode() {
+        val payload = "compat".toByteArray()
+        val encoded = BinaryProtocol.encode(makePacket(payload = payload), padding = false)!!
+        val tampered = encoded.copyOf()
+        val flagsIndex = 11
+        tampered[flagsIndex] = (tampered[flagsIndex].toInt() or 0x40).toByte() // undefined bit
+
+        val decoded = BinaryProtocol.decode(tampered)
+        assertNotNull("a packet carrying an unknown flag bit must still decode", decoded)
+        assertTrue("payload must be intact", decoded!!.payload.contentEquals(payload))
+        assertFalse("an unrelated bit must not be read as isRSR", decoded.isRSR)
     }
 
     private fun assertPacketEquals(expected: BitchatPacket, actual: BitchatPacket) {

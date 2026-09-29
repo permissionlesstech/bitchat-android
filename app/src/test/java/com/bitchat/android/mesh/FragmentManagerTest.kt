@@ -244,6 +244,58 @@ class FragmentManagerTest {
         assertEquals(257, plan(low).size)
     }
 
+    /**
+     * Fragments of a solicited sync response stay marked: each carries the original timestamp a
+     * freshness window would judge it on.
+     */
+    @Test
+    fun `fragments of a sync response stay marked as sync responses`() {
+        val payload = ByteArray(4000) { (it % 251).toByte() }
+        val replayed = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = hexStringToByteArray(senderID),
+            recipientID = null,
+            timestamp = 1_700_000_000_000uL,
+            payload = payload,
+            signature = ByteArray(64) { 9 },
+            ttl = 0u
+        ).apply { isRSR = true }
+
+        val fragments = fragmentManager.createFragments(replayed)
+
+        assertTrue("payload should have been split", fragments.size > 1)
+        assertTrue(
+            "every fragment of a sync response must carry the mark",
+            fragments.all { it.isRSR }
+        )
+        assertTrue(
+            "fragments keep the original timestamp, which is why they need the mark",
+            fragments.all { it.timestamp == replayed.timestamp }
+        )
+    }
+
+    /** A normal, unsolicited packet must not gain the mark by being fragmented. */
+    @Test
+    fun `fragments of an ordinary packet are not marked`() {
+        val payload = ByteArray(4000) { (it % 251).toByte() }
+        val ordinary = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = hexStringToByteArray(senderID),
+            recipientID = null,
+            timestamp = 1_700_000_000_000uL,
+            payload = payload,
+            signature = ByteArray(64) { 9 },
+            ttl = 7u
+        )
+
+        val fragments = fragmentManager.createFragments(ordinary)
+
+        assertTrue("payload should have been split", fragments.size > 1)
+        assertTrue("no fragment may be marked", fragments.none { it.isRSR })
+    }
+
     private fun hexStringToByteArray(hexString: String): ByteArray {
         val result = ByteArray(8)
         for (i in 0 until 8) {
