@@ -27,7 +27,7 @@ This is the Android implementation of bitchat, fully protocol-compatible with th
 
 ## License
 
-This project is released into the public domain. See the [LICENSE](LICENSE.md) file for details.
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE.md) file for details.
 
 ## Features
 
