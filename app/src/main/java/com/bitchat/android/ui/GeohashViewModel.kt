@@ -361,7 +361,13 @@ class GeohashViewModel(
 
                 try {
                     val identity = NostrIdentityBridge.deriveIdentity(channel.channel.geohash, getApplication())
-                    // We don't update participant here anymore; presence loop handles it via Kind 20001
+                    // Count the local viewer immediately; waiting only on relay presence (kind 20001)
+                    // makes the participant counter show 0 or "?" until an external heartbeat arrives.
+                    repo.updateParticipant(
+                        channel.channel.geohash,
+                        identity.publicKeyHex,
+                        Date()
+                    )
                     val teleported = locationChannelManager?.teleported?.value
                         ?: state.isTeleported.value
                     if (teleported) repo.markTeleported(identity.publicKeyHex)
