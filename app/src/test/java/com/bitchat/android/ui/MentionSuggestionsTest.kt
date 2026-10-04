@@ -51,4 +51,34 @@ class MentionSuggestionsTest {
     fun `mention popup viewport is capped at five rows`() {
         assertEquals(5, MaxVisibleMentionSuggestions)
     }
+
+    @Test
+    fun `mesh mention candidates exclude self and blocked peers`() {
+        val nicknames = mapOf(
+            "aaaa" to "me",
+            "bbbb" to "alice",
+            "cccc" to "eve"
+        )
+        val candidates = meshMentionCandidates(
+            peerNicknames = nicknames,
+            myPeerID = "aaaa",
+            isPeerBlocked = { it == "cccc" }
+        )
+        assertEquals(listOf("alice"), candidates)
+    }
+
+    @Test
+    fun `geohash mention candidates exclude blocked pubkeys`() {
+        data class Person(val id: String, val name: String)
+        val people = listOf(
+            Person("aaaabbbb", "carol"),
+            Person("bbbbcccc", "blocked")
+        )
+        val kept = excludeBlockedGeohashPeople(
+            people = people,
+            pubkeyOf = { it.id },
+            isBlocked = { it == "bbbbcccc" }
+        )
+        assertEquals(listOf("carol"), kept.map { it.name })
+    }
 }
