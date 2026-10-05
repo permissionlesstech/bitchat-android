@@ -20,6 +20,15 @@ The remaining implementation work and milestone progress are tracked in
 | Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
 | Application state | Peer unions, canonical private conversations, chronological history, delivery/read behavior, media migration policy | `AppStateStoreTest`, `PrivateChatManagerTest`, `MediaSendingManagerMigrationTest` |
 
+## Packet actor admission
+
+Each peer's accepted packets are processed sequentially. At the actor limit,
+only an actor with no queued or executing packets may be evicted. When every
+slot is busy, packets from new peers are dropped until a slot becomes idle;
+existing peers retain their queues. Closing or rejecting an actor never falls
+back to concurrent direct processing. `PacketProcessorActorBoundsTest` covers
+peer churn while an earlier packet handler is suspended and shutdown rejection.
+
 ## Golden-vector policy
 
 Golden vectors compare literal externally visible bytes or hashes. Do not update

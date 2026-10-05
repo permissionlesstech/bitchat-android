@@ -4,6 +4,11 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -87,6 +92,64 @@ class PacketProcessorActorBoundsTest {
         assertEquals(1, processor.activePeerActorCount)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `peer churn cannot overlap packets already being processed`() = runTest {
+        val peer = peerID(0)
+        val releaseFirst = CompletableDeferred<Unit>()
+        var handled = 0
+        val processor = PacketProcessor(MY_PEER_ID, StandardTestDispatcher(testScheduler))
+        processors += processor
+        processor.delegate = object : NoopDelegate() {
+            override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+                if (routed.peerID == peer) {
+                    handled++
+                    if (handled == 1) releaseFirst.await()
+                }
+                return true
+            }
+        }
+        processor.processPacket(packetFrom(peer, MessageType.ANNOUNCE))
+        runCurrent()
+        assertEquals(1, handled)
+        repeat(PacketProcessor.MAX_PEER_ACTORS) { index ->
+            processor.processPacket(packetFrom(peerID(index + 1), MessageType.ANNOUNCE))
+        }
+        runCurrent()
+        processor.processPacket(packetFrom(peer, MessageType.ANNOUNCE))
+        runCurrent()
+        assertEquals("The second packet must wait for the first", 1, handled)
+        releaseFirst.complete(Unit)
+        runCurrent()
+        assertEquals(2, handled)
+        assertTrue(processor.activePeerActorCount <= PacketProcessor.MAX_PEER_ACTORS)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `a full busy pool admits a new peer after a slot becomes idle`() = runTest {
+        val newcomer = peerID(PacketProcessor.MAX_PEER_ACTORS + 1)
+        var newcomerPackets = 0
+        val processor = PacketProcessor(MY_PEER_ID, StandardTestDispatcher(testScheduler))
+        processors += processor
+        processor.delegate = object : NoopDelegate() {
+            override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+                if (routed.peerID == newcomer) newcomerPackets++
+                return true
+            }
+        }
+        repeat(PacketProcessor.MAX_PEER_ACTORS) { index ->
+            processor.processPacket(packetFrom(peerID(index), MessageType.ANNOUNCE))
+        }
+        processor.processPacket(packetFrom(newcomer, MessageType.ANNOUNCE))
+        runCurrent()
+        assertEquals(0, newcomerPackets)
+        processor.processPacket(packetFrom(newcomer, MessageType.ANNOUNCE))
+        runCurrent()
+        assertEquals(1, newcomerPackets)
+        assertEquals(PacketProcessor.MAX_PEER_ACTORS, processor.activePeerActorCount)
+    }
+
     @Test
     fun `shutdown releases every actor`() {
         val processor = PacketProcessor(MY_PEER_ID).also { it.delegate = NoopDelegate() }
@@ -96,6 +159,8 @@ class PacketProcessorActorBoundsTest {
 
         processor.shutdown()
 
+        assertEquals(0, processor.activePeerActorCount)
+        processor.processPacket(packetFrom(peerID(100)))
         assertEquals(0, processor.activePeerActorCount)
     }
 
@@ -107,10 +172,10 @@ class PacketProcessorActorBoundsTest {
 
     private fun peerID(index: Int): String = String.format("%016x", index + 1)
 
-    private fun packetFrom(peerID: String): RoutedPacket {
+    private fun packetFrom(peerID: String, type: MessageType = MessageType.MESSAGE): RoutedPacket {
         val packet = BitchatPacket(
             version = 1u,
-            type = MessageType.MESSAGE.value,
+            type = type.value,
             senderID = peerID.hexToBytes(),
             recipientID = SpecialRecipients.BROADCAST,
             timestamp = 1u,
@@ -120,7 +185,7 @@ class PacketProcessorActorBoundsTest {
         return RoutedPacket(packet, peerID, "direct-link")
     }
 
-    private class NoopDelegate : PacketProcessorDelegate {
+    private open class NoopDelegate : PacketProcessorDelegate {
         override fun validatePacketSecurity(packet: BitchatPacket, peerID: String) = true
         override fun updatePeerLastSeen(peerID: String) = Unit
         override fun getPeerNickname(peerID: String): String? = null

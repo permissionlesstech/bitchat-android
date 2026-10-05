@@ -15,7 +15,10 @@ import kotlinx.coroutines.channels.actor
  * Prevents race condition where multiple threads process packets
  * from the same peer simultaneously, causing session management conflicts.
  */
-class PacketProcessor(private val myPeerID: String) {
+class PacketProcessor(
+    private val myPeerID: String,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO
+) {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
     
     companion object {
@@ -29,7 +32,8 @@ class PacketProcessor(private val myPeerID: String) {
          * ephemeral and rotate, and the ID is read straight off the wire, so
          * the set of keys grows without limit during ordinary use and can be
          * grown deliberately by anyone in radio range. Bounded here, evicting
-         * least-recently-used, which is the peer least likely to be mid-session.
+         * least-recently-used idle actors. Busy peers keep their queues until
+         * all accepted packets finish.
          */
         internal const val MAX_PEER_ACTORS = 128
     }
@@ -37,59 +41,39 @@ class PacketProcessor(private val myPeerID: String) {
     // Delegate for callbacks
     var delegate: PacketProcessorDelegate? = null
     
-    // Helper function to format peer ID with nickname for logging
-    private fun formatPeerForLog(peerID: String): String {
-        val nickname = delegate?.getPeerNickname(peerID)
-        return if (nickname != null) "$peerID ($nickname)" else peerID
-    }
-    
     // Packet relay manager for centralized relay decisions
     private val packetRelayManager = PacketRelayManager(myPeerID)
     
     // Coroutines
-    private val processorScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val processorScope = CoroutineScope(dispatcher + SupervisorJob())
     
-    // Per-peer actors to serialize packet processing
-    // Each peer gets its own actor that processes packets sequentially
-    // This prevents race conditions in session management
-    @OptIn(ObsoleteCoroutinesApi::class)
-    private fun getOrCreateActorForPeer(peerID: String) = processorScope.actor<RoutedPacket>(
-        capacity = Channel.UNLIMITED
-    ) {
-        for (packet in channel) {
-            handleReceivedPacket(packet)
-        }
+    private class PeerActor {
+        lateinit var channel: kotlinx.coroutines.channels.SendChannel<RoutedPacket>
+        // Accepted packets, including the one currently executing; guarded by actorsLock.
+        var pending = 0
     }
-    
-    // Cache actors to reuse them.
-    //
-    // Access is serialized on [actorsLock]. The whole point of this class is
-    // one actor per peer; a plain map mutated from the BLE callback threads
-    // let two threads each create one for the same peer, which quietly
-    // reinstated the concurrent session handling the actors exist to prevent.
-    //
-    // Access-ordered so the eldest entry is the least recently *used* rather
-    // than the least recently created — evicting by insertion order would
-    // drop a long-lived active peer in favour of a burst of new IDs.
+
     private val actorsLock = Any()
-    private val actors =
-        object : LinkedHashMap<String, kotlinx.coroutines.channels.SendChannel<RoutedPacket>>(
-            16, 0.75f, true
-        ) {
-            override fun removeEldestEntry(
-                eldest: MutableMap.MutableEntry<String, kotlinx.coroutines.channels.SendChannel<RoutedPacket>>
-            ): Boolean {
-                if (size <= MAX_PEER_ACTORS) return false
-                // Closing lets the actor drain what it already holds and then
-                // finish, rather than cancelling mid-packet.
-                eldest.value.close()
-                // Deliberately not formatPeerForLog: that reaches into the
-                // delegate, and this runs under actorsLock.
-                Log.d(TAG, "Evicting least-recently-used peer actor for ${eldest.key}")
-                return true
+    private var acceptingPackets = true
+    private val actors = LinkedHashMap<String, PeerActor>(16, 0.75f, true)
+
+    @OptIn(ObsoleteCoroutinesApi::class)
+    private fun createPeerActor(): PeerActor = PeerActor().also { state ->
+        state.channel = processorScope.actor(capacity = Channel.UNLIMITED) {
+            for (packet in channel) {
+                try {
+                    handleReceivedPacket(packet)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    Log.w(TAG, "Packet handler failed", error)
+                } finally {
+                    synchronized(actorsLock) { state.pending-- }
+                }
             }
         }
-    
+    }
+
     init {
         // Set up the packet relay manager delegate immediately
         setupRelayManager()
@@ -107,19 +91,28 @@ class PacketProcessor(private val myPeerID: String) {
             return
         }
         
-        // Get or create actor for this peer
-        val actor = synchronized(actorsLock) {
-            actors.getOrPut(peerID) { getOrCreateActorForPeer(peerID) }
-        }
-        
-        // Send packet to peer's dedicated actor for serialized processing
-        processorScope.launch {
-            try {
-                actor.send(routed)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to send packet to actor for ${formatPeerForLog(peerID)}: ${e.message}")
-                // Fallback to direct processing if actor fails
-                handleReceivedPacket(routed)
+        synchronized(actorsLock) {
+            if (!acceptingPackets || !processorScope.isActive) return
+            val actor = actors[peerID] ?: run {
+                if (actors.size >= MAX_PEER_ACTORS) {
+                    val idle = actors.entries.firstOrNull { it.value.pending == 0 }
+                    if (idle == null) {
+                        // Keep the memory bound without processing a busy peer on
+                        // a second actor. Transport retries may admit this peer later.
+                        Log.w(TAG, "Dropping new peer packet while all actor slots are busy")
+                        return
+                    }
+                    actors.remove(idle.key)
+                    idle.value.channel.close()
+                }
+                createPeerActor().also { actors[peerID] = it }
+            }
+            actor.pending++
+            if (actor.channel.trySend(routed).isFailure) {
+                actor.pending--
+                // Never fall back to direct processing: it can overlap this
+                // peer's already accepted packets (including during shutdown).
+                Log.w(TAG, "Peer actor no longer accepts packets")
             }
         }
     }
@@ -308,11 +301,12 @@ class PacketProcessor(private val myPeerID: String) {
      */
     fun shutdown() {
         synchronized(actorsLock) {
+            acceptingPackets = false
             Log.d(TAG, "Shutting down PacketProcessor and ${actors.size} peer actors")
 
             // Close all peer actors gracefully
             actors.values.forEach { actor ->
-                actor.close()
+                actor.channel.close()
             }
             actors.clear()
         }
