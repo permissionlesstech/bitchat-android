@@ -100,7 +100,8 @@ fun BitchatTheme(
             } else {
                 @Suppress("DEPRECATION")
                 window.decorView.systemUiVisibility = if (!shouldUseDark) {
-                    View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                    View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
+                        View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
                 } else 0
             }
             window.navigationBarColor = colorScheme.background.toArgb()
