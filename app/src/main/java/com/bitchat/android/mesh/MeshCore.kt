@@ -65,8 +65,7 @@ class MeshCore(
             withAuthenticatedSession = encryptionService::withAuthenticatedSession,
             store = authenticatedPeerStateStore,
             localStateProvider = {
-                AuthenticatedPeerState(
-                    PeerCapabilities.LOCAL_SUPPORTED,
+                AuthenticatedPeerState.local(
                     requireNotNull(encryptionService.getSigningPublicKey())
                 )
             },
