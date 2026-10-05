@@ -42,6 +42,16 @@ Human-readable prefixes contain 1–83 characters; Nostr's extended data payload
 are not subject to Bitcoin address length limits. `Bech32PaddingTest` pins these
 rules with literal checksum-valid positive and negative vectors.
 
+### Geohash private-message sender headers
+
+The no-recipient Nostr encoders use a fresh random 8-byte sender ID for private
+messages and delivery/read receipts. Geohash DMs use these encoders; the shared
+inbox also uses the receipt encoder when replying to account DMs. Conversation
+identity comes from the authenticated Nostr sender pubkey. The recipient-addressed
+account/favorite encoders retain mesh sender IDs.
+This replaces the mesh ID in the sender-header field of these envelopes;
+nicknames, content and other shared information can still correlate conversations.
+
 ## Rewrite acceptance gate
 
 From a configured Android development environment, run:
