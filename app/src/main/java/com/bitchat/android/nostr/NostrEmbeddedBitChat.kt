@@ -8,7 +8,7 @@ import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.services.ContactIdentityResolver
-import java.util.*
+import java.security.SecureRandom
 
 /**
  * BitChat-over-Nostr Adapter
@@ -16,6 +16,7 @@ import java.util.*
 object NostrEmbeddedBitChat {
     
     private const val TAG = "NostrEmbeddedBitChat"
+    private val secureRandom = SecureRandom()
     
     /**
      * Build a `bitchat1:` base64url-encoded BitChat packet carrying a private message for Nostr DMs.
@@ -103,8 +104,7 @@ object NostrEmbeddedBitChat {
      */
     fun encodeAckForNostrNoRecipient(
         type: NoisePayloadType,
-        messageID: String,
-        senderPeerID: String
+        messageID: String
     ): String? {
         if (type != NoisePayloadType.DELIVERED && type != NoisePayloadType.READ_RECEIPT) {
             return null
@@ -119,7 +119,7 @@ object NostrEmbeddedBitChat {
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.NOISE_ENCRYPTED.value,
-                senderID = hexStringToByteArray(senderPeerID),
+                senderID = randomSenderID(),
                 recipientID = null, // No recipient for geohash DMs
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
@@ -140,8 +140,7 @@ object NostrEmbeddedBitChat {
      */
     fun encodePMForNostrNoRecipient(
         content: String,
-        messageID: String,
-        senderPeerID: String
+        messageID: String
     ): String? {
         try {
             val pm = PrivateMessagePacket(messageID = messageID, content = content)
@@ -154,7 +153,7 @@ object NostrEmbeddedBitChat {
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.NOISE_ENCRYPTED.value,
-                senderID = hexStringToByteArray(senderPeerID),
+                senderID = randomSenderID(),
                 recipientID = null, // No recipient for geohash DMs
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
@@ -170,6 +169,10 @@ object NostrEmbeddedBitChat {
         }
     }
     
+    // Geohash conversations use the authenticated Nostr pubkey. A mesh ID here
+    // would let a DM recipient link otherwise separate geohash identities.
+    private fun randomSenderID(): ByteArray = ByteArray(8).also(secureRandom::nextBytes)
+
     /**
      * Normalize recipient peer ID (matches iOS implementation)
      */
