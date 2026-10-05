@@ -17,6 +17,8 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class GeohashBookmarkNameCommitTest {
 
+    // Artificial all-zero geohash and label; neither comes from a device or user location.
+
     private lateinit var store: GeohashBookmarksStore
 
     @Before
@@ -28,39 +30,39 @@ class GeohashBookmarkNameCommitTest {
 
     @Test
     fun `resolved name is stored for a bookmark that is still present`() {
-        store.add("u4pruy")
+        store.add("000000")
 
-        store.commitResolvedName("u4pruy", "Copenhagen")
+        store.commitResolvedName("000000", "Synthetic bookmark A")
 
-        assertEquals("Copenhagen", store.bookmarkNames.value["u4pruy"])
+        assertEquals("Synthetic bookmark A", store.bookmarkNames.value["000000"])
     }
 
     @Test
     fun `resolved name is dropped when the bookmark was removed while in flight`() {
-        store.add("u4pruy")
-        store.remove("u4pruy")
+        store.add("000000")
+        store.remove("000000")
 
-        store.commitResolvedName("u4pruy", "Copenhagen")
+        store.commitResolvedName("000000", "Synthetic bookmark A")
 
-        assertNull(store.bookmarkNames.value["u4pruy"])
+        assertNull(store.bookmarkNames.value["000000"])
     }
 
     @Test
     fun `resolved name is dropped when a panic clear happened while in flight`() {
-        store.add("u4pruy")
+        store.add("000000")
         store.clearAll()
 
-        store.commitResolvedName("u4pruy", "Copenhagen")
+        store.commitResolvedName("000000", "Synthetic bookmark A")
 
-        assertNull(store.bookmarkNames.value["u4pruy"])
+        assertNull(store.bookmarkNames.value["000000"])
         assertEquals(emptyMap<String, String>(), store.bookmarkNames.value)
     }
 
     @Test
     fun `a panic clear survives a restart when a lookup lands after the wipe`() {
-        store.add("u4pruy")
+        store.add("000000")
         store.clearAll()
-        store.commitResolvedName("u4pruy", "Copenhagen")
+        store.commitResolvedName("000000", "Synthetic bookmark A")
 
         // A fresh store reads back what was persisted, which is what the next launch sees.
         val reloaded = GeohashBookmarksStore.createForTest(
@@ -72,11 +74,11 @@ class GeohashBookmarkNameCommitTest {
 
     @Test
     fun `an empty or blank name is never stored`() {
-        store.add("u4pruy")
+        store.add("000000")
 
-        store.commitResolvedName("u4pruy", null)
-        store.commitResolvedName("u4pruy", "")
+        store.commitResolvedName("000000", null)
+        store.commitResolvedName("000000", "")
 
-        assertNull(store.bookmarkNames.value["u4pruy"])
+        assertNull(store.bookmarkNames.value["000000"])
     }
 }
