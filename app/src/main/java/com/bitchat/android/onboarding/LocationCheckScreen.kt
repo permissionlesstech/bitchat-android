@@ -5,6 +5,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,12 +29,13 @@ fun LocationCheckScreen(
     status: LocationStatus,
     onEnableLocation: () -> Unit,
     onRetry: () -> Unit,
+    onSkip: () -> Unit,
     isLoading: Boolean = false
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
     Box(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(32.dp).verticalScroll(rememberScrollState()),
         contentAlignment = Alignment.Center
     ) {
         when (status) {
@@ -40,12 +43,14 @@ fun LocationCheckScreen(
                 LocationDisabledContent(
                     onEnableLocation = onEnableLocation,
                     onRetry = onRetry,
+                    onSkip = onSkip,
                     colorScheme = colorScheme,
                     isLoading = isLoading
                 )
             }
             LocationStatus.NOT_AVAILABLE -> {
                 LocationNotAvailableContent(
+                    onSkip = onSkip,
                     colorScheme = colorScheme
                 )
             }
@@ -62,6 +67,7 @@ fun LocationCheckScreen(
 private fun LocationDisabledContent(
     onEnableLocation: () -> Unit,
     onRetry: () -> Unit,
+    onSkip: () -> Unit,
     colorScheme: ColorScheme,
     isLoading: Boolean
 ) {
@@ -185,6 +191,9 @@ private fun LocationDisabledContent(
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
+                TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.continue_internet_only))
+                }
             }
         }
     }
@@ -192,12 +201,17 @@ private fun LocationDisabledContent(
 
 @Composable
 private fun LocationNotAvailableContent(
+    onSkip: () -> Unit,
     colorScheme: ColorScheme
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.continue_internet_only))
+        }
+
         // Error icon
         Icon(
             imageVector = Icons.Filled.ErrorOutline,
