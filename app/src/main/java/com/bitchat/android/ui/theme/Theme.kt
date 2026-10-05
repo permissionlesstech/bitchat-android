@@ -89,9 +89,13 @@ fun BitchatTheme(
     SideEffect {
         (view.context as? Activity)?.window?.let { window ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // Light theme paints a light nav bar (#631): without LIGHT_NAVIGATION_BARS
+                // the system keeps light button icons and they vanish into the bar.
+                val lightBars = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                    WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
                 window.insetsController?.setSystemBarsAppearance(
-                    if (!shouldUseDark) WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS else 0,
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                    if (!shouldUseDark) lightBars else 0,
+                    lightBars
                 )
             } else {
                 @Suppress("DEPRECATION")
