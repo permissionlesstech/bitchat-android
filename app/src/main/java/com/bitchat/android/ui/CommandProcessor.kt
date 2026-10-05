@@ -24,7 +24,7 @@ class CommandProcessor(
         CommandSuggestion("/channels", emptyList(), null, "show all discovered channels"),
         CommandSuggestion("/clear", emptyList(), null, "clear chat messages"),
         CommandSuggestion("/hug", emptyList(), "<nickname>", "send someone a warm hug"),
-        CommandSuggestion("/j", listOf("/join"), "<channel>", "join or create a channel"),
+        CommandSuggestion("/j", listOf("/join"), "<channel> [password]", "join or create a channel"),
         CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", "send private message"),
         CommandSuggestion("/pay", emptyList(), "<token> [public]", "send a Cashu ecash token"),
         CommandSuggestion("/slap", emptyList(), "<nickname>", "slap someone with a trout"),
@@ -70,16 +70,16 @@ class CommandProcessor(
                     timestamp = Date(),
                     isRelay = false
                 )
-                messageManager.addMessage(systemMessage)
+                messageManager.addCommandReply(systemMessage)
             }
         } else {
             val systemMessage = BitchatMessage(
                 sender = "system",
-                content = "usage: /join <channel>",
+                content = "usage: /join <channel> [password]",
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
         }
     }
     
@@ -111,7 +111,7 @@ class CommandProcessor(
                             timestamp = Date(),
                             isRelay = false
                         )
-                        messageManager.addMessage(systemMessage)
+                        messageManager.addCommandReply(systemMessage)
                     }
                 }
             } else {
@@ -121,7 +121,7 @@ class CommandProcessor(
                     timestamp = Date(),
                     isRelay = false
                 )
-                messageManager.addMessage(systemMessage)
+                messageManager.addCommandReply(systemMessage)
             }
         } else {
             val systemMessage = BitchatMessage(
@@ -130,7 +130,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
         }
     }
     
@@ -185,28 +185,23 @@ class CommandProcessor(
             timestamp = Date(),
             isRelay = false
         )
-        messageManager.addMessage(systemMessage)
+        messageManager.addCommandReply(systemMessage)
     }
     
     private fun handleClearCommand() {
+        val peer = state.getSelectedPrivateChatPeerValue()
+        val location = state.selectedLocationChannel.value
+        val channel = state.getCurrentChannelValue()
         when {
-            state.getSelectedPrivateChatPeerValue() != null -> {
-                // Clear private chat
-                val peerID = state.getSelectedPrivateChatPeerValue()!!
-                messageManager.clearPrivateMessages(peerID)
-                // `/clear` removes history but should not navigate away from the chat the
-                // command was issued in. A later message will repopulate this conversation.
-                state.setSelectedPrivateChatPeer(peerID)
+            peer != null -> {
+                messageManager.clearPrivateMessages(peer)
+                // Clearing history keeps the conversation open for subsequent messages.
+                state.setSelectedPrivateChatPeer(peer)
             }
-            state.getCurrentChannelValue() != null -> {
-                // Clear channel messages
-                val channel = state.getCurrentChannelValue()!!
-                messageManager.clearChannelMessages(channel)
-            }
-            else -> {
-                // Clear main messages
-                messageManager.clearMessages()
-            }
+            location is com.bitchat.android.geohash.ChannelID.Location ->
+                messageManager.clearChannelMessages("geo:${location.channel.geohash}")
+            channel != null -> messageManager.clearChannelMessages(channel)
+            else -> messageManager.clearMessages()
         }
     }
 
@@ -220,7 +215,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
             return
         }
 
@@ -232,7 +227,7 @@ class CommandProcessor(
                     timestamp = Date(),
                     isRelay = false
                 )
-                channelManager.addChannelMessage(currentChannel,systemMessage,null)
+                messageManager.addCommandReply(systemMessage)
                 return
             }
             val newPassword = parts[1]
@@ -243,7 +238,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            channelManager.addChannelMessage(currentChannel,systemMessage,null)
+            messageManager.addCommandReply(systemMessage)
         }
         else{
             val systemMessage = BitchatMessage(
@@ -252,7 +247,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            channelManager.addChannelMessage(currentChannel,systemMessage,null)
+            messageManager.addCommandReply(systemMessage)
         }
     }
     
@@ -269,7 +264,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
         }
     }
     
@@ -284,7 +279,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
         }
     }
     
@@ -345,7 +340,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
         }
     }
     
@@ -363,7 +358,7 @@ class CommandProcessor(
             timestamp = Date(),
             isRelay = false
         )
-        messageManager.addMessage(systemMessage)
+        messageManager.addCommandReply(systemMessage)
     }
 
     private fun handlePayCommand(
@@ -437,22 +432,7 @@ class CommandProcessor(
             timestamp = Date(),
             isRelay = false
         )
-        val selectedPeer = state.getSelectedPrivateChatPeerValue()
-        val selectedLocationChannel = state.selectedLocationChannel.value
-        val channel = state.getCurrentChannelValue()
-        when {
-            selectedPeer != null -> {
-                messageManager.addPrivateMessageNoUnread(selectedPeer, message.copy(isPrivate = true))
-            }
-            selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location -> {
-                messageManager.addChannelMessage(
-                    "geo:${selectedLocationChannel.channel.geohash}",
-                    message
-                )
-            }
-            channel != null -> channelManager.addChannelMessage(channel, message, null)
-            else -> messageManager.addMessage(message)
-        }
+        messageManager.addCommandReply(message)
     }
     
     private fun handleUnknownCommand(cmd: String) {
@@ -462,7 +442,7 @@ class CommandProcessor(
             timestamp = Date(),
             isRelay = false
         )
-        messageManager.addMessage(systemMessage)
+        messageManager.addCommandReply(systemMessage)
     }
     
     /**
