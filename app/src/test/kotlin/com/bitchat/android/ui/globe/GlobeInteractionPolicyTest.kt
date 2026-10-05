@@ -12,54 +12,78 @@ class GlobeInteractionPolicyTest {
     fun fullDetail_preservesAllGlobeFeatures() {
         val detail = globeFrameDetail(GlobeMotionDetail.FULL)
 
+        assertTrue(detail.showGraticule)
         assertEquals(1, detail.landPointStride)
+        assertEquals(0f, detail.minimumLandRingRadiusPx)
         assertTrue(detail.showBorders)
         assertNull(detail.cityMaxRank)
         assertTrue(detail.showCityLabels)
+        assertTrue(detail.showStateLabels)
+        assertNull(detail.maximumBoundaryLabels)
         assertTrue(detail.showGeohashGrid)
         assertTrue(detail.showNeighborCells)
     }
 
     @Test
-    fun balancedDetail_preservesOrientationAndSelection() {
-        val detail = globeFrameDetail(GlobeMotionDetail.BALANCED)
-
-        assertEquals(2, detail.landPointStride)
-        assertTrue(detail.showBorders)
-        assertEquals(1, detail.cityMaxRank)
-        assertFalse(detail.showCityLabels)
-        assertTrue(detail.showGeohashGrid)
-        assertFalse(detail.showNeighborCells)
-    }
-
-    @Test
-    fun fastDetail_usesMinimumMovingFrameWork() {
+    fun fastDetail_preservesTheCompleteVisualDesignDuringMovement() {
         val detail = globeFrameDetail(GlobeMotionDetail.FAST)
 
-        assertEquals(2, detail.landPointStride)
-        assertFalse(detail.showBorders)
-        assertEquals(-1, detail.cityMaxRank)
-        assertFalse(detail.showCityLabels)
-        assertFalse(detail.showGeohashGrid)
+        assertTrue(detail.showGraticule)
+        assertEquals(1, detail.landPointStride)
+        assertEquals(0f, detail.minimumLandRingRadiusPx)
+        assertTrue(detail.showBorders)
+        assertNull(detail.cityMaxRank)
+        assertTrue(detail.showCityLabels)
+        assertTrue(detail.showStateLabels)
+        assertNull(detail.maximumBoundaryLabels)
+        assertTrue(detail.showGeohashGrid)
+        assertTrue(detail.showNeighborCells)
+        assertEquals(globeFrameDetail(GlobeMotionDetail.FULL), detail)
     }
 
     @Test
-    fun adaptiveDetail_degradesOnSlowFramesAndRecoversWithHysteresis() {
+    fun labelTransition_keepsCurrentOrderThenFadesRemovedPlaces() {
+        val retainedBefore = city("Retained", 12f, 34f)
+        val removed = city("Removed", 20f, 40f)
+        val retainedAfter = city("Retained", 12f, 34f)
+        val added = city("Added", 30f, 50f)
+
+        val transition = buildMapLabelTransition(
+            previous = listOf(retainedBefore, removed),
+            current = listOf(retainedAfter, added)
+        )
+
+        assertTrue(transition.hasChanges)
         assertEquals(
-            GlobeMotionDetail.BALANCED,
-            nextGlobeMotionDetail(GlobeMotionDetail.FULL, averageFrameMillis = 24f)
+            listOf("Retained", "Added", "Removed"),
+            transition.labels.map { it.label.name }
         )
         assertEquals(
-            GlobeMotionDetail.FAST,
-            nextGlobeMotionDetail(GlobeMotionDetail.BALANCED, averageFrameMillis = 32f)
-        )
-        assertEquals(
-            GlobeMotionDetail.BALANCED,
-            nextGlobeMotionDetail(GlobeMotionDetail.FAST, averageFrameMillis = 17f)
-        )
-        assertEquals(
-            GlobeMotionDetail.FULL,
-            nextGlobeMotionDetail(GlobeMotionDetail.BALANCED, averageFrameMillis = 17f)
+            listOf(
+                MapLabelTransitionPhase.STABLE,
+                MapLabelTransitionPhase.ENTERING,
+                MapLabelTransitionPhase.EXITING
+            ),
+            transition.labels.map { it.phase }
         )
     }
+
+    @Test
+    fun labelTransition_matchesRedecodedLabelsByContent() {
+        val transition = buildMapLabelTransition(
+            previous = listOf(city("Stable", 12f, 34f)),
+            current = listOf(city("Stable", 12f, 34f))
+        )
+
+        assertFalse(transition.hasChanges)
+        assertEquals(MapLabelTransitionPhase.STABLE, transition.labels.single().phase)
+    }
+
+    private fun city(name: String, lat: Float, lon: Float) = MapLabel(
+        name = name,
+        lat = lat,
+        lon = lon,
+        kind = MapLabelKind.CITY,
+        importance = 100_000L
+    )
 }
