@@ -23,11 +23,19 @@ internal class TorCircuitHealthPolicy(
     private val windowMs: Long = AppConstants.Tor.CIRCUIT_FAILURE_WINDOW_MS
 ) {
     private companion object {
-        // Arti emits these once it cannot build or use an exit circuit. Matched as substrings in
-        // the same style as the bootstrap milestones in ArtiTorManager.
+        // Matched as substrings, in the same style as the bootstrap milestones in ArtiTorManager.
+        //
+        // Deliberately not "SOCKS connection error": tools/arti-build/src/lib.rs logs that
+        // wrapper for every error out of handle_socks_connection, including local protocol
+        // faults raised long before a circuit is attempted ("Invalid SOCKS handshake",
+        // "Unsupported SOCKS version", "Unsupported SOCKS command"). Anything on the device that
+        // speaks SOCKS badly to the local port would otherwise read as a dead Tor.
+        //
+        // These two only appear once an exit circuit could not be built or used —
+        // "Failed to connect through Tor" is logged solely on client.connect() failure, and the
+        // second is arti's own detail for that error, which is what the report in #610 shows.
         val FAILURE_MARKERS = listOf(
             "Failed to connect through Tor",
-            "SOCKS connection error",
             "Failed to obtain exit circuit"
         )
     }
