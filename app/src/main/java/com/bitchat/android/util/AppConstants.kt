@@ -115,6 +115,14 @@ object AppConstants {
         const val INACTIVITY_TIMEOUT_MS: Long = 5_000L
         const val MAX_RETRY_ATTEMPTS: Int = 5
         const val STOP_TIMEOUT_MS: Long = 7_000L
+
+        // Post-bootstrap circuit health. A Tor session that has bootstrapped can still lose every
+        // exit circuit — the guard stays usable, so nothing in the bootstrap path notices.
+        // Individual circuit failures are normal and must not move the indicator, so a downgrade
+        // needs both enough failures and enough elapsed time to rule out a momentary blip.
+        const val CIRCUIT_FAILURE_THRESHOLD: Int = 4
+        const val CIRCUIT_FAILURE_MIN_SPAN_MS: Long = 20_000L
+        const val CIRCUIT_FAILURE_WINDOW_MS: Long = 120_000L
     }
 
     object UI {

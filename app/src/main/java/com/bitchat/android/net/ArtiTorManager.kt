@@ -93,6 +93,7 @@ class ArtiTorManager private constructor() {
     private var inactivityJob: Job? = null
     private var retryJob: Job? = null
     private var currentApplication: Application? = null
+    private val circuitHealth = TorCircuitHealthPolicy()
 
     private enum class LifecycleState { STOPPED, STARTING, RUNNING, STOPPING }
 
@@ -484,6 +485,7 @@ class ArtiTorManager private constructor() {
                 }
                 retryAttempts = 0
                 bindRetryAttempts = 0
+                circuitHealth.reset()
                 startInactivityMonitoring()
             }
 
@@ -498,8 +500,34 @@ class ArtiTorManager private constructor() {
                         running = true
                     )
                 }
+                circuitHealth.reset()
                 stopInactivityMonitoring()
                 completeWaitersIf(TorState.RUNNING)
+            }
+
+            // Bootstrap milestones only fire on the way up, so a session that loses every exit
+            // circuit after reaching RUNNING would otherwise stay pinned at 100% while every
+            // request through it fails.
+            circuitHealth.isCircuitFailure(s) -> {
+                if (currentState != TorState.RUNNING || currentLifecycle != LifecycleState.RUNNING) {
+                    return
+                }
+                if (!circuitHealth.onCircuitFailure(System.currentTimeMillis())) {
+                    return
+                }
+                circuitHealth.reset()
+                Log.w(TAG, "Tor circuits failing after bootstrap; no longer reporting connected")
+                // Drop below 100% rather than to ERROR: callers fail closed instead of leaking
+                // to clearnet, the indicator stops claiming a working Tor, and the existing
+                // watchdog plus retry path get another chance to re-establish the session.
+                _statusFlow.update {
+                    it.copy(
+                        state = TorState.BOOTSTRAPPING,
+                        bootstrapPercent = 75
+                    )
+                }
+                startInactivityMonitoring()
+                currentApplication?.let { scheduleRetry(it) }
             }
 
             s.contains("AMEx: state changed to Stopping", ignoreCase = true) -> {
