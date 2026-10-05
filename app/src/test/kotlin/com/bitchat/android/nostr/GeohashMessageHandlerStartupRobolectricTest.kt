@@ -34,6 +34,10 @@ class GeohashMessageHandlerStartupRobolectricTest {
         checkStartupDelivery(enabled = true, expectedMessages = 0)
     }
 
+    @Test
+    fun `disabled saved filter accepts an unmined message`() {
+        checkStartupDelivery(enabled = false, expectedMessages = 1)
+    }
 
     private fun checkStartupDelivery(enabled: Boolean, expectedMessages: Int) {
         val application = ApplicationProvider.getApplicationContext<Application>()
