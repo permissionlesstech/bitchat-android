@@ -32,6 +32,22 @@ class GCSFilterParameterTest {
         assertEquals(decoded.toList(), decoded.sorted())
     }
 
+    @Test
+    fun `an out-of-range p decodes to nothing rather than to garbage`() {
+        val params = GCSFilter.buildFilter(ids(20), maxBytes = 400, targetFpr = 0.01)
 
+        // 64 and above wrap Kotlin's shift operators; 255 is what the byte allows.
+        for (p in listOf(0, 33, 64, 200, 255)) {
+            val decoded = GCSFilter.decodeToSortedSet(p, params.m, params.data)
+            assertTrue("p=$p should decode to nothing, got ${decoded.size} values", decoded.isEmpty())
+        }
+    }
 
+    @Test
+    fun `a degenerate m decodes to nothing`() {
+        val params = GCSFilter.buildFilter(ids(20), maxBytes = 400, targetFpr = 0.01)
+
+        assertTrue(GCSFilter.decodeToSortedSet(params.p, 0L, params.data).isEmpty())
+        assertTrue(GCSFilter.decodeToSortedSet(params.p, 1L, params.data).isEmpty())
+    }
 }
