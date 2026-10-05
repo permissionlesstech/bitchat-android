@@ -57,6 +57,29 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         val currentTime = System.currentTimeMillis()
         val messageType = MessageType.fromValue(packet.type)
 
+        // A signed packet's timestamp is authenticated as the sender's choice, not sanity-checked,
+        // and it survives into every downstream ordering decision. GossipSyncManager builds its
+        // sync filter from `sortByDescending { it.timestamp }`, so future-dated broadcasts take
+        // every advertised slot and crowd real traffic out of gossip sync across the mesh; the
+        // public timeline orders on the same field. Only ANNOUNCE was bounded, in
+        // AnnouncementIdentityValidator.
+        //
+        // Bound the future direction for every type, at the same allowance that admits the peer's
+        // announcement — a device skewed further than this already cannot be verified, so nothing
+        // that works today starts failing. The past stays open: store-and-forward replays packets
+        // cached for up to twelve hours.
+        val nowForSkew = currentTime.coerceAtLeast(0).toULong()
+        if (packet.timestamp > nowForSkew &&
+            packet.timestamp - nowForSkew >
+            AnnouncementIdentityValidator.MAX_CLOCK_SKEW_MS.toULong()
+        ) {
+            Log.w(
+                TAG,
+                "Dropping future-dated ${messageType?.name ?: packet.type} from $peerID"
+            )
+            return false
+        }
+
         // LEAVE mutates presence immediately and cannot be safely replayed after the in-memory
         // duplicate cache expires (or after an app restart). Bound it to the same five-minute
         // security window used for duplicate retention while tolerating symmetric clock skew.
