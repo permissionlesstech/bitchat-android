@@ -342,7 +342,53 @@ class FragmentManagerTest {
         assertCompletes(original, fragments.last())
     }
 
+    @Test
+    fun `an index already held keeps its first bytes`() {
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
 
+        // Same stream, same index, different bytes: last-wins would swap the
+        // real sender's bytes out from under the reassembly.
+        val decoded = FragmentPayload.decode(fragments[0].payload)!!
+        assertNull(
+            fragmentManager.handleFragment(
+                injected(fragments[0], index = 0, total = decoded.total,
+                         data = ByteArray(decoded.data.size) { 0x66 },
+                         originalType = decoded.originalType)
+            )
+        )
 
+        assertCompletes(original, fragments.last())
+    }
 
+    @Test
+    fun `an identical duplicate is still accepted`() {
+        // Duplicate delivery is normal in a mesh; only a *differing* duplicate
+        // is an attack, so redelivery must not be turned into a rejection.
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
+
+        assertNull(fragmentManager.handleFragment(fragments[0]))
+
+        assertCompletes(original, fragments.last())
+    }
+
+    @Test
+    fun `an oversized fragment cannot wipe an assembly it did not start`() {
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
+
+        val decoded = FragmentPayload.decode(fragments[0].payload)!!
+        val oversized = ByteArray(
+            com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_TOTAL_BYTES + 1
+        )
+        assertNull(
+            fragmentManager.handleFragment(
+                injected(fragments[0], index = decoded.total - 1, total = decoded.total,
+                         data = oversized, originalType = decoded.originalType)
+            )
+        )
+
+        assertCompletes(original, fragments.last())
+    }
 }
