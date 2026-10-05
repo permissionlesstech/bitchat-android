@@ -93,6 +93,7 @@ object TestHookDriver {
             "raw_send" -> rawSend(context, intent)
             "ble" -> setBle(intent.getBooleanExtra("enabled", true))
             "inject_peers" -> injectPeers(intent.getStringExtra("peers"))
+            "inject_synthetic_peer" -> injectSyntheticPeer(context, intent)
             "state" -> state(context)
             "clear_results" -> clearResults(context)
             else -> err(cmd, "unknown command: $cmd")
