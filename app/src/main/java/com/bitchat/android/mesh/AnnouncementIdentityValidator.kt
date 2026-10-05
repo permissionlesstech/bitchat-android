@@ -8,7 +8,11 @@ import com.bitchat.android.util.toHexString
 
 /** Canonical, side-effect-free preflight for a self-signed mesh announcement. */
 object AnnouncementIdentityValidator {
-    private const val MAX_CLOCK_SKEW_MS = 10 * 60 * 1_000L
+    /**
+     * Clock skew tolerated on a signed announcement. Shared with [SecurityManager] so no packet
+     * type is held to a stricter future bound than the announcement that admits the peer.
+     */
+    internal const val MAX_CLOCK_SKEW_MS = 10 * 60 * 1_000L
 
     fun verify(
         packet: BitchatPacket,
