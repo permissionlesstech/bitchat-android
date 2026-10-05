@@ -7,12 +7,17 @@ import java.nio.ByteOrder
  * BitchatFilePacket: TLV-encoded file transfer payload for BLE mesh.
  * TLVs:
  *  - 0x01: filename (UTF-8)
- *  - 0x02: file size (8 bytes, UInt64)
+ *  - 0x02: file size (4 bytes, UInt32)
  *  - 0x03: mime type (UTF-8)
- *  - 0x04: content (bytes) — may appear multiple times for large files
+ *  - 0x04: content (bytes)
  *
- * Length field for TLV is 2 bytes (UInt16, big-endian) for all TLVs.
- * For large files, CONTENT is chunked into multiple TLVs of up to 65535 bytes each.
+ * Length fields are 2 bytes (UInt16, big-endian), except CONTENT, which uses 4 bytes so a
+ * payload can exceed 64 KiB without TLV-level chunking. This matches `docs/file_transfer.md`;
+ * the previous text here described neither what `encode` writes nor what `decode` reads.
+ *
+ * v2 writes exactly one CONTENT TLV. `decode` still accepts several and concatenates them in
+ * order as defensive tolerance for legacy senders, but the chunk count is the sender's to
+ * choose, so that reassembly must stay linear in the payload rather than in chunks x bytes.
  *
  * Unknown TLV types are SKIPPED, not rejected: the tag list above is a floor,
  * not a ceiling, and a decoder that bails on the first tag it does not know
