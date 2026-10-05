@@ -16,6 +16,9 @@ import java.io.File
  *   adb shell am broadcast -a com.bitchat.droid.TEST_HOOK \
  *     --es cmd <command> --es id <cmd-id> [command extras...]
  *
+ * UI fixture peers: `inject_peers` (IDs only) or `inject_synthetic_peer` with --es name,
+ * optional --es mesh_message / --es private_message / --es peer (see issue #856).
+ *
  * Result is written to cache/testhook/results/<id>.json and logged under tag TestHook:
  *   adb shell run-as com.bitchat.droid cat cache/testhook/results/<id>.json
  */
