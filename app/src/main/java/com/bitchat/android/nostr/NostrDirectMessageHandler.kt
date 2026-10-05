@@ -78,7 +78,7 @@ class NostrDirectMessageHandler(
                 if (!content.startsWith("bitchat1:")) return@launch
 
                 val base64Content = content.removePrefix("bitchat1:")
-                val packetData = base64URLDecode(base64Content) ?: return@launch
+                val packetData = NostrEmbeddedPacketDecoder.decodeBounded(base64Content) ?: return@launch
                 val packet = BitchatPacket.fromBinaryData(packetData) ?: return@launch
 
                 if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) return@launch
@@ -302,21 +302,6 @@ class NostrDirectMessageHandler(
         } catch (e: Exception) {
             Log.w(TAG, "Failed to handle Nostr favorite notification: ${e.message}")
             false
-        }
-    }
-
-    private fun base64URLDecode(input: String): ByteArray? {
-        return try {
-            val padded = input.replace("-", "+")
-                .replace("_", "/")
-                .let { str ->
-                    val padding = (4 - str.length % 4) % 4
-                    str + "=".repeat(padding)
-                }
-            android.util.Base64.decode(padded, android.util.Base64.DEFAULT)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to decode base64url: ${e.message}")
-            null
         }
     }
 }
