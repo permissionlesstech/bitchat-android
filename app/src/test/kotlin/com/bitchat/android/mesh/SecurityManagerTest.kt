@@ -276,6 +276,81 @@ class SecurityManagerTest {
         assertFalse("Future-dated LEAVE must not extend its replay lifetime", securityManager.validatePacket(future, otherPeerID))
     }
 
+    private fun signedMessage(offsetMs: Long): BitchatPacket = BitchatPacket(
+        type = MessageType.MESSAGE.value,
+        ttl = 7u,
+        senderID = MeshPacketUtils.hexStringToByteArray(otherPeerID),
+        timestamp = (System.currentTimeMillis() + offsetMs).toULong(),
+        payload = dummyPayload
+    ).also { it.signature = validSignature }
+
+    @Test
+    fun `validatePacket rejects future-dated broadcast messages`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+
+        // GossipSyncManager advertises the newest packets first, so a future-dated broadcast
+        // takes a sync slot permanently and crowds real traffic out across the mesh.
+        val future = signedMessage(AnnouncementIdentityValidator.MAX_CLOCK_SKEW_MS + 60_000L)
+
+        assertFalse(
+            "A signed but future-dated MESSAGE must not be admitted",
+            securityManager.validatePacket(future, otherPeerID)
+        )
+    }
+
+    @Test
+    fun `validatePacket admits messages inside the announcement clock-skew allowance`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+
+        // A peer skewed further than this cannot get its ANNOUNCE accepted either, so the bound
+        // must not be tighter than the one that admits the peer in the first place.
+        val skewed = signedMessage(AnnouncementIdentityValidator.MAX_CLOCK_SKEW_MS - 60_000L)
+
+        assertTrue(
+            "A tolerable forward clock skew must still deliver",
+            securityManager.validatePacket(skewed, otherPeerID)
+        )
+    }
+
+    @Test
+    fun `validatePacket still admits old messages for store and forward`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+
+        // StoreForward caches for 12 hours; bounding the past would silently drop that replay.
+        val old = signedMessage(-6 * 60 * 60 * 1_000L)
+
+        assertTrue(
+            "Store-and-forward replay must keep working",
+            securityManager.validatePacket(old, otherPeerID)
+        )
+    }
+
+    @Test
+    fun `validatePacket rejects future-dated packets of every relayed type`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+
+        val futureOffset = AnnouncementIdentityValidator.MAX_CLOCK_SKEW_MS + 60_000L
+        listOf(
+            MessageType.MESSAGE,
+            MessageType.FILE_TRANSFER,
+            MessageType.VOICE_FRAME,
+            MessageType.FRAGMENT
+        ).forEach { type ->
+            val packet = BitchatPacket(
+                type = type.value,
+                ttl = 7u,
+                senderID = MeshPacketUtils.hexStringToByteArray(otherPeerID),
+                timestamp = (System.currentTimeMillis() + futureOffset).toULong(),
+                payload = dummyPayload
+            ).also { it.signature = validSignature }
+
+            assertFalse(
+                "${type.name} must not be admitted with a future timestamp",
+                securityManager.validatePacket(packet, otherPeerID)
+            )
+        }
+    }
+
     @Test
     fun `validatePacket - accepts ANNOUNCE packet from unknown peer (extracts key)`() {
         val announcement = IdentityAnnouncement(
