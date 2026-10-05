@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="continue_internet_only">Continue with internet channels</string>
+    <string name="internet_only_explanation">You can skip nearby-device and location permissions and choose internet channels or message contacts over the internet. Nearby mesh will be unavailable. To use nearby mesh later, grant its permissions in Android settings, enable its transports in Debug Settings, and restart the app.</string>
     <string name="cashu_pay_via">pay via Cashu</string>
     <string name="cashu_payment_description">Cashu payment</string>
     <string name="cashu_copy_token">Copy token</string>
