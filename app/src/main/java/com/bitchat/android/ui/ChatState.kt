@@ -170,6 +170,26 @@ class ChatState(
             initialValue = false
         )
     
+    // Mirrors the branches of ChatViewModel.handleBackPressed. The back handler
+    // is enabled from this and the press consumed by that, so they must agree.
+    val canHandleBack: StateFlow<Boolean> = combine(
+        _showAppInfo,
+        _showPasswordPrompt,
+        _selectedPrivateChatPeer,
+        _privateChatSheetPeer,
+        _currentChannel
+    ) { showAppInfo, showPasswordPrompt, privateChatPeer, privateChatSheetPeer, channel ->
+        showAppInfo ||
+            showPasswordPrompt ||
+            privateChatPeer != null ||
+            privateChatSheetPeer != null ||
+            channel != null
+    }.stateIn(
+        scope = scope,
+        started = WhileSubscribed(5_000),
+        initialValue = false
+    )
+
     // Getters for internal state access
     fun getMessagesValue() = _messages.value
     fun getConnectedPeersValue() = _connectedPeers.value
