@@ -1232,7 +1232,19 @@ private fun deliveryCheckRank(status: DeliveryStatus): Int = when (status) {
 }
 
 @Composable
+private fun deliveryStatusDescription(status: DeliveryStatus): String = when (status) {
+    DeliveryStatus.Sending -> stringResource(R.string.cd_delivery_sending)
+    DeliveryStatus.Sent -> stringResource(R.string.cd_delivery_sent)
+    is DeliveryStatus.Delivered -> stringResource(R.string.cd_delivery_delivered)
+    is DeliveryStatus.Read -> stringResource(R.string.cd_delivery_read)
+    is DeliveryStatus.Failed -> stringResource(R.string.cd_delivery_failed)
+    is DeliveryStatus.PartiallyDelivered ->
+        stringResource(R.string.cd_delivery_partial, status.reached, status.total)
+}
+
+@Composable
 fun DeliveryStatusIcon(status: DeliveryStatus) {
+    val statusDescription = deliveryStatusDescription(status)
     val colorScheme = MaterialTheme.colorScheme
     val (firstTarget, secondTarget) = deliveryCheckColors(status, colorScheme)
     val first by animateColorAsState(
@@ -1270,9 +1282,11 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         text = text,
         fontSize = 10.sp,
         fontWeight = FontWeight.Normal,
-        modifier = Modifier.graphicsLayer {
-            scaleX = scale.value
-            scaleY = scale.value
-        }
+        modifier = Modifier
+            .semantics { contentDescription = statusDescription }
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+            },
     )
 }
