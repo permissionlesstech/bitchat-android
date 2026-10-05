@@ -28,6 +28,13 @@ object Bech32 {
      * alphanumeric mode. Mixed case is invalid and is rejected.
      */
     fun decode(bech32String: String): Pair<String, ByteArray> {
+        // BIP-173 restricts every character to printable US-ASCII, 33..126.
+        // This has to run before the case test and before lowercase(): a
+        // non-ASCII uppercase homoglyph such as U+212A KELVIN SIGN reads as
+        // uppercase, so an otherwise all-uppercase string carrying one shows no
+        // mixed case, and lowercase() then folds it into an ASCII 'k'.
+        require(bech32String.all { it.code in 33..126 }) { "Invalid character" }
+
         val hasLower = bech32String.any { it.isLowerCase() }
         val hasUpper = bech32String.any { it.isUpperCase() }
         require(!(hasLower && hasUpper)) { "Mixed case" }
