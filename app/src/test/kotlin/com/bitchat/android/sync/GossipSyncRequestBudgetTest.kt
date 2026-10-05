@@ -154,6 +154,35 @@ class GossipSyncRequestBudgetTest {
     }
 
     @Test
+    fun `rotating the sender id does not mint a fresh budget on one link`() {
+        storeMessages(CAPACITY)
+
+        // REQUEST_SYNC is not in the set SecurityManager.verifyPacketSignature authenticates, so
+        // the sender ID is free for a flooder to rotate. Cycling more IDs than the LRU tracks
+        // would hand out a full allowance per request if the budget were keyed on it.
+        repeat(AppConstants.Sync.MAX_TRACKED_REQUESTERS * 2) { i ->
+            manager.handleRequestSync("%016x".format(i), emptyFilter, ingressLinkID = "link-1")
+        }
+
+        assertEquals(CAPACITY, sentTo.size)
+        assertEquals(1, manager.trackedRequesterCount())
+    }
+
+    @Test
+    fun `separate links keep separate budgets`() {
+        storeMessages(CAPACITY)
+
+        manager.handleRequestSync(REQUESTER, emptyFilter, ingressLinkID = "link-1")
+        repeat(50) { manager.handleRequestSync(REQUESTER, emptyFilter, ingressLinkID = "link-1") }
+        sentTo.clear()
+
+        // A different physical link is a different neighbour and must not inherit the throttle.
+        manager.handleRequestSync(REQUESTER, emptyFilter, ingressLinkID = "link-2")
+
+        assertEquals(CAPACITY, sentTo.size)
+    }
+
+    @Test
     fun `a backwards clock jump does not hand out free budget`() {
         storeMessages(CAPACITY)
 
