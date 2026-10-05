@@ -45,4 +45,24 @@ class FavoriteRelationshipTest {
         assertTrue(relationship.theyFavoritedUs)
         assertTrue(relationship.isMutual)
     }
+
+    @Test
+    fun `private contact flag can be toggled without losing favorite state`() {
+        val noiseKey = ByteArray(32) { it.toByte() }
+        val existing = FavoriteRelationship(
+            peerNoisePublicKey = noiseKey,
+            peerNostrPublicKey = null,
+            peerNickname = "peer",
+            isFavorite = true,
+            theyFavoritedUs = false,
+            favoritedAt = Date(10L),
+            lastUpdated = Date(20L)
+        )
+
+        val relationship = existing.withPrivateContactStatus(isPrivateContact = true, now = Date(30L))
+
+        assertTrue(relationship.isFavorite)
+        assertTrue(relationship.isPrivateContact)
+        assertFalse(relationship.theyFavoritedUs)
+    }
 }
