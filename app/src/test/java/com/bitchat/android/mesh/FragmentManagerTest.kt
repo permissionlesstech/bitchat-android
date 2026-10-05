@@ -285,6 +285,27 @@ class FragmentManagerTest {
     }
 
     /** A frame that really was padded must still fragment unpadded. */
+    @Test
+    fun `a padded frame is fragmented without its padding`() {
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = hexStringToByteArray(senderID),
+            recipientID = hexStringToByteArray(recipientID),
+            timestamp = 1u,
+            payload = ByteArray(900).also { Random(900).nextBytes(it) },
+            signature = ByteArray(64) { 0x7F },
+            ttl = 7u
+        )
+
+        val frame = packet.toBinaryData(padding = false)!!
+        assertTrue("frame should be padded", packet.toBinaryData()!!.size > frame.size)
+
+        val reassembled = fragmentManager.createFragments(packet)
+            .map { FragmentPayload.decode(it.payload)!!.data }
+            .reduce { acc, next -> acc + next }
+        assertArrayEquals(frame, reassembled)
+    }
 
     private fun hexStringToByteArray(hexString: String): ByteArray {
         val result = ByteArray(8)
