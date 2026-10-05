@@ -26,6 +26,12 @@ class GeohashMessageHandler(
 ) {
     companion object { private const val TAG = "GeohashMessageHandler" }
 
+    init {
+        // A restored channel can receive events before the activity finishes onboarding.
+        // Load the saved filter before this handler can accept its first event.
+        PoWPreferenceManager.init(application)
+    }
+
     // Simple event deduplication
     private val processedIds = ArrayDeque<String>()
     private val seen = HashSet<String>()
