@@ -170,6 +170,13 @@ object TestHookDriver {
         return ok("inject_peers").put("peers", JSONArray(peers))
     }
 
+    private fun syntheticPeerKeys(peerID: String): Pair<ByteArray, ByteArray> {
+        val seed = MessageDigest.getInstance("SHA-256").digest("testhook-synthetic:$peerID".toByteArray())
+        val noiseKey = seed.copyOfRange(0, 32)
+        val signingKey = MessageDigest.getInstance("SHA-256").digest(noiseKey)
+        return noiseKey to signingKey
+    }
+
     private suspend fun connect(peerID: String, intent: Intent): JSONObject {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_CONNECT_TIMEOUT_MS)
         val ble = MeshServiceHolder.meshService ?: return err("connect", "BLE service not running")
