@@ -10,6 +10,7 @@ import org.junit.Test
  * geohash tag, and a NIP-40 expiry that passes while the note is displayed.
  */
 class LocationNotesCaseAndExpiryTest {
+    // Arbitrary synthetic geohashes, never obtained from a device or location.
 
     private fun note(id: String, expiresAtSeconds: Long?) = LocationNotesManager.Note(
         id = id,
@@ -31,19 +32,19 @@ class LocationNotesCaseAndExpiryTest {
 
     @Test
     fun `an uppercase geohash tag passes the subscription filter`() {
-        val filter = NostrFilter.geohashNotes(geohash = "u4pruyd")
+        val filter = NostrFilter.geohashNotes(geohash = "00bcdef")
 
-        assertTrue(filter.matches(event(listOf(listOf("g", "u4pruyd")))))
+        assertTrue(filter.matches(event(listOf(listOf("g", "00bcdef")))))
         // iOS has no client-side filter and lowercases where it reads the tag,
         // so this note is visible there; it has to reach the handler here too.
-        assertTrue(filter.matches(event(listOf(listOf("G", "U4PRUYD")))))
+        assertTrue(filter.matches(event(listOf(listOf("G", "00BCDEF")))))
     }
 
     @Test
     fun `a different geohash is still rejected`() {
-        val filter = NostrFilter.geohashNotes(geohash = "u4pruyd")
+        val filter = NostrFilter.geohashNotes(geohash = "00bcdef")
 
-        assertFalse(filter.matches(event(listOf(listOf("g", "u4pruye")))))
+        assertFalse(filter.matches(event(listOf(listOf("g", "00bcdeg")))))
         assertFalse(filter.matches(event(listOf(listOf("g")))))
     }
 
@@ -67,5 +68,24 @@ class LocationNotesCaseAndExpiryTest {
 
         assertTrue(LocationNotesManager.pruneExpired(notes, 1_699_999_999_000L).isNotEmpty())
         assertTrue(LocationNotesManager.pruneExpired(notes, 1_700_000_000_000L).isEmpty())
+    }
+
+    @Test
+    fun `non-geohash tag names and values retain exact matching`() {
+        val filter = NostrFilter(tagFilters = mapOf("d" to listOf("SyntheticAddress")))
+        assertTrue(filter.matches(event(listOf(listOf("d", "SyntheticAddress")))))
+        assertFalse(filter.matches(event(listOf(listOf("D", "SyntheticAddress")))))
+        assertFalse(filter.matches(event(listOf(listOf("d", "syntheticaddress")))))
+        val recipient = "a".repeat(64)
+        assertFalse(NostrFilter(tagFilters = mapOf("p" to listOf(recipient)))
+            .matches(event(listOf(listOf("P", recipient)))))
+    }
+
+    @Test
+    fun `extreme expiration timestamps cannot overflow`() {
+        val now = 1_700_000_000_000L
+        assertEquals(listOf("future"), LocationNotesManager.pruneExpired(
+            listOf(note("future", Long.MAX_VALUE), note("past", Long.MIN_VALUE)), now
+        ).map { it.id })
     }
 }

@@ -61,3 +61,15 @@ shipping a rewrite, run the following on at least two physical devices:
 
 Those scenarios belong in instrumented tests or a two-device interoperability
 harness; they must not be represented as passing JVM mocks.
+
+### Nearby-note tag matching and expiration
+
+Nearby-note geohash tag names and values tolerate case to match the iOS
+handler. Other Nostr tag filters retain exact names and values; this exception
+must not change recipient or address-tag matching. Relay-side filtering is
+unchanged, so this only covers events delivered to the client.
+
+Expiration timestamps are compared in seconds without multiplying untrusted
+values. Notes are rejected at ingest when expired and pruned from the displayed
+list every 60 seconds while the subscription coroutine is active. `LocationNotesCaseAndExpiryTest`
+covers these boundaries and extreme timestamps with synthetic fixtures.

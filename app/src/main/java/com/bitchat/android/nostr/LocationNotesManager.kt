@@ -30,8 +30,13 @@ class LocationNotesManager private constructor() {
         internal fun pruneExpired(notes: List<Note>, nowMillis: Long): List<Note> =
             notes.filter { note ->
                 val expiresAt = note.expiresAtSeconds ?: return@filter true
-                expiresAt * 1000L > nowMillis
+                !hasExpired(expiresAt, nowMillis)
             }
+
+        // Compare in seconds so extreme relay timestamps cannot overflow
+        // when converted to milliseconds.
+        internal fun hasExpired(expiresAtSeconds: Long, nowMillis: Long): Boolean =
+            expiresAtSeconds <= Math.floorDiv(nowMillis, 1000L)
 
         @Volatile
         private var INSTANCE: LocationNotesManager? = null
@@ -444,9 +449,8 @@ class LocationNotesManager private constructor() {
             return
         }
         
-        // Check for geohash tag. Tag names and geohashes are case-insensitive,
-        // and iOS matches them lowercased, so a note tagged ["G", "U4PRUYD"]
-        // has to be the same note on both platforms.
+        // Match nearby-note geohash tags case-insensitively, as on iOS.
+        // This is specific to geohashes, not a rule for all Nostr tags.
         val validGeohashes = subscribedGeohashes.map { it.lowercase() }.toSet()
         val geohashTag = event.tags.firstOrNull {
             it.size >= 2 && it[0].lowercase() == "g" && validGeohashes.contains(it[1].lowercase())
@@ -464,7 +468,7 @@ class LocationNotesManager private constructor() {
         // NIP-40: relays are not required to drop expired events, so enforce it
         // here - otherwise a 24h dead drop stays visible past its expiry.
         val expiresAt = expirationSeconds(event)
-        if (expiresAt != null && expiresAt * 1000L <= System.currentTimeMillis()) {
+        if (expiresAt != null && hasExpired(expiresAt, System.currentTimeMillis())) {
             Log.v(TAG, "Ignoring expired note: ${event.id.take(16)}...")
             return
         }
