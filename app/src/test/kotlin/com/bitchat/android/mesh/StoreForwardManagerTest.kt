@@ -2,18 +2,25 @@ package com.bitchat.android.mesh
 
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * Store-and-forward exists so mail for an offline peer is handed over when it
  * comes back. Two things stopped that working.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class StoreForwardManagerTest {
-    private val manager = StoreForwardManager()
+    private val scheduler = TestCoroutineScheduler()
+    private val manager = StoreForwardManager(StandardTestDispatcher(scheduler))
     private val delegate = RecordingDelegate()
 
     init {
@@ -24,7 +31,7 @@ class StoreForwardManagerTest {
     fun tearDown() = manager.shutdown()
 
     @Test
-    fun `mail cached after a peer was served is delivered on the next reconnect`() = runBlocking {
+    fun `mail cached after a peer was served is delivered on the next reconnect`() {
         // First contact: nothing held, peer is marked as served.
         manager.sendCachedMessages(PEER)
         waitForDelivery()
@@ -32,6 +39,7 @@ class StoreForwardManagerTest {
 
         // Peer goes away; a message is queued for it.
         manager.cacheMessage(privateMessage("m-1"), "m-1")
+        assertEquals(1, manager.getCachedMessageCount(PEER))
 
         // It comes back. Before this fix the send was refused outright,
         // because nothing ever removed the peer from the already-sent latch,
@@ -43,10 +51,25 @@ class StoreForwardManagerTest {
     }
 
     @Test
+    fun `favorite recipient keys use the same binary wire identity`() {
+        delegate.favorite = true
+        manager.sendCachedMessages(PEER)
+        waitForDelivery()
+        manager.cacheMessage(privateMessage("favorite-1"), "favorite-1")
+        assertEquals(1, manager.getCachedMessageCount(PEER))
+
+        manager.sendCachedMessages(PEER)
+        waitForDelivery()
+        assertEquals(1, delegate.sent.size)
+        assertEquals(0, manager.getCachedMessageCount(PEER))
+    }
+
+    @Test
     fun `a peer with nothing new is still not re-sent the same batch`() {
         // The latch has to keep working, or every reconnect replays whatever
         // is still cached.
         manager.cacheMessage(privateMessage("m-1"), "m-1")
+        assertEquals(1, manager.getCachedMessageCount(PEER))
         manager.sendCachedMessages(PEER)
         waitForDelivery()
         val afterFirst = delegate.sent.size
@@ -91,16 +114,16 @@ class StoreForwardManagerTest {
     }
 
     private fun waitForDelivery() {
-        // sendCachedMessages dispatches on its own scope with a 10ms/message
-        // stagger; this is well clear of the single-message case under test.
-        Thread.sleep(300)
+        // Each tested batch contains one message, whose stagger is zero.
+        // Run queued work deterministically without advancing periodic cleanup.
+        scheduler.runCurrent()
     }
 
     private fun privateMessage(id: String): BitchatPacket = BitchatPacket(
         version = 1u,
         type = MessageType.MESSAGE.value,
         senderID = "1111222233334444".hexToBytes(),
-        recipientID = PEER.toByteArray(),
+        recipientID = PEER.hexToBytes(),
         timestamp = 1u,
         payload = id.toByteArray(),
         ttl = 7u
@@ -108,7 +131,8 @@ class StoreForwardManagerTest {
 
     private class RecordingDelegate : StoreForwardManagerDelegate {
         val sent = mutableListOf<BitchatPacket>()
-        override fun isFavorite(peerID: String) = false
+        var favorite = false
+        override fun isFavorite(peerID: String) = favorite
         override fun isPeerOnline(peerID: String) = false
         override fun sendPacket(packet: BitchatPacket) {
             synchronized(sent) { sent.add(packet) }

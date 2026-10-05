@@ -4,6 +4,7 @@ import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.util.hexEncodedString
 import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -12,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Manages store-and-forward messaging for offline peers
  * Extracted from BluetoothMeshService for better separation of concerns
  */
-class StoreForwardManager {
+class StoreForwardManager(dispatcher: CoroutineDispatcher = Dispatchers.IO) {
     
     companion object {
         private const val TAG = "StoreForwardManager"
@@ -47,7 +48,7 @@ class StoreForwardManager {
     var delegate: StoreForwardManagerDelegate? = null
     
     // Coroutines
-    private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val managerScope = CoroutineScope(dispatcher + SupervisorJob())
     
     init {
         startPeriodicCleanup()
@@ -74,7 +75,7 @@ class StoreForwardManager {
         
         // Determine if this is for a favorite peer
         val recipientPeerID = packet.recipientID?.let { recipientID ->
-            String(recipientID).replace("\u0000", "")
+            recipientID.hexEncodedString()
         }
         
         if (recipientPeerID.isNullOrEmpty()) {
@@ -166,7 +167,7 @@ class StoreForwardManager {
             val recipientMessages = messageCache.filter { storedMessage ->
                 !deliveredMessages.contains(storedMessage.messageID) &&
                 storedMessage.packet.recipientID?.let { recipientID ->
-                    String(recipientID).replace("\u0000", "") == peerID
+                    recipientID.hexEncodedString() == peerID
                 } == true
             }
             messagesToSend.addAll(recipientMessages)
@@ -226,7 +227,7 @@ class StoreForwardManager {
         val favoriteCount = favoriteMessageQueue[peerID]?.size ?: 0
         val regularCount = messageCache.count { storedMessage ->
             storedMessage.packet.recipientID?.let { recipientID ->
-                String(recipientID).replace("\u0000", "") == peerID
+                recipientID.hexEncodedString() == peerID
             } == true
         }
         return favoriteCount + regularCount
