@@ -1508,6 +1508,11 @@ class ChatViewModel(
                 locationManager.clearPersistedChannel()
             } catch (_: Exception) { }
 
+            try {
+                com.bitchat.android.nostr.NostrRelaySettings.reset()
+                com.bitchat.android.nostr.NostrRelayManager.shared.syncCustomRelays()
+            } catch (_: Exception) { }
+
             geohashViewModel.panicReset()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
