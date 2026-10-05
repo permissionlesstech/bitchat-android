@@ -20,7 +20,10 @@ import java.util.Locale
  * - Persistence: SharedPreferences (JSON string array)
  * - Semantics: geohashes are normalized to lowercase base32 and de-duplicated
  */
-class GeohashBookmarksStore private constructor(private val context: Context) {
+class GeohashBookmarksStore private constructor(
+    private val context: Context,
+    private val resolveNames: Boolean
+) {
 
     companion object {
         private const val TAG = "GeohashBookmarksStore"
@@ -30,9 +33,17 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         @Volatile private var INSTANCE: GeohashBookmarksStore? = null
         fun getInstance(context: Context): GeohashBookmarksStore {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: GeohashBookmarksStore(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: GeohashBookmarksStore(context.applicationContext, resolveNames = true)
+                    .also { INSTANCE = it }
             }
         }
+
+        /**
+         * Isolated store for unit tests. Reverse geocoding is disabled so a test never
+         * reaches the network; the persistence and bookkeeping paths are unchanged.
+         */
+        internal fun createForTest(context: Context): GeohashBookmarksStore =
+            GeohashBookmarksStore(context.applicationContext, resolveNames = false)
 
         private val allowedChars = "0123456789bcdefghjkmnpqrstuvwxyz".toSet()
         fun normalize(raw: String): String {
@@ -58,13 +69,16 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
 
     init { load() }
 
+    @Synchronized
     fun isBookmarked(geohash: String): Boolean = membership.contains(normalize(geohash))
 
+    @Synchronized
     fun toggle(geohash: String) {
         val gh = normalize(geohash)
         if (membership.contains(gh)) remove(gh) else add(gh)
     }
 
+    @Synchronized
     fun add(geohash: String) {
         val gh = normalize(geohash)
         if (gh.isEmpty() || membership.contains(gh)) return
@@ -76,6 +90,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         resolveNameIfNeeded(gh)
     }
 
+    @Synchronized
     fun remove(geohash: String) {
         val gh = normalize(geohash)
         if (!membership.contains(gh)) return
@@ -142,6 +157,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
 
     // MARK: - Destructive Reset
 
+    @Synchronized
     fun clearAll() {
         try {
             membership.clear()
@@ -162,7 +178,9 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
 
     // MARK: - Friendly Name Resolution
 
+    @Synchronized
     fun resolveNameIfNeeded(geohash: String) {
+        if (!resolveNames) return
         val gh = normalize(geohash)
         if (gh.isEmpty()) return
         if (_bookmarkNames.value?.containsKey(gh) == true) return
@@ -206,18 +224,37 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
                     pickNameForLength(gh.length, a)
                 }
 
-                if (!name.isNullOrEmpty()) {
-                    val current = _bookmarkNames.value.toMutableMap()
-                    current[gh] = name
-                    _bookmarkNames.value = current
-                    persistNames(current)
-                }
+                commitResolvedName(gh, name)
             } catch (e: Exception) {
                 Log.w(TAG, "Bookmark name resolution failed")
             } finally {
-                resolving.remove(gh)
+                finishResolving(gh)
             }
         }
+    }
+
+    @Synchronized
+    private fun finishResolving(geohash: String) {
+        resolving.remove(geohash)
+    }
+
+    /**
+     * Stores a resolved friendly name, but only while the geohash is still bookmarked.
+     *
+     * A reverse geocode runs on the IO dispatcher and can outlive the bookmark it was
+     * started for. Without this check a lookup in flight during [remove] or [clearAll]
+     * writes the place name back to SharedPreferences after the wipe, so a panic clear
+     * leaves a resolved location name on disk for the next launch.
+     */
+    @Synchronized
+    internal fun commitResolvedName(geohash: String, name: String?) {
+        val gh = normalize(geohash)
+        if (gh.isEmpty() || name.isNullOrEmpty()) return
+        if (!membership.contains(gh)) return
+        val current = _bookmarkNames.value.toMutableMap()
+        current[gh] = name
+        _bookmarkNames.value = current
+        persistNames(current)
     }
 
     private fun pickNameForLength(len: Int, address: android.location.Address?): String? {
