@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
 import android.location.Location
+import android.location.LocationListener
 import android.location.LocationManager
 import android.os.CancellationSignal
 import android.os.Looper
@@ -25,6 +26,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.mock
@@ -217,6 +219,43 @@ class FreshLocationDeadlineRobolectricTest {
         assertTrue(cancellations.all { it.isCanceled })
 
         consumers.forEach { it.accept(Location("synthetic")) }
+        assertEquals(listOf<Location?>(null), results)
+        system.cancel()
+    }
+
+    @Test
+    @Config(sdk = [26])
+    fun `legacy gps and network share the deadline and remove expired listeners`() {
+        val manager = mock<LocationManager>()
+        whenever(manager.isProviderEnabled(any())).thenReturn(true)
+        val providers = mutableListOf<String>()
+        val listeners = mutableListOf<LocationListener>()
+        doAnswer { invocation ->
+            providers += invocation.getArgument<String>(0)
+            listeners += invocation.getArgument<LocationListener>(1)
+            null
+        }.whenever(manager).requestSingleUpdate(
+            any<String>(), any<LocationListener>(), anyOrNull<Looper>()
+        )
+        val system = SystemLocationProvider(object : ContextWrapper(context) {
+            override fun getSystemService(name: String): Any? =
+                if (name == Context.LOCATION_SERVICE) manager else super.getSystemService(name)
+        })
+        val results = mutableListOf<Location?>()
+        val deadline = SystemClock.elapsedRealtime() + 30_000L
+        advanceSeconds(20)
+        system.requestFreshLocation(deadline, results::add)
+
+        assertEquals(listOf(LocationManager.GPS_PROVIDER), providers)
+        advanceSeconds(5)
+        assertEquals(listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER), providers)
+        verify(manager).removeUpdates(listeners[0])
+        assertTrue(results.isEmpty())
+        advanceSeconds(5)
+        assertEquals(listOf<Location?>(null), results)
+        verify(manager).removeUpdates(listeners[1])
+
+        listeners.forEach { it.onLocationChanged(Location("synthetic")) }
         assertEquals(listOf<Location?>(null), results)
         system.cancel()
     }

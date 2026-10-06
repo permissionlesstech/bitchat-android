@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.SystemClock
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 
 internal class SystemLocationProvider(private val context: Context) : LocationProvider {
@@ -165,6 +166,7 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
     }
 
     @SuppressLint("MissingPermission")
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun requestCurrentLocation(
         request: PendingOneShot,
         attempt: ProviderAttempt
