@@ -11,8 +11,9 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.wear.ongoing.OngoingActivity
+import androidx.wear.ongoing.Status
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.MainActivity
@@ -42,14 +43,14 @@ class WearMeshForegroundService : Service() {
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private lateinit var notificationManager: NotificationManagerCompat
+    private lateinit var notificationBuilder: NotificationCompat.Builder
+    private lateinit var ongoingActivity: OngoingActivity
     private lateinit var notificationCoordinator: WearNotificationCoordinator
     private lateinit var mesh: WearMeshService
     private var peerCountJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
-        notificationManager = NotificationManagerCompat.from(this)
         notificationCoordinator = WearNotificationCoordinator.getInstance(applicationContext)
         mesh = WearMeshService.getOrCreate(applicationContext)
         createChannel()
@@ -74,6 +75,7 @@ class WearMeshForegroundService : Service() {
             mesh.stopServices()
         }
         serviceScope.cancel()
+        stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
 
@@ -109,10 +111,12 @@ class WearMeshForegroundService : Service() {
         }
     }
 
-    private fun updateForegroundNotification(activePeers: Int) {
+    internal fun updateForegroundNotification(activePeers: Int) {
         if (!canPostNotifications()) return
         try {
-            notificationManager.notify(NOTIFICATION_ID, buildNotification(activePeers))
+            val text = meshStatusText(activePeers)
+            notificationBuilder.setContentText(text)
+            ongoingActivity.update(this, Status.forPart(Status.TextPart(text)))
         } catch (_: SecurityException) {
             // Permission can be revoked between the preflight check and notify().
         }
@@ -133,34 +137,38 @@ class WearMeshForegroundService : Service() {
         )
     }
 
-    private fun buildNotification(activePeers: Int): Notification {
+    internal fun buildNotification(activePeers: Int): Notification {
         val launchIntent = PendingIntent.getActivity(
             this,
             0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText(
-                if (activePeers == 0) {
-                    getString(R.string.mesh_notification_no_peers)
-                } else {
-                    resources.getQuantityString(
-                        R.plurals.mesh_notification_text,
-                        activePeers,
-                        activePeers
-                    )
-                }
-            )
+            .setContentText(meshStatusText(activePeers))
             .setContentIntent(launchIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+        // setOngoing(true) alone does not create Wear's watch-face return affordance.
+        // Retain the activity and builder so peer changes update the same session.
+        ongoingActivity = OngoingActivity.Builder(this, NOTIFICATION_ID, notificationBuilder)
+            .setStaticIcon(R.drawable.ic_notification)
+            .setTouchIntent(launchIntent)
             .build()
+        ongoingActivity.apply(this)
+        return notificationBuilder.build()
     }
+
+    private fun meshStatusText(activePeers: Int): String =
+        if (activePeers == 0) {
+            getString(R.string.mesh_notification_no_peers)
+        } else {
+            resources.getQuantityString(R.plurals.mesh_notification_text, activePeers, activePeers)
+        }
 
     private fun canPostNotifications(): Boolean {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
