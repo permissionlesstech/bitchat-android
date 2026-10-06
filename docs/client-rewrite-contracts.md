@@ -36,6 +36,12 @@ randomization used by senders. Android caps outbound seal and gift-wrap
 randomization at 22h, leaving 2 hours of slack inside iOS's 24-hour
 subscription window, while retaining its 48-hour receive lookback.
 
+Bech32 byte decoding must reject nonzero discarded bits and a residual whole
+five-bit symbol. A valid checksum alone does not make byte padding canonical.
+Human-readable prefixes contain 1–83 characters; Nostr's extended data payloads
+are not subject to Bitcoin address length limits. `Bech32PaddingTest` pins these
+rules with literal checksum-valid positive and negative vectors.
+
 ## Rewrite acceptance gate
 
 From a configured Android development environment, run:
