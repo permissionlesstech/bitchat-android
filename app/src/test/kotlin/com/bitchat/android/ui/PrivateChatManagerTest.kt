@@ -207,12 +207,16 @@ class PrivateChatManagerTest {
     }
 
     @Test
-    fun `canonical conversation send does not require resolved nickname`() {
+    fun `canonical conversation send does not require resolved nickname`() = kotlinx.coroutines.runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        val dbName = "private-send-test.db"
+        val repository = com.bitchat.android.services.ConversationRepository(context, kotlinx.coroutines.Dispatchers.Unconfined, dbName, com.bitchat.android.services.InMemoryConversationStorageCipher())
+        AppStateStore.setConversationRepositoryForTest(repository)
         val conversationID =
             ContactIdentityResolver.contactConversationIdForNoiseKey(ByteArray(32) { 4 })
         var callbackInvoked = false
 
-        manager.sendPrivateMessage(
+        manager.sendPrivateMessageDurably(
             content = "hello",
             peerID = conversationID,
             recipientNickname = null,
@@ -225,6 +229,9 @@ class PrivateChatManagerTest {
             assertEquals("", nickname)
         }
 
+        AppStateStore.setConversationRepositoryForTest(null)
+        repository.closeForTest()
+        context.deleteDatabase(dbName)
         assertTrue(callbackInvoked)
         assertEquals(
             "hello",

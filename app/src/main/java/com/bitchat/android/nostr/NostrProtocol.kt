@@ -7,7 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * NIP-17 Protocol Implementation for Private Direct Messages
+ * Bitchat private-message envelopes using the legacy Bitchat DM codec
  * Compatible with iOS implementation
  */
 object NostrProtocol {
@@ -22,14 +22,14 @@ object NostrProtocol {
     fun createPrivateMessage(
         content: String,
         recipientPubkey: String,
-        senderIdentity: NostrIdentity
+        senderIdentity: NostrIdentity,
+        timestampMs: Long = System.currentTimeMillis()
     ): List<NostrEvent> {
-        Log.d(TAG, "Creating private message for recipient: ${recipientPubkey.take(16)}...")
         
         // 1. Create the rumor (unsigned kind 14) with p-tag
         val rumorBase = NostrEvent(
             pubkey = senderIdentity.publicKeyHex,
-            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            createdAt = (timestampMs / 1000).toInt(),
             kind = NostrKind.DIRECT_MESSAGE,
             tags = listOf(listOf("p", recipientPubkey)),
             content = content
@@ -50,7 +50,6 @@ object NostrProtocol {
             seal = sealedEvent,
             recipientPubkey = recipientPubkey
         )
-        Log.d(TAG, "Created gift wrap: toRecipient=${giftWrapToRecipient.id.take(16)}...")
         return listOf(giftWrapToRecipient)
     }
     
@@ -62,9 +61,10 @@ object NostrProtocol {
         giftWrap: NostrEvent,
         recipientIdentity: NostrIdentity
     ): Triple<String, String, Int>? {
-        Log.v(TAG, "Starting decryption of gift wrap: ${giftWrap.id.take(16)}...")
         
         return try {
+            if (giftWrap.kind != NostrKind.GIFT_WRAP || !giftWrap.isValidSignature() ||
+                giftWrap.tags.none { it.size >= 2 && it[0] == "p" && it[1] == recipientIdentity.publicKeyHex }) return null
             // 1. Unwrap the gift wrap
             val seal = unwrapGiftWrap(giftWrap, recipientIdentity.privateKeyHex)
                 ?: run {
@@ -72,7 +72,6 @@ object NostrProtocol {
                     return null
                 }
             
-            Log.v(TAG, "Successfully unwrapped gift wrap from: ${seal.pubkey.take(16)}...")
 
             if (seal.kind != NostrKind.SEAL || !seal.isValidSignature()) {
                 Log.w(TAG, "❌ Invalid NIP-17 seal signature")
@@ -91,11 +90,13 @@ object NostrProtocol {
                 return null
             }
 
+            if (rumor.kind != NostrKind.DIRECT_MESSAGE || rumor.id != rumor.computeEventIdHex() ||
+                rumor.tags.none { it.size >= 2 && it[0] == "p" && it[1] == recipientIdentity.publicKeyHex }) return null
             Log.v(TAG, "Successfully opened seal")
             
             Triple(rumor.content, rumor.pubkey, rumor.createdAt)
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to decrypt private message: ${e.message}")
+            Log.w(TAG, "Failed to decrypt private message")
             null
         }
     }
@@ -223,7 +224,7 @@ object NostrProtocol {
     ): NostrEvent {
         val rumorJSON = gson.toJson(rumor)
         
-        val encrypted = NostrCrypto.encryptNIP44(
+        val encrypted = NostrCrypto.encryptLegacyBitchatDm(
             plaintext = rumorJSON,
             recipientPublicKeyHex = recipientPubkey,
             senderPrivateKeyHex = senderPrivateKey
@@ -252,7 +253,7 @@ object NostrProtocol {
         Log.v(TAG, "Creating gift wrap with ephemeral key")
         
         // Encrypt the seal with the new ephemeral key
-        val encrypted = NostrCrypto.encryptNIP44(
+        val encrypted = NostrCrypto.encryptLegacyBitchatDm(
             plaintext = sealJSON,
             recipientPublicKeyHex = recipientPubkey,
             senderPrivateKeyHex = wrapPrivateKey
@@ -275,7 +276,7 @@ object NostrProtocol {
         recipientPrivateKey: String
     ): NostrEvent? {
         return try {
-            val decrypted = NostrCrypto.decryptNIP44(
+            val decrypted = NostrCrypto.decryptLegacyBitchatDm(
                 ciphertext = giftWrap.content,
                 senderPublicKeyHex = giftWrap.pubkey,
                 recipientPrivateKeyHex = recipientPrivateKey
@@ -301,7 +302,7 @@ object NostrProtocol {
             Log.v(TAG, "Unwrapped seal with kind: ${seal.kind}")
             seal
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to unwrap gift wrap: ${e.message}")
+            Log.w(TAG, "Failed to unwrap gift wrap")
             null
         }
     }
@@ -311,7 +312,7 @@ object NostrProtocol {
         recipientPrivateKey: String
     ): NostrEvent? {
         return try {
-            val decrypted = NostrCrypto.decryptNIP44(
+            val decrypted = NostrCrypto.decryptLegacyBitchatDm(
                 ciphertext = seal.content,
                 senderPublicKeyHex = seal.pubkey,
                 recipientPrivateKeyHex = recipientPrivateKey
@@ -334,7 +335,7 @@ object NostrProtocol {
                 sig = jsonObject.get("sig")?.asString
             )
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to open seal: ${e.message}")
+            Log.w(TAG, "Failed to open seal")
             null
         }
     }
@@ -352,7 +353,7 @@ object NostrProtocol {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse tags: ${e.message}")
+            Log.e(TAG, "Failed to parse tags")
             null
         }
     }

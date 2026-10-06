@@ -118,8 +118,8 @@ class GeohashViewModel(
         geoTimer?.cancel()
         geoTimer = null
         try { NostrIdentityBridge.clearAllAssociations(getApplication()) } catch (_: Exception) {}
-        NostrBackgroundRuntime.resetSubscriptions()
         try { com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication()).clearAllOnPanic() } catch (_: Exception) {}
+        NostrBackgroundRuntime.resetSubscriptions()
         try { com.bitchat.android.nostr.LocationNotesManager.getInstance().stop() } catch (_: Exception) {}
     }
 

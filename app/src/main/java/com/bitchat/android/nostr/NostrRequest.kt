@@ -96,6 +96,8 @@ sealed class NostrResponse {
     /**
      * EOSE response - end of stored events
      */
+    data class Closed(val subscriptionId: String) : NostrResponse()
+
     data class EndOfStoredEvents(
         val subscriptionId: String
     ) : NostrResponse()
@@ -141,6 +143,8 @@ sealed class NostrResponse {
                         }
                     }
                     
+                    "CLOSED" -> if (jsonArray.size() >= 2) Closed(jsonArray[1].asString) else Unknown(jsonArray.toString())
+
                     "EOSE" -> {
                         if (jsonArray.size() >= 2) {
                             val subscriptionId = jsonArray[1].asString

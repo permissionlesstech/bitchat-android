@@ -256,6 +256,8 @@ class ChatViewModel(
 
     private fun refreshConversationDirectoryState() {
         viewModelScope.launch {
+            dataManager.loadFavorites()
+            state.setFavoritePeers(dataManager.favoritePeers.toSet())
             refreshPeerFavoritedUs()
             conversationListPreferences.canonicalizeAliases()
             conversationDirectoryRevision.update { it + 1L }
@@ -438,12 +440,7 @@ class ChatViewModel(
         )
         // Mark queued private messages as failed when the router gives up on them
         try {
-            com.bitchat.android.services.MessageRouter.getInstance(getApplication(), mesh).onMessageExpired = { messageID ->
-                messageManager.updateMessageDeliveryStatus(
-                    messageID,
-                    com.bitchat.android.model.DeliveryStatus.Failed("Message expired before delivery")
-                )
-            }
+            com.bitchat.android.services.MessageRouter.getInstance(getApplication(), mesh)
         } catch (_: Exception) { }
         // Hydrate UI state from process-wide AppStateStore to survive Activity recreation
         viewModelScope.launch {
@@ -1009,18 +1006,13 @@ class ChatViewModel(
                         getApplication(),
                         mesh
                     )
-                    val route = router.sendPrivate(
+                    router.sendPrivate(
                         messageContent,
                         peerID,
                         recipientNicknameParam,
                         messageId
                     )
-                    if (route == com.bitchat.android.services.MessageRouter.RouteResult.NOSTR) {
-                        messageManager.updateMessageDeliveryStatus(
-                            messageId,
-                            com.bitchat.android.model.DeliveryStatus.Sent
-                        )
-                    }
+
                 }
                 onAccepted(accepted)
             }
@@ -1079,53 +1071,31 @@ class ChatViewModel(
     }
     
     fun toggleFavorite(peerID: String) {
-        Log.d("ChatViewModel", "toggleFavorite called for peerID: $peerID")
-        privateChatManager.toggleFavorite(peerID)
-
-        // Persist relationship in FavoritesPersistenceService
-        try {
-            var noiseKey: ByteArray? = null
-            var nickname: String = mesh.getPeerNicknames()[peerID] ?: peerID
-
-            val peerInfo = mesh.getPeerInfo(peerID)
-            if (peerInfo?.noisePublicKey != null) {
-                noiseKey = peerInfo.noisePublicKey
-                nickname = peerInfo.nickname
-            } else if (ContactIdentityResolver.isNoiseKeyHex(peerID)) {
-                noiseKey = ContactIdentityResolver.bytesFromHex(peerID)
-                val rel = noiseKey?.let {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(it)
+        viewModelScope.launch {
+            val contact = ContactDirectory.resolve(peerID)
+            val key = contact.noisePublicKey
+            if (key == null) {
+                // Preserve legacy fingerprint-only favorites until authenticated key exchange.
+                privateChatManager.toggleFavorite(peerID)
+                return@launch
+            }
+            try {
+                withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val favorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                    val wasFavorite = favorites.getFavoriteStatus(key)?.isFavorite
+                        ?: dataManager.isFavorite(ContactIdentityResolver.fingerprintHex(key))
+                    favorites.updateFavoriteStatus(key, contact.displayName ?: "Contact", !wasFavorite)
                 }
-                if (rel != null) nickname = rel.peerNickname
-            } else {
-                val contact = ContactDirectory.resolve(peerID)
-                noiseKey = contact.noisePublicKey
-                contact.displayName?.let { nickname = it }
+                dataManager.loadFavorites()
+                state.setFavoritePeers(dataManager.favoritePeers.toSet())
+                com.bitchat.android.services.PrivateDeliveryCoordinator.getInstance(getApplication()).wake()
+            } catch (_: Exception) {
+                // Keep the previous visible state when durable intent cannot be saved.
+                Log.w("ChatViewModel", "Unable to save favorite change")
             }
-
-            if (noiseKey != null) {
-                val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(getApplication())
-                val fingerprint = identityManager.generateFingerprint(noiseKey!!)
-                val isNowFavorite = dataManager.favoritePeers.contains(fingerprint)
-
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateFavoriteStatus(
-                    noisePublicKey = noiseKey!!,
-                    nickname = nickname,
-                    isFavorite = isNowFavorite
-                )
-
-                try {
-                    com.bitchat.android.services.MessageRouter
-                        .getInstance(getApplication(), mesh)
-                        .sendFavoriteNotification(peerID, isNowFavorite)
-                } catch (_: Exception) { }
-            }
-        } catch (_: Exception) { }
-
-        // Log current state after toggle
-        logCurrentFavoriteState()
+        }
     }
-    
+
     private fun refreshPeerFavoritedUs() {
         try {
             val fingerprints = com.bitchat.android.favorites.FavoritesPersistenceService.shared

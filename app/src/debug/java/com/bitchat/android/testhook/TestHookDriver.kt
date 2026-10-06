@@ -70,6 +70,9 @@ object TestHookDriver {
             "broadcast_msg" -> broadcastMsg(context, intent.requiredString("content"), intent.getStringExtra("channel"))
             "dm_send" -> dmSend(context, intent.requiredString("peer"), intent.requiredString("content"), intent.getStringExtra("msg_id"))
             "dm_recv" -> dmRecv(context, intent)
+            "nostr_fixture" -> nostrFixture(context, intent)
+            "routed_dm_send" -> routedDmSend(context, intent)
+            "routed_dm_wait" -> routedDmWait(context, intent)
             "msg_recv" -> msgRecv(context, intent)
             "favorite_set" -> favoriteSet(
                 context,
@@ -241,6 +244,53 @@ object TestHookDriver {
         val id = msgID ?: "testhook-${System.currentTimeMillis()}"
         mesh.sendPrivateMessage(content, peerID, nickname, id)
         return ok("dm_send").put("peer", peerID).put("msg_id", id)
+    }
+
+    private fun nostrFixture(context: Context, intent: Intent): JSONObject {
+        val port = intent.getIntExtra("port", 8765)
+        require(port in 1024..65535)
+        val manager = com.bitchat.android.nostr.NostrRelayManager.getInstance(context)
+        manager.clearAllSubscriptions()
+        manager.configureAccountRelays(listOf("ws://127.0.0.1:$port"))
+        com.bitchat.android.nostr.NostrBackgroundRuntime.resetSubscriptions()
+        if (intent.getBooleanExtra("offline_mesh", false)) mesh(context).stopServices()
+        com.bitchat.android.services.PrivateDeliveryCoordinator.getInstance(context).bindMesh(mesh(context))
+        return ok("nostr_fixture")
+    }
+
+    private suspend fun routedDmSend(context: Context, intent: Intent): JSONObject {
+        val peer = intent.requiredString("peer")
+        val service = mesh(context)
+        val conversation = com.bitchat.android.services.ContactDirectory.canonicalConversationId(peer)
+        val message = com.bitchat.android.model.BitchatMessage(
+            id = intent.requiredString("msg_id"), sender = "Lab sender", content = intent.requiredString("content"),
+            timestamp = java.util.Date(), isPrivate = true, senderPeerID = service.myPeerID,
+            deliveryStatus = com.bitchat.android.model.DeliveryStatus.Sending)
+        if (!AppStateStore.addPrivateMessageDurably(conversation, message, forceRead = true, queueForDelivery = true)) {
+            return err("routed_dm_send", "durable admission failed")
+        }
+        com.bitchat.android.services.MessageRouter.getInstance(context, service)
+            .sendPrivate(message.content, conversation, "Lab contact", message.id)
+        return ok("routed_dm_send")
+    }
+
+    private suspend fun routedDmWait(context: Context, intent: Intent): JSONObject {
+        val conversation = com.bitchat.android.services.ContactDirectory.canonicalConversationId(intent.requiredString("peer"))
+        val wireID = intent.requiredString("msg_id")
+        val delivered = intent.getBooleanExtra("delivered", false)
+        val published = intent.getBooleanExtra("published", false)
+        val id = if (delivered || published) wireID else AppStateStore.incomingLocalID(conversation, wireID)
+        val repository = com.bitchat.android.services.ConversationRepository.getInstance(context)
+        val found = withTimeoutOrNull(intent.getLongExtra("timeout_ms", 90_000)) {
+            while (true) {
+                val message = repository.storedMessage(conversation, id)
+                if (message != null && (!published || message.deliveryStatus == com.bitchat.android.model.DeliveryStatus.Sent) && (!delivered || message.deliveryStatus is com.bitchat.android.model.DeliveryStatus.Delivered ||
+                        message.deliveryStatus is com.bitchat.android.model.DeliveryStatus.Read)) return@withTimeoutOrNull message
+                delay(100)
+            }
+            @Suppress("UNREACHABLE_CODE") null
+        } ?: return err("routed_dm_wait", "message or authenticated receipt did not arrive")
+        return ok("routed_dm_wait").put("content", found.content)
     }
 
     private suspend fun dmRecv(context: Context, intent: Intent): JSONObject {

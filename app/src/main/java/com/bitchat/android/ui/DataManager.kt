@@ -158,8 +158,14 @@ class DataManager(private val context: Context) {
     
     fun loadFavorites() {
         val savedFavorites = prefs.getStringSet("favorites", emptySet()) ?: emptySet()
+        _favoritePeers.clear()
         _favoritePeers.addAll(savedFavorites)
-        Log.d(TAG, "Loaded ${savedFavorites.size} favorite users from storage: $savedFavorites")
+        runCatching {
+            com.bitchat.android.favorites.FavoritesPersistenceService.shared.getAllRelationships().forEach { relationship ->
+                val fingerprint = com.bitchat.android.services.ContactIdentityResolver.fingerprintHex(relationship.peerNoisePublicKey)
+                if (relationship.isFavorite) _favoritePeers.add(fingerprint) else _favoritePeers.remove(fingerprint)
+            }
+        }
     }
     
     fun saveFavorites() {

@@ -13,8 +13,8 @@ data class FavoriteControlMessage(
         fun parse(content: String): FavoriteControlMessage? {
             val trimmed = content.trim()
             val isFavorite = when {
-                trimmed.startsWith(FAVORITED) -> true
-                trimmed.startsWith(UNFAVORITED) -> false
+                (trimmed == FAVORITED || trimmed.startsWith("$FAVORITED:")) -> true
+                (trimmed == UNFAVORITED || trimmed.startsWith("$UNFAVORITED:")) -> false
                 else -> return null
             }
             val encodedKey = trimmed.substringAfter(":", "").trim()

@@ -255,7 +255,10 @@ class MeshDelegateHandler(
             )
             // UI focus is the source of truth for local read state. Transport acceptance is a
             // separate fact and may remain retryable when the peer disconnects.
-            try { markMessageReadLocally(message.id) } catch (_: Exception) { }
+            try {
+                markMessageReadLocally(message.id)
+                com.bitchat.android.services.MessageRouter.tryGetInstance()?.queueReadReceipt(message, senderConversationID!!)
+            } catch (_: Exception) { }
 
             val nickname = state.getNicknameValue().ifBlank { "unknown" }
             val mesh = getMeshService()
@@ -268,7 +271,7 @@ class MeshDelegateHandler(
                     mesh.getPeerInfo(meshPeerID)?.isConnected == true &&
                     mesh.hasEstablishedSession(meshPeerID)
                 ) {
-                    mesh.sendReadReceipt(message.id, meshPeerID, nickname)
+                    mesh.sendReadReceipt(message.wireMessageID ?: message.id, meshPeerID, nickname)
                 }
             } catch (_: Exception) { }
 

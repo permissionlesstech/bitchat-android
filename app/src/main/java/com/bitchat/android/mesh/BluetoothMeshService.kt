@@ -484,6 +484,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             // Callbacks
+            override suspend fun isPrivateMessageStored(message: BitchatMessage): Boolean =
+                com.bitchat.android.services.AppStateStore.isIncomingPrivateStored(message)
+
             override fun onMessageReceived(message: BitchatMessage) {
                 // Private-message admission is authoritative. In particular, do not forward a
                 // callback or notify after panic mode rejected the message while wiping state.
@@ -493,7 +496,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 ) return
 
                 // And forward to UI delegate if attached
-                delegate?.didReceiveMessage(message)
+                delegate?.didReceiveMessage(com.bitchat.android.services.IncomingMessageAdmission.forDisplay(message))
 
                 // If no UI delegate attached (app closed), show DM notification via service manager
                 if (delegate == null && message.isPrivate && message.sender != "system") {
@@ -516,22 +519,16 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
                 // Status events can arrive while MainActivity has detached the UI delegate.
                 // Persist first so the next UI collector observes the advancement.
-                try {
-                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
-                        messageID,
-                        com.bitchat.android.model.DeliveryStatus.Delivered(peerID, Date())
-                    )
-                } catch (_: Exception) { }
+                if (!kotlinx.coroutines.runBlocking {
+                        com.bitchat.android.services.AppStateStore.acknowledgePrivateReceipt(peerID, messageID, false)
+                    }) return
                 delegate?.didReceiveDeliveryAck(messageID, peerID)
             }
             
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
-                try {
-                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
-                        messageID,
-                        com.bitchat.android.model.DeliveryStatus.Read(peerID, Date())
-                    )
-                } catch (_: Exception) { }
+                if (!kotlinx.coroutines.runBlocking {
+                        com.bitchat.android.services.AppStateStore.acknowledgePrivateReceipt(peerID, messageID, true)
+                    }) return
                 delegate?.didReceiveReadReceipt(messageID, peerID)
             }
 

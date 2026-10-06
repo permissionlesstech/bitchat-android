@@ -10,6 +10,7 @@ import com.bitchat.android.services.ContactIdentityResolver
 
 import java.util.*
 import android.util.Log
+import kotlinx.coroutines.*
 
 /**
  * Interface for Noise session operations needed by PrivateChatManager
@@ -41,6 +42,7 @@ class PrivateChatManager(
 
     companion object {
         private const val TAG = "PrivateChatManager"
+        private val deliveryScope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     }
 
     private val fingerprintManager = PeerFingerprintManager.getInstance()
@@ -105,32 +107,10 @@ class PrivateChatManager(
         myPeerID: String,
         onSendMessage: (String, String, String, String) -> Unit
     ): Boolean {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
-        if (isPeerBlocked(peerID)) {
-            val systemMessage = BitchatMessage(
-                sender = "system",
-                content = "cannot send message to $recipientNickname: user is blocked.",
-                timestamp = Date(),
-                isRelay = false
-            )
-            messageManager.addMessage(systemMessage)
-            return false
+        if (isPeerBlocked(peerID)) return false
+        deliveryScope.launch {
+            sendPrivateMessageDurably(content, peerID, recipientNickname, senderNickname, myPeerID, onSendMessage)
         }
-
-        val message = BitchatMessage(
-            sender = senderNickname ?: myPeerID,
-            content = content,
-            timestamp = Date(),
-            isRelay = false,
-            isPrivate = true,
-            recipientNickname = recipientNickname,
-            senderPeerID = myPeerID,
-            deliveryStatus = DeliveryStatus.Sending
-        )
-
-        messageManager.addPrivateMessage(conversationID, message)
-        onSendMessage(content, conversationID, recipientNickname ?: "", message.id)
-
         return true
     }
 
@@ -504,10 +484,11 @@ class PrivateChatManager(
                     Log.w(TAG, "Failed to persist local read for message ${msg.id}: ${e.message}")
                 }
             }
-            if (isFromTarget && meshPeerID != null && !hasReadReceiptBeenSent(msg.id)) {
+            if (isFromTarget && msg.sender != "system" && !hasReadReceiptBeenSent(msg.id)) {
                 try {
+                    com.bitchat.android.services.MessageRouter.tryGetInstance()?.queueReadReceipt(msg, canonicalConversationID)
                     if (hasMesh) {
-                        meshService.sendReadReceipt(msg.id, meshPeerID, myNickname)
+                        meshService.sendReadReceipt(msg.wireMessageID ?: msg.id, meshPeerID!!, myNickname)
                         sentCount += 1
                     }
                 } catch (e: Exception) {

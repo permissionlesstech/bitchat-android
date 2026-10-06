@@ -65,6 +65,7 @@ class UnifiedMeshService(
         }
         startAnnouncementScheduler()
         refreshDelegates()
+        com.bitchat.android.services.PrivateDeliveryCoordinator.getInstance(context).bindMesh(this)
     }
 
     override fun stopServices() {

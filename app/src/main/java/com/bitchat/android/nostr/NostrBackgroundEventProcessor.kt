@@ -1,16 +1,11 @@
 package com.bitchat.android.nostr
 
 import android.app.Application
-import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
-import com.bitchat.android.ui.MessageManager
-import com.bitchat.android.ui.NoiseSessionDelegate
-import com.bitchat.android.ui.PrivateChatManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * Process-owned Nostr event processing.
@@ -32,19 +27,7 @@ internal class NostrBackgroundEventProcessor(
         loadBlockedUsers()
         loadGeohashBlockedUsers()
     }
-    private val messageManager = MessageManager(state)
     private val geohashRepository = GeohashRepository(application, state, dataManager)
-    private val privateChatManager = PrivateChatManager(
-        state = state,
-        messageManager = messageManager,
-        dataManager = dataManager,
-        noiseSessionDelegate = object : NoiseSessionDelegate {
-            override fun hasEstablishedSession(peerID: String): Boolean = false
-            override fun initiateHandshake(peerID: String) = Unit
-            override fun getMyPeerID(): String = ""
-        },
-        trackUnreadMessages = false
-    )
     private val geohashMessageHandler = GeohashMessageHandler(
         application = application,
         repo = geohashRepository,
@@ -52,29 +35,11 @@ internal class NostrBackgroundEventProcessor(
         dataManager = dataManager,
         addChannelMessage = AppStateStore::addChannelMessage
     )
-    private val directMessageHandler = NostrDirectMessageHandler(
-        application = application,
-        state = state,
-        privateChatManager = privateChatManager,
-        updateDeliveryStatus = ::updateDeliveryStatus,
-        scope = scope,
-        repo = geohashRepository,
-        dataManager = dataManager
-    )
+    private val directMessageHandler = NostrDirectMessageHandler(application, scope,
+        displayName = geohashRepository::displayNameForNostrPubkeyUI)
 
-    init {
-        // Keep the headless state aligned with messages sent or received through other transports.
-        // This preserves duplicate detection and focused-conversation behavior without retaining UI.
-        scope.launch {
-            AppStateStore.privateMessages.collect(state::setPrivateChats)
-        }
-        scope.launch {
-            AppStateStore.nickname.collect(state::setNickname)
-        }
-        scope.launch {
-            AppStateStore.selectedPrivateChatPeer.collect(state::setSelectedPrivateChatPeer)
-        }
-    }
+    suspend fun processAccountDm(event: NostrEvent, identity: NostrIdentity, token: Long?): Boolean =
+        directMessageHandler.process(event, "", identity, token)
 
     fun onAccountDm(event: NostrEvent, identity: NostrIdentity) {
         refreshBlockLists()
@@ -100,13 +65,6 @@ internal class NostrBackgroundEventProcessor(
 
     fun displayNameForGeohashConversation(pubkeyHex: String, sourceGeohash: String): String =
         geohashRepository.displayNameForGeohashConversation(pubkeyHex, sourceGeohash)
-
-    private fun updateDeliveryStatus(messageId: String, status: DeliveryStatus) {
-        messageManager.updateMessageDeliveryStatus(messageId, status)
-        // The headless state may not yet contain a just-sent UI message. Update the process store
-        // unconditionally so a delivery/read receipt can never be lost during Activity handoff.
-        AppStateStore.updatePrivateMessageStatus(messageId, status)
-    }
 
     private fun refreshBlockLists() {
         dataManager.loadBlockedUsers()

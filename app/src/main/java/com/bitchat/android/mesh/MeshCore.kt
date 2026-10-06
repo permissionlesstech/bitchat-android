@@ -401,9 +401,12 @@ class MeshCore(
                 return delegate?.decryptChannelMessage(encryptedContent, channel)
             }
 
+            override suspend fun isPrivateMessageStored(message: BitchatMessage): Boolean =
+                com.bitchat.android.services.AppStateStore.isIncomingPrivateStored(message)
+
             override fun onMessageReceived(message: BitchatMessage) {
                 if (hooks.onMessageReceived?.invoke(message) == false) return
-                delegate?.didReceiveMessage(message)
+                delegate?.didReceiveMessage(com.bitchat.android.services.IncomingMessageAdmission.forDisplay(message))
             }
 
             override fun onChannelLeave(channel: String, fromPeer: String) {
@@ -411,22 +414,16 @@ class MeshCore(
             }
 
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
-                try {
-                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
-                        messageID,
-                        com.bitchat.android.model.DeliveryStatus.Delivered(peerID, java.util.Date())
-                    )
-                } catch (_: Exception) { }
+                if (!kotlinx.coroutines.runBlocking {
+                        com.bitchat.android.services.AppStateStore.acknowledgePrivateReceipt(peerID, messageID, false)
+                    }) return
                 delegate?.didReceiveDeliveryAck(messageID, peerID)
             }
 
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
-                try {
-                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
-                        messageID,
-                        com.bitchat.android.model.DeliveryStatus.Read(peerID, java.util.Date())
-                    )
-                } catch (_: Exception) { }
+                if (!kotlinx.coroutines.runBlocking {
+                        com.bitchat.android.services.AppStateStore.acknowledgePrivateReceipt(peerID, messageID, true)
+                    }) return
                 delegate?.didReceiveReadReceipt(messageID, peerID)
             }
 
