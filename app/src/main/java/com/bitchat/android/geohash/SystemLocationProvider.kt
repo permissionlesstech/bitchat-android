@@ -85,6 +85,11 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
 
     @SuppressLint("MissingPermission")
     override fun requestFreshLocation(callback: (Location?) -> Unit) {
+        requestFreshLocation(SystemClock.elapsedRealtime() + FRESH_LOCATION_TIMEOUT_MS, callback)
+    }
+
+    // Fused fallback shares the original deadline instead of starting another 30-second budget.
+    fun requestFreshLocation(deadlineElapsedRealtime: Long, callback: (Location?) -> Unit) {
         if (!hasLocationPermission()) {
             callback(null)
             return
@@ -96,7 +101,7 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
                 LocationManager.GPS_PROVIDER,
                 LocationManager.NETWORK_PROVIDER
             ),
-            deadlineElapsedRealtime = SystemClock.elapsedRealtime() + FRESH_LOCATION_TIMEOUT_MS
+            deadlineElapsedRealtime = deadlineElapsedRealtime
         )
 
         synchronized(activeOneShotRequests) {
@@ -354,7 +359,9 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
         } ?: return
 
         releaseOneShotResources(resources)
-        request.callback(location.takeIf { hasLocationPermission() })
+        request.callback(location.takeIf {
+            SystemClock.elapsedRealtime() < request.deadlineElapsedRealtime && hasLocationPermission()
+        })
     }
 
     private fun releaseOneShotResources(resources: OneShotResources) {
@@ -458,4 +465,3 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
         Log.d(TAG, "Cancelled all system location requests")
     }
 }
-

@@ -5,29 +5,36 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.*
 import com.google.android.gms.tasks.CancellationTokenSource
 
-internal class FusedLocationProvider(private val context: Context) : LocationProvider {
+internal class FusedLocationProvider(
+    private val context: Context,
+    private val fusedLocationClient: FusedLocationProviderClient =
+        LocationServices.getFusedLocationProviderClient(context),
+    private val systemFallback: SystemLocationProvider = SystemLocationProvider(context)
+) : LocationProvider {
 
     companion object {
         private const val TAG = "FusedLocationProvider"
+        private const val FRESH_LOCATION_TIMEOUT_MS = 30_000L
     }
 
-    private val fusedLocationClient: FusedLocationProviderClient =
-        LocationServices.getFusedLocationProviderClient(context)
-    private val systemFallback = SystemLocationProvider(context)
+    private val handler = Handler(Looper.getMainLooper())
 
     private val activeCallbacks = mutableMapOf<(Location) -> Unit, UpdateRegistration>()
     private val activeOneShotRequests = mutableSetOf<PendingOneShot>()
     private val activeLastKnownRequests = mutableSetOf<PendingLastKnown>()
 
-    private class PendingOneShot {
+    private class PendingOneShot(val deadlineElapsedRealtime: Long) {
         val cancellation = CancellationTokenSource()
         var fallbackStarted = false
+        var timeoutRunnable: Runnable? = null
     }
 
     private class PendingLastKnown {
@@ -135,15 +142,23 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
             return
         }
 
-        val pending = PendingOneShot()
+        val pending = PendingOneShot(SystemClock.elapsedRealtime() + FRESH_LOCATION_TIMEOUT_MS)
+        val timeout = Runnable { completeOneShot(pending, callback, null) }
+        pending.timeoutRunnable = timeout
         synchronized(activeOneShotRequests) {
             activeOneShotRequests += pending
+            handler.postDelayed(timeout, maxOf(0L, pending.deadlineElapsedRealtime - SystemClock.elapsedRealtime()))
         }
 
         try {
+            val remainingMs = pending.deadlineElapsedRealtime - SystemClock.elapsedRealtime()
+            if (remainingMs <= 0L) {
+                completeOneShot(pending, callback, null)
+                return
+            }
             val request = CurrentLocationRequest.Builder()
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-                .setDurationMillis(30_000L)
+                .setDurationMillis(remainingMs)
                 .build()
 
             fusedLocationClient.getCurrentLocation(request, pending.cancellation.token)
@@ -179,13 +194,12 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
                 return
             }
 
-            if (!hasLocationPermission()) {
-                activeOneShotRequests.remove(pending)
+            if (!hasLocationPermission() || SystemClock.elapsedRealtime() >= pending.deadlineElapsedRealtime) {
                 deliverNull = true
             } else if (!pending.fallbackStarted) {
                 pending.fallbackStarted = true
                 try {
-                    systemFallback.requestFreshLocation { location ->
+                    systemFallback.requestFreshLocation(pending.deadlineElapsedRealtime) { location ->
                         completeOneShot(pending, callback, location)
                     }
                 } catch (e: Exception) {
@@ -196,7 +210,7 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
         }
 
         when {
-            deliverNull -> callback(null)
+            deliverNull -> completeOneShot(pending, callback, null)
             fallbackStartFailed -> completeOneShot(pending, callback, null)
         }
     }
@@ -210,7 +224,11 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
             activeOneShotRequests.remove(pending)
         }
         if (shouldDeliver) {
-            callback(location.takeIf { hasLocationPermission() })
+            pending.timeoutRunnable?.let(handler::removeCallbacks)
+            pending.cancellation.cancel()
+            callback(location.takeIf {
+                SystemClock.elapsedRealtime() < pending.deadlineElapsedRealtime && hasLocationPermission()
+            })
         }
     }
 
@@ -338,9 +356,12 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
                 .onFailure { Log.w(TAG, "Unable to remove fused updates", it) }
         }
 
-        synchronized(activeOneShotRequests) {
-            activeOneShotRequests.forEach { it.cancellation.cancel() }
-            activeOneShotRequests.clear()
+        val oneShotRequests = synchronized(activeOneShotRequests) {
+            activeOneShotRequests.toList().also { activeOneShotRequests.clear() }
+        }
+        oneShotRequests.forEach { pending ->
+            pending.timeoutRunnable?.let(handler::removeCallbacks)
+            pending.cancellation.cancel()
         }
         synchronized(activeLastKnownRequests) {
             activeLastKnownRequests.clear()
@@ -350,4 +371,3 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
         Log.d(TAG, "Cancelled all fused location requests")
     }
 }
-
