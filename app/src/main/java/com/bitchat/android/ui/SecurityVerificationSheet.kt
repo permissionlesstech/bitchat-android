@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
@@ -193,10 +194,10 @@ private fun buildStatusInfo(
         else -> Icons.Outlined.NoEncryption
     }
     val tint = when {
-        isVerified -> Color(0xFF32D74B)
-        sessionState == "failed" -> Color(0xFFFF3B30)
-        sessionState == "handshaking" -> Color(0xFFFF9500)
-        sessionState == "established" -> Color(0xFF32D74B)
+        isVerified -> MaterialTheme.colorScheme.primary
+        sessionState == "failed" -> MaterialTheme.colorScheme.error
+        sessionState == "handshaking" -> LocalBitchatPalette.current.accentOrange
+        sessionState == "established" -> MaterialTheme.colorScheme.primary
         else -> accent.copy(alpha = 0.6f)
     }
     return SecurityStatusInfo(text, icon, tint)
@@ -273,9 +274,9 @@ private fun SecurityVerificationActions(
     if (isVerified) {
         VerificationStatusRow(
             icon = Icons.Filled.Verified,
-            iconTint = Color(0xFF32D74B),
+            iconTint = MaterialTheme.colorScheme.primary,
             text = stringResource(R.string.fingerprint_verified_label),
-            textTint = Color(0xFF32D74B)
+            textTint = MaterialTheme.colorScheme.primary
         )
         Text(
             text = stringResource(R.string.fingerprint_verified_message),
@@ -289,8 +290,8 @@ private fun SecurityVerificationActions(
         Button(
             onClick = { fingerprint?.let(onUnverify) },
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFFF3B30),
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError
             ),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -303,9 +304,9 @@ private fun SecurityVerificationActions(
     } else {
         VerificationStatusRow(
             icon = Icons.Filled.Warning,
-            iconTint = Color(0xFFFF9500),
+            iconTint = LocalBitchatPalette.current.accentOrange,
             text = stringResource(R.string.fingerprint_not_verified_label),
-            textTint = Color(0xFFFF9500)
+            textTint = LocalBitchatPalette.current.accentOrange
         )
         Text(
             text = stringResource(R.string.fingerprint_not_verified_message_fmt, displayName),
@@ -320,8 +321,8 @@ private fun SecurityVerificationActions(
             Button(
                 onClick = { onVerify(fingerprint) },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF34C759),
-                    contentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -425,7 +426,7 @@ private fun FingerprintBlock(
             Text(
                 text = stringResource(R.string.fingerprint_pending),
                 style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BitchatFontFamily),
-                color = Color(0xFFFF9500),
+                color = LocalBitchatPalette.current.accentOrange,
                 modifier = Modifier.padding(16.dp)
             )
         }

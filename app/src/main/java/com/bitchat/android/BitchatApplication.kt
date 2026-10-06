@@ -51,6 +51,9 @@ class BitchatApplication : Application() {
         // Initialize chat UI mode (matrix transcript vs bubbles)
         com.bitchat.android.ui.theme.ChatUiModeManager.init(this)
 
+        // Initialize transcript clock settings (12/24-hour, seconds)
+        com.bitchat.android.ui.theme.TimeFormatPreferenceManager.init(this)
+
         // Initialize debug preference manager (persists debug toggles)
         try { com.bitchat.android.ui.debug.DebugPreferenceManager.init(this) } catch (_: Exception) { }
 

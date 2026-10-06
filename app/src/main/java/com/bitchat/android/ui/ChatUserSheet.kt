@@ -112,7 +112,7 @@ fun ChatUserSheet(
                                         // Mesh chat
                                         val peerID = selectedMessage?.senderPeerID ?: viewModel.getPeerIDForNickname(targetNickname)
                                         if (peerID != null) {
-                                            viewModel.showPrivateChatSheet(peerID)
+                                            viewModel.openPrivateChat(peerID)
                                         }
                                     }
                                     onDismiss()
