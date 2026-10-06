@@ -241,9 +241,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 displayName to PeerIdentity.nostr(person.id)
             }
         } else {
+            val duplicateNames = duplicateMeshBaseNames(peerNicknames)
             connectedPeers.mapNotNull { peerID ->
                 peerNicknames[peerID]?.let { displayName ->
-                    displayName to PeerIdentity.mesh(peerID)
+                    disambiguatedMeshDisplayName(peerID, displayName, duplicateNames) to
+                        PeerIdentity.mesh(peerID)
                 }
             }
         }
