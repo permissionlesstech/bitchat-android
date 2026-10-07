@@ -171,18 +171,39 @@ class BluetoothConnectionTracker(
     }
     
     /**
-     * Add a subscribed device
+     * Subscribe a device to broadcast notifications.
+     *
+     * Idempotent by address: a peer may rewrite the notification descriptor as
+     * often as it likes, and each extra entry here would notify that address one
+     * more time for every broadcast the mesh produces. Returns true only when
+     * the device was not already subscribed, so callers can keep peer-connect
+     * side effects tied to an actual new subscription.
      */
-    fun addSubscribedDevice(device: BluetoothDevice) {
-        subscribedDevices.add(device)
-    }
+    fun addSubscribedDevice(device: BluetoothDevice): Boolean =
+        synchronized(connectionStateLock) {
+            if (subscribedDevices.any { it.address == device.address }) {
+                false
+            } else {
+                subscribedDevices.add(device)
+                true
+            }
+        }
     
     /**
-     * Remove a subscribed device
+     * Remove a subscribed device. Matches on address, like the connection
+     * cleanup paths, so an entry cannot outlive an unsubscribe because the
+     * framework handed us a different BluetoothDevice instance for the same
+     * address.
      */
     fun removeSubscribedDevice(device: BluetoothDevice) {
-        subscribedDevices.remove(device)
+        synchronized(connectionStateLock) {
+            subscribedDevices.removeAll { it.address == device.address }
+        }
     }
+
+    /** Whether this address currently receives broadcast notifications. */
+    fun isSubscribed(deviceAddress: String): Boolean =
+        subscribedDevices.any { it.address == deviceAddress }
     
     /**
      * Check if device is already connected
