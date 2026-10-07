@@ -183,11 +183,12 @@ class FragmentManagerTest {
     }
 
     @Test
-    fun `inbound fragment set above 256 is rejected`() {
+    fun `inbound fragment set above the per-stream ceiling is rejected`() {
+        val maxFragments = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID
         val payload = FragmentPayload(
             fragmentID = ByteArray(8) { 1 },
             index = 0,
-            total = 257,
+            total = maxFragments + 1,
             originalType = MessageType.NOISE_ENCRYPTED.value,
             data = byteArrayOf(1)
         ).encode()
