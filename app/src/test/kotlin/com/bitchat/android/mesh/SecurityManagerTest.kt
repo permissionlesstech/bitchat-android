@@ -564,6 +564,64 @@ class SecurityManagerTest {
         assertTrue(fakeEncryptionService.handshakeCalls == 2)
     }
 
+    @Test
+    fun `RSR does not change acceptance of an old signed public message`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val packet = BitchatPacket(
+            type = MessageType.MESSAGE.value, ttl = 0u,
+            senderID = otherPeerID, payload = dummyPayload
+        ).copy(timestamp = (System.currentTimeMillis() - 3_600_000L).toULong(), signature = validSignature)
+        for (marked in listOf(false, true)) {
+            val receiver = SecurityManager(fakeEncryptionService, myPeerID)
+            receiver.delegate = mockDelegate
+            try {
+                assertTrue(receiver.validatePacket(packet.copy(isRSR = marked), otherPeerID))
+            } finally {
+                receiver.shutdown()
+            }
+        }
+    }
+
+    @Test
+    fun `RSR does not exempt an expired signed leave`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val packet = BitchatPacket(
+            type = MessageType.LEAVE.value, ttl = 0u,
+            senderID = otherPeerID, payload = dummyPayload
+        ).copy(timestamp = (System.currentTimeMillis() - 3_600_000L).toULong(), signature = validSignature)
+        for (marked in listOf(false, true)) {
+            val receiver = SecurityManager(fakeEncryptionService, myPeerID)
+            receiver.delegate = mockDelegate
+            try {
+                assertFalse(receiver.validatePacket(packet.copy(isRSR = marked), otherPeerID))
+            } finally {
+                receiver.shutdown()
+            }
+        }
+    }
+
+    @Test
+    fun `RSR does not exempt an expired signed announcement`() {
+        val announcement = IdentityAnnouncement("Synthetic", otherNoiseKey, otherSigningKey)
+        val packet = BitchatPacket(
+            type = MessageType.ANNOUNCE.value, ttl = 0u,
+            senderID = unknownPeerID, payload = announcement.encode()!!
+        ).copy(signature = validSignature)
+        for (marked in listOf(false, true)) {
+            val receiver = SecurityManager(fakeEncryptionService, myPeerID)
+            receiver.delegate = mockDelegate
+            try {
+                assertTrue(receiver.validatePacket(packet.copy(isRSR = marked), unknownPeerID))
+                assertFalse(receiver.validatePacket(packet.copy(
+                    isRSR = marked,
+                    timestamp = (System.currentTimeMillis() - 3_600_000L).toULong()
+                ), unknownPeerID))
+            } finally {
+                receiver.shutdown()
+            }
+        }
+    }
+
     private fun setupKnownPeer(peerID: String, signingKey: ByteArray) {
         val info = PeerInfo(
             id = peerID,

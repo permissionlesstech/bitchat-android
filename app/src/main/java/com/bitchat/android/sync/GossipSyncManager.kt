@@ -26,7 +26,7 @@ class GossipSyncManager(
     }
 
     interface ConfigProvider {
-        fun seenCapacity(): Int // max packets we sync per request (cap across types)
+        fun seenCapacity(): Int // cap per archive and on the combined request-filter candidates
         fun gcsMaxBytes(): Int
         fun gcsTargetFpr(): Double // percent -> 0.0..1.0
     }
@@ -188,8 +188,12 @@ class GossipSyncManager(
             val (id, pkt) = pair
             val idBytes = hexToBytes(id)
             if (!mightContain(idBytes)) {
-                // Send original packet unchanged to requester only (keep local TTL)
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                // Copy the archived announcement with TTL=0 and RSR set.
+                // The receiver's policy determines whether older timestamps are eligible.
+                val toSend = pkt.copy(
+                    ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS,
+                    isRSR = true
+                )
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
                 Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
@@ -200,7 +204,10 @@ class GossipSyncManager(
         for (pkt in toSendMsgs) {
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
             if (!mightContain(idBytes)) {
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                val toSend = pkt.copy(
+                    ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS,
+                    isRSR = true
+                )
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
                 Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
             }

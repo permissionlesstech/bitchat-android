@@ -86,6 +86,42 @@ class ClientRewriteWireContractTest {
     }
 
     @Test
+    fun `v1 sync response matches literal flag bytes`() {
+        val expected = hex("01020001020304050607081000031011121314151617aabbcc")
+        val packet = BitchatPacket(
+            version = 1u, type = MessageType.MESSAGE.value,
+            senderID = hex("1011121314151617"), recipientID = null,
+            timestamp = 0x0102030405060708uL, payload = hex("aabbcc"),
+            signature = null, ttl = 0u, isRSR = true
+        )
+        assertArrayEquals(expected, BinaryProtocol.encode(packet, padding = false))
+        val decoded = BinaryProtocol.decode(expected)!!
+        assertTrue(decoded.isRSR)
+        assertEquals(packet, decoded)
+    }
+
+    @Test
+    fun `v2 signed routed sync response matches literal flag bytes`() {
+        val signature = ByteArray(64) { 0x5a }
+        val expected = hex(
+            "020200000000000000002a1b00000002" +
+                "0102030405060708" + "1112131415161718" +
+                "02" + "2122232425262728" + "3132333435363738" + "dead"
+        ) + signature
+        val packet = BitchatPacket(
+            version = 2u, type = MessageType.MESSAGE.value,
+            senderID = hex("0102030405060708"), recipientID = hex("1112131415161718"),
+            timestamp = 42uL, payload = hex("dead"), signature = signature,
+            ttl = 0u, route = listOf(hex("2122232425262728"), hex("3132333435363738")),
+            isRSR = true
+        )
+        assertArrayEquals(expected, BinaryProtocol.encode(packet, padding = false))
+        val decoded = BinaryProtocol.decode(expected)!!
+        assertTrue(decoded.isRSR)
+        assertEquals(packet, decoded)
+    }
+
+    @Test
     fun `minimal chat message matches canonical binary payload`() {
         val message = BitchatMessage(
             id = "id",
