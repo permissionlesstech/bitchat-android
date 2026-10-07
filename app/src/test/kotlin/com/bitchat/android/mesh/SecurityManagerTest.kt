@@ -11,6 +11,7 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -200,6 +201,65 @@ class SecurityManagerTest {
         val result = securityManager.validatePacket(packet, unknownPeerID)
         
         assertFalse("Packet from unknown peer should be rejected (cannot verify signature)", result)
+    }
+
+    @Test
+    fun `validatePacket accepts a signed MESSAGE from a departed peer whose identity is persisted`() {
+        whenever(mockDelegate.getPeerInfo(unknownPeerID)).thenReturn(null)
+        whenever(mockDelegate.getPersistedSigningKey(unknownPeerID)).thenReturn(otherSigningKey)
+
+        val packet = BitchatPacket(
+            type = MessageType.MESSAGE.value,
+            ttl = 0u,
+            senderID = unknownPeerID,
+            payload = dummyPayload
+        )
+        packet.signature = validSignature
+
+        val result = securityManager.validatePacket(packet, unknownPeerID)
+
+        assertTrue("a persisted signing key must verify a sender no longer in the live registry", result)
+        assertArrayEquals(otherSigningKey, fakeEncryptionService.lastVerifyKey)
+    }
+
+    @Test
+    fun `validatePacket prefers the live registry key over a persisted one`() {
+        val liveKey = ByteArray(32) { 0x1C }
+        whenever(mockDelegate.getPeerInfo(otherPeerID)).thenReturn(
+            PeerInfo(
+                id = otherPeerID, nickname = "live", isConnected = true, isDirectConnection = true,
+                noisePublicKey = otherNoiseKey, signingPublicKey = liveKey, isVerifiedNickname = true,
+                lastSeen = System.currentTimeMillis()
+            )
+        )
+        whenever(mockDelegate.getPersistedSigningKey(otherPeerID)).thenReturn(otherSigningKey)
+
+        val packet = BitchatPacket(
+            type = MessageType.MESSAGE.value,
+            ttl = 0u,
+            senderID = otherPeerID,
+            payload = dummyPayload
+        )
+        packet.signature = validSignature
+
+        assertTrue(securityManager.validatePacket(packet, otherPeerID))
+        assertArrayEquals("a present peer is verified against its live key, never the persisted one", liveKey, fakeEncryptionService.lastVerifyKey)
+    }
+
+    @Test
+    fun `validatePacket still rejects a MESSAGE with neither a live nor a persisted key`() {
+        whenever(mockDelegate.getPeerInfo(unknownPeerID)).thenReturn(null)
+        whenever(mockDelegate.getPersistedSigningKey(unknownPeerID)).thenReturn(null)
+
+        val packet = BitchatPacket(
+            type = MessageType.MESSAGE.value,
+            ttl = 0u,
+            senderID = unknownPeerID,
+            payload = dummyPayload
+        )
+        packet.signature = validSignature
+
+        assertFalse("an unknown sender with nothing persisted stays rejected", securityManager.validatePacket(packet, unknownPeerID))
     }
 
     @Test
@@ -562,6 +622,192 @@ class SecurityManagerTest {
         assertTrue("Expired dedup entries must not block a delayed retry",
             securityManager.handleNoiseHandshake(routed))
         assertTrue(fakeEncryptionService.handshakeCalls == 2)
+    }
+
+    @Test
+    fun `old public messages without a requested neighbor are rejected with either flag value`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val packet = BitchatPacket(
+            type = MessageType.MESSAGE.value, ttl = 0u,
+            senderID = otherPeerID, payload = dummyPayload
+        ).copy(timestamp = (System.currentTimeMillis() - 3_600_000L).toULong(), signature = validSignature)
+        for (marked in listOf(false, true)) {
+            val receiver = SecurityManager(fakeEncryptionService, myPeerID)
+            receiver.delegate = mockDelegate
+            try {
+                assertFalse(receiver.validatePacket(packet.copy(isRSR = marked), otherPeerID))
+            } finally {
+                receiver.shutdown()
+            }
+        }
+    }
+
+    @Test
+    fun `RSR does not exempt an expired signed leave`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val packet = BitchatPacket(
+            type = MessageType.LEAVE.value, ttl = 0u,
+            senderID = otherPeerID, payload = dummyPayload
+        ).copy(timestamp = (System.currentTimeMillis() - 3_600_000L).toULong(), signature = validSignature)
+        for (marked in listOf(false, true)) {
+            val receiver = SecurityManager(fakeEncryptionService, myPeerID)
+            receiver.delegate = mockDelegate
+            try {
+                assertFalse(receiver.validatePacket(packet.copy(isRSR = marked), otherPeerID))
+            } finally {
+                receiver.shutdown()
+            }
+        }
+    }
+
+    @Test
+    fun `RSR does not exempt an expired signed announcement`() {
+        val announcement = IdentityAnnouncement("Synthetic", otherNoiseKey, otherSigningKey)
+        val packet = BitchatPacket(
+            type = MessageType.ANNOUNCE.value, ttl = 0u,
+            senderID = unknownPeerID, payload = announcement.encode()!!
+        ).copy(signature = validSignature)
+        for (marked in listOf(false, true)) {
+            val receiver = SecurityManager(fakeEncryptionService, myPeerID)
+            receiver.delegate = mockDelegate
+            try {
+                assertTrue(receiver.validatePacket(packet.copy(isRSR = marked), unknownPeerID))
+                assertFalse(receiver.validatePacket(packet.copy(
+                    isRSR = marked,
+                    timestamp = (System.currentTimeMillis() - 3_600_000L).toULong()
+                ), unknownPeerID))
+            } finally {
+                receiver.shutdown()
+            }
+        }
+    }
+
+    @Test
+    fun `an unflagged public message stamped an hour ago is rejected`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = MeshPacketUtils.hexStringToByteArray(otherPeerID),
+            recipientID = com.bitchat.android.protocol.SpecialRecipients.BROADCAST,
+            timestamp = (System.currentTimeMillis() - 60 * 60 * 1000L).toULong(),
+            payload = dummyPayload,
+            signature = validSignature,
+            ttl = 7u
+        )
+
+        assertFalse("a public message an hour old is outside the freshness window", securityManager.validatePacket(packet, otherPeerID))
+    }
+
+    private val neighborAddress = "AA:BB:CC:DD:EE:FF"
+    private val neighborPeerID = "5555666677778888"
+
+    private fun publicMessage(ageMs: Long, isRSR: Boolean = false, ttl: UByte = if (isRSR) 0u else 7u): BitchatPacket {
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = MeshPacketUtils.hexStringToByteArray(otherPeerID),
+            recipientID = com.bitchat.android.protocol.SpecialRecipients.BROADCAST,
+            timestamp = (System.currentTimeMillis() - ageMs).toULong(),
+            payload = dummyPayload,
+            signature = validSignature,
+            ttl = ttl
+        )
+        packet.isRSR = isRSR
+        return packet
+    }
+
+    @Test
+    fun `a public message inside the freshness window is accepted`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        assertTrue(securityManager.validatePacket(publicMessage(ageMs = 60_000L), otherPeerID))
+    }
+
+    @Test
+    fun `a flagged reply from a neighbor with an open request is accepted hours old`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        whenever(mockDelegate.peerIDForRelayAddress(neighborAddress)).thenReturn(neighborPeerID)
+        whenever(mockDelegate.isValidSyncResponse(neighborPeerID)).thenReturn(true)
+
+        assertTrue(securityManager.validatePacket(publicMessage(ageMs = 3 * 60 * 60 * 1000L, isRSR = true), otherPeerID, neighborAddress))
+    }
+
+    @Test
+    fun `a flagged reply from a neighbor with no open request is rejected`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        whenever(mockDelegate.peerIDForRelayAddress(neighborAddress)).thenReturn(neighborPeerID)
+        whenever(mockDelegate.isValidSyncResponse(neighborPeerID)).thenReturn(false)
+
+        assertFalse("an unsolicited flag exempts nothing", securityManager.validatePacket(publicMessage(ageMs = 60_000L, isRSR = true), otherPeerID, neighborAddress))
+    }
+
+    @Test
+    fun `a flagged reply older than the receive age limit is rejected even when solicited`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        whenever(mockDelegate.peerIDForRelayAddress(neighborAddress)).thenReturn(neighborPeerID)
+        whenever(mockDelegate.isValidSyncResponse(neighborPeerID)).thenReturn(true)
+
+        assertFalse(securityManager.validatePacket(publicMessage(ageMs = 7 * 60 * 60 * 1000L, isRSR = true), otherPeerID, neighborAddress))
+    }
+
+    @Test
+    fun `a flagged reply whose delivering address is bound to no peer is rejected`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        whenever(mockDelegate.peerIDForRelayAddress(neighborAddress)).thenReturn(null)
+
+        assertFalse(securityManager.validatePacket(publicMessage(ageMs = 1_000L, isRSR = true), otherPeerID, neighborAddress))
+    }
+
+    @Test
+    fun `an unflagged TTL 0 reply from a neighbor with an open request is accepted hours old`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        whenever(mockDelegate.peerIDForRelayAddress(neighborAddress)).thenReturn(neighborPeerID)
+        whenever(mockDelegate.isValidSyncResponse(neighborPeerID)).thenReturn(true)
+
+        assertTrue(
+            "a build without the flag marks a sync reply by TTL 0 alone",
+            securityManager.validatePacket(publicMessage(ageMs = 3 * 60 * 60 * 1000L, ttl = 0u), otherPeerID, neighborAddress)
+        )
+    }
+
+    @Test
+    fun `an unflagged TTL 0 message from a neighbor with no open request is judged on skew`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        whenever(mockDelegate.peerIDForRelayAddress(neighborAddress)).thenReturn(neighborPeerID)
+        whenever(mockDelegate.isValidSyncResponse(neighborPeerID)).thenReturn(false)
+
+        assertFalse(securityManager.validatePacket(publicMessage(ageMs = 60 * 60 * 1000L, ttl = 0u), otherPeerID, neighborAddress))
+        assertTrue(securityManager.validatePacket(publicMessage(ageMs = 1_000L, ttl = 0u), otherPeerID, neighborAddress))
+    }
+
+    @Test
+    fun `a private message an hour old is accepted as before`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = MeshPacketUtils.hexStringToByteArray(otherPeerID),
+            recipientID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+            timestamp = (System.currentTimeMillis() - 60 * 60 * 1000L).toULong(),
+            payload = dummyPayload,
+            signature = validSignature,
+            ttl = 7u
+        )
+
+        assertTrue(securityManager.validatePacket(packet, otherPeerID))
+    }
+
+    @Test
+    fun `a solicited response cannot carry a far future timestamp with either marker`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        whenever(mockDelegate.peerIDForRelayAddress(neighborAddress)).thenReturn(neighborPeerID)
+        whenever(mockDelegate.isValidSyncResponse(neighborPeerID)).thenReturn(true)
+        for (marked in listOf(false, true)) {
+            assertFalse(securityManager.validatePacket(
+                publicMessage(ageMs = -3_600_000L, isRSR = marked, ttl = 0u),
+                otherPeerID, neighborAddress
+            ))
+        }
     }
 
     private fun setupKnownPeer(peerID: String, signingKey: ByteArray) {

@@ -143,9 +143,13 @@ class MeshCore(
                     TransportBridgeService.sendToPeer(transport.id, peerID, packet)
                 }
 
+                override fun hasLivePeer(peerID: String): Boolean = peerManager.getPeerInfo(peerID) != null
+
                 override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
                     return signPacketBeforeBroadcast(packet)
                 }
+
+                override fun connectedPeerIDs(): List<String> = directPeers.toList()
             }
         }
     }
@@ -267,6 +271,13 @@ class MeshCore(
 
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
+
+            override fun getPersistedSigningKey(peerID: String): ByteArray? =
+                authenticatedPeerState.persistedSigningKeyFor(peerID)
+            override fun peerIDForRelayAddress(relayAddress: String): String? =
+                transport.peerIDForRelayAddress(relayAddress)?.takeIf { directPeers.contains(it) }
+            override fun isValidSyncResponse(neighborPeerID: String): Boolean =
+                gossipSyncManager.isValidSyncResponse(neighborPeerID)
         }
 
         storeForwardManager.delegate = object : StoreForwardManagerDelegate {
@@ -365,6 +376,9 @@ class MeshCore(
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
 
+            override fun getPersistedPeerNickname(peerID: String): String? =
+                authenticatedPeerState.persistedNicknameFor(peerID)
+
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)
             }
@@ -440,8 +454,8 @@ class MeshCore(
         }
 
         packetProcessor.delegate = object : PacketProcessorDelegate {
-            override fun validatePacketSecurity(packet: BitchatPacket, peerID: String): Boolean {
-                return securityManager.validatePacket(packet, peerID)
+            override fun validatePacketSecurity(packet: BitchatPacket, peerID: String, relayAddress: String?): Boolean {
+                return securityManager.validatePacket(packet, peerID, relayAddress)
             }
 
             override fun updatePeerLastSeen(peerID: String) {

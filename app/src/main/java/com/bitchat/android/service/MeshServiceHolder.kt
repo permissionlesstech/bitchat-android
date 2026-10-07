@@ -6,6 +6,7 @@ import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.sync.GossipSyncManager
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Process-wide holder to share a single BluetoothMeshService instance
@@ -18,6 +19,12 @@ object MeshServiceHolder {
         private set
 
     private val activeGossipOwners = mutableSetOf<String>()
+
+    // Each transport has its own peer registry. Shared gossip uses their registered lookups
+    // to decide whether to archive broadcasts from other senders; our own broadcasts bypass
+    // that check. Pair registration and removal with transport start and stop. An empty probe
+    // map reports no live peers.
+    private val livenessProbes = ConcurrentHashMap<String, (String) -> Boolean>()
 
     @Synchronized
     fun setGossipManager(
@@ -32,6 +39,22 @@ object MeshServiceHolder {
         mgr.delegate = TransportGossipDelegate(signer)
         if (activeGossipOwners.isNotEmpty()) {
             mgr.start()
+        }
+    }
+
+    fun registerLivenessProbe(owner: String, probe: (String) -> Boolean) {
+        livenessProbes[owner] = probe
+    }
+
+    fun unregisterLivenessProbe(owner: String) {
+        livenessProbes.remove(owner)
+    }
+
+    /** True when a registered transport lookup reports this peer present. */
+    fun hasLivePeer(peerID: String): Boolean {
+        if (livenessProbes.isEmpty()) return false
+        return livenessProbes.values.any { probe ->
+            try { probe(peerID) } catch (_: Exception) { false }
         }
     }
 
@@ -55,6 +78,8 @@ object MeshServiceHolder {
     private class TransportGossipDelegate(
         private val signer: (BitchatPacket) -> BitchatPacket
     ) : GossipSyncManager.Delegate {
+        override fun hasLivePeer(peerID: String): Boolean = MeshServiceHolder.hasLivePeer(peerID)
+
         override fun sendPacket(packet: BitchatPacket) {
             TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
         }
@@ -66,6 +91,9 @@ object MeshServiceHolder {
         override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
             return signer(packet)
         }
+
+        override fun connectedPeerIDs(): List<String> =
+            try { com.bitchat.android.services.AppStateStore.getDirectPeers().toList() } catch (_: Exception) { emptyList() }
     }
 
     @Volatile
@@ -140,6 +168,7 @@ object MeshServiceHolder {
         try { sharedGossipSyncManager?.stop() } catch (_: Exception) { }
         sharedGossipSyncManager = null
         activeGossipOwners.clear()
+        livenessProbes.clear()
         meshService = null
         unifiedMeshService = null
     }

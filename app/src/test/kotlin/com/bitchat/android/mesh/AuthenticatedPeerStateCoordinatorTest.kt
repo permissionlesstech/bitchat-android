@@ -13,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -22,7 +23,12 @@ class AuthenticatedPeerStateCoordinatorTest {
         val states = mutableMapOf<String, AuthenticatedPeerState>()
         val pins = mutableSetOf<String>()
 
+        val nicknames = mutableMapOf<String, String>()
+
         override fun load(fingerprint: String): AuthenticatedPeerState? = states[fingerprint]
+        override fun persistedFingerprintFor(peerID: String): String? =
+            states.keys.firstOrNull { it.startsWith(peerID.lowercase()) }
+        override fun persistedNickname(fingerprint: String): String? = nicknames[fingerprint]
         override fun persist(
             fingerprint: String,
             state: AuthenticatedPeerState,
@@ -296,4 +302,64 @@ class AuthenticatedPeerStateCoordinatorTest {
 
     private fun fingerprint(key: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(key).joinToString("") { "%02x".format(it) }
+
+    @Test
+    fun `a departed peer's signing key and nickname resolve by peer ID through the fingerprint prefix`() {
+        val store = MemoryStore()
+        val fingerprint = sha256Hex(remoteStatic)
+        store.states[fingerprint] = remoteState
+        store.nicknames[fingerprint] = "relay-a"
+        val coordinator = coordinatorOver(store)
+
+        assertArrayEquals(remoteState.signingPublicKey, coordinator.persistedSigningKeyFor(peerID))
+        assertEquals("relay-a", coordinator.persistedNicknameFor(peerID))
+        assertNull(coordinator.persistedSigningKeyFor("0000000000000000"))
+        assertNull(coordinator.persistedNicknameFor("0000000000000000"))
+    }
+
+    @Test
+    fun `a persisted key with no cached nickname names the peer by its ID`() {
+        val store = MemoryStore()
+        store.states[sha256Hex(remoteStatic)] = remoteState
+        val coordinator = coordinatorOver(store)
+
+        assertEquals(peerID, coordinator.persistedNicknameFor(peerID))
+    }
+
+    @Test
+    fun `a cached nickname without a persisted signing key names nobody`() {
+        val store = MemoryStore()
+        store.nicknames[sha256Hex(remoteStatic)] = "relay-b"
+        val coordinator = coordinatorOver(store)
+
+        assertNull(coordinator.persistedSigningKeyFor(peerID))
+        assertNull("a nickname alone must not vouch for a sender", coordinator.persistedNicknameFor(peerID))
+    }
+
+    @Test
+    fun `an accepted proof is resolvable by peer ID afterwards`() {
+        val store = MemoryStore()
+        val coordinator = coordinatorOver(store)
+
+        coordinator.onSessionAuthenticated(peerID, remoteStatic, firstSession.sessionToken)
+        assertTrue(coordinator.receive(peerID, remoteState, firstSession))
+
+        assertArrayEquals(remoteState.signingPublicKey, coordinator.persistedSigningKeyFor(peerID))
+    }
+
+    private fun coordinatorOver(store: MemoryStore): AuthenticatedPeerStateCoordinator =
+        AuthenticatedPeerStateCoordinator(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            authenticatedSessionProvider = { firstSession },
+            withAuthenticatedSession = { _, _, action -> action() },
+            store = store,
+            localStateProvider = { localState },
+            applyAuthenticatedState = { _, _, _ -> },
+            sendState = { _, _, _ -> true },
+            onResolution = {},
+            proofTimeoutMs = 5_000
+        )
+
+    private fun sha256Hex(bytes: ByteArray): String =
+        java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }

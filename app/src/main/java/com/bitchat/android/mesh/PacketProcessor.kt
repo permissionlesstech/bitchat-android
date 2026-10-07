@@ -116,7 +116,7 @@ class PacketProcessor(private val myPeerID: String) {
         val peerID = routed.peerID ?: "unknown"
 
         // Basic validation and security checks
-        if (!delegate?.validatePacketSecurity(packet, peerID)!!) {
+        if (!delegate?.validatePacketSecurity(packet, peerID, routed.relayAddress)!!) {
             return
         }
 
@@ -282,7 +282,7 @@ class PacketProcessor(private val myPeerID: String) {
  */
 interface PacketProcessorDelegate {
     // Security validation
-    fun validatePacketSecurity(packet: BitchatPacket, peerID: String): Boolean
+    fun validatePacketSecurity(packet: BitchatPacket, peerID: String, relayAddress: String?): Boolean
     
     // Peer management
     fun updatePeerLastSeen(peerID: String)

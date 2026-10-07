@@ -17,16 +17,21 @@ import java.util.concurrent.ConcurrentHashMap
 class GossipSyncManager(
     private val myPeerID: String,
     private val scope: CoroutineScope,
-    private val configProvider: ConfigProvider
+    private val configProvider: ConfigProvider,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val elapsedClock: () -> Long = android.os.SystemClock::elapsedRealtime
 ) {
     interface Delegate {
+        /** Reports sender presence; delegates that do not override this method report every sender present. */
+        fun hasLivePeer(peerID: String): Boolean = true
         fun sendPacket(packet: BitchatPacket)
         fun sendPacketToPeer(peerID: String, packet: BitchatPacket)
         fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket
+        fun connectedPeerIDs(): List<String> = emptyList()
     }
 
     interface ConfigProvider {
-        fun seenCapacity(): Int // max packets we sync per request (cap across types)
+        fun seenCapacity(): Int // cap per archive and on the combined request-filter candidates
         fun gcsMaxBytes(): Int
         fun gcsTargetFpr(): Double // percent -> 0.0..1.0
     }
@@ -36,6 +41,19 @@ class GossipSyncManager(
     }
 
     var delegate: Delegate? = null
+
+    // Track requests by neighbor. Discovery broadcasts create no response window.
+    private class RequestAttempt(val requestedAt: Long)
+    private data class RequestWindow(
+        val confirmedAt: Long? = null,
+        val pending: Set<RequestAttempt> = emptySet()
+    ) {
+        val requestedAt: Long
+            get() = maxOf(confirmedAt ?: Long.MIN_VALUE,
+                pending.maxOfOrNull { it.requestedAt } ?: Long.MIN_VALUE)
+    }
+    private val pendingRequests = ConcurrentHashMap<String, RequestWindow>()
+    private val responseWindowMs = com.bitchat.android.util.AppConstants.Freshness.SYNC_RESPONSE_WINDOW_MS
 
     // Defaults (configurable constants)
     private val defaultMaxBytes = SyncDefaults.DEFAULT_FILTER_BYTES
@@ -51,11 +69,11 @@ class GossipSyncManager(
     private var cleanupJob: Job? = null
     fun start() {
         periodicJob?.cancel()
-        periodicJob = scope.launch(Dispatchers.IO) {
+        periodicJob = scope.launch(dispatcher) {
             while (isActive) {
                 try {
                     delay(30_000)
-                    sendRequestSync()
+                    sendPeriodicSync()
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { Log.e(TAG, "Periodic sync error: ${e.message}") }
             }
@@ -63,7 +81,7 @@ class GossipSyncManager(
 
         // Start periodic cleanup of stale announcements and messages
         cleanupJob?.cancel()
-        cleanupJob = scope.launch(Dispatchers.IO) {
+        cleanupJob = scope.launch(dispatcher) {
             while (isActive) {
                 try {
                     delay(com.bitchat.android.util.AppConstants.Sync.CLEANUP_INTERVAL_MS)
@@ -85,18 +103,19 @@ class GossipSyncManager(
             messages.clear()
         }
         latestAnnouncementByPeer.clear()
+        pendingRequests.clear()
         Log.d(TAG, "Cleared all gossip sync messages and announcements")
     }
 
     fun scheduleInitialSync(delayMs: Long = 5_000L) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(dispatcher) {
             delay(delayMs)
-            sendRequestSync()
+            sendPeriodicSync()
         }
     }
 
     fun scheduleInitialSyncToPeer(peerID: String, delayMs: Long = 5_000L) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(dispatcher) {
             delay(delayMs)
             sendRequestSyncToPeer(peerID)
         }
@@ -113,6 +132,16 @@ class GossipSyncManager(
         val id = idBytes.joinToString("") { b -> "%02x".format(b) }
 
         if (isBroadcastMessage) {
+            // Do not re-archive another sender's message while the registry lookup reports it
+            // absent. After its announcement is purged, announcement-age pruning cannot remove
+            // a reinserted message, though capacity eviction and explicit removal still can.
+            // This is a presence check at receipt time; a returning sender can be archived again.
+            // Our own broadcasts bypass the check.
+            val sender = packet.senderID.joinToString("") { b -> "%02x".format(b) }
+            if (sender != myPeerID && delegate?.hasLivePeer(sender) == false) {
+                Log.d(TAG, "Not archiving message from ${sender.take(8)}: sender not in the live registry")
+                return
+            }
             synchronized(messages) {
                 messages[id] = packet
                 // Enforce capacity (remove oldest when exceeded)
@@ -157,7 +186,55 @@ class GossipSyncManager(
         delegate?.sendPacket(signed)
     }
 
+    internal fun sendPeriodicSync() {
+        val neighbors = try { delegate?.connectedPeerIDs().orEmpty() } catch (_: Exception) { emptyList() }
+        if (neighbors.isEmpty()) {
+            sendRequestSync()
+        } else {
+            neighbors.distinct().forEach { sendRequestSyncToPeer(it) }
+        }
+    }
+
+    internal fun noteRequestSent(peerID: String, nowMs: Long = elapsedClock()) {
+        recordRequest(peerID, nowMs)
+    }
+
+    private fun recordRequest(peerID: String, nowMs: Long): RequestAttempt {
+        // Another caller may have recorded a request after this clock sample.
+        for ((neighbor, window) in pendingRequests) {
+            if (nowMs - window.requestedAt > responseWindowMs) {
+                pendingRequests.remove(neighbor, window)
+            }
+        }
+        val attempt = RequestAttempt(nowMs)
+        pendingRequests.compute(peerID.lowercase()) { _, previous ->
+            RequestWindow(previous?.confirmedAt, previous?.pending.orEmpty() + attempt)
+        }
+        return attempt
+    }
+
+    private fun finishRequest(peerID: String, attempt: RequestAttempt, succeeded: Boolean) {
+        pendingRequests.computeIfPresent(peerID.lowercase()) { _, current ->
+            if (attempt !in current.pending) return@computeIfPresent current
+            val pending = current.pending - attempt
+            val confirmedAt = if (succeeded) {
+                maxOf(current.confirmedAt ?: Long.MIN_VALUE, attempt.requestedAt)
+            } else current.confirmedAt
+            if (confirmedAt == null && pending.isEmpty()) null
+            else RequestWindow(confirmedAt, pending)
+        }
+    }
+
+    /** Requests recorded and not yet dropped as expired. */
+    internal val openRequestCount: Int get() = pendingRequests.size
+
+    fun isValidSyncResponse(neighborPeerID: String, nowMs: Long = elapsedClock()): Boolean {
+        val requestedAt = pendingRequests[neighborPeerID.lowercase()]?.requestedAt ?: return false
+        return nowMs - requestedAt in 0..responseWindowMs
+    }
+
     private fun sendRequestSyncToPeer(peerID: String) {
+        val target = delegate ?: return
         val payload = buildGcsPayload()
 
         val packet = BitchatPacket(
@@ -170,8 +247,15 @@ class GossipSyncManager(
         )
         Log.d(TAG, "Sending sync request to $peerID (${payload.size} bytes)")
         // Sign and send directly to peer
-        val signed = delegate?.signPacketForBroadcast(packet) ?: packet
-        delegate?.sendPacketToPeer(peerID, signed)
+        val signed = target.signPacketForBroadcast(packet)
+        val attempt = recordRequest(peerID, elapsedClock())
+        try {
+            target.sendPacketToPeer(peerID, signed)
+            finishRequest(peerID, attempt, succeeded = true)
+        } catch (e: Exception) {
+            finishRequest(peerID, attempt, succeeded = false)
+            throw e
+        }
     }
 
     fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
@@ -188,8 +272,13 @@ class GossipSyncManager(
             val (id, pkt) = pair
             val idBytes = hexToBytes(id)
             if (!mightContain(idBytes)) {
-                // Send original packet unchanged to requester only (keep local TTL)
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                // Send original packet unchanged to requester only (keep local TTL).
+                // Mark it as a solicited response: it carries its original timestamp, which a
+                // receiver applying a freshness window would otherwise reject as stale.
+                val toSend = pkt.copy(
+                    ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS,
+                    isRSR = true
+                )
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
                 Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
@@ -200,7 +289,10 @@ class GossipSyncManager(
         for (pkt in toSendMsgs) {
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
             if (!mightContain(idBytes)) {
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                val toSend = pkt.copy(
+                    ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS,
+                    isRSR = true
+                )
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
                 Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
