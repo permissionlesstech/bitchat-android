@@ -84,6 +84,25 @@ class FragmentingPacketSenderTest {
     }
 
     @Test
+    fun `awaited fragmented send reports a later fragment rejection`() = runBlocking {
+        val sender = FragmentingPacketSender(
+            CoroutineScope(Dispatchers.Default + SupervisorJob()),
+            FragmentManager(),
+            "test",
+            interFragmentDelayMs = 0L
+        )
+        var writes = 0
+
+        val accepted = sender.sendAndAwaitAcceptance(RoutedPacket(packetWithPayload(10_000)), "test") {
+            writes += 1
+            writes < 2
+        }
+
+        assertFalse(accepted)
+        assertTrue(writes >= 2)
+    }
+
+    @Test
     fun `fragment count at cap boundary is not rejected`() {
         val manager = FragmentManager()
         val packet = packetWithPayload(AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID * 400)

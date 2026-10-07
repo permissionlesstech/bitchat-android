@@ -3,6 +3,7 @@ package com.bitchat.android.mesh
 
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.protocol.MeshDiagnosticsConstants
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -12,6 +13,7 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -34,9 +36,13 @@ class PacketRelayManagerTest {
         whenever(delegate.getBroadcastRecipient()).thenReturn(byteArrayOf(0,0,0,0,0,0,0,0))
     }
 
-    private fun createPacket(route: List<ByteArray>?, recipient: String? = null): BitchatPacket {
+    private fun createPacket(
+        route: List<ByteArray>?,
+        recipient: String? = null,
+        type: MessageType = MessageType.MESSAGE,
+    ): BitchatPacket {
         return BitchatPacket(
-            type = MessageType.MESSAGE.value,
+            type = type.value,
             senderID = hexStringToPeerBytes(otherPeerID),
             recipientID = recipient?.let { hexStringToPeerBytes(it) },
             timestamp = System.currentTimeMillis().toULong(),
@@ -101,6 +107,57 @@ class PacketRelayManagerTest {
 
         verify(delegate, never()).sendToPeer(any(), any())
         verify(delegate).broadcastPacket(any())
+    }
+
+    @Test
+    fun `diagnostic transit relay budget is enforced per ingress link`() = runTest {
+        val attempts = MeshDiagnosticsConstants.INBOUND_RATE_LIMIT + 1
+
+        repeat(attempts) { index ->
+            val packet = createPacket(
+                route = null,
+                recipient = finalRecipientID,
+                type = MessageType.PING,
+            ).copy(payload = byteArrayOf(index.toByte()))
+            packetRelayManager.handlePacketRelay(
+                RoutedPacket(
+                    packet = packet,
+                    peerID = otherPeerID,
+                    ingressLinkID = "ingress-link",
+                )
+            )
+        }
+
+        verify(delegate, times(MeshDiagnosticsConstants.INBOUND_RATE_LIMIT))
+            .broadcastPacket(any())
+    }
+
+    @Test
+    fun `diagnostic source route uses the same ingress relay budget`() = runTest {
+        whenever(delegate.sendToPeer(any(), any())).thenReturn(true)
+        val route = listOf(
+            hexStringToPeerBytes(myPeerID),
+            hexStringToPeerBytes(nextHopPeerID),
+        )
+        val attempts = MeshDiagnosticsConstants.INBOUND_RATE_LIMIT + 1
+
+        repeat(attempts) { index ->
+            val packet = createPacket(
+                route = route,
+                recipient = finalRecipientID,
+                type = MessageType.PONG,
+            ).copy(payload = byteArrayOf(index.toByte()))
+            packetRelayManager.handlePacketRelay(
+                RoutedPacket(
+                    packet = packet,
+                    peerID = otherPeerID,
+                    ingressLinkID = "source-route-ingress",
+                )
+            )
+        }
+
+        verify(delegate, times(MeshDiagnosticsConstants.INBOUND_RATE_LIMIT))
+            .sendToPeer(org.mockito.kotlin.eq(nextHopPeerID), any())
     }
 
     private fun hexStringToPeerBytes(hex: String): ByteArray {

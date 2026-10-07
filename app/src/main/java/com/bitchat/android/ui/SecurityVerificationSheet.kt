@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.NoEncryption
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.outlined.Warning as OutlinedWarning
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,6 +51,8 @@ import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.services.ContactDirectory
+
+private const val VOUCHED_SECONDARY_CONTENT_ALPHA = 0.8f
 
 private data class SecurityStatusInfo(
     val text: String,
@@ -68,6 +72,7 @@ fun SecurityVerificationSheet(
 
     val peerID by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
     val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
+    val vouchedFingerprints by viewModel.vouchedFingerprints.collectAsStateWithLifecycle()
     val peerSessionStates by viewModel.peerSessionStates.collectAsStateWithLifecycle()
 
     val colorScheme = MaterialTheme.colorScheme
@@ -107,8 +112,12 @@ fun SecurityVerificationSheet(
                     activeMeshPeerID = activeMeshPeerID,
                     peerSessionStates = peerSessionStates
                 )
+                val isVouched = !isVerified &&
+                    fingerprint?.lowercase() in vouchedFingerprints
+                val voucherNames = fingerprint?.let(viewModel::voucherNamesForFingerprint).orEmpty()
                 val statusInfo = buildStatusInfo(
                     isVerified = isVerified,
+                    isVouched = isVouched,
                     sessionState = sessionState,
                     accent = accent
                 )
@@ -136,6 +145,8 @@ fun SecurityVerificationSheet(
 
                 SecurityVerificationActions(
                     isVerified = isVerified,
+                    isVouched = isVouched,
+                    voucherNames = voucherNames,
                     fingerprint = fingerprint,
                     displayName = displayName,
                     accent = accent,
@@ -175,11 +186,13 @@ private fun SecurityVerificationHeader(
 @Composable
 private fun buildStatusInfo(
     isVerified: Boolean,
+    isVouched: Boolean,
     sessionState: String?,
     accent: Color
 ): SecurityStatusInfo {
     val text = when {
         isVerified -> stringResource(R.string.fingerprint_status_verified)
+        isVouched -> stringResource(R.string.fingerprint_status_vouched)
         sessionState == "established" -> stringResource(R.string.fingerprint_status_encrypted)
         sessionState == "handshaking" -> stringResource(R.string.fingerprint_status_handshaking)
         sessionState == "failed" -> stringResource(R.string.fingerprint_status_failed)
@@ -187,6 +200,7 @@ private fun buildStatusInfo(
     }
     val icon = when {
         isVerified -> Icons.Filled.Verified
+        isVouched -> Icons.Outlined.VerifiedUser
         sessionState == "handshaking" -> Icons.Outlined.Sync
         sessionState == "failed" -> Icons.Outlined.OutlinedWarning
         sessionState == "established" -> Icons.Filled.Lock
@@ -194,6 +208,7 @@ private fun buildStatusInfo(
     }
     val tint = when {
         isVerified -> Color(0xFF32D74B)
+        isVouched -> accent
         sessionState == "failed" -> Color(0xFFFF3B30)
         sessionState == "handshaking" -> Color(0xFFFF9500)
         sessionState == "established" -> Color(0xFF32D74B)
@@ -245,6 +260,8 @@ private fun SecurityStatusCard(
 @Composable
 private fun SecurityVerificationActions(
     isVerified: Boolean,
+    isVouched: Boolean,
+    voucherNames: List<String>,
     fingerprint: String?,
     displayName: String,
     accent: Color,
@@ -301,6 +318,34 @@ private fun SecurityVerificationActions(
             )
         }
     } else {
+        if (isVouched) {
+            VerificationStatusRow(
+                icon = Icons.Outlined.VerifiedUser,
+                iconTint = accent,
+                text = stringResource(R.string.fingerprint_vouched_label),
+                textTint = accent
+            )
+            Text(
+                text = pluralStringResource(
+                    R.plurals.fingerprint_vouched_message,
+                    voucherNames.size,
+                    voucherNames.size
+                ),
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = BitchatFontFamily),
+                color = accent.copy(alpha = VOUCHED_SECONDARY_CONTENT_ALPHA),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+            if (voucherNames.isNotEmpty()) {
+                Text(
+                    text = voucherNames.joinToString(),
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = BitchatFontFamily),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
         VerificationStatusRow(
             icon = Icons.Filled.Warning,
             iconTint = Color(0xFFFF9500),

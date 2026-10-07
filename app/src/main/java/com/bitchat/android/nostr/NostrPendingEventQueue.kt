@@ -16,14 +16,16 @@ internal class NostrPendingEventQueue(
     data class Delivery(
         val queueId: Long,
         val event: NostrEvent,
-        val liveLocationToken: Long?
+        val liveLocationToken: Long?,
+        val publicationAllowed: () -> Boolean
     )
 
     private data class Entry(
         val queueId: Long,
         val event: NostrEvent,
         val pendingRelayUrls: MutableSet<String>,
-        val liveLocationToken: Long?
+        val liveLocationToken: Long?,
+        val publicationAllowed: () -> Boolean
     )
 
     private val lock = Any()
@@ -33,7 +35,8 @@ internal class NostrPendingEventQueue(
     fun enqueue(
         event: NostrEvent,
         relayUrls: Collection<String>,
-        liveLocationToken: Long?
+        liveLocationToken: Long?,
+        publicationAllowed: () -> Boolean = { true }
     ): Long? {
         val pendingRelays = relayUrls.filterTo(linkedSetOf()) { it.isNotBlank() }
         if (pendingRelays.isEmpty()) return null
@@ -46,7 +49,8 @@ internal class NostrPendingEventQueue(
                     queueId = queueId,
                     event = event,
                     pendingRelayUrls = pendingRelays,
-                    liveLocationToken = liveLocationToken
+                    liveLocationToken = liveLocationToken,
+                    publicationAllowed = publicationAllowed
                 )
             )
             queueId
@@ -54,10 +58,11 @@ internal class NostrPendingEventQueue(
     }
 
     fun pendingForRelay(relayUrl: String): List<Delivery> = synchronized(lock) {
+        entries.removeAll { !it.publicationAllowed() }
         entries
             .asSequence()
             .filter { relayUrl in it.pendingRelayUrls }
-            .map { Delivery(it.queueId, it.event, it.liveLocationToken) }
+            .map { Delivery(it.queueId, it.event, it.liveLocationToken, it.publicationAllowed) }
             .toList()
     }
 
@@ -72,6 +77,11 @@ internal class NostrPendingEventQueue(
                 return
             }
         }
+    }
+
+    fun removeRelay(relayUrl: String) = synchronized(lock) {
+        entries.forEach { it.pendingRelayUrls.remove(relayUrl) }
+        entries.removeAll { it.pendingRelayUrls.isEmpty() }
     }
 
     fun removeLiveLocationEvents() {

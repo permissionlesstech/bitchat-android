@@ -13,7 +13,8 @@ data class IdentityAnnouncement(
     val noisePublicKey: ByteArray,    // Noise static public key (Curve25519.KeyAgreement)
     val signingPublicKey: ByteArray,  // Ed25519 public key for signing
     val capabilities: PeerCapabilities? = null,
-    val unknownTLVs: List<UnknownAnnouncementTLV> = emptyList()
+    val unknownTLVs: List<UnknownAnnouncementTLV> = emptyList(),
+    val bridgeGeohash: String? = null
 ) : Parcelable {
 
     /**
@@ -23,7 +24,8 @@ data class IdentityAnnouncement(
         NICKNAME(0x01u),
         NOISE_PUBLIC_KEY(0x02u),
         SIGNING_PUBLIC_KEY(0x03u),  // NEW: Ed25519 signing public key
-        CAPABILITIES(0x05u);
+        CAPABILITIES(0x05u),
+        BRIDGE_GEOHASH(0x06u);
         
         companion object {
             fun fromValue(value: UByte): TLVType? {
@@ -39,6 +41,9 @@ data class IdentityAnnouncement(
         val nicknameData = nickname.toByteArray(Charsets.UTF_8)
         
         // Check size limits
+        val bridgeGeohashData = bridgeGeohash
+            ?.toByteArray(Charsets.UTF_8)
+            ?.takeIf { it.size in 1..12 }
         if (nicknameData.size > 255 || noisePublicKey.size > 255 || signingPublicKey.size > 255 ||
             unknownTLVs.any { it.value.size > 255 }) {
             return null
@@ -68,6 +73,12 @@ data class IdentityAnnouncement(
             result.addAll(capabilityBytes.toList())
         }
 
+        bridgeGeohashData?.let { geohash ->
+            result.add(TLVType.BRIDGE_GEOHASH.value.toByte())
+            result.add(geohash.size.toByte())
+            result.addAll(geohash.toList())
+        }
+
         // Preserve extensions this build does not understand. This includes
         // gossip TLV 0x04 when an announcement is decoded through this model.
         unknownTLVs.forEach { tlv ->
@@ -92,6 +103,7 @@ data class IdentityAnnouncement(
             var noisePublicKey: ByteArray? = null
             var signingPublicKey: ByteArray? = null
             var capabilities: PeerCapabilities? = null
+            var bridgeGeohash: String? = null
             val unknownTLVs = mutableListOf<UnknownAnnouncementTLV>()
             
             while (offset + 2 <= dataCopy.size) {
@@ -125,6 +137,10 @@ data class IdentityAnnouncement(
                     TLVType.CAPABILITIES -> {
                         capabilities = PeerCapabilities.decode(value)
                     }
+                    TLVType.BRIDGE_GEOHASH -> {
+                        if (value.size !in 1..12) return null
+                        bridgeGeohash = String(value, Charsets.UTF_8)
+                    }
                     null -> {
                         // Retain unknown extensions so callers can forward or
                         // re-encode the announcement without erasing them.
@@ -135,7 +151,14 @@ data class IdentityAnnouncement(
             
             // All three fields are required
             return if (nickname != null && noisePublicKey != null && signingPublicKey != null) {
-                IdentityAnnouncement(nickname, noisePublicKey, signingPublicKey, capabilities, unknownTLVs)
+                IdentityAnnouncement(
+                    nickname,
+                    noisePublicKey,
+                    signingPublicKey,
+                    capabilities,
+                    unknownTLVs,
+                    bridgeGeohash
+                )
             } else {
                 null
             }
@@ -145,12 +168,14 @@ data class IdentityAnnouncement(
         fun forLocalPeer(
             nickname: String,
             noisePublicKey: ByteArray,
-            signingPublicKey: ByteArray
+            signingPublicKey: ByteArray,
+            bridgeGeohash: String? = null
         ): IdentityAnnouncement = IdentityAnnouncement(
             nickname = nickname,
             noisePublicKey = noisePublicKey,
             signingPublicKey = signingPublicKey,
-            capabilities = PeerCapabilities.LOCAL_SUPPORTED
+            capabilities = PeerCapabilities.localSupported(),
+            bridgeGeohash = bridgeGeohash
         )
     }
     
@@ -166,6 +191,7 @@ data class IdentityAnnouncement(
         if (!signingPublicKey.contentEquals(other.signingPublicKey)) return false
         if (capabilities != other.capabilities) return false
         if (unknownTLVs != other.unknownTLVs) return false
+        if (bridgeGeohash != other.bridgeGeohash) return false
         
         return true
     }
@@ -176,10 +202,11 @@ data class IdentityAnnouncement(
         result = 31 * result + signingPublicKey.contentHashCode()
         result = 31 * result + (capabilities?.hashCode() ?: 0)
         result = 31 * result + unknownTLVs.hashCode()
+        result = 31 * result + (bridgeGeohash?.hashCode() ?: 0)
         return result
     }
     
     override fun toString(): String {
-        return "IdentityAnnouncement(nickname='$nickname', noisePublicKey=${noisePublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., signingPublicKey=${signingPublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., capabilities=${capabilities?.rawValue})"
+        return "IdentityAnnouncement(nickname='$nickname', noisePublicKey=${noisePublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., signingPublicKey=${signingPublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., capabilities=${capabilities?.rawValue}, bridgeGeohash=$bridgeGeohash)"
     }
 }

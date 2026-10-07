@@ -39,6 +39,42 @@ class ConversationRepositoryTest {
     }
 
     @Test
+    fun `text receipts require matching durable content and survive deletion`() = runBlocking {
+        repository = ConversationRepository(context, dispatcher, databaseName, InMemoryConversationStorageCipher())
+        val message = BitchatMessage(id = "synthetic-receipt", sender = "alice", content = "durable text",
+            timestamp = Date(100), isPrivate = true, senderPeerID = "peer-alice")
+        org.junit.Assert.assertFalse(repository.hasPrivateTextReceipt(message))
+        assertTrue(repository.upsertMessageAndWait("peer-alice", setOf("peer-alice"), "alice", message, false))
+        assertTrue(repository.hasPrivateTextReceipt(message))
+        org.junit.Assert.assertFalse(repository.hasPrivateTextReceipt(message.copy(senderPeerID = "peer-other")))
+        org.junit.Assert.assertFalse(repository.hasPrivateTextReceipt(message.copy(content = "replacement")))
+        repository.deleteMessage(message.id)
+        repository.awaitPendingWrites()
+        assertTrue(repository.hasPrivateTextReceipt(message))
+    }
+
+    @Test
+    fun `stable media is acknowledged only while durable or explicitly deleted`() = runBlocking {
+        val cipher = InMemoryConversationStorageCipher()
+        repository = ConversationRepository(context, dispatcher, databaseName, cipher)
+        val id = "media-00112233445566778899aabbccddeeff"
+        val payload = java.io.File(context.filesDir, "synthetic-media.m4a").apply { writeBytes(byteArrayOf(1, 2)) }
+        val message = BitchatMessage(id = id, sender = "alice", content = payload.absolutePath,
+            type = com.bitchat.android.model.BitchatMessageType.Audio, timestamp = Date(100), isPrivate = true)
+        assertEquals(PrivateMediaReceiptState.ABSENT, repository.privateMediaReceiptState(id))
+        assertTrue(repository.upsertMessageAndWait("peer-alice", setOf("peer-alice"), "alice", message, false))
+        assertEquals(PrivateMediaReceiptState.ACCEPTED, repository.privateMediaReceiptState(id))
+        payload.delete()
+        assertEquals(PrivateMediaReceiptState.UNAVAILABLE, repository.privateMediaReceiptState(id))
+        repository.deleteMessage(id)
+        repository.awaitPendingWrites()
+        assertEquals(PrivateMediaReceiptState.TOMBSTONED, repository.privateMediaReceiptState(id))
+        repository.closeForTest()
+        repository = ConversationRepository(context, dispatcher, databaseName, cipher)
+        assertEquals(PrivateMediaReceiptState.TOMBSTONED, repository.privateMediaReceiptState(id))
+    }
+
+    @Test
     fun `reload restores persisted history after initial process restore`() {
         repository = ConversationRepository(
             context = context,

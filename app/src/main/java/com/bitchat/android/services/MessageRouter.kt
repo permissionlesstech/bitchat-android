@@ -31,13 +31,6 @@ class MessageRouter private constructor(
         DROPPED
     }
 
-    private data class QueuedMessage(
-        val content: String,
-        val nickname: String,
-        val messageID: String,
-        val enqueuedAtMs: Long
-    )
-
     private data class ConversationRetry(
         val handshakeAttempts: Int,
         val nextHandshakeAttemptAtMs: Long
@@ -48,10 +41,15 @@ class MessageRouter private constructor(
         private const val OUTBOX_TICK_MS = AppConstants.Router.OUTBOX_TICK_MS
         private const val OUTBOX_MESSAGE_TTL_MS = AppConstants.Router.OUTBOX_MESSAGE_TTL_MS
         private const val OUTBOX_MAX_PER_PEER = AppConstants.Router.OUTBOX_MAX_PER_PEER
+        private const val MAX_COURIERS_PER_MESSAGE = AppConstants.Router.MAX_COURIERS_PER_MESSAGE
+        private const val OUTBOX_MAX_TOTAL = 1_000
+        private const val OUTBOX_MAX_SEND_ATTEMPTS = 8
+        private const val BRIDGE_RETRY_COOLDOWN_MS = 30 * 60 * 1000L
         private val HANDSHAKE_RETRY_BACKOFF_MS = AppConstants.Router.HANDSHAKE_RETRY_BACKOFF_MS
 
         @Volatile private var INSTANCE: MessageRouter? = null
         internal var disableSchedulerForTesting = false
+        internal var outboxStoreFactory: (Context) -> MessageOutboxStore = ::MessageOutboxStore
         fun tryGetInstance(): MessageRouter? = INSTANCE
         fun getInstance(context: Context, mesh: MeshService): MessageRouter {
             val instance = INSTANCE ?: synchronized(this) {
@@ -78,10 +76,19 @@ class MessageRouter private constructor(
             INSTANCE?.schedulerScope?.cancel()
             INSTANCE = null
         }
+
+        fun panicClear(context: Context) {
+            val instance = INSTANCE
+            if (instance != null) instance.clearAll()
+            else outboxStoreFactory(context.applicationContext).wipe()
+        }
     }
 
     // Outbox: conversationID -> queued messages, oldest first
-    private val outbox = ConcurrentHashMap<String, MutableList<QueuedMessage>>()
+    private val outboxStore = outboxStoreFactory(context)
+    private val outbox = ConcurrentHashMap<String, MutableList<MessageOutboxStore.Entry>>().apply {
+        putAll(outboxStore.load())
+    }
 
     // Per-conversation handshake retry state for queued messages
     private val retryState = ConcurrentHashMap<String, ConversationRetry>()
@@ -99,9 +106,13 @@ class MessageRouter private constructor(
         startOutboxScheduler()
     }
 
+    @Synchronized
     fun clearAll() {
+        schedulerJob?.cancel()
+        schedulerJob = null
         outbox.clear()
         retryState.clear()
+        outboxStore.wipe()
         Log.d(TAG, "Cleared all MessageRouter outbox messages and retry state")
     }
 
@@ -134,17 +145,23 @@ class MessageRouter private constructor(
         }
 
         val hasMesh = meshTarget?.let { isConnected(mesh, it) } == true
+        val entry = MessageOutboxStore.Entry(content, recipientNickname, messageID, clock())
+        enqueue(conversationID, entry)
         if (meshTarget != null && isReady(mesh, meshTarget)) {
             Log.d(TAG, "Routing PM via mesh to ${meshTarget} msg_id=${messageID.take(8)}…")
             mesh.sendPrivateMessage(content, meshTarget, recipientNickname, messageID)
+            markAttempt(conversationID, messageID)
             return RouteResult.MESH
         } else if (canSendViaNostr(nostrTarget)) {
             Log.d(TAG, "Routing PM via Nostr to ${conversationID.take(32)}… msg_id=${messageID.take(8)}…")
             nostr.sendPrivateMessage(content, nostrTarget, recipientNickname, messageID)
-            return RouteResult.NOSTR
+            markAttempt(conversationID, messageID)
+            val prompt = canDeliverViaNostrPromptly()
+            if (!prompt) attemptCourierDeposit(conversationID, entry)
+            return if (prompt) RouteResult.NOSTR else RouteResult.QUEUED
         } else {
             Log.d(TAG, "Queued PM for ${conversationID} (no mesh, no Nostr mapping) msg_id=${messageID.take(8)}…")
-            enqueue(conversationID, QueuedMessage(content, recipientNickname, messageID, clock()))
+            attemptCourierDeposit(conversationID, entry)
             Log.d(TAG, "Initiating noise handshake after queueing PM for ${conversationID.take(16)}…")
             if (hasMesh) meshTarget?.let { kickHandshake(conversationID, it, immediate = true) }
             return RouteResult.QUEUED
@@ -209,12 +226,17 @@ class MessageRouter private constructor(
             val resolution = ContactDirectory.resolve(conversationID)
             val meshTarget = resolution.meshPeerID
             val nostrTarget = resolution.noiseKeyHex ?: conversationID
+            if (clock() - entry.lastAttemptAtMs < retryDelay(entry.sendAttempts)) continue
+            if (entry.sendAttempts >= OUTBOX_MAX_SEND_ATTEMPTS) continue
             if (meshTarget != null && isReady(mesh, meshTarget)) {
                 mesh.sendPrivateMessage(entry.content, meshTarget, entry.nickname, entry.messageID)
-                iterator.remove()
+                entry.sendAttempts++
+                entry.lastAttemptAtMs = clock()
             } else if (canSendViaNostr(nostrTarget)) {
                 nostr.sendPrivateMessage(entry.content, nostrTarget, entry.nickname, entry.messageID)
-                iterator.remove()
+                entry.sendAttempts++
+                entry.lastAttemptAtMs = clock()
+                if (!canDeliverViaNostrPromptly()) attemptCourierDeposit(conversationID, entry)
             }
         }
         if (queued.isEmpty()) {
@@ -223,6 +245,7 @@ class MessageRouter private constructor(
             retryState.remove(conversationID)
             retryState.remove(peerID)
         }
+        persistOutbox()
     }
 
     // Flush everything (rarely used)
@@ -231,13 +254,119 @@ class MessageRouter private constructor(
     }
 
     @Synchronized
-    private fun enqueue(conversationID: String, entry: QueuedMessage) {
+    private fun enqueue(conversationID: String, entry: MessageOutboxStore.Entry) {
         val queue = outbox.getOrPut(conversationID) { mutableListOf() }
+        if (queue.any { it.messageID == entry.messageID }) return
         queue.add(entry)
         while (queue.size > OUTBOX_MAX_PER_PEER) {
             val evicted = queue.removeAt(0)
             Log.w(TAG, "Outbox full for ${conversationID.take(16)}…; evicting oldest msg_id=${evicted.messageID.take(8)}…")
             notifyExpired(evicted.messageID)
+        }
+        while (outbox.values.sumOf { it.size } > OUTBOX_MAX_TOTAL) {
+            val oldest = outbox.entries
+                .flatMap { (id, entries) -> entries.map { id to it } }
+                .minByOrNull { it.second.enqueuedAtMs } ?: break
+            outbox[oldest.first]?.remove(oldest.second)
+            if (outbox[oldest.first].isNullOrEmpty()) outbox.remove(oldest.first)
+            notifyExpired(oldest.second.messageID)
+        }
+        persistOutbox()
+    }
+
+    @Synchronized
+    fun onMessageAcknowledged(messageID: String, peerID: String) {
+        val acknowledgedConversation = ContactDirectory.canonicalConversationId(peerID)
+        var changed = false
+        outbox.entries.toList().forEach { (conversationID, queue) ->
+            if (ContactDirectory.canonicalConversationId(conversationID) != acknowledgedConversation) return@forEach
+            changed = queue.removeAll { it.messageID == messageID } || changed
+            if (queue.isEmpty()) {
+                outbox.remove(conversationID, queue)
+                retryState.remove(conversationID)
+            }
+        }
+        if (changed) persistOutbox()
+    }
+
+    @Synchronized
+    private fun markAttempt(conversationID: String, messageID: String) {
+        outbox[conversationID]?.firstOrNull { it.messageID == messageID }?.sendAttempts =
+            (outbox[conversationID]?.firstOrNull { it.messageID == messageID }?.sendAttempts ?: 0) + 1
+        outbox[conversationID]?.firstOrNull { it.messageID == messageID }?.lastAttemptAtMs = clock()
+        persistOutbox()
+    }
+
+    private fun retryDelay(attempts: Int): Long = when (attempts) {
+        0 -> 0L
+        1 -> 30_000L
+        2 -> 2 * 60_000L
+        else -> 10 * 60_000L
+    }
+
+    private fun attemptCourierDeposit(conversationID: String, entry: MessageOutboxStore.Entry) {
+        val resolution = ContactDirectory.resolve(conversationID)
+        val recipientKey = resolution.noiseKeyHex?.let(ContactIdentityResolver::bytesFromHex) ?: return
+        if (!entry.bridgeDeposited &&
+            (entry.lastBridgeAttemptAtMs == 0L || clock() - entry.lastBridgeAttemptAtMs >= BRIDGE_RETRY_COOLDOWN_MS)
+        ) {
+            val submitted = mesh.sendBridgeCourierMessage(entry.content, entry.messageID, recipientKey) {
+                synchronized(this) {
+                    val current = outbox[conversationID]?.firstOrNull { it.messageID == entry.messageID }
+                    if (current != null) {
+                        current.bridgeDeposited = true
+                        persistOutbox()
+                    }
+                }
+            }
+            if (submitted) {
+                entry.lastBridgeAttemptAtMs = clock()
+                persistOutbox()
+            }
+        }
+        if (entry.depositedCourierKeys.size >= MAX_COURIERS_PER_MESSAGE) return
+        val candidates = mesh.getPeerInfos()
+            .asSequence()
+            .filter { it.isConnected && it.noisePublicKey != null && !it.noisePublicKey!!.contentEquals(recipientKey) }
+            .filter { peer ->
+                val favorite = try {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                        .getFavoriteStatus(peer.noisePublicKey!!)?.isMutual == true
+                } catch (_: Exception) { false }
+                favorite || peer.hasVerifiedAnnouncement
+            }
+            .map { peer ->
+                val favorite = try {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                        .getFavoriteStatus(peer.noisePublicKey!!)?.isMutual == true
+                } catch (_: Exception) { false }
+                peer to favorite
+            }
+            .filter { (peer, _) -> ContactIdentityResolver.noiseKeyHex(peer.noisePublicKey!!) !in entry.depositedCourierKeys }
+            .sortedByDescending { (_, favorite) -> favorite }
+            .take(MAX_COURIERS_PER_MESSAGE - entry.depositedCourierKeys.size)
+            .map { (peer, _) -> peer }
+            .toList()
+        if (candidates.isEmpty()) return
+        val accepted = mesh.sendCourierMessage(
+            entry.content,
+            entry.messageID,
+            recipientKey,
+            candidates.map { it.id }
+        ).toSet()
+        candidates.filter { it.id in accepted }.forEach {
+            entry.depositedCourierKeys += ContactIdentityResolver.noiseKeyHex(it.noisePublicKey!!)
+        }
+        if (accepted.isNotEmpty()) persistOutbox()
+    }
+
+    private fun canDeliverViaNostrPromptly(): Boolean = try {
+        nostr.canDeliverPromptly()
+    } catch (_: Exception) { false }
+
+    private fun persistOutbox() {
+        try { outboxStore.save(outbox) } catch (e: Exception) {
+            Log.e(TAG, "Failed to persist sealed outbox: ${e.message}")
         }
     }
 
@@ -286,6 +415,7 @@ class MessageRouter private constructor(
      * follow the MeshForegroundService lifecycle; getInstance restarts the scheduler
      * and rebinds the mesh reference when the service comes back.
      */
+    @Synchronized
     fun stopOutboxScheduler() {
         schedulerJob?.cancel()
         schedulerJob = null
@@ -304,6 +434,7 @@ class MessageRouter private constructor(
             expireOldEntries(conversationID, nowMs)
             val queued = outbox[conversationID] ?: return@forEach
             if (queued.isEmpty()) return@forEach
+            queued.forEach { attemptCourierDeposit(conversationID, it) }
 
             val resolution = ContactDirectory.resolve(conversationID)
             val meshTarget = resolution.meshPeerID
@@ -338,6 +469,7 @@ class MessageRouter private constructor(
             outbox.remove(conversationID, queued)
             retryState.remove(conversationID)
         }
+        persistOutbox()
     }
 
     private fun canSendViaNostr(peerID: String): Boolean {
@@ -385,8 +517,18 @@ class MessageRouter private constructor(
             } catch (_: Exception) { null }
             noiseHex?.let {
                 kickHandshakeIfPending(it)
-                flushOutboxFor(it)
+                if (ContactDirectory.canonicalConversationId(it) != ContactDirectory.canonicalConversationId(pid)) {
+                    flushOutboxFor(it)
+                }
             }
+            retryCourierDeposits()
+        }
+    }
+
+    @Synchronized
+    private fun retryCourierDeposits() {
+        outbox.forEach { (conversationID, entries) ->
+            entries.forEach { attemptCourierDeposit(conversationID, it) }
         }
     }
 
@@ -399,7 +541,9 @@ class MessageRouter private constructor(
         } catch (_: Exception) { null }
         noiseHex?.let {
             resetRetry(it)
-            flushOutboxFor(it)
+            if (ContactDirectory.canonicalConversationId(it) != ContactDirectory.canonicalConversationId(peerID)) {
+                flushOutboxFor(it)
+            }
         }
     }
 

@@ -122,6 +122,22 @@ class PacketProcessor(private val myPeerID: String) {
 
         var validPacket = true
         val messageType = MessageType.fromValue(packet.type)
+        val isBroadcast = packet.recipientID == null ||
+            packet.recipientID.contentEquals(com.bitchat.android.protocol.SpecialRecipients.BROADCAST)
+        if (isBroadcast && packet.timestamp <= Long.MAX_VALUE.toULong()) {
+            val ageMs = System.currentTimeMillis() - packet.timestamp.toLong()
+            val maxAgeMs = when (messageType) {
+                MessageType.MESSAGE -> com.bitchat.android.sync.GossipSyncManager.PUBLIC_MESSAGE_MAX_AGE_MS
+                MessageType.FRAGMENT, MessageType.FILE_TRANSFER ->
+                    com.bitchat.android.sync.GossipSyncManager.FRAGMENT_MAX_AGE_MS
+                else -> null
+            }
+            if (maxAgeMs != null && ageMs !in
+                -com.bitchat.android.sync.GossipSyncManager.PUBLIC_PACKET_FUTURE_SKEW_MS..maxAgeMs
+            ) return
+        } else if (isBroadcast && packet.timestamp > Long.MAX_VALUE.toULong()) {
+            return
+        }
         // Verbose logging to debug manager (and chat via ChatViewModel observer)
         try {
             val mt = messageType?.name ?: packet.type.toString()
@@ -137,15 +153,35 @@ class PacketProcessor(private val myPeerID: String) {
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.VOICE_FRAME -> validPacket = delegate?.handleVoiceFrame(routed) ?: false
+            MessageType.GROUP_MESSAGE -> handleGroupMessage(routed)
+            MessageType.BOARD_POST -> validPacket = handleBoardPost(routed)
             MessageType.LEAVE -> handleLeave(routed)
             MessageType.FRAGMENT -> handleFragment(routed)
             MessageType.REQUEST_SYNC -> handleRequestSync(routed)
+            MessageType.PREKEY_BUNDLE -> {
+                BridgeMeshPort.handlePrekeyPacket(packet)
+            }
+            MessageType.NOSTR_CARRIER -> {
+                val directedToUs = packetRelayManager.isPacketAddressedToMe(packet)
+                val isBroadcast = packet.recipientID == null ||
+                    packet.recipientID.contentEquals(delegate?.getBroadcastRecipient())
+                if (directedToUs || isBroadcast) {
+                    BridgeMeshPort.handleCarrier(
+                        packet.payload,
+                        peerID,
+                        directedToUs
+                    )
+                }
+            }
             else -> {
                 // Handle private packet types (address check required)
                 if (packetRelayManager.isPacketAddressedToMe(packet)) {
                     when (messageType) {
                         MessageType.NOISE_HANDSHAKE -> validPacket = handleNoiseHandshake(routed)
                         MessageType.NOISE_ENCRYPTED -> validPacket = handleNoiseEncrypted(routed)
+                        MessageType.COURIER_ENVELOPE -> validPacket = delegate?.handleCourierEnvelope(routed) ?: false
+                        MessageType.PING -> delegate?.handlePing(routed)
+                        MessageType.PONG -> delegate?.handlePong(routed)
                         MessageType.FILE_TRANSFER -> handleMessage(routed)
                         else -> {
                             validPacket = false
@@ -195,6 +231,12 @@ class PacketProcessor(private val myPeerID: String) {
     private suspend fun handleMessage(routed: RoutedPacket) {
         delegate?.handleMessage(routed)
     }
+
+    private fun handleGroupMessage(routed: RoutedPacket) {
+        val peerID = routed.peerID ?: "unknown"
+        Log.d(TAG, "Processing private-group message from ${formatPeerForLog(peerID)}")
+        delegate?.handleGroupMessage(routed)
+    }
     
     /**
      * Handle leave message
@@ -226,7 +268,23 @@ class PacketProcessor(private val myPeerID: String) {
      * Handle REQUEST_SYNC packets (public, TTL=1)
      */
     private suspend fun handleRequestSync(routed: RoutedPacket) {
+        val peerID = routed.peerID ?: "unknown"
+        if (routed.packet.ttl != com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS) {
+            Log.w(TAG, "Dropping non-link-local REQUEST_SYNC from ${formatPeerForLog(peerID)}")
+            return
+        }
+        Log.d(TAG, "Processing REQUEST_SYNC from ${formatPeerForLog(peerID)}")
         delegate?.handleRequestSync(routed)
+    }
+
+    /**
+     * Board packets are self-authenticating. The delegate verifies their
+     * embedded Ed25519 signature and returns false for anything that must not relay.
+     */
+    private fun handleBoardPost(routed: RoutedPacket): Boolean {
+        val peerID = routed.peerID ?: "unknown"
+        Log.d(TAG, "Processing board packet from ${formatPeerForLog(peerID)}")
+        return delegate?.handleBoardPost(routed) ?: false
     }
     
     /**
@@ -291,16 +349,22 @@ interface PacketProcessorDelegate {
     // Network information
     fun getNetworkSize(): Int
     fun getBroadcastRecipient(): ByteArray
+    fun isPeerDirectlyConnected(peerID: String): Boolean = false
     
     // Message type handlers
     fun handleNoiseHandshake(routed: RoutedPacket): Boolean
     fun handleNoiseEncrypted(routed: RoutedPacket): Boolean
+    fun handleCourierEnvelope(routed: RoutedPacket): Boolean = false
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean
     fun handleMessage(routed: RoutedPacket)
     fun handleVoiceFrame(routed: RoutedPacket): Boolean = false
+    fun handleGroupMessage(routed: RoutedPacket) {}
     fun handleLeave(routed: RoutedPacket)
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
     fun handleRequestSync(routed: RoutedPacket)
+    fun handleBoardPost(routed: RoutedPacket): Boolean = false
+    fun handlePing(routed: RoutedPacket) {}
+    fun handlePong(routed: RoutedPacket) {}
     
     // Communication
     fun sendAnnouncementToPeer(peerID: String)

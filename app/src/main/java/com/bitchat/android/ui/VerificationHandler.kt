@@ -13,9 +13,12 @@ import com.bitchat.android.services.VerificationService
 import com.bitchat.android.util.dataFromHexString
 import com.bitchat.android.util.hexEncodedString
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 import java.util.Date
@@ -33,20 +36,48 @@ class VerificationHandler(
     private val notificationManager: NotificationManager,
     private val messageManager: MessageManager
 ) {
+    companion object {
+        private const val FINGERPRINT_NAME_PREFIX_LENGTH = 8
+        private const val MINIMUM_EXPIRY_REFRESH_DELAY_MS = 1L
+    }
+
     // Helper to get current mesh service (may change after panic clear)
     private val meshService: MeshService
         get() = getMeshService()
 
     private val _verifiedFingerprints = MutableStateFlow<Set<String>>(emptySet())
     val verifiedFingerprints: StateFlow<Set<String>> = _verifiedFingerprints.asStateFlow()
+    private val _vouchedFingerprints = MutableStateFlow<Set<String>>(emptySet())
+    val vouchedFingerprints: StateFlow<Set<String>> = _vouchedFingerprints.asStateFlow()
 
     private val pendingQRVerifications = ConcurrentHashMap<String, PendingVerification>()
     private val lastVerifyNonceByPeer = ConcurrentHashMap<String, ByteArray>()
     private val lastInboundVerifyChallengeAt = ConcurrentHashMap<String, Long>()
     private val lastMutualToastAt = ConcurrentHashMap<String, Long>()
+    private var vouchExpiryRefreshJob: Job? = null
+
+    init {
+        scope.launch {
+            SecureIdentityStateManager.changes.collect {
+                refreshIdentityState()
+            }
+        }
+    }
 
     fun loadVerifiedFingerprints() {
+        refreshIdentityState()
+    }
+
+    private fun refreshIdentityState(nowMs: Long = System.currentTimeMillis()) {
         _verifiedFingerprints.value = identityManager.getVerifiedFingerprints()
+        _vouchedFingerprints.value = identityManager.getVouchedFingerprints(nowMs)
+        vouchExpiryRefreshJob?.cancel()
+        val nextExpiryMs = identityManager.nextVouchExpiryMs(nowMs) ?: return
+        val refreshDelayMs = (nextExpiryMs - nowMs).coerceAtLeast(MINIMUM_EXPIRY_REFRESH_DELAY_MS)
+        vouchExpiryRefreshJob = scope.launch {
+            delay(refreshDelayMs)
+            refreshIdentityState()
+        }
     }
 
     fun isPeerVerified(peerID: String): Boolean {
@@ -59,6 +90,18 @@ class VerificationHandler(
         val fingerprint = fingerprintFromNoiseBytes(noisePublicKey)
         return _verifiedFingerprints.value.contains(fingerprint)
     }
+
+    fun isFingerprintVouched(fingerprint: String): Boolean =
+        _vouchedFingerprints.value.contains(fingerprint.lowercase())
+
+    fun vouchersForFingerprint(fingerprint: String): List<SecureIdentityStateManager.VouchRecord> =
+        identityManager.validVouchers(fingerprint)
+
+    fun voucherNamesForFingerprint(fingerprint: String): List<String> =
+        identityManager.validVouchers(fingerprint).map { record ->
+            identityManager.getCachedFingerprintNickname(record.voucherFingerprint)
+                ?: record.voucherFingerprint.take(FINGERPRINT_NAME_PREFIX_LENGTH)
+        }
 
     fun unverifyFingerprint(peerID: String) {
         val fingerprint = meshService.getPeerFingerprint(peerID) ?: return

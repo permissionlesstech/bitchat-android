@@ -50,6 +50,7 @@ class MediaSendingManager(
     // Track in-flight transfer progress: transferId -> messageId and reverse
     private val transferMessageMap = mutableMapOf<String, String>()
     private val messageTransferMap = mutableMapOf<String, String>()
+    private val privateTransferMessageIDs = mutableSetOf<String>()
     private val pendingConsentLock = Any()
     private val _legacyPrivateMediaConsent = MutableStateFlow<LegacyPrivateMediaConsentRequest?>(null)
     val legacyPrivateMediaConsent: StateFlow<LegacyPrivateMediaConsentRequest?> =
@@ -288,10 +289,17 @@ class MediaSendingManager(
      */
     private suspend fun sendPrivateFile(
         toPeerID: String,
-        filePacket: BitchatFilePacket,
+        originalPacket: BitchatFilePacket,
         filePath: String,
         messageType: BitchatMessageType
     ) {
+        val filePacket = if (com.bitchat.android.model.PrivateMediaMessageIdentity.stableID(
+                meshService.myPeerID, meshService.myPeerID, originalPacket.fileName) != null) originalPacket
+        else when (originalPacket.mimeType) {
+            "image/jpeg" -> originalPacket.copy(fileName = "img_${UUID.randomUUID()}.jpg")
+            "audio/mp4", "audio/m4a" -> originalPacket.copy(fileName = "voice_${UUID.randomUUID()}.m4a")
+            else -> originalPacket
+        }
         val payload = withContext(mediaWorkDispatcher) { filePacket.encode() }
             ?: run {
                 Log.e(TAG, "Failed to encode file packet for private send")
@@ -454,7 +462,8 @@ class MediaSendingManager(
                     pending.recipientMeshPeerID,
                     pending.filePath,
                     pending.messageType,
-                    pending.transferId
+                    pending.transferId,
+                    pending.filePacket
                 )
             }
 
@@ -605,15 +614,20 @@ class MediaSendingManager(
         recipientMeshPeerID: String,
         filePath: String,
         messageType: BitchatMessageType,
-        transferId: String
+        transferId: String,
+        filePacket: BitchatFilePacket
     ) {
         if (preparation.transfer.transferId != transferId) {
             Log.e(TAG, "Prepared private-media transfer ID changed; send aborted")
             return
         }
 
+        val stableID = if (preparation.transfer.wireMode == com.bitchat.android.mesh.PrivateMediaWireMode.ENCRYPTED_NOISE_0X20) {
+            com.bitchat.android.model.PrivateMediaMessageIdentity.stableID(meshService.myPeerID, recipientMeshPeerID, filePacket.fileName)
+        } else null
+        val expectsReceipt = stableID != null && meshService.supportsPrivateMediaReceipts(recipientMeshPeerID)
         val msg = BitchatMessage(
-            id = UUID.randomUUID().toString().uppercase(),
+            id = stableID ?: UUID.randomUUID().toString().uppercase(),
             sender = state.getNicknameValue() ?: "me",
             content = filePath,
             type = messageType,
@@ -638,7 +652,14 @@ class MediaSendingManager(
             )
             return
         }
+        if (expectsReceipt && com.bitchat.android.services.PrivateMediaOutbox.tryGetInstance()
+                ?.enqueue(msg.id, conversationID, recipientMeshPeerID, filePacket) != true) {
+            messageManager.updateMessageDeliveryStatus(msg.id,
+                com.bitchat.android.model.DeliveryStatus.Failed("Unable to save media for reliable delivery"))
+            return
+        }
         synchronized(transferMessageMap) {
+            privateTransferMessageIDs += msg.id
             transferMessageMap[transferId] = msg.id
             messageTransferMap[msg.id] = transferId
         }
@@ -777,16 +798,24 @@ class MediaSendingManager(
                 )
                 synchronized(transferMessageMap) {
                     val msgIdRemoved = transferMessageMap.remove(evt.transferId)
-                    if (msgIdRemoved != null) messageTransferMap.remove(msgIdRemoved)
+                    if (msgIdRemoved != null) {
+                        messageTransferMap.remove(msgIdRemoved)
+                        privateTransferMessageIDs.remove(msgIdRemoved)
+                    }
                 }
             } else if (evt.completed) {
                 messageManager.updateMessageDeliveryStatus(
                     msgId,
-                    com.bitchat.android.model.DeliveryStatus.Delivered(to = "mesh", at = java.util.Date())
+                    if (synchronized(transferMessageMap) { msgId in privateTransferMessageIDs }) {
+                        com.bitchat.android.model.DeliveryStatus.Sent
+                    } else com.bitchat.android.model.DeliveryStatus.Delivered(to = "mesh", at = java.util.Date())
                 )
                 synchronized(transferMessageMap) {
                     val msgIdRemoved = transferMessageMap.remove(evt.transferId)
-                    if (msgIdRemoved != null) messageTransferMap.remove(msgIdRemoved)
+                    if (msgIdRemoved != null) {
+                        messageTransferMap.remove(msgIdRemoved)
+                        privateTransferMessageIDs.remove(msgIdRemoved)
+                    }
                 }
             } else {
                 messageManager.updateMessageDeliveryStatus(

@@ -89,8 +89,10 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             }
         }
 
-        // Enforce mandatory signature verification
-        if (!verifyPacketSignature(packet, peerID)) {
+        // Mesh diagnostics are intentionally unsigned for iOS wire compatibility.
+        val isUnsignedDiagnostic =
+            messageType in setOf(MessageType.PING, MessageType.PONG) && packet.signature == null
+        if (!isUnsignedDiagnostic && !verifyPacketSignature(packet, peerID)) {
             return false
         }
 
@@ -257,8 +259,11 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                     MessageType.ANNOUNCE,
                     MessageType.MESSAGE,
                     MessageType.FILE_TRANSFER,
+                    MessageType.COURIER_ENVELOPE,
                     MessageType.VOICE_FRAME,
-                    MessageType.LEAVE
+                    MessageType.LEAVE,
+                    MessageType.REQUEST_SYNC,
+                    MessageType.NOSTR_CARRIER
                 )) {
                 return true
             }

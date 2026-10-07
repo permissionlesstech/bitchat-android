@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,6 +61,8 @@ import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.favorites.FavoriteRelationship
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.groups.BitchatGroup
+import com.bitchat.android.groups.GroupIds
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
@@ -70,10 +73,13 @@ import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
+import com.bitchat.android.services.bridge.BridgedParticipant
 import com.bitchat.android.util.hexEncodedString
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
+private val TRUST_BADGE_SPACING = 4.dp
+private val TRUST_BADGE_SIZE = 14.dp
 
 /**
  * Sheet components for ChatScreen
@@ -96,6 +102,8 @@ fun MeshPeerListSheet(
     val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
+    val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
+    val groups by viewModel.groups.collectAsStateWithLifecycle()
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
@@ -104,6 +112,7 @@ fun MeshPeerListSheet(
     val conversationStoreState by viewModel.conversationStoreState.collectAsStateWithLifecycle()
     val peerDirect by viewModel.peerDirect.collectAsStateWithLifecycle()
     val geohashPeopleCount = geohashPeople.size
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
     val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
     val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
     val directPeerIdentityIDs = remember(peerDirect) {
@@ -444,7 +453,29 @@ fun MeshPeerListSheet(
                                         onDismiss()
                                     }
                                 )
+
+                                if (bridgeUiState.enabled && bridgeUiState.participants.isNotEmpty()) {
+                                    BridgedPeopleSection(
+                                        participants = bridgeUiState.participants,
+                                        colorScheme = colorScheme
+                                    )
+                                }
                             }
+                        }
+                    }
+
+                    if (selectedLocationChannel !is ChannelID.Location && groups.isNotEmpty()) {
+                        item(key = "groups_section") {
+                            GroupSection(
+                                groups = groups,
+                                myFingerprint = viewModel.getMyFingerprint(),
+                                unreadConversationIDs = unreadPrivateMessages,
+                                colorScheme = colorScheme,
+                                onGroupClick = { groupPeerID ->
+                                    viewModel.showPrivateChatSheet(groupPeerID)
+                                    onDismiss()
+                                }
+                            )
                         }
                     }
                 }
@@ -569,6 +600,150 @@ private val PeerRowIconSize = 22.dp
 private const val CONVERSATION_SEARCH_THRESHOLD = 8
 
 @Composable
+private fun GroupSection(
+    groups: List<BitchatGroup>,
+    myFingerprint: String,
+    unreadConversationIDs: Set<String>,
+    colorScheme: ColorScheme,
+    onGroupClick: (String) -> Unit
+) {
+    Column(modifier = Modifier.padding(top = 16.dp)) {
+        Text(
+            text = stringResource(R.string.groups).uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            color = colorScheme.onSurface.copy(alpha = 0.7f),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(top = 8.dp, bottom = 4.dp)
+        )
+
+        groups.forEach { group ->
+            val isCreator = group.creatorFingerprint.equals(myFingerprint, ignoreCase = true)
+            val hasUnread = group.peerID in unreadConversationIDs
+            val memberCountLabel = stringResource(R.string.group_member_count, group.members.size)
+            val creatorLabel = stringResource(R.string.group_creator)
+            val unreadLabel = stringResource(R.string.cd_unread_private_messages)
+            val accessibilityDescription = buildList {
+                add(group.name)
+                add(memberCountLabel)
+                if (isCreator) add(creatorLabel)
+                if (hasUnread) add(unreadLabel)
+            }.joinToString()
+
+            Surface(
+                onClick = { onGroupClick(group.peerID) },
+                color = Color.Transparent,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 2.dp)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = accessibilityDescription
+                    }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Groups,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = colorScheme.primary
+                    )
+                    Text(
+                        text = "#${group.name}",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        color = colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = memberCountLabel,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    if (isCreator) {
+                        Icon(
+                            imageVector = Icons.Filled.WorkspacePremium,
+                            contentDescription = creatorLabel,
+                            modifier = Modifier.size(14.dp),
+                            tint = Color(0xFFFFD700)
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (hasUnread) {
+                        Icon(
+                            imageVector = Icons.Filled.Mail,
+                            contentDescription = unreadLabel,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color(0xFFFF9500)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BridgedPeopleSection(
+    participants: List<BridgedParticipant>,
+    colorScheme: ColorScheme
+) {
+    Column(modifier = Modifier.padding(top = 16.dp)) {
+        Text(
+            text = stringResource(R.string.across_bridge).uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            color = colorScheme.onSurface.copy(alpha = 0.7f),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(top = 8.dp, bottom = 4.dp)
+        )
+        participants.forEach { participant ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 40.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Public,
+                    contentDescription = null,
+                    tint = Color(0xFF00A7C4),
+                    modifier = Modifier.size(18.dp)
+                )
+                Column {
+                    Text(
+                        text = participant.displayName,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                        color = colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.via_mesh_bridge),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurface.copy(alpha = 0.55f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChannelRow(
     channel: String,
     isSelected: Boolean,
@@ -684,6 +859,7 @@ fun PeopleSection(
         val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
         val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
         val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
+        val vouchedFingerprints by viewModel.vouchedFingerprints.collectAsStateWithLifecycle()
 
         // Reactive favorite computation for all peers
         val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
@@ -808,6 +984,8 @@ fun PeopleSection(
             val isFavorite = peerFavoriteStates[peerID] ?: false
             val theyFavoritedUs = peerTheyFavoritedUsStates[peerID] ?: false
             val isVerified = peerVerifiedStates[peerID] ?: false
+            val isVouched = !isVerified &&
+                peerFingerprints[peerID]?.lowercase() in vouchedFingerprints
             // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
 
             val noiseHex = noiseHexByPeerID[peerID]
@@ -835,6 +1013,7 @@ fun PeopleSection(
                 isFavorite = isFavorite,
                 theyFavoritedUs = theyFavoritedUs,
                 isVerified = isVerified,
+                isVouched = isVouched,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
                 onItemClick = { onPrivateChatStart(peerID) },
@@ -865,6 +1044,7 @@ fun PeopleSection(
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
             val isVerified = viewModel.isNoisePublicKeyVerified(fav.peerNoisePublicKey, verifiedFingerprints)
+            val isVouched = !isVerified && viewModel.isNoisePublicKeyVouched(fav.peerNoisePublicKey)
 
             val unreadCount = (
                 privateChats[conversationID]?.count { msg -> msg.sender != nickname && hasUnreadPrivateMessages.contains(conversationID) } ?: 0
@@ -881,6 +1061,7 @@ fun PeopleSection(
                 isFavorite = true,
                 theyFavoritedUs = fav.theyFavoritedUs,
                 isVerified = isVerified,
+                isVouched = isVouched,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
                 onItemClick = { onPrivateChatStart(mappedConnectedPeerID ?: favPeerID) },
@@ -1467,6 +1648,7 @@ private fun PeerItem(
     isFavorite: Boolean,
     theyFavoritedUs: Boolean = false,
     isVerified: Boolean,
+    isVouched: Boolean,
     colorScheme: ColorScheme,
     viewModel: ChatViewModel,
     onItemClick: () -> Unit,
@@ -1562,6 +1744,23 @@ private fun PeerItem(
                     fontSize = 14.sp,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
                     color = baseColor.copy(alpha = SUFFIX_ALPHA)
+                )
+            }
+
+            if (isVerified) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_spec_check),
+                    contentDescription = stringResource(R.string.verify_title),
+                    modifier = Modifier.size(16.dp),
+                    tint = colorScheme.primary
+                )
+            } else if (isVouched) {
+                Spacer(modifier = Modifier.width(TRUST_BADGE_SPACING))
+                Icon(
+                    imageVector = Icons.Outlined.VerifiedUser,
+                    contentDescription = stringResource(R.string.fingerprint_status_vouched),
+                    modifier = Modifier.size(TRUST_BADGE_SIZE),
+                    tint = baseColor
                 )
             }
         }
@@ -1687,6 +1886,9 @@ fun PrivateChatSheet(
     val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
     val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
     val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
+    val groups by viewModel.groups.collectAsStateWithLifecycle()
+    val group = remember(peerID, groups) { groups.firstOrNull { it.peerID == peerID } }
+    val isGroupConversation = GroupIds.isGroup(peerID)
 
     val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
     val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
@@ -1713,6 +1915,7 @@ fun PrivateChatSheet(
     val isConnected = activeMeshPeerID?.let { connectedPeers.contains(it) } == true || connectedPeers.contains(peerID) || isDirect
     val isNostrReachableFavorite =
         !isConnected && favoriteRelationship?.isMutual == true && favoriteRelationship.peerNostrPublicKey != null
+    val privateGroupLabel = stringResource(R.string.private_group)
 
     // Compute display name and title text reactively
     val displayName = remember(peerID, peerNicknames, favoriteRelationship) {
@@ -1722,8 +1925,10 @@ fun PrivateChatSheet(
             ?: favoriteRelationship?.peerNickname?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
             ?: viewModel.resolvePeerDisplayNameForFingerprint(peerID)
     }
-    val titleText = remember(peerID, peerNicknames, favoriteRelationship) {
-        if (isNostrPeer) {
+    val titleText = remember(peerID, peerNicknames, favoriteRelationship, group) {
+        if (isGroupConversation) {
+            group?.let { "#${it.name} (${it.members.size})" } ?: privateGroupLabel
+        } else if (isNostrPeer) {
             val gh = GeohashConversationRegistry.get(peerID) ?: "geohash"
             val fullPubkey = GeohashAliasRegistry.get(peerID) ?: ""
             val name = if (fullPubkey.isNotEmpty()) {
@@ -1737,7 +1942,7 @@ fun PrivateChatSheet(
         }
     }
 
-    val conversationID = contactResolution.conversationID
+    val conversationID = if (isGroupConversation) peerID else contactResolution.conversationID
     val messages = privateChats[conversationID] ?: privateChats[peerID] ?: emptyList()
     val sessionState = resolveConversationSessionState(
         conversationID = peerID,
@@ -1747,8 +1952,15 @@ fun PrivateChatSheet(
     val fingerprint = activeMeshPeerID?.let { peerFingerprints[it] }
         ?: peerFingerprints[peerID]
         ?: ContactIdentityResolver.fingerprintFromContactConversationId(peerID)
-    val isFavorite = remember(favoritePeers, fingerprint, peerID, favoriteRelationship) {
-        if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
+    val isFavorite = remember(
+        favoritePeers,
+        fingerprint,
+        peerID,
+        favoriteRelationship,
+        isGroupConversation
+    ) {
+        !isGroupConversation &&
+            if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
     }
     val theyFavoritedUs = remember(peerFavoritedUs, fingerprint, favoriteRelationship) {
         (fingerprint != null && peerFavoritedUs.contains(fingerprint)) ||
@@ -1834,8 +2046,33 @@ fun PrivateChatSheet(
                         onImageClick = { _, _, _ -> /* handle image click */ }
                     )
 
-                    // Input section. No divider here: ChatInputSection draws its own fade and
-                    // hairline.
+                    HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
+
+                    // Input section
+                    if (isGroupConversation) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                                .semantics(mergeDescendants = true) {},
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = Color(0xFFFF9500)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.group_encryption_caption),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFFF9500)
+                            )
+                        }
+                    }
+
                     var messageText by remember(peerID) {
                         mutableStateOf(
                             androidx.compose.ui.text.input.TextFieldValue(
@@ -1885,7 +2122,7 @@ fun PrivateChatSheet(
                         currentChannel = null,
                         nickname = nickname,
                         colorScheme = colorScheme,
-                        showMediaButtons = true
+                        showMediaButtons = !isGroupConversation
                     )
                 }
 
@@ -1910,6 +2147,7 @@ fun PrivateChatSheet(
                         },
                         title = titleText
                     ) {
+                        if (!isGroupConversation) {
                         ConversationHeaderAction(
                             onClick = { viewModel.toggleFavorite(peerID) },
                             contentDescription = if (isFavorite) {
@@ -1938,7 +2176,9 @@ fun PrivateChatSheet(
                             )
                         }
 
-                        if (isVerified) {
+                        }
+
+                        if (!isGroupConversation && isVerified) {
                             ConversationHeaderStatus {
                                 Icon(
                                     imageVector = Icons.Filled.Verified,
@@ -1953,7 +2193,7 @@ fun PrivateChatSheet(
 
                         // Keep the lock nearest the close action: from right to left the security
                         // cluster reads close, encryption, verification, then favorite.
-                        if (!isNostrPeer && !isNostrReachableFavorite) {
+                        if (!isGroupConversation && !isNostrPeer && !isNostrReachableFavorite) {
                             ConversationHeaderAction(
                                 onClick = { viewModel.showSecurityVerificationSheet() },
                                 contentDescription = stringResource(R.string.verify_title)

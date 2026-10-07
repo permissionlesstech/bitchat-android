@@ -44,6 +44,9 @@ object TransportBridgeService {
          * Send a packet to a specific peer via this transport (optional).
          */
         fun sendToPeer(peerID: String, packet: BitchatPacket) { }
+
+        /** Send directly and report whether the transport accepted the write. */
+        fun sendToPeerAndReport(peerID: String, packet: BitchatPacket): Boolean = false
     }
 
     private val transports = ConcurrentHashMap<String, TransportLayer>()
@@ -196,6 +199,19 @@ object TransportBridgeService {
                 layer.sendToPeer(peerID, packet)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send local peer packet to $id: ${e.message}")
+            }
+        }
+    }
+
+    fun sendToPeerFromLocalAndReport(peerID: String, packet: BitchatPacket): Boolean {
+        val targets = transports.toMap()
+        if (targets.isEmpty()) return false
+        return targets.values.fold(false) { accepted, layer ->
+            try {
+                layer.sendToPeerAndReport(peerID, packet) || accepted
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send local peer packet: ${e.message}")
+                accepted
             }
         }
     }

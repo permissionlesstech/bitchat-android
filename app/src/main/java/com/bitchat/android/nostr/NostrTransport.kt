@@ -46,6 +46,11 @@ class NostrTransport(
     // MARK: - Transport Interface Methods
     
     val myPeerID: String get() = senderPeerID
+
+    fun canDeliverPromptly(): Boolean = try {
+        NostrRelayManager.getInstance(context)
+            .hasConnectedRelay(NostrRelayManager.defaultRelays())
+    } catch (_: Exception) { false }
     
     fun sendPrivateMessage(
         content: String,
