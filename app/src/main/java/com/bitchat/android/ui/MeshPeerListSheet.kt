@@ -1843,7 +1843,6 @@ fun PrivateChatSheet(
                             )
                         )
                     }
-
                     ChatInputSection(
                         messageText = messageText,
                         onMessageTextChange = { newText ->
@@ -1853,10 +1852,10 @@ fun PrivateChatSheet(
                             // renders its own popups as hidden, so an update only leaves
                             // a stale popup behind for the main composer.
                         },
-                        onSend = {
-                            if (messageText.text.trim().isNotEmpty()) {
-                                viewModel.sendMessage(messageText.text.trim()) { accepted ->
-                                    if (accepted) {
+                        onSend = { submittedText ->
+                            if (submittedText.trim().isNotEmpty()) {
+                                viewModel.sendMessage(submittedText.trim()) { accepted ->
+                                    if (accepted && messageText.text == submittedText) {
                                         messageText =
                                             androidx.compose.ui.text.input.TextFieldValue("")
                                         viewModel.setConversationDraft(peerID, "")

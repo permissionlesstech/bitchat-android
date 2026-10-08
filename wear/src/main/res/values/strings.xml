@@ -12,6 +12,10 @@
     <string name="message_channel_description">Encrypted direct-message alerts</string>
     <string name="notification_new_private_message">New encrypted message</string>
     <string name="notification_private_message_hidden">Unlock to view the message</string>
+    <string name="tracking_link_warning_title">Possible tracker detected</string>
+    <string name="tracking_link_send_warning">Your link probably contains a tracker. Proceed?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
     <plurals name="notification_private_message_summary">
         <item quantity="one">%1$d new message</item>
         <item quantity="other">%1$d new messages</item>
