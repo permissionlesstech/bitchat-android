@@ -40,7 +40,9 @@ These are four separate signing identities:
    commit. It is created locally by `git tag -s`.
 2. **GitHub APK signature**: lets Android install and update the APKs published
    on GitHub. Use the existing GitHub release key. Its certificate SHA-256 must
-   match `BITCHAT_GITHUB_RELEASE_CERT_SHA256` in `gradle.properties`.
+   match `BITCHAT_GITHUB_RELEASE_CERT_SHA256` in `gradle.properties`. If a
+   deliberate key rotation changes that pin, update the README verification
+   block and `docs/github-apk-verification.txt` in the same change.
 3. **Play upload signature**: the maintainer signs both AABs with the Play
    upload key so Play will accept them.
 4. **Play app signature**: Google generates device APKs and signs them with the
