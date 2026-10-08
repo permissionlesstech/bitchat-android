@@ -89,7 +89,12 @@ internal object LiveLocationPrivacyGate {
 
     fun update(enabled: Boolean) {
         policy.update(enabled)
-        notifyRevoked()
+        // Revocation listeners cancel in-flight location work. Turning location
+        // *on* must not fire them — that used to kill the one-shot/refresh that
+        // Enable Location just started (#577).
+        if (!enabled) {
+            notifyRevoked()
+        }
     }
 
     fun invalidate() {
