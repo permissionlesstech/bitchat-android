@@ -14,6 +14,16 @@ env:
   SETUP_JAVA_VERSION: 21.0.11+10.0.LTS
 
 jobs:
+  openpgp-release-tests:
+    name: Offline OpenPGP release verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Require verification tools
+        run: command -v python3 && command -v gpg && command -v gpgconf
+      - name: Test synthetic release signing and tamper rejection
+        run: python3 -m unittest discover -s tools/reproducible-builds -p test_openpgp_release.py
   verify:
     name: Test and lint
     runs-on: ubuntu-24.04
