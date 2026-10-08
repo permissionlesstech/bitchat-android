@@ -270,8 +270,17 @@ fun MessagesList(
             firstVisibleIndex <= 2
         }
     }
-    LaunchedEffect(isAtLatest) {
-        followIncomingMessages = isAtLatest
+    // Sticky follow: arriving bursts can briefly leave firstVisibleIndex > 2
+    // while scrollToItem(0) is still catching up. Syncing follow to isAtLatest
+    // on every layout pass cleared sticky follow mid-flood and the FAB quit
+    // tracking (#568). Only a user-driven scroll away from latest clears it;
+    // settling back on latest re-arms it.
+    LaunchedEffect(isAtLatest, listState.isScrollInProgress) {
+        if (isAtLatest) {
+            followIncomingMessages = true
+        } else if (listState.isScrollInProgress) {
+            followIncomingMessages = false
+        }
         onScrolledUpChanged?.invoke(!isAtLatest)
     }
     
