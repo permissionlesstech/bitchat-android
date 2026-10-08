@@ -208,4 +208,62 @@ class CommandProcessorTest {
     assertTrue(chatState.getMentionSuggestionsValue().isEmpty())
 
   }
+
+  @Test
+  fun `text set to an inserted mention hides both popups`() {
+    // A command popup is open while the user taps a nickname in the message list.
+    commandProcessor.updateCommandSuggestions("/")
+    assertTrue(chatState.getShowCommandSuggestionsValue())
+
+    // The composer re-syncs both popups with the inserted text, which ends in a
+    // space, so neither popup matches it.
+    commandProcessor.updateCommandSuggestions("/ @alice ")
+    commandProcessor.updateMentionSuggestions("/ @alice ", meshService, viewModel = null)
+    assertFalse(chatState.getShowCommandSuggestionsValue())
+    assertTrue(chatState.getCommandSuggestionsValue().isEmpty())
+    assertFalse(chatState.getShowMentionSuggestionsValue())
+    assertTrue(chatState.getMentionSuggestionsValue().isEmpty())
+  }
+
+  @Test
+  fun `a mention followed by a space no longer matches the mention popup`() {
+    whenever(meshService.myPeerID).thenReturn("me")
+    whenever(meshService.getPeerNicknames()).thenReturn(mapOf("peer-1" to "alice"))
+
+    commandProcessor.updateMentionSuggestions("@a", meshService, viewModel = null)
+    assertTrue(chatState.getShowMentionSuggestionsValue())
+
+    commandProcessor.updateMentionSuggestions("@alice ", meshService, viewModel = null)
+    assertFalse(chatState.getShowMentionSuggestionsValue())
+    assertTrue(chatState.getMentionSuggestionsValue().isEmpty())
+  }
+
+  @Test
+  fun `command suggestions close once the input grows past the command`() {
+    // The command popup only shows while the whole input is a prefix of a
+    // command name or alias, and none of them contains a space or an @. An
+    // input that can match the mention popup has already closed the command
+    // popup.
+    commandProcessor.updateCommandSuggestions("/m")
+    assertTrue(chatState.getShowCommandSuggestionsValue())
+
+    commandProcessor.updateCommandSuggestions("/msg @ali")
+    assertFalse(chatState.getShowCommandSuggestionsValue())
+    assertTrue(chatState.getCommandSuggestionsValue().isEmpty())
+  }
+
+  @Test
+  fun `a restored command draft reopens the command popup`() {
+    // Switching conversations restores the draft in code; re-syncing with the
+    // restored text brings the popup back for a command draft.
+    commandProcessor.updateCommandSuggestions("/j")
+    assertTrue(chatState.getShowCommandSuggestionsValue())
+    assertTrue(chatState.getCommandSuggestionsValue().isNotEmpty())
+
+    // An empty restored draft leaves both popups hidden.
+    commandProcessor.updateCommandSuggestions("")
+    commandProcessor.updateMentionSuggestions("", meshService, viewModel = null)
+    assertFalse(chatState.getShowCommandSuggestionsValue())
+    assertFalse(chatState.getShowMentionSuggestionsValue())
+  }
 }
