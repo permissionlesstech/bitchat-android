@@ -38,9 +38,23 @@ class MessageManager(private val state: ChatState) {
         addMessage(sys)
     }
     
+    /** Local command feedback belongs to the conversation currently being viewed. */
+    fun addCommandReply(message: BitchatMessage) {
+        val peer = state.getSelectedPrivateChatPeerValue()
+        val location = state.selectedLocationChannel.value
+        val channel = state.getCurrentChannelValue()
+        when {
+            peer != null -> addPrivateMessageNoUnread(peer, message.copy(isPrivate = true))
+            location is com.bitchat.android.geohash.ChannelID.Location ->
+                addChannelMessage("geo:${location.channel.geohash}", message)
+            channel != null -> addChannelMessage(channel, message.copy(channel = channel))
+            else -> addMessage(message)
+        }
+    }
+
     fun clearMessages() {
+        com.bitchat.android.services.AppStateStore.clearPublicMessages()
         state.setMessages(emptyList())
-        state.setChannelMessages(emptyMap())
     }
     
     // MARK: - Channel Message Management
@@ -77,9 +91,11 @@ class MessageManager(private val state: ChatState) {
     }
     
     fun clearChannelMessages(channel: String) {
+        com.bitchat.android.services.AppStateStore.clearChannelMessages(channel)
         val updatedChannelMessages = state.getChannelMessagesValue().toMutableMap()
         updatedChannelMessages[channel] = emptyList()
         state.setChannelMessages(updatedChannelMessages)
+        clearChannelUnreadCount(channel)
     }
     
     fun removeChannelMessages(channel: String) {
