@@ -4,6 +4,8 @@ import com.google.gson.JsonParser
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
 import java.math.BigDecimal
 import java.util.Base64
 import java.util.Currency
@@ -61,8 +63,8 @@ object CashuTokenDecoder {
         val payload = decodeBase64Url(token.substring(6)) ?: return null
         if (payload.isEmpty()) return null
         val info = when (token[5]) {
-            'A' -> decodeV3(payload)
-            'B' -> decodeV4(payload) ?: if (strict) null else TokenInfo('B', null, null, null, null)
+            'A' -> decodeV3(payload, strict)
+            'B' -> decodeV4(payload, strict) ?: if (strict) null else TokenInfo('B', null, null, null, null)
             else -> null
         } ?: return null
         return if (!strict || (info.amount != null && info.amount > 0)) info else null
@@ -110,13 +112,16 @@ object CashuTokenDecoder {
 
     private fun decodeBase64Url(input: String): ByteArray? {
         val normalized = input.replace('-', '+').replace('_', '/').trimEnd('=')
+        val paddingCount = input.length - normalized.length
+        if (paddingCount > 2) return null
         if (normalized.length % 4 == 1) return null
+        if (paddingCount != 0 && paddingCount != (4 - normalized.length % 4) % 4) return null
         val padded = normalized + "=".repeat((4 - normalized.length % 4) % 4)
         return runCatching { Base64.getDecoder().decode(padded) }.getOrNull()
     }
 
-    private fun decodeV3(payload: ByteArray): TokenInfo? = runCatching {
-        val root = JsonParser.parseString(String(payload, StandardCharsets.UTF_8)).asJsonObject
+    private fun decodeV3(payload: ByteArray, strict: Boolean): TokenInfo? = runCatching {
+        val root = JsonParser.parseString(decodeTokenUtf8(payload) ?: return null).asJsonObject
         val entries = root.getAsJsonArray("token")?.takeIf { it.size() > 0 } ?: return null
         var total = 0L
         var sawAmount = false
@@ -126,10 +131,14 @@ object CashuTokenDecoder {
             if (mintHost == null) mintHost = sanitizeHost(entry.get("mint")?.takeIf { it.isJsonPrimitive }?.asString)
             val proofs = entry.getAsJsonArray("proofs") ?: continue
             for (proofElement in proofs) {
-                val amountElement = proofElement.takeIf { it.isJsonObject }?.asJsonObject?.get("amount") ?: continue
-                if (!amountElement.isJsonPrimitive || !amountElement.asJsonPrimitive.isNumber) continue
-                val value = runCatching { amountElement.asBigDecimal.longValueExact() }.getOrNull() ?: continue
-                if (value <= 0 || value > MAX_AMOUNT) continue
+                val amountElement = proofElement.takeIf { it.isJsonObject }?.asJsonObject?.get("amount")
+                val value = amountElement?.takeIf {
+                    it.isJsonPrimitive && it.asJsonPrimitive.isNumber
+                }?.let { runCatching { it.asBigDecimal.longValueExact() }.getOrNull() }
+                if (value == null || value <= 0 || value > MAX_AMOUNT) {
+                    if (strict) return null
+                    continue
+                }
                 if (total > MAX_AMOUNT - value) return null
                 total += value
                 sawAmount = true
@@ -144,7 +153,7 @@ object CashuTokenDecoder {
         )
     }.getOrNull()
 
-    private fun decodeV4(payload: ByteArray): TokenInfo? {
+    private fun decodeV4(payload: ByteArray, strict: Boolean): TokenInfo? {
         val root = CborReader(payload).parseComplete() as? CborValue.MapValue ?: return null
         var total = 0L
         var sawAmount = false
@@ -162,8 +171,11 @@ object CashuTokenDecoder {
                         for (proof in (groupValue as? CborValue.ArrayValue)?.values.orEmpty()) {
                             for ((proofKey, proofValue) in (proof as? CborValue.MapValue)?.pairs.orEmpty()) {
                                 if ((proofKey as? CborValue.Text)?.value != "a") continue
-                                val amount = (proofValue as? CborValue.Unsigned)?.value ?: continue
-                                if (amount == 0L || amount > MAX_AMOUNT) continue
+                                val amount = (proofValue as? CborValue.Unsigned)?.value
+                                if (amount == null || amount == 0L || amount > MAX_AMOUNT) {
+                                    if (strict) return null
+                                    continue
+                                }
                                 if (total > MAX_AMOUNT - amount) return null
                                 total += amount
                                 sawAmount = true
@@ -201,6 +213,13 @@ object CashuTokenDecoder {
     private val TOKEN_REGEX = Regex("""(?i:cashu:(?://)?)?cashu[AB][A-Za-z0-9_+/%=-]{6,}""")
 }
 
+private fun decodeTokenUtf8(bytes: ByteArray): String? = runCatching {
+    StandardCharsets.UTF_8.newDecoder()
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
+        .decode(ByteBuffer.wrap(bytes)).toString()
+}.getOrNull()
+
 private sealed interface CborValue {
     data class Unsigned(val value: Long) : CborValue
     data class Text(val value: String) : CborValue
@@ -225,13 +244,17 @@ private class CborReader(private val bytes: ByteArray) {
             0 -> CborValue.Unsigned(argument.takeIf { it <= Long.MAX_VALUE }?.toLong() ?: return null)
             1 -> CborValue.Opaque
             2 -> if (readBytes(argument) != null) CborValue.Opaque else null
-            3 -> readBytes(argument)?.toString(StandardCharsets.UTF_8)?.let(CborValue::Text)
+            3 -> readBytes(argument)?.let(::decodeTokenUtf8)?.let(CborValue::Text)
             4 -> parseContainer(argument, depth) { CborValue.ArrayValue(it) }
             5 -> {
                 if (argument > 10_000 || argument > itemBudget / 2) return null
                 val pairs = ArrayList<Pair<CborValue, CborValue>>(argument.coerceAtMost(64).toInt())
+                val textKeys = HashSet<String>()
                 repeat(argument.toInt()) {
-                    pairs += (parseValue(depth + 1) ?: return null) to (parseValue(depth + 1) ?: return null)
+                    val key = parseValue(depth + 1) ?: return null
+                    val value = parseValue(depth + 1) ?: return null
+                    if (key is CborValue.Text && !textKeys.add(key.value)) return null
+                    pairs += key to value
                 }
                 CborValue.MapValue(pairs)
             }
