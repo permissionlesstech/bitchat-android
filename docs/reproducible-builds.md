@@ -101,8 +101,9 @@ automatically reports the first differing artifact.
 
 ## Verify a GitHub release
 
-Install the GitHub CLI, authenticate it if necessary, check out the release tag,
-and run:
+Install the GitHub CLI, Python 3.9 or newer, and Android Build Tools 37.0.0.
+Set `ANDROID_SDK_ROOT` (or `ANDROID_HOME`) to that SDK, authenticate `gh` if
+necessary, check out the release tag, and run:
 
 ```bash
 git checkout vX.Y.Z
@@ -112,15 +113,23 @@ tools/reproducible-builds/verify-github-release.sh vX.Y.Z
 That command:
 
 1. downloads all release APKs, AABs, build information, and checksum files;
-2. verifies the canonical unsigned build's GitHub artifact-attestation subjects
-   against this repository;
-3. verifies `BITCHAT_SHA256SUMS`;
-4. checks that the local source commit is the release commit;
-5. rebuilds in the pinned container; and
-6. byte-compares every unsigned APK, both unsigned AABs, build information, and
+2. verifies every canonical unsigned artifact's GitHub attestation against this
+   repository, `.github/workflows/release.yml`, the requested tag ref, and a
+   GitHub-hosted runner;
+3. requires `BITCHAT_SHA256SUMS` to cover the complete expected release inventory
+   exactly once and verifies every digest;
+4. verifies the four installable APK signatures with `apksigner` and requires
+   each signer to match `BITCHAT_GITHUB_RELEASE_CERT_SHA256` in the checked-out
+   `gradle.properties`;
+5. compares the signed APK and upload-AAB payloads to the attested unsigned
+   artifacts, ignoring only top-level JAR-signing metadata;
+6. checks that the local source commit is the release commit;
+7. rebuilds in the pinned container; and
+8. byte-compares every unsigned APK, both unsigned AABs, build information, and
    the unsigned checksum manifest.
 
-To verify the published checksums and attestations without rebuilding:
+To perform steps 1–5 without rebuilding (the same SDK/signature checks still
+apply):
 
 ```bash
 tools/reproducible-builds/verify-github-release.sh vX.Y.Z --no-rebuild
@@ -135,7 +144,7 @@ apksigner verify --verbose --print-certs bitchat-android-universal.apk
 
 Compare the reported signer certificate SHA-256 with
 `BITCHAT_GITHUB_RELEASE_CERT_SHA256` in `gradle.properties`. A matching
-certificate proves who signed the APK; the checksum, attestation, and local
+certificate identifies the pinned signing key; the checksum, attestation, and local
 unsigned rebuild establish which source and build produced it. A third party
 cannot recreate the signed bytes without the private release key.
 
@@ -179,8 +188,10 @@ GitHub universal APK or to a locally built APK. Use this procedure instead:
      downloaded-from-play.aab
    ```
 
-   The helper excludes JAR-signing metadata and compares every other entry name
-   and uncompressed byte.
+   The helper excludes top-level JAR-signing metadata and compares every other
+   entry name and uncompressed byte. It rejects invalid or ambiguous ZIP archives.
+   This payload comparison does not verify an AAB upload certificate or the
+   Google Play app-signing certificate.
 2. In **Setup > App integrity**, record the SHA-256 fingerprint under **App
    signing key certificate**. This is different from the upload-key certificate
    and may be different from the GitHub release certificate.

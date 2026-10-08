@@ -14,6 +14,13 @@ env:
   SETUP_JAVA_VERSION: 21.0.11+10.0.LTS
 
 jobs:
+  release-tooling:
+    name: Release verification regression tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: python3 -m unittest discover -s tools/reproducible-builds/tests -v
+
   verify:
     name: Test and lint
     runs-on: ubuntu-24.04
