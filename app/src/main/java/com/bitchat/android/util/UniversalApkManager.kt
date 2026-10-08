@@ -510,12 +510,14 @@ class UniversalApkManager(
 
                             val append = range != null
                             val resumedBytes = if (append) existingBytes else 0L
-                            val expectedSize = range?.total
-                                ?: body.contentLength().takeIf { it >= 0L }?.let { length ->
-                                    resumedBytes + length
-                                }
-                                ?: previousResume?.expectedSize?.takeIf { append }
-                                ?: 0L
+                            val responseSize = apkResponseSize(
+                                range = range,
+                                contentLength = body.contentLength(),
+                                resumedBytes = resumedBytes,
+                                previousSize = previousResume?.expectedSize
+                            ) ?: throw invalidResumeResponse(source, tempFile)
+                            val expectedSize = responseSize.fileSize
+                            val byteBudget = ApkResponseByteBudget(responseSize.responseBytes)
                             if (expectedSize > 0L) {
                                 checkDiskSpace((expectedSize - resumedBytes).coerceAtLeast(0L))
                             }
@@ -562,6 +564,9 @@ class UniversalApkManager(
                                     }
 
                                     while (input.read(buffer).also { bytesRead = it } != -1) {
+                                        if (!byteBudget.accept(bytesRead)) {
+                                            throw invalidResumeResponse(source, tempFile)
+                                        }
                                         output.write(buffer, 0, bytesRead)
                                         totalBytesRead += bytesRead
                                         if (expectedSize > 0L) {
@@ -577,8 +582,10 @@ class UniversalApkManager(
                                 }
                             }
 
-                            if (expectedSize > 0L && tempFile.length() != expectedSize) {
-                                if (tempFile.length() > expectedSize) clearPartialDownload()
+                            if (!byteBudget.isComplete() ||
+                                (expectedSize > 0L && tempFile.length() != expectedSize)
+                            ) {
+                                if (expectedSize > 0L && tempFile.length() > expectedSize) clearPartialDownload()
                                 throw ApkDownloadException(
                                     message = "${source.id} download ended before all bytes arrived.",
                                     reason = ApkDownloadFailureReason.Incomplete,
