@@ -12,6 +12,7 @@ object Bech32 {
      * Encode data with HRP (Human Readable Part)
      */
     fun encode(hrp: String, data: ByteArray): String {
+        require(hrp.length in 1..83) { "Invalid HRP length" }
         val values = convertBits(data, 8, 5, true).toList()
         val checksum = createChecksum(hrp, values)
         val combined = values + checksum
@@ -25,7 +26,7 @@ object Bech32 {
      */
     fun decode(bech32String: String): Pair<String, ByteArray> {
         val separatorIndex = bech32String.lastIndexOf('1')
-        require(separatorIndex >= 0) { "No separator found" }
+        require(separatorIndex in 1..83) { "Invalid HRP length or missing separator" }
         
         val hrp = bech32String.substring(0, separatorIndex)
         val dataString = bech32String.substring(separatorIndex + 1)
@@ -76,6 +77,9 @@ object Bech32 {
         
         if (pad && bits > 0) {
             result.add((acc shl (toBits - bits)) and maxv)
+        } else if (!pad) {
+            require(bits < fromBits) { "Excess padding" }
+            require(((acc shl (toBits - bits)) and maxv) == 0) { "Nonzero padding" }
         }
         
         return result.toIntArray()
