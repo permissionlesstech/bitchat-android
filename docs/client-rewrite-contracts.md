@@ -66,3 +66,12 @@ shipping a rewrite, run the following on at least two physical devices:
 
 Those scenarios belong in instrumented tests or a two-device interoperability
 harness; they must not be represented as passing JVM mocks.
+
+### Embedded Nostr frame bound
+
+The embedded Base64 decoder bounds the complete wire frame before allocation,
+including v2 headers, identifiers, route hops, signature and padding. The
+binary parser separately enforces the unchanged 10 MiB payload cap. Framing
+allowance must not cause a valid maximum payload to be rejected, or let an
+oversized declared payload through. `NostrEmbeddedPacketDecoderTest` covers
+both cases with synthetic frames.
