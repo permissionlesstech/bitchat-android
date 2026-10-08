@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,13 +38,13 @@ import com.bitchat.watch.ui.theme.colorForPeer
  */
 @Composable
 fun PeerDebugScreen() {
-    val peers by AppStateStore.peers.collectAsState()
+    val peers by AppStateStore.peers.collectAsStateWithLifecycle()
     val mesh = WearMeshService.peek()
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     val nicknames = mesh?.getPeerNicknames() ?: emptyMap()
     val rssi = mesh?.getPeerRSSI() ?: emptyMap()
-    val identityRevision by WearPeerIdentityState.revision.collectAsState()
+    val identityRevision by WearPeerIdentityState.revision.collectAsStateWithLifecycle()
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(

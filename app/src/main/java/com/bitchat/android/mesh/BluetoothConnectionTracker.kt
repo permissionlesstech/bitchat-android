@@ -16,7 +16,8 @@ import java.util.UUID
  */
 class BluetoothConnectionTracker(
     private val connectionScope: CoroutineScope,
-    private val powerManager: PowerManager
+    private val powerManager: PowerManager,
+    private val onConnectionSlotsChanged: () -> Unit = {}
 ) : MeshConnectionTracker(connectionScope, TAG) {
     
     companion object {
@@ -83,6 +84,7 @@ class BluetoothConnectionTracker(
             addressPeerMap.remove(deviceAddress)
         }
         removePendingConnection(deviceAddress)
+        onConnectionSlotsChanged()
         // Mark as awaiting first ANNOUNCE on this connection
         firstAnnounceSeen[deviceAddress] = false
     }
@@ -94,6 +96,7 @@ class BluetoothConnectionTracker(
         synchronized(connectionStateLock) {
             connectedDevices[deviceAddress] = deviceConn
         }
+        onConnectionSlotsChanged()
     }
 
     fun updateDeviceConnectionIfCurrent(
@@ -206,6 +209,12 @@ class BluetoothConnectionTracker(
      * Get connected device count
      */
     fun getConnectedDeviceCount(): Int = getConnectionCount()
+
+    fun getPendingConnectionCount(): Int = pendingConnections.size
+
+    override fun onPendingConnectionsChanged() {
+        onConnectionSlotsChanged()
+    }
     
     /**
      * Check if connection limit is reached
@@ -214,9 +223,52 @@ class BluetoothConnectionTracker(
      * Check if a new client connection is allowed based on limits
      */
     fun canConnectAsClient(maxOverall: Int, maxClient: Int): Boolean {
-        val total = connectedDevices.size
-        val clients = connectedDevices.values.count { it.isClient }
-        return total < maxOverall && clients < maxClient
+        synchronized(connectionStateLock) {
+            val pending = pendingConnections.keys.count { !connectedDevices.containsKey(it) }
+            val total = connectedDevices.size + pending
+            val clients = connectedDevices.values.count { it.isClient } + pending
+            return total < maxOverall && clients < maxClient
+        }
+    }
+
+    /**
+     * Atomically reserve capacity for an outbound connection. Counting pending attempts prevents
+     * simultaneous scan callbacks from exceeding a product's hard limit before GATT connects.
+     */
+    fun tryReserveClientConnection(
+        deviceAddress: String,
+        maxOverall: Int,
+        maxClient: Int
+    ): Boolean = synchronized(connectionStateLock) {
+        if (connectedDevices.containsKey(deviceAddress)) return@synchronized false
+        val pending = pendingConnections.keys.count { !connectedDevices.containsKey(it) }
+        val activeClients = connectedDevices.values.count { it.isClient }
+        if (connectedDevices.size + pending >= maxOverall) return@synchronized false
+        if (activeClients + pending >= maxClient) return@synchronized false
+        addPendingConnection(deviceAddress)
+    }
+
+    /**
+     * Atomically admit and record an inbound link. Keeping the capacity check and map update under
+     * one lock prevents simultaneous GATT callbacks from briefly exceeding the hard limit.
+     */
+    fun tryAddServerConnection(
+        deviceAddress: String,
+        deviceConnection: DeviceConnection,
+        maxOverall: Int,
+        maxServer: Int
+    ): Boolean = synchronized(connectionStateLock) {
+        if (!connectedDevices.containsKey(deviceAddress)) {
+            val pending = pendingConnections.keys.count {
+                it != deviceAddress && !connectedDevices.containsKey(it)
+            }
+            val servers = connectedDevices.values.count { !it.isClient }
+            if (connectedDevices.size + pending >= maxOverall || servers >= maxServer) {
+                return@synchronized false
+            }
+        }
+        addDeviceConnection(deviceAddress, deviceConnection)
+        true
     }
     
     /**
@@ -278,6 +330,7 @@ class BluetoothConnectionTracker(
             firstAnnounceSeen.remove(deviceAddress)
         }
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
+        onConnectionSlotsChanged()
     }
 
     fun cleanupDeviceConnectionIfCurrent(
@@ -293,6 +346,7 @@ class BluetoothConnectionTracker(
             addressPeerMap.remove(deviceAddress)
             firstAnnounceSeen.remove(deviceAddress)
             Log.d(TAG, "Cleaned up device connection for $deviceAddress")
+            onConnectionSlotsChanged()
             true
         } else {
             false

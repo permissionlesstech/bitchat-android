@@ -29,6 +29,9 @@ class GossipSyncManager(
         fun seenCapacity(): Int // max packets we sync per request (cap across types)
         fun gcsMaxBytes(): Int
         fun gcsTargetFpr(): Double // percent -> 0.0..1.0
+        fun periodicSyncIntervalMs(): Long? = 30_000L
+        fun cleanupIntervalMs(): Long? =
+            com.bitchat.android.util.AppConstants.Sync.CLEANUP_INTERVAL_MS
     }
 
     companion object {
@@ -51,25 +54,29 @@ class GossipSyncManager(
     private var cleanupJob: Job? = null
     fun start() {
         periodicJob?.cancel()
-        periodicJob = scope.launch(Dispatchers.IO) {
-            while (isActive) {
-                try {
-                    delay(30_000)
-                    sendRequestSync()
-                } catch (e: CancellationException) { throw e }
-                catch (e: Exception) { Log.e(TAG, "Periodic sync error: ${e.message}") }
+        periodicJob = configProvider.periodicSyncIntervalMs()?.let { intervalMs ->
+            scope.launch(Dispatchers.IO) {
+                while (isActive) {
+                    try {
+                        delay(intervalMs)
+                        sendRequestSync()
+                    } catch (e: CancellationException) { throw e }
+                    catch (e: Exception) { Log.e(TAG, "Periodic sync error: ${e.message}") }
+                }
             }
         }
 
         // Start periodic cleanup of stale announcements and messages
         cleanupJob?.cancel()
-        cleanupJob = scope.launch(Dispatchers.IO) {
-            while (isActive) {
-                try {
-                    delay(com.bitchat.android.util.AppConstants.Sync.CLEANUP_INTERVAL_MS)
-                    pruneStaleAnnouncements()
-                } catch (e: CancellationException) { throw e }
-                catch (e: Exception) { Log.e(TAG, "Periodic cleanup error: ${e.message}") }
+        cleanupJob = configProvider.cleanupIntervalMs()?.let { intervalMs ->
+            scope.launch(Dispatchers.IO) {
+                while (isActive) {
+                    try {
+                        delay(intervalMs)
+                        pruneStaleAnnouncements()
+                    } catch (e: CancellationException) { throw e }
+                    catch (e: Exception) { Log.e(TAG, "Periodic cleanup error: ${e.message}") }
+                }
             }
         }
     }
@@ -140,6 +147,10 @@ class GossipSyncManager(
                 if (it.hasNext()) { it.next(); it.remove() } else break
             }
         }
+
+        // Products that disable the cleanup timer (notably Wear) prune opportunistically when
+        // mesh traffic already woke the process.
+        if (configProvider.cleanupIntervalMs() == null) pruneStaleAnnouncements()
     }
 
     private fun sendRequestSync() {
@@ -175,6 +186,7 @@ class GossipSyncManager(
     }
 
     fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
+        if (configProvider.cleanupIntervalMs() == null) pruneStaleAnnouncements()
         // Decode GCS into sorted set for membership checks
         val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
         fun mightContain(id: ByteArray): Boolean {

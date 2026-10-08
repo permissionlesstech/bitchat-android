@@ -6,6 +6,7 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.FragmentPayload
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -42,6 +43,7 @@ class FragmentManager {
     
     // Coroutines
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val cleanupSignal = Channel<Unit>(Channel.CONFLATED)
     
     init {
         startPeriodicCleanup()
@@ -218,6 +220,7 @@ class FragmentManager {
                         System.currentTimeMillis()
                     )
                     fragmentCumulativeSize[fragmentIDString] = 0
+                    cleanupSignal.trySend(Unit)
                 }
 
                 val fragmentMap = incomingFragments[fragmentIDString]
@@ -357,8 +360,11 @@ class FragmentManager {
     private fun startPeriodicCleanup() {
         managerScope.launch {
             while (isActive) {
-                delay(CLEANUP_INTERVAL)
-                cleanupOldFragments()
+                if (cleanupSignal.receiveCatching().getOrNull() == null) break
+                while (isActive && fragmentMetadata.isNotEmpty()) {
+                    delay(CLEANUP_INTERVAL)
+                    cleanupOldFragments()
+                }
             }
         }
     }
@@ -379,6 +385,7 @@ class FragmentManager {
      * Shutdown the manager
      */
     fun shutdown() {
+        cleanupSignal.close()
         managerScope.cancel()
         clearAllFragments()
     }
