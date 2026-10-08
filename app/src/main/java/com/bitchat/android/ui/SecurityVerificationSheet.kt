@@ -101,6 +101,16 @@ fun SecurityVerificationSheet(
                 val displayName = viewModel.resolvePeerDisplayNameForFingerprint(selectedPeerID)
                 val fingerprint = viewModel.getPeerFingerprintForDisplay(selectedPeerID)
                 val isVerified = fingerprint != null && verifiedFingerprints.contains(fingerprint)
+                // The key really is verified — this sheet is the one place that
+                // distinction can be explained rather than collapsed into a
+                // glyph, so the word stays. What is withdrawn is the SEAL, and
+                // only when this key now presents a different name than the one
+                // it was verified under. Saying "not verified" here would be
+                // false, and suppressing nothing would let a reader tap through
+                // from a row whose seal just vanished and be reassured by a
+                // green checkmark.
+                val nameBound = fingerprint == null ||
+                    viewModel.sealAppliesToName(fingerprint, displayName)
                 val activeMeshPeerID = ContactDirectory.resolve(selectedPeerID).meshPeerID
                 val sessionState = resolveConversationSessionState(
                     conversationID = selectedPeerID,
@@ -109,6 +119,7 @@ fun SecurityVerificationSheet(
                 )
                 val statusInfo = buildStatusInfo(
                     isVerified = isVerified,
+                    nameBound = nameBound,
                     sessionState = sessionState,
                     accent = accent
                 )
@@ -135,7 +146,7 @@ fun SecurityVerificationSheet(
                 )
 
                 SecurityVerificationActions(
-                    isVerified = isVerified,
+                    isVerified = nameBound && isVerified,
                     fingerprint = fingerprint,
                     displayName = displayName,
                     accent = accent,
@@ -175,25 +186,42 @@ private fun SecurityVerificationHeader(
 @Composable
 private fun buildStatusInfo(
     isVerified: Boolean,
+    nameBound: Boolean,
     sessionState: String?,
     accent: Color
 ): SecurityStatusInfo {
+    // Everything here demotes together: glyph, tint and text.
+    //
+    // The first revision kept the word "verified" on the grounds that the key
+    // genuinely is verified, and that was wrong for a reason review put better
+    // than I had: this status sits directly beside `displayName`, so it is not
+    // a claim about a bare key, it is a claim about THIS NAME — and that claim
+    // is false. Worse, it is the screen someone opens *because* a seal vanished
+    // from a row, so the one surface they consult to resolve the doubt was the
+    // one endorsing the rename.
+    //
+    // It needs no new string. An established session falls through to
+    // "encrypted" with a padlock, which is true and asserts nothing about
+    // identity, and the actions block below already names the current nickname
+    // in its not-verified copy and offers to verify it — which is exactly the
+    // recovery: re-verifying re-pins the baseline to the name on screen.
+    val sealed = isVerified && nameBound
     val text = when {
-        isVerified -> stringResource(R.string.fingerprint_status_verified)
+        sealed -> stringResource(R.string.fingerprint_status_verified)
         sessionState == "established" -> stringResource(R.string.fingerprint_status_encrypted)
         sessionState == "handshaking" -> stringResource(R.string.fingerprint_status_handshaking)
         sessionState == "failed" -> stringResource(R.string.fingerprint_status_failed)
         else -> stringResource(R.string.fingerprint_status_uninitialized)
     }
     val icon = when {
-        isVerified -> Icons.Filled.Verified
+        sealed -> Icons.Filled.Verified
         sessionState == "handshaking" -> Icons.Outlined.Sync
         sessionState == "failed" -> Icons.Outlined.OutlinedWarning
         sessionState == "established" -> Icons.Filled.Lock
         else -> Icons.Outlined.NoEncryption
     }
     val tint = when {
-        isVerified -> Color(0xFF32D74B)
+        sealed -> Color(0xFF32D74B)
         sessionState == "failed" -> Color(0xFFFF3B30)
         sessionState == "handshaking" -> Color(0xFFFF9500)
         sessionState == "established" -> Color(0xFF32D74B)
