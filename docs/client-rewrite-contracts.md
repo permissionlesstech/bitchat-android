@@ -1,24 +1,30 @@
 # Client rewrite compatibility contracts
 
 This document defines the behavior a from-scratch BitChat client must preserve.
-The executable source of truth is the JVM test suite under
-`app/src/test/**/contracts`, together with the pre-existing protocol, security,
-mesh, and state tests.
+The JVM contract, protocol, security, mesh and state tests provide executable
+checks for parts of this contract.
 
 The remaining implementation work and milestone progress are tracked in
 [test-implementation-plan.md](test-implementation-plan.md).
 
 ## Required contract layers
 
-| Layer | Compatibility promise | Primary tests |
+The listed tests cover parts of each layer; they do not verify every requirement
+in the corresponding row.
+
+| Layer | Required compatibility behavior | Selected tests (partial coverage) |
 |---|---|---|
 | Outer mesh packet | v1/v2 header widths, big-endian fields, flags, section order, route placement, signature placement, padding, compression, signing bytes | `BinaryProtocolTest`, `ClientRewriteWireContractTest` |
 | Chat payload | Flag bits, millisecond timestamp, UTF-8 byte lengths, encrypted-content substitution, optional-field order | `ClientRewriteWireContractTest` |
 | Inner payloads | Noise type bytes, private-message TLVs, peer-state TLVs, file-transfer TLVs, live-voice bursts, fragment header, sync request TLVs | `ClientRewriteWireContractTest`, `AuthenticatedPeerStateTest`, `PrivateMediaTransferPreparerTest`, `VoiceBurstPacketTest`, `FragmentManagerTest` |
-| Identity/security | Announcement extensions, capability bitfield endianness, Noise static-key binding, handshake identity binding, signatures | `IdentityAnnouncementTest`, `NoiseSessionManagerIdentityBindingTest`, `ClientRewritePrimitiveContractTest` |
-| Sync/routing | Stable packet IDs, GCS bitstream, replay collapse, TTL handling, relay choice, confirmed graph edges | `ClientRewritePrimitiveContractTest`, `GCSFilterTest`, `PacketRelayManagerTest`, `MeshGraphServiceTest`, `TransportBridgeServiceTest` |
-| Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals, 22h outbound envelope randomization | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
+| Identity/security | Announcement extensions, capability bitfield endianness, Noise static-key binding, handshake identity binding, signatures | `IdentityAnnouncementTest`, `NoiseSessionManagerIdentityBindingTest` |
+| Sync/routing | Stable packet IDs, GCS bitstream, replay collapse, TTL handling, relay choice, confirmed graph edges | `GCSFilterTest`, `PacketRelayManagerTest`, `MeshGraphServiceTest`, `TransportBridgeServiceTest`, `AppStateStoreTest` |
+| Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals, 22h outbound envelope randomization | `NostrProtocolTest` (authenticated-seal cases and outbound timestamp bounds) |
 | Application state | Peer unions, canonical private conversations, chronological history, delivery/read behavior, media migration policy | `AppStateStoreTest`, `PrivateChatManagerTest`, `MediaSendingManagerMigrationTest` |
+
+The private-history clock-skew case in `AppStateStoreTest` expects arrival
+order, which can differ from timestamp order. That test does not establish the
+chronological-history requirement above.
 
 ## Golden-vector policy
 
@@ -28,22 +34,28 @@ wire protocol is intentionally versioned and interoperating clients are updated
 together.
 
 Round-trip tests remain useful but are not sufficient on their own: an encoder
-and decoder can share the same defect. Each critical wire format therefore has
-at least one literal vector.
+and decoder can share the same defect. Protocol round-trip tests must be paired with literal golden vectors for critical
+externally visible formats. Round-trip success alone does not establish compatibility.
 
 NIP-17 receivers should reserve safety slack beyond the maximum timestamp
-randomization used by senders. Android caps outbound seal and gift-wrap
-randomization at 22h, leaving 2 hours of slack inside iOS's 24-hour
-subscription window, while retaining its 48-hour receive lookback.
+randomization used by senders. Android's default seal and gift-wrap timestamp
+randomization is up to 22h. iOS's DM subscription lookback is 24h, a two-hour
+difference. `NostrClient.subscribeToPrivateMessages` requests a 48-hour lookback.
+These intervals do not establish delivery under arbitrary delays or clock skew.
 
-Geohash relay selection is part of the cross-client contract. Both platforms
-read `relays/online_relays_gps.csv` from the bitchat repo, key each row by its
-host string (lowercased, an explicit port kept unless it is 443, the wss
-default), deduplicate by that key, and order candidates by distance with ties
-broken by the same key. Clients that select differently can end up on disjoint
-relay sets for the same geohash and silently fail to exchange messages.
-`RelayDirectoryTest` covers the Android side; iOS implements the same rules in
-`GeoRelayDirectory`.
+Geohash directory downloads and the weekly bundled-asset update use
+`relays/online_relays_gps.csv` from the bitchat repo, the source used by iOS
+`GeoRelayDirectory`. Android deduplicates parsed rows by a lowercase host key,
+omits port 443, includes other ports when integer conversion succeeds, and
+breaks distance ties by that key. `RelayDirectoryTest` covers these selection rules.
+
+Matching selections depend on the loaded entries. Bundled and cached copies
+can differ between clients; a configured source URL does not establish equal
+snapshots or successful delivery. Parsing remains permissive: rows with fewer
+than three fields or unparseable coordinates are skipped, and duplicate
+endpoints keep the first accepted row. iOS also checks hosts and coordinate ranges
+and rejects conflicting duplicate rows. For a host followed by a digit-only port, an integer-conversion failure skips
+that row. `RelayDirectoryPortTest` covers oversized ports between valid rows.
 
 ## Rewrite acceptance gate
 
@@ -53,15 +65,16 @@ From a configured Android development environment, run:
 ./gradlew clientRewriteContractTest
 ```
 
-The task runs the new golden vectors and the complete existing unit suite. A
-rewrite is compatible only when this gate passes. Tests should be ported
+The task runs `:app:testDebugUnitTest`, including the wire contract tests.
+It must pass before accepting a rewrite. Passing it does not establish Wear or physical-device compatibility. Tests should be ported
 unchanged when package boundaries change; adapter façades are preferable to
 weakening assertions.
 
 ## Device-only acceptance
 
-Local JVM tests cannot prove Android radio and lifecycle behavior. Before
-shipping a rewrite, run the following on at least two physical devices:
+Local JVM tests alone do not establish radio operation or lifecycle behavior
+on physical Android devices. Before shipping a rewrite, run the following on
+at least two physical devices:
 
 1. BLE discovery, connection, disconnect, reconnect, and multi-hop relay.
 2. Runtime permission denial/retry for Bluetooth, location, notifications, and

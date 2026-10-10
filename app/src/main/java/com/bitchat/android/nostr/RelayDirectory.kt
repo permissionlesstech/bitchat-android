@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.core.content.edit
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
@@ -27,11 +28,8 @@ object RelayDirectory {
 
     private const val TAG = "RelayDirectory"
 
-    // The same file iOS reads (GeoRelayDirectory.swift). Both platforms take the 5
-    // nearest relays from their directory and use them without the defaults, so a
-    // geohash message crosses platforms only if the two selections share a relay.
-    // Reading different files made the selections diverge. Selecting from the same
-    // file, with rows keyed and ordered the same way, keeps them aligned.
+    // The source URL matches iOS GeoRelayDirectory. Download timing and parser
+    // acceptance can leave clients with different loaded snapshots.
     internal const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv"
     // Download cache of ASSET_FILE_URL above, and the bundled list the weekly job
     // refreshes from it; the file names predate the source's move to online_relays_gps.csv.
@@ -82,7 +80,7 @@ object RelayDirectory {
                     }
                 }
 
-                // Start periodic staleness check every minute
+                // Recheck staleness after a one-minute delay following each iteration.
                 startPeriodicRefresh(application)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize RelayDirectory: ${e.message}")
@@ -108,11 +106,8 @@ object RelayDirectory {
         return closestRelays(snapshot, lat, lon, nRelays)
     }
 
-    // Distance ties are the directory's common case, not an edge: rows are geocoded
-    // to city centroids, so whole groups of relays sit at one exact coordinate. iOS
-    // breaks ties by host so every device with the same directory picks the same set
-    // (GeoRelayDirectory.closestRelays). Urls here are canonical hosts behind a fixed
-    // prefix, so ordering by url reproduces iOS's order.
+    // City-level coordinates create distance ties. Break them by endpoint key,
+    // following GeoRelayDirectory.closestRelays for the accepted directory rows.
     internal fun closestRelays(entries: List<RelayInfo>, lat: Double, lon: Double, nRelays: Int): List<String> =
         entries
             .map { it to haversineMeters(lat, lon, it.latitude, it.longitude) }
@@ -169,7 +164,7 @@ object RelayDirectory {
             val tmpFile = File.createTempFile("relays_", ".csv", application.cacheDir)
             val ok = downloadToFile(ASSET_FILE_URL, tmpFile)
             if (!ok) {
-                Log.w(TAG, "Failed to fetch latest relays; keeping current list (will fallback to bundled if none)")
+                Log.w(TAG, "Failed to fetch latest relays; keeping current list")
                 tmpFile.delete()
                 return
             }
@@ -197,7 +192,7 @@ object RelayDirectory {
                 relays.addAll(parsed)
             }
 
-            getPrefs(application).edit().putLong(KEY_LAST_UPDATE_MS, System.currentTimeMillis()).apply()
+            getPrefs(application).edit { putLong(KEY_LAST_UPDATE_MS, System.currentTimeMillis()) }
 
             Log.i(TAG, "✅ Using downloaded relay list (${dest.absolutePath}), entries=$entries, sha256=$hash, updatedAtMs=${getPrefs(application).getLong(KEY_LAST_UPDATE_MS, 0L)}")
         } catch (e: Exception) {
@@ -213,7 +208,7 @@ object RelayDirectory {
                     Log.w(TAG, "HTTP ${'$'}{resp.code} when fetching $url")
                     return false
                 }
-                val body = resp.body ?: return false
+                val body = resp.body
                 FileOutputStream(dest).use { out ->
                     body.byteStream().use { input ->
                         input.copyTo(out)
@@ -273,7 +268,7 @@ object RelayDirectory {
     internal fun parseCsv(input: InputStream): List<RelayInfo> {
         val result = mutableListOf<RelayInfo>()
         // The directory lists some relays twice, once bare and once with an explicit
-        // :443, which is the same server over wss. Without this check both copies can
+        // :443, which has the same endpoint key over wss. Without this check both copies can
         // land in a nearest-N selection, and one of its slots connects nowhere new.
         val seenEndpoints = HashSet<String>()
         BufferedReader(InputStreamReader(input)).use { reader ->
@@ -299,11 +294,8 @@ object RelayDirectory {
     }
 
     /**
-     * The host string iOS builds for the same row (GeoRelayDirectory's
-     * validatedDirectoryAddress): host lowercased, an explicit port kept unless it is
-     * 443, the wss default. A relay on :8443 stays distinct from one on :443. Dedup
-     * and tie ordering both key on this, which is what keeps the two platforms'
-     * selections aligned row for row.
+     * Endpoint key for deduplication and distance ties: lowercase host, with
+     * port 443 omitted. This parser does not implement iOS directory validation.
      */
     internal fun canonicalHost(url: String): String {
         val hostPort = url.substringAfter("://").substringBefore("/")
@@ -311,7 +303,7 @@ object RelayDirectory {
         val hasPort = idx > 0 && idx < hostPort.length - 1 &&
             hostPort.substring(idx + 1).all { it.isDigit() }
         val host = (if (hasPort) hostPort.substring(0, idx) else hostPort).lowercase()
-        val port = if (hasPort) hostPort.substring(idx + 1).toInt() else 443
+        val port = if (hasPort) (hostPort.substring(idx + 1).toIntOrNull() ?: return "") else 443
         return if (port == 443) host else "$host:$port"
     }
 

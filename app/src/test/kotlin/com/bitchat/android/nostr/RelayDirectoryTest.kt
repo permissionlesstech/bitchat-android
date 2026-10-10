@@ -5,19 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Pins the three properties cross-platform geohash delivery depends on. Both platforms
- * take the 5 relays nearest to a geohash and use them without the default relays, so a
- * geohash message crosses platforms only if the two selections intersect.
- *
- * 1. Android reads the SAME directory file iOS reads.
- * 2. Rows are deduplicated and emitted by the same key iOS builds: host lowercased,
- *    an explicit port kept unless it is 443. The directory lists many relays twice,
- *    once bare and once as host:443, and both forms are one server over wss.
- * 3. Distance ties order by that key, the way iOS orders them. Rows are geocoded to
- *    city centroids, so whole tie groups sit at one coordinate and tie order decides
- *    most selections.
- */
+/** Covers the configured source URL, endpoint deduplication and deterministic distance ties. */
 class RelayDirectoryTest {
 
     private fun parse(csv: String) =
@@ -42,7 +30,7 @@ class RelayDirectoryTest {
     }
 
     @Test
-    fun `port 443 variant of a host is the same server and is not listed twice`() {
+    fun `port 443 variant of a host is the same endpoint key and is not listed twice`() {
         val entries = parse(
             header +
                 "relay.example.com,10.0,20.0\n" +
@@ -53,9 +41,8 @@ class RelayDirectoryTest {
     }
 
     @Test
-    fun `a nonstandard port is a different server and stays`() {
-        // The live directory lists some relays bare and on a nonstandard port.
-        // iOS keeps both too; it drops only an explicit 443.
+    fun `a nonstandard port is a distinct endpoint and stays`() {
+        // A nondefault port has a distinct endpoint key.
         val entries = parse(
             header +
                 "port-variant.relay.example,1.0,1.0\n" +
@@ -75,6 +62,7 @@ class RelayDirectoryTest {
         )
         assertEquals(1, entries.size)
         assertEquals(10.0, entries[0].latitude, 0.0)
+        assertEquals(20.0, entries[0].longitude, 0.0)
     }
 
     @Test
@@ -90,9 +78,7 @@ class RelayDirectoryTest {
 
     @Test
     fun `distance ties order by host the way ios orders them`() {
-        // The directory's dominant shape: a whole tie group at one shared coordinate
-        // (the live file has 137 rows at a single point). File order is
-        // deliberately not alphabetical; the selection must not depend on it.
+        // Shared coordinates create ties; shuffled rows exercise the endpoint tie-break.
         val csv = header +
             "delta.example.com,12.34,56.78\n" +
             "foxtrot.example.com,12.34,56.78\n" +
@@ -114,10 +100,10 @@ class RelayDirectoryTest {
     }
 
     @Test
-    fun `five nearest means five distinct servers`() {
+    fun `five nearest means five distinct endpoint keys`() {
         // A shape the live directory produces: the nearest relay listed twice
         // (bare and :443), which used to occupy two of the five selection slots and
-        // push out the fifth distinct server.
+        // push out the fifth distinct endpoint.
         val csv = header +
             "nearest.example.com,10.10,20.20\n" +
             "nearest.example.com:443,10.10,20.20\n" +
@@ -128,7 +114,17 @@ class RelayDirectoryTest {
             "faraway.example.com,80.0,120.0\n"
         val five = RelayDirectory.closestRelays(parse(csv), 10.10, 20.20, 5)
         assertEquals(5, five.size)
-        assertEquals("every selected relay is a distinct server", 5, five.toSet().size)
-        assertTrue("the fifth distinct server makes the cut", five.contains("wss://fifth.example.com"))
+        assertEquals("selected endpoint keys are distinct", 5, five.toSet().size)
+        assertTrue("the fifth distinct endpoint makes the cut", five.contains("wss://fifth.example.com"))
+        assertEquals(
+            listOf(
+                "wss://nearest.example.com",
+                "wss://second.example.com",
+                "wss://third.example.com",
+                "wss://fourth.example.com",
+                "wss://fifth.example.com"
+            ),
+            five
+        )
     }
 }
