@@ -654,4 +654,13 @@
   <string name="about_app_language">App language</string>
   <string name="about_system_default">System default</string>
   <string name="about_select_language">Select language</string>
+    <!-- New media states use the English fallback until localized translations are available. -->
+    <string name="voice_waveform_live" tools:ignore="MissingTranslation">Live audio</string>
+    <string name="voice_waveform_loading" tools:ignore="MissingTranslation">Loading waveform</string>
+    <string name="voice_waveform_unavailable" tools:ignore="MissingTranslation">Waveform unavailable</string>
+    <string name="voice_waveform_ready" tools:ignore="MissingTranslation">Audio waveform</string>
+    <string name="voice_unavailable" tools:ignore="MissingTranslation">Unavailable</string>
+    <string name="attachment_open" tools:ignore="MissingTranslation">Open</string>
+    <string name="attachment_save" tools:ignore="MissingTranslation">Save</string>
+    <string name="attachment_failed" tools:ignore="MissingTranslation">Could not open or save this file. Please try again.</string>
 </resources>

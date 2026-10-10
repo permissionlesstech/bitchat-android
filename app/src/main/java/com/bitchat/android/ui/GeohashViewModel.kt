@@ -275,8 +275,8 @@ class GeohashViewModel(
 
     fun getNostrKeyMapping(): Map<String, String> = repo.getNostrKeyMapping()
 
-    fun blockUserInGeohash(targetNickname: String) {
-        val pubkey = repo.findPubkeyByNickname(targetNickname)
+    fun blockUserInGeohash(targetNickname: String, senderPubkey: String? = null) {
+        val pubkey = senderPubkey ?: repo.findPubkeyByNickname(targetNickname)
         if (pubkey != null) {
             dataManager.addGeohashBlockedUser(pubkey)
             // Refresh people list and counts to remove blocked entry immediately

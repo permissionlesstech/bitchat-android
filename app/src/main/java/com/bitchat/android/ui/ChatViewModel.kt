@@ -1671,8 +1671,8 @@ class ChatViewModel(
     /**
      * Block a user in geohash channels by their nickname
      */
-    fun blockUserInGeohash(targetNickname: String) {
-        geohashViewModel.blockUserInGeohash(targetNickname)
+    fun blockUserInGeohash(targetNickname: String, senderPubkey: String? = null) {
+        geohashViewModel.blockUserInGeohash(targetNickname, senderPubkey)
     }
 
     // MARK: - Navigation Management

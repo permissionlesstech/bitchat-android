@@ -7,8 +7,6 @@ import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] Installing FileShareDispatcher handler in ChatScreen to forward file sends to ViewModel
 
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -18,19 +16,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.IconButton
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -42,10 +35,8 @@ import com.bitchat.android.R
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
-import com.bitchat.android.ui.media.FullScreenImageViewer
 import com.bitchat.android.ui.theme.BitchatMotion
 
 /**
@@ -90,14 +81,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showLocationNotesSheet by remember { mutableStateOf(false) }
-    var showUserSheet by remember { mutableStateOf(false) }
-    var selectedUserForSheet by remember { mutableStateOf("") }
-    var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
-    var showFullScreenImageViewer by remember { mutableStateOf(false) }
-    var viewerImagePaths by remember { mutableStateOf(emptyList<String>()) }
-    var initialViewerIndex by remember { mutableStateOf(0) }
     var forceScrollToBottom by remember { mutableStateOf(false) }
-    var isScrolledUp by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedPrivatePeer) {
         messageText = TextFieldValue(
@@ -250,11 +234,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
         buildMentionPeerIdentityMap(displayMessages, knownPeers)
     }
 
-    // Determine whether to show media buttons (only hide in geohash location chats)
-    val showMediaButtons = when {
-        currentChannel != null -> true
-        else -> selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location
-    }
+    val conversationContext = ConversationUiContext(
+        key = conversationKey,
+        isNostr = currentChannel == null && selectedLocationChannel is ChannelID.Location,
+    )
+    val showMediaButtons = conversationContext.supportsMediaSend(hasMeshRoute = false)
 
     // Use WindowInsets to handle keyboard properly
     Box(
@@ -298,66 +282,22 @@ fun ChatScreen(viewModel: ChatViewModel) {
             val showNotesStrip =
                 isMeshTimeline && nearbyNotesRevealed && nearbyNotes.isNotEmpty()
 
-            MessagesList(
+            ConversationTimeline(
                 messages = displayMessages,
                 currentUserNickname = nickname,
-                meshService = viewModel.meshServiceFacade,
+                viewModel = viewModel,
                 mentionPeerIdentities = mentionPeerIdentities,
                 modifier = Modifier.fillMaxSize(),
-                conversationKey = conversationKey,
+                context = conversationContext,
                 contentPadding = PaddingValues(
                     top = statusBarHeight + headerHeight +
                         (if (showNotesStrip) notesStripHeight else 0.dp),
                     bottom = composerHeight
                 ),
                 forceScrollToBottom = forceScrollToBottom,
-                onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
-                onNicknameClick = { fullSenderName ->
-                    // Single click - mention user in text input
-                    val currentText = messageText.text
-
-                    // Extract base nickname and hash suffix from full sender name
-                    val (baseName, hashSuffix) = splitSuffix(fullSenderName)
-
-                    // Check if we're in a geohash channel to include hash suffix
-                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
-                    val mentionText = if (
-                        selectedLocationChannel is ChannelID.Location &&
-                        hashSuffix.isNotEmpty()
-                    ) {
-                        // In geohash chat - include the hash suffix from the full display name
-                        "@$baseName$hashSuffix"
-                    } else {
-                        // Regular chat - just the base nickname
-                        "@$baseName"
-                    }
-
-                    val newText = when {
-                        currentText.isEmpty() -> "$mentionText "
-                        currentText.endsWith(" ") -> "$currentText$mentionText "
-                        else -> "$currentText $mentionText "
-                    }
-
-                    messageText = TextFieldValue(
-                        text = newText,
-                        selection = TextRange(newText.length)
-                    )
-                },
-                onMessageLongPress = { message ->
-                    // Message long press - open user action sheet with message context
-                    // Extract base nickname from message sender (contains all necessary info)
-                    val (baseName, _) = splitSuffix(message.sender)
-                    selectedUserForSheet = baseName
-                    selectedMessageForSheet = message
-                    showUserSheet = true
-                },
-                onCancelTransfer = { msg ->
-                    viewModel.cancelMediaSend(msg.id)
-                },
-                onImageClick = { currentPath, allImagePaths, initialIndex ->
-                    viewerImagePaths = allImagePaths
-                    initialViewerIndex = initialIndex
-                    showFullScreenImageViewer = true
+                onMention = { sender ->
+                    messageText = appendConversationMention(messageText, sender, conversationContext)
+                    viewModel.setConversationDraft(null, messageText.text)
                 }
             )
 
@@ -465,52 +405,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
             }
         )
 
-        // Scroll-to-bottom floating button
-        AnimatedVisibility(
-            visible = isScrolledUp,
-            // Short and eased: the button appears mid-scroll, so a slow entrance draws the eye
-            // away from the messages the user is actually reading.
-            enter = slideInVertically(
-                animationSpec = tween(BitchatMotion.STANDARD_MS, easing = FastOutSlowInEasing),
-                initialOffsetY = { it / 2 }
-            ) + fadeIn(tween(BitchatMotion.STANDARD_MS)),
-            exit = slideOutVertically(
-                animationSpec = tween(BitchatMotion.QUICK_MS, easing = FastOutSlowInEasing),
-                targetOffsetY = { it / 2 }
-            ) + fadeOut(tween(BitchatMotion.QUICK_MS)),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = composerHeight + 8.dp)
-                .zIndex(1.5f)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .windowInsetsPadding(WindowInsets.ime)
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = colorScheme.surface,
-                tonalElevation = 3.dp,
-                shadowElevation = 6.dp,
-                border = BorderStroke(1.dp, colorScheme.primary)
-            ) {
-                IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
-                    Icon(
-                        imageVector = Icons.Filled.ArrowDownward,
-                        contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom),
-                        modifier = Modifier.size(22.dp),
-                        tint = colorScheme.primary
-                    )
-                }
-            }
-        }
-    }
-
-    // Full-screen image viewer - separate from other sheets to allow image browsing without navigation
-    if (showFullScreenImageViewer) {
-        FullScreenImageViewer(
-            imagePaths = viewerImagePaths,
-            initialIndex = initialViewerIndex,
-            onClose = { showFullScreenImageViewer = false }
-        )
     }
 
     // Dialogs and Sheets
@@ -542,13 +436,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
         },
         showLocationNotesSheet = showLocationNotesSheet,
         onLocationNotesSheetDismiss = { showLocationNotesSheet = false },
-        showUserSheet = showUserSheet,
-        onUserSheetDismiss = { 
-            showUserSheet = false
-            selectedMessageForSheet = null // Reset message when dismissing
-        },
-        selectedUserForSheet = selectedUserForSheet,
-        selectedMessageForSheet = selectedMessageForSheet,
         viewModel = viewModel,
         showVerificationSheet = showVerificationSheet,
         onVerificationSheetDismiss = viewModel::hideVerificationSheet,
@@ -827,10 +714,6 @@ private fun ChatDialogs(
     onLocationNotesFromChannelsClick: () -> Unit,
     showLocationNotesSheet: Boolean,
     onLocationNotesSheetDismiss: () -> Unit,
-    showUserSheet: Boolean,
-    onUserSheetDismiss: () -> Unit,
-    selectedUserForSheet: String,
-    selectedMessageForSheet: BitchatMessage?,
     viewModel: ChatViewModel,
     showVerificationSheet: Boolean,
     onVerificationSheetDismiss: () -> Unit,
@@ -884,16 +767,6 @@ private fun ChatDialogs(
         )
     }
     
-    // User action sheet
-    if (showUserSheet) {
-        ChatUserSheet(
-            isPresented = showUserSheet,
-            onDismiss = onUserSheetDismiss,
-            targetNickname = selectedUserForSheet,
-            selectedMessage = selectedMessageForSheet,
-            viewModel = viewModel
-        )
-    }
     // MeshPeerList sheet (network view)
     if (showMeshPeerListSheet){
         MeshPeerListSheet(

@@ -18,6 +18,12 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.ui.media.FileAttachment
+import com.bitchat.android.ui.media.FileViewerDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * User Action Sheet for selecting actions on a specific user (slap, hug, block)
@@ -29,11 +35,21 @@ fun ChatUserSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
     targetNickname: String,
-    selectedMessage: BitchatMessage? = null,
     viewModel: ChatViewModel,
-    modifier: Modifier = Modifier
+    conversationContext: ConversationUiContext,
+    modifier: Modifier = Modifier,
+    selectedMessage: BitchatMessage? = null,
 ) {
-    val coroutineScope = rememberCoroutineScope()
+    val attachment by produceState<FileAttachment?>(null, selectedMessage?.content, selectedMessage?.type) {
+        value = null
+        val message = selectedMessage
+        if (message != null && message.type != BitchatMessageType.Message) {
+            value = withContext(Dispatchers.IO) {
+                runCatching { FileAttachment.fromPath(message.content.trim()) }.getOrNull()
+            }
+        }
+    }
+    var showAttachmentDialog by remember(selectedMessage?.id) { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     
     val colorScheme = MaterialTheme.colorScheme
@@ -76,7 +92,7 @@ fun ChatUserSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // Copy message action (only show if we have a message)
-                    selectedMessage?.let { message ->
+                    selectedMessage?.takeIf { it.type == BitchatMessageType.Message }?.let { message ->
                         item {
                             UserActionRow(
                                 title = stringResource(R.string.action_copy_message_title),
@@ -91,18 +107,30 @@ fun ChatUserSheet(
                         }
                     }
                     
-                    // Only show user actions for other users' messages or when no message is selected
-                    if (selectedMessage?.sender != viewModel.nickname.value) {
-                        // Send private message action
+                    attachment?.let { file ->
                         item {
+                            UserActionRow(
+                                title = stringResource(R.string.file_viewer_open_save),
+                                subtitle = file.fileName,
+                                titleColor = standardGrey,
+                                onClick = { showAttachmentDialog = true },
+                            )
+                        }
+                    }
+
+                    // Only show user actions for other users' messages or when no message is selected
+                    if (selectedMessage?.isFromSelf(viewModel.nickname.value, viewModel.meshServiceFacade.myPeerID) != true && selectedMessage?.sender != "system") {
+                        // Already in this person's private conversation: do not offer opening it again.
+                        if (conversationContext.privatePeerID == null) item {
                             UserActionRow(
                                 title = stringResource(R.string.action_private_message_title, targetNickname),
                                 subtitle = stringResource(R.string.action_private_message_subtitle),
                                 titleColor = standardPurple,
                                 onClick = {
-                                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
-                                    if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                                        if (selectedMessage?.senderPeerID?.startsWith("nostr:") == true) {
+                                    if (conversationContext.isNostr) {
+                                        if (selectedMessage?.senderNostrPubkey != null) {
+                                            viewModel.startGeohashDM(selectedMessage.senderNostrPubkey)
+                                        } else if (selectedMessage?.senderPeerID?.startsWith("nostr:") == true) {
                                             val shortId = selectedMessage.senderPeerID!!.substring(6)
                                             viewModel.startGeohashDMByShortId(shortId)
                                         } else {
@@ -156,13 +184,14 @@ fun ChatUserSheet(
                                 titleColor = standardRed,
                                 onClick = {
                                     // Check if we're in a geohash channel
-                                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
-                                    if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                                        // Get user's nostr public key and add to geohash block list
-                                        viewModel.blockUserInGeohash(targetNickname)
+                                    if (conversationContext.isNostr) {
+                                        viewModel.blockUserInGeohash(targetNickname, selectedMessage?.senderNostrPubkey)
                                     } else {
-                                        // Regular mesh blocking
-                                        viewModel.sendMessage("/block $targetNickname")
+                                        val senderID = selectedMessage?.senderPeerID ?: conversationContext.privatePeerID
+                                        val meshPeerID = senderID?.let { ContactDirectory.resolve(it).meshPeerID ?: it }
+                                        if (meshPeerID != null) {
+                                            viewModel.privateChatManager.blockPeer(meshPeerID, viewModel.meshServiceFacade)
+                                        }
                                     }
                                     onDismiss()
                                 }
@@ -189,6 +218,15 @@ fun ChatUserSheet(
             }
         }
     }
+    if (showAttachmentDialog) {
+        attachment?.let { file ->
+            FileViewerDialog(file) {
+                showAttachmentDialog = false
+                onDismiss()
+            }
+        }
+    }
+
 }
 
 @Composable
