@@ -150,7 +150,10 @@ class FragmentManager {
                     timestamp = packet.timestamp,
                     payload = fragmentPayload.encode(),
                     route = packet.route,
-                    signature = null // iOS: signature: nil
+                    signature = null, // iOS: signature: nil
+                    // Fragments carry the original timestamp. Preserve the response mark so a
+                    // receiver can apply its solicited-replay policy to old fragments too.
+                    isRSR = packet.isRSR
                 )
 
                 fragments.add(fragmentPacket)
@@ -271,7 +274,9 @@ class FragmentManager {
                     if (originalPacket != null) {
                         removeFragmentSetLocked(fragmentIDString)
 
-                        val suppressedTtlPacket = originalPacket.copy(ttl = 0u.toUByte())
+                        val suppressedTtlPacket = originalPacket.copy(
+                            ttl = 0u.toUByte(), reassembledOriginalTtl = originalPacket.ttl
+                        )
                         return suppressedTtlPacket
                     } else {
                         val metadata = fragmentMetadata[fragmentIDString]

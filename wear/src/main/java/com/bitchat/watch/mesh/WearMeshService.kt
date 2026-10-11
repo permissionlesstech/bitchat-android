@@ -134,6 +134,9 @@ class WearMeshService private constructor(private val context: Context) {
         override fun getDeviceAddressForPeer(peerID: String): String? =
             connectionManager.addressPeerMap.entries.firstOrNull { it.value == peerID }?.key
 
+        override fun peerIDForRelayAddress(relayAddress: String): String? =
+            connectionManager.addressPeerMap[relayAddress]
+
         override fun getDeviceAddressToPeerMapping(): Map<String, String> =
             connectionManager.addressPeerMap.toMap()
 
@@ -176,7 +179,11 @@ class WearMeshService private constructor(private val context: Context) {
                 Log.i(TAG, "Device disconnected: ${device.address} (peerID: $peerID)")
                 try { meshCore.refreshPeerList() } catch (_: Exception) { }
                 if (peerID != null) {
-                    meshCore.setDirectConnection(peerID, false)
+                    // A stale disconnect may belong to an old link while a replacement
+                    // or another current link still maps to this peer.
+                    meshCore.setDirectConnection(
+                        peerID, connectionManager.addressPeerMap.containsValue(peerID)
+                    )
                     val deviceAddress = device.address
                     serviceScope.launch {
                         delay(PEER_DISCONNECT_GRACE_MS)
