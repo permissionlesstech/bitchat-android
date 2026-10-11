@@ -19,8 +19,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Fetch GeoRelays
-        # Must match RelayDirectory.ASSET_FILE_URL, the file the app fetches at
-        # runtime; the bundled asset is a snapshot of the same file.
+        # Must match RelayDirectory.ASSET_FILE_URL. This job refreshes the
+        # bundled asset from the app's runtime source.
         run: |
           wget https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv
           mv online_relays_gps.csv ./app/src/main/assets/nostr_relays.csv

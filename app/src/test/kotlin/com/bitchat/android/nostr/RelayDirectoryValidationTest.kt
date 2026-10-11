@@ -6,13 +6,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/**
- * Pins the directory validation ported from GeoRelayDirectory.validatedEntries and
- * validatedDirectoryAddress. The rules are part of the cross-client contract: a file
- * one platform accepts and the other rejects splits the two relay selections at every
- * geohash at once, which is a larger divergence than the two-file split #914 closed.
- * Every rejection here is a whole-file rejection; the caller keeps its previous copy.
- */
+/** Covers bounded whole-file validation, endpoint keys and download retention. */
 class RelayDirectoryValidationTest {
 
     private val header = "Relay URL,Latitude,Longitude\n"
@@ -33,28 +27,26 @@ class RelayDirectoryValidationTest {
     }
 
     @Test
-    fun `both header forms ios accepts parse here`() {
+    fun `full and abbreviated header examples are accepted`() {
         assertNotNull(validate("Relay URL,Latitude,Longitude\nrelay-a.example,1.0,2.0\n"))
         assertNotNull(validate("relay url,lat,lon\nrelay-a.example,1.0,2.0\n"))
     }
 
     @Test
-    fun `a header ios rejects rejects the file here`() {
+    fun `unsupported header examples reject the file`() {
         assertNull(validate("Relay URL,Lat,Long\nrelay-a.example,1.0,2.0\n"))
         assertNull(validate("url,latitude,longitude\nrelay-a.example,1.0,2.0\n"))
     }
 
     @Test
-    fun `a single byte order mark is stripped the way ios strips it`() {
-        // Foundation's UTF-8 decode removes one leading BOM before iOS's BOM
-        // check runs; only a doubled BOM reaches the check. Verified against the
-        // real Swift code over these exact bytes.
+    fun `one leading byte order mark is accepted and two are rejected`() {
+        // The local Foundation comparison accepts one BOM and rejects two.
         assertNotNull(validate("﻿" + header + "relay-a.example,1.0,2.0\n"))
         assertNull(validate("﻿﻿" + header + "relay-a.example,1.0,2.0\n"))
     }
 
     @Test
-    fun `percent escapes decode into the host key the way ios decodes them`() {
+    fun `host percent-escape examples normalize or reject as expected`() {
         assertEquals("relay.example", RelayDirectory.validatedDirectoryAddress("re%6Cay.example"))
         assertEquals("a.b.example", RelayDirectory.validatedDirectoryAddress("a%2Eb.example"))
         assertNull("invalid escape", RelayDirectory.validatedDirectoryAddress("wss://h%GGx.example"))
@@ -67,12 +59,12 @@ class RelayDirectoryValidationTest {
     }
 
     @Test
-    fun `hex coordinates parse the way swift parses them`() {
+    fun `hex coordinate examples retain mantissa digits`() {
         val plain = validate(header + "relay-a.example,0x10,2.0\n")
         assertNotNull(plain)
         assertEquals(16.0, plain!![0].latitude, 0.0)
         val hexDigitTail = validate(header + "relay-a.example,0x1d,2.0\n")
-        assertNotNull("d is a hex digit, not a suffix", hexDigitTail)
+        assertNotNull("hex mantissa digit d remains accepted", hexDigitTail)
         assertEquals(29.0, hexDigitTail!![0].latitude, 0.0)
     }
 
@@ -85,36 +77,38 @@ class RelayDirectoryValidationTest {
     }
 
     @Test
-    fun `every punycode label is rejected`() {
-        // iOS IDNA-decodes xn-- labels: valid punycode becomes non-ASCII and is
-        // rejected, and most invalid forms fail its parse, both pinned in the
-        // battery. Foundation lets a few exotic invalid forms through
-        // literally; this port rejects every xn-- label instead, stricter in
-        // the safe direction, measured by the fuzz round.
+    fun `punycode host examples are rejected`() {
+        // Rejecting the label form is stricter than Foundation for some inputs.
         assertNull(RelayDirectory.validatedDirectoryAddress("xn--bcher-kva.example"))
         assertNull(RelayDirectory.validatedDirectoryAddress("xn--x.example"))
     }
 
     @Test
-    fun `hosts uri refuses but ios accepts are salvaged by the fallback`() {
-        // java.net.URI follows RFC 2396 and returns no host when the final
-        // label starts with a digit, or when a trailing colon carries no port;
-        // iOS's RFC 3986 parser accepts both. The plain-authority fallback
-        // covers exactly these shapes.
+    fun `fallback accepts numeric-leading host label examples`() {
+        // These plain authorities exercise the fallback host and port screens.
         assertEquals("b.08relay", RelayDirectory.validatedDirectoryAddress("https://b.08relay"))
         assertEquals("relay.example.1", RelayDirectory.validatedDirectoryAddress("relay.example.1:"))
         assertEquals("d.7ex:8443", RelayDirectory.validatedDirectoryAddress("wss://d.7ex:8443"))
     }
 
     @Test
-    fun `invalid utf8 rejects the file`() {
-        assertNull(RelayDirectory.validatedEntries(byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 0x41), minimumEntries = 1))
+    fun `strict decoder and directory validator reject malformed utf8 example`() {
+        val decode = RelayDirectory::class.java.getDeclaredMethod("decodeUtf8Strict", ByteArray::class.java)
+            .apply { isAccessible = true }
+        val valid = header + "relay-a.example,1,2\n"
+        assertEquals(valid, decode.invoke(RelayDirectory, valid.toByteArray()))
+        val malformed = valid.toByteArray() + byteArrayOf(0xFF.toByte())
+        assertNull(decode.invoke(RelayDirectory, malformed))
+        assertNull(RelayDirectory.validatedEntries(malformed, minimumEntries = 1))
     }
 
     @Test
     fun `a file over the byte cap is rejected`() {
-        val oversized = ByteArray(RelayDirectory.MAX_DIRECTORY_BYTES + 1) { 'a'.code.toByte() }
-        assertNull(RelayDirectory.validatedEntries(oversized, minimumEntries = 1))
+        val valid = (header + "relay-a.example,1.0,2.0\n").toByteArray()
+        val atLimit = ByteArray(RelayDirectory.MAX_DIRECTORY_BYTES) { ' '.code.toByte() }
+        valid.copyInto(atLimit)
+        assertNotNull(RelayDirectory.validatedEntries(atLimit, minimumEntries = 1))
+        assertNull(RelayDirectory.validatedEntries(atLimit + byteArrayOf(' '.code.toByte()), minimumEntries = 1))
     }
 
     @Test
@@ -145,7 +139,7 @@ class RelayDirectoryValidationTest {
     }
 
     @Test
-    fun `a coordinate spelling only java parses rejects the file`() {
+    fun `coordinate examples with Java float and double suffixes reject the file`() {
         // Double.parseDouble takes "1.5f"; Swift's Double(String) does not. Both
         // platforms must refuse the row, or one keeps a file the other drops.
         assertNull(validate(header + "relay-a.example,1.5f,2.0\n"))
@@ -161,7 +155,7 @@ class RelayDirectoryValidationTest {
     }
 
     @Test
-    fun `hosts ios rejects are rejected here`() {
+    fun `invalid address examples are rejected`() {
         val rejected = mapOf(
             "wss://relay.example.com/path" to "path beyond /",
             "wss://user@relay.example.com" to "userinfo",
@@ -188,7 +182,7 @@ class RelayDirectoryValidationTest {
         }
     }
 
-    // MARK: floors and the hijack guard
+    // MARK: entry floors and retention checks
 
     @Test
     fun `a remote file below the entry floor is rejected`() {
@@ -218,14 +212,27 @@ class RelayDirectoryValidationTest {
         assertNull(validate(keepsOne, baseline = baseline))
     }
 
+    @Test
+    fun `an odd baseline requires the rounded up half of its entries`() {
+        val baseline = (1..3).map { RelayDirectory.RelayInfo("wss://base-$it.example", 0.0, 0.0) }.toSet()
+        assertNull(validate(header + "base-1.example,0,0\n", baseline = baseline))
+        assertNotNull(validate(header + "base-1.example,0,0\nbase-2.example,0,0\n", baseline = baseline))
+    }
+
+    @Test
+    fun `retention compares coordinates as well as endpoints`() {
+        val baseline = setOf(RelayDirectory.RelayInfo("wss://base.example", 0.0, 0.0))
+        assertNotNull(validate(header + "base.example,0,0\n", baseline = baseline))
+        assertNull(validate(header + "base.example,1,0\n", baseline = baseline))
+        assertNull(validate(header + "base.example,0,1\n", baseline = baseline))
+    }
+
     // MARK: the shipped asset
 
     @Test
-    fun `the bundled asset passes the same validation a download must pass`() {
-        // fetch-georelays.yml rewrites the bundled asset every week, so this
-        // test checks validity, not contents: whatever the job ships must pass
-        // the same validation a download must pass. The exact-count check
-        // lives on the fixed snapshot below.
+    fun `the bundled asset passes format checks and the remote entry floor`() {
+        // The weekly job updates the asset. This check uses the remote entry
+        // floor, but has no prior directory for a download-overlap comparison.
         val asset = listOf(
             File("src/main/assets/nostr_relays.csv"),
             File("app/src/main/assets/nostr_relays.csv")
@@ -238,10 +245,8 @@ class RelayDirectoryValidationTest {
     }
 
     @Test
-    fun `a fixed snapshot of the directory yields the exact entry count`() {
-        // A copy of online_relays_gps.csv taken 2026-08-30, 441 rows collapsing
-        // to 326 entries. This file never changes, so a different count here is
-        // a change in the validator, never a change in the data.
+    fun `a synthetic directory fixture yields the expected distinct endpoint count`() {
+        // Synthetic duplicates exercise the distinct endpoint count independently of the asset.
         val snapshot = listOf(
             File("src/test/resources/nostr_relays_snapshot.csv"),
             File("app/src/test/resources/nostr_relays_snapshot.csv")

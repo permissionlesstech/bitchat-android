@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.core.content.edit
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -25,11 +26,8 @@ object RelayDirectory {
 
     private const val TAG = "RelayDirectory"
 
-    // The same file iOS reads (GeoRelayDirectory.swift). Both platforms take the 5
-    // nearest relays from their directory and use them without the defaults, so a
-    // geohash message crosses platforms only if the two selections share a relay.
-    // Reading different files made the selections diverge. Selecting from the same
-    // file, with rows keyed and ordered the same way, keeps them aligned.
+    // The source URL matches iOS GeoRelayDirectory. Download timing and parser
+    // acceptance can leave clients with different loaded snapshots.
     internal const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv"
     // Download cache of ASSET_FILE_URL above, and the bundled list the weekly job
     // refreshes from it; the file names predate the source's move to online_relays_gps.csv.
@@ -40,11 +38,8 @@ object RelayDirectory {
     private const val KEY_SOURCE_URL = "source_url"
     private val ONE_DAY_MS = TimeUnit.DAYS.toMillis(1)
 
-    // GeoRelayDirectoryValidationPolicy.live, ported verbatim. The directory is an
-    // unsigned third-party file (docs/security-review-jul-27.md M9); iOS bounds what
-    // it will accept from it and rejects the rest, and both platforms must bound it
-    // the same way or a file one side accepts and the other rejects splits their
-    // relay selections at every geohash at once.
+    // Limits follow GeoRelayDirectoryValidationPolicy.live. The directory is unsigned;
+    // these checks bound accepted data without authenticating it.
     internal const val MAX_DIRECTORY_BYTES = 512 * 1024
     internal const val MAX_DIRECTORY_ROWS = 5_000
     internal const val MAX_DIRECTORY_ENTRIES = 5_000
@@ -67,37 +62,40 @@ object RelayDirectory {
     private val relays: MutableList<RelayInfo> = mutableListOf()
     private val relaysLock = Any()
 
-    fun initialize(application: Application) {
+    fun initialize(application: Application) =
+        initialize(application, ioScope, System::currentTimeMillis)
+
+    internal fun initialize(
+        application: Application,
+        refreshScope: CoroutineScope,
+        nowMillis: () -> Long
+    ) {
         if (initialized) return
         synchronized(this) {
             if (initialized) return
             try {
-                val downloaded = getDownloadedFile(application)
-                invalidateCacheIfSourceChanged(getPrefs(application), downloaded)
-                val loadedFromDownloaded = if (downloaded.exists() && downloaded.canRead()) {
-                    loadFromFile(downloaded, sourceLabel = "downloaded")
-                } else {
-                    false
-                }
-
-                if (!loadedFromDownloaded) {
-                    loadFromAssets(application)
-                }
+                loadInitialDirectory(application, getDownloadedFile(application), getPrefs(application))
 
                 initialized = true
 
-                // Trigger an immediate fetch if the data is stale (older than 24h)
-                ioScope.launch {
-                    if (isStale(application)) {
-                        fetchAndMaybeSwap(application)
-                    }
-                }
-
-                // Start periodic staleness check every minute
-                startPeriodicRefresh(application)
+                // One worker checks immediately, then waits a minute after each iteration.
+                startPeriodicRefresh(application, refreshScope, nowMillis)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize RelayDirectory: ${e.message}")
             }
+        }
+    }
+
+    internal fun loadInitialDirectory(application: Application, downloaded: File, prefs: SharedPreferences) {
+        val sourceChanged = invalidateCacheIfSourceChanged(prefs, downloaded)
+        val loadedFromDownloaded = if (!sourceChanged && downloaded.exists() && downloaded.canRead()) {
+            loadFromFile(downloaded, sourceLabel = "downloaded")
+        } else {
+            false
+        }
+
+        if (!loadedFromDownloaded) {
+            loadFromAssets(application)
         }
     }
 
@@ -119,11 +117,8 @@ object RelayDirectory {
         return closestRelays(snapshot, lat, lon, nRelays)
     }
 
-    // Distance ties are the directory's common case, not an edge: rows are geocoded
-    // to city centroids, so whole groups of relays sit at one exact coordinate. iOS
-    // breaks ties by host so every device with the same directory picks the same set
-    // (GeoRelayDirectory.closestRelays). Urls here are canonical hosts behind a fixed
-    // prefix, so ordering by url reproduces iOS's order.
+    // City-level coordinates create distance ties. Break them by endpoint key,
+    // following GeoRelayDirectory.closestRelays for the accepted directory rows.
     internal fun closestRelays(entries: List<RelayInfo>, lat: Double, lon: Double, nRelays: Int): List<String> =
         entries
             .map { it to haversineMeters(lat, lon, it.latitude, it.longitude) }
@@ -146,35 +141,38 @@ object RelayDirectory {
         application.getSharedPreferences(PREFS_NAME, Application.MODE_PRIVATE)
 
     /**
-     * An install upgraded across the source move still holds a cache fetched from
-     * the old URL. Drop it and clear the update stamp, and the staleness check
-     * refetches, rather than keep selecting from a file the current source no
-     * longer matches. Returns whether a cache was dropped.
+     * Returns true when an existing cache has a missing or different source URL.
+     * That cache is ineligible for loading when deletion returns false. Clearing
+     * the timestamp makes the next staleness check eligible to attempt a fetch.
      */
     internal fun invalidateCacheIfSourceChanged(prefs: SharedPreferences, downloaded: File): Boolean {
         if (!downloaded.exists()) return false
         if (prefs.getString(KEY_SOURCE_URL, null) == ASSET_FILE_URL) return false
-        downloaded.delete()
-        prefs.edit().remove(KEY_LAST_UPDATE_MS).apply()
-        Log.i(TAG, "Dropped cached relay list fetched from a previous source URL")
+        val deleted = downloaded.delete()
+        prefs.edit { remove(KEY_LAST_UPDATE_MS) }
+        Log.i(TAG, "Invalidated cached relay list from a different or unknown source; deleted=$deleted")
         return true
     }
 
     private fun getDownloadedFile(application: Application): File =
         File(application.filesDir, DOWNLOADED_FILE)
 
-    private fun isStale(application: Application): Boolean {
+    private fun isStale(application: Application, nowMillis: () -> Long): Boolean {
         val last = getPrefs(application).getLong(KEY_LAST_UPDATE_MS, 0L)
-        val now = System.currentTimeMillis()
+        val now = nowMillis()
         return now - last >= ONE_DAY_MS
     }
 
-    private fun startPeriodicRefresh(application: Application) {
-        ioScope.launch {
+    private fun startPeriodicRefresh(
+        application: Application,
+        refreshScope: CoroutineScope,
+        nowMillis: () -> Long
+    ) {
+        refreshScope.launch {
             while (true) {
                 try {
-                    if (isStale(application)) {
-                        fetchAndMaybeSwap(application)
+                    if (isStale(application, nowMillis)) {
+                        fetchAndMaybeSwap(application, nowMillis)
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Periodic refresh encountered an error: ${e.message}")
@@ -184,12 +182,12 @@ object RelayDirectory {
         }
     }
 
-    private fun fetchAndMaybeSwap(application: Application) {
+    private fun fetchAndMaybeSwap(application: Application, nowMillis: () -> Long) {
         try {
             val tmpFile = File.createTempFile("relays_", ".csv", application.cacheDir)
             val ok = downloadToFile(ASSET_FILE_URL, tmpFile)
             if (!ok) {
-                Log.w(TAG, "Failed to fetch latest relays; keeping current list (will fallback to bundled if none)")
+                Log.w(TAG, "Failed to fetch latest relays; keeping current list")
                 tmpFile.delete()
                 return
             }
@@ -199,8 +197,8 @@ object RelayDirectory {
                 tmpFile.delete()
                 return
             }
-            // The current directory is the baseline: a rejected download keeps it,
-            // in memory and on disk, the way iOS keeps its previous copy.
+            // Validation rejection returns before updating loaded entries, the cache
+            // file or the update timestamp.
             val baseline = synchronized(relaysLock) { relays.toSet() }
             val parsed = validatedEntries(tmpFile.readBytes(), MIN_REMOTE_ENTRIES, baseline)
             if (parsed == null) {
@@ -225,10 +223,10 @@ object RelayDirectory {
                 relays.addAll(parsed)
             }
 
-            getPrefs(application).edit()
-                .putLong(KEY_LAST_UPDATE_MS, System.currentTimeMillis())
-                .putString(KEY_SOURCE_URL, ASSET_FILE_URL)
-                .apply()
+            getPrefs(application).edit {
+                putLong(KEY_LAST_UPDATE_MS, nowMillis())
+                putString(KEY_SOURCE_URL, ASSET_FILE_URL)
+            }
 
             Log.i(TAG, "✅ Using downloaded relay list (${dest.absolutePath}), entries=$entries, sha256=$hash, updatedAtMs=${getPrefs(application).getLong(KEY_LAST_UPDATE_MS, 0L)}")
         } catch (e: Exception) {
@@ -244,7 +242,7 @@ object RelayDirectory {
                     Log.w(TAG, "HTTP ${'$'}{resp.code} when fetching $url")
                     return false
                 }
-                val body = resp.body ?: return false
+                val body = resp.body
                 if (body.contentLength() > MAX_DIRECTORY_BYTES) {
                     Log.w(TAG, "Relay CSV content length exceeds $MAX_DIRECTORY_BYTES bytes; aborting")
                     return false
@@ -321,16 +319,9 @@ object RelayDirectory {
     }
 
     /**
-     * GeoRelayDirectory.validatedEntries, ported in full. One malformed or
-     * conflicting row rejects the complete dataset, and the caller keeps whatever
-     * directory it already has: a partial parse would leave this client selecting
-     * from a different row set than iOS, the failure #914 exists to close. Returns
-     * null when the data is rejected.
-     *
-     * baselineEntries carries the current directory when validating a download. A
-     * new file that keeps less than half of the known entries is rejected even when
-     * well formed, matching iOS: a hijacked or truncated upstream cannot swap the
-     * whole relay population in one fetch.
+     * Validates a complete directory before it replaces loaded entries. Null
+     * means rejection. Downloads also check retention against the loaded rows;
+     * bundled and cached startup loads use a one-entry floor without a baseline.
      */
     internal fun validatedEntries(
         data: ByteArray,
@@ -339,9 +330,9 @@ object RelayDirectory {
     ): List<RelayInfo>? {
         if (data.isEmpty() || data.size > MAX_DIRECTORY_BYTES) return null
         var text = decodeUtf8Strict(data) ?: return null
-        // Foundation's UTF-8 decode strips one leading BOM before iOS's own BOM
-        // check runs, so a single BOM passes on iOS and only a doubled one is
-        // rejected. Mirror that exactly (verified against the real Swift code).
+        // Kotlin trim treats these separators as whitespace; do not erase invalid CSV padding.
+        if (text.any { it in '\u001C'..'\u001F' }) return null
+        // Accept one UTF-8 BOM, as in the tested Foundation decoder behavior.
         if (text.startsWith('\uFEFF')) text = text.substring(1)
         if (text.startsWith('\uFEFF')) return null
 
@@ -371,11 +362,8 @@ object RelayDirectory {
 
             val entry = RelayInfo(url = "wss://$host", latitude = latitude, longitude = longitude)
             val existing = entriesByHost[host]
-            // One endpoint cannot truthfully occupy two coordinates. Matching iOS,
-            // row order does not get to choose which location clients trust. The
-            // comparison is IEEE equality, not equals(): Swift's == calls -0.0 and
-            // 0.0 the same coordinate, and the last equal row's value is kept, raw
-            // bits included, the way Swift dictionary assignment keeps it.
+            // Conflicting coordinates reject the file. IEEE equality treats
+            // signed zero as equal; the later equal row supplies the stored bits.
             if (existing != null && !sameEntry(existing, entry)) {
                 return null
             }
@@ -396,24 +384,29 @@ object RelayDirectory {
     }
 
     /**
-     * GeoRelayDirectory.validatedDirectoryAddress, ported in full: the host
-     * key both platforms build for a row, or null when the address is one the
-     * directory must not carry (non-ASCII, credentials, paths, queries, local and
-     * internal names, malformed labels, out-of-range ports). An explicit port stays
-     * in the key unless it is 443, the wss default, which keeps a relay on :8443
-     * distinct and collapses the directory's bare and :443 duplicate rows. Dedup
-     * and tie ordering both key on this, which is what keeps the two platforms'
-     * selections aligned row for row.
+     * Screens directory addresses and returns the lowercase host key. Port 443
+     * is omitted; other accepted ports remain part of the key. This bounded
+     * compatibility implementation does not completely reproduce Foundation.
      */
     internal fun validatedDirectoryAddress(rawValue: String): String? {
+        if (rawValue.any { it in '\u001C'..'\u001F' }) return null
         val value = rawValue.trim()
         if (value.isEmpty()) return null
         if (!value.all { it.code in 0x20..0x7E }) return null
 
-        val encoded = if ("://" in value) value else "wss://$value"
-        // URLComponents percent-decodes before iOS's checks run, so re%6Cay.example
-        // is relay.example to iOS; java.net.URI does not decode. Decode the same
-        // way first, and reject invalid escapes the way URLComponents rejects them.
+        val encoded = if ("://" in value) {
+            val literalScheme = value.substringBefore("://").lowercase()
+            if (literalScheme != "wss" && literalScheme != "https") return null
+            value
+        } else {
+            "wss://$value"
+        }
+        val authority = encoded.substringAfter("://").substringBefore('/')
+            .substringBefore('?').substringBefore('#')
+        // Port digits must be literal; decoding them would admit encoded ports.
+        if (authority.substringAfterLast(':', "").contains('%')) return null
+        // Decode allowed host escapes after checking the literal scheme.
+        // Encoded delimiters are rejected to avoid changing the URL structure.
         val candidate = percentDecodedOrNull(encoded) ?: return null
         val uri = try { java.net.URI(candidate) } catch (_: Exception) { return null }
         val scheme = uri.scheme?.lowercase() ?: return null
@@ -423,12 +416,9 @@ object RelayDirectory {
         if (uri.fragment != null) return null
         val path = uri.path ?: ""
         if (path.isNotEmpty() && path != "/") return null
-        // java.net.URI follows RFC 2396, which requires the final host label to
-        // start with a letter, and returns no host for names like b.08obllot
-        // that iOS's RFC 3986 parser accepts. When URI refuses only for that
-        // reason, a plain hostname[:port] authority is taken as the host and
-        // the screens below judge it; fuzzing found this as the dominant
-        // divergence class (Android rejecting what iOS accepts).
+        // URI does not expose a host for some accepted plain authorities, such
+        // as final labels starting with a digit. Apply our host/port screens to
+        // that restricted authority form too.
         val rawHost = uri.host
             ?: plainAuthorityHost(candidate)
             ?: return null
@@ -442,10 +432,8 @@ object RelayDirectory {
 
         val labels = host.split(".")
         if (labels.size < 2) return null
-        // URLComponents IDNA-decodes xn-- labels: valid punycode decodes to
-        // non-ASCII and fails iOS's screen, invalid punycode fails its parse, and
-        // both reject the address (verified against the real validator). java.net
-        // URI passes the label through, so the label form itself is refused here.
+        // Reject the punycode label form without IDNA conversion. This is
+        // stricter than Foundation for some unusual xn-- spellings.
         if (labels.any { it.startsWith("xn--") }) return null
         if (labels.all { label -> label.all { it.isDigit() } }) return null
         if (!labels.all { label ->
@@ -503,7 +491,7 @@ object RelayDirectory {
         a.url == b.url && a.latitude == b.latitude && a.longitude == b.longitude
 
     // Strict %XX decoding with UTF-8 byte semantics and no '+' handling. Returns
-    // null on an invalid or truncated escape, matching URLComponents.
+    // null on an invalid or truncated escape.
     private fun percentDecodedOrNull(value: String): String? {
         if ('%' !in value) return value
         val bytes = java.io.ByteArrayOutputStream(value.length)
@@ -516,11 +504,8 @@ object RelayDirectory {
                 val lo = Character.digit(value[i + 2], 16)
                 if (hi < 0 || lo < 0) return null
                 val decoded = ((hi shl 4) or lo).toChar()
-                // URLComponents decodes AFTER structural parsing, so a decoded
-                // ':' stays inside the host and fails iOS's label screen; decoding
-                // it here first would instead create a port. Only escapes that
-                // decode to host-legal characters may pass (verified against the
-                // real validator: %6C and %2E accept, %3A and the rest reject).
+                // Decoding a delimiter before URI parsing could create a port,
+                // path or other structure that was not literal in the input.
                 if (!(decoded in 'A'..'Z' || decoded in 'a'..'z' ||
                         decoded in '0'..'9' || decoded == '.' || decoded == '-')) return null
                 bytes.write(decoded.code)
@@ -546,20 +531,19 @@ object RelayDirectory {
         null
     }
 
-    // Two Swift-vs-Java parsing differences, both verified against the real
-    // validator: Double.parseDouble takes trailing f/F/d/D suffixes that Swift
-    // rejects (and in hex those characters are digits, not suffixes), and Swift
-    // accepts hex like "0x10" without the binary exponent Java requires.
-    // Infinity and NaN spellings parse on both and fail the finite check.
+    // Java accepts type suffixes after decimal numbers and hex exponents.
+    // Without an exponent, d/f can be hex mantissa digits. Append the exponent
+    // Java requires for unsuffixed forms such as 0x10, accepted by Swift.
     private fun parseCoordinate(raw: String): Double? {
         if (raw.isEmpty()) return null
         val body = raw.removePrefix("+").removePrefix("-")
         val isHex = body.startsWith("0x") || body.startsWith("0X")
-        if (!isHex) {
+        val hasExponent = raw.contains('p') || raw.contains('P')
+        if (!isHex || hasExponent) {
             val last = raw.last()
             if (last == 'f' || last == 'F' || last == 'd' || last == 'D') return null
         }
-        val candidate = if (isHex && !raw.contains('p') && !raw.contains('P')) raw + "p0" else raw
+        val candidate = if (isHex && !hasExponent) raw + "p0" else raw
         val value = candidate.toDoubleOrNull() ?: return null
         return if (value.isFinite()) value else null
     }

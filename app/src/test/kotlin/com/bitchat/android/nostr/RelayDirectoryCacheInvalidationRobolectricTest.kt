@@ -12,14 +12,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/**
- * A cached directory is only as current as the URL it was fetched from. An install
- * upgraded across the source move still holds a cache from the old URL; these pin
- * that it is dropped and refetched instead of selecting from stale data.
- */
+/** Covers source metadata, cache deletion and update-timestamp clearing. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.P], manifest = Config.NONE)
-class RelayDirectoryCacheInvalidationTest {
+class RelayDirectoryCacheInvalidationRobolectricTest {
 
     private val application: Application = ApplicationProvider.getApplicationContext()
 
