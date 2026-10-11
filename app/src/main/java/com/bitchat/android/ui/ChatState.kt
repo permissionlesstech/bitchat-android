@@ -14,6 +14,15 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
+ * The app's four destinations, in bar order.
+ *
+ * `Public` is the mesh/geohash timeline the app used to be entirely made of; the other three were
+ * modal bottom sheets before this became a tabbed app. Labels and icons are mapped in the
+ * navigation bar, keeping this plain state.
+ */
+enum class AppTab { Public, Chats, People, Settings }
+
+/**
  * Centralized state definitions and data classes for the chat system
  */
 
@@ -123,11 +132,14 @@ class ChatState(
     private val _showAppInfo = MutableStateFlow<Boolean>(false)
     val showAppInfo: StateFlow<Boolean> = _showAppInfo.asStateFlow()
 
-    private val _showMeshPeerList = MutableStateFlow(false)
-    val showMeshPeerList: StateFlow<Boolean> = _showMeshPeerList.asStateFlow()
+    private val _openPrivateChatPeer = MutableStateFlow<String?>(null)
+    val openPrivateChatPeer: StateFlow<String?> = _openPrivateChatPeer.asStateFlow()
 
-    private val _privateChatSheetPeer = MutableStateFlow<String?>(null)
-    val privateChatSheetPeer: StateFlow<String?> = _privateChatSheetPeer.asStateFlow()
+    // Lives here rather than in the shell's composition so that anything which changes what the
+    // timeline shows - a channel switch, a notification tap - can also bring the timeline on
+    // screen, and so back navigation has a single unwind path in ChatViewModel.handleBackPressed.
+    private val _selectedTab = MutableStateFlow(AppTab.Public)
+    val selectedTab: StateFlow<AppTab> = _selectedTab.asStateFlow()
 
     private val _showVerificationSheet = MutableStateFlow(false)
     val showVerificationSheet: StateFlow<Boolean> = _showVerificationSheet.asStateFlow()
@@ -193,10 +205,10 @@ class ChatState(
     fun getPeerSessionStatesValue() = _peerSessionStates.value
     fun getPeerFingerprintsValue() = _peerFingerprints.value
     fun getShowAppInfoValue() = _showAppInfo.value
+    fun getSelectedTabValue() = _selectedTab.value
     fun getGeohashPeopleValue() = _geohashPeople.value
 
-    fun getShowMeshPeerListValue() = _showMeshPeerList.value
-    fun getPrivateChatSheetPeerValue() = _privateChatSheetPeer.value
+    fun getOpenPrivateChatPeerValue() = _openPrivateChatPeer.value
 
     fun getTeleportedGeoValue() = _teleportedGeo.value
     fun getGeohashParticipantCountsValue() = _geohashParticipantCounts.value
@@ -321,6 +333,10 @@ class ChatState(
         _showAppInfo.value = show
     }
 
+    fun setSelectedTab(tab: AppTab) {
+        _selectedTab.value = tab
+    }
+
     fun setShowVerificationSheet(show: Boolean) {
         _showVerificationSheet.value = show
     }
@@ -349,11 +365,7 @@ class ChatState(
         _geohashParticipantCounts.value = counts
     }
 
-    fun setShowMeshPeerList(show: Boolean) {
-        _showMeshPeerList.value = show
-    }
-
-    fun setPrivateChatSheetPeer(peerID: String?) {
-        _privateChatSheetPeer.value = peerID
+    fun setOpenPrivateChatPeer(peerID: String?) {
+        _openPrivateChatPeer.value = peerID
     }
 }

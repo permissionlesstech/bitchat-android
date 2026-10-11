@@ -59,7 +59,7 @@ import com.bitchat.android.ui.theme.BitchatMotion
  * - ChatUIUtils: Utility functions for formatting and colors
  */
 @Composable
-fun ChatScreen(viewModel: ChatViewModel) {
+fun ChatScreen(viewModel: ChatViewModel, onOpenPeopleTab: () -> Unit = {}) {
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
@@ -77,17 +77,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val commandSuggestions by viewModel.commandSuggestions.collectAsStateWithLifecycle()
     val showMentionSuggestions by viewModel.showMentionSuggestions.collectAsStateWithLifecycle()
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsStateWithLifecycle()
-    val showAppInfo by viewModel.showAppInfo.collectAsStateWithLifecycle()
-    val showMeshPeerListSheet by viewModel.showMeshPeerList.collectAsStateWithLifecycle()
-    val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
-    val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
-    val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
     val legacyPrivateMediaConsent by viewModel.legacyPrivateMediaConsent.collectAsStateWithLifecycle()
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
-    var showPasswordPrompt by remember { mutableStateOf(false) }
-    var showPasswordDialog by remember { mutableStateOf(false) }
-    var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showLocationNotesSheet by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
@@ -107,13 +99,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         )
     }
 
-    // Show password dialog when needed
-    LaunchedEffect(showPasswordPrompt) {
-        showPasswordDialog = showPasswordPrompt
-    }
-
     val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
-    val passwordPromptChannel by viewModel.passwordPromptChannel.collectAsStateWithLifecycle()
 
     // Get location channel info for timeline switching
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
@@ -136,8 +122,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val isMeshTimeline =
         currentChannel == null &&
             selectedLocationChannel is ChannelID.Mesh &&
-            selectedPrivatePeer == null &&
-            privateChatSheetPeer == null
+            selectedPrivatePeer == null
 
     val processLifecycleOwner = remember { ProcessLifecycleOwner.get() }
     DisposableEffect(processLifecycleOwner, nearbyNotesController) {
@@ -166,9 +151,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
-    LaunchedEffect(isMeshTimeline, privateChatSheetPeer, selectedPrivatePeer) {
+    LaunchedEffect(isMeshTimeline, selectedPrivatePeer) {
         when {
-            privateChatSheetPeer != null -> liveVoiceManager.showDirectMessage(privateChatSheetPeer!!)
             selectedPrivatePeer != null -> liveVoiceManager.showDirectMessage(selectedPrivatePeer!!)
             isMeshTimeline -> liveVoiceManager.showPublicMesh()
             else -> liveVoiceManager.clearVisibleConversation()
@@ -455,7 +439,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             nickname = nickname,
             viewModel = viewModel,
             colorScheme = colorScheme,
-            onSidebarToggle = { viewModel.showMeshPeerList() },
+            onSidebarToggle = onOpenPeopleTab,
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() },
             onLocationChannelsClick = { showLocationChannelsSheet = true },
@@ -515,25 +499,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     // Dialogs and Sheets
     ChatDialogs(
-        showPasswordDialog = showPasswordDialog,
-        passwordPromptChannel = passwordPromptChannel,
-        passwordInput = passwordInput,
-        onPasswordChange = { passwordInput = it },
-        onPasswordConfirm = {
-            if (passwordInput.isNotEmpty()) {
-                val success = viewModel.joinChannel(passwordPromptChannel!!, passwordInput)
-                if (success) {
-                    showPasswordDialog = false
-                    passwordInput = ""
-                }
-            }
-        },
-        onPasswordDismiss = {
-            showPasswordDialog = false
-            passwordInput = ""
-        },
-        showAppInfo = showAppInfo,
-        onAppInfoDismiss = { viewModel.hideAppInfo() },
         showLocationChannelsSheet = showLocationChannelsSheet,
         onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
         onLocationNotesFromChannelsClick = {
@@ -550,12 +515,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
         selectedUserForSheet = selectedUserForSheet,
         selectedMessageForSheet = selectedMessageForSheet,
         viewModel = viewModel,
-        showVerificationSheet = showVerificationSheet,
-        onVerificationSheetDismiss = viewModel::hideVerificationSheet,
-        showSecurityVerificationSheet = showSecurityVerificationSheet,
-        onSecurityVerificationSheetDismiss = viewModel::hideSecurityVerificationSheet,
-        showMeshPeerListSheet = showMeshPeerListSheet,
-        onMeshPeerListDismiss = viewModel::hideMeshPeerList,
     )
 
     legacyPrivateMediaConsent?.let { request ->
@@ -814,14 +773,6 @@ private fun ChatFloatingHeader(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatDialogs(
-    showPasswordDialog: Boolean,
-    passwordPromptChannel: String?,
-    passwordInput: String,
-    onPasswordChange: (String) -> Unit,
-    onPasswordConfirm: () -> Unit,
-    onPasswordDismiss: () -> Unit,
-    showAppInfo: Boolean,
-    onAppInfoDismiss: () -> Unit,
     showLocationChannelsSheet: Boolean,
     onLocationChannelsSheetDismiss: () -> Unit,
     onLocationNotesFromChannelsClick: () -> Unit,
@@ -832,40 +783,7 @@ private fun ChatDialogs(
     selectedUserForSheet: String,
     selectedMessageForSheet: BitchatMessage?,
     viewModel: ChatViewModel,
-    showVerificationSheet: Boolean,
-    onVerificationSheetDismiss: () -> Unit,
-    showSecurityVerificationSheet: Boolean,
-    onSecurityVerificationSheetDismiss: () -> Unit,
-    showMeshPeerListSheet: Boolean,
-    onMeshPeerListDismiss: () -> Unit,
 ) {
-    val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
-
-    // Password dialog
-    PasswordPromptDialog(
-        show = showPasswordDialog,
-        channelName = passwordPromptChannel,
-        passwordInput = passwordInput,
-        onPasswordChange = onPasswordChange,
-        onConfirm = onPasswordConfirm,
-        onDismiss = onPasswordDismiss
-    )
-
-    // About sheet
-    var showDebugSheet by remember { mutableStateOf(false) }
-    AboutSheet(
-        isPresented = showAppInfo,
-        onDismiss = onAppInfoDismiss,
-        onShowDebug = { showDebugSheet = true }
-    )
-    if (showDebugSheet) {
-        com.bitchat.android.ui.debug.DebugSettingsSheet(
-            isPresented = showDebugSheet,
-            onDismiss = { showDebugSheet = false },
-            meshService = viewModel.meshService
-        )
-    }
-    
     // Location channels sheet
     if (showLocationChannelsSheet) {
         LocationChannelsSheet(
@@ -893,45 +811,4 @@ private fun ChatDialogs(
             selectedMessage = selectedMessageForSheet,
             viewModel = viewModel
         )
-    }
-    // MeshPeerList sheet (network view)
-    if (showMeshPeerListSheet){
-        MeshPeerListSheet(
-            isPresented = showMeshPeerListSheet,
-            viewModel = viewModel,
-            onDismiss = onMeshPeerListDismiss,
-            onShowVerification = {
-                onMeshPeerListDismiss()
-                viewModel.showVerificationSheet(fromSidebar = true)
-            }
-        )
-    }
-
-    if (showVerificationSheet) {
-        VerificationSheet(
-            isPresented = showVerificationSheet,
-            onDismiss = onVerificationSheetDismiss,
-            viewModel = viewModel
-        )
-    }
-
-    if (showSecurityVerificationSheet) {
-        SecurityVerificationSheet(
-            isPresented = showSecurityVerificationSheet,
-            onDismiss = onSecurityVerificationSheetDismiss,
-            viewModel = viewModel
-        )
-    }
-
-    if (privateChatSheetPeer != null) {
-        PrivateChatSheet(
-            isPresented = true,
-            peerID = privateChatSheetPeer!!,
-            viewModel = viewModel,
-            onDismiss = {
-                viewModel.hidePrivateChatSheet()
-                viewModel.endPrivateChat()
-            }
-        )
-    }
-}
+    }}

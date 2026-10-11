@@ -56,7 +56,7 @@ internal object ChatVisualTokens {
      * Author-colour wash inside a bubble. Matches the mention-chip treatment so a tinted
      * bubble stays legible on both the near-black and near-white chat surfaces.
      */
-    const val BubbleBackgroundAlpha: Float = 0.18f
+    const val BubbleBackgroundAlpha: Float = 0.24f
 
     /** Author-colour hairline around a bubble; stronger than the fill so the shape reads. */
     const val BubbleBorderAlpha: Float = 0.38f
