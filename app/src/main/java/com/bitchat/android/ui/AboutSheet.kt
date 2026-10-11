@@ -49,6 +49,10 @@ import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,29 +62,33 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
-import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
-import com.bitchat.android.util.downloadPhaseLabel
+import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.hotspot.HotspotActivity
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.nostr.NostrProofOfWork
+import com.bitchat.android.nostr.NostrRelayManager
+import com.bitchat.android.nostr.NostrRelaySettings
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.util.ShareableApkVariant
 import com.bitchat.android.util.UniversalApkManager
+import com.bitchat.android.util.downloadPhaseLabel
 
 /**
  * Theme selection chip with Apple-like styling
@@ -1231,6 +1239,16 @@ fun AboutSheet(
                         }
                     }
 
+                    item(key = "nostr_relays") {
+                        LaunchedEffect(Unit) {
+                            NostrRelaySettings.init(context)
+                            NostrRelayManager.getInstance(context)
+                        }
+                        CustomNostrRelaysSection(
+                            modifier = Modifier.padding(top = 12.dp)
+                        )
+                    }
+
                     } // end Settings tab
 
                     // Footer
@@ -1445,5 +1463,173 @@ private fun ApkShareExplanationDialog(
             containerColor = colorScheme.surface,
             tonalElevation = 8.dp
         )
+    }
+}
+
+
+/**
+ * Hand-added Nostr relays (parity with iOS AppInfo settings). Built-ins are
+ * listed read-only; customs can be removed. Bounded by [NostrRelaySettings.maxCustomRelays].
+ */
+@Composable
+private fun CustomNostrRelaysSection(modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
+    val palette = LocalBitchatPalette.current
+    val customRelays by NostrRelaySettings.customRelaysFlow.collectAsState()
+    var relayInput by remember { mutableStateOf("") }
+    var relayError by remember { mutableStateOf<String?>(null) }
+
+    fun addRelay() {
+        when (val result = NostrRelaySettings.add(relayInput, NostrRelayManager.builtInRelayUrls)) {
+            is NostrRelaySettings.AddResult.Success -> {
+                relayInput = ""
+                relayError = null
+                NostrRelayManager.shared.syncCustomRelays()
+            }
+            is NostrRelaySettings.AddResult.Failure -> {
+                relayError = when (result.reason) {
+                    NostrRelaySettings.AddFailure.Malformed -> "That does not look like a relay URL"
+                    NostrRelaySettings.AddFailure.AlreadyPresent -> "That relay is already on the list"
+                    NostrRelaySettings.AddFailure.LimitReached ->
+                        "At most ${NostrRelaySettings.maxCustomRelays} custom relays"
+                }
+            }
+        }
+    }
+
+    Column(modifier = modifier) {
+        AboutSectionLabel(text = "Nostr relays")
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = AboutHorizontalPadding),
+            color = colorScheme.surface,
+            shape = AboutCardShape
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Defaults ship with the app. Add your own if those are blocked or unreachable.",
+                    fontFamily = BitchatFontFamily,
+                    fontSize = 12.sp,
+                    color = palette.textTertiary
+                )
+
+                NostrRelayManager.builtInRelayUrls.sorted().forEach { relay ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = relay,
+                            fontFamily = BitchatFontFamily,
+                            fontSize = 11.sp,
+                            color = palette.textTertiary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "built-in",
+                            fontFamily = BitchatFontFamily,
+                            fontSize = 10.sp,
+                            color = palette.textTertiary
+                        )
+                    }
+                }
+
+                customRelays.forEach { relay ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = relay,
+                            fontFamily = BitchatFontFamily,
+                            fontSize = 11.sp,
+                            color = colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = {
+                                NostrRelaySettings.remove(relay)
+                                NostrRelayManager.shared.syncCustomRelays()
+                                relayError = null
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.RemoveCircleOutline,
+                                contentDescription = "Remove relay",
+                                tint = colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (customRelays.size < NostrRelaySettings.maxCustomRelays) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = relayInput,
+                            onValueChange = {
+                                relayInput = it
+                                relayError = null
+                            },
+                            modifier = Modifier.weight(1f),
+                            placeholder = {
+                                Text(
+                                    text = "wss://relay.example.com",
+                                    fontFamily = BitchatFontFamily,
+                                    fontSize = 11.sp
+                                )
+                            },
+                            singleLine = true,
+                            textStyle = TextStyle(
+                                fontFamily = BitchatFontFamily,
+                                fontSize = 11.sp
+                            ),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Uri,
+                                imeAction = ImeAction.Done,
+                                autoCorrectEnabled = false
+                            ),
+                            keyboardActions = KeyboardActions(onDone = { addRelay() })
+                        )
+                        IconButton(
+                            onClick = { addRelay() },
+                            enabled = relayInput.trim().isNotEmpty()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Add,
+                                contentDescription = "Add relay",
+                                tint = if (relayInput.trim().isNotEmpty()) {
+                                    colorScheme.primary
+                                } else {
+                                    palette.textTertiary
+                                }
+                            )
+                        }
+                    }
+                }
+
+                relayError?.let { err ->
+                    Text(
+                        text = err,
+                        fontFamily = BitchatFontFamily,
+                        fontSize = 11.sp,
+                        color = colorScheme.error
+                    )
+                }
+            }
+        }
     }
 }
