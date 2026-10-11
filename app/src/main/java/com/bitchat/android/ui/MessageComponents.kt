@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -53,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -69,7 +71,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
@@ -292,6 +296,13 @@ fun MessagesList(
     val enteringIds = remember(conversationKey, messages.size, messages.lastOrNull()?.id) {
         arrivalTracker.arrivals(messages)
     }
+
+    IncomingMessageAccessibilityAnnouncer(
+        messages = messages,
+        enteringIds = enteringIds,
+        currentUserNickname = currentUserNickname,
+        enabled = followIncomingMessages,
+    )
 
     // Placement animation exists to soften insertions and removals. But *any* relayout moves every
     // item — the keyboard opening behind a bottom sheet, that sheet closing again, the composer
@@ -1232,7 +1243,66 @@ private fun deliveryCheckRank(status: DeliveryStatus): Int = when (status) {
 }
 
 @Composable
+private fun deliveryStatusDescription(status: DeliveryStatus): String = when (status) {
+    DeliveryStatus.Sending -> stringResource(R.string.cd_delivery_sending)
+    DeliveryStatus.Sent -> stringResource(R.string.cd_delivery_sent)
+    is DeliveryStatus.Delivered -> stringResource(R.string.cd_delivery_delivered)
+    is DeliveryStatus.Read -> stringResource(R.string.cd_delivery_read)
+    is DeliveryStatus.Failed -> stringResource(R.string.cd_delivery_failed)
+    is DeliveryStatus.PartiallyDelivered ->
+        stringResource(R.string.cd_delivery_partial, status.reached, status.total)
+}
+
+@Composable
+private fun IncomingMessageAccessibilityAnnouncer(
+    messages: List<BitchatMessage>,
+    enteringIds: Set<String>,
+    currentUserNickname: String,
+    enabled: Boolean,
+) {
+    val context = LocalContext.current
+    val incomingArrivals = remember(messages, enteringIds) {
+        messages.filter { it.id in enteringIds && it.sender != currentUserNickname }
+    }
+    var announcementVersion by remember { mutableIntStateOf(0) }
+    LaunchedEffect(incomingArrivals.map { it.id }, enabled) {
+        if (!enabled || incomingArrivals.isEmpty()) return@LaunchedEffect
+        announcementVersion++
+    }
+    val announcement = remember(announcementVersion, incomingArrivals) {
+        if (announcementVersion == 0 || incomingArrivals.isEmpty()) {
+            return@remember ""
+        }
+        val message = incomingArrivals.maxByOrNull { it.timestamp.time } ?: return@remember ""
+        val preview = messagePreviewForAccessibility(context, message)
+        context.getString(R.string.a11y_incoming_message, message.sender, preview)
+    }
+    if (announcement.isNotEmpty()) {
+        Box(
+            Modifier
+                .size(1.dp)
+                .semantics {
+                    liveRegion = LiveRegionMode.Polite
+                    contentDescription = announcement
+                },
+        )
+    }
+}
+
+private fun messagePreviewForAccessibility(context: Context, message: BitchatMessage): String {
+    return when (message.type) {
+        BitchatMessageType.Message ->
+            message.content.replace('\n', ' ').trim().take(120)
+        BitchatMessageType.Audio ->
+            context.getString(R.string.a11y_incoming_voice_message)
+        BitchatMessageType.Image -> context.getString(R.string.cd_image)
+        BitchatMessageType.File -> context.getString(R.string.cd_file)
+    }.ifBlank { "…" }
+}
+
+@Composable
 fun DeliveryStatusIcon(status: DeliveryStatus) {
+    val statusDescription = deliveryStatusDescription(status)
     val colorScheme = MaterialTheme.colorScheme
     val (firstTarget, secondTarget) = deliveryCheckColors(status, colorScheme)
     val first by animateColorAsState(
@@ -1270,9 +1340,11 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         text = text,
         fontSize = 10.sp,
         fontWeight = FontWeight.Normal,
-        modifier = Modifier.graphicsLayer {
-            scaleX = scale.value
-            scaleY = scale.value
-        }
+        modifier = Modifier
+            .semantics { contentDescription = statusDescription }
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+            },
     )
 }
