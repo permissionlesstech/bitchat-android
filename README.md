@@ -27,7 +27,10 @@ This is the Android implementation of bitchat, fully protocol-compatible with th
 
 ## License
 
-This project is released into the public domain. See the [LICENSE](LICENSE.md) file for details.
+The Android repository includes the GNU General Public License, version 3, in
+[LICENSE.md](LICENSE.md). The public-domain statement in the separate iOS/macOS
+repository does not describe this repository. See the license file and any
+individual component notices for the applicable terms.
 
 ## Features
 
@@ -103,3 +106,8 @@ and public GitHub/Google Play verification procedures.
 ```
 
 Note that BLE mesh behavior is difficult to emulate; protocol and session logic is covered by unit tests, while radio-level behavior needs real devices.
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. It covers
+local checks, phone and Wear OS changes, UI evidence, and protocol testing.
