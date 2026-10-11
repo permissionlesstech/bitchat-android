@@ -1,0 +1,10 @@
+case,now,rumor,wrap,acceptRumor,acceptWrap
+fresh,1700000000,1700000000,1700000000,true,true
+maximum_randomization,1700000000,1700000000,1699827200,true,true
+day_delayed_maximum_randomization,1700000000,1699913600,1699740800,true,true
+inclusive_oldest,1700000000,1699912700,1699739900,true,true
+one_second_too_old,1700000000,1699912699,1699739899,false,false
+inclusive_future,1700000000,1700000900,1700000900,true,true
+one_second_too_future,1700000000,1700000901,1700000901,false,false
+old_rumor_fresh_wrap,1700000000,1699912699,1700000000,false,true
+fresh_rumor_old_wrap,1700000000,1700000000,1699739899,true,false

@@ -96,7 +96,7 @@ object NostrBackgroundRuntime {
         val identity = NostrIdentityBridge.getCurrentNostrIdentity(application) ?: return
         subscriptions.subscribeGiftWraps(
             pubkey = identity.publicKeyHex,
-            sinceMs = System.currentTimeMillis() - 172_800_000L,
+            sinceMs = NostrTimestampPolicy.giftWrapSinceMillis(),
             id = "chat-messages",
             handler = { event ->
                 eventProcessor.onAccountDm(event, identity)
@@ -163,7 +163,7 @@ object NostrBackgroundRuntime {
                 val identity = NostrIdentityBridge.deriveIdentity(geohash, application)
                 subscriptions.subscribeGiftWraps(
                     pubkey = identity.publicKeyHex,
-                    sinceMs = System.currentTimeMillis() - 172_800_000L,
+                    sinceMs = NostrTimestampPolicy.giftWrapSinceMillis(),
                     id = subscriptionId,
                     handler = { event ->
                         eventProcessor.onGeohashDm(event, geohash, identity)
