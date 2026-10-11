@@ -113,6 +113,59 @@ class CashuTokenDecoderTest {
     private fun v3Token(json: String): String =
         "cashuA" + base64Url(json.toByteArray(StandardCharsets.UTF_8))
 
+    @Test
+    fun `strict decoding does not hide invalid proofs behind a valid amount`() {
+        for (amount in listOf("true", "1.5", "-1", "0", "2100000000000001", "\"1\"")) {
+            val token = v3Token("""{"token":[{"proofs":[{"amount":1},{"amount":$amount}]}]}""")
+            assertNull(CashuTokenDecoder.decode(token, strict = true))
+            assertEquals(1L, CashuTokenDecoder.decode(token)?.amount)
+        }
+        val proof = cborMap("a" to cborText("1"))
+        val validProof = cborMap("a" to cborUnsigned(1))
+        val token = "cashuB" + base64Url(cborMap(
+            "t" to cborArray(cborMap("p" to cborArray(validProof, proof)))
+        ))
+        assertNull(CashuTokenDecoder.decode(token, strict = true))
+    }
+
+    @Test
+    fun `duplicate cbor fields cannot inflate the amount or replace metadata`() {
+        val validProof = cborMap("a" to cborUnsigned(1))
+        val group = cborMap("p" to cborArray(validProof))
+        val duplicateProof = cborMap("a" to cborUnsigned(1), "a" to cborUnsigned(2))
+        val payloads = listOf(
+            cborMap("t" to cborArray(group), "t" to cborArray(group)),
+            cborMap("t" to cborArray(cborMap("p" to cborArray(duplicateProof)))),
+            cborMap("t" to cborArray(group), "u" to cborText("sat"), "u" to cborText("usd"))
+        )
+        for (payload in payloads) {
+            val token = "cashuB" + base64Url(payload)
+            assertNull(CashuTokenDecoder.decode(token, strict = true))
+            assertNull(CashuTokenDecoder.decode(token)?.amount)
+        }
+    }
+
+    @Test
+    fun `malformed utf8 is rejected instead of replaced in json and cbor`() {
+        val json = """{"token":[{"proofs":[{"amount":1}]}],"memo":"""".toByteArray() +
+            byteArrayOf(0xff.toByte()) + "\"}".toByteArray()
+        val proof = cborMap("a" to cborUnsigned(1))
+        val cbor = cborMap(
+            "t" to cborArray(cborMap("p" to cborArray(proof))),
+            "x" to byteArrayOf(0x61, 0xff.toByte())
+        )
+        assertNull(CashuTokenDecoder.decode("cashuA" + base64Url(json), strict = true))
+        assertNull(CashuTokenDecoder.decode("cashuB" + base64Url(cbor), strict = true))
+    }
+
+    @Test
+    fun `base64 padding must have the correct length`() {
+        val token = v3Token("""{"token":[{"proofs":[{"amount":1}]}]}""")
+        assertNull(CashuTokenDecoder.decode(token + "===", strict = true))
+        val padding = "=".repeat((4 - (token.length - 6) % 4) % 4)
+        assertEquals(1L, CashuTokenDecoder.decode(token + padding, strict = true)?.amount)
+    }
+
     private fun validV4Token(): String {
         val proofs = listOf(1L, 4L, 16L).map { amount ->
             cborMap(
