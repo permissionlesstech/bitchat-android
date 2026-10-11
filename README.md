@@ -137,7 +137,7 @@ npm install
 npm test        # 啟動 Firestore emulator 並執行 rules.test.mjs
 ```
 
-測試涵蓋 `supply_items` 的欄位層級限制與 `pledges` 的擁有者比對，其中最關鍵的一條是「使用者必須能認領**別人建立的**物資」——那是加錯授權條件最容易弄壞的地方。
+測試涵蓋 `supply_items` 的欄位層級限制，以及 `supply_requests`、`supply_pledges` 的擁有者比對；其中最關鍵的一條是「使用者必須能認領**別人建立的**物資」——那是加錯授權條件最容易弄壞的地方。
 
 規則語法錯誤會讓 `deploy` 直接失敗，不會部署出半套規則；但**語法正確不等於行為正確**，改動授權條件時請務必補上對應測試。
 

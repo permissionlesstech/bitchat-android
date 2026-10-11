@@ -12,6 +12,14 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/rescuers/$(request.auth.uid));
     }
 
+    function isNonNegativeInt(value) {
+      return value is int && value >= 0;
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && userId == request.auth.uid;
+    }
+
     match /rescuers/{uid} {
       // 只能查自己是不是救援者；名單本身不外流。
       allow read: if request.auth != null && request.auth.uid == uid;
@@ -57,48 +65,111 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // supply_items: 共用的物資型錄，「沒有擁有者」。
-    //
-    // 這裡不能做擁有者比對：認領流程（supply_screen.dart 的 _showPledgeSheet）
-    // 會讓「別人建立的物資」被其他使用者更新已認領總量：
-    //     itemRef.update({'pledgedQty': FieldValue.increment(qty)})
-    // 加上擁有者檢查會讓整個認領功能失效（見 issue #34 的更正留言）。
-    //
-    // 因此改用「欄位層級限制」：只允許改動 pledgedQty，其餘欄位不可竄改。
+    // supply_items 是所有使用者共用的型錄；套用欄位限制而非擁有者限制，
+    // 讓使用者能在任何物資上登記需求或捐贈，但不能竄改描述欄位。
     match /supply_items/{docId} {
       allow read: if request.auth != null;
 
-      // create 目前僅供客戶端種子寫入使用（_initSupplyItems() 在 collection
-      // 為空時批次寫入 _seedItems）。限定欄位組成與型別，pledgedQty 必須從 0 起算。
-      // NOTE: 由客戶端寫入共用型錄的種子資料本身是設計問題，另案處理。
+      // 客戶端在型錄為空時寫入固定種子；不可藉由種子資料偽造需求或捐贈總量。
       allow create: if request.auth != null
                     && request.resource.data.keys().hasOnly(
-                         ['name', 'unit', 'category', 'neededQty', 'pledgedQty'])
+                         ['name', 'unit', 'category', 'inventoryQty',
+                          'totalRequestedQty', 'totalPledgedQty'])
                     && request.resource.data.keys().hasAll(
-                         ['name', 'unit', 'category', 'neededQty', 'pledgedQty'])
+                         ['name', 'unit', 'category', 'inventoryQty',
+                          'totalRequestedQty', 'totalPledgedQty'])
                     && request.resource.data.name is string
                     && request.resource.data.unit is string
                     && request.resource.data.category is string
-                    && request.resource.data.neededQty is int
-                    && request.resource.data.neededQty >= 0
-                    && request.resource.data.pledgedQty == 0;
+                    && isNonNegativeInt(request.resource.data.inventoryQty)
+                    && request.resource.data.totalRequestedQty == 0
+                    && request.resource.data.totalPledgedQty == 0;
 
-      // update 只允許改動已認領總量，其餘欄位（名稱、單位、分類、需求量）不可被竄改。
+      // 需求／捐贈登記會以 increment 更新共用計數；其餘欄位及負數計數不可寫入。
       allow update: if request.auth != null
                     && request.resource.data.diff(resource.data)
-                         .affectedKeys().hasOnly(['pledgedQty'])
-                    && request.resource.data.pledgedQty is int
-                    && request.resource.data.pledgedQty >= 0;
+                         .affectedKeys().hasOnly(
+                           ['inventoryQty', 'totalRequestedQty', 'totalPledgedQty'])
+                    && isNonNegativeInt(request.resource.data.inventoryQty)
+                    && isNonNegativeInt(request.resource.data.totalRequestedQty)
+                    && isNonNegativeInt(request.resource.data.totalPledgedQty);
 
-      // delete 在程式碼中找不到任何呼叫端，一律禁止。
       allow delete: if false;
     }
 
-    // pledges: 認領紀錄，有 userId 欄位，比照 sos_requests 做擁有者比對。
+    // 申請與捐贈紀錄含有個人識別資料；使用者只能讀寫自己的紀錄。
+    match /supply_requests/{requestId} {
+      allow read: if isOwner(resource.data.userId);
+
+      allow create: if isOwner(request.resource.data.userId)
+                    && request.resource.data.keys().hasOnly(
+                         ['userId', 'userName', 'itemId', 'itemName',
+                          'unit', 'quantity', 'status', 'createdAt'])
+                    && request.resource.data.keys().hasAll(
+                         ['userId', 'userName', 'itemId', 'itemName',
+                          'unit', 'quantity', 'status', 'createdAt'])
+                    && request.resource.data.userName is string
+                    && request.resource.data.itemId is string
+                    && request.resource.data.itemName is string
+                    && request.resource.data.unit is string
+                    && request.resource.data.quantity is int
+                    && request.resource.data.quantity > 0
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.createdAt is timestamp;
+
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId
+                    && request.resource.data.itemId == resource.data.itemId
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['quantity', 'status', 'updatedAt'])
+                    && request.resource.data.keys().hasOnly(
+                         ['userId', 'userName', 'itemId', 'itemName', 'unit',
+                          'quantity', 'status', 'createdAt', 'updatedAt'])
+                    && request.resource.data.quantity is int
+                    && request.resource.data.quantity > 0
+                    && request.resource.data.status in
+                         ['pending', 'fulfilled', 'cancelled'];
+
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /supply_pledges/{pledgeId} {
+      allow read: if isOwner(resource.data.userId);
+
+      allow create: if isOwner(request.resource.data.userId)
+                    && request.resource.data.keys().hasOnly(
+                         ['userId', 'userName', 'itemId', 'itemName',
+                          'unit', 'qty', 'status', 'pledgedAt'])
+                    && request.resource.data.keys().hasAll(
+                         ['userId', 'userName', 'itemId', 'itemName',
+                          'unit', 'qty', 'status', 'pledgedAt'])
+                    && request.resource.data.userName is string
+                    && request.resource.data.itemId is string
+                    && request.resource.data.itemName is string
+                    && request.resource.data.unit is string
+                    && request.resource.data.qty is int
+                    && request.resource.data.qty > 0
+                    && request.resource.data.status == 'pledged'
+                    && request.resource.data.pledgedAt is timestamp;
+
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId
+                    && request.resource.data.itemId == resource.data.itemId
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['qty', 'status', 'updatedAt'])
+                    && request.resource.data.keys().hasOnly(
+                         ['userId', 'userName', 'itemId', 'itemName', 'unit',
+                          'qty', 'status', 'pledgedAt', 'updatedAt'])
+                    && request.resource.data.qty is int
+                    && request.resource.data.qty > 0
+                    && request.resource.data.status in
+                         ['pledged', 'delivered', 'cancelled'];
+
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // 舊版 pledges 路徑保留既有擁有者保護，避免影響尚未遷移的資料。
     match /pledges/{docId} {
-      // NOTE: 目前維持「登入即可讀」。收斂為僅能讀自己的認領紀錄是可行的
-      //       （supply_screen.dart 的查詢已用 where('userId', ...) 限定），
-      //       但不在 issue #34 範圍內，另案處理。
       allow read: if request.auth != null;
 
       allow create: if request.auth != null

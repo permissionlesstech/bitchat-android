@@ -6,8 +6,8 @@
 //
 // 測試重點：
 //   issue #34
-//   - supply_items：共用型錄，沒有擁有者，只能改 pledgedQty
-//   - pledges：有 userId，只有擁有者能改／刪
+//   - supply_items：共用型錄，沒有擁有者，只能改非負計數欄位
+//   - supply_requests / supply_pledges：只有紀錄擁有者能讀、改、刪
 //   最關鍵的一條是「使用者能認領別人建立的物資」——那是加擁有者檢查最容易弄壞的地方。
 //
 //   issue #33
@@ -35,6 +35,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 
 const ALICE = 'uid-alice';
@@ -47,8 +48,9 @@ const seedItem = {
   name: '礦泉水',
   unit: '瓶',
   category: '食品飲水',
-  neededQty: 500,
-  pledgedQty: 0,
+  inventoryQty: 500,
+  totalRequestedQty: 0,
+  totalPledgedQty: 0,
 };
 
 before(async () => {
@@ -116,18 +118,21 @@ describe('supply_items', () => {
     await assertFails(getDoc(doc(anonDb(), 'supply_items/water')));
   });
 
-  // ★ 迴歸測試：這是加擁有者檢查會弄壞的行為
-  it('★ 使用者可以在「不是自己建立的」物資上累加 pledgedQty', async () => {
+  // ★ issue #34：共用型錄不可做擁有者比對，否則無法登記他人建立的物資。
+  it('★ 使用者可以在共用物資上累加需求與捐贈計數', async () => {
     await assertSucceeds(
       updateDoc(doc(dbFor(BOB), 'supply_items/water'), {
-        pledgedQty: increment(5),
+        totalRequestedQty: increment(5),
+        totalPledgedQty: increment(3),
       }),
     );
   });
 
-  it('未登入不可累加 pledgedQty', async () => {
+  it('未登入不可更新計數', async () => {
     await assertFails(
-      updateDoc(doc(anonDb(), 'supply_items/water'), { pledgedQty: increment(5) }),
+      updateDoc(doc(anonDb(), 'supply_items/water'), {
+        totalPledgedQty: increment(5),
+      }),
     );
   });
 
@@ -135,29 +140,22 @@ describe('supply_items', () => {
     await assertFails(updateDoc(doc(dbFor(BOB), 'supply_items/water'), { name: '假資料' }));
   });
 
-  it('不可竄改 neededQty', async () => {
-    await assertFails(updateDoc(doc(dbFor(BOB), 'supply_items/water'), { neededQty: 0 }));
-  });
-
-  it('不可在改 pledgedQty 的同時夾帶其他欄位', async () => {
+  it('不可在更新計數時夾帶型錄欄位', async () => {
     await assertFails(
       updateDoc(doc(dbFor(BOB), 'supply_items/water'), {
-        pledgedQty: increment(1),
+        totalPledgedQty: increment(1),
         category: '衣物',
       }),
     );
   });
 
-  it('不可新增未定義的欄位', async () => {
-    await assertFails(updateDoc(doc(dbFor(BOB), 'supply_items/water'), { owner: BOB }));
-  });
-
-  it('pledgedQty 不可設為負數', async () => {
-    await assertFails(updateDoc(doc(dbFor(BOB), 'supply_items/water'), { pledgedQty: -1 }));
-  });
-
-  it('pledgedQty 不可設為非整數', async () => {
-    await assertFails(updateDoc(doc(dbFor(BOB), 'supply_items/water'), { pledgedQty: 'many' }));
+  it('計數不可設為負數或非整數', async () => {
+    await assertFails(
+      updateDoc(doc(dbFor(BOB), 'supply_items/water'), { totalPledgedQty: -1 }),
+    );
+    await assertFails(
+      updateDoc(doc(dbFor(BOB), 'supply_items/water'), { totalRequestedQty: 'many' }),
+    );
   });
 
   it('任何人都不可刪除', async () => {
@@ -165,13 +163,13 @@ describe('supply_items', () => {
     await assertFails(deleteDoc(doc(dbFor(ALICE), 'supply_items/water')));
   });
 
-  it('種子寫入（欄位齊全、pledgedQty 為 0）可以建立', async () => {
+  it('目前 Dart 模型的種子欄位可以建立', async () => {
     await assertSucceeds(setDoc(doc(dbFor(ALICE), 'supply_items/blanket'), {
       ...seedItem,
       name: '毛毯',
       unit: '條',
       category: '生活用品',
-      neededQty: 150,
+      inventoryQty: 150,
     }));
   });
 
@@ -182,22 +180,154 @@ describe('supply_items', () => {
     }));
   });
 
-  it('建立時 pledgedQty 不為 0 會被擋下', async () => {
+  it('建立時不得預填需求或捐贈總量', async () => {
     await assertFails(setDoc(doc(dbFor(ALICE), 'supply_items/evil'), {
       ...seedItem,
-      pledgedQty: 9999,
+      totalRequestedQty: 9999,
+    }));
+    await assertFails(setDoc(doc(dbFor(ALICE), 'supply_items/evil'), {
+      ...seedItem,
+      totalPledgedQty: 9999,
     }));
   });
 
   it('建立時欄位型別錯誤會被擋下', async () => {
     await assertFails(setDoc(doc(dbFor(ALICE), 'supply_items/evil'), {
       ...seedItem,
-      neededQty: '500',
+      inventoryQty: '500',
     }));
   });
 
   it('建立時缺欄位會被擋下', async () => {
     await assertFails(setDoc(doc(dbFor(ALICE), 'supply_items/evil'), { name: '只有名字' }));
+  });
+});
+
+describe('supply_requests', () => {
+  const newRequest = (uid) => ({
+    userId: uid,
+    userName: 'Someone',
+    itemId: 'water',
+    itemName: '礦泉水',
+    unit: '瓶',
+    quantity: 3,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  });
+
+  it('可以建立自己的物資申請', async () => {
+    await assertSucceeds(
+      setDoc(doc(dbFor(BOB), 'supply_requests/request-bob'), newRequest(BOB)),
+    );
+  });
+
+  it('不可冒用他人 userId 建立申請', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(BOB), 'supply_requests/request-fake'), newRequest(ALICE)),
+    );
+  });
+
+  it('數量必須為正整數，且狀態必須從 pending 開始', async () => {
+    await assertFails(setDoc(doc(dbFor(BOB), 'supply_requests/request-zero'), {
+      ...newRequest(BOB),
+      quantity: 0,
+    }));
+    await assertFails(setDoc(doc(dbFor(BOB), 'supply_requests/request-status'), {
+      ...newRequest(BOB),
+      status: 'fulfilled',
+    }));
+  });
+
+  it('建立時不可夾帶未定義欄位', async () => {
+    await assertFails(setDoc(doc(dbFor(BOB), 'supply_requests/request-extra'), {
+      ...newRequest(BOB),
+      role: 'admin',
+    }));
+  });
+
+  it('只有擁有者可以讀取、更新或刪除申請', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'supply_requests/request-alice'), newRequest(ALICE));
+    });
+
+    await assertSucceeds(getDoc(doc(dbFor(ALICE), 'supply_requests/request-alice')));
+    await assertFails(getDoc(doc(dbFor(BOB), 'supply_requests/request-alice')));
+    await assertSucceeds(updateDoc(doc(dbFor(ALICE), 'supply_requests/request-alice'), {
+      quantity: 4,
+      status: 'cancelled',
+    }));
+    await assertFails(updateDoc(doc(dbFor(BOB), 'supply_requests/request-alice'), {
+      quantity: 4,
+    }));
+    await assertFails(updateDoc(doc(dbFor(ALICE), 'supply_requests/request-alice'), {
+      userId: BOB,
+    }));
+    await assertSucceeds(deleteDoc(doc(dbFor(ALICE), 'supply_requests/request-alice')));
+    await assertFails(deleteDoc(doc(dbFor(BOB), 'supply_requests/request-alice')));
+  });
+});
+
+describe('supply_pledges', () => {
+  const newSupplyPledge = (uid) => ({
+    userId: uid,
+    userName: 'Someone',
+    itemId: 'water',
+    itemName: '礦泉水',
+    unit: '瓶',
+    qty: 3,
+    status: 'pledged',
+    pledgedAt: serverTimestamp(),
+  });
+
+  it('可以建立自己的物資認領', async () => {
+    await assertSucceeds(
+      setDoc(doc(dbFor(BOB), 'supply_pledges/pledge-bob'), newSupplyPledge(BOB)),
+    );
+  });
+
+  it('不可冒用他人 userId 建立認領', async () => {
+    await assertFails(
+      setDoc(doc(dbFor(BOB), 'supply_pledges/pledge-fake'), newSupplyPledge(ALICE)),
+    );
+  });
+
+  it('數量必須為正整數，且狀態必須從 pledged 開始', async () => {
+    await assertFails(setDoc(doc(dbFor(BOB), 'supply_pledges/pledge-zero'), {
+      ...newSupplyPledge(BOB),
+      qty: 0,
+    }));
+    await assertFails(setDoc(doc(dbFor(BOB), 'supply_pledges/pledge-status'), {
+      ...newSupplyPledge(BOB),
+      status: 'delivered',
+    }));
+  });
+
+  it('建立時不可夾帶未定義欄位', async () => {
+    await assertFails(setDoc(doc(dbFor(BOB), 'supply_pledges/pledge-extra'), {
+      ...newSupplyPledge(BOB),
+      role: 'admin',
+    }));
+  });
+
+  it('只有擁有者可以讀取、更新或刪除認領', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'supply_pledges/pledge-alice'), newSupplyPledge(ALICE));
+    });
+
+    await assertSucceeds(getDoc(doc(dbFor(ALICE), 'supply_pledges/pledge-alice')));
+    await assertFails(getDoc(doc(dbFor(BOB), 'supply_pledges/pledge-alice')));
+    await assertSucceeds(updateDoc(doc(dbFor(ALICE), 'supply_pledges/pledge-alice'), {
+      qty: 4,
+      status: 'delivered',
+    }));
+    await assertFails(updateDoc(doc(dbFor(BOB), 'supply_pledges/pledge-alice'), {
+      qty: 4,
+    }));
+    await assertFails(updateDoc(doc(dbFor(ALICE), 'supply_pledges/pledge-alice'), {
+      userId: BOB,
+    }));
+    await assertSucceeds(deleteDoc(doc(dbFor(ALICE), 'supply_pledges/pledge-alice')));
+    await assertFails(deleteDoc(doc(dbFor(BOB), 'supply_pledges/pledge-alice')));
   });
 });
 
@@ -275,39 +405,44 @@ describe('pledges', () => {
   });
 });
 
-// 完整認領流程：供給端（supply_items）與認領端（pledges）必須同時成立，
-// 對應 supply_screen.dart `_showPledgeSheet` 的 Future.wait([...])。
-describe('完整認領流程（supply_screen.dart 的實際呼叫）', () => {
-  it('新認領：建立 pledge + 累加他人物資的 pledgedQty', async () => {
+// 對應 supply_screen.dart 的 batch commit，保證紀錄與共用計數可原子寫入。
+describe('物資申請與認領批次流程（supply_screen.dart）', () => {
+  it('申請：建立 supply_requests + 累加 totalRequestedQty', async () => {
     const db = dbFor(BOB);
-    await assertSucceeds(setDoc(doc(db, 'pledges/pledge-bob'), {
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'supply_requests/request-bob'), {
       userId: BOB,
       userName: 'Bob',
       itemId: 'water',
       itemName: '礦泉水',
       unit: '瓶',
       quantity: 7,
-      status: 'pledged',
-      pledgedAt: serverTimestamp(),
-    }));
-    await assertSucceeds(
-      updateDoc(doc(db, 'supply_items/water'), { pledgedQty: increment(7) }),
-    );
+      status: 'pending',
+      createdAt: serverTimestamp(),
+    });
+    batch.update(doc(db, 'supply_items/water'), {
+      totalRequestedQty: increment(7),
+    });
+    await assertSucceeds(batch.commit());
   });
 
-  it('修改認領：更新 pledge 數量 + 以差額調整 pledgedQty（差額可為負）', async () => {
-    const db = dbFor(ALICE);
-    await assertSucceeds(updateDoc(doc(db, 'pledges/pledge-alice'), {
-      quantity: 4,
-      updatedAt: serverTimestamp(),
-    }));
-    // 先把總量墊到 10，再以 -6 的差額調整
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await updateDoc(doc(ctx.firestore(), 'supply_items/water'), { pledgedQty: 10 });
+  it('認領：建立 supply_pledges + 累加他人建立物資的 totalPledgedQty', async () => {
+    const db = dbFor(BOB);
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'supply_pledges/pledge-bob'), {
+      userId: BOB,
+      userName: 'Bob',
+      itemId: 'water',
+      itemName: '礦泉水',
+      unit: '瓶',
+      qty: 7,
+      status: 'pledged',
+      pledgedAt: serverTimestamp(),
     });
-    await assertSucceeds(
-      updateDoc(doc(db, 'supply_items/water'), { pledgedQty: increment(-6) }),
-    );
+    batch.update(doc(db, 'supply_items/water'), {
+      totalPledgedQty: increment(7),
+    });
+    await assertSucceeds(batch.commit());
   });
 });
 
