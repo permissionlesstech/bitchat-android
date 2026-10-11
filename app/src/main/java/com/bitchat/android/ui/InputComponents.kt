@@ -320,7 +320,10 @@ fun MessageInput(
     mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     recorderFactory: ((String?, String?) -> VoiceRecorder)? = null,
     activePublicTalker: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBridgeControls: Boolean = false,
+    nearbyOnly: Boolean = false,
+    onNearbyOnlyChange: (Boolean) -> Unit = {}
 ) {
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
@@ -405,6 +408,25 @@ fun MessageInput(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.Bottom
     ) {
+        if (showBridgeControls) {
+            IconToggleButton(
+                checked = nearbyOnly,
+                onCheckedChange = onNearbyOnlyChange,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = if (nearbyOnly) Icons.Filled.Bluetooth else Icons.Filled.Public,
+                    contentDescription = if (nearbyOnly) {
+                        stringResource(R.string.cd_nearby_only_on)
+                    } else {
+                        stringResource(R.string.cd_nearby_only_off)
+                    },
+                    tint = if (nearbyOnly) Color(0xFFFF9500) else Color(0xFF00A7C4),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
         // MARK: - The pill. Field and action buttons are one visual object.
         Row(
             modifier = Modifier

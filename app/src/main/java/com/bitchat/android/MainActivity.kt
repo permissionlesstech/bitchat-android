@@ -705,6 +705,7 @@ class MainActivity : OrientationAwareActivity() {
                 // Handle any notification intent
                 handleNotificationIntent(intent)
                 handleVerificationIntent(intent)
+                handleShareIntent(intent)
 
                 // Small delay to ensure mesh service is fully initialized
                 delay(500)
@@ -734,6 +735,7 @@ class MainActivity : OrientationAwareActivity() {
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)
             handleVerificationIntent(intent)
+            handleShareIntent(intent)
         }
     }
 
@@ -845,6 +847,21 @@ class MainActivity : OrientationAwareActivity() {
                     chatViewModel.clearNotificationsForGeohash(geohash)
                 }
             }
+        }
+    }
+
+    private fun handleShareIntent(intent: Intent) {
+        if (intent.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
+            intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }?.let {
+                chatViewModel.receiveSharedText(it)
+                intent.removeExtra(Intent.EXTRA_TEXT)
+            }
+        }
+        if (intent.action == Intent.ACTION_VIEW) {
+            val cell = intent.data?.toString()?.let(com.bitchat.android.services.ChannelInvitation::decode) ?: return
+            val channel = com.bitchat.android.ui.channelForManualGeohash(cell) ?: return
+            LocationChannelManager.getInstance(applicationContext).selectManual(channel)
+            intent.data = null
         }
     }
 

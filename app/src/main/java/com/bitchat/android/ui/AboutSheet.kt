@@ -303,11 +303,14 @@ private fun SettingsToggleRow(
 fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
+    bridgeEnabled: Boolean,
+    onBridgeEnabledChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
     onShowDebug: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onShowMeshTopology: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    
+
     // Get version name from package info
     val versionName = remember {
         try {
@@ -445,6 +448,8 @@ fun AboutSheet(
                         }
                     }
 
+                    item(key = "client_privacy") { ClientSettingsSection() }
+
                     item(key = "language") {
                         val selectedLanguageName = supportedLanguages
                             .firstOrNull { it.languageTag == selectedLanguageTag }
@@ -542,6 +547,19 @@ fun AboutSheet(
                                                 com.bitchat.android.service.MeshForegroundService.start(context)
                                             }
                                         }
+                                    )
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp),
+                                        color = colorScheme.outline.copy(alpha = 0.12f)
+                                    )
+
+                                    SettingsToggleRow(
+                                        icon = Icons.Filled.Public,
+                                        title = stringResource(R.string.mesh_bridge_title),
+                                        subtitle = stringResource(R.string.mesh_bridge_description),
+                                        checked = bridgeEnabled,
+                                        onCheckedChange = onBridgeEnabledChange
                                     )
 
                                     HorizontalDivider(
@@ -1256,6 +1274,16 @@ fun AboutSheet(
                                     )
                                 }
                             }
+                            if (onShowMeshTopology != null) {
+                                TextButton(onClick = onShowMeshTopology) {
+                                    Text(
+                                        text = "network → mesh topology",
+                                        fontSize = 13.sp,
+                                        fontFamily = BitchatFontFamily,
+                                        color = colorScheme.primary,
+                                    )
+                                }
+                            }
                             Text(
                                 text = stringResource(R.string.about_footer),
                                 fontSize = 11.sp,
@@ -1303,7 +1331,7 @@ fun PasswordPromptDialog(
 ) {
     if (show && channelName != null) {
         val colorScheme = MaterialTheme.colorScheme
-        
+
         AlertDialog(
             onDismissRequest = onDismiss,
             title = {
@@ -1321,7 +1349,7 @@ fun PasswordPromptDialog(
                         color = colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     OutlinedTextField(
                         value = passwordInput,
                         onValueChange = onPasswordChange,

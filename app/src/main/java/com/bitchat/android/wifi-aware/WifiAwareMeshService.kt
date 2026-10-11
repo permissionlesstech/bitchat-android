@@ -17,6 +17,7 @@ import com.bitchat.android.mesh.DirectLinkAnnouncementPolicy
 import com.bitchat.android.mesh.FragmentingPacketSender
 import com.bitchat.android.mesh.MeshCore
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.MeshPingResult
 import com.bitchat.android.mesh.MeshTransport
 import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatFilePacket
@@ -166,6 +167,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             },
             hooks = MeshCore.Hooks(
                 onMessageReceived = { message -> handleMessageReceived(message) },
+                onDeliveryReceipt = { id, peer ->
+                    com.bitchat.android.services.PrivateMediaOutbox.tryGetInstance()?.acknowledge(id, peer)
+                    com.bitchat.android.services.MessageRouter.tryGetInstance()?.onMessageAcknowledged(id, peer)
+                },
                 onAnnounceProcessed = { routed, _ ->
                     publishControllerDebugSnapshot()
                     routed.peerID?.let { pid ->
@@ -239,6 +244,9 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     override fun sendToPeer(peerID: String, packet: BitchatPacket) {
         sendPacketToPeer(peerID, packet)
     }
+
+    override fun sendToPeerAndReport(peerID: String, packet: BitchatPacket): Boolean =
+        sendPacketToPeer(peerID, packet)
 
     /**
      * Broadcasts routed packet to currently connected peers.
@@ -1369,6 +1377,18 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendMessage(content, mentions, channel)
     }
 
+    override fun sendNostrCarrier(payload: ByteArray, recipientPeerID: String?) {
+        meshCore.sendNostrCarrier(payload, recipientPeerID)
+    }
+
+    override fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String) {
+        meshCore.sendCourierEnvelope(payload, recipientPeerID)
+    }
+
+    override fun sendPrekeyBundle(payload: ByteArray) {
+        meshCore.sendPrekeyBundle(payload)
+    }
+
     /**
      * Sends a private encrypted message to a specific peer.
      *
@@ -1401,6 +1421,18 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendVerifyResponse(peerID, noiseKeyHex, nonceA)
     }
 
+    override fun sendGroupInvite(payload: ByteArray, recipientPeerID: String) {
+        meshCore.sendGroupInvite(payload, recipientPeerID)
+    }
+
+    override fun sendGroupKeyUpdate(payload: ByteArray, recipientPeerID: String) {
+        meshCore.sendGroupKeyUpdate(payload, recipientPeerID)
+    }
+
+    override fun broadcastGroupMessage(payload: ByteArray) {
+        meshCore.broadcastGroupMessage(payload)
+    }
+
     /**
      * Broadcasts a file (TLV payload) to all peers. Uses protocol version 2 to support
      * large payloads and generates a deterministic transferId (sha256 of payload) for UI/state.
@@ -1410,6 +1442,12 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     override fun sendFileBroadcast(file: BitchatFilePacket) {
         meshCore.sendFileBroadcast(file)
     }
+
+    override fun sendBoardPayload(payload: ByteArray) {
+        meshCore.sendBoardPayload(payload)
+    }
+
+
 
     /**
      * Sends a file privately to a specific peer. If no Noise session is established,
@@ -1425,6 +1463,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     override fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
         meshCore.sendVoiceFrame(recipientPeerID, payload)
     }
+
+    override fun supportsPrivateMediaReceipts(peerID: String): Boolean = meshCore.supportsPrivateMediaReceipts(peerID)
 
     override fun prepareFilePrivate(
         recipientPeerID: String,
@@ -1460,6 +1500,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
      */
     override fun sendAnnouncementToPeer(peerID: String) {
         meshCore.sendAnnouncementToPeer(peerID)
+    }
+
+    override fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit) {
+        meshCore.sendMeshPing(peerID, callback)
     }
 
     /** @return Mapping of peer IDs to nicknames. */
@@ -1520,6 +1564,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     override fun getIdentityFingerprint(): String = meshCore.getIdentityFingerprint()
 
     override fun getStaticNoisePublicKey(): ByteArray? = meshCore.getStaticNoisePublicKey()
+
+    override fun getSigningPublicKey(): ByteArray? = meshCore.getSigningPublicKey()
+
+    override fun signData(data: ByteArray): ByteArray? = meshCore.signData(data)
 
     /**
      * @return true if the UI should show an “encrypted” indicator for this peer.

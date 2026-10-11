@@ -83,6 +83,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
     val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
     val legacyPrivateMediaConsent by viewModel.legacyPrivateMediaConsent.collectAsStateWithLifecycle()
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
+
+    val panicWipeState by viewModel.panicWipeState.collectAsStateWithLifecycle()
+    PanicWipeDialog(panicWipeState, viewModel::panicClearAllData, viewModel::dismissPanicClear)
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -105,6 +109,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 ?.let(viewModel::conversationDraft)
                 .orEmpty()
         )
+    }
+
+    val sharedDraft by viewModel.sharedDraft.collectAsStateWithLifecycle()
+    LaunchedEffect(sharedDraft) {
+        sharedDraft?.let { shared ->
+            val combined = listOf(messageText.text, shared).filter { it.isNotBlank() }.joinToString("\n")
+            messageText = TextFieldValue(combined, androidx.compose.ui.text.TextRange(combined.length))
+            viewModel.consumeSharedText()
+        }
     }
 
     // Show password dialog when needed
@@ -307,7 +320,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 conversationKey = conversationKey,
                 contentPadding = PaddingValues(
                     top = statusBarHeight + headerHeight +
-                        (if (showNotesStrip) notesStripHeight else 0.dp),
+                        notesStripHeight,
                     bottom = composerHeight
                 ),
                 forceScrollToBottom = forceScrollToBottom,
@@ -361,16 +374,13 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 }
             )
 
-            if (showNotesStrip) {
-                NearbyNotesStrip(
+            Column(modifier = Modifier.align(Alignment.TopCenter)
+                .padding(top = statusBarHeight + headerHeight)
+                .onSizeChanged { notesStripHeight = with(density) { it.height.toDp() } }) {
+                ConnectivityBanner()
+                if (showNotesStrip) NearbyNotesStrip(
                     noteCount = nearbyNotes.size,
-                    onClick = { showLocationNotesSheet = true },
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = statusBarHeight + headerHeight)
-                        .onSizeChanged { size ->
-                            notesStripHeight = with(density) { size.height.toDp() }
-                        },
+                    onClick = { showLocationNotesSheet = true }
                 )
             }
 
@@ -443,7 +453,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 currentChannel = currentChannel,
                 nickname = nickname,
                 colorScheme = colorScheme,
-                showMediaButtons = showMediaButtons
+                showMediaButtons = showMediaButtons,
+                showBridgeControls = bridgeUiState.enabled &&
+                    currentChannel == null &&
+                    selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location,
+                nearbyOnly = bridgeUiState.nearbyOnly,
+                onNearbyOnlyChange = viewModel::setBridgeNearbyOnly
             )
           }
         }
@@ -457,7 +472,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             colorScheme = colorScheme,
             onSidebarToggle = { viewModel.showMeshPeerList() },
             onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { viewModel.panicClearAllData() },
+            onPanicClear = { viewModel.requestPanicClear() },
             onLocationChannelsClick = { showLocationChannelsSheet = true },
             onLocationNotesClick = {
                 nearbyNotesController.reveal()
@@ -645,7 +660,10 @@ fun ChatInputSection(
     colorScheme: ColorScheme,
     showMediaButtons: Boolean,
     recorderFactory: ((String?, String?) -> com.bitchat.android.features.voice.VoiceRecorder)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBridgeControls: Boolean = false,
+    nearbyOnly: Boolean = false,
+    onNearbyOnlyChange: (Boolean) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val activePublicTalker by remember(context) {
@@ -726,6 +744,9 @@ fun ChatInputSection(
             currentChannel = currentChannel,
             nickname = nickname,
             showMediaButtons = showMediaButtons,
+                showBridgeControls = showBridgeControls,
+                nearbyOnly = nearbyOnly,
+                onNearbyOnlyChange = onNearbyOnlyChange,
             mentionPeerIdentities = mentionPeerIdentities,
             recorderFactory = recorderFactory,
             activePublicTalker = activePublicTalker,
@@ -840,6 +861,7 @@ private fun ChatDialogs(
     onMeshPeerListDismiss: () -> Unit,
 ) {
     val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
+    val bridgeUiState by viewModel.bridgeUiState.collectAsStateWithLifecycle()
 
     // Password dialog
     PasswordPromptDialog(
@@ -853,10 +875,14 @@ private fun ChatDialogs(
 
     // About sheet
     var showDebugSheet by remember { mutableStateOf(false) }
+    var showMeshTopology by remember { mutableStateOf(false) }
     AboutSheet(
         isPresented = showAppInfo,
         onDismiss = onAppInfoDismiss,
-        onShowDebug = { showDebugSheet = true }
+        onShowDebug = { showDebugSheet = true },
+        bridgeEnabled = bridgeUiState.enabled,
+        onBridgeEnabledChange = viewModel::setBridgeEnabled,
+        onShowMeshTopology = { showMeshTopology = true },
     )
     if (showDebugSheet) {
         com.bitchat.android.ui.debug.DebugSettingsSheet(
@@ -865,6 +891,11 @@ private fun ChatDialogs(
             meshService = viewModel.meshService
         )
     }
+    MeshTopologySheet(
+        isPresented = showMeshTopology,
+        onDismiss = { showMeshTopology = false },
+        meshService = viewModel.meshServiceFacade,
+    )
     
     // Location channels sheet
     if (showLocationChannelsSheet) {
@@ -876,9 +907,9 @@ private fun ChatDialogs(
         )
     }
     
-    // Location notes sheet (extracted to separate presenter)
+    // Unified mesh and geohash notices sheet.
     if (showLocationNotesSheet) {
-        LocationNotesSheetPresenter(
+        NoticesSheetPresenter(
             viewModel = viewModel,
             onDismiss = onLocationNotesSheetDismiss
         )

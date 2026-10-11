@@ -19,6 +19,12 @@
     <string name="back">Back</string>
     <string name="people">People</string>
     <string name="channels">Channels</string>
+    <string name="groups" tools:ignore="MissingTranslation">Groups</string>
+    <string name="private_group" tools:ignore="MissingTranslation">Private group</string>
+    <string name="group_member_count" tools:ignore="MissingTranslation">%1$d members</string>
+    <string name="group_creator" tools:ignore="MissingTranslation">Creator</string>
+    <string name="group_encryption_caption" tools:ignore="MissingTranslation">Encrypted to group members</string>
+    <string name="cd_group_chat" tools:ignore="MissingTranslation">Private group chat</string>
     <string name="online_users">Online Users</string>
     <string name="no_one_connected">No one connected</string>
     <string name="emergency_clear_hint">Triple tap to clear all data</string>
@@ -178,7 +184,7 @@
   <string name="about_no_tracking_desc">No servers, accounts, or data collection.</string>
   <string name="about_ephemeral_title">Ephemeral Identity</string>
   <string name="about_ephemeral_desc">A new peer ID is generated regularly.</string>
-  <string name="about_panic_desc">Triple-tap the logo to instantly clear all data.</string>
+  <string name="about_panic_desc">Triple-tap the logo to review and confirm erasing local app data.</string>
 
   <!-- About sheet: settings labels -->
   <string name="about_tor_title">Tor Network</string>
@@ -447,6 +453,27 @@
   <string name="location_notes_empty_desc">Be the first to add one for this spot.</string>
   <string name="dismiss">Dismiss</string>
   <string name="location_notes_input_placeholder">Add a note for this place</string>
+  <string name="cd_notices" tools:ignore="MissingTranslation">Notices</string>
+  <string name="notices_title" tools:ignore="MissingTranslation">notices</string>
+  <string name="notices_tab_geo_count" tools:ignore="MissingTranslation">geo · %1$d</string>
+  <string name="notices_tab_mesh_count" tools:ignore="MissingTranslation">mesh · %1$d</string>
+  <string name="notices_description_mesh" tools:ignore="MissingTranslation">pin short notices for people around you. they hop phone to phone, even offline, and disappear on their own after a few days.</string>
+  <string name="notices_urgent" tools:ignore="MissingTranslation">urgent</string>
+  <string name="notices_placeholder" tools:ignore="MissingTranslation">add a notice</string>
+  <string name="notices_post" tools:ignore="MissingTranslation">Post notice</string>
+  <string name="notices_delete" tools:ignore="MissingTranslation">Delete notice</string>
+  <string name="notices_expiry" tools:ignore="MissingTranslation">expires</string>
+  <string name="notices_days" tools:ignore="MissingTranslation,PluralsCandidate">%1$d days</string>
+  <string name="notices_permanent" tools:ignore="MissingTranslation">permanent</string>
+  <string name="notices_fades" tools:ignore="MissingTranslation">fades %1$s</string>
+  <string name="notices_source_mesh" tools:ignore="MissingTranslation">mesh</string>
+  <string name="notices_source_network" tools:ignore="MissingTranslation">net</string>
+  <string name="notices_location_unavailable" tools:ignore="MissingTranslation">location unavailable</string>
+  <string name="notices_location_unavailable_desc" tools:ignore="MissingTranslation">enable location to view persistent notices near you.</string>
+  <string name="notices_enable_location" tools:ignore="MissingTranslation">enable location</string>
+  <string name="notices_send_failed" tools:ignore="MissingTranslation">could not sign and send this notice</string>
+  <string name="notices_alert_urgent_single" tools:ignore="MissingTranslation">📌 urgent notice from @%1$s: %2$s</string>
+  <string name="notices_alert_urgent_collapsed" tools:ignore="MissingTranslation,PluralsCandidate">📌 %1$d new urgent notices — tap the pin to view</string>
 
   <!-- Debug / Diagnostics -->
   <string name="debug_tools">Debug Tools</string>
@@ -492,11 +519,17 @@
   <string name="fingerprint_pending">Handshake pending</string>
   <string name="fingerprint_no_peer">Open a private chat to view fingerprints</string>
   <string name="fingerprint_status_verified">Encrypted &amp; verified</string>
+  <string name="fingerprint_status_vouched" tools:ignore="MissingTranslation">Encrypted &amp; vouched</string>
   <string name="fingerprint_status_encrypted">Encrypted</string>
   <string name="fingerprint_status_handshaking">Handshaking</string>
   <string name="fingerprint_status_failed">Handshake failed</string>
   <string name="fingerprint_status_uninitialized">Not encrypted</string>
   <string name="fingerprint_verified_label">Verified</string>
+  <string name="fingerprint_vouched_label" tools:ignore="MissingTranslation">Vouched</string>
+  <plurals name="fingerprint_vouched_message" tools:ignore="MissingTranslation">
+    <item quantity="one">Vouched for by %1$d person you verified</item>
+    <item quantity="other">Vouched for by %1$d people you verified</item>
+  </plurals>
   <string name="fingerprint_verified_message">You have verified this person\'s identity.</string>
   <string name="fingerprint_not_verified_label">Not verified</string>
   <string name="fingerprint_not_verified_message_fmt">Compare these fingerprints with %1$s using a secure channel.</string>
@@ -578,6 +611,13 @@
   <string name="pan_zoom_instruction">Drag to spin · Pinch to zoom · Tap to focus</string>
   <string name="select">Select</string>
   <string name="type_a_message_placeholder">Type a message…</string>
+  <string name="mesh_bridge_title" tools:ignore="MissingTranslation">mesh bridge</string>
+  <string name="mesh_bridge_description" tools:ignore="MissingTranslation">share public nearby messages through relays and carry encrypted offline messages for others</string>
+  <string name="across_bridge" tools:ignore="MissingTranslation">across the bridge</string>
+  <string name="via_mesh_bridge" tools:ignore="MissingTranslation">via mesh bridge</string>
+  <string name="cd_mesh_bridge_active" tools:ignore="MissingTranslation">Mesh bridge active</string>
+  <string name="cd_nearby_only_on" tools:ignore="MissingTranslation">Nearby only: messages stay within radio range</string>
+  <string name="cd_nearby_only_off" tools:ignore="MissingTranslation">Bridged: messages also reach people across the bridge</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">Mention</string>
   <string name="image_counter">%1$d / %2$d</string>
@@ -654,4 +694,29 @@
   <string name="about_app_language">App language</string>
   <string name="about_system_default">System default</string>
   <string name="about_select_language">Select language</string>
+  <string name="notification_hidden_message" tools:ignore="MissingTranslation">New message</string>
+  <string name="notification_previews" tools:ignore="MissingTranslation">Notification previews</string>
+  <string name="notification_previews_description" tools:ignore="MissingTranslation">Show sender names and message text in notifications. Hidden by default.</string>
+  <string name="custom_relays" tools:ignore="MissingTranslation">Custom relays</string>
+  <string name="custom_relays_description" tools:ignore="MissingTranslation">Add relays for your direct messages. Built-in relays stay available.</string>
+  <string name="relay_url" tools:ignore="MissingTranslation">Relay URL</string>
+  <string name="relay_add" tools:ignore="MissingTranslation">Add relay</string>
+  <string name="relay_remove" tools:ignore="MissingTranslation">Remove</string>
+  <string name="relay_invalid" tools:ignore="MissingTranslation">Enter a valid wss URL without credentials or query parameters. Up to 20 custom relays are supported.</string>
+  <string name="share_channel" tools:ignore="MissingTranslation">Share channel invitation</string>
+  <string name="channel_invitation" tools:ignore="MissingTranslation">Join #%1$s on bitchat: %2$s — get the app at https://bitchat.free</string>
+  <string name="bluetooth_unavailable_banner" tools:ignore="MissingTranslation">Bluetooth is unavailable. Nearby Bluetooth messaging is paused.</string>
+  <string name="tor_failed_banner" tools:ignore="MissingTranslation">Tor could not connect. Internet messages are paused.</string>
+  <string name="tor_connecting_banner" tools:ignore="MissingTranslation">Connecting to Tor (%1$d%%). Internet messages are waiting.</string>
+  <string name="panic_confirm_title" tools:ignore="MissingTranslation">Erase local bitchat data?</string>
+  <string name="panic_confirm_body" tools:ignore="MissingTranslation">This removes conversations, media, keys, favorites, groups, and custom relays from this app. Copies held by other people or relays remain. This cannot be undone.</string>
+  <string name="panic_erasing_title" tools:ignore="MissingTranslation">Erasing local data…</string>
+  <string name="panic_complete_title" tools:ignore="MissingTranslation">Local data erased</string>
+  <string name="panic_complete_body" tools:ignore="MissingTranslation">A new identity is ready. Copies on other devices and relays were not erased.</string>
+  <string name="panic_failed_title" tools:ignore="MissingTranslation">Erase incomplete</string>
+  <string name="panic_failed_body" tools:ignore="MissingTranslation">Some local data could not be erased. Messaging remains paused. Retry to finish.</string>
+  <string name="panic_erase" tools:ignore="MissingTranslation">Erase data</string>
+  <string name="panic_retry" tools:ignore="MissingTranslation">Retry erase</string>
+  <string name="gateway_title" tools:ignore="MissingTranslation">Share internet with the mesh</string>
+  <string name="gateway_description" tools:ignore="MissingTranslation">Carry signed public channel messages between nearby peers and relays. Off by default.</string>
 </resources>

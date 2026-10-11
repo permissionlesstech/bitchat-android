@@ -35,6 +35,7 @@ class NostrRelayManager private constructor() {
          */
         fun getInstance(context: android.content.Context): NostrRelayManager {
             shared.appContext = context.applicationContext
+            shared.loadCustomRelays(context.applicationContext)
             return shared
         }
 
@@ -55,7 +56,7 @@ class NostrRelayManager private constructor() {
             pendingGiftWrapIDs.add(id)
         }
 
-        fun defaultRelays(): List<String> = DEFAULT_RELAYS
+        fun defaultRelays(): List<String> = (DEFAULT_RELAYS + shared.customRelays.value).distinct()
     }
     
     /**
@@ -73,12 +74,82 @@ class NostrRelayManager private constructor() {
         var nextReconnectTime: Long? = null
     )
     
+    private val _customRelays = MutableStateFlow<List<String>>(emptyList())
+    val customRelays: StateFlow<List<String>> = _customRelays.asStateFlow()
+    private var customRelaysLoaded = false
+    private val removedCustomRelayUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    @Synchronized
+    private fun loadCustomRelays(context: android.content.Context) {
+        if (customRelaysLoaded) return
+        customRelaysLoaded = true
+        val urls = context.getSharedPreferences("nostr_custom_relays", android.content.Context.MODE_PRIVATE)
+            .getStringSet("urls", emptySet()).orEmpty().mapNotNull(CustomRelayUrl::normalize).distinct().take(20)
+        _customRelays.value = urls
+        nonLiveRelayUrls.addAll(urls)
+        ensureConnectionsFor(urls.toSet())
+    }
+
+    @Synchronized
+    fun addCustomRelay(input: String): Boolean {
+        val url = CustomRelayUrl.normalize(input) ?: return false
+        if (url in defaultRelays()) return true
+        if (_customRelays.value.size >= 20) return false
+        val previousDefaults = defaultRelays().toSet()
+        removedCustomRelayUrls.remove(url)
+        _customRelays.value = _customRelays.value + url
+        persistCustomRelays()
+        nonLiveRelayUrls.add(url)
+        activeSubscriptions.replaceAll { _, subscription ->
+            if (subscription.targetRelayUrls == previousDefaults) {
+                subscription.copy(targetRelayUrls = previousDefaults + url)
+            } else subscription
+        }
+        ensureConnectionsFor(setOf(url))
+        return true
+    }
+
+    @Synchronized
+    fun removeCustomRelay(url: String) {
+        if (url !in _customRelays.value) return
+        removedCustomRelayUrls.add(url)
+        messageQueue.removeRelay(url)
+        _customRelays.value = _customRelays.value - url
+        persistCustomRelays()
+        activeSubscriptions.replaceAll { _, subscription ->
+            subscription.copy(targetRelayUrls = subscription.targetRelayUrls?.minus(url))
+        }
+        reconnectJobs.remove(url)?.cancel()
+        connections.remove(url)?.close(1000, "Relay removed")
+        subscriptions.remove(url)
+        nonLiveRelayUrls.remove(url)
+        synchronized(relaysList) { relaysList.removeAll { it.url == url } }
+        updateRelaysList()
+        updateConnectionStatus()
+    }
+
+    fun clearCustomRelays() {
+        _customRelays.value.toList().forEach(::removeCustomRelay)
+        check(appContext?.getSharedPreferences("nostr_custom_relays", android.content.Context.MODE_PRIVATE)
+            ?.edit()?.clear()?.commit() != false)
+    }
+
+    private fun persistCustomRelays() {
+        appContext?.getSharedPreferences("nostr_custom_relays", android.content.Context.MODE_PRIVATE)
+            ?.edit()?.putStringSet("urls", _customRelays.value.toSet())?.apply()
+    }
+
     // Published state
     private val _relays = MutableStateFlow<List<Relay>>(emptyList())
     val relays: StateFlow<List<Relay>> = _relays.asStateFlow()
     
     private val _isConnected = MutableStateFlow<Boolean>(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+    private data class PendingAcceptance(
+        val callback: () -> Unit,
+        val pendingRelays: MutableSet<String>
+    )
+    private val eventAcceptanceHandlers = java.util.concurrent.ConcurrentHashMap<String, PendingAcceptance>()
     
     // Internal state
     private val relaysList = mutableListOf<Relay>()
@@ -226,23 +297,24 @@ class NostrRelayManager private constructor() {
         geohash: String,
         includeDefaults: Boolean = false,
         nRelays: Int = 5,
-        liveLocationToken: Long? = null
+        liveLocationToken: Long? = null,
+        publicationAllowed: () -> Boolean = { true }
     ) {
-        if (!isNetworkActionAllowed(liveLocationToken)) return
+        if (!publicationAllowed() || !isNetworkActionAllowed(liveLocationToken)) return
         ensureGeohashRelaysConnected(
             geohash,
             nRelays,
             includeDefaults,
             liveLocationToken
         )
-        if (!isNetworkActionAllowed(liveLocationToken)) return
+        if (!publicationAllowed() || !isNetworkActionAllowed(liveLocationToken)) return
         val relayUrls = getRelaysForGeohash(geohash)
         if (relayUrls.isEmpty()) {
             Log.w(TAG, "No target relays for geohash event; falling back to defaults")
-            sendEvent(event, Companion.defaultRelays(), liveLocationToken)
+            sendEvent(event, Companion.defaultRelays(), liveLocationToken, publicationAllowed = publicationAllowed)
             return
         }
-        sendEvent(event, relayUrls, liveLocationToken)
+        sendEvent(event, relayUrls, liveLocationToken, publicationAllowed = publicationAllowed)
     }
 
     // --- Internal helpers ---
@@ -446,32 +518,49 @@ class NostrRelayManager private constructor() {
     fun sendEvent(
         event: NostrEvent,
         relayUrls: List<String>? = null,
-        liveLocationToken: Long? = null
-    ) {
+        liveLocationToken: Long? = null,
+        onAccepted: (() -> Unit)? = null,
+        publicationAllowed: () -> Boolean = { true }
+    ): Boolean {
+        if (!publicationAllowed()) return false
         val targetRelays = (relayUrls ?: relaysList.map { it.url })
             .filter { it.isNotBlank() }
             .distinct()
-        if (targetRelays.isEmpty()) return
+        if (targetRelays.isEmpty()) return false
+        var enqueued = false
 
         val queued = runNetworkAction(liveLocationToken) {
             val queueId = messageQueue.enqueue(
                 event = event,
                 relayUrls = targetRelays,
-                liveLocationToken = liveLocationToken
+                liveLocationToken = liveLocationToken,
+                publicationAllowed = publicationAllowed
             ) ?: return@runNetworkAction
+            enqueued = true
+            if (onAccepted != null) {
+                eventAcceptanceHandlers[event.id] = PendingAcceptance(
+                    onAccepted,
+                    targetRelays.map { it.trim().trimEnd('/') }.toMutableSet()
+                )
+            }
             scope.launch {
                 if (!isNetworkActionAllowed(liveLocationToken)) return@launch
                 targetRelays.forEach { relayUrl ->
                     val webSocket = connections[relayUrl]
                     if (webSocket != null) {
-                        if (sendToRelay(event, webSocket, relayUrl, liveLocationToken)) {
+                        if (sendToRelay(event, webSocket, relayUrl, liveLocationToken, publicationAllowed)) {
                             messageQueue.markDelivered(queueId, relayUrl)
                         }
                     }
                 }
             }
         }
-        if (!queued) return
+        return queued && enqueued
+    }
+
+    fun hasConnectedRelay(relayUrls: Collection<String>): Boolean {
+        val targets = relayUrls.map { it.trim().trimEnd('/') }.toSet()
+        return relaysList.any { it.isConnected && it.url.trim().trimEnd('/') in targets }
     }
     
     /**
@@ -667,6 +756,7 @@ class NostrRelayManager private constructor() {
 
             // Clear any queued messages waiting to be sent
             messageQueue.clear()
+            eventAcceptanceHandlers.clear()
 
             Log.i(TAG, "Cleared all Nostr subscriptions and routing caches")
         } catch (e: Exception) {
@@ -838,7 +928,7 @@ class NostrRelayManager private constructor() {
         urlString: String,
         liveLocationToken: Long? = null
     ) {
-        if (!desiredConnected.get()) return
+        if (!desiredConnected.get() || urlString in removedCustomRelayUrls) return
         val connectionToken = liveLocationToken
             ?.takeIf { urlString !in nonLiveRelayUrls }
         if (!isNetworkActionAllowed(connectionToken)) return
@@ -853,6 +943,7 @@ class NostrRelayManager private constructor() {
                 .build()
             
             val started = runNetworkAction(connectionToken) {
+                if (urlString in removedCustomRelayUrls) return@runNetworkAction
                 val webSocket = httpClient.newWebSocket(
                     request,
                     RelayWebSocketListener(urlString, connectionToken)
@@ -860,7 +951,7 @@ class NostrRelayManager private constructor() {
                 val existing = connections.putIfAbsent(urlString, webSocket)
                 when {
                     existing != null -> webSocket.close(1000, "Duplicate connection")
-                    !desiredConnected.get() -> {
+                    !desiredConnected.get() || urlString in removedCustomRelayUrls -> {
                         connections.remove(urlString, webSocket)
                         webSocket.close(1000, "Connection no longer desired")
                     }
@@ -878,16 +969,17 @@ class NostrRelayManager private constructor() {
         event: NostrEvent,
         webSocket: WebSocket,
         relayUrl: String,
-        liveLocationToken: Long? = null
+        liveLocationToken: Long? = null,
+        publicationAllowed: () -> Boolean = { true }
     ): Boolean {
-        if (!isNetworkActionAllowed(liveLocationToken)) return false
+        if (!publicationAllowed() || relayUrl in removedCustomRelayUrls || !isNetworkActionAllowed(liveLocationToken)) return false
         return try {
             val request = NostrRequest.Event(event)
             val message = gson.toJson(request, NostrRequest::class.java)
 
             var success = false
             runNetworkAction(liveLocationToken) {
-                success = webSocket.send(message)
+                if (publicationAllowed() && relayUrl !in removedCustomRelayUrls) success = webSocket.send(message)
             }
             if (success) {
                 // Update relay stats
@@ -960,8 +1052,14 @@ class NostrRelayManager private constructor() {
                 is NostrResponse.Ok -> {
                     val wasGiftWrap = pendingGiftWrapIDs.remove(response.eventId)
                     if (!response.accepted) {
+                        eventAcceptanceHandlers[response.eventId]?.let { pending ->
+                            pending.pendingRelays.remove(relayUrl.trim().trimEnd('/'))
+                            if (pending.pendingRelays.isEmpty()) eventAcceptanceHandlers.remove(response.eventId, pending)
+                        }
                         val level = if (wasGiftWrap) Log.WARN else Log.ERROR
                         Log.println(level, TAG, "Event rejected by relay: ${response.message ?: "no reason"}")
+                    } else {
+                        eventAcceptanceHandlers.remove(response.eventId)?.callback?.invoke()
                     }
                 }
 
@@ -1118,7 +1216,7 @@ class NostrRelayManager private constructor() {
     ) : WebSocketListener() {
         
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            if (!desiredConnected.get() ||
+            if (!desiredConnected.get() || relayUrl in removedCustomRelayUrls ||
                 connections[relayUrl] !== webSocket ||
                 !isNetworkActionAllowed(liveLocationToken)
             ) {
@@ -1140,7 +1238,8 @@ class NostrRelayManager private constructor() {
                         delivery.event,
                         webSocket,
                         relayUrl,
-                        delivery.liveLocationToken
+                        delivery.liveLocationToken,
+                        delivery.publicationAllowed
                     )
                 ) {
                     messageQueue.markDelivered(delivery.queueId, relayUrl)
