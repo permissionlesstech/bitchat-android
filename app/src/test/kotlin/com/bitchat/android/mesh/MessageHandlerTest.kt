@@ -1,6 +1,7 @@
 package com.bitchat.android.mesh
 
 import android.os.Build
+import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.BitchatFilePacket
@@ -18,11 +19,14 @@ import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
@@ -71,6 +75,46 @@ class MessageHandlerTest {
     @After
     fun tearDown() {
         MeshGraphService.resetForTesting()
+    }
+
+    @Test
+    fun `broadcast envelope cannot forge a private message or sender name`() = runBlocking {
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(delegate.getPeerNickname(peerID)).thenReturn(nickname)
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(peerInfo(signingKey))
+        val envelope = BitchatMessage(
+            id = "untrusted-id",
+            sender = "forged-sender",
+            content = "channel content",
+            timestamp = java.util.Date(0),
+            isPrivate = true,
+            isRelay = true,
+            originalSender = "forged-origin",
+            recipientNickname = "forged-recipient",
+            senderPeerID = "9999888877776666",
+            channel = "#test"
+        )
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = peerID.hexToBytes(),
+            recipientID = SpecialRecipients.BROADCAST,
+            timestamp = 1_700_000_000_000uL,
+            payload = envelope.toBinaryPayload()!!,
+            signature = signature,
+            ttl = 7u
+        )
+        handler.handleMessage(RoutedPacket(packet, peerID, "test-link"))
+        val received = argumentCaptor<BitchatMessage>()
+        verify(delegate).onMessageReceived(received.capture())
+        assertEquals(nickname, received.firstValue.sender)
+        assertEquals(peerID, received.firstValue.senderPeerID)
+        assertEquals(1_700_000_000_000L, received.firstValue.timestamp.time)
+        assertEquals("#test", received.firstValue.channel)
+        assertFalse(received.firstValue.isPrivate)
+        assertFalse(received.firstValue.isRelay)
+        assertNull(received.firstValue.originalSender)
+        assertNull(received.firstValue.recipientNickname)
     }
 
     @Test
