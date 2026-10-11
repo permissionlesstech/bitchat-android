@@ -1816,33 +1816,27 @@ fun PrivateChatSheet(
 
                     HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
 
-                    // Messages list
-                    var forceScrollToBottom by remember { mutableStateOf(false) }
-                    var isScrolledUp by remember { mutableStateOf(false) }
-
-                    MessagesList(
+                    val conversationContext = ConversationUiContext(
+                        key = "dm:$conversationID",
+                        privatePeerID = conversationID,
+                        isNostr = isNostrPeer,
+                    )
+                    var forceScrollToBottom by remember(conversationID) { mutableStateOf(false) }
+                    var messageText by remember(conversationID) {
+                        mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(viewModel.conversationDraft(peerID)))
+                    }
+                    ConversationTimeline(
                         messages = messages,
                         currentUserNickname = nickname,
-                        meshService = viewModel.meshServiceFacade,
+                        viewModel = viewModel,
+                        context = conversationContext,
                         modifier = Modifier.weight(1f),
-                        conversationKey = "dm:$peerID",
                         forceScrollToBottom = forceScrollToBottom,
-                        onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
-                        onNicknameClick = { /* handle mention */ },
-                        onMessageLongPress = { /* handle long press */ },
-                        onCancelTransfer = { msg -> viewModel.cancelMediaSend(msg.id) },
-                        onImageClick = { _, _, _ -> /* handle image click */ }
+                        onMention = { sender ->
+                            messageText = appendConversationMention(messageText, sender, conversationContext)
+                            viewModel.setConversationDraft(peerID, messageText.text)
+                        },
                     )
-
-                    // Input section. No divider here: ChatInputSection draws its own fade and
-                    // hairline.
-                    var messageText by remember(peerID) {
-                        mutableStateOf(
-                            androidx.compose.ui.text.input.TextFieldValue(
-                                viewModel.conversationDraft(peerID)
-                            )
-                        )
-                    }
 
                     ChatInputSection(
                         messageText = messageText,
@@ -1885,7 +1879,7 @@ fun PrivateChatSheet(
                         currentChannel = null,
                         nickname = nickname,
                         colorScheme = colorScheme,
-                        showMediaButtons = true
+                        showMediaButtons = conversationContext.supportsMediaSend(isConnected)
                     )
                 }
 
