@@ -76,7 +76,7 @@ Receiver behavior:
   - For announcements, send only the latest announcement per (sender peerID).
   - For broadcast messages, send all missing ones.
 
-Announcement retention and pruning (consensus):
+Announcement retention and pruning (consensus targets; Android differs as noted below):
 - Store only the most recent announcement per peerID for sync purposes.
 - Age-out policy: announcements older than 60 seconds MUST be removed from the sync candidate set.
 - Pruning cadence: run pruning every 15 seconds to drop expired announcements.
@@ -91,10 +91,38 @@ Included in sync:
 - Public broadcast messages: `MessageType.MESSAGE` with BROADCAST recipient (or null recipient).
 - Identity announcements: `MessageType.ANNOUNCE`.
 - Both packets produced by other peers and packets produced by the requester itself MUST be represented in the requester’s GCS; the responder MUST track and consider its own produced public packets as candidates to return when they are missing on the requester.
-- Announcements included in the GCS MUST be at most 60 seconds old at the time of filter construction; older announcements are excluded by pruning.
+- Consensus target: announcements included in the GCS MUST be at most 60 seconds old at the time of filter construction; older announcements are excluded by pruning. Android does not currently enforce this target (see below).
 
 Not included:
 - Private messages and any packets addressed to a non-broadcast recipient.
+
+## Android receive and archive policy
+
+Android's announcement retention differs from the consensus targets above.
+`GossipSyncManager` rejects announcements older than 180 seconds when archiving
+and uses the same threshold in its periodic cleanup. The cleanup loop waits
+60 seconds between sweeps. Filter construction and response generation use the
+stored candidates without rechecking their age; an announcement that expires
+between sweeps can remain a candidate until cleanup or explicit removal.
+
+For signed MESSAGE, FILE_TRANSFER, VOICE_FRAME and LEAVE packets, Android uses the
+live signing key when available, otherwise the key persisted by a completed
+authenticated peer-state exchange over Noise. A signature must verify with the
+selected key. Packet-type checks still apply, including LEAVE's age bound and
+the live-peer and age checks for public voice frames. This fallback is not
+restricted to REQUEST_SYNC responses.
+
+The broadcast message handler can display an absent sender under its cached
+nickname, or peer ID, when authenticated signing state is persisted. A present
+peer with an unverified nickname remains rejected by that handler.
+
+For archiving another sender's broadcast MESSAGE, the shared gossip manager
+checks the registered transport lookups. If none reports that sender present,
+the message is not archived for later sync. Own broadcasts bypass this check;
+ANNOUNCE retention is unchanged. This is a presence check at receipt time, not a
+permanent marker of departure: a returning sender can be archived again. After
+an announcement is purged, its age can no longer trigger removal of messages
+inserted later; capacity eviction and explicit removal remain available.
 
 ## Configuration (Debug Sheet)
 

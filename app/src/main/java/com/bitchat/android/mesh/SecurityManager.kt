@@ -176,10 +176,10 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     }
 
     /**
-     * Verify a packet signature against the signing key learned from the
-     * peer's verified announcement. Signatures cover the canonical packet,
-     * not only its payload; otherwise routing and recipient fields could be
-     * changed without invalidating the signature.
+     * Apply the signature policy for the packet type. ANNOUNCE is checked
+     * against its carried key and existing identity state. MESSAGE,
+     * FILE_TRANSFER, VOICE_FRAME and LEAVE use the live signing key when
+     * available, otherwise the persisted authenticated key.
      */
     fun verifySignature(packet: BitchatPacket, peerID: String): Boolean {
         return verifyPacketSignature(packet, peerID)
@@ -245,13 +245,12 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     }
     
     /**
-     * Verify packet signature using peer's signing public key
-     * Returns true only if signature is present and valid
+     * Verify signatures for the packet types listed below.
+     * Other packet types pass this check without signature verification.
      */
     private fun verifyPacketSignature(packet: BitchatPacket, peerID: String): Boolean {
         try {
-            // Public packets that mutate identity, presence, or user-visible state must prove the
-            // signing key learned from a verified announcement. LEAVE is included so an attacker
+            // These packet types require signature verification. LEAVE is included so an attacker
             // cannot evict a claimed peer or amplify a forged departure through relay.
             if (MessageType.fromValue(packet.type) !in setOf(
                     MessageType.ANNOUNCE,
@@ -303,13 +302,15 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                 return false
             }
             
-            // 2. Get Signing Public Key
+            // 2. Get Signing Public Key: the live registry first, then the identity persisted
+            //    for a peer this device authenticated before. A sync replay from a peer that has
+            //    since left carries that peer's signature, and the live registry has forgotten it.
             val peerInfo = delegate?.getPeerInfo(peerID)
             val signingPublicKey = peerInfo?.signingPublicKey
+                ?: delegate?.getPersistedSigningKey(peerID)
             
             if (signingPublicKey == null) {
-                // If we don't have a key (and it's not an announce), we can't verify.
-                // For security, we must reject packets from unknown peers unless it's an announce.
+                // Without a live or persisted key, this sender's signature cannot be verified.
                 Log.w(TAG, "Signature check for $peerID: NO_SIGNING_KEY_AVAILABLE (packet type ${packet.type})")
                 return false
             }
@@ -470,4 +471,6 @@ interface SecurityManagerDelegate {
     fun sendHandshakeResponse(peerID: String, response: ByteArray)
     fun getPeerInfo(peerID: String): PeerInfo? // NEW: For signature verification
     fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? = null
+    /** Signing key from a previously authenticated peer, used when no live signing key is available. */
+    fun getPersistedSigningKey(peerID: String): ByteArray? = null
 }
