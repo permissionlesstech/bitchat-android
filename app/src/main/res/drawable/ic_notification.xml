@@ -4,19 +4,13 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- Simple chat bubble icon for notifications -->
+    <!--
+      Status-bar / shade small icons are drawn as an alpha mask and then
+      tinted by the system. Only white (or translucent white) paths survive;
+      black fills vanish, which is why the previous black cursor/lines made
+      this look like an empty blob on Android 15.
+    -->
     <path
         android:fillColor="@android:color/white"
         android:pathData="M4,4h16c1.1,0 2,0.9 2,2v10c0,1.1 -0.9,2 -2,2H6l-4,4V6C2,4.9 2.9,4 4,4z" />
-    <!-- Terminal cursor -->
-    <path
-        android:fillColor="@android:color/black"
-        android:pathData="M8,9h2v2h-2z" />
-    <!-- Message lines -->
-    <path
-        android:fillColor="@android:color/black"
-        android:pathData="M12,9h6v1h-6z" />
-    <path
-        android:fillColor="@android:color/black"
-        android:pathData="M12,11h4v1h-4z" />
 </vector>
