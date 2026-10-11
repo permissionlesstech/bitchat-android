@@ -36,6 +36,16 @@ randomization used by senders. Android caps outbound seal and gift-wrap
 randomization at 22h, leaving 2 hours of slack inside iOS's 24-hour
 subscription window, while retaining its 48-hour receive lookback.
 
+### Geohash private-message sender headers
+
+The no-recipient Nostr encoders use a fresh random 8-byte sender ID for private
+messages and delivery/read receipts. Geohash DMs use these encoders; the shared
+inbox also uses the receipt encoder when replying to account DMs. Conversation
+identity comes from the authenticated Nostr sender pubkey. The recipient-addressed
+account/favorite encoders retain mesh sender IDs.
+This replaces the mesh ID in the sender-header field of these envelopes;
+nicknames, content and other shared information can still correlate conversations.
+
 ## Rewrite acceptance gate
 
 From a configured Android development environment, run:
