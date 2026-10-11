@@ -99,7 +99,7 @@ internal class PrivateMediaTransferPreparer(
         // and packet serialization make additional full-size copies.
         if (file.content.size.toLong() > absolutePayloadUpperBound) {
             return PrivateMediaBuildOutcome.Rejected(
-                "File exceeds the private-media v1 limit of 256 final mesh fragments"
+                "File exceeds the private-media v1 limit of $maxPrivateFragments final mesh fragments"
             )
         }
 
@@ -199,12 +199,12 @@ internal class PrivateMediaTransferPreparer(
         val fragments = fragment(finalized, maxPrivateFragments)
         if (fragments.isEmpty()) {
             return PrivateMediaBuildOutcome.Rejected(
-                "File exceeds the private-media v1 limit of 256 final mesh fragments"
+                "File exceeds the private-media v1 limit of $maxPrivateFragments final mesh fragments"
             )
         }
         if (fragments.size > maxPrivateFragments) {
             return PrivateMediaBuildOutcome.Rejected(
-                "File exceeds the private-media v1 limit of 256 final mesh fragments"
+                "File exceeds the private-media v1 limit of $maxPrivateFragments final mesh fragments"
             )
         }
 
