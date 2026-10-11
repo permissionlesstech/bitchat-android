@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <application>
+    <application android:networkSecurityConfig="@xml/nostr_fixture_network_security">
         <!-- Debug-only ADB test hook. Drives mesh operations (scan, connect,
              handshake, DMs, files, broadcast, raw packets) from host scripts.
              Exported intentionally so `adb shell am broadcast` can reach it;

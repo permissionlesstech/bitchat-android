@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
 import java.security.SecureRandom
 import kotlin.random.asKotlinRandom
 
@@ -58,6 +59,7 @@ object NostrBackgroundRuntime {
 
         subscriptions.connect()
         subscribeAccountDm()
+        startInboxSync()
         observeSelectedChannel()
         startPresenceScheduler()
     }
@@ -66,8 +68,7 @@ object NostrBackgroundRuntime {
         if (!initialized) return
         subscriptions.unsubscribeAllOwned()
         scope.launch {
-            // Let CLOSE frames be queued before replacing the deterministic IDs.
-            delay(100)
+            subscriptions.connect()
             subscribeAccountDm()
             activeGeohash?.let { geohash ->
                 subscribeSelectedGeohash(geohash, activeGeohashLiveToken)
@@ -97,11 +98,50 @@ object NostrBackgroundRuntime {
         subscriptions.subscribeGiftWraps(
             pubkey = identity.publicKeyHex,
             sinceMs = System.currentTimeMillis() - 172_800_000L,
-            id = "chat-messages",
+            id = "account-dm-${java.util.UUID.randomUUID()}",
+            targetRelayUrls = NostrRelayManager.getInstance(application).accountRelayUrls,
             handler = { event ->
-                eventProcessor.onAccountDm(event, identity)
+                if (NostrIdentityBridge.getCurrentNostrIdentity(application)?.publicKeyHex == identity.publicKeyHex) {
+                    eventProcessor.onAccountDm(event, identity)
+                }
             }
         )
+    }
+
+    private fun startInboxSync() {
+        scope.launch {
+            while (true) {
+                val manager = NostrRelayManager.getInstance(application)
+                val identity = NostrIdentityBridge.getCurrentNostrIdentity(application)
+                if (identity != null) {
+                    val repository = com.bitchat.android.services.ConversationRepository.getInstance(application)
+                    for (relay in manager.getRelayStatuses().filter { it.isConnected && it.url in manager.accountRelayUrls }) {
+                        try {
+                            val token = com.bitchat.android.services.AppStateStore.privateConversationToken() ?: continue
+                            val checkpoint = "${identity.publicKeyHex}:${relay.url}"
+                            val now = System.currentTimeMillis()
+                            val sync = NostrInboxSync(
+                                fetch = { since, until, limit -> manager.fetchGiftWraps(relay.url, identity.publicKeyHex, since, until, limit) },
+                                process = { event ->
+                                    NostrIdentityBridge.getCurrentNostrIdentity(application)?.publicKeyHex == identity.publicKeyHex &&
+                                        eventProcessor.processAccountDm(event, identity, token)
+                                }
+                            )
+                            if (sync.scan(NostrInboxSync.since(now, repository.syncCheckpoint(checkpoint)), (now / 1000).toInt())) {
+                                if (com.bitchat.android.services.AppStateStore.privateConversationToken() == token && NostrIdentityBridge.getCurrentNostrIdentity(application)?.publicKeyHex == identity.publicKeyHex) {
+                                    repository.saveSyncCheckpoint(checkpoint, now)
+                                }
+                            }
+                        } catch (e: CancellationException) {
+                            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                        } catch (_: Exception) {
+                            Log.w(TAG, "Inbox catch-up incomplete; retry scheduled")
+                        }
+                    }
+                }
+                delay(60_000)
+            }
+        }
     }
 
     private fun observeSelectedChannel() {
