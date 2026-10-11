@@ -834,6 +834,19 @@ object AppStateStore {
         }
     }
 
+    // Keep dedup records: clearing visible history must not admit old replayed packets again.
+    fun clearPublicMessages() {
+        synchronized(this) {
+            _publicMessages.value = emptyList()
+        }
+    }
+
+    fun clearChannelMessages(channel: String) {
+        synchronized(this) {
+            _channelMessages.value = _channelMessages.value + (channel to emptyList())
+        }
+    }
+
     // Clear all in-memory state (used for full app shutdown)
     fun clear() {
         synchronized(this) {
