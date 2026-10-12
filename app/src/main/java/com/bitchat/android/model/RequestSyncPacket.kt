@@ -12,7 +12,9 @@ import com.bitchat.android.sync.SyncDefaults
 data class RequestSyncPacket(
     val p: Int,
     val m: Long,
-    val data: ByteArray
+    val data: ByteArray,
+    val wantedTypes: List<UByte>? = null,
+    val minTimestamp: ULong? = null
 ) {
     fun encode(): ByteArray {
         val out = ArrayList<Byte>()
@@ -38,6 +40,28 @@ data class RequestSyncPacket(
         )
         // data
         putTLV(0x03, data)
+        // wantedTypes
+        wantedTypes?.let { types ->
+            if (types.isNotEmpty()) {
+                val typesBytes = types.map { it.toByte() }.toByteArray()
+                putTLV(0x04, typesBytes)
+            }
+        }
+        // minTimestamp
+        minTimestamp?.let { ts ->
+            val tsLong = ts.toLong()
+            val tsBytes = byteArrayOf(
+                ((tsLong ushr 56) and 0xFF).toByte(),
+                ((tsLong ushr 48) and 0xFF).toByte(),
+                ((tsLong ushr 40) and 0xFF).toByte(),
+                ((tsLong ushr 32) and 0xFF).toByte(),
+                ((tsLong ushr 24) and 0xFF).toByte(),
+                ((tsLong ushr 16) and 0xFF).toByte(),
+                ((tsLong ushr 8) and 0xFF).toByte(),
+                (tsLong and 0xFF).toByte()
+            )
+            putTLV(0x05, tsBytes)
+        }
         return out.toByteArray()
     }
 
@@ -50,6 +74,8 @@ data class RequestSyncPacket(
             var p: Int? = null
             var m: Long? = null
             var payload: ByteArray? = null
+            var wantedTypes: List<UByte>? = null
+            var minTimestamp: ULong? = null
 
             while (off + 3 <= data.size) {
                 val t = (data[off].toInt() and 0xFF); off += 1
@@ -69,6 +95,22 @@ data class RequestSyncPacket(
                         if (v.size > MAX_ACCEPT_FILTER_BYTES) return null
                         payload = v
                     }
+                    0x04 -> {
+                        val typesList = mutableListOf<UByte>()
+                        for (b in v) {
+                            typesList.add(b.toUByte())
+                        }
+                        wantedTypes = typesList
+                    }
+                    0x05 -> {
+                        if (len == 8) {
+                            var tsVal = 0L
+                            for (i in 0 until 8) {
+                                tsVal = (tsVal shl 8) or (v[i].toLong() and 0xFF)
+                            }
+                            minTimestamp = tsVal.toULong()
+                        }
+                    }
                 }
             }
 
@@ -76,7 +118,7 @@ data class RequestSyncPacket(
             val mm = m ?: return null
             val dd = payload ?: return null
             if (pp < 1 || mm <= 0L) return null
-            return RequestSyncPacket(pp, mm, dd)
+            return RequestSyncPacket(pp, mm, dd, wantedTypes, minTimestamp)
         }
     }
 }
