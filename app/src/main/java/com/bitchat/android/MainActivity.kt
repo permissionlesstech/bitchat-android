@@ -51,9 +51,9 @@ import com.bitchat.android.ui.GeohashSession
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatUserSheet
 import com.bitchat.android.ui.LocationChannelsScreen
-import com.bitchat.android.ui.LocationNotesSheetPresenter
-import com.bitchat.android.ui.MeshPeerListSheet
-import com.bitchat.android.ui.PrivateChatSheet
+import com.bitchat.android.ui.LocationNotesScreen
+import com.bitchat.android.ui.MeshPeerListScreen
+import com.bitchat.android.ui.PrivateChatScreen
 import com.bitchat.android.ui.SecurityVerificationSheet
 import com.bitchat.android.ui.VerificationHandler
 import com.bitchat.android.ui.VerificationScreen
@@ -291,7 +291,7 @@ class MainActivity : OrientationAwareActivity() {
                             )
                         }
                         entry<MeshPeerListRoute>(metadata = SheetSceneStrategy.sheet()) {
-                            MeshPeerListSheet(
+                            MeshPeerListScreen(
                                 onDismiss = { navigator.popTo(MeshPeerListRoute, inclusive = true) },
                                 // Pushed over the list, so Back from verification
                                 // returns to it.
@@ -303,7 +303,7 @@ class MainActivity : OrientationAwareActivity() {
                             )
                         }
                         entry<PrivateChatRoute>(metadata = SheetSceneStrategy.sheet()) { route ->
-                            PrivateChatSheet(
+                            PrivateChatScreen(
                                 routeConversationID = route.conversationID,
                                 onShowSecurityVerification = { conversationID ->
                                     navigator.goTo(SecurityVerificationRoute(conversationID))
@@ -345,7 +345,7 @@ class MainActivity : OrientationAwareActivity() {
                         }
                         entry<LocationNotesRoute>(metadata = SheetSceneStrategy.sheet()) {
                             val nickname by chatState.nickname.collectAsStateWithLifecycle()
-                            LocationNotesSheetPresenter(
+                            LocationNotesScreen(
                                 nickname = nickname,
                                 onDismiss = { navigator.popTo(LocationNotesRoute, inclusive = true) },
                             )

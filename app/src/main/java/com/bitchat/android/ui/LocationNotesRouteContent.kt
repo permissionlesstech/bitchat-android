@@ -25,7 +25,7 @@ import com.bitchat.android.R
  * than each opening a sheet of its own.
  */
 @Composable
-fun LocationNotesSheetPresenter(
+fun LocationNotesScreen(
     nickname: String,
     onDismiss: () -> Unit
 ) {
@@ -44,7 +44,7 @@ fun LocationNotesSheetPresenter(
         val locationName = locationNames[GeohashChannelLevel.BUILDING]
             ?: locationNames[GeohashChannelLevel.BLOCK]
 
-        LocationNotesSheet(
+        LocationNotesContent(
             geohash = buildingGeohash,
             locationName = locationName,
             nickname = nickname,

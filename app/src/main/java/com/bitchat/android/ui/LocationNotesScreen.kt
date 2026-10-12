@@ -36,12 +36,12 @@ import java.util.*
 import java.util.Calendar
 
 /**
- * Location Notes Sheet - EXACT iOS UI match for bitchat
+ * Location notes content - EXACT iOS UI match for bitchat
  * Matches iOS LocationNotesView.swift exactly in style, colors, fonts, and text
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocationNotesSheet(
+fun LocationNotesContent(
     geohash: String,
     locationName: String?,
     nickname: String?,
