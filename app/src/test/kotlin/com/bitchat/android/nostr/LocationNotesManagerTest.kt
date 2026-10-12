@@ -113,18 +113,17 @@ class LocationNotesManagerTest {
 
     @Test
     fun `kind 1 event adds note to the list`() {
-        capturedEventHandler!!.invoke(
-            makeTextNoteEvent(id = "note-001", pubkey = authorIdentity.publicKeyHex, content = "Hello!")
-        )
+        val note = makeTextNoteEvent(identity = authorIdentity, content = "Hello!")
+        capturedEventHandler!!.invoke(note)
 
         assertEquals(1, manager.notes.value.size)
-        assertEquals("note-001", manager.notes.value[0].id)
+        assertEquals(note.id, manager.notes.value[0].id)
         assertEquals("Hello!", manager.notes.value[0].content)
     }
 
     @Test
     fun `kind 1 event with same id is deduplicated`() {
-        val event = makeTextNoteEvent(id = "dup-note", pubkey = authorIdentity.publicKeyHex)
+        val event = makeTextNoteEvent(identity = authorIdentity)
         capturedEventHandler!!.invoke(event)
         capturedEventHandler!!.invoke(event) // second delivery of the same event
 
@@ -133,13 +132,10 @@ class LocationNotesManagerTest {
 
     @Test
     fun `kind 1 event without geohash tag is ignored`() {
-        val eventWithoutGtag = NostrEvent(
-            id = "no-gtag",
-            pubkey = authorIdentity.publicKeyHex,
-            createdAt = 1_700_000_000,
-            kind = NostrKind.TEXT_NOTE,
-            tags = emptyList(), // intentionally no "g" tag
+        val eventWithoutGtag = makeTextNoteEvent(
+            identity = authorIdentity,
             content = "no location",
+            tags = emptyList(), // intentionally no "g" tag
         )
 
         capturedEventHandler!!.invoke(eventWithoutGtag)
@@ -150,9 +146,8 @@ class LocationNotesManagerTest {
     @Test
     fun `kind 1 event with different geohash is ignored`() {
         val eventForOtherCell = makeTextNoteEvent(
-            id = "other-cell",
-            pubkey = authorIdentity.publicKeyHex,
-            geohash = "s000000a", // different geohash, not subscribed
+            identity = authorIdentity,
+            tags = listOf(listOf("g", "s000000a")), // different geohash, not subscribed
         )
 
         capturedEventHandler!!.invoke(eventForOtherCell)
@@ -162,13 +157,10 @@ class LocationNotesManagerTest {
 
     @Test
     fun `kind 1 event stores nickname from n-tag`() {
-        val eventWithNick = NostrEvent(
-            id = "nick-note",
-            pubkey = authorIdentity.publicKeyHex,
-            createdAt = 1_700_000_000,
-            kind = NostrKind.TEXT_NOTE,
-            tags = listOf(listOf("g", testGeohash), listOf("n", "Alice")),
+        val eventWithNick = makeTextNoteEvent(
+            identity = authorIdentity,
             content = "Hi from Alice",
+            tags = listOf(listOf("g", testGeohash), listOf("n", "Alice")),
         )
 
         capturedEventHandler!!.invoke(eventWithNick)
@@ -185,13 +177,12 @@ class LocationNotesManagerTest {
 
     @Test
     fun `kind 5 removes the matching note authored by the same pubkey`() {
-        capturedEventHandler!!.invoke(
-            makeTextNoteEvent(id = "del-target", pubkey = authorIdentity.publicKeyHex, content = "To be deleted")
-        )
+        val target = makeTextNoteEvent(identity = authorIdentity, content = "To be deleted")
+        capturedEventHandler!!.invoke(target)
         assertEquals(1, manager.notes.value.size)
 
         capturedDeletionHandler!!.invoke(
-            makeDeletionEvent(targetId = "del-target", identity = authorIdentity)
+            makeDeletionEvent(targetId = target.id, identity = authorIdentity)
         )
 
         assertEquals("Note must be removed by kind:5 from the same author", 0, manager.notes.value.size)
@@ -199,14 +190,13 @@ class LocationNotesManagerTest {
 
     @Test
     fun `kind 5 does NOT remove a note when pubkey does not match`() {
-        capturedEventHandler!!.invoke(
-            makeTextNoteEvent(id = "protected", pubkey = authorIdentity.publicKeyHex, content = "Protected")
-        )
+        val protectedNote = makeTextNoteEvent(identity = authorIdentity, content = "Protected")
+        capturedEventHandler!!.invoke(protectedNote)
         assertEquals(1, manager.notes.value.size)
 
         // Deletion request from a *different* identity — must be rejected
         capturedDeletionHandler!!.invoke(
-            makeDeletionEvent(targetId = "protected", identity = attackerIdentity)
+            makeDeletionEvent(targetId = protectedNote.id, identity = attackerIdentity)
         )
 
         assertEquals("Note must survive a deletion attempt from a different pubkey", 1, manager.notes.value.size)
@@ -214,29 +204,27 @@ class LocationNotesManagerTest {
 
     @Test
     fun `kind 5 removes only the referenced note and leaves others intact`() {
-        capturedEventHandler!!.invoke(
-            makeTextNoteEvent(id = "note-A", pubkey = authorIdentity.publicKeyHex, content = "Note A")
-        )
+        val noteA = makeTextNoteEvent(identity = authorIdentity, content = "Note A")
+        val noteB = makeTextNoteEvent(identity = authorIdentity, content = "Note B")
+        capturedEventHandler!!.invoke(noteA)
         // note-A arrival registers capturedDeletionHandler synchronously (throttle window opens).
         // note-B arrival is throttled (< 1000 ms), but handleEvent() still processes all e-tags
         // regardless of which IDs were in the subscription filter at registration time.
-        capturedEventHandler!!.invoke(
-            makeTextNoteEvent(id = "note-B", pubkey = authorIdentity.publicKeyHex, content = "Note B")
-        )
+        capturedEventHandler!!.invoke(noteB)
         assertEquals(2, manager.notes.value.size)
 
         capturedDeletionHandler!!.invoke(
-            makeDeletionEvent(targetId = "note-A", identity = authorIdentity)
+            makeDeletionEvent(targetId = noteA.id, identity = authorIdentity)
         )
 
         assertEquals("Only the referenced note should be removed", 1, manager.notes.value.size)
-        assertEquals("note-B", manager.notes.value[0].id)
+        assertEquals(noteB.id, manager.notes.value[0].id)
     }
 
     @Test
     fun `kind 5 with no e-tags does nothing`() {
         capturedEventHandler!!.invoke(
-            makeTextNoteEvent(id = "safe-note", pubkey = authorIdentity.publicKeyHex, content = "Safe")
+            makeTextNoteEvent(identity = authorIdentity, content = "Safe")
         )
         assertEquals(1, manager.notes.value.size)
 
@@ -256,9 +244,12 @@ class LocationNotesManagerTest {
 
     @Test
     fun `kind 5 can delete multiple notes in one event via multiple e-tags`() {
-        capturedEventHandler!!.invoke(makeTextNoteEvent(id = "batch-A", pubkey = authorIdentity.publicKeyHex, content = "A"))
-        capturedEventHandler!!.invoke(makeTextNoteEvent(id = "batch-B", pubkey = authorIdentity.publicKeyHex, content = "B"))
-        capturedEventHandler!!.invoke(makeTextNoteEvent(id = "keep-C",  pubkey = authorIdentity.publicKeyHex, content = "C"))
+        val batchA = makeTextNoteEvent(identity = authorIdentity, content = "A")
+        val batchB = makeTextNoteEvent(identity = authorIdentity, content = "B")
+        val keepC = makeTextNoteEvent(identity = authorIdentity, content = "C")
+        capturedEventHandler!!.invoke(batchA)
+        capturedEventHandler!!.invoke(batchB)
+        capturedEventHandler!!.invoke(keepC)
         assertEquals(3, manager.notes.value.size)
 
         // A single kind:5 event referencing two note IDs simultaneously.
@@ -266,29 +257,28 @@ class LocationNotesManagerTest {
             pubkey = authorIdentity.publicKeyHex,
             createdAt = (System.currentTimeMillis() / 1000).toInt(),
             kind = NostrKind.DELETION,
-            tags = listOf(listOf("e", "batch-A"), listOf("e", "batch-B")),
+            tags = listOf(listOf("e", batchA.id), listOf("e", batchB.id)),
             content = "",
         ).sign(authorIdentity.privateKeyHex)
         capturedDeletionHandler!!.invoke(batchDeletion)
 
         assertEquals("Both referenced notes must be removed", 1, manager.notes.value.size)
-        assertEquals("keep-C", manager.notes.value[0].id)
+        assertEquals(keepC.id, manager.notes.value[0].id)
     }
 
     // ─── deleteNote (optimistic local removal + relay broadcast) ─────────────
 
     @Test
     fun `deleteNote removes note optimistically before relay broadcast`() {
-        capturedEventHandler!!.invoke(
-            makeTextNoteEvent(id = "rm-note", pubkey = authorIdentity.publicKeyHex, content = "Will be deleted")
-        )
+        val note = makeTextNoteEvent(identity = authorIdentity, content = "Will be deleted")
+        capturedEventHandler!!.invoke(note)
         assertEquals(1, manager.notes.value.size)
 
         // sendEvent is called AFTER the optimistic removal — use it as a sync point.
         val latch = CountDownLatch(1)
         sendEventCallback = { _, _ -> latch.countDown() }
 
-        manager.deleteNote("rm-note")
+        manager.deleteNote(note.id)
 
         assertTrue("deleteNote coroutine must complete within 3 s", latch.await(3, TimeUnit.SECONDS))
         assertEquals("Note must be removed from the list", 0, manager.notes.value.size)
@@ -296,15 +286,14 @@ class LocationNotesManagerTest {
 
     @Test
     fun `deleteNote broadcasts a kind 5 event with the correct e-tag`() {
-        capturedEventHandler!!.invoke(
-            makeTextNoteEvent(id = "broadcast-me", pubkey = authorIdentity.publicKeyHex, content = "Broadcast target")
-        )
+        val note = makeTextNoteEvent(identity = authorIdentity, content = "Broadcast target")
+        capturedEventHandler!!.invoke(note)
 
         val captured = mutableListOf<NostrEvent>()
         val latch = CountDownLatch(1)
         sendEventCallback = { event, _ -> captured.add(event); latch.countDown() }
 
-        manager.deleteNote("broadcast-me")
+        manager.deleteNote(note.id)
 
         assertTrue("Deletion event must be sent within 3 s", latch.await(3, TimeUnit.SECONDS))
         assertEquals("Exactly one event must be broadcast", 1, captured.size)
@@ -312,7 +301,7 @@ class LocationNotesManagerTest {
 
         val eTag = captured[0].tags.firstOrNull { it.size >= 2 && it[0] == "e" }
         assertNotNull("Broadcast kind:5 must have an e-tag", eTag)
-        assertEquals("e-tag must reference the deleted note id", "broadcast-me", eTag!![1])
+        assertEquals("e-tag must reference the deleted note id", note.id, eTag!![1])
     }
 
     @Test
@@ -333,40 +322,41 @@ class LocationNotesManagerTest {
 
     @Test
     fun `deleteNote does not delete or broadcast when note is not owned by local identity`() {
-        capturedEventHandler!!.invoke(
-            makeTextNoteEvent(id = "foreign-note", pubkey = attackerIdentity.publicKeyHex, content = "Not mine")
-        )
+        val foreignNote = makeTextNoteEvent(identity = attackerIdentity, content = "Not mine")
+        capturedEventHandler!!.invoke(foreignNote)
         assertEquals(1, manager.notes.value.size)
 
         var sendCalled = false
         sendEventCallback = { _, _ -> sendCalled = true }
 
-        manager.deleteNote("foreign-note")
+        manager.deleteNote(foreignNote.id)
 
         assertEquals("Foreign note must remain", 1, manager.notes.value.size)
-        assertEquals("foreign-note", manager.notes.value[0].id)
+        assertEquals(foreignNote.id, manager.notes.value[0].id)
         assertTrue("Deletion event must not be broadcast for non-owned note", !sendCalled)
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     /**
-     * Build a minimal kind:1 text-note event for a given geohash cell.
-     * Left unsigned — [LocationNotesManager.handleEvent] does not verify signatures on kind:1.
+     * Build a properly signed kind:1 text-note event authored by [identity].
+     *
+     * The event is signed via BIP-340 Schnorr because [LocationNotesManager.handleEvent]
+     * calls [NostrEvent.isValidSignature] before accepting any kind:1 note. Signing also
+     * derives the event id from the content, so tests reference notes via `event.id`
+     * and each note in a test needs distinct [content] or [tags].
      */
     private fun makeTextNoteEvent(
-        id: String,
-        pubkey: String,
-        geohash: String = testGeohash,
+        identity: NostrIdentity,
         content: String = "test note content",
+        tags: List<List<String>> = listOf(listOf("g", testGeohash)),
     ) = NostrEvent(
-        id = id,
-        pubkey = pubkey,
+        pubkey = identity.publicKeyHex,
         createdAt = 1_700_000_000,
         kind = NostrKind.TEXT_NOTE,
-        tags = listOf(listOf("g", geohash)),
+        tags = tags,
         content = content,
-    )
+    ).sign(identity.privateKeyHex)
 
     /**
      * Build a properly signed kind:5 deletion event targeting [targetId], authored by [identity].
