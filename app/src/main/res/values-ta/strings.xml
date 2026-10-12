@@ -219,6 +219,8 @@
   <string name="action_block_subtitle">இந்த பயனரிடமிருந்து அனைத்து செய்திகளையும் தடு</string>
   <string name="action_private_message_title">%1$s க்கு செய்தி அனுப்பு</string>
   <string name="action_private_message_subtitle">ஒரு தனிப்பட்ட செய்தியை அனுப்பு</string>
+  <string name="action_delete_note_title">குறிப்பை நீக்கு</string>
+  <string name="action_delete_note_subtitle">relay-களுக்கு nostr நீக்கும் கோரிக்கையை அனுப்புகிறது</string>
   <string name="location_channels_title">#இருப்பிட சேனல்கள்</string>
   <string name="location_channels_desc">ஜியோஹாஷ் சேனல்களைப் பயன்படுத்தி உங்களுக்கு அருகிலுள்ளவர்களுடன் அரட்டையடியுங்கள். ஒரு தோராயமான ஜியோஹாஷ் மட்டுமே பகிரப்படும், துல்லியமான ஜிபிஎஸ் ஒருபோதும் இல்லை. உங்கள் தனியுரிமையைப் பாதுகாக்க இந்த திரையை ஸ்க்ரீன்ஷாட் எடுக்காதீர்கள் அல்லது பகிர வேண்டாம்.</string>
   <string name="grant_location_permission">இருப்பிட அனுமதி வழங்கு</string>
