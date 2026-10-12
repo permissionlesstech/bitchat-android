@@ -27,6 +27,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -70,8 +75,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
-import com.bitchat.android.core.ui.component.button.CloseButton
-import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
+import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.util.downloadPhaseLabel
 import com.bitchat.android.hotspot.HotspotActivity
@@ -301,12 +305,12 @@ private fun SettingsToggleRow(
  * About's content, independent of how it is hosted.
  *
  * Kept separate from [AboutScreen] so the content does not depend on how it is
- * hosted. Closing is requested through [LocalSheetDismiss], which the host
- * provides, rather than through a dismiss lambda threaded down the tree.
+ * hosted.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AboutContent(
+    onClose: () -> Unit,
     onShowDebug: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -1274,30 +1278,19 @@ internal fun AboutContent(
         }
 
         // TopBar
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .height(64.dp)
-                .background(colorScheme.background.copy(alpha = topBarAlpha))
-        ) {
-            val dismiss = LocalSheetDismiss.current
-            CloseButton(
-                onClick = { dismiss?.invoke() },
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(horizontal = 16.dp),
-            )
-        }
+        BitchatScreenTopBar(
+            onBack = onClose,
+            title = {},
+            modifier = Modifier.align(Alignment.TopCenter),
+            backgroundAlpha = topBarAlpha
+        )
     }
 }
 
 /**
  * About as a full-screen destination.
  *
- * Provides [LocalSheetDismiss] itself. Content inside About closes the sheet
- * through that composition local rather than by calling a dismiss lambda, so
- * without this the close buttons would do nothing under a route.
+ * Applies the system-bar insets itself: a route gets none from a sheet host.
  */
 @Composable
 fun AboutScreen(
@@ -1309,9 +1302,13 @@ fun AboutScreen(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        CompositionLocalProvider(LocalSheetDismiss provides onClose) {
-            AboutContent(onShowDebug = onShowDebug)
-        }
+        AboutContent(
+            onClose = onClose,
+            onShowDebug = onShowDebug,
+            modifier = Modifier.windowInsetsPadding(
+                WindowInsets.systemBars.union(WindowInsets.displayCutout)
+            )
+        )
     }
 }
 

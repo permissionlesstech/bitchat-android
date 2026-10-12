@@ -62,7 +62,7 @@ class LocationChannelsDestinationTest {
         rule.navigateTo(LocationChannelsRoute)
         awaitChannels()
 
-        val closeBottom = rule.onNodeWithContentDescription(rule.activity.getString(R.string.close_plain))
+        val closeBottom = rule.onNodeWithContentDescription(rule.activity.getString(R.string.back))
             .getUnclippedBoundsInRoot().bottom
         val firstCardTop = rule.onAllNodesWithText(rule.activity.getString(R.string.mesh_title))
             .onFirst()

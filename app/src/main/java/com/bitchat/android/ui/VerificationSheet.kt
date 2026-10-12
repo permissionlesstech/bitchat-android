@@ -75,8 +75,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
-import com.bitchat.android.core.ui.component.button.CloseButton
-import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
+import com.bitchat.android.core.ui.component.button.BackButton
 import com.bitchat.android.services.VerificationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -234,17 +233,16 @@ private fun VerificationHeader(
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        BackButton(onClick = onClose)
         Text(
             text = stringResource(R.string.verify_title).uppercase(),
             fontSize = 14.sp,
             fontFamily = BitchatFontFamily,
             color = accent
         )
-        val dismiss = LocalSheetDismiss.current
-        CloseButton(onClick = { dismiss?.invoke() ?: onClose() })
     }
 }
 

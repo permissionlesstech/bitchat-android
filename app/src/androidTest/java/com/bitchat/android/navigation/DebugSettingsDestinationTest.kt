@@ -69,7 +69,7 @@ class DebugSettingsDestinationTest {
     fun theListStartsBelowTheTopBar() {
         openDebugOverAbout()
 
-        val closeBottom = rule.onNodeWithContentDescription(rule.activity.getString(R.string.close_plain))
+        val closeBottom = rule.onNodeWithContentDescription(rule.activity.getString(R.string.back))
             .getUnclippedBoundsInRoot().bottom
         val firstItemTop = rule.onAllNodesWithText(rule.activity.getString(R.string.debug_tools_desc))
             .onFirst()

@@ -45,7 +45,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.bitchat.android.onboarding.PermissionManager
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
+import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.util.DistributionInfoProvider
 import kotlinx.coroutines.Dispatchers
@@ -930,8 +930,8 @@ fun DebugSettingsScreen(
                 item { Spacer(Modifier.height(16.dp)) }
             }
 
-            BitchatSheetTopBar(
-                onClose = onClose,
+            BitchatScreenTopBar(
+                onBack = onClose,
                 modifier = Modifier.align(Alignment.TopCenter),
                 backgroundAlpha = topBarAlpha,
                 title = {

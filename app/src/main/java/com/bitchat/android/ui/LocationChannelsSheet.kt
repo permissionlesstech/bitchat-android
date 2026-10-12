@@ -62,7 +62,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
+import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.geohash.GeohashChannel
@@ -626,8 +626,8 @@ fun LocationChannelsScreen(
                 }
             }
 
-            BitchatSheetTopBar(
-                onClose = onClose,
+            BitchatScreenTopBar(
+                onBack = onClose,
                 modifier = Modifier.align(Alignment.TopCenter),
                 title = {
                     BitchatSheetTitle(
