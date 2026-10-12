@@ -303,13 +303,13 @@ class MainActivity : OrientationAwareActivity() {
                                 },
                             )
                         }
-                        entry<PrivateChatRoute>(metadata = SheetSceneStrategy.sheet()) { route ->
+                        entry<PrivateChatRoute> { route ->
                             PrivateChatScreen(
                                 routeConversationID = route.conversationID,
                                 onShowSecurityVerification = { conversationID ->
                                     navigator.goTo(SecurityVerificationRoute(conversationID))
                                 },
-                                onDismiss = { navigator.popTo(route, inclusive = true) },
+                                onBack = { navigator.popTo(route, inclusive = true) },
                             )
                         }
                         entry<SecurityVerificationRoute>(metadata = SheetSceneStrategy.sheet()) { route ->

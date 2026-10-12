@@ -48,6 +48,7 @@ import androidx.annotation.DrawableRes
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.RowScope
 import com.bitchat.android.R
+import com.bitchat.android.core.ui.component.button.BackButton
 import com.bitchat.android.core.ui.component.button.BitChatBrandButton
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.net.ArtiTorManager
@@ -423,6 +424,7 @@ fun ConversationHeader(
     modifier: Modifier = Modifier,
     onTitleClick: (() -> Unit)? = null,
     leadingContentDescription: String? = null,
+    onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -438,6 +440,9 @@ fun ConversationHeader(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (onBack != null) {
+                BackButton(onClick = onBack)
+            }
             Box(
                 modifier = Modifier.size(HeaderTapTarget),
                 contentAlignment = Alignment.Center

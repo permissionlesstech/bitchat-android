@@ -1,10 +1,13 @@
 package com.bitchat.android.navigation
 
 import android.content.Intent
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onAllNodesWithText
@@ -24,7 +27,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The private chat as a sheet destination, the peer list it opens from and
+ * The private chat as a screen destination, the peer list it opens from and
  * the security sheet stacked over it.
  *
  * The peers are synthetic mesh ids with no device behind them, so a message
@@ -63,10 +66,10 @@ class PrivateChatDestinationTest {
     fun sendingFromThePrivateComposerClearsIt() {
         rule.awaitChat()
         openPrivateChat(PEER_A)
-        rule.awaitSheet()
+        awaitPrivateChatScreen()
         awaitSelection(PEER_A)
 
-        // Chat's own composer stays composed under the sheet; the sheet's is the last.
+        // Chat leaves composition under a screen; the DM composer is still the last.
         rule.onAllNodes(hasSetTextAction() and hasText("")).onLast()
             .performTextInput("synthetic private message")
         rule.onNode(hasSetTextAction() and hasText("synthetic private message"))
@@ -90,7 +93,7 @@ class PrivateChatDestinationTest {
     fun backFromAPrivateChatReturnsToChatAndEndsIt() {
         rule.awaitChat()
         openPrivateChat(PEER_A)
-        rule.awaitSheet()
+        awaitPrivateChatScreen()
         awaitSelection(PEER_A)
 
         rule.pressSystemBack()
@@ -104,7 +107,7 @@ class PrivateChatDestinationTest {
     fun openingOneChatFromAnotherLeavesTheNewOneSelected() {
         rule.awaitChat()
         openPrivateChat(PEER_A)
-        rule.awaitSheet()
+        awaitPrivateChatScreen()
         awaitSelection(PEER_A)
 
         openPrivateChat(PEER_B)
@@ -137,11 +140,13 @@ class PrivateChatDestinationTest {
     fun theChatStaysSelectedAcrossRecreation() {
         rule.awaitChat()
         openPrivateChat(PEER_A)
-        rule.awaitSheet()
+        awaitPrivateChatScreen()
         awaitSelection(PEER_A)
 
         rule.activityRule.scenario.recreate()
-        rule.awaitChat()
+        // Chat's header is not on screen under the private chat, so wait on the stack.
+        rule.waitUntil(timeoutMillis = 15_000) { rule.topOfStack() == PrivateChatRoute(PEER_A) }
+        rule.waitForIdle()
 
         assertEquals(PrivateChatRoute(PEER_A), rule.topOfStack())
         awaitSelection(PEER_A)
@@ -151,12 +156,11 @@ class PrivateChatDestinationTest {
     fun backFromSecurityVerificationReturnsToTheChat() {
         rule.awaitChat()
         openPrivateChat(PEER_A)
-        rule.awaitSheet()
+        awaitPrivateChatScreen()
         awaitSelection(PEER_A)
         rule.navigateTo(SecurityVerificationRoute(PEER_A))
-        rule.waitUntil(timeoutMillis = 5_000) {
-            rule.onAllNodes(isSheet).fetchSemanticsNodes().size >= 2
-        }
+        // The one sheet, over the private chat screen.
+        rule.awaitSheet()
 
         rule.pressSystemBack()
 
@@ -174,7 +178,7 @@ class PrivateChatDestinationTest {
     fun theSecuritySheetOffersAHandshakeToAPeerWithNoFingerprint() {
         rule.awaitChat()
         openPrivateChat(PEER_A)
-        rule.awaitSheet()
+        awaitPrivateChatScreen()
         rule.navigateTo(SecurityVerificationRoute(PEER_A))
 
         val startHandshake = rule.activity.getString(R.string.fingerprint_start_handshake)
@@ -218,6 +222,43 @@ class PrivateChatDestinationTest {
 
         rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == MeshPeerListRoute }
         awaitSelection(null)
+    }
+
+    @Test
+    fun theBackArrowLeavesThePrivateChat() {
+        rule.awaitChat()
+        openPrivateChat(PEER_A)
+        awaitPrivateChatScreen()
+        awaitSelection(PEER_A)
+
+        rule.onNodeWithContentDescription(
+            InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.back)
+        ).performClick()
+
+        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == ChatRoute }
+        awaitSelection(null)
+    }
+
+    /** The composer stays above the keyboard once it is open. */
+    @Test
+    fun imeKeepsComposerVisible() {
+        rule.awaitChat()
+        openPrivateChat(PEER_A)
+        awaitPrivateChatScreen()
+        val composer = rule.onAllNodes(hasSetTextAction()).onLast()
+        composer.performClick()
+        rule.waitUntil(5_000) {
+            androidx.core.view.ViewCompat.getRootWindowInsets(rule.activity.window.decorView)
+                ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+        }
+        composer.assertIsDisplayed()
+    }
+
+    private fun awaitPrivateChatScreen() {
+        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() is PrivateChatRoute }
+        rule.waitForIdle()
+        // A screen, not a sheet: nothing on screen announces a pane title.
+        assertEquals(0, rule.onAllNodes(isSheet).fetchSemanticsNodes().size)
     }
 
     private fun session() = ChatSessionTestAccess.of(rule.activity)

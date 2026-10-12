@@ -23,14 +23,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.core.ui.component.button.CloseButton
-import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.launch
 
 /**
- * A private conversation, the content of a sheet destination.
+ * A private conversation, a full-screen destination.
  *
  * [routeConversationID] is the id the route was opened with. The ViewModel
  * starts the chat and ends it when the entry leaves the stack, and follows
@@ -40,7 +38,7 @@ import kotlinx.coroutines.launch
 fun PrivateChatScreen(
     routeConversationID: String,
     onShowSecurityVerification: (conversationID: String) -> Unit,
-    onDismiss: () -> Unit
+    onBack: () -> Unit
 ) {
     val viewModel = hiltViewModel<PrivateChatViewModel, PrivateChatViewModel.Factory>(
         creationCallback = { factory -> factory.create(routeConversationID) }
@@ -95,7 +93,12 @@ fun PrivateChatScreen(
         label = "favoriteStarTint"
     )
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colorScheme.background)
+            .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+    ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -142,6 +145,7 @@ fun PrivateChatScreen(
             // Input section. No divider here: ChatInputSection draws its own fade and
             // hairline.
             ChatInputSection(
+                modifier = Modifier.imePadding(),
                 messageText = messageText,
                 onMessageTextChange = { newText ->
                     messageText = newText
@@ -198,7 +202,8 @@ fun PrivateChatScreen(
                         stringResource(R.string.cd_nostr_reachable)
                     else -> null
                 },
-                title = uiState.titleText
+                title = uiState.titleText,
+                onBack = onBack
             ) {
                 ConversationHeaderAction(
                     onClick = { onAction(PrivateChatAction.ToggleFavorite) },
@@ -241,8 +246,8 @@ fun PrivateChatScreen(
                     }
                 }
 
-                // Keep the lock nearest the close action: from right to left the security
-                // cluster reads close, encryption, verification, then favorite.
+                // The lock sits at the trailing end: from right to left the security
+                // cluster reads encryption, verification, then favorite.
                 if (!isNostrPeer && !isNostrReachableFavorite) {
                     ConversationHeaderAction(
                         onClick = { onShowSecurityVerification(peerID) },
@@ -256,9 +261,6 @@ fun PrivateChatScreen(
                         }
                     }
                 }
-
-                val dismiss = LocalSheetDismiss.current
-                CloseButton(onClick = { dismiss?.invoke() ?: onDismiss() })
             }
         }
     }
