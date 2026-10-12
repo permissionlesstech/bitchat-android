@@ -19,8 +19,8 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         // Wear releases use a separate high range because Play requires every artifact in
         // one application ID to have a unique version code across all form factors.
-        versionCode = 1_000_000_004
-        versionName = "0.1.3"
+        versionCode = 1_000_000_005
+        versionName = "0.1.4"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -65,6 +65,11 @@ android {
     }
 }
 
+// Robolectric downloads its Android runtime outside Gradle dependency resolution.
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+}
+
 composeCompiler {
     // Kotlin 2.4.10's optional Compose group-key mapping depends on unspecified
     // class-file iteration order. Keep the normal R8 mapping, but omit that
@@ -91,6 +96,7 @@ dependencies {
     implementation(libs.androidx.wear.compose.foundation)
     implementation(libs.androidx.wear.compose.material3)
     implementation(libs.androidx.wear.tooling.preview)
+    implementation(libs.androidx.wear.ongoing)
     implementation(libs.androidx.compose.material.icons.extended)
 
     // Lifecycle
