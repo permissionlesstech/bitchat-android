@@ -38,6 +38,9 @@ fun BitchatNavDisplay(
         modifier = modifier,
         onBack = { if (!navigator.goBack()) onExit() },
         sceneStrategies = sceneStrategies,
+        transitionSpec = { ScreenTransitions.push() },
+        popTransitionSpec = { ScreenTransitions.pop() },
+        predictivePopTransitionSpec = { ScreenTransitions.pop() },
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
             rememberViewModelStoreNavEntryDecorator(),

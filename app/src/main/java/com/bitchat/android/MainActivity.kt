@@ -78,6 +78,7 @@ import com.bitchat.android.navigation.LocationNotesRoute
 import com.bitchat.android.navigation.MeshPeerListRoute
 import com.bitchat.android.navigation.OnboardingRoute
 import com.bitchat.android.navigation.PrivateChatRoute
+import com.bitchat.android.navigation.ScreenTransitions
 import com.bitchat.android.navigation.SecurityVerificationRoute
 import com.bitchat.android.navigation.SheetSceneStrategy
 import com.bitchat.android.navigation.VerificationRoute
@@ -276,7 +277,7 @@ class MainActivity : OrientationAwareActivity() {
                     val sheetSceneStrategy = remember { SheetSceneStrategy() }
                     val entries: EntryProviderInstaller = {
                         entry<OnboardingRoute> { OnboardingFlowScreen(onboardingModifier) }
-                        entry<ChatRoute> {
+                        entry<ChatRoute>(metadata = ScreenTransitions.rootFade()) {
                             ChatScreen(
                                 onShowAbout = { navigator.goTo(AboutRoute) },
                                 onShowLocationNotes = { navigator.goTo(LocationNotesRoute) },

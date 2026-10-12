@@ -106,4 +106,23 @@ class BackDispatchTest {
         // into the next test's Activity and starts it on About.
         rule.pressBack()
     }
+
+    /** A second Back while a screen is still sliding out pops nothing more. */
+    @Test
+    fun twoQuickBackPressesPopOnlyOneScreen() {
+        rule.awaitChat()
+        rule.navigateTo(AboutRoute)
+        rule.navigateTo(DebugSettingsRoute)
+        rule.waitUntil(5_000) { rule.topOfStack() == DebugSettingsRoute }
+        rule.waitForIdle()
+
+        rule.mainClock.autoAdvance = false
+        rule.pressSystemBack()
+        rule.mainClock.advanceTimeBy(40)
+        rule.pressSystemBack()
+        rule.mainClock.autoAdvance = true
+
+        rule.waitUntil(5_000) { rule.topOfStack() == ChatRoute || rule.topOfStack() == AboutRoute }
+        assertFalse(rule.activity.isFinishing)
+    }
 }
