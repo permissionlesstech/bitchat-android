@@ -168,8 +168,15 @@ class LiveVoiceManager private constructor(private val context: Context) {
 
     fun clearVisibleConversation() = visibility.clear()
 
-    /** Clears the private chat with [peerID] only if it is still the visible conversation. */
-    fun leaveDirectMessage(peerID: String) = visibility.leaveDirectMessage(peerID)
+    /** Claims the public mesh as on screen for [owner]; see [LiveVoiceVisibility]. */
+    fun claimPublicMesh(owner: Any) = visibility.claimPublicMesh(owner)
+
+    /** Claims the private chat with [peerID] as on screen for [owner]. */
+    fun claimDirectMessage(owner: Any, peerID: String) =
+        visibility.claimDirectMessage(owner, peerID)
+
+    /** Drops [owner]'s claim, leaving every other screen's claim alone. */
+    fun releaseVisible(owner: Any) = visibility.release(owner)
 
     /** Whether the conversation of [scope] with [peerID] is on screen; [peerID] is ignored for the public mesh. */
     fun isVisible(scope: LiveVoiceScope, peerID: String): Boolean =

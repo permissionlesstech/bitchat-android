@@ -140,17 +140,23 @@ fun ChatScreen(
             selectedLocationChannel is ChannelID.Mesh &&
             visiblePrivatePeer == null
 
-    // What live voice treats as on screen while this screen shows. It leaves
-    // composition under a full screen, so the private chat screen sets itself
-    // and clears only itself; this covers the timeline, channels and a chat
-    // begun with /msg. Keyed on the selection too, so it shows the mesh again
-    // once a private chat that was popped has ended.
-    LaunchedEffect(isMeshTimeline, visiblePrivatePeer) {
+    // What live voice treats as on screen while this screen is composed: the
+    // mesh timeline or a chat begun with /msg; a channel claims nothing. The
+    // private chat screen claims for itself. Chat leaves composition under a
+    // full screen (peer list, notes, About...) and releases its claim then, so
+    // nothing it showed stays live there; under a sheet it stays composed and
+    // keeps it. A release drops only this screen's claim, so a private chat
+    // that claimed while chat slid out stays visible. Keyed on the selection
+    // too, so it shows the mesh again once a popped private chat has ended.
+    val liveVoiceOwner = remember { Any() }
+    DisposableEffect(liveVoiceManager, isMeshTimeline, visiblePrivatePeer) {
         when {
-            visiblePrivatePeer != null -> liveVoiceManager.showDirectMessage(visiblePrivatePeer)
-            isMeshTimeline -> liveVoiceManager.showPublicMesh()
-            else -> liveVoiceManager.clearVisibleConversation()
+            visiblePrivatePeer != null ->
+                liveVoiceManager.claimDirectMessage(liveVoiceOwner, visiblePrivatePeer)
+            isMeshTimeline -> liveVoiceManager.claimPublicMesh(liveVoiceOwner)
+            else -> liveVoiceManager.releaseVisible(liveVoiceOwner)
         }
+        onDispose { liveVoiceManager.releaseVisible(liveVoiceOwner) }
     }
 
     DisposableEffect(

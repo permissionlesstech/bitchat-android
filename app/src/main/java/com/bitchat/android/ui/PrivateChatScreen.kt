@@ -60,13 +60,14 @@ fun PrivateChatScreen(
     // however it was reached: from chat, over the peer list, from a
     // notification or restored with the stack. Started rather than resumed:
     // the screen stays visible under the security sheet and while it slides,
-    // when NavDisplay holds it at STARTED. Leaving clears only this chat, so
-    // a chat that replaced it, or chat showing the mesh, is left alone.
+    // when NavDisplay holds it at STARTED. Leaving releases only this screen's
+    // claim, so a chat that replaced it, or chat showing the mesh, is left alone.
     val context = LocalContext.current
     val liveVoiceManager = remember(context) { LiveVoiceManager.getInstance(context) }
+    val liveVoiceOwner = remember { Any() }
     LifecycleStartEffect(liveVoiceManager, peerID) {
-        liveVoiceManager.showDirectMessage(peerID)
-        onStopOrDispose { liveVoiceManager.leaveDirectMessage(peerID) }
+        liveVoiceManager.claimDirectMessage(liveVoiceOwner, peerID)
+        onStopOrDispose { liveVoiceManager.releaseVisible(liveVoiceOwner) }
     }
 
     // Celebrate being favorited: a springy wobble of the header star. Springs rather than

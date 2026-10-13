@@ -2,6 +2,7 @@ package com.bitchat.android.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -33,14 +34,16 @@ fun BitchatNavDisplay(
     modifier: Modifier = Modifier,
     sceneStrategies: List<SceneStrategy<NavKey>> = emptyList(),
 ) {
+    // Read here, in composition: the transition specs are not composable.
+    val layoutDirection = LocalLayoutDirection.current
     NavDisplay(
         backStack = navigator.backStack,
         modifier = modifier,
         onBack = { if (!navigator.goBack()) onExit() },
         sceneStrategies = sceneStrategies,
-        transitionSpec = { ScreenTransitions.push() },
-        popTransitionSpec = { ScreenTransitions.pop() },
-        predictivePopTransitionSpec = { ScreenTransitions.pop() },
+        transitionSpec = { ScreenTransitions.push(layoutDirection) },
+        popTransitionSpec = { ScreenTransitions.pop(layoutDirection) },
+        predictivePopTransitionSpec = { ScreenTransitions.pop(layoutDirection) },
         entryDecorators = listOf(
             rememberSaveableStateHolderNavEntryDecorator(),
             rememberViewModelStoreNavEntryDecorator(),
