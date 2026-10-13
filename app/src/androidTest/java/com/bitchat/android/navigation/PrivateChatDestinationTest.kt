@@ -15,6 +15,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
+import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.features.voice.LiveVoiceScope
 import com.bitchat.android.navigation.openPrivateChat
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.testhook.ChatSessionTestAccess
@@ -79,6 +81,37 @@ class PrivateChatDestinationTest {
         rule.pressSystemBack()
         rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == ChatRoute }
         assertFalse(rule.activity.isFinishing)
+    }
+
+    /**
+     * Live voice autoplays, and is read, only in the conversation on screen.
+     * Chat is not composed under the peer list, so a chat pushed over the list
+     * must say it is on screen itself, and must stop saying so when it leaves.
+     */
+    @Test
+    fun liveVoiceFollowsAChatPushedOverThePeerList() {
+        rule.awaitChat()
+        rule.navigateTo(MeshPeerListRoute)
+        awaitPeerList()
+
+        rule.runOnUiThread {
+            rule.activity.navigator.openPrivateChat(
+                ContactDirectory.canonicalConversationId(PEER_A),
+                over = MeshPeerListRoute,
+            )
+        }
+        awaitPrivateChatScreen()
+
+        rule.waitUntil(timeoutMillis = 5_000) {
+            liveVoice().isVisible(LiveVoiceScope.DIRECT_MESSAGE, PEER_A)
+        }
+        assertFalse(liveVoice().isVisible(LiveVoiceScope.PUBLIC_MESH, PEER_B))
+
+        rule.pressSystemBack()
+        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == MeshPeerListRoute }
+        rule.waitUntil(timeoutMillis = 5_000) {
+            !liveVoice().isVisible(LiveVoiceScope.DIRECT_MESSAGE, PEER_A)
+        }
     }
 
     @Test
@@ -298,6 +331,15 @@ class PrivateChatDestinationTest {
     }
 
     private fun session() = ChatSessionTestAccess.of(rule.activity)
+
+    private fun liveVoice() = LiveVoiceManager.getInstance(rule.activity)
+
+    private fun awaitPeerList() {
+        val title = rule.activity.getString(R.string.your_network)
+        rule.waitUntil(timeoutMillis = 5_000) {
+            rule.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
 
     private fun openPrivateChat(peerID: String) {
         rule.runOnUiThread {

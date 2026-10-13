@@ -142,8 +142,7 @@ class LiveVoiceManager private constructor(private val context: Context) {
     val events: SharedFlow<LiveVoiceEvent> = _events.asSharedFlow()
 
     @Volatile private var appForeground = false
-    @Volatile private var visibleScope: LiveVoiceScope? = null
-    @Volatile private var visiblePeerID: String? = null
+    private val visibility = LiveVoiceVisibility()
     private var activePlayer: PttAudioPlayer? = null
 
     init {
@@ -163,20 +162,18 @@ class LiveVoiceManager private constructor(private val context: Context) {
         }
     }
 
-    fun showPublicMesh() {
-        visibleScope = LiveVoiceScope.PUBLIC_MESH
-        visiblePeerID = null
-    }
+    fun showPublicMesh() = visibility.showPublicMesh()
 
-    fun showDirectMessage(peerID: String) {
-        visibleScope = LiveVoiceScope.DIRECT_MESSAGE
-        visiblePeerID = peerID
-    }
+    fun showDirectMessage(peerID: String) = visibility.showDirectMessage(peerID)
 
-    fun clearVisibleConversation() {
-        visibleScope = null
-        visiblePeerID = null
-    }
+    fun clearVisibleConversation() = visibility.clear()
+
+    /** Clears the private chat with [peerID] only if it is still the visible conversation. */
+    fun leaveDirectMessage(peerID: String) = visibility.leaveDirectMessage(peerID)
+
+    /** Whether the conversation of [scope] with [peerID] is on screen; [peerID] is ignored for the public mesh. */
+    fun isVisible(scope: LiveVoiceScope, peerID: String): Boolean =
+        visibility.isVisible(scope, peerID)
 
     /** Returns false only when the frame itself violates the live-voice wire/resource contract. */
     @Synchronized
@@ -470,9 +467,6 @@ class LiveVoiceManager private constructor(private val context: Context) {
 
     private fun canAutoplay(key: AssemblyKey): Boolean =
         LiveVoicePreferences.isEnabled(context) && appForeground && isVisible(key.scope, key.peerID)
-
-    private fun isVisible(scope: LiveVoiceScope, peerID: String): Boolean =
-        visibleScope == scope && (scope == LiveVoiceScope.PUBLIC_MESH || visiblePeerID == peerID)
 
     private fun liveDirectory(): File = File(context.cacheDir, "files/incoming").apply { mkdirs() }
 }

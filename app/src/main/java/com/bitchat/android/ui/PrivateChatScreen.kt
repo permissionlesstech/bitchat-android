@@ -17,12 +17,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.launch
@@ -51,6 +54,20 @@ fun PrivateChatScreen(
     val isNostrReachableFavorite = uiState.isNostrReachableFavorite
     val isFavorite = uiState.isFavorite
     val theyFavoritedUs = uiState.theyFavoritedUs
+
+    // Live voice plays, and is read, only in the conversation on screen. Chat
+    // leaves composition under this screen, so this one says so itself,
+    // however it was reached: from chat, over the peer list, from a
+    // notification or restored with the stack. Started rather than resumed:
+    // the screen stays visible under the security sheet and while it slides,
+    // when NavDisplay holds it at STARTED. Leaving clears only this chat, so
+    // a chat that replaced it, or chat showing the mesh, is left alone.
+    val context = LocalContext.current
+    val liveVoiceManager = remember(context) { LiveVoiceManager.getInstance(context) }
+    LifecycleStartEffect(liveVoiceManager, peerID) {
+        liveVoiceManager.showDirectMessage(peerID)
+        onStopOrDispose { liveVoiceManager.leaveDirectMessage(peerID) }
+    }
 
     // Celebrate being favorited: a springy wobble of the header star. Springs rather than
     // keyframed tweens, matching the app's press feedback, so the settle overshoots slightly.

@@ -140,6 +140,11 @@ fun ChatScreen(
             selectedLocationChannel is ChannelID.Mesh &&
             visiblePrivatePeer == null
 
+    // What live voice treats as on screen while this screen shows. It leaves
+    // composition under a full screen, so the private chat screen sets itself
+    // and clears only itself; this covers the timeline, channels and a chat
+    // begun with /msg. Keyed on the selection too, so it shows the mesh again
+    // once a private chat that was popped has ended.
     LaunchedEffect(isMeshTimeline, visiblePrivatePeer) {
         when {
             visiblePrivatePeer != null -> liveVoiceManager.showDirectMessage(visiblePrivatePeer)
