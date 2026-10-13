@@ -82,6 +82,10 @@
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Messages</string>
   <string name="conversations">Conversations</string>
+  <string name="private_contacts">Private contacts</string>
+  <string name="private_contact_badge">Private contact</string>
+  <string name="add_private_contact">Add to private contacts</string>
+  <string name="remove_private_contact">Remove from private contacts</string>
   <string name="offline_not_in_mesh">Offline · not in mesh</string>
   <string name="offline_reachable_via_nostr">Offline from mesh · Nostr available</string>
   <string name="delete">Delete</string>
