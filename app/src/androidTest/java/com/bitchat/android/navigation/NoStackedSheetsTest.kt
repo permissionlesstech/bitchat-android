@@ -61,7 +61,7 @@ class NoStackedSheetsTest {
     fun channelsToNotes() {
         rule.awaitChat()
         rule.navigateTo(LocationChannelsRoute); assertInvariant()
-        rule.runOnUiThread { rule.activity.navigator.replaceCurrent(LocationNotesRoute) }
+        rule.runOnUiThread { rule.activity.navigator.goTo(LocationNotesRoute) }
         assertInvariant()
     }
 

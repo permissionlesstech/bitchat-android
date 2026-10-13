@@ -322,9 +322,9 @@ class MainActivity : OrientationAwareActivity() {
                         entry<LocationChannelsRoute> {
                             LocationChannelsScreen(
                                 onClose = { navigator.popTo(LocationChannelsRoute, inclusive = true) },
-                                // Swaps channels for notes rather than stacking them, so
-                                // Back from notes returns to chat as it always has.
-                                onShowLocationNotes = { navigator.replaceCurrent(LocationNotesRoute) },
+                                // Pushed like any list → detail step: Back from notes
+                                // returns to channels, not to chat.
+                                onShowLocationNotes = { navigator.goTo(LocationNotesRoute) },
                             )
                         }
                         entry<VerificationRoute> { route ->

@@ -72,11 +72,11 @@ class LocationChannelsDestinationTest {
     }
 
     /**
-     * Notes replaces channels rather than stacking on it, so Back from notes
-     * returns to chat as it did when both were sheets.
+     * Notes is pushed over channels, so Back from notes returns to channels and
+     * a second Back to chat.
      */
     @Test
-    fun notesOpenedFromChannelsCloseBackToChat() {
+    fun notesOpenedFromChannelsGoBackToChannels() {
         rule.awaitChat()
         rule.navigateTo(LocationChannelsRoute)
         awaitChannels()
@@ -86,10 +86,13 @@ class LocationChannelsDestinationTest {
         rule.onNodeWithText(notes).performClick()
         rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == LocationNotesRoute }
 
-        assertEquals(listOf(ChatRoute, LocationNotesRoute), rule.backStack())
+        assertEquals(listOf(ChatRoute, LocationChannelsRoute, LocationNotesRoute), rule.backStack())
 
         rule.pressSystemBack()
+        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == LocationChannelsRoute }
+        awaitChannels()
 
+        rule.pressSystemBack()
         rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == ChatRoute }
         assertFalse(rule.activity.isFinishing)
     }
