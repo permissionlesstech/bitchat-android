@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">بیت چت</string>
+    <string name="permission_bluetooth_rationale">سی یک رسۊوی پیوم هومکار و هومکار بؽ اینترنت، موجوز بۊلۊتۊس لازوم هڌ.</string>
+    <string name="permission_location_rationale">موجوز جاگه، سی جوستن دسگا یل نهنگ و ایسا وو منپیز وا بۊلۊتۊس لازوم هڌ.</string>
+    <string name="permission_notification_rationale">سی گرؽڌن وارسۊوی مجال ٱووڌن پیوم نۊ، موجوز وارسۊوی لازوم هڌ.</string>
+    <string name="nickname_hint">نوم موستعار</string>
+    <string name="message_hint">ی پیوم هؽل کۊنین...</string>
+    <string name="channel_password_hint">رزم</string>
+    <string name="join_channel">ٱووڌن و تورگه</string>
+    <string name="leave_channel">رئڌن</string>
+    <string name="send_message">فشناڌن</string>
+    <string name="back">وورگشتن</string>
+    <string name="people">مردوم</string>
+    <string name="channels">تورگه یل</string>
+    <string name="online_users">منتورا ریتور</string>
+    <string name="no_one_connected">هیشکؽ منپیز نؽڌ</string>
+    <string name="emergency_clear_hint">سی روفتن پوی داده یل، 3 کرت ریس بزݩ</string>
+</resources>
