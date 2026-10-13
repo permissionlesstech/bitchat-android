@@ -1073,6 +1073,9 @@ class MainActivity : OrientationAwareActivity() {
         // Runs after the stack has been seeded: on a cold start from
         // initializeApp, which only runs once onboarding has put chat at the
         // root, and otherwise from onNewIntent once onboarding is complete.
+        // A sheet is never under anything, so unwind to chat first. When chat
+        // is not on the stack the result is false and nothing changes.
+        navigator.popTo(ChatRoute)
         navigator.goTo(VerificationRoute(chatState.selectedPrivateChatPeer.value))
         val qr = VerificationService.verifyScannedQR(uri.toString())
         if (qr != null) {

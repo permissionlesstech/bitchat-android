@@ -20,12 +20,15 @@ import androidx.navigation3.scene.SceneStrategyScope
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 
 /**
- * Shows entries marked with [sheet] as a bottom sheet over the destinations
- * beneath them, which stay composed.
+ * Shows entries marked with [sheet] as a bottom sheet over the screen beneath
+ * them, which stays composed.
  *
- * The destination-type rule puts a leaf here: one list or action set, no
- * sub-screens, dismissed by tapping away. Anything with internal navigation, a
- * stacked destination or an Activity result is a full-screen route instead.
+ * Invariant: never a sheet on top of a sheet. A sheet is a leaf — one list,
+ * action set or fixed view, no sub-screens — and sits directly on a screen.
+ * Anything a sheet opens replaces it rather than stacking on it. A destination
+ * that would ever be opened over a sheet, has internal navigation, stacks
+ * another destination, takes text input or launches an Activity for a result
+ * is a full screen instead. NoStackedSheetsTest walks every opener.
  */
 class SheetSceneStrategy : SceneStrategy<NavKey> {
 
