@@ -30,7 +30,6 @@ import java.util.*
 @Composable
 fun GeohashPeopleList(
     viewModel: MeshPeerListViewModel,
-    onTapPerson: () -> Unit,
     modifier: Modifier = Modifier,
     excludedIdentityAliases: Set<String> = emptySet()
 ) {
@@ -144,8 +143,8 @@ fun GeohashPeopleList(
                         .lowercase(Locale.ROOT) in duplicateBaseNames,
                     onTap = {
                         if (!isMe) {
+                            // Pushes the chat over the list; closing the list here would pop it again.
                             viewModel.startGeohashDM(person.id)
-                            onTapPerson()
                         }
                     }
                 )

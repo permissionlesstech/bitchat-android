@@ -393,7 +393,6 @@ fun MeshPeerListScreen(
                     is ChannelID.Location -> {
                         GeohashPeopleList(
                             viewModel = viewModel,
-                            onTapPerson = onBack,
                             excludedIdentityAliases = conversationIdentityAliases,
                             modifier = Modifier.padding(
                                 top = if (
