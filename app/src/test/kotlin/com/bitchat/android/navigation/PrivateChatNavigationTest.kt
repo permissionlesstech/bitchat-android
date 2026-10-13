@@ -10,11 +10,33 @@ class PrivateChatNavigationTest {
     private fun stack(): List<Any> = navigator.backStack.toList()
 
     @Test
-    fun `a chat opened from the peer list takes the list's place`() {
+    fun `a chat opened from the peer list is pushed over it`() {
         navigator.resetTo(ChatRoute)
         navigator.goTo(MeshPeerListRoute)
 
-        navigator.openPrivateChat("peer-a")
+        navigator.openPrivateChat("peer-a", over = MeshPeerListRoute)
+
+        assertEquals(listOf(ChatRoute, MeshPeerListRoute, PrivateChatRoute("peer-a")), stack())
+    }
+
+    @Test
+    fun `a second chat from the list replaces the first and keeps the list`() {
+        navigator.resetTo(ChatRoute)
+        navigator.goTo(MeshPeerListRoute)
+        navigator.openPrivateChat("peer-a", over = MeshPeerListRoute)
+        navigator.goTo(SecurityVerificationRoute("peer-a"))
+
+        navigator.openPrivateChat("peer-b", over = MeshPeerListRoute)
+
+        assertEquals(listOf(ChatRoute, MeshPeerListRoute, PrivateChatRoute("peer-b")), stack())
+    }
+
+    @Test
+    fun `a chat opened over a base that is not on the stack falls back to chat`() {
+        navigator.resetTo(ChatRoute)
+        navigator.goTo(ChatUserRoute("alice", messageId = null))
+
+        navigator.openPrivateChat("peer-a", over = MeshPeerListRoute)
 
         assertEquals(listOf(ChatRoute, PrivateChatRoute("peer-a")), stack())
     }

@@ -48,7 +48,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
+import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.favorites.FavoriteRelationship
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
@@ -65,13 +65,15 @@ import kotlinx.coroutines.delay
 
 
 /**
- * Sheet components for ChatScreen
- * Extracted from ChatScreen.kt for better organization
+ * The mesh peer list: private conversations, joined channels and nearby people.
+ *
+ * A full screen. [onBack] returns to chat; opening a conversation pushes the
+ * private chat over this screen, so Back from it lands here again.
  */
 
 @Composable
 fun MeshPeerListScreen(
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
     onShowVerification: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: MeshPeerListViewModel = hiltViewModel(),
@@ -145,10 +147,22 @@ fun MeshPeerListScreen(
         label = "topBarAlpha"
     )
 
-    Box(modifier = modifier.fillMaxWidth()) {
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+    ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            // The search field sits in the list; consuming the keyboard inset here
+            // lets it scroll above the keyboard.
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding(),
             contentPadding = PaddingValues(top = 72.dp, bottom = 32.dp)
         ) {
             val peopleCount = when (selectedLocationChannel) {
@@ -359,7 +373,7 @@ fun MeshPeerListScreen(
                                                 }
                                             } else {
                                                 viewModel.switchToChannel(channel)
-                                                onDismiss()
+                                                onBack()
                                             }
                                         },
                                         onLeaveChannel = {
@@ -379,7 +393,7 @@ fun MeshPeerListScreen(
                     is ChannelID.Location -> {
                         GeohashPeopleList(
                             viewModel = viewModel,
-                            onTapPerson = onDismiss,
+                            onTapPerson = onBack,
                             excludedIdentityAliases = conversationIdentityAliases,
                             modifier = Modifier.padding(
                                 top = if (
@@ -416,7 +430,7 @@ fun MeshPeerListScreen(
         }
 
         // TopBar (animated)
-        BitchatSheetTopBar(
+        BitchatScreenTopBar(
             title = {
                 BitchatSheetTitle(text = stringResource(id = R.string.your_network))
             },
@@ -436,15 +450,17 @@ fun MeshPeerListScreen(
                     }
                 }
             },
-            onClose = onDismiss,
+            onBack = onBack,
         )
 
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .imePadding()
                 .padding(16.dp)
         )
+    }
     }
 
     pendingConversationDelete?.let { conversation ->

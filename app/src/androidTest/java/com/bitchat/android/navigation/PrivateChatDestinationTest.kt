@@ -21,6 +21,7 @@ import com.bitchat.android.testhook.ChatSessionTestAccess
 import com.bitchat.android.ui.NotificationManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
@@ -50,14 +51,50 @@ class PrivateChatDestinationTest {
     }
 
     @Test
-    fun aChatOpenedFromThePeerListTakesItsPlace() {
+    fun aChatOpenedFromThePeerListIsPushedOverIt() {
         rule.awaitChat()
         rule.navigateTo(MeshPeerListRoute)
-        rule.awaitSheet()
+        rule.waitForIdle()
 
-        openPrivateChat(PEER_A)
+        rule.runOnUiThread {
+            rule.activity.navigator.openPrivateChat(
+                ContactDirectory.canonicalConversationId(PEER_A),
+                over = MeshPeerListRoute,
+            )
+        }
+        rule.waitForIdle()
 
-        assertEquals(listOf(ChatRoute, PrivateChatRoute(PEER_A)), rule.backStack())
+        assertEquals(
+            listOf(ChatRoute, MeshPeerListRoute, PrivateChatRoute(PEER_A)),
+            rule.backStack()
+        )
+        awaitSelection(PEER_A)
+        awaitPrivateChatScreen()
+
+        rule.pressSystemBack()
+        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == MeshPeerListRoute }
+        rule.waitForIdle()
+        awaitSelection(null)
+
+        rule.pressSystemBack()
+        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == ChatRoute }
+        assertFalse(rule.activity.isFinishing)
+    }
+
+    @Test
+    fun theListAndChatSurviveRecreation() {
+        rule.awaitChat()
+        rule.navigateTo(MeshPeerListRoute)
+        rule.runOnUiThread {
+            rule.activity.navigator.openPrivateChat(PEER_A, over = MeshPeerListRoute)
+        }
+        awaitSelection(PEER_A)
+
+        rule.activityRule.scenario.recreate()
+
+        rule.waitUntil(5_000) {
+            rule.backStack() == listOf(ChatRoute, MeshPeerListRoute, PrivateChatRoute(PEER_A))
+        }
         awaitSelection(PEER_A)
     }
 
@@ -212,11 +249,10 @@ class PrivateChatDestinationTest {
             rule.backStack()
         )
         // The stack changes before anything is drawn from it. A press before
-        // the sheets exist reaches the Activity, with nothing yet to pop.
-        rule.waitUntil(timeoutMillis = 5_000) {
-            rule.onAllNodes(isSheet).fetchSemanticsNodes().size >= 2
-        }
+        // the screens exist reaches the Activity, with nothing yet to pop.
+        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() is PrivateChatRoute }
         rule.waitForIdle()
+        assertTrue(rule.onAllNodes(isSheet).fetchSemanticsNodes().isEmpty())
 
         rule.pressSystemBack()
 

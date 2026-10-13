@@ -82,6 +82,7 @@ import com.bitchat.android.navigation.ScreenTransitions
 import com.bitchat.android.navigation.SecurityVerificationRoute
 import com.bitchat.android.navigation.SheetSceneStrategy
 import com.bitchat.android.navigation.VerificationRoute
+import com.bitchat.android.navigation.openPrivateChat
 import com.bitchat.android.navigation.rootRouteFor
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.VerificationService
@@ -291,9 +292,9 @@ class MainActivity : OrientationAwareActivity() {
                                     ?.let { (it as PrivateChatRoute).conversationID },
                             )
                         }
-                        entry<MeshPeerListRoute>(metadata = SheetSceneStrategy.sheet()) {
+                        entry<MeshPeerListRoute> {
                             MeshPeerListScreen(
-                                onDismiss = { navigator.popTo(MeshPeerListRoute, inclusive = true) },
+                                onBack = { navigator.popTo(MeshPeerListRoute, inclusive = true) },
                                 // Pushed over the list, so Back from verification
                                 // returns to it.
                                 onShowVerification = {
@@ -1025,8 +1026,9 @@ class MainActivity : OrientationAwareActivity() {
                     // the list of conversations rather than straight back on chat.
                     if (navigator.popTo(ChatRoute)) {
                         navigator.goTo(MeshPeerListRoute)
-                        navigator.goTo(
-                            PrivateChatRoute(ContactDirectory.canonicalConversationId(peerID))
+                        navigator.openPrivateChat(
+                            ContactDirectory.canonicalConversationId(peerID),
+                            over = MeshPeerListRoute,
                         )
                     }
                     

@@ -5,6 +5,7 @@ import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.navigation.Navigator
+import com.bitchat.android.navigation.MeshPeerListRoute
 import com.bitchat.android.navigation.openPrivateChat
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationStoreState
@@ -77,9 +78,12 @@ class MeshPeerListViewModel @Inject constructor(
     fun isNoisePublicKeyVerified(noisePublicKey: ByteArray, verifiedFingerprints: Set<String>): Boolean =
         verifiedFingerprints.contains(verificationHandler.fingerprintFromNoiseBytes(noisePublicKey))
 
-    /** Shows the private chat with [peerID] in place of the list. */
+    /** Shows the private chat with [peerID] over the list; Back returns to it. */
     fun openPrivateChat(peerID: String) {
-        navigator.openPrivateChat(ContactDirectory.canonicalConversationId(peerID))
+        navigator.openPrivateChat(
+            ContactDirectory.canonicalConversationId(peerID),
+            over = MeshPeerListRoute,
+        )
     }
 
     fun startGeohashDM(pubkeyHex: String) {
