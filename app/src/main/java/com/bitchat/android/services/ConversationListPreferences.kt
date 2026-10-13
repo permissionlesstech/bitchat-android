@@ -54,6 +54,7 @@ internal class ConversationListPreferences private constructor(
     val pinned: StateFlow<Set<String>> = _pinned.asStateFlow()
     private val _muted = MutableStateFlow(loadSet(MUTED_KEY))
     val muted: StateFlow<Set<String>> = _muted.asStateFlow()
+    // Loaded once during construction; subsequent mutations share the instance monitor.
     private val _drafts = MutableStateFlow(loadDrafts())
     val drafts: StateFlow<Map<String, String>> = _drafts.asStateFlow()
 
@@ -73,9 +74,11 @@ internal class ConversationListPreferences private constructor(
     fun isPinned(conversationID: String): Boolean =
         normalize(conversationID) in _pinned.value
 
+    @Synchronized
     fun draftFor(conversationID: String): String? =
         _drafts.value[normalize(conversationID)]
 
+    @Synchronized
     fun setDraft(conversationID: String, text: String) {
         val key = normalize(conversationID)
         val updated = _drafts.value.toMutableMap()
@@ -88,6 +91,22 @@ internal class ConversationListPreferences private constructor(
         saveDrafts(retained)
     }
 
+    @Synchronized
+    fun appendDraft(conversationID: String, text: String) {
+        val key = normalize(conversationID)
+        val updated = _drafts.value.toMutableMap()
+        updated.remove(key)
+        updated[key] = mergeConversationDrafts(
+            existingDraft = _drafts.value[key],
+            appendedText = text,
+            maxChars = MAX_DRAFT_CHARS,
+        )
+        val retained = boundDrafts(updated)
+        _drafts.value = retained
+        saveDrafts(retained)
+    }
+
+    @Synchronized
     fun removeConversation(conversationID: String) {
         val key = normalize(conversationID)
         _pinned.value = _pinned.value - key
@@ -102,6 +121,7 @@ internal class ConversationListPreferences private constructor(
      * Re-key list preferences when a transient mesh ID becomes a stable contact identity.
      * Without this, pin, mute, and draft state appears to disappear after a Noise/favorite update.
      */
+    @Synchronized
     fun canonicalizeAliases() {
         val canonicalPinned = _pinned.value.mapTo(linkedSetOf(), ::normalize)
         val canonicalMuted = _muted.value.mapTo(linkedSetOf(), ::normalize)
@@ -125,12 +145,14 @@ internal class ConversationListPreferences private constructor(
         }
     }
 
+    @Synchronized
     fun clearInMemory() {
         _pinned.value = emptySet()
         _muted.value = emptySet()
         _drafts.value = emptyMap()
     }
 
+    @Synchronized
     fun clearAll(): Boolean {
         val cleared = stateManager.clearSecureValuesSynchronously(
             PINNED_KEY,
@@ -191,4 +213,19 @@ internal class ConversationListPreferences private constructor(
         return retained
     }
 
+}
+
+internal fun mergeConversationDrafts(
+    existingDraft: String?,
+    appendedText: String,
+    maxChars: Int,
+): String {
+    val boundedAppend = appendedText.take(maxChars)
+    val existing = existingDraft?.takeIf(String::isNotBlank) ?: return boundedAppend
+    val existingLimit = (maxChars - boundedAppend.length - 1).coerceAtLeast(0)
+    return if (existingLimit == 0) {
+        boundedAppend
+    } else {
+        existing.take(existingLimit) + "\n" + boundedAppend
+    }
 }

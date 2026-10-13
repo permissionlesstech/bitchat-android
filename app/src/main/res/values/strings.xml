@@ -136,6 +136,14 @@
   <string name="private_media_legacy_body" tools:ignore="MissingTranslation">%1$s cannot be sent encrypted to %2$s because their client is older. %3$s</string>
   <string name="private_media_legacy_send_once" tools:ignore="MissingTranslation">Send this file once</string>
 
+  <!-- Tracking-link warnings -->
+  <string name="tracking_link_warning_title">Possible tracker detected</string>
+  <string name="tracking_link_send_warning">Your link probably contains a tracker. Proceed?</string>
+  <string name="tracking_link_open_warning">This link probably contains a tracker. Open the link?</string>
+  <string name="tracking_link_reply_saved">Possible tracker detected. Reply saved as a draft for review.</string>
+  <string name="tracking_link_confirm">Yes</string>
+  <string name="tracking_link_cancel">No</string>
+
   <!-- File viewer dialog -->
   <string name="file_viewer_title">📎 File Received</string>
   <string name="file_viewer_name">📄 %1$s</string>
