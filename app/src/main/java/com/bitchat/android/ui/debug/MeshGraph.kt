@@ -38,6 +38,8 @@ private const val DAMPING = 0.85f
 private const val MAX_VELOCITY = 30f
 private const val PULSE_DECAY = 0.05f
 private const val ROUTE_DECAY = 0.02f
+// Below this speed, in px per frame, a node counts as at rest.
+private const val REST_SPEED = 0.05f
 private val EDGE_ICON_OFFSET = 14.dp
 
 private enum class EdgeTransport { WIFI, BLE }
@@ -144,7 +146,11 @@ private class Simulation {
         }
     }
 
-    fun step() {
+    /**
+     * Advances one frame. Returns whether anything is still moving: a node
+     * above rest speed or held by a drag, a pulse or a route still fading.
+     */
+    fun step(): Boolean {
         val nodeList = nodes.values.toList()
         val cx = width / 2f
         val cy = height / 2f
@@ -250,6 +256,10 @@ private class Simulation {
                 }
             }
         }
+
+        return activeRoutes.isNotEmpty() || nodeList.any { n ->
+            n.isDragged || n.pulseLevel > 0f || n.vx * n.vx + n.vy * n.vy > REST_SPEED * REST_SPEED
+        }
     }
 }
 
@@ -266,6 +276,12 @@ fun ForceDirectedMeshGraph(
     val simulation = remember { Simulation() }
     val colorScheme = MaterialTheme.colorScheme
     
+    // We need a state that changes on every tick to trigger redraw
+    var tick by remember { mutableLongStateOf(0L) }
+
+    // Bumped by anything that can set the graph moving; restarts the loop below.
+    var motion by remember { mutableIntStateOf(0) }
+
     // Listen for visual events
     val debugManager = remember { DebugSettingsManager.getInstance() }
     LaunchedEffect(Unit) {
@@ -274,25 +290,14 @@ fun ForceDirectedMeshGraph(
                 is MeshVisualEvent.PacketActivity -> simulation.triggerNodePulse(event.peerID)
                 is MeshVisualEvent.RouteActivity -> simulation.triggerRouteAnimation(event.route)
             }
+            motion++
         }
     }
-
-    // We need a state that changes on every tick to trigger redraw
-    var tick by remember { mutableLongStateOf(0L) }
 
     // Update topology when input data changes
     LaunchedEffect(nodes, edges) {
         simulation.updateTopology(nodes, edges)
-    }
-
-    // Animation Loop
-    LaunchedEffect(Unit) {
-        while (true) {
-            withFrameNanos { 
-                simulation.step()
-                tick++ 
-            }
-        }
+        motion++
     }
 
     BoxWithConstraints(modifier = modifier) {
@@ -303,6 +308,19 @@ fun ForceDirectedMeshGraph(
         SideEffect {
             simulation.width = w
             simulation.height = h
+        }
+
+        // Animation loop. Steps every frame while the graph moves and stops
+        // once it settles, so a still graph draws no frames and the screen
+        // can go idle; a new topology, an event, a drag or a resize restarts it.
+        LaunchedEffect(motion, w, h) {
+            var moving = true
+            while (moving) {
+                withFrameNanos {
+                    moving = simulation.step()
+                    tick++
+                }
+            }
         }
 
         Canvas(
@@ -321,6 +339,7 @@ fun ForceDirectedMeshGraph(
                                 val dist = sqrt((closest.x - offset.x).pow(2) + (closest.y - offset.y).pow(2))
                                 if (dist < 80f) { // Touch radius
                                     closest.isDragged = true
+                                    motion++
                                 }
                             }
                         },

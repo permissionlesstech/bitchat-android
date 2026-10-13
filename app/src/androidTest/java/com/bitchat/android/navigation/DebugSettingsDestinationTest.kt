@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
+import com.bitchat.android.services.meshgraph.MeshGraphService
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -105,6 +106,36 @@ class DebugSettingsDestinationTest {
         // The Debug button exists only on the Settings tab.
         rule.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(debugButton))
         rule.onNodeWithText(debugButton).assertExists()
+    }
+
+    /**
+     * Debug settings goes idle with nodes in the mesh graph. The device's own
+     * announcement puts its node there a while after the mesh starts, and the
+     * graph used to step every frame forever, so a test that opened Debug
+     * after that point never saw Compose go idle. Synthetic nodes stand in
+     * for the announcement so this does not depend on timing.
+     */
+    @Test
+    fun theScreenGoesIdleWithAMeshGraphShowing() {
+        val graph = MeshGraphService.getInstance()
+        graph.updateFromAnnouncement(
+            "0123456789abcdef", "alice", listOf("fedcba9876543210"),
+            System.currentTimeMillis().toULong(),
+        )
+        try {
+            openDebugOverAbout()
+            rule.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Mesh topology"))
+            // The graph's own peer list proves the graph, not "No gossip yet", is shown.
+            rule.waitUntil(timeoutMillis = 5_000) {
+                rule.onAllNodesWithText("01234567 • alice").fetchSemanticsNodes().isNotEmpty()
+            }
+
+            // Throws ComposeNotIdleException while the graph keeps stepping.
+            rule.waitForIdle()
+        } finally {
+            graph.removePeer("0123456789abcdef")
+            graph.removePeer("fedcba9876543210")
+        }
     }
 
     private fun openDebugOverAbout() {
