@@ -263,15 +263,37 @@ class MainActivity : OrientationAwareActivity() {
                         )
                     ) { }
 
+                    // The chat stack set aside while onboarding covers it, as when
+                    // Bluetooth or a permission is turned off mid-session. Saved, so
+                    // a process death during onboarding does not lose it either.
+                    var stackUnderOnboarding by rememberSaveable(
+                        saver = Saver(
+                            save = { encodeToSavedState(stackSerializer, ArrayList(it.value)) },
+                            restore = { mutableStateOf(decodeFromSavedState(stackSerializer, it)) }
+                        )
+                    ) { mutableStateOf(emptyList<NavKey>()) }
+
                     // Seeds the stack on its first run and re-roots it on every
                     // later crossing between onboarding and chat. Keyed on root, so
-                    // it stays quiet between onboarding steps. resetTo rather than
-                    // goTo: onboarding must not be reachable with Back once the app
-                    // is in. Compares the root of the stack, not its top, so pushing
-                    // a destination onto chat does not read as a crossing.
+                    // it stays quiet between onboarding steps. The stack is replaced,
+                    // not pushed onto: onboarding must not be reachable with Back once
+                    // the app is in, nor chat while onboarding shows. Compares the
+                    // root of the stack, not its top, so pushing a destination onto
+                    // chat does not read as a crossing. Returning to chat puts back
+                    // what onboarding interrupted, as upstream did by keeping chat's
+                    // sheets in ChatViewModel.
                     LaunchedEffect(root) {
                         if (navigator.backStack.firstOrNull() != root) {
-                            navigator.resetTo(root)
+                            if (navigator.backStack.firstOrNull() == ChatRoute) {
+                                stackUnderOnboarding = navigator.snapshot()
+                            }
+                            val interrupted = stackUnderOnboarding
+                            if (root == ChatRoute && interrupted.firstOrNull() == ChatRoute) {
+                                navigator.restore(interrupted)
+                            } else {
+                                navigator.resetTo(root)
+                            }
+                            if (root == ChatRoute) stackUnderOnboarding = emptyList()
                         }
                     }
 

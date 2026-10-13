@@ -12,7 +12,10 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.lifecycle.ViewModelProvider
 import com.bitchat.android.MainActivity
+import com.bitchat.android.MainViewModel
+import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.R
 import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.LiveVoiceScope
@@ -135,6 +138,37 @@ class PrivateChatDestinationTest {
             rule.backStack() == listOf(ChatRoute, MeshPeerListRoute, PrivateChatRoute(PEER_A))
         }
         awaitSelection(PEER_A)
+    }
+
+    /**
+     * Turning Bluetooth off mid-conversation sends the app back to onboarding.
+     * Finishing it returns to the list and chat the user was in, not to the
+     * timeline, and Back from onboarding never reaches them meanwhile.
+     */
+    @Test
+    fun theListAndChatSurviveATripThroughOnboarding() {
+        rule.awaitChat()
+        rule.navigateTo(MeshPeerListRoute)
+        rule.runOnUiThread {
+            rule.activity.navigator.openPrivateChat(PEER_A, over = MeshPeerListRoute)
+        }
+        awaitSelection(PEER_A)
+
+        setOnboardingState(OnboardingState.BLUETOOTH_CHECK)
+        rule.waitUntil(5_000) { rule.backStack() == listOf(OnboardingRoute) }
+
+        setOnboardingState(OnboardingState.COMPLETE)
+        rule.waitUntil(5_000) {
+            rule.backStack() == listOf(ChatRoute, MeshPeerListRoute, PrivateChatRoute(PEER_A))
+        }
+        awaitSelection(PEER_A)
+    }
+
+    private fun setOnboardingState(state: OnboardingState) {
+        rule.runOnUiThread {
+            ViewModelProvider(rule.activity)[MainViewModel::class.java].updateOnboardingState(state)
+        }
+        rule.waitForIdle()
     }
 
     /** A message sent from the private chat's composer lands in its conversation and clears it. */
