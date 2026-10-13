@@ -44,25 +44,9 @@
 
     <!-- Mga Abiso -->
     <string name="notification_summary_more">at %1$d pa</string>
-    <string name="notification_messages_from_people">%1$d mensahe mula sa %2$d tao</string>
-    <string name="notification_more_conversations">at %1$d pang usapan</string>
     <string name="notification_active_peers_title">mga bitchatter na malapit!</string>
     <string name="notification_active_peers_one">1 tao sa paligid</string>
     <string name="notification_active_peers_many">%1$d tao sa paligid</string>
-    <string name="notification_new_messages">Mga bagong mensahe</string>
-    <string name="notification_new_location_messages">Mga mensahe sa lokasyon</string>
-    <string name="notification_mentions_in">Nabanggit sa %1$s</string>
-    <string name="notification_mentions_in_more">Nabanggit sa %1$s (+%2$d pa)</string>
-    <string name="notification_mentions_in_plural">%1$d banggit sa %2$s</string>
-    <string name="notification_new_activity_in">Bagong aktibidad sa %1$s</string>
-    <string name="notification_messages_in">Mga mensahe sa %1$s</string>
-    <string name="notification_joined_conversation">Sumali si %1$s sa usapan</string>
-    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d banggit</string>
-    <string name="notification_geohash_summary_title">bitchat – mga chat sa lokasyon</string>
-    <string name="notification_geohash_summary_text">%1$d mensahe mula sa %2$d lokasyon</string>
-    <string name="notification_mesh_mention_title_singular">Nabanggit sa Mesh Chat</string>
-    <string name="notification_mesh_mention_title_plural">%1$d banggit sa Mesh Chat</string>
-    <string name="notification_more_locations">at %1$d pang lokasyon</string>
     <string name="notification_and_more">at %1$d pa</string>
 
     <!-- Paborito / Accessibility -->
@@ -335,10 +319,6 @@
     <string name="cancel">Kanselahin</string>
 
     <!-- Plurals -->
-    <plurals name="notification_and_more">
-        <item quantity="one">at %d pa</item>
-        <item quantity="other">at %d pa</item>
-    </plurals>
 
     <plurals name="people_count">
         <item quantity="one">1 tao</item>
@@ -364,7 +344,6 @@
   <string name="fingerprint_their">their fingerprint</string>
   <string name="fingerprint_yours">your fingerprint</string>
   <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
   <string name="fingerprint_status_verified">encrypted &amp; verified</string>
   <string name="fingerprint_status_encrypted">encrypted</string>
   <string name="fingerprint_status_handshaking">handshaking</string>
@@ -377,12 +356,6 @@
   <string name="fingerprint_mark_verified">mark as verified</string>
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
-  <string name="verify_mutual_match_title">Mutual verification</string>
-  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
-  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
-  <string name="verify_success_title">Verified</string>
-  <string name="verify_success_body">You verified %1$s</string>
-  <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">Buksan ang Tungkol</string>
   <string name="nearby_notes_reveal">tingnan kung may mga note na naiwan dito</string>
   <string name="nearby_notes_one">1 note ang naiwan dito — i-tap para basahin</string>

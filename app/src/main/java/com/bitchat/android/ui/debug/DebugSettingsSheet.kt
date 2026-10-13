@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.rotate
 import com.bitchat.android.ui.theme.BitchatFontFamily
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.services.meshgraph.MeshGraphService
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.toArgb
@@ -45,8 +45,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.bitchat.android.onboarding.PermissionManager
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
+import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.util.DistributionInfoProvider
 import kotlinx.coroutines.Dispatchers
@@ -201,10 +200,8 @@ private enum class GraphMode { OVERALL, PER_DEVICE, PER_PEER }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun DebugSettingsSheet(
-    isPresented: Boolean,
-    onDismiss: () -> Unit,
-    meshService: BluetoothMeshService
+fun DebugSettingsScreen(
+    onClose: () -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val manager = remember { DebugSettingsManager.getInstance() }
@@ -224,6 +221,10 @@ fun DebugSettingsSheet(
     val gcsMaxBytes by manager.gcsMaxBytes.collectAsState()
     val gcsFpr by manager.gcsFprPercent.collectAsState()
     val context = LocalContext.current
+    // Resolved rather than passed in. A panic clear replaces the mesh service, so
+    // a reference captured when the screen was opened could be a stale instance;
+    // the holder always has the current one.
+    val meshService = remember(context) { MeshServiceHolder.getOrCreate(context.applicationContext) }
     var distributionInfo by remember {
         mutableStateOf<DistributionInfoProvider.DistributionInfo?>(null)
     }
@@ -280,62 +281,63 @@ fun DebugSettingsSheet(
     )
 
     // Push live connected devices from mesh service whenever sheet is visible
-    LaunchedEffect(isPresented) {
-        if (isPresented) {
-            // Poll device list periodically for now (TODO: add callbacks)
-            while (true) {
-                val entries = meshService.connectionManager.getConnectedDeviceEntries()
-                val mapping = meshService.getDeviceAddressToPeerMapping()
-                val peers = mapping.values.toSet()
-                val nicknames = meshService.getPeerNicknames()
-                val directMap = peers.associateWith { pid -> meshService.getPeerInfo(pid)?.isDirectConnection == true }
-                val devices = entries.map { (address, isClient, rssi) ->
-                    val pid = mapping[address]
-                    com.bitchat.android.ui.debug.ConnectedDevice(
-                        deviceAddress = address,
-                        peerID = pid,
-                        nickname = pid?.let { nicknames[it] },
-                        rssi = rssi,
-                        connectionType = if (isClient) ConnectionType.GATT_CLIENT else ConnectionType.GATT_SERVER,
-                        isDirectConnection = pid?.let { directMap[it] } ?: false
-                    )
-                }
-                manager.updateConnectedDevices(devices)
-                // Also surface Wi‑Fi Aware status
-                try {
-                    val ctrl = com.bitchat.android.wifiaware.WifiAwareController
-                    val known = ctrl.knownPeers.value
-                    val discovered = ctrl.discoveredPeers.value
-                    val discoveredMap = discovered.associateWith { pid -> known[pid] ?: "" }
-                    manager.updateWifiAwareDiscovered(discoveredMap)
-                    manager.updateWifiAwareConnected(ctrl.connectedPeers.value)
-                } catch (_: Exception) { }
-                kotlinx.coroutines.delay(1000)
+    LaunchedEffect(Unit) {
+        // Poll device list periodically for now (TODO: add callbacks)
+        while (true) {
+            val entries = meshService.connectionManager.getConnectedDeviceEntries()
+            val mapping = meshService.getDeviceAddressToPeerMapping()
+            val peers = mapping.values.toSet()
+            val nicknames = meshService.getPeerNicknames()
+            val directMap = peers.associateWith { pid -> meshService.getPeerInfo(pid)?.isDirectConnection == true }
+            val devices = entries.map { (address, isClient, rssi) ->
+                val pid = mapping[address]
+                com.bitchat.android.ui.debug.ConnectedDevice(
+                    deviceAddress = address,
+                    peerID = pid,
+                    nickname = pid?.let { nicknames[it] },
+                    rssi = rssi,
+                    connectionType = if (isClient) ConnectionType.GATT_CLIENT else ConnectionType.GATT_SERVER,
+                    isDirectConnection = pid?.let { directMap[it] } ?: false
+                )
             }
+            manager.updateConnectedDevices(devices)
+            // Also surface Wi‑Fi Aware status
+            try {
+                val ctrl = com.bitchat.android.wifiaware.WifiAwareController
+                val known = ctrl.knownPeers.value
+                val discovered = ctrl.discoveredPeers.value
+                val discoveredMap = discovered.associateWith { pid -> known[pid] ?: "" }
+                manager.updateWifiAwareDiscovered(discoveredMap)
+                manager.updateWifiAwareConnected(ctrl.connectedPeers.value)
+            } catch (_: Exception) { }
+            kotlinx.coroutines.delay(1000)
         }
     }
 
-    LaunchedEffect(isPresented) {
-        if (isPresented) {
-            distributionInfo = withContext(Dispatchers.IO) {
-                runCatching { DistributionInfoProvider.inspect(context) }.getOrNull()
-            }
+    LaunchedEffect(Unit) {
+        distributionInfo = withContext(Dispatchers.IO) {
+            runCatching { DistributionInfoProvider.inspect(context) }.getOrNull()
         }
     }
 
     val scope = rememberCoroutineScope()
 
-    if (!isPresented) return
-
-    BitchatBottomSheet(
-        onDismissRequest = onDismiss,
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
     ) {
         // Mark debug sheet visible/invisible to gate heavy work
         LaunchedEffect(Unit) { DebugSettingsManager.getInstance().setDebugSheetVisible(true) }
         DisposableEffect(Unit) {
             onDispose { DebugSettingsManager.getInstance().setDebugSheetVisible(false) }
         }
-        Box(modifier = Modifier.fillMaxWidth()) {
+        // A sheet applied the status bar inset; a full-screen destination has to, or the list,
+        // whose top padding was sized for a sheet, starts under the top bar.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+        ) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -536,7 +538,7 @@ fun DebugSettingsSheet(
                         LaunchedEffect(Unit) {
                             try { nicknameMap.value = meshService.getPeerNicknames() } catch (_: Exception) { }
                             // Try to fetch device->peer map periodically for legend resolution
-                            while (isPresented) {
+                            while (true) {
                                 try { devicePeerMap.value = meshService.getDeviceAddressToPeerMapping() } catch (_: Exception) { }
                                 kotlinx.coroutines.delay(1000)
                             }
@@ -594,8 +596,8 @@ fun DebugSettingsSheet(
                                 }
                             }
 
-                            LaunchedEffect(isPresented, graphMode) {
-                                while (isPresented) {
+                            LaunchedEffect(graphMode) {
+                                while (true) {
                                     when (graphMode) {
                                         GraphMode.OVERALL -> {
                                             val sIn = relayStats.lastSecondIncoming.toFloat()
@@ -928,8 +930,8 @@ fun DebugSettingsSheet(
                 item { Spacer(Modifier.height(16.dp)) }
             }
 
-            BitchatSheetTopBar(
-                onClose = onDismiss,
+            BitchatScreenTopBar(
+                onBack = onClose,
                 modifier = Modifier.align(Alignment.TopCenter),
                 backgroundAlpha = topBarAlpha,
                 title = {

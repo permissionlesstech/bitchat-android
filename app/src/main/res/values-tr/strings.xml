@@ -38,25 +38,9 @@
     <string name="skip">Atla</string>
 
     <string name="notification_summary_more">ve %1$d daha</string>
-    <string name="notification_messages_from_people">%2$d kişiden %1$d mesaj</string>
-    <string name="notification_more_conversations">ve %1$d sohbet daha</string>
     <string name="notification_active_peers_title">yakında bitchatter’lar!</string>
     <string name="notification_active_peers_one">Yakında 1 kişi</string>
     <string name="notification_active_peers_many">Yakında %1$d kişi</string>
-    <string name="notification_new_messages">Yeni mesajlar</string>
-    <string name="notification_new_location_messages">Yeni konum mesajları</string>
-    <string name="notification_mentions_in">%1$s içinde bahsedildi</string>
-    <string name="notification_mentions_in_more">%1$s içinde bahsedildi (+%2$d)</string>
-    <string name="notification_mentions_in_plural">%2$s içinde %1$d bahsetme</string>
-    <string name="notification_new_activity_in">%1$s içinde yeni etkinlik</string>
-    <string name="notification_messages_in">%1$s içindeki mesajlar</string>
-    <string name="notification_joined_conversation">%1$s sohbete katıldı</string>
-    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d bahsetme</string>
-    <string name="notification_geohash_summary_title">bitchat – konum sohbetleri</string>
-    <string name="notification_geohash_summary_text">%2$d konumdan %1$d mesaj</string>
-    <string name="notification_mesh_mention_title_singular">Mesh sohbette bahsedildi</string>
-    <string name="notification_mesh_mention_title_plural">Mesh sohbette %1$d bahsetme</string>
-    <string name="notification_more_locations">ve %1$d konum daha</string>
     <string name="notification_and_more">ve %1$d daha</string>
 
     <string name="cd_add_favorite">Sık kullanılanlara ekle</string>
@@ -311,10 +295,6 @@
     <string name="join">Katıl</string>
     <string name="cancel">İptal</string>
 
-    <plurals name="notification_and_more">
-        <item quantity="one">ve %d daha</item>
-        <item quantity="other">ve %d daha</item>
-    </plurals>
     <plurals name="people_count">
         <item quantity="one">1 kişi</item>
         <item quantity="other">%d kişi</item>
@@ -351,7 +331,6 @@
   <string name="fingerprint_their">their fingerprint</string>
   <string name="fingerprint_yours">your fingerprint</string>
   <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
   <string name="fingerprint_status_verified">encrypted &amp; verified</string>
   <string name="fingerprint_status_encrypted">encrypted</string>
   <string name="fingerprint_status_handshaking">handshaking</string>
@@ -364,12 +343,6 @@
   <string name="fingerprint_mark_verified">mark as verified</string>
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
-  <string name="verify_mutual_match_title">Mutual verification</string>
-  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
-  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
-  <string name="verify_success_title">Verified</string>
-  <string name="verify_success_body">You verified %1$s</string>
-  <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">Hakkında’yı aç</string>
   <string name="nearby_notes_reveal">buraya bırakılan notlara bak</string>
   <string name="nearby_notes_one">buraya 1 not bırakıldı — okumak için dokun</string>

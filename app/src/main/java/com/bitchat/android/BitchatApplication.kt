@@ -2,12 +2,15 @@ package com.bitchat.android
 
 import android.app.Application
 import com.bitchat.android.nostr.RelayDirectory
+import com.bitchat.android.ui.NostrBackgroundEventProcessor
 import com.bitchat.android.ui.theme.ThemePreferenceManager
 import com.bitchat.android.net.ArtiTorManager
+import dagger.hilt.android.HiltAndroidApp
 
 /**
  * Main application class for bitchat Android
  */
+@HiltAndroidApp
 class BitchatApplication : Application() {
 
     override fun onCreate() {
@@ -21,6 +24,13 @@ class BitchatApplication : Application() {
             val torProvider = ArtiTorManager.getInstance()
             torProvider.init(this)
         } catch (_: Exception){}
+
+        // Nostr and the geocoder take their clients from here, and refuse to run
+        // without them, so nothing of theirs can connect outside this policy.
+        com.bitchat.android.nostr.NostrNetwork.install(object : com.bitchat.android.nostr.NostrHttpClients {
+            override fun httpClient() = com.bitchat.android.net.OkHttpProvider.httpClient()
+            override fun webSocketClient() = com.bitchat.android.net.OkHttpProvider.webSocketClient()
+        })
 
         // Initialize relay directory (loads assets/nostr_relays.csv)
         RelayDirectory.initialize(this)
@@ -60,6 +70,10 @@ class BitchatApplication : Application() {
             com.bitchat.android.wifiaware.WifiAwareController.initialize(this, enabled)
         } catch (_: Exception) { }
 
+        // Let the shared debug toggles reach this app's transports
+        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().transportToggles =
+            com.bitchat.android.service.MeshTransportToggles
+
         // Initialize Geohash Registries for persistence
         try {
             com.bitchat.android.nostr.GeohashAliasRegistry.initialize(this)
@@ -68,7 +82,12 @@ class BitchatApplication : Application() {
 
         // Own relay connectivity, selected-channel subscriptions, and presence scheduling at the
         // process level so closing the Activity does not disconnect Nostr.
-        try { com.bitchat.android.nostr.NostrBackgroundRuntime.initialize(this) } catch (_: Exception) { }
+        try {
+            com.bitchat.android.nostr.NostrBackgroundRuntime.initialize(
+                this,
+                ::NostrBackgroundEventProcessor
+            )
+        } catch (_: Exception) { }
 
         // Initialize mesh service preferences
         try { com.bitchat.android.service.MeshServicePreferences.init(this) } catch (_: Exception) { }

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%1$d messaggi da %2$d persone</string>
+    <string name="notification_more_conversations">e altre %1$d conversazioni</string>
+    <string name="notification_new_messages">Nuovi messaggi</string>
+    <string name="notification_new_location_messages">Nuovi messaggi di posizione</string>
+    <string name="notification_mentions_in">Menzionato in %1$s</string>
+    <string name="notification_mentions_in_more">Menzionato in %1$s (+%2$d altri)</string>
+    <string name="notification_mentions_in_plural">%1$d menzioni in %2$s</string>
+    <string name="notification_new_activity_in">Nuova attività in %1$s</string>
+    <string name="notification_messages_in">Messaggi in %1$s</string>
+    <string name="notification_joined_conversation">%1$s si è unito alla conversazione</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat - %1$d menzioni</string>
+    <string name="notification_geohash_summary_title">bitchat - chat di posizione</string>
+    <string name="notification_geohash_summary_text">%1$d messaggi da %2$d posizioni</string>
+    <string name="notification_mesh_mention_title_singular">Menzionato nella chat mesh</string>
+    <string name="notification_mesh_mention_title_plural">%1$d menzioni nella chat mesh</string>
+    <string name="notification_more_locations">e altre %1$d posizioni</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">e %d altro</item>
+        <item quantity="other">e altri %d</item>
+    </plurals>
+  <string name="verify_mutual_match_title">Verifica reciproca</string>
+  <string name="verify_mutual_match_body">Tu e %1$s vi siete verificati</string>
+  <string name="verify_mutual_system_message">verifica reciproca con %1$s</string>
+  <string name="verify_success_title">Verificato</string>
+  <string name="verify_success_body">Hai verificato %1$s</string>
+  <string name="verify_success_system_message">verificato %1$s</string>
+</resources>

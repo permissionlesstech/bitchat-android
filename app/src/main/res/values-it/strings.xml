@@ -44,25 +44,9 @@
 
     <!-- Notifiche -->
     <string name="notification_summary_more">e altri %1$d</string>
-    <string name="notification_messages_from_people">%1$d messaggi da %2$d persone</string>
-    <string name="notification_more_conversations">e altre %1$d conversazioni</string>
     <string name="notification_active_peers_title">bitchatter nelle vicinanze!</string>
     <string name="notification_active_peers_one">1 persona nei dintorni</string>
     <string name="notification_active_peers_many">%1$d persone nei dintorni</string>
-    <string name="notification_new_messages">Nuovi messaggi</string>
-    <string name="notification_new_location_messages">Nuovi messaggi di posizione</string>
-    <string name="notification_mentions_in">Menzionato in %1$s</string>
-    <string name="notification_mentions_in_more">Menzionato in %1$s (+%2$d altri)</string>
-    <string name="notification_mentions_in_plural">%1$d menzioni in %2$s</string>
-    <string name="notification_new_activity_in">Nuova attività in %1$s</string>
-    <string name="notification_messages_in">Messaggi in %1$s</string>
-    <string name="notification_joined_conversation">%1$s si è unito alla conversazione</string>
-    <string name="notification_geohash_summary_title_mentions">bitchat - %1$d menzioni</string>
-    <string name="notification_geohash_summary_title">bitchat - chat di posizione</string>
-    <string name="notification_geohash_summary_text">%1$d messaggi da %2$d posizioni</string>
-    <string name="notification_mesh_mention_title_singular">Menzionato nella chat mesh</string>
-    <string name="notification_mesh_mention_title_plural">%1$d menzioni nella chat mesh</string>
-    <string name="notification_more_locations">e altre %1$d posizioni</string>
     <string name="notification_and_more">e altri %1$d</string>
 
     <!-- Accessibilità favoriti -->
@@ -351,10 +335,6 @@
     <string name="debug_question_mark">?</string>
 
     <!-- Plurali -->
-    <plurals name="notification_and_more">
-        <item quantity="one">e %d altro</item>
-        <item quantity="other">e altri %d</item>
-    </plurals>
 
     <plurals name="people_count">
         <item quantity="one">1 persona</item>
@@ -393,7 +373,6 @@
   <string name="fingerprint_their">loro impronta</string>
   <string name="fingerprint_yours">tua impronta</string>
   <string name="fingerprint_pending">handshake in corso</string>
-  <string name="fingerprint_no_peer">apri chat privata</string>
   <string name="fingerprint_status_verified">criptato &amp; verificato</string>
   <string name="fingerprint_status_encrypted">criptato</string>
   <string name="fingerprint_status_handshaking">handshake</string>
@@ -406,12 +385,6 @@
   <string name="fingerprint_mark_verified">segna verificato</string>
   <string name="fingerprint_start_handshake">avvia handshake</string>
   <string name="fingerprint_copy">copia</string>
-  <string name="verify_mutual_match_title">Verifica reciproca</string>
-  <string name="verify_mutual_match_body">Tu e %1$s vi siete verificati</string>
-  <string name="verify_mutual_system_message">verifica reciproca con %1$s</string>
-  <string name="verify_success_title">Verificato</string>
-  <string name="verify_success_body">Hai verificato %1$s</string>
-  <string name="verify_success_system_message">verificato %1$s</string>
     <string name="cd_open_about">Apri Informazioni</string>
   <string name="nearby_notes_reveal">controlla se ci sono note lasciate qui</string>
   <string name="nearby_notes_one">1 nota lasciata qui — tocca per leggere</string>

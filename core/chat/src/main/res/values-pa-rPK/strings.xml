@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%2$d لوکان کولوں %1$d پیغام</string>
+    <string name="notification_more_conversations">تے %1$d ہور گلاں</string>
+    <string name="notification_new_messages">نویں پیغام</string>
+    <string name="notification_new_location_messages">نویں لوکیشن پیغام</string>
+    <string name="notification_mentions_in">%1$s وچ ذکر ہویا</string>
+    <string name="notification_mentions_in_more">%1$s وچ ذکر (+%2$d ہور)</string>
+    <string name="notification_mentions_in_plural">%2$s وچ %1$d وار ذکر</string>
+    <string name="notification_new_activity_in">%1$s وچ نویں سرگرمی</string>
+    <string name="notification_messages_in">%1$s وچ پیغام</string>
+    <string name="notification_joined_conversation">%1$s گفتگو وچ شامل ہویا</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d ذکر</string>
+    <string name="notification_geohash_summary_title">bitchat – لوکیشن چیٹ</string>
+    <string name="notification_geohash_summary_text">%2$d ٹھاں توں %1$d پیغام</string>
+    <string name="notification_mesh_mention_title_singular">میش چیٹ وچ ذکر</string>
+    <string name="notification_mesh_mention_title_plural">میش چیٹ وچ %1$d ذکر</string>
+    <string name="notification_more_locations">تے %1$d ہور ٹھاں</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">تے %d ہور</item>
+        <item quantity="other">تے %d ہور</item>
+    </plurals>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+</resources>

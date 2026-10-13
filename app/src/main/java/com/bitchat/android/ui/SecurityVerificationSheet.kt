@@ -22,7 +22,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,8 +46,7 @@ import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
-import com.bitchat.android.services.ContactDirectory
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 private data class SecurityStatusInfo(
     val text: String,
@@ -56,96 +54,85 @@ private data class SecurityStatusInfo(
     val tint: Color
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Session security and fingerprints for [conversationID], the content of a
+ * sheet stacked over its private chat.
+ */
 @Composable
 fun SecurityVerificationSheet(
-    isPresented: Boolean,
+    conversationID: String,
     onDismiss: () -> Unit,
-    viewModel: ChatViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    if (!isPresented) return
+    val viewModel = hiltViewModel<SecurityVerificationViewModel, SecurityVerificationViewModel.Factory>(
+        creationCallback = { factory -> factory.create(conversationID) }
+    )
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    SecurityVerificationScreen(
+        uiState = uiState,
+        onAction = viewModel::onAction,
+        onDismiss = onDismiss,
+        modifier = modifier,
+    )
+}
 
-    val peerID by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
-    val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
-    val peerSessionStates by viewModel.peerSessionStates.collectAsStateWithLifecycle()
-
+@Composable
+private fun SecurityVerificationScreen(
+    uiState: SecurityVerificationUiState,
+    onAction: (SecurityVerificationAction) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colorScheme = MaterialTheme.colorScheme
     val accent = colorScheme.primary
     val boxColor = colorScheme.surfaceVariant
-    val peerHexRegex = remember { Regex("^[0-9a-fA-F]{16}$") }
 
-    BitchatBottomSheet(
-        modifier = modifier,
-        onDismissRequest = onDismiss,
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            SecurityVerificationHeader(
-                accent = accent,
-                onClose = onDismiss
+        SecurityVerificationHeader(
+            accent = accent,
+            onClose = onDismiss
+        )
+
+        SecurityStatusCard(
+            displayName = uiState.displayName,
+            accent = accent,
+            boxColor = boxColor,
+            statusInfo = buildStatusInfo(
+                isVerified = uiState.isVerified,
+                sessionState = uiState.sessionState,
+                accent = accent
             )
+        )
 
-            if (peerID == null) {
-                Text(
-                    text = stringResource(R.string.fingerprint_no_peer),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BitchatFontFamily),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-            } else {
-                val selectedPeerID = peerID!!
-                val displayName = viewModel.resolvePeerDisplayNameForFingerprint(selectedPeerID)
-                val fingerprint = viewModel.getPeerFingerprintForDisplay(selectedPeerID)
-                val isVerified = fingerprint != null && verifiedFingerprints.contains(fingerprint)
-                val activeMeshPeerID = ContactDirectory.resolve(selectedPeerID).meshPeerID
-                val sessionState = resolveConversationSessionState(
-                    conversationID = selectedPeerID,
-                    activeMeshPeerID = activeMeshPeerID,
-                    peerSessionStates = peerSessionStates
-                )
-                val statusInfo = buildStatusInfo(
-                    isVerified = isVerified,
-                    sessionState = sessionState,
-                    accent = accent
-                )
+        FingerprintBlock(
+            title = stringResource(R.string.fingerprint_their),
+            fingerprint = uiState.fingerprint,
+            boxColor = boxColor,
+            accent = accent
+        )
 
-                SecurityStatusCard(
-                    displayName = displayName,
-                    accent = accent,
-                    boxColor = boxColor,
-                    statusInfo = statusInfo
-                )
+        FingerprintBlock(
+            title = stringResource(R.string.fingerprint_yours),
+            fingerprint = uiState.myFingerprint,
+            boxColor = boxColor,
+            accent = accent
+        )
 
-                FingerprintBlock(
-                    title = stringResource(R.string.fingerprint_their),
-                    fingerprint = fingerprint,
-                    boxColor = boxColor,
-                    accent = accent
-                )
-
-                FingerprintBlock(
-                    title = stringResource(R.string.fingerprint_yours),
-                    fingerprint = viewModel.getMyFingerprint(),
-                    boxColor = boxColor,
-                    accent = accent
-                )
-
-                SecurityVerificationActions(
-                    isVerified = isVerified,
-                    fingerprint = fingerprint,
-                    displayName = displayName,
-                    accent = accent,
-                    canStartHandshake = fingerprint == null && selectedPeerID.matches(peerHexRegex),
-                    onStartHandshake = { viewModel.initiateMeshHandshake(selectedPeerID) },
-                    onVerify = { fp -> viewModel.verifyFingerprintValue(fp) },
-                    onUnverify = { fp -> viewModel.unverifyFingerprintValue(fp) }
-                )
-            }
-        }
+        SecurityVerificationActions(
+            isVerified = uiState.isVerified,
+            fingerprint = uiState.fingerprint,
+            displayName = uiState.displayName,
+            accent = accent,
+            canStartHandshake = uiState.canStartHandshake,
+            onStartHandshake = { onAction(SecurityVerificationAction.StartHandshake) },
+            onVerify = { fp -> onAction(SecurityVerificationAction.Verify(fp)) },
+            onUnverify = { fp -> onAction(SecurityVerificationAction.Unverify(fp)) }
+        )
     }
 }
 

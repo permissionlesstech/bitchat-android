@@ -33,18 +33,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.ui.media.FullScreenImageViewer
 import com.bitchat.android.ui.theme.BitchatMotion
 
@@ -55,68 +52,67 @@ import com.bitchat.android.ui.theme.BitchatMotion
  * - MessageComponents: Message display and formatting
  * - InputComponents: Message input and command suggestions
  * - SidebarComponents: Navigation drawer with channels and people
- * - AboutSheet: App info and password prompts
+ * - AboutScreen: a route; this screen only raises the request to open it
  * - ChatUIUtils: Utility functions for formatting and colors
  */
 @Composable
-fun ChatScreen(viewModel: ChatViewModel) {
+fun ChatScreen(
+    // No default. A default would let a future call site silently keep showing
+    // About as a sheet instead of navigating to the route.
+    onShowAbout: () -> Unit,
+    onShowLocationNotes: () -> Unit,
+    onShowChatUser: (nickname: String, messageId: String) -> Unit,
+    onShowLocationChannels: () -> Unit,
+    onShowPeerList: () -> Unit,
+    // The private chat shown over this screen, if any. It comes from the back
+    // stack, and covers the moment between opening the chat and the ViewModel
+    // selecting it, when the selection is still empty.
+    openPrivateChatID: String?,
+    // Scoped to the chat's navigation entry. The session it reads lives in the
+    // Activity's retained scope, so recreating this loses nothing.
+    viewModel: ChatViewModel = hiltViewModel(),
+) {
     val colorScheme = MaterialTheme.colorScheme
-    val messages by viewModel.messages.collectAsStateWithLifecycle()
-    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
-    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
-    val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
-    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
-    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
-    val currentChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
-    val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
-    val hasUnreadChannels by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
-    val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
-    val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
-    val channelMessages by viewModel.channelMessages.collectAsStateWithLifecycle()
-    val showCommandSuggestions by viewModel.showCommandSuggestions.collectAsStateWithLifecycle()
-    val commandSuggestions by viewModel.commandSuggestions.collectAsStateWithLifecycle()
-    val showMentionSuggestions by viewModel.showMentionSuggestions.collectAsStateWithLifecycle()
-    val mentionSuggestions by viewModel.mentionSuggestions.collectAsStateWithLifecycle()
-    val showAppInfo by viewModel.showAppInfo.collectAsStateWithLifecycle()
-    val showMeshPeerListSheet by viewModel.showMeshPeerList.collectAsStateWithLifecycle()
-    val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
-    val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
-    val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
-    val legacyPrivateMediaConsent by viewModel.legacyPrivateMediaConsent.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val onAction = viewModel::onAction
+    val timeline = uiState.timeline
+    val composer = uiState.composer
+    val dialogs = uiState.dialogs
+    val connectedPeers = timeline.connectedPeers
+    val peerNicknames = timeline.peerNicknames
+    val geohashPeople = timeline.geohashPeople
+    val nickname = timeline.nickname
+    val selectedPrivatePeer = timeline.selectedPrivatePeer
+    val currentChannel = timeline.currentChannel
+    val selectedLocationChannel = timeline.selectedLocationChannel
 
-    var messageText by remember { mutableStateOf(TextFieldValue("")) }
-    var showPasswordPrompt by remember { mutableStateOf(false) }
-    var showPasswordDialog by remember { mutableStateOf(false) }
+    var messageText by rememberComposerText(selectedPrivatePeer, viewModel::conversationDraft)
     var passwordInput by remember { mutableStateOf("") }
-    var showLocationChannelsSheet by remember { mutableStateOf(false) }
-    var showLocationNotesSheet by remember { mutableStateOf(false) }
-    var showUserSheet by remember { mutableStateOf(false) }
-    var selectedUserForSheet by remember { mutableStateOf("") }
-    var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
     var showFullScreenImageViewer by remember { mutableStateOf(false) }
     var viewerImagePaths by remember { mutableStateOf(emptyList<String>()) }
     var initialViewerIndex by remember { mutableStateOf(0) }
     var forceScrollToBottom by remember { mutableStateOf(false) }
     var isScrolledUp by remember { mutableStateOf(false) }
 
-    LaunchedEffect(selectedPrivatePeer) {
-        messageText = TextFieldValue(
-            selectedPrivatePeer
-                ?.let(viewModel::conversationDraft)
-                .orEmpty()
-        )
+    // A prompt that closed, by a join or a dismissal, leaves no password behind.
+    LaunchedEffect(dialogs.showPasswordPrompt) {
+        if (!dialogs.showPasswordPrompt) passwordInput = ""
     }
 
-    // Show password dialog when needed
-    LaunchedEffect(showPasswordPrompt) {
-        showPasswordDialog = showPasswordPrompt
+    ObserveAsEvents(viewModel.events) { event ->
+        when (event) {
+            ChatEvent.MessageSent -> {
+                messageText = TextFieldValue("")
+                forceScrollToBottom = !forceScrollToBottom
+            }
+            is ChatEvent.ReplaceComposerText -> {
+                messageText = TextFieldValue(
+                    text = event.text,
+                    selection = TextRange(event.text.length)
+                )
+            }
+        }
     }
-
-    val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
-    val passwordPromptChannel by viewModel.passwordPromptChannel.collectAsStateWithLifecycle()
-
-    // Get location channel info for timeline switching
-    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     val nearbyNotesController = remember { NearbyNotesController.shared }
@@ -133,46 +129,34 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val buildingGeohash = availableLocationChannels
         .firstOrNull { it.level == GeohashChannelLevel.BUILDING }
         ?.geohash
+    // The open chat wins over the selection, which trails it until the chat has
+    // started and may still name a chat begun with /msg. Keyed on the selection
+    // too, so the id is canonicalized again as the conversation resolves.
+    val visiblePrivatePeer = remember(openPrivateChatID, selectedPrivatePeer) {
+        openPrivateChatID?.let(ContactDirectory::canonicalConversationId) ?: selectedPrivatePeer
+    }
     val isMeshTimeline =
         currentChannel == null &&
             selectedLocationChannel is ChannelID.Mesh &&
-            selectedPrivatePeer == null &&
-            privateChatSheetPeer == null
+            visiblePrivatePeer == null
 
-    val processLifecycleOwner = remember { ProcessLifecycleOwner.get() }
-    DisposableEffect(processLifecycleOwner, nearbyNotesController) {
-        val lifecycle = processLifecycleOwner.lifecycle
-        val observer = object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) {
-                nearbyNotesController.updateAppForeground(true)
-                liveVoiceManager.setAppForeground(true)
-            }
-
-            override fun onStop(owner: LifecycleOwner) {
-                nearbyNotesController.updateAppForeground(false)
-                liveVoiceManager.setAppForeground(false)
-            }
-        }
-
-        lifecycle.addObserver(observer)
-        nearbyNotesController.updateAppForeground(
-            lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED),
-        )
-
-        onDispose {
-            lifecycle.removeObserver(observer)
-            nearbyNotesController.updateAppForeground(false)
-            liveVoiceManager.setAppForeground(false)
-        }
-    }
-
-    LaunchedEffect(isMeshTimeline, privateChatSheetPeer, selectedPrivatePeer) {
+    // What live voice treats as on screen while this screen is composed: the
+    // mesh timeline or a chat begun with /msg; a channel claims nothing. The
+    // private chat screen claims for itself. Chat leaves composition under a
+    // full screen (peer list, notes, About...) and releases its claim then, so
+    // nothing it showed stays live there; under a sheet it stays composed and
+    // keeps it. A release drops only this screen's claim, so a private chat
+    // that claimed while chat slid out stays visible. Keyed on the selection
+    // too, so it shows the mesh again once a popped private chat has ended.
+    val liveVoiceOwner = remember { Any() }
+    DisposableEffect(liveVoiceManager, isMeshTimeline, visiblePrivatePeer) {
         when {
-            privateChatSheetPeer != null -> liveVoiceManager.showDirectMessage(privateChatSheetPeer!!)
-            selectedPrivatePeer != null -> liveVoiceManager.showDirectMessage(selectedPrivatePeer!!)
-            isMeshTimeline -> liveVoiceManager.showPublicMesh()
-            else -> liveVoiceManager.clearVisibleConversation()
+            visiblePrivatePeer != null ->
+                liveVoiceManager.claimDirectMessage(liveVoiceOwner, visiblePrivatePeer)
+            isMeshTimeline -> liveVoiceManager.claimPublicMesh(liveVoiceOwner)
+            else -> liveVoiceManager.releaseVisible(liveVoiceOwner)
         }
+        onDispose { liveVoiceManager.releaseVisible(liveVoiceOwner) }
     }
 
     DisposableEffect(
@@ -194,34 +178,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
-    // Determine what messages to show based on current context (unified timelines)
-    // Legacy private chat timeline removed - private chats now exclusively use PrivateChatSheet
-    val displayMessages = when {
-        currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
-        else -> {
-            val locationChannel = selectedLocationChannel
-            if (locationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                val geokey = "geo:${locationChannel.channel.geohash}"
-                channelMessages[geokey] ?: emptyList()
-            } else {
-                messages // Mesh timeline
-            }
-        }
-    }
-
-    // Identity of the timeline on screen, derived exactly like displayMessages above. Drives the
-    // per-conversation scroll position and animation state in MessagesList.
-    val conversationKey = when {
-        currentChannel != null -> "channel:$currentChannel"
-        else -> {
-            val locationChannel = selectedLocationChannel
-            if (locationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                "geo:${locationChannel.channel.geohash}"
-            } else {
-                "mesh"
-            }
-        }
-    }
+    val displayMessages = timeline.messages
+    val conversationKey = timeline.conversationKey
 
     val mentionPeerIdentities = remember(
         displayMessages,
@@ -301,7 +259,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             MessagesList(
                 messages = displayMessages,
                 currentUserNickname = nickname,
-                meshService = viewModel.meshServiceFacade,
+                meshService = viewModel.meshService,
                 mentionPeerIdentities = mentionPeerIdentities,
                 modifier = Modifier.fillMaxSize(),
                 conversationKey = conversationKey,
@@ -320,7 +278,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     val (baseName, hashSuffix) = splitSuffix(fullSenderName)
 
                     // Check if we're in a geohash channel to include hash suffix
-                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
                     val mentionText = if (
                         selectedLocationChannel is ChannelID.Location &&
                         hashSuffix.isNotEmpty()
@@ -347,12 +304,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     // Message long press - open user action sheet with message context
                     // Extract base nickname from message sender (contains all necessary info)
                     val (baseName, _) = splitSuffix(message.sender)
-                    selectedUserForSheet = baseName
-                    selectedMessageForSheet = message
-                    showUserSheet = true
+                    onShowChatUser(baseName, message.id)
                 },
                 onCancelTransfer = { msg ->
-                    viewModel.cancelMediaSend(msg.id)
+                    onAction(ChatAction.CancelMediaSend(msg.id))
                 },
                 onImageClick = { currentPath, allImagePaths, initialIndex ->
                     viewerImagePaths = allImagePaths
@@ -364,7 +319,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             if (showNotesStrip) {
                 NearbyNotesStrip(
                     noteCount = nearbyNotes.size,
-                    onClick = { showLocationNotesSheet = true },
+                    onClick = onShowLocationNotes,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(top = statusBarHeight + headerHeight)
@@ -378,7 +333,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         // Bridge file share from lower-level input to ViewModel
     androidx.compose.runtime.LaunchedEffect(Unit) {
         com.bitchat.android.ui.events.FileShareDispatcher.setHandler { peer, channel, path ->
-            viewModel.sendFileNote(peer, channel, path)
+            onAction(ChatAction.SendFileNote(peer, channel, path))
         }
     }
 
@@ -391,53 +346,34 @@ fun ChatScreen(viewModel: ChatViewModel) {
         messageText = messageText,
         onMessageTextChange = { newText: TextFieldValue ->
             messageText = newText
-            viewModel.setConversationDraft(selectedPrivatePeer, newText.text)
-            viewModel.updateCommandSuggestions(newText.text)
-            viewModel.updateMentionSuggestions(newText.text)
+            onAction(ChatAction.ComposerTextChanged(newText.text, selectedPrivatePeer))
         },
         onSend = {
             if (messageText.text.trim().isNotEmpty()) {
-                viewModel.sendMessage(messageText.text.trim()) { accepted ->
-                    if (accepted) {
-                        messageText = TextFieldValue("")
-                        viewModel.setConversationDraft(selectedPrivatePeer, "")
-                        // Clearing the field in code does not run onMessageTextChange,
-                        // so the popups have to be dismissed here.
-                        viewModel.clearSuggestions()
-                        forceScrollToBottom = !forceScrollToBottom
-                    }
-                }
+                onAction(ChatAction.Send(messageText.text.trim(), selectedPrivatePeer))
             }
         },
         onSendVoiceNote = { peer, onionOrChannel, path ->
-            viewModel.sendVoiceNote(peer, onionOrChannel, path)
+            onAction(ChatAction.SendVoiceNote(peer, onionOrChannel, path))
         },
         onSendImageNote = { peer, onionOrChannel, path ->
-            viewModel.sendImageNote(peer, onionOrChannel, path)
+            onAction(ChatAction.SendImageNote(peer, onionOrChannel, path))
         },
         onSendFileNote = { peer, onionOrChannel, path ->
-            viewModel.sendFileNote(peer, onionOrChannel, path)
+            onAction(ChatAction.SendFileNote(peer, onionOrChannel, path))
         },
         recorderFactory = viewModel::createVoiceRecorder,
         
-        showCommandSuggestions = showCommandSuggestions,
-        commandSuggestions = commandSuggestions,
-        showMentionSuggestions = showMentionSuggestions,
-        mentionSuggestions = mentionSuggestions,
+        showCommandSuggestions = composer.showCommandSuggestions,
+        commandSuggestions = composer.commandSuggestions,
+        showMentionSuggestions = composer.showMentionSuggestions,
+        mentionSuggestions = composer.mentionSuggestions,
         mentionPeerIdentities = mentionPeerIdentities,
         onCommandSuggestionClick = { suggestion: CommandSuggestion ->
-                    val commandText = viewModel.selectCommandSuggestion(suggestion)
-                    messageText = TextFieldValue(
-                        text = commandText,
-                        selection = TextRange(commandText.length)
-                    )
+                    onAction(ChatAction.SelectCommandSuggestion(suggestion))
                 },
                 onMentionSuggestionClick = { mention: String ->
-                    val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
-                    messageText = TextFieldValue(
-                        text = mentionText,
-                        selection = TextRange(mentionText.length)
-                    )
+                    onAction(ChatAction.SelectMentionSuggestion(mention, messageText.text))
                 },
                 selectedPrivatePeer = null,
                 currentChannel = currentChannel,
@@ -453,15 +389,16 @@ fun ChatScreen(viewModel: ChatViewModel) {
             selectedPrivatePeer = null,
             currentChannel = currentChannel,
             nickname = nickname,
-            viewModel = viewModel,
+            header = uiState.header,
+            onAction = onAction,
             colorScheme = colorScheme,
-            onSidebarToggle = { viewModel.showMeshPeerList() },
-            onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { viewModel.panicClearAllData() },
-            onLocationChannelsClick = { showLocationChannelsSheet = true },
+            onSidebarToggle = onShowPeerList,
+            onShowAppInfo = onShowAbout,
+            onPanicClear = { onAction(ChatAction.PanicClear) },
+            onLocationChannelsClick = onShowLocationChannels,
             onLocationNotesClick = {
                 nearbyNotesController.reveal()
-                showLocationNotesSheet = true
+                onShowLocationNotes()
             }
         )
 
@@ -515,52 +452,22 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     // Dialogs and Sheets
     ChatDialogs(
-        showPasswordDialog = showPasswordDialog,
-        passwordPromptChannel = passwordPromptChannel,
+        showPasswordDialog = dialogs.showPasswordPrompt,
+        passwordPromptChannel = dialogs.passwordPromptChannel,
         passwordInput = passwordInput,
         onPasswordChange = { passwordInput = it },
         onPasswordConfirm = {
-            if (passwordInput.isNotEmpty()) {
-                val success = viewModel.joinChannel(passwordPromptChannel!!, passwordInput)
-                if (success) {
-                    showPasswordDialog = false
-                    passwordInput = ""
-                }
+            val channel = dialogs.passwordPromptChannel
+            if (passwordInput.isNotEmpty() && channel != null) {
+                onAction(ChatAction.SubmitChannelPassword(channel, passwordInput))
             }
         },
-        onPasswordDismiss = {
-            showPasswordDialog = false
-            passwordInput = ""
-        },
-        showAppInfo = showAppInfo,
-        onAppInfoDismiss = { viewModel.hideAppInfo() },
-        showLocationChannelsSheet = showLocationChannelsSheet,
-        onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
-        onLocationNotesFromChannelsClick = {
-            showLocationChannelsSheet = false
-            showLocationNotesSheet = true
-        },
-        showLocationNotesSheet = showLocationNotesSheet,
-        onLocationNotesSheetDismiss = { showLocationNotesSheet = false },
-        showUserSheet = showUserSheet,
-        onUserSheetDismiss = { 
-            showUserSheet = false
-            selectedMessageForSheet = null // Reset message when dismissing
-        },
-        selectedUserForSheet = selectedUserForSheet,
-        selectedMessageForSheet = selectedMessageForSheet,
-        viewModel = viewModel,
-        showVerificationSheet = showVerificationSheet,
-        onVerificationSheetDismiss = viewModel::hideVerificationSheet,
-        showSecurityVerificationSheet = showSecurityVerificationSheet,
-        onSecurityVerificationSheetDismiss = viewModel::hideSecurityVerificationSheet,
-        showMeshPeerListSheet = showMeshPeerListSheet,
-        onMeshPeerListDismiss = viewModel::hideMeshPeerList,
+        onPasswordDismiss = { onAction(ChatAction.DismissPasswordPrompt) },
     )
 
-    legacyPrivateMediaConsent?.let { request ->
+    dialogs.legacyPrivateMediaConsent?.let { request ->
         AlertDialog(
-            onDismissRequest = { viewModel.cancelLegacyPrivateMedia(request.requestId) },
+            onDismissRequest = { onAction(ChatAction.CancelLegacyPrivateMedia(request.requestId)) },
             title = { Text(stringResource(com.bitchat.android.R.string.private_media_legacy_title)) },
             text = {
                 Text(
@@ -573,12 +480,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 )
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.approveLegacyPrivateMedia(request.requestId) }) {
+                TextButton(onClick = { onAction(ChatAction.ApproveLegacyPrivateMedia(request.requestId)) }) {
                     Text(stringResource(com.bitchat.android.R.string.private_media_legacy_send_once))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.cancelLegacyPrivateMedia(request.requestId) }) {
+                TextButton(onClick = { onAction(ChatAction.CancelLegacyPrivateMedia(request.requestId)) }) {
                     Text(stringResource(android.R.string.cancel))
                 }
             }
@@ -755,7 +662,8 @@ private fun ChatFloatingHeader(
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
-    viewModel: ChatViewModel,
+    header: HeaderState,
+    onAction: (ChatAction) -> Unit,
     colorScheme: ColorScheme,
     onSidebarToggle: () -> Unit,
     onShowAppInfo: () -> Unit,
@@ -791,13 +699,10 @@ private fun ChatFloatingHeader(
             selectedPrivatePeer = selectedPrivatePeer,
             currentChannel = currentChannel,
             nickname = nickname,
-            viewModel = viewModel,
-            onBackClick = {
-                when {
-                    selectedPrivatePeer != null -> viewModel.endPrivateChat()
-                    currentChannel != null -> viewModel.switchToChannel(null)
-                }
-            },
+            header = header,
+            // The main screen never shows a private chat's header, so the only
+            // way back from here is out of a channel.
+            onBackClick = { if (currentChannel != null) onAction(ChatAction.ExitChannel) },
             onSidebarClick = onSidebarToggle,
             onTripleClick = onPanicClear,
             onShowAppInfo = onShowAppInfo,
@@ -806,7 +711,10 @@ private fun ChatFloatingHeader(
                 // Ensure location is loaded before showing sheet
                 locationManager.refreshChannels()
                 onLocationNotesClick()
-            }
+            },
+            onNicknameChange = { onAction(ChatAction.SetNickname(it)) },
+            onLeaveChannel = { onAction(ChatAction.LeaveChannel(it)) },
+            onOpenLatestUnreadPrivateChat = { onAction(ChatAction.OpenLatestUnreadPrivateChat) },
         )
     }
 }
@@ -820,27 +728,7 @@ private fun ChatDialogs(
     onPasswordChange: (String) -> Unit,
     onPasswordConfirm: () -> Unit,
     onPasswordDismiss: () -> Unit,
-    showAppInfo: Boolean,
-    onAppInfoDismiss: () -> Unit,
-    showLocationChannelsSheet: Boolean,
-    onLocationChannelsSheetDismiss: () -> Unit,
-    onLocationNotesFromChannelsClick: () -> Unit,
-    showLocationNotesSheet: Boolean,
-    onLocationNotesSheetDismiss: () -> Unit,
-    showUserSheet: Boolean,
-    onUserSheetDismiss: () -> Unit,
-    selectedUserForSheet: String,
-    selectedMessageForSheet: BitchatMessage?,
-    viewModel: ChatViewModel,
-    showVerificationSheet: Boolean,
-    onVerificationSheetDismiss: () -> Unit,
-    showSecurityVerificationSheet: Boolean,
-    onSecurityVerificationSheetDismiss: () -> Unit,
-    showMeshPeerListSheet: Boolean,
-    onMeshPeerListDismiss: () -> Unit,
 ) {
-    val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
-
     // Password dialog
     PasswordPromptDialog(
         show = showPasswordDialog,
@@ -850,88 +738,4 @@ private fun ChatDialogs(
         onConfirm = onPasswordConfirm,
         onDismiss = onPasswordDismiss
     )
-
-    // About sheet
-    var showDebugSheet by remember { mutableStateOf(false) }
-    AboutSheet(
-        isPresented = showAppInfo,
-        onDismiss = onAppInfoDismiss,
-        onShowDebug = { showDebugSheet = true }
-    )
-    if (showDebugSheet) {
-        com.bitchat.android.ui.debug.DebugSettingsSheet(
-            isPresented = showDebugSheet,
-            onDismiss = { showDebugSheet = false },
-            meshService = viewModel.meshService
-        )
-    }
-    
-    // Location channels sheet
-    if (showLocationChannelsSheet) {
-        LocationChannelsSheet(
-            isPresented = showLocationChannelsSheet,
-            onDismiss = onLocationChannelsSheetDismiss,
-            onLocationNotesClick = onLocationNotesFromChannelsClick,
-            viewModel = viewModel
-        )
-    }
-    
-    // Location notes sheet (extracted to separate presenter)
-    if (showLocationNotesSheet) {
-        LocationNotesSheetPresenter(
-            viewModel = viewModel,
-            onDismiss = onLocationNotesSheetDismiss
-        )
-    }
-    
-    // User action sheet
-    if (showUserSheet) {
-        ChatUserSheet(
-            isPresented = showUserSheet,
-            onDismiss = onUserSheetDismiss,
-            targetNickname = selectedUserForSheet,
-            selectedMessage = selectedMessageForSheet,
-            viewModel = viewModel
-        )
-    }
-    // MeshPeerList sheet (network view)
-    if (showMeshPeerListSheet){
-        MeshPeerListSheet(
-            isPresented = showMeshPeerListSheet,
-            viewModel = viewModel,
-            onDismiss = onMeshPeerListDismiss,
-            onShowVerification = {
-                onMeshPeerListDismiss()
-                viewModel.showVerificationSheet(fromSidebar = true)
-            }
-        )
-    }
-
-    if (showVerificationSheet) {
-        VerificationSheet(
-            isPresented = showVerificationSheet,
-            onDismiss = onVerificationSheetDismiss,
-            viewModel = viewModel
-        )
-    }
-
-    if (showSecurityVerificationSheet) {
-        SecurityVerificationSheet(
-            isPresented = showSecurityVerificationSheet,
-            onDismiss = onSecurityVerificationSheetDismiss,
-            viewModel = viewModel
-        )
-    }
-
-    if (privateChatSheetPeer != null) {
-        PrivateChatSheet(
-            isPresented = true,
-            peerID = privateChatSheetPeer!!,
-            viewModel = viewModel,
-            onDismiss = {
-                viewModel.hidePrivateChatSheet()
-                viewModel.endPrivateChat()
-            }
-        )
-    }
 }

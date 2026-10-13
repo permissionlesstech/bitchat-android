@@ -35,7 +35,6 @@
   <string name="fingerprint_their">對方指紋</string>
   <string name="fingerprint_yours">你的指紋</string>
   <string name="fingerprint_pending">握手中</string>
-  <string name="fingerprint_no_peer">打開私聊查看指紋</string>
   <string name="fingerprint_status_verified">已加密且已驗證</string>
   <string name="fingerprint_status_encrypted">已加密</string>
   <string name="fingerprint_status_handshaking">握手中</string>
@@ -48,12 +47,6 @@
   <string name="fingerprint_mark_verified">標記為已驗證</string>
   <string name="fingerprint_start_handshake">開始握手</string>
   <string name="fingerprint_copy">複製</string>
-  <string name="verify_mutual_match_title">相互驗證</string>
-  <string name="verify_mutual_match_body">你和 %1$s 已相互驗證</string>
-  <string name="verify_mutual_system_message">與 %1$s 相互驗證</string>
-  <string name="verify_success_title">已驗證</string>
-  <string name="verify_success_body">你已驗證 %1$s</string>
-  <string name="verify_success_system_message">已驗證 %1$s</string>
 
   <string name="app_name">bitchat</string>
   <string name="permission_bluetooth_rationale">點對點傳訊需要藍牙權限，無需網際網路。</string>
@@ -90,28 +83,9 @@
   <string name="battery_optimization_continue">繼續</string>
   <string name="retry">重試</string>
   <string name="notification_summary_more">還有 %1$d 則</string>
-  <string name="notification_messages_from_people">來自 %2$d 位使用者的 %1$d 則訊息</string>
-  <string name="notification_more_conversations">還有 %1$d 個對話</string>
   <string name="notification_active_peers_title">👥 附近有 bitchat 使用者！</string>
   <string name="notification_active_peers_one">附近有 1 人</string>
   <string name="notification_active_peers_many">附近有 %1$d 人</string>
-  <string name="notification_new_messages">新訊息</string>
-  <string name="notification_new_location_messages">新位置訊息</string>
-  <string name="notification_mentions_in">在 %1$s 中被提及</string>
-  <string name="notification_mentions_in_more">在 %1$s 中被提及（還有 %2$d 則）</string>
-  <string name="notification_mentions_in_plural">在 %2$s 中有 %1$d 則提及</string>
-  <string name="notification_new_activity_in">%1$s 中有新動態</string>
-  <string name="notification_messages_in">%1$s 中的訊息</string>
-  <string name="notification_joined_conversation">%1$s 加入了對話</string>
-  <string name="notification_geohash_summary_title_mentions">bitchat - %1$d 則提及</string>
-  <string name="notification_geohash_summary_title">bitchat - 位置聊天</string>
-  <string name="notification_geohash_summary_text">來自 %2$d 個位置的 %1$d 則訊息</string>
-  <string name="notification_mesh_mention_title_singular">在 Mesh 聊天中被提及</string>
-  <string name="notification_mesh_mention_title_plural">在 Mesh 聊天中有 %1$d 則提及</string>
-  <string name="notification_more_locations">還有 %1$d 個位置</string>
-  <plurals name="notification_and_more">
-    <item quantity="other">還有 %1$d 則</item>
-  </plurals>
   <string name="mesh_service_channel_name">Mesh 背景服務</string>
   <string name="mesh_service_channel_desc">讓藍牙 mesh 網路在背景持續運作</string>
   <string name="cd_add_favorite">加入最愛</string>

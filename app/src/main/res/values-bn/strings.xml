@@ -44,25 +44,9 @@
 
     <!-- বিজ্ঞপ্তি -->
     <string name="notification_summary_more">এবং %1$d আরো</string>
-    <string name="notification_messages_from_people">%2$d জন থেকে %1$d বার্তা</string>
-    <string name="notification_more_conversations">এবং %1$d আরো কথোপকথন</string>
     <string name="notification_active_peers_title">কাছাকাছি bitchatter!</string>
     <string name="notification_active_peers_one">কাছাকাছি ১ জন</string>
     <string name="notification_active_peers_many">কাছাকাছি %1$d জন</string>
-    <string name="notification_new_messages">নতুন বার্তা</string>
-    <string name="notification_new_location_messages">নতুন অবস্থান বার্তা</string>
-    <string name="notification_mentions_in">%1$s এ উল্লিখিত</string>
-    <string name="notification_mentions_in_more">%1$s এ উল্লিখিত (+%2$d আরো)</string>
-    <string name="notification_mentions_in_plural">%2$s এ %1$d উল্লেখ</string>
-    <string name="notification_new_activity_in">%1$s এ নতুন কার্যকলাপ</string>
-    <string name="notification_messages_in">%1$s এ বার্তা</string>
-    <string name="notification_joined_conversation">%1$s কথোপকথনে যোগ দিয়েছে</string>
-    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d উল্লেখ</string>
-    <string name="notification_geohash_summary_title">bitchat – অবস্থান চ্যাট</string>
-    <string name="notification_geohash_summary_text">%2$d অবস্থান থেকে %1$d বার্তা</string>
-    <string name="notification_mesh_mention_title_singular">মেশ চ্যাটে উল্লিখিত</string>
-    <string name="notification_mesh_mention_title_plural">মেশ চ্যাটে %1$d উল্লেখ</string>
-    <string name="notification_more_locations">এবং %1$d আরো অবস্থান</string>
     <string name="notification_and_more">এবং %1$d আরো</string>
 
     <!-- প্রিয় অ্যাক্সেসিবিলিটি -->
@@ -324,10 +308,6 @@
     <string name="cancel">বাতিল</string>
 
     <!-- বহুবচন -->
-    <plurals name="notification_and_more">
-        <item quantity="one">এবং %d আরো</item>
-        <item quantity="other">এবং %d আরো</item>
-    </plurals>
 
     <plurals name="people_count">
         <item quantity="one">১ জন</item>
@@ -353,7 +333,6 @@
   <string name="fingerprint_their">their fingerprint</string>
   <string name="fingerprint_yours">your fingerprint</string>
   <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
   <string name="fingerprint_status_verified">encrypted &amp; verified</string>
   <string name="fingerprint_status_encrypted">encrypted</string>
   <string name="fingerprint_status_handshaking">handshaking</string>
@@ -366,12 +345,6 @@
   <string name="fingerprint_mark_verified">mark as verified</string>
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
-  <string name="verify_mutual_match_title">Mutual verification</string>
-  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
-  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
-  <string name="verify_success_title">Verified</string>
-  <string name="verify_success_body">You verified %1$s</string>
-  <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">পরিচিতি খুলুন</string>
   <string name="nearby_notes_reveal">এখানে রাখা নোট আছে কি না দেখুন</string>
   <string name="nearby_notes_one">এখানে 1টি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>

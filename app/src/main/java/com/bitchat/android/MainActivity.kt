@@ -4,8 +4,9 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,10 +14,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -39,16 +40,59 @@ import com.bitchat.android.onboarding.OnboardingCoordinator
 import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.PermissionManager
+import com.bitchat.android.ui.BackAction
+import com.bitchat.android.ui.AboutScreen
+import com.bitchat.android.ui.AppForegroundEffect
+import com.bitchat.android.ui.ChatBackUnwinder
+import com.bitchat.android.ui.ChatMeshDelegate
+import com.bitchat.android.ui.ChatSessionStartup
+import com.bitchat.android.ui.ChatState
+import com.bitchat.android.ui.GeohashSession
 import com.bitchat.android.ui.ChatScreen
-import com.bitchat.android.ui.ChatViewModel
+import com.bitchat.android.ui.ChatUserSheet
+import com.bitchat.android.ui.LocationChannelsScreen
+import com.bitchat.android.ui.LocationNotesScreen
+import com.bitchat.android.ui.MeshPeerListScreen
+import com.bitchat.android.ui.PrivateChatScreen
+import com.bitchat.android.ui.SecurityVerificationSheet
+import com.bitchat.android.ui.VerificationHandler
+import com.bitchat.android.ui.VerificationScreen
+import com.bitchat.android.ui.debug.DebugSettingsScreen
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.wifiaware.WifiAwareController
 import com.bitchat.android.nostr.PoWPreferenceManager
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.serialization.NavKeySerializer
+import androidx.savedstate.serialization.decodeFromSavedState
+import androidx.savedstate.serialization.encodeToSavedState
+import com.bitchat.android.navigation.AboutRoute
+import com.bitchat.android.navigation.AppNavigator
+import com.bitchat.android.navigation.BitchatNavDisplay
+import com.bitchat.android.navigation.ChatRoute
+import com.bitchat.android.navigation.ChatUserRoute
+import com.bitchat.android.navigation.DebugSettingsRoute
+import com.bitchat.android.navigation.EntryProviderInstaller
+import com.bitchat.android.navigation.LocationChannelsRoute
+import com.bitchat.android.navigation.LocationNotesRoute
+import com.bitchat.android.navigation.MeshPeerListRoute
+import com.bitchat.android.navigation.OnboardingRoute
+import com.bitchat.android.navigation.PrivateChatRoute
+import com.bitchat.android.navigation.ScreenTransitions
+import com.bitchat.android.navigation.SecurityVerificationRoute
+import com.bitchat.android.navigation.SheetSceneStrategy
+import com.bitchat.android.navigation.VerificationRoute
+import com.bitchat.android.navigation.openPrivateChat
+import com.bitchat.android.navigation.rootRouteFor
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.VerificationService
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.builtins.ListSerializer
 
+@AndroidEntryPoint
 class MainActivity : OrientationAwareActivity() {
 
     private lateinit var permissionManager: PermissionManager
@@ -62,15 +106,47 @@ class MainActivity : OrientationAwareActivity() {
     private lateinit var unifiedMeshService: MeshService
     private val mainViewModel: MainViewModel by viewModels()
     private var pendingMeshForegroundServiceStart = false
-    private val chatViewModel: ChatViewModel by viewModels { 
-        object : ViewModelProvider.Factory {
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                @Suppress("UNCHECKED_CAST")
-                return ChatViewModel(application, meshService, unifiedMeshService) as T
-            }
-        }
-    }
-    
+
+    // Held by ActivityRetainedComponent, so the back stack outlives configuration
+    // changes without being rebuilt here.
+    @Inject
+    lateinit var navigator: AppNavigator
+
+    // Watches the adapter for the whole Activity, not for as long as some
+    // composable happens to stay on screen. Scoping it to a destination is what
+    // let a Bluetooth switch-off go unnoticed once chat became its own route.
+    private var bluetoothStateReceiver: android.content.BroadcastReceiver? = null
+
+    @Inject
+    lateinit var locationChannelManager: LocationChannelManager
+
+    // The chat session's, shared with ChatViewModel; the verify deep link
+    // starts a QR verification through it.
+    @Inject
+    lateinit var verificationHandler: VerificationHandler
+
+    // What the mesh reports to while the UI is attached; the chat session's.
+    @Inject
+    lateinit var chatMeshDelegate: ChatMeshDelegate
+
+    // The chat session's. The Activity starts the session, unwinds the chat
+    // screen's overlays on Back, and routes notification taps into it, so none
+    // of that waits for the chat screen's ViewModel to exist.
+    @Inject
+    lateinit var chatSessionStartup: ChatSessionStartup
+
+    @Inject
+    lateinit var chatBackUnwinder: ChatBackUnwinder
+
+    @Inject
+    lateinit var chatState: ChatState
+
+    @Inject
+    lateinit var chatNotifications: com.bitchat.android.ui.NotificationManager
+
+    @Inject
+    lateinit var geohashSession: GeohashSession
+
     private val forceFinishReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
             if (intent.action == com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH) {
@@ -156,17 +232,212 @@ class MainActivity : OrientationAwareActivity() {
         
         setContent {
             BitchatTheme {
+                AppForegroundEffect()
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = MaterialTheme.colorScheme.background
                 ) { innerPadding ->
-                    OnboardingFlowScreen(modifier = Modifier
+                    // Only onboarding takes the scaffold insets; ChatScreen applies
+                    // its own status, navigation and IME padding.
+                    val onboardingModifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
-                    )
+                    val onboardingState by mainViewModel.onboardingState.collectAsState()
+                    val root = rootRouteFor(onboardingState)
+
+                    // Restores the stack after process death. Composed before the
+                    // seeding effect below, which then sees a stack whose root
+                    // already matches and leaves it alone.
+                    //
+                    // NavKeySerializer handles the polymorphism, so this keeps
+                    // working as routes gain arguments. Encoded to a Bundle through
+                    // savedstate rather than to JSON: kotlinx-serialization-json is
+                    // not on the classpath and is not needed here.
+                    val stackSerializer = remember { ListSerializer(NavKeySerializer<NavKey>()) }
+                    rememberSaveable(
+                        saver = Saver(
+                            save = { encodeToSavedState(stackSerializer, navigator.snapshot()) },
+                            restore = { bundle ->
+                                navigator.restore(decodeFromSavedState(stackSerializer, bundle))
+                            }
+                        )
+                    ) { }
+
+                    // The chat stack set aside while onboarding covers it, as when
+                    // Bluetooth or a permission is turned off mid-session. Saved, so
+                    // a process death during onboarding does not lose it either.
+                    var stackUnderOnboarding by rememberSaveable(
+                        saver = Saver(
+                            save = { encodeToSavedState(stackSerializer, ArrayList(it.value)) },
+                            restore = { mutableStateOf(decodeFromSavedState(stackSerializer, it)) }
+                        )
+                    ) { mutableStateOf(emptyList<NavKey>()) }
+
+                    // Seeds the stack on its first run and re-roots it on every
+                    // later crossing between onboarding and chat. Keyed on root, so
+                    // it stays quiet between onboarding steps. The stack is replaced,
+                    // not pushed onto: onboarding must not be reachable with Back once
+                    // the app is in, nor chat while onboarding shows. Compares the
+                    // root of the stack, not its top, so pushing a destination onto
+                    // chat does not read as a crossing. Returning to chat puts back
+                    // what onboarding interrupted, as upstream did by keeping chat's
+                    // sheets in ChatViewModel.
+                    LaunchedEffect(root) {
+                        if (navigator.backStack.firstOrNull() != root) {
+                            if (navigator.backStack.firstOrNull() == ChatRoute) {
+                                stackUnderOnboarding = navigator.snapshot()
+                            }
+                            val interrupted = stackUnderOnboarding
+                            if (root == ChatRoute && interrupted.firstOrNull() == ChatRoute) {
+                                navigator.restore(interrupted)
+                            } else {
+                                navigator.resetTo(root)
+                            }
+                            if (root == ChatRoute) stackUnderOnboarding = emptyList()
+                        }
+                    }
+
+                    val sheetSceneStrategy = remember { SheetSceneStrategy() }
+                    val entries: EntryProviderInstaller = {
+                        entry<OnboardingRoute> { OnboardingFlowScreen(onboardingModifier) }
+                        entry<ChatRoute>(metadata = ScreenTransitions.rootFade()) {
+                            ChatScreen(
+                                onShowAbout = { navigator.goTo(AboutRoute) },
+                                onShowLocationNotes = { navigator.goTo(LocationNotesRoute) },
+                                onShowChatUser = { nickname, messageId ->
+                                    navigator.goTo(ChatUserRoute(nickname, messageId))
+                                },
+                                onShowLocationChannels = { navigator.goTo(LocationChannelsRoute) },
+                                onShowPeerList = { navigator.goTo(MeshPeerListRoute) },
+                                openPrivateChatID = navigator.backStack
+                                    .lastOrNull { it is PrivateChatRoute }
+                                    ?.let { (it as PrivateChatRoute).conversationID },
+                            )
+                        }
+                        entry<MeshPeerListRoute> {
+                            MeshPeerListScreen(
+                                onBack = { navigator.popTo(MeshPeerListRoute, inclusive = true) },
+                                // Pushed over the list, so Back from verification
+                                // returns to it.
+                                onShowVerification = {
+                                    navigator.goTo(
+                                        VerificationRoute(chatState.selectedPrivateChatPeer.value)
+                                    )
+                                },
+                            )
+                        }
+                        entry<PrivateChatRoute> { route ->
+                            PrivateChatScreen(
+                                routeConversationID = route.conversationID,
+                                onShowSecurityVerification = { conversationID ->
+                                    navigator.goTo(SecurityVerificationRoute(conversationID))
+                                },
+                                onBack = { navigator.popTo(route, inclusive = true) },
+                            )
+                        }
+                        entry<SecurityVerificationRoute>(metadata = SheetSceneStrategy.sheet()) { route ->
+                            SecurityVerificationSheet(
+                                conversationID = route.conversationID,
+                                onDismiss = { navigator.popTo(route, inclusive = true) },
+                            )
+                        }
+                        entry<LocationChannelsRoute> {
+                            LocationChannelsScreen(
+                                onClose = { navigator.popTo(LocationChannelsRoute, inclusive = true) },
+                                // Pushed like any list → detail step: Back from notes
+                                // returns to channels, not to chat.
+                                onShowLocationNotes = { navigator.goTo(LocationNotesRoute) },
+                            )
+                        }
+                        entry<VerificationRoute> { route ->
+                            // One close for the header button and Back. Popping by
+                            // key makes it idempotent, so a second press during the
+                            // exit animation does not pop what lies beneath.
+                            val close = { navigator.popTo(route, inclusive = true); Unit }
+                            BackHandler(onBack = close)
+                            VerificationScreen(
+                                peerID = route.peerID,
+                                onClose = close,
+                            )
+                        }
+                        entry<ChatUserRoute>(metadata = SheetSceneStrategy.sheet()) { route ->
+                            ChatUserSheet(
+                                onDismiss = { navigator.popTo(route, inclusive = true) },
+                                targetNickname = route.nickname,
+                                messageId = route.messageId,
+                            )
+                        }
+                        entry<LocationNotesRoute> {
+                            val nickname by chatState.nickname.collectAsStateWithLifecycle()
+                            LocationNotesScreen(
+                                nickname = nickname,
+                                onBack = { navigator.popTo(LocationNotesRoute, inclusive = true) },
+                            )
+                        }
+                        entry<AboutRoute> {
+                            AboutScreen(
+                                onClose = { navigator.goBack() },
+                                onShowDebug = { navigator.goTo(DebugSettingsRoute) }
+                            )
+                        }
+                        entry<DebugSettingsRoute> {
+                            DebugSettingsScreen(
+                                onClose = { navigator.popTo(DebugSettingsRoute, inclusive = true) }
+                            )
+                        }
+                    }
+
+                    // NavDisplay rejects an empty back stack and the effect above does
+                    // not run until after this composition, so the host waits a frame
+                    // for it. Gate on the stack itself: root is non-null immediately,
+                    // so gating on that would compose with nothing to show.
+                    if (navigator.backStack.isNotEmpty()) {
+                        BitchatNavDisplay(
+                            navigator = navigator,
+                            entryInstallers = setOf(entries),
+                            onExit = { finish() },
+                            modifier = Modifier.fillMaxSize(),
+                            sceneStrategies = listOf(sheetSceneStrategy),
+                        )
+                    }
+
+                    // NavDisplay enables its own back handler only while
+                    // scene.previousEntries.isNotEmpty(), so at the root destination it
+                    // takes no press and Back would close the app with an overlay open.
+                    // Composed after NavDisplay because the last-composed enabled
+                    // handler wins, so overlays unwind before routes pop; called
+                    // unconditionally and gated by `enabled`, because a conditional
+                    // call would reorder composition.
+                    // Started on the first composition, where the Activity first
+                    // reached the chat ViewModel before, and ahead of any
+                    // notification intent that selects a channel. Idempotent.
+                    chatSessionStartup.start()
+                    val pendingBackAction by chatBackUnwinder.pendingBackAction.collectAsState()
+                    BackHandler(
+                        enabled = navigator.backStack.lastOrNull() == ChatRoute &&
+                            pendingBackAction != BackAction.None
+                    ) {
+                        // enabled trails the state by a dispatch and a recomposition, so a
+                        // second quick press can arrive with nothing left to unwind. Forward
+                        // it rather than swallowing it: pop a route if there is one, and
+                        // otherwise leave, which is what the press would have done anyway.
+                        if (!chatBackUnwinder.handle() && !navigator.goBack()) finish()
+                    }
                 }
             }
         }
+        
+        bluetoothStateReceiver = bluetoothStatusManager.monitorBluetoothState(
+            context = this,
+            bluetoothStatusManager = bluetoothStatusManager,
+            onBluetoothStateChanged = { status ->
+                if (status == BluetoothStatus.ENABLED &&
+                    mainViewModel.onboardingState.value == OnboardingState.BLUETOOTH_CHECK
+                ) {
+                    checkBluetoothAndProceed()
+                }
+            }
+        )
         
         // Collect state changes in a lifecycle-aware manner
         lifecycleScope.launch {
@@ -182,7 +453,7 @@ class MainActivity : OrientationAwareActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 WifiAwareController.running.collect { running ->
                     if (running && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                        unifiedMeshService.delegate = chatViewModel
+                        unifiedMeshService.delegate = chatMeshDelegate
                     }
                 }
             }
@@ -197,7 +468,6 @@ class MainActivity : OrientationAwareActivity() {
     
     @Composable
     private fun OnboardingFlowScreen(modifier: Modifier = Modifier) {
-        val context = LocalContext.current
         val onboardingState by mainViewModel.onboardingState.collectAsState()
         val bluetoothStatus by mainViewModel.bluetoothStatus.collectAsState()
         val locationStatus by mainViewModel.locationStatus.collectAsState()
@@ -206,27 +476,6 @@ class MainActivity : OrientationAwareActivity() {
         val isBluetoothLoading by mainViewModel.isBluetoothLoading.collectAsState()
         val isLocationLoading by mainViewModel.isLocationLoading.collectAsState()
         val isBatteryOptimizationLoading by mainViewModel.isBatteryOptimizationLoading.collectAsState()
-
-        DisposableEffect(context, bluetoothStatusManager) {
-
-            val receiver = bluetoothStatusManager.monitorBluetoothState(
-                context = context,
-                bluetoothStatusManager = bluetoothStatusManager,
-                onBluetoothStateChanged = { status ->
-                    if (status == BluetoothStatus.ENABLED && onboardingState == OnboardingState.BLUETOOTH_CHECK) {
-                        checkBluetoothAndProceed()
-                    }
-                }
-            )
-
-            onDispose {
-                try {
-                    context.unregisterReceiver(receiver)
-                } catch (e: IllegalStateException) {
-                    Log.w("BluetoothStatusUI", "Receiver was not registered")
-                }
-            }
-        }
 
         when (onboardingState) {
             OnboardingState.PERMISSION_REQUESTING -> {
@@ -312,27 +561,12 @@ class MainActivity : OrientationAwareActivity() {
                 )
             }
 
-            OnboardingState.CHECKING, OnboardingState.INITIALIZING, OnboardingState.COMPLETE -> {
-                // Set up back navigation handling for the chat screen
-                val backCallback = object : OnBackPressedCallback(true) {
-                    override fun handleOnBackPressed() {
-                        // Let ChatViewModel handle navigation state
-                        val handled = chatViewModel.handleBackPressed()
-                        if (!handled) {
-                            // If ChatViewModel doesn't handle it, disable this callback
-                            // and let the system handle it (which will exit the app)
-                            this.isEnabled = false
-                            onBackPressedDispatcher.onBackPressed()
-                            this.isEnabled = true
-                        }
-                    }
-                }
+            // CHECKING, INITIALIZING and COMPLETE are handled by ChatRoute, so this
+            // composable is only ever shown for the onboarding steps themselves.
+            OnboardingState.CHECKING,
+            OnboardingState.INITIALIZING,
+            OnboardingState.COMPLETE -> Unit
 
-                // Add the callback - this will be automatically removed when the activity is destroyed
-                onBackPressedDispatcher.addCallback(this, backCallback)
-                ChatScreen(viewModel = chatViewModel)
-            }
-            
             OnboardingState.ERROR -> {
                 InitializationErrorScreen(
                     modifier = modifier,
@@ -698,7 +932,7 @@ class MainActivity : OrientationAwareActivity() {
                 }
 
                 // Set up unified mesh delegate and start enabled transports
-                unifiedMeshService.delegate = chatViewModel
+                unifiedMeshService.delegate = chatMeshDelegate
                 unifiedMeshService.startServices()
                 startMeshForegroundServiceBestEffort()
 
@@ -747,12 +981,12 @@ class MainActivity : OrientationAwareActivity() {
     override fun onResume() {
         super.onResume()
         // Revoke stale live-location work before any resumed UI can use cached channels.
-        LocationChannelManager.getInstance(applicationContext).syncPermissionState()
+        locationChannelManager.syncPermissionState()
 
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
-            // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
-            try { unifiedMeshService.delegate = chatViewModel } catch (_: Exception) { }
+            // Reattach the session's mesh delegate, detached in onPause
+            try { unifiedMeshService.delegate = chatMeshDelegate } catch (_: Exception) { }
 
             // Check if Bluetooth was disabled while app was backgrounded
             val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
@@ -810,12 +1044,18 @@ class MainActivity : OrientationAwareActivity() {
                 if (peerID != null) {
                     Log.d("MainActivity", "Opening private chat with $senderNickname (peerID: $peerID) from notification")
                     
-                    // Open the private chat sheet with this peer
-                    chatViewModel.showMeshPeerList()
-                    chatViewModel.showPrivateChatSheet(peerID)
+                    // Opens the chat over the peer list, so closing it lands on
+                    // the list of conversations rather than straight back on chat.
+                    if (navigator.popTo(ChatRoute)) {
+                        navigator.goTo(MeshPeerListRoute)
+                        navigator.openPrivateChat(
+                            ContactDirectory.canonicalConversationId(peerID),
+                            over = MeshPeerListRoute,
+                        )
+                    }
                     
                     // Clear notifications for this sender since user is now viewing the chat
-                    chatViewModel.clearNotificationsForSender(peerID)
+                    chatNotifications.clearNotificationsForSender(peerID)
                 }
             }
             
@@ -836,13 +1076,13 @@ class MainActivity : OrientationAwareActivity() {
                     }
                     val geohashChannel = com.bitchat.android.geohash.GeohashChannel(level, geohash)
                     val channelId = com.bitchat.android.geohash.ChannelID.Location(geohashChannel)
-                    chatViewModel.selectLocationChannel(channelId)
+                    geohashSession.selectLocationChannel(channelId)
                     
                     // Update current geohash state for notifications
-                    chatViewModel.setCurrentGeohash(geohash)
+                    chatNotifications.setCurrentGeohash(geohash)
                     
                     // Clear notifications for this geohash since user is now viewing it
-                    chatViewModel.clearNotificationsForGeohash(geohash)
+                    chatNotifications.clearNotificationsForGeohash(geohash)
                 }
             }
         }
@@ -852,10 +1092,16 @@ class MainActivity : OrientationAwareActivity() {
         val uri = intent.data ?: return
         if (uri.scheme != "bitchat" || uri.host != "verify") return
 
-        chatViewModel.showVerificationSheet()
+        // Runs after the stack has been seeded: on a cold start from
+        // initializeApp, which only runs once onboarding has put chat at the
+        // root, and otherwise from onNewIntent once onboarding is complete.
+        // A sheet is never under anything, so unwind to chat first. When chat
+        // is not on the stack the result is false and nothing changes.
+        navigator.popTo(ChatRoute)
+        navigator.goTo(VerificationRoute(chatState.selectedPrivateChatPeer.value))
         val qr = VerificationService.verifyScannedQR(uri.toString())
         if (qr != null) {
-            chatViewModel.beginQRVerification(qr)
+            verificationHandler.beginQRVerification(qr)
         }
     }
 
@@ -864,6 +1110,10 @@ class MainActivity : OrientationAwareActivity() {
         super.onDestroy()
         
         try { unregisterReceiver(forceFinishReceiver) } catch (_: Exception) { }
+        bluetoothStateReceiver?.let {
+            try { unregisterReceiver(it) } catch (_: IllegalArgumentException) { }
+        }
+        bluetoothStateReceiver = null
         
         // Cleanup location status manager
         try {

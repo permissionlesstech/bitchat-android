@@ -24,11 +24,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -37,6 +40,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
@@ -67,12 +71,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
-import com.bitchat.android.core.ui.component.button.CloseButton
-import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.core.ui.component.button.BackButton
 import com.bitchat.android.services.VerificationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -88,40 +91,57 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * QR verification, as a full-screen destination: its own tabs and a camera
+ * scanner make it a route rather than a sheet.
+ *
+ * [peerID] is the conversation it was opened from, if any, for the unverify
+ * action. It arrives with the route instead of being read from the selected
+ * private chat, so the screen shows the peer it was opened for.
+ */
 @Composable
-fun VerificationSheet(
-    isPresented: Boolean,
-    onDismiss: () -> Unit,
-    viewModel: ChatViewModel,
+fun VerificationScreen(
+    peerID: String?,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (!isPresented) return
-
-    val accent = MaterialTheme.colorScheme.primary
-    
-    var selectedTab by remember { mutableStateOf(0) } // 0 = My Code, 1 = Scan
-    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
-    val npub = remember { viewModel.getCurrentNpub() }
-
-    val qrString = remember(nickname, npub) {
-        viewModel.buildMyQRString(nickname, npub)
-    }
-
-    BitchatBottomSheet(
+    val viewModel = hiltViewModel<VerificationViewModel, VerificationViewModel.Factory>(
+        creationCallback = { factory -> factory.create(peerID) }
+    )
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    VerificationContent(
+        uiState = uiState,
+        onAction = viewModel::onAction,
+        onClose = onClose,
         modifier = modifier,
-        onDismissRequest = onDismiss,
+    )
+}
+
+@Composable
+private fun VerificationContent(
+    uiState: VerificationUiState,
+    onAction: (VerificationAction) -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val selectedTab = uiState.selectedTab.ordinal
+
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.Top
         ) {
             // Header
             VerificationHeader(
                 accent = accent,
-                onClose = onDismiss,
+                onClose = onClose,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
             )
 
@@ -139,7 +159,7 @@ fun VerificationSheet(
             ) {
                 Tab(
                     selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
+                    onClick = { onAction(VerificationAction.SelectTab(VerificationTab.MyCode)) },
                     text = {
                         Text(
                             text = "My QR",
@@ -150,7 +170,7 @@ fun VerificationSheet(
                 )
                 Tab(
                     selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
+                    onClick = { onAction(VerificationAction.SelectTab(VerificationTab.Scan)) },
                     text = {
                         Text(
                             text = "Scan",
@@ -165,52 +185,40 @@ fun VerificationSheet(
 
             // Content
             Crossfade(
-                targetState = selectedTab, 
+                targetState = uiState.selectedTab,
                 label = "VerificationTabCrossfade",
                 modifier = Modifier.weight(1f)
             ) { tab ->
                 when (tab) {
-                    0 -> MyQrTabContent(
-                        qrString = qrString,
-                        nickname = nickname,
+                    VerificationTab.MyCode -> MyQrTabContent(
+                        qrString = uiState.myQrString,
+                        nickname = uiState.nickname,
                         accent = accent
                     )
-                    1 -> ScanTabContent(
+                    VerificationTab.Scan -> ScanTabContent(
                         accent = accent,
-                        onScan = { code ->
-                            val qr = VerificationService.verifyScannedQR(code)
-                            if (qr != null && viewModel.beginQRVerification(qr)) {
-                                selectedTab = 0
-                            }
-                        }
+                        onScan = { code -> onAction(VerificationAction.CodeScanned(code)) }
                     )
                 }
             }
             
-            // Unverify Action
-            val peerID by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
-            val fingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
-            
-            if (peerID != null) {
-                val fingerprint = viewModel.getMeshPeerFingerprint(peerID!!)
-                if (fingerprint != null && fingerprints.contains(fingerprint)) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { viewModel.unverifyFingerprint(peerID!!) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.verify_remove),
-                            fontFamily = BitchatFontFamily,
-                            fontSize = 12.sp
-                        )
-                    }
+            if (uiState.canUnverify) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { onAction(VerificationAction.Unverify) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.verify_remove),
+                        fontFamily = BitchatFontFamily,
+                        fontSize = 12.sp
+                    )
                 }
             }
         }
@@ -225,17 +233,16 @@ private fun VerificationHeader(
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        BackButton(onClick = onClose)
         Text(
             text = stringResource(R.string.verify_title).uppercase(),
             fontSize = 14.sp,
             fontFamily = BitchatFontFamily,
             color = accent
         )
-        val dismiss = LocalSheetDismiss.current
-        CloseButton(onClick = { dismiss?.invoke() ?: onClose() })
     }
 }
 

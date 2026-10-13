@@ -33,6 +33,8 @@ import com.bitchat.android.R
 import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import com.bitchat.android.ui.globe.GlobeColors
 import com.bitchat.android.ui.globe.GlobeState
 import com.bitchat.android.ui.globe.GlobeView
@@ -43,7 +45,12 @@ import com.bitchat.android.ui.theme.BitchatTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@AndroidEntryPoint
 class GeohashPickerActivity : OrientationAwareActivity() {
+
+    @Inject
+    lateinit var locationChannelManager: LocationChannelManager
+
 
     companion object {
         const val EXTRA_INITIAL_GEOHASH = "initial_geohash"
@@ -67,8 +74,7 @@ class GeohashPickerActivity : OrientationAwareActivity() {
             } catch (_: Throwable) {}
         } else {
             // If no initial geohash, try to use the user's coarsest location
-            val locationManager = LocationChannelManager.getInstance(applicationContext)
-            val channels = locationManager.availableChannels.value
+            val channels = locationChannelManager.availableChannels.value
             if (!channels.isNullOrEmpty()) {
                 val coarsestChannel = channels.minByOrNull { it.geohash.length }
                 if (coarsestChannel != null) {

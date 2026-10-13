@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,16 +27,9 @@ import java.util.*
  * Geohash people list — card groups matching location / settings sheet rows.
  */
 
-data class GeoPerson(
-    val id: String,           // pubkey hex (lowercased) - matches iOS
-    val displayName: String,  // nickname with #suffix - matches iOS
-    val lastSeen: Date        // activity timestamp - matches iOS
-)
-
 @Composable
 fun GeohashPeopleList(
-    viewModel: ChatViewModel,
-    onTapPerson: () -> Unit,
+    viewModel: MeshPeerListViewModel,
     modifier: Modifier = Modifier,
     excludedIdentityAliases: Set<String> = emptySet()
 ) {
@@ -48,13 +42,14 @@ fun GeohashPeopleList(
 
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
+    val appContext = LocalContext.current.applicationContext
     val myHex = remember(selectedLocationChannel) {
         when (val channel = selectedLocationChannel) {
             is com.bitchat.android.geohash.ChannelID.Location -> {
                 try {
                     val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
                         forGeohash = channel.channel.geohash,
-                        context = viewModel.getApplication()
+                        context = appContext
                     )
                     identity.publicKeyHex.lowercase(Locale.ROOT)
                 } catch (e: Exception) {
@@ -148,8 +143,8 @@ fun GeohashPeopleList(
                         .lowercase(Locale.ROOT) in duplicateBaseNames,
                     onTap = {
                         if (!isMe) {
+                            // Pushes the chat over the list; closing the list here would pop it again.
                             viewModel.startGeohashDM(person.id)
-                            onTapPerson()
                         }
                     }
                 )
@@ -178,39 +173,6 @@ internal data class GeohashPeopleSections(
     val onLocation: List<GeoPerson>,
     val teleportedIn: List<GeoPerson>
 )
-
-/**
- * Names that require a short identity suffix, calculated across both people sections.
- *
- * Matching is case-insensitive to mirror geohash chat's nickname collision handling.
- */
-internal fun duplicateGeohashBaseNames(people: List<GeoPerson>): Set<String> =
-    people
-        .groupingBy { splitSuffix(it.displayName).first.lowercase(Locale.ROOT) }
-        .eachCount()
-        .filterValues { it > 1 }
-        .keys
-
-/**
- * The same `#abcd` disambiguator used by geohash chat.
- *
- * Presence rows normally carry only a base nickname, so derive the suffix from the full Nostr
- * public key when a collision exists. Preserve an already-announced suffix for compatibility.
- */
-internal fun geohashIdentitySuffix(person: GeoPerson, showHashSuffix: Boolean): String {
-    if (!showHashSuffix) return ""
-    val announcedSuffix = splitSuffix(person.displayName).second
-    return announcedSuffix.ifEmpty { "#${person.id.takeLast(4)}" }
-}
-
-internal fun disambiguatedGeohashDisplayName(
-    person: GeoPerson,
-    duplicateBaseNames: Set<String>,
-): String {
-    val baseName = splitSuffix(person.displayName).first
-    val showSuffix = baseName.lowercase(Locale.ROOT) in duplicateBaseNames
-    return baseName + geohashIdentitySuffix(person, showSuffix)
-}
 
 /**
  * Split announced identities by how they entered this geohash. Bare `anon` heartbeat identities
@@ -276,7 +238,7 @@ private fun GeohashPersonItem(
     isMe: Boolean,
     hasUnreadDM: Boolean,
     isTeleported: Boolean,
-    viewModel: ChatViewModel,
+    viewModel: MeshPeerListViewModel,
     showHashSuffix: Boolean,
     onTap: () -> Unit
 ) {

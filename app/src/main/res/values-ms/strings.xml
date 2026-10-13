@@ -41,25 +41,9 @@
 
   <!-- Notifications -->
   <string name="notification_summary_more">dan %1$d lagi</string>
-  <string name="notification_messages_from_people">%1$d mesej daripada %2$d orang</string>
-  <string name="notification_more_conversations">dan %1$d perbualan lagi</string>
   <string name="notification_active_peers_title">👥 bitchatter berdekatan!</string>
   <string name="notification_active_peers_one">1 orang berdekatan</string>
   <string name="notification_active_peers_many">%1$d orang berdekatan</string>
-  <string name="notification_new_messages">Mesej Baharu</string>
-  <string name="notification_new_location_messages">Mesej Lokasi Baharu</string>
-  <string name="notification_mentions_in">Disebut dalam %1$s</string>
-  <string name="notification_mentions_in_more">Disebut dalam %1$s (+%2$d lagi)</string>
-  <string name="notification_mentions_in_plural">%1$d sebutan dalam %2$s</string>
-  <string name="notification_new_activity_in">Aktiviti baharu dalam %1$s</string>
-  <string name="notification_messages_in">Mesej dalam %1$s</string>
-  <string name="notification_joined_conversation">%1$s telah menyertai perbualan</string>
-  <string name="notification_geohash_summary_title_mentions">bitchat - %1$d sebutan</string>
-  <string name="notification_geohash_summary_title">bitchat - sembang lokasi</string>
-  <string name="notification_geohash_summary_text">%1$d mesej daripada %2$d lokasi</string>
-  <string name="notification_mesh_mention_title_singular">Disebut dalam Sembang Mesh</string>
-  <string name="notification_mesh_mention_title_plural">%1$d sebutan dalam Sembang Mesh</string>
-  <string name="notification_more_locations">dan %1$d lokasi lagi</string>
 
   <!-- Mesh Service Foreground Notification -->
   <string name="mesh_service_channel_name">Perkhidmatan Latar Belakang Mesh</string>
@@ -272,7 +256,6 @@
   <string name="fingerprint_their">cap jari mereka</string>
   <string name="fingerprint_yours">cap jari anda</string>
   <string name="fingerprint_pending">jabat tangan tertangguh</string>
-  <string name="fingerprint_no_peer">buka sembang peribadi untuk melihat cap jari</string>
   <string name="fingerprint_status_verified">disulitkan &amp; disahkan</string>
   <string name="fingerprint_status_encrypted">disulitkan</string>
   <string name="fingerprint_status_handshaking">berjabat tangan</string>
@@ -286,12 +269,6 @@
   <string name="fingerprint_start_handshake">mulakan jabat tangan</string>
   <string name="fingerprint_copy">salin</string>
 
-  <string name="verify_mutual_match_title">Pengesahan bersama</string>
-  <string name="verify_mutual_match_body">Anda dan %1$s telah saling mengesahkan</string>
-  <string name="verify_mutual_system_message">pengesahan bersama dengan %1$s</string>
-  <string name="verify_success_title">Disahkan</string>
-  <string name="verify_success_body">Anda telah mengesahkan %1$s</string>
-  <string name="verify_success_system_message">telah mengesahkan %1$s</string>
 
   <string name="debug_connect">sambung</string>
   <string name="debug_debug_console">konsol nyahpepijat</string>
@@ -420,9 +397,6 @@
     <string name="tor_not_available_in_this_build">Tor tidak tersedia dalam binaan ini</string>
 
     <!-- Plurals -->
-  <plurals name="notification_and_more">
-    <item quantity="other">dan %d lagi</item>
-  </plurals>
 
   <plurals name="people_count">
     <item quantity="other">%d orang</item>

@@ -44,25 +44,9 @@
 
     <!-- اعلان‌ها -->
     <string name="notification_summary_more">و %1$d مورد دیگر</string>
-    <string name="notification_messages_from_people">%1$d پیام از %2$d نفر</string>
-    <string name="notification_more_conversations">و %1$d گفت‌وگوی دیگر</string>
     <string name="notification_active_peers_title">کاربران bitchat در نزدیکی!</string>
     <string name="notification_active_peers_one">۱ نفر در نزدیکی</string>
     <string name="notification_active_peers_many">%1$d نفر در نزدیکی</string>
-    <string name="notification_new_messages">پیام‌های جدید</string>
-    <string name="notification_new_location_messages">پیام‌های مکانی جدید</string>
-    <string name="notification_mentions_in">ذکر شده در %1$s</string>
-    <string name="notification_mentions_in_more">ذکر شده در %1$s (+%2$d مورد دیگر)</string>
-    <string name="notification_mentions_in_plural">%1$d مورد ذکر در %2$s</string>
-    <string name="notification_new_activity_in">فعالیت جدید در %1$s</string>
-    <string name="notification_messages_in">پیام‌ها در %1$s</string>
-    <string name="notification_joined_conversation">%1$s به گفت‌وگو پیوست</string>
-    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d مورد ذکر</string>
-    <string name="notification_geohash_summary_title">bitchat – گفت‌وگوی مکانی</string>
-    <string name="notification_geohash_summary_text">%1$d پیام از %2$d موقعیت</string>
-    <string name="notification_mesh_mention_title_singular">ذکر در گفت‌وگوی مِش</string>
-    <string name="notification_mesh_mention_title_plural">%1$d مورد ذکر در گفت‌وگوی مِش</string>
-    <string name="notification_more_locations">و %1$d موقعیت دیگر</string>
     <string name="notification_and_more">و %1$d مورد دیگر</string>
 
     <!-- دسترسی‌پذیری موارد دلخواه -->
@@ -324,10 +308,6 @@
     <string name="cancel">لغو</string>
 
     <!-- حالت جمع -->
-    <plurals name="notification_and_more">
-        <item quantity="one">و %d مورد دیگر</item>
-        <item quantity="other">و %d مورد دیگر</item>
-    </plurals>
 
     <plurals name="people_count">
         <item quantity="one">۱ نفر</item>
@@ -353,7 +333,6 @@
   <string name="fingerprint_their">their fingerprint</string>
   <string name="fingerprint_yours">your fingerprint</string>
   <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
   <string name="fingerprint_status_verified">encrypted &amp; verified</string>
   <string name="fingerprint_status_encrypted">encrypted</string>
   <string name="fingerprint_status_handshaking">handshaking</string>
@@ -366,12 +345,6 @@
   <string name="fingerprint_mark_verified">mark as verified</string>
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
-  <string name="verify_mutual_match_title">Mutual verification</string>
-  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
-  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
-  <string name="verify_success_title">Verified</string>
-  <string name="verify_success_body">You verified %1$s</string>
-  <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">باز کردن درباره</string>
   <string name="nearby_notes_reveal">یادداشت‌های باقی‌مانده در اینجا را بررسی کنید</string>
   <string name="nearby_notes_one">۱ یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>

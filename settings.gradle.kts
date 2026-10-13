@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google()
         mavenCentral()
@@ -16,4 +17,9 @@ dependencyResolutionManagement {
 rootProject.name = "bitchat-android"
 include(":app")
 include(":wear")
+include(":core:domain")
+include(":core:navigation")
+include(":core:mesh")
+include(":core:nostr")
+include(":core:chat")
 // Using published Arti AAR; local module not included

@@ -44,25 +44,9 @@
 
     <!-- შეტყობინებები -->
     <string name="notification_summary_more">და კიდევ %1$d</string>
-    <string name="notification_messages_from_people">%2$d ადამიანიდან %1$d შეტყობინება</string>
-    <string name="notification_more_conversations">და კიდევ %1$d საუბარი</string>
     <string name="notification_active_peers_title">bitchatter-ები ახლოს!</string>
     <string name="notification_active_peers_one">1 ადამიანი ახლოს</string>
     <string name="notification_active_peers_many">ახლოს %1$d ადამიანი</string>
-    <string name="notification_new_messages">ახალი შეტყობინებები</string>
-    <string name="notification_new_location_messages">მდებარეობის ახალი შეტყობინებები</string>
-    <string name="notification_mentions_in">ხსენება %1$s-ში</string>
-    <string name="notification_mentions_in_more">ხსენება %1$s-ში (+%2$d)</string>
-    <string name="notification_mentions_in_plural">%2$s-ში %1$d ხსენება</string>
-    <string name="notification_new_activity_in">ახალი აქტივობა %1$s-ში</string>
-    <string name="notification_messages_in">შეტყობინებები %1$s-ში</string>
-    <string name="notification_joined_conversation">%1$s შეუერთდა საუბარს</string>
-    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d ხსენება</string>
-    <string name="notification_geohash_summary_title">bitchat – მდებარეობის ჩათები</string>
-    <string name="notification_geohash_summary_text">%2$d ადგილიდან %1$d შეტყობინება</string>
-    <string name="notification_mesh_mention_title_singular">mesh-ჩათში ხსენება</string>
-    <string name="notification_mesh_mention_title_plural">mesh-ჩათში %1$d ხსენება</string>
-    <string name="notification_more_locations">და კიდევ %1$d ადგილი</string>
     <string name="notification_and_more">და კიდევ %1$d</string>
 
     <!-- რჩეულების ხელმისაწვდომობა -->
@@ -324,10 +308,6 @@
     <string name="cancel">გაუქმება</string>
 
     <!-- მრავლობითი რიცხვები -->
-    <plurals name="notification_and_more">
-        <item quantity="one">და კიდევ %d</item>
-        <item quantity="other">და კიდევ %d</item>
-    </plurals>
 
     <plurals name="people_count">
         <item quantity="one">1 ადამიანი</item>
@@ -353,7 +333,6 @@
   <string name="fingerprint_their">their fingerprint</string>
   <string name="fingerprint_yours">your fingerprint</string>
   <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
   <string name="fingerprint_status_verified">encrypted &amp; verified</string>
   <string name="fingerprint_status_encrypted">encrypted</string>
   <string name="fingerprint_status_handshaking">handshaking</string>
@@ -366,12 +345,6 @@
   <string name="fingerprint_mark_verified">mark as verified</string>
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
-  <string name="verify_mutual_match_title">Mutual verification</string>
-  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
-  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
-  <string name="verify_success_title">Verified</string>
-  <string name="verify_success_body">You verified %1$s</string>
-  <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">აპის შესახებ გახსნა</string>
   <string name="nearby_notes_reveal">აქ დატოვებული ჩანაწერების შემოწმება</string>
   <string name="nearby_notes_one">აქ 1 ჩანაწერია დატოვებული — წასაკითხად შეეხეთ</string>

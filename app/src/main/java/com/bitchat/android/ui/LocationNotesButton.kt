@@ -29,14 +29,13 @@ import com.bitchat.android.nostr.LocationNotesManager
  */
 @Composable
 fun LocationNotesButton(
-    viewModel: ChatViewModel,
+    selectedLocationChannel: ChannelID?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
 
-    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val locationServicesEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)

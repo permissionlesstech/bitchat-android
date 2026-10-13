@@ -38,25 +38,9 @@
     <string name="skip">Пропустить</string>
 
     <string name="notification_summary_more">и ещё %1$d</string>
-    <string name="notification_messages_from_people">%1$d сообщений от %2$d людей</string>
-    <string name="notification_more_conversations">и ещё %1$d бесед</string>
     <string name="notification_active_peers_title">bitchatter рядом!</string>
     <string name="notification_active_peers_one">Рядом 1 человек</string>
     <string name="notification_active_peers_many">Рядом %1$d человек</string>
-    <string name="notification_new_messages">Новые сообщения</string>
-    <string name="notification_new_location_messages">Новые сообщения локаций</string>
-    <string name="notification_mentions_in">Упоминание в %1$s</string>
-    <string name="notification_mentions_in_more">Упоминание в %1$s (+%2$d)</string>
-    <string name="notification_mentions_in_plural">%1$d упоминаний в %2$s</string>
-    <string name="notification_new_activity_in">Новая активность в %1$s</string>
-    <string name="notification_messages_in">Сообщения в %1$s</string>
-    <string name="notification_joined_conversation">%1$s присоединился к беседе</string>
-    <string name="notification_geohash_summary_title_mentions">bitchat — %1$d упоминаний</string>
-    <string name="notification_geohash_summary_title">bitchat — чаты по локациям</string>
-    <string name="notification_geohash_summary_text">%1$d сообщений из %2$d локаций</string>
-    <string name="notification_mesh_mention_title_singular">Упоминание в Mesh‑чате</string>
-    <string name="notification_mesh_mention_title_plural">%1$d упоминаний в Mesh‑чате</string>
-    <string name="notification_more_locations">и ещё %1$d локаций</string>
     <string name="notification_and_more">и ещё %1$d</string>
 
     <string name="cd_add_favorite">В избранное</string>
@@ -311,10 +295,6 @@
     <string name="join">Войти</string>
     <string name="cancel">Отмена</string>
 
-    <plurals name="notification_and_more">
-        <item quantity="one">и ещё %d</item>
-        <item quantity="other">и ещё %d</item>
-    </plurals>
 
     <plurals name="people_count">
         <item quantity="one">1 человек</item>
@@ -353,7 +333,6 @@
   <string name="fingerprint_their">их отпечаток</string>
   <string name="fingerprint_yours">ваш отпечаток</string>
   <string name="fingerprint_pending">ожидание рукопожатия</string>
-  <string name="fingerprint_no_peer">откройте личный чат</string>
   <string name="fingerprint_status_verified">шифровано и проверено</string>
   <string name="fingerprint_status_encrypted">шифровано</string>
   <string name="fingerprint_status_handshaking">рукопожатие</string>
@@ -366,12 +345,6 @@
   <string name="fingerprint_mark_verified">отметить проверенным</string>
   <string name="fingerprint_start_handshake">начать рукопожатие</string>
   <string name="fingerprint_copy">копировать</string>
-  <string name="verify_mutual_match_title">Взаимная проверка</string>
-  <string name="verify_mutual_match_body">Вы и %1$s проверили друг друга</string>
-  <string name="verify_mutual_system_message">взаимная проверка с %1$s</string>
-  <string name="verify_success_title">Проверено</string>
-  <string name="verify_success_body">Вы проверили %1$s</string>
-  <string name="verify_success_system_message">проверен %1$s</string>
     <string name="cd_open_about">Открыть раздел «О приложении»</string>
   <string name="nearby_notes_reveal">проверить, есть ли здесь заметки</string>
   <string name="nearby_notes_one">здесь оставлена 1 заметка — нажмите, чтобы прочитать</string>

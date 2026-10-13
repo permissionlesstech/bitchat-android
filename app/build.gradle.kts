@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 val githubReleaseCertSha256 = providers
@@ -126,6 +129,13 @@ kotlin {
 }
 
 dependencies {
+    // Project modules
+    implementation(project(":core:domain"))
+    implementation(project(":core:navigation"))
+    implementation(project(":core:mesh"))
+    implementation(project(":core:nostr"))
+    implementation(project(":core:chat"))
+
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -141,7 +151,12 @@ dependencies {
     
     // Navigation
     implementation(libs.androidx.navigation.compose)
-    
+
+    // Dependency injection
+    implementation(libs.hilt.android)
+    implementation(libs.androidx.hilt.navigation.compose)
+    ksp(libs.hilt.compiler)
+
     // Permissions
     implementation(libs.accompanist.permissions)
 
@@ -190,18 +205,20 @@ dependencies {
     // EXIF orientation handling for images
     implementation(libs.androidx.exifinterface)
     
-    // Testing
+    testImplementation(testFixtures(project(":core:mesh")))
     testImplementation(libs.bundles.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.bundles.compose.testing)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    // Declared explicitly, not for direct use: Compose's ui-test drags in
+    // espresso-core 3.5.0, whose input injection reflects on the long-removed
+    // InputManager.getInstance() and dies on API 35+. 3.7.0 is what the unit
+    // test classpath already resolves. Removing this breaks every device test.
+    androidTestImplementation(libs.androidx.test.espresso.core)
     debugImplementation(libs.androidx.compose.ui.tooling)
-}
-
-// Robolectric resolves Android runtime jars itself (outside Gradle dependency resolution).
-// Its legacy repo1 endpoint rejects cold GitHub-hosted runners with HTTP 403.
-tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
-    systemProperty(
-        "robolectric.dependency.repo.url",
-        "https://repo.maven.apache.org/maven2"
-    )
+    // Declares the empty ComponentActivity that createComposeRule launches. It
+    // has to be in the app under test: added to androidTest it lands in the
+    // test APK, which runs in another process, and every such test fails to
+    // start. Debug only, so release manifests are unchanged.
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

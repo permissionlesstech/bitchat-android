@@ -21,7 +21,6 @@
   <string name="fingerprint_their">їхній відбиток</string>
   <string name="fingerprint_yours">ваш відбиток</string>
   <string name="fingerprint_pending">очікування рукостискання</string>
-  <string name="fingerprint_no_peer">відкрийте приватний чат, щоб переглянути відбитки</string>
   <string name="fingerprint_status_verified">зашифровано і підтверджено</string>
   <string name="fingerprint_status_encrypted">зашифровано</string>
   <string name="fingerprint_status_handshaking">рукостискання</string>
@@ -34,12 +33,6 @@
   <string name="fingerprint_mark_verified">позначити як підтверджено</string>
   <string name="fingerprint_start_handshake">почати рукостискання</string>
   <string name="fingerprint_copy">копіювати</string>
-  <string name="verify_mutual_match_title">Взаємне підтвердження</string>
-  <string name="verify_mutual_match_body">Ви та %1$s підтвердили одне одного</string>
-  <string name="verify_mutual_system_message">взаємне підтвердження з %1$s</string>
-  <string name="verify_success_title">Підтверджено</string>
-  <string name="verify_success_body">Ви підтвердили %1$s</string>
-  <string name="verify_success_system_message">підтверджено %1$s</string>
 
     <!-- Newly translated strings -->
     <string name="app_name">bitchat</string>
@@ -77,25 +70,9 @@
     <string name="battery_optimization_continue">Продовжити</string>
     <string name="retry">Повторити</string>
     <string name="notification_summary_more">і ще %1$d</string>
-    <string name="notification_messages_from_people">%1$d повідомлень від %2$d людей</string>
-    <string name="notification_more_conversations">і ще %1$d розмов</string>
     <string name="notification_active_peers_title">👥 bitchat-користувачі поруч!</string>
     <string name="notification_active_peers_one">1 людина поруч</string>
     <string name="notification_active_peers_many">%1$d людей поруч</string>
-    <string name="notification_new_messages">Нові повідомлення</string>
-    <string name="notification_new_location_messages">Нові повідомлення в геолокації</string>
-    <string name="notification_mentions_in">Згадка в %1$s</string>
-    <string name="notification_mentions_in_more">Згадка в %1$s (+%2$d ще)</string>
-    <string name="notification_mentions_in_plural">%1$d згадок у %2$s</string>
-    <string name="notification_new_activity_in">Нова активність у %1$s</string>
-    <string name="notification_messages_in">Повідомлення в %1$s</string>
-    <string name="notification_joined_conversation">%1$s приєднався(-лася) до розмови</string>
-    <string name="notification_geohash_summary_title_mentions">bitchat - %1$d згадок</string>
-    <string name="notification_geohash_summary_title">bitchat - геочати</string>
-    <string name="notification_geohash_summary_text">%1$d повідомлень з %2$d місць</string>
-    <string name="notification_mesh_mention_title_singular">Згадка в Mesh-чаті</string>
-    <string name="notification_mesh_mention_title_plural">%1$d згадок у Mesh-чаті</string>
-    <string name="notification_more_locations">і ще %1$d місць</string>
     <string name="mesh_service_channel_name">Фонова служба Mesh</string>
     <string name="mesh_service_channel_desc">Підтримує роботу Bluetooth mesh-мережі у фоновому режимі</string>
     <string name="cd_add_favorite">Додати в обране</string>
@@ -383,12 +360,6 @@
         <item quantity="other">#%1$s ± 1 • %2$d нотатки</item>
     </plurals>
 
-    <plurals name="notification_and_more">
-        <item quantity="one">і ще %1$d</item>
-        <item quantity="few">і ще %1$d</item>
-        <item quantity="many">і ще %1$d</item>
-        <item quantity="other">і ще %1$d</item>
-    </plurals>
 
     <plurals name="people_count">
         <item quantity="one">%1$d людина</item>

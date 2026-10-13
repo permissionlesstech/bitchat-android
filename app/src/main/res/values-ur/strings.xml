@@ -44,25 +44,9 @@
 
     <!-- نوٹیفیکیشنز -->
     <string name="notification_summary_more">اور %1$d مزید</string>
-    <string name="notification_messages_from_people">%2$d لوگوں سے %1$d پیغامات</string>
-    <string name="notification_more_conversations">اور %1$d مزید گفتگو</string>
     <string name="notification_active_peers_title">قریب میں bitchatter!</string>
     <string name="notification_active_peers_one">قریب میں 1 شخص</string>
     <string name="notification_active_peers_many">قریب میں %1$d لوگ</string>
-    <string name="notification_new_messages">نئے پیغامات</string>
-    <string name="notification_new_location_messages">نئے مقام کے پیغامات</string>
-    <string name="notification_mentions_in">%1$s میں ذکر</string>
-    <string name="notification_mentions_in_more">%1$s میں ذکر (+%2$d)</string>
-    <string name="notification_mentions_in_plural">%2$s میں %1$d ذکر</string>
-    <string name="notification_new_activity_in">%1$s میں نئی سرگرمی</string>
-    <string name="notification_messages_in">%1$s میں پیغامات</string>
-    <string name="notification_joined_conversation">%1$s گفتگو میں شامل ہوا</string>
-    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d ذکر</string>
-    <string name="notification_geohash_summary_title">bitchat – مقام چیٹس</string>
-    <string name="notification_geohash_summary_text">%2$d مقامات سے %1$d پیغامات</string>
-    <string name="notification_mesh_mention_title_singular">میش چیٹ میں ذکر</string>
-    <string name="notification_mesh_mention_title_plural">میش چیٹ میں %1$d ذکر</string>
-    <string name="notification_more_locations">اور %1$d مزید مقامات</string>
     <string name="notification_and_more">اور %1$d مزید</string>
 
     <!-- پسندیدہ رسائی -->
@@ -324,10 +308,6 @@
     <string name="cancel">منسوخ کریں</string>
 
     <!-- جمع -->
-    <plurals name="notification_and_more">
-        <item quantity="one">اور %d مزید</item>
-        <item quantity="other">اور %d مزید</item>
-    </plurals>
 
     <plurals name="people_count">
         <item quantity="one">1 شخص</item>
@@ -366,7 +346,6 @@
   <string name="fingerprint_their">their fingerprint</string>
   <string name="fingerprint_yours">your fingerprint</string>
   <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
   <string name="fingerprint_status_verified">encrypted &amp; verified</string>
   <string name="fingerprint_status_encrypted">encrypted</string>
   <string name="fingerprint_status_handshaking">handshaking</string>
@@ -379,12 +358,6 @@
   <string name="fingerprint_mark_verified">mark as verified</string>
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
-  <string name="verify_mutual_match_title">Mutual verification</string>
-  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
-  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
-  <string name="verify_success_title">Verified</string>
-  <string name="verify_success_body">You verified %1$s</string>
-  <string name="verify_success_system_message">verified %1$s</string>
     <string name="cd_open_about">تعارف کھولیں</string>
   <string name="nearby_notes_reveal">دیکھیں کہ یہاں نوٹ چھوڑے گئے ہیں یا نہیں</string>
   <string name="nearby_notes_one">یہاں 1 نوٹ چھوڑا گیا ہے — پڑھنے کے لیے تھپتھپائیں</string>

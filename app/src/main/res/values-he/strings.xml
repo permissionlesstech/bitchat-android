@@ -35,7 +35,6 @@
   <string name="fingerprint_their">טביעת האצבע שלהם</string>
   <string name="fingerprint_yours">טביעת האצבע שלך</string>
   <string name="fingerprint_pending">לחיצת יד ממתינה</string>
-  <string name="fingerprint_no_peer">פתח שיחה פרטית כדי לצפות בטביעות אצבע</string>
   <string name="fingerprint_status_verified">מוצפן ומאומת</string>
   <string name="fingerprint_status_encrypted">מוצפן</string>
   <string name="fingerprint_status_handshaking">מבצע לחיצת יד</string>
@@ -48,12 +47,6 @@
   <string name="fingerprint_mark_verified">סמן כמאומת</string>
   <string name="fingerprint_start_handshake">התחל לחיצת יד</string>
   <string name="fingerprint_copy">העתק</string>
-  <string name="verify_mutual_match_title">אימות הדדי</string>
-  <string name="verify_mutual_match_body">אתה ו-%1$s אימתתם זה את זה</string>
-  <string name="verify_mutual_system_message">אימות הדדי עם %1$s</string>
-  <string name="verify_success_title">מאומת</string>
-  <string name="verify_success_body">אימתת את %1$s</string>
-  <string name="verify_success_system_message">אימת את %1$s</string>
 
   <string name="app_name">bitchat</string>
   <string name="permission_bluetooth_rationale">נדרשת הרשאת Bluetooth להעברת הודעות בין עמיתים ללא אינטרנט.</string>
@@ -90,29 +83,9 @@
   <string name="battery_optimization_continue">המשך</string>
   <string name="retry">נסה שוב</string>
   <string name="notification_summary_more">ועוד %1$d</string>
-  <string name="notification_messages_from_people">%1$d הודעות מ-%2$d אנשים</string>
-  <string name="notification_more_conversations">ועוד %1$d שיחות</string>
   <string name="notification_active_peers_title">👥 יש בצ׳אטרים בקרבת מקום!</string>
   <string name="notification_active_peers_one">אדם אחד בסביבה</string>
   <string name="notification_active_peers_many">%1$d אנשים בסביבה</string>
-  <string name="notification_new_messages">הודעות חדשות</string>
-  <string name="notification_new_location_messages">הודעות מיקום חדשות</string>
-  <string name="notification_mentions_in">אוזכרת ב-%1$s</string>
-  <string name="notification_mentions_in_more">אוזכרת ב-%1$s (+%2$d נוספים)</string>
-  <string name="notification_mentions_in_plural">%1$d אזכורים ב-%2$s</string>
-  <string name="notification_new_activity_in">פעילות חדשה ב-%1$s</string>
-  <string name="notification_messages_in">הודעות ב-%1$s</string>
-  <string name="notification_joined_conversation">%1$s הצטרף/ה לשיחה</string>
-  <string name="notification_geohash_summary_title_mentions">bitchat - %1$d אזכורים</string>
-  <string name="notification_geohash_summary_title">bitchat - צ׳אטים לפי מיקום</string>
-  <string name="notification_geohash_summary_text">%1$d הודעות מ-%2$d מיקומים</string>
-  <string name="notification_mesh_mention_title_singular">אוזכרת בצ׳אט Mesh</string>
-  <string name="notification_mesh_mention_title_plural">%1$d אזכורים בצ׳אט Mesh</string>
-  <string name="notification_more_locations">ועוד %1$d מיקומים</string>
-  <plurals name="notification_and_more">
-    <item quantity="one">ועוד %1$d</item>
-    <item quantity="other">ועוד %1$d</item>
-  </plurals>
   <string name="mesh_service_channel_name">שירות רקע של רשת Mesh</string>
   <string name="mesh_service_channel_desc">שומר על פעילות רשת ה-Mesh ברקע</string>
   <string name="cd_add_favorite">הוסף למועדפים</string>
