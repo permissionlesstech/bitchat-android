@@ -17,9 +17,9 @@ import org.junit.runner.RunWith
 /**
  * A destination shown as a sheet over chat.
  *
- * Location notes stands in for every sheet destination; what is under test is
- * the sheet scene, not the notes. It is opened through the navigator rather
- * than the header, whose notes button depends on location state.
+ * The chat user sheet stands in for every sheet destination; what is under
+ * test is the sheet scene, not its content. It is opened through the navigator
+ * rather than a message long-press.
  */
 @RunWith(AndroidJUnit4::class)
 class SheetDestinationTest {
@@ -33,11 +33,13 @@ class SheetDestinationTest {
         fun completeOnboarding() = OnboardedApp.prepare()
     }
 
+    private val sheetRoute = ChatUserRoute(nickname = "someone", messageId = null)
+
     @Test
     fun aSheetOpensOverChatAndBackClosesIt() {
         rule.awaitChat()
 
-        rule.navigateTo(LocationNotesRoute)
+        rule.navigateTo(sheetRoute)
         rule.awaitSheet()
         // Chat stays composed beneath the sheet rather than being replaced.
         assertTrue(chatIsComposed())
@@ -56,7 +58,7 @@ class SheetDestinationTest {
     @Test
     fun twoQuickBackPressesOnASheetCloseOnlyTheSheet() {
         rule.awaitChat()
-        rule.navigateTo(LocationNotesRoute)
+        rule.navigateTo(sheetRoute)
         rule.awaitSheet()
 
         rule.pressSystemBack(times = 2)
@@ -71,7 +73,7 @@ class SheetDestinationTest {
     @Test
     fun aSheetPoppedFromOutsideCloses() {
         rule.awaitChat()
-        rule.navigateTo(LocationNotesRoute)
+        rule.navigateTo(sheetRoute)
         rule.awaitSheet()
 
         rule.runOnUiThread { rule.activity.navigator.goBack() }
@@ -89,7 +91,7 @@ class SheetDestinationTest {
     @Test
     fun backWhileASheetSlidesAwayStaysInTheApp() {
         rule.awaitChat()
-        rule.navigateTo(LocationNotesRoute)
+        rule.navigateTo(sheetRoute)
         rule.awaitSheet()
 
         rule.runOnUiThread { rule.activity.navigator.goBack() }
@@ -103,13 +105,13 @@ class SheetDestinationTest {
     @Test
     fun aSheetSurvivesActivityRecreation() {
         rule.awaitChat()
-        rule.navigateTo(LocationNotesRoute)
+        rule.navigateTo(sheetRoute)
         rule.awaitSheet()
 
         rule.activityRule.scenario.recreate()
 
         rule.awaitSheet()
-        assertEquals(LocationNotesRoute, rule.topOfStack())
+        assertEquals(sheetRoute, rule.topOfStack())
 
         rule.pressSystemBack()
         rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == ChatRoute }

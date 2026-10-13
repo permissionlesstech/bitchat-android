@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -11,23 +12,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
+import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.R
 
 /**
- * The content of the location notes sheet: the notes once the building is
- * known, and otherwise an acquiring or an unavailable state.
+ * The location notes screen: the notes once the building is known, and
+ * otherwise an acquiring or an unavailable state.
  *
- * Hosted by the sheet scene, so the three states swap inside one sheet rather
- * than each opening a sheet of its own.
+ * The three states swap inside one destination rather than each being one of
+ * their own, and each is a full screen with a back arrow and its own insets.
  */
 @Composable
 fun LocationNotesScreen(
     nickname: String,
-    onDismiss: () -> Unit
+    onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val locationManager = remember { LocationChannelManager.getInstance(context) }
@@ -48,14 +49,14 @@ fun LocationNotesScreen(
             geohash = buildingGeohash,
             locationName = locationName,
             nickname = nickname,
-            onDismiss = onDismiss
+            onBack = onBack
         )
     } else if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && isLoadingLocation) {
-        LocationNotesAcquiringContent()
+        LocationNotesAcquiringContent(onBack = onBack)
     } else {
         // No building geohash available - show error state (matches iOS)
         LocationNotesErrorContent(
-            onDismiss = onDismiss,
+            onBack = onBack,
             locationManager = locationManager
         )
     }
@@ -65,29 +66,33 @@ fun LocationNotesScreen(
  * Shown while location is being acquired
  */
 @Composable
-private fun LocationNotesAcquiringContent() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Acquiring Location",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "Please wait while your location is being determined",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+private fun LocationNotesAcquiringContent(onBack: () -> Unit) {
+    Box(modifier = Modifier.locationNotesScreenRoot()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(top = 80.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Acquiring Location",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "Please wait while your location is being determined",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        LocationNotesTopBar(onBack = onBack, modifier = Modifier.align(Alignment.TopCenter))
     }
 }
 
@@ -96,10 +101,10 @@ private fun LocationNotesAcquiringContent() {
  */
 @Composable
 private fun LocationNotesErrorContent(
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
     locationManager: LocationChannelManager
 ) {
-    Box(modifier = Modifier.fillMaxWidth()) {
+    Box(modifier = Modifier.locationNotesScreenRoot()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -131,14 +136,29 @@ private fun LocationNotesErrorContent(
             }
         }
 
-        BitchatSheetTopBar(
-            onClose = onDismiss,
-            modifier = Modifier.align(Alignment.TopCenter),
-            title = {
-                BitchatSheetTitle(
-                    text = stringResource(R.string.cd_location_notes).uppercase()
-                )
-            }
-        )
+        LocationNotesTopBar(onBack = onBack, modifier = Modifier.align(Alignment.TopCenter))
     }
 }
+
+/** Top bar of the unavailable and acquiring states, which have no count to title. */
+@Composable
+private fun LocationNotesTopBar(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    BitchatScreenTopBar(
+        onBack = onBack,
+        modifier = modifier,
+        title = {
+            BitchatSheetTitle(text = stringResource(R.string.cd_location_notes).uppercase())
+        }
+    )
+}
+
+/**
+ * Root of each notes state. A sheet applied the system bar insets to everything
+ * in it; a screen has to, and consuming them here keeps the top bar from
+ * padding a second time.
+ */
+@Composable
+internal fun Modifier.locationNotesScreenRoot(): Modifier =
+    this.fillMaxSize()
+        .background(MaterialTheme.colorScheme.background)
+        .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))

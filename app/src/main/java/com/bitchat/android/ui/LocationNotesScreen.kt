@@ -25,7 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
+import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
@@ -45,7 +45,7 @@ fun LocationNotesContent(
     geohash: String,
     locationName: String?,
     nickname: String?,
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -89,12 +89,12 @@ fun LocationNotesContent(
         label = "topBarAlpha"
     )
 
-    // Refresh location when sheet opens
+    // Refresh location when the screen opens
     LaunchedEffect(Unit) {
         locationManager.refreshChannels()
     }
 
-    // Opening the notes sheet is an explicit reveal. The balanced hold lets
+    // Opening the notes screen is an explicit reveal. The balanced hold lets
     // the mesh timeline keep the shared subscription alive after dismissal.
     DisposableEffect(
         geohash,
@@ -115,7 +115,7 @@ fun LocationNotesContent(
         }
     }
 
-    Box(modifier = modifier.fillMaxWidth()) {
+    Box(modifier = modifier.locationNotesScreenRoot()) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -173,8 +173,8 @@ fun LocationNotesContent(
         }
 
         // TopBar (animated)
-        BitchatSheetTopBar(
-            onClose = onDismiss,
+        BitchatScreenTopBar(
+            onBack = onBack,
             modifier = Modifier.align(Alignment.TopCenter),
             title = {
                 BitchatSheetTitle(
@@ -192,6 +192,7 @@ fun LocationNotesContent(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .imePadding()
         ){
             Column {
                 // Divider before input (matches iOS overlay)

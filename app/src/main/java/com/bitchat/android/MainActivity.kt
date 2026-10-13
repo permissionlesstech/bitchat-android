@@ -345,11 +345,11 @@ class MainActivity : OrientationAwareActivity() {
                                 messageId = route.messageId,
                             )
                         }
-                        entry<LocationNotesRoute>(metadata = SheetSceneStrategy.sheet()) {
+                        entry<LocationNotesRoute> {
                             val nickname by chatState.nickname.collectAsStateWithLifecycle()
                             LocationNotesScreen(
                                 nickname = nickname,
-                                onDismiss = { navigator.popTo(LocationNotesRoute, inclusive = true) },
+                                onBack = { navigator.popTo(LocationNotesRoute, inclusive = true) },
                             )
                         }
                         entry<AboutRoute> {

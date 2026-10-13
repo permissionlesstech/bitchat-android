@@ -84,7 +84,7 @@ class LocationChannelsDestinationTest {
 
         rule.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(notes))
         rule.onNodeWithText(notes).performClick()
-        rule.awaitSheet()
+        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == LocationNotesRoute }
 
         assertEquals(listOf(ChatRoute, LocationNotesRoute), rule.backStack())
 
