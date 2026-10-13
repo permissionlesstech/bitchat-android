@@ -1,7 +1,6 @@
 package com.bitchat.android.navigation
 
 import android.content.Intent
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -56,7 +55,7 @@ class PrivateChatDestinationTest {
     fun aChatOpenedFromThePeerListIsPushedOverIt() {
         rule.awaitChat()
         rule.navigateTo(MeshPeerListRoute)
-        rule.waitForIdle()
+        rule.awaitPeerList()
 
         rule.runOnUiThread {
             rule.activity.navigator.openPrivateChat(
@@ -75,7 +74,7 @@ class PrivateChatDestinationTest {
 
         rule.pressSystemBack()
         rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == MeshPeerListRoute }
-        rule.waitForIdle()
+        rule.awaitPeerList()
         awaitSelection(null)
 
         rule.pressSystemBack()
@@ -92,7 +91,7 @@ class PrivateChatDestinationTest {
     fun liveVoiceFollowsAChatPushedOverThePeerList() {
         rule.awaitChat()
         rule.navigateTo(MeshPeerListRoute)
-        awaitPeerList()
+        rule.awaitPeerList()
 
         rule.runOnUiThread {
             rule.activity.navigator.openPrivateChat(
@@ -114,8 +113,15 @@ class PrivateChatDestinationTest {
         }
     }
 
+    /**
+     * The pushed stack survives the Activity being recreated, as on a
+     * configuration change. The stack is saved and restored through the
+     * encoder on the way, but the navigator is Activity-retained and keeps it
+     * in memory too, so a restore that came back empty would go unnoticed.
+     * This is recreation, not process death.
+     */
     @Test
-    fun theListAndChatSurviveRecreation() {
+    fun theListAndChatSurviveActivityRecreation() {
         rule.awaitChat()
         rule.navigateTo(MeshPeerListRoute)
         rule.runOnUiThread {
@@ -182,7 +188,7 @@ class PrivateChatDestinationTest {
 
         openPrivateChat(PEER_B)
         awaitSelection(PEER_B)
-        // Idle once the replaced sheet has slid away and left composition.
+        // Idle once the replaced screen has slid away and left composition.
         rule.waitForIdle()
 
         assertEquals(PEER_B, selection())
@@ -308,7 +314,11 @@ class PrivateChatDestinationTest {
         awaitSelection(null)
     }
 
-    /** The composer stays above the keyboard once it is open. */
+    /**
+     * The composer sits just above the keyboard once it is open: not under it,
+     * and not lifted by the keyboard's height twice. The gap allowed is the
+     * input section's own padding below the field, about 25dp, with room.
+     */
     @Test
     fun imeKeepsComposerVisible() {
         rule.awaitChat()
@@ -316,11 +326,33 @@ class PrivateChatDestinationTest {
         awaitPrivateChatScreen()
         val composer = rule.onAllNodes(hasSetTextAction()).onLast()
         composer.performClick()
+        val decorView = rule.activity.window.decorView
+        fun imeBottom() = androidx.core.view.ViewCompat.getRootWindowInsets(decorView)
+            ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom ?: 0
+        fun composerBottom() = composer.fetchSemanticsNode().boundsInWindow.bottom
+        rule.waitUntil(5_000) { imeBottom() > 0 }
+        // The composer rides the keyboard up as it animates in, and a doubled
+        // padding would pass through the allowed gap on the way. Measure once
+        // it has held still for a while.
+        var lastBottom = Float.NaN
+        var stillSince = 0L
         rule.waitUntil(5_000) {
-            androidx.core.view.ViewCompat.getRootWindowInsets(rule.activity.window.decorView)
-                ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+            val now = android.os.SystemClock.uptimeMillis()
+            val bottom = composerBottom()
+            if (bottom != lastBottom) {
+                lastBottom = bottom
+                stillSince = now
+            }
+            now - stillSince >= 500
         }
-        composer.assertIsDisplayed()
+
+        val imeTop = decorView.height - imeBottom()
+        val composerBottom = composerBottom()
+        val gap = imeTop - composerBottom
+        val maxGap = 48 * rule.activity.resources.displayMetrics.density
+
+        assertTrue("composer bottom $composerBottom is under the keyboard top $imeTop", gap >= 0f)
+        assertTrue("composer bottom $composerBottom is $gap px above the keyboard top $imeTop", gap <= maxGap)
     }
 
     private fun awaitPrivateChatScreen() {
@@ -333,13 +365,6 @@ class PrivateChatDestinationTest {
     private fun session() = ChatSessionTestAccess.of(rule.activity)
 
     private fun liveVoice() = LiveVoiceManager.getInstance(rule.activity)
-
-    private fun awaitPeerList() {
-        val title = rule.activity.getString(R.string.your_network)
-        rule.waitUntil(timeoutMillis = 5_000) {
-            rule.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty()
-        }
-    }
 
     private fun openPrivateChat(peerID: String) {
         rule.runOnUiThread {

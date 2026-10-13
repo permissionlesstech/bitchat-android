@@ -28,7 +28,7 @@ data object ChatRoute : NavKey
 data object AboutRoute : NavKey
 
 /**
- * Location notes, shown as a sheet over chat.
+ * Location notes, a full-screen destination.
  *
  * No argument: the notes belong to the building the device is in, which the
  * screen reads from the location manager when it opens.
@@ -73,19 +73,21 @@ data object LocationChannelsRoute : NavKey
 data object DebugSettingsRoute : NavKey
 
 /**
- * The network view: conversations, channels and nearby people, shown as a
- * sheet over chat.
+ * The network view: conversations, channels and nearby people, a full-screen
+ * destination. A private chat opened from it is pushed on top of it, and Back
+ * returns to the list.
  */
 @Serializable
 data object MeshPeerListRoute : NavKey
 
 /**
- * A private conversation, shown as a sheet over chat.
+ * A private conversation, a full-screen destination. Opened from the peer list
+ * it is pushed on top of the list; from anywhere else it sits directly on chat.
  *
  * [conversationID] is the id the conversation was opened with, canonicalized
  * at the time. It is not rewritten when the conversation later resolves to a
- * contact: the live id is ChatViewModel's selected private peer, which the
- * resolvers keep canonical, and the screen prefers it.
+ * contact: the screen's ViewModel canonicalizes it again whenever the
+ * selection moves.
  */
 @Serializable
 data class PrivateChatRoute(val conversationID: String) : NavKey

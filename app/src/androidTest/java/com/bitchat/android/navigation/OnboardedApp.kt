@@ -147,6 +147,14 @@ internal fun MainActivityRule.navigateTo(route: NavKey) {
     waitForIdle()
 }
 
+/** Waits for the peer list's own title, not just for its route on the stack. */
+internal fun MainActivityRule.awaitPeerList() {
+    val title = activity.getString(R.string.your_network)
+    waitUntil(timeoutMillis = 5_000) {
+        onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty()
+    }
+}
+
 internal fun MainActivityRule.topOfStack(): NavKey? = backStack().lastOrNull()
 
 internal fun MainActivityRule.backStack(): List<NavKey> {

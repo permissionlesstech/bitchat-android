@@ -167,7 +167,7 @@ fun PrivateChatScreen(
                 onMessageTextChange = { newText ->
                     messageText = newText
                     onAction(PrivateChatAction.ComposerTextChanged(newText.text))
-                    // Do not update the shared suggestion state here: this sheet
+                    // Do not update the shared suggestion state here: this screen
                     // renders its own popups as hidden, so an update only leaves
                     // a stale popup behind for the main composer.
                 },

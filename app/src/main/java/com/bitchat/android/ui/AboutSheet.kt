@@ -47,9 +47,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.UnfoldMore
@@ -65,7 +63,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
@@ -76,7 +73,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.util.downloadPhaseLabel
 import com.bitchat.android.hotspot.HotspotActivity
 import com.bitchat.android.net.ArtiTorManager
@@ -302,10 +298,12 @@ private fun SettingsToggleRow(
 }
 
 /**
- * About's content, independent of how it is hosted.
+ * About's tabs and their list, under a top bar with a back arrow that calls
+ * [onClose]. [onShowDebug] opens debug settings from the Settings tab; when it
+ * is null the entry is not offered.
  *
- * Kept separate from [AboutScreen] so the content does not depend on how it is
- * hosted.
+ * Takes no window insets of its own: [AboutScreen] passes them in through
+ * [modifier].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

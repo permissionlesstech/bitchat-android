@@ -102,6 +102,12 @@ class SheetDestinationTest {
         assertTrue(chatIsComposed())
     }
 
+    /**
+     * The sheet, a key with arguments, is still open after the Activity is
+     * recreated. The stack goes through the saved-state encoder on the way,
+     * but the navigator is Activity-retained and keeps it in memory too, so
+     * this is recreation, not process death.
+     */
     @Test
     fun aSheetSurvivesActivityRecreation() {
         rule.awaitChat()
@@ -112,26 +118,6 @@ class SheetDestinationTest {
 
         rule.awaitSheet()
         assertEquals(sheetRoute, rule.topOfStack())
-
-        rule.pressSystemBack()
-        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == ChatRoute }
-    }
-
-    /**
-     * A key with arguments goes through the saved-state encoder as a data
-     * class rather than an object, which only restoring it exercises.
-     */
-    @Test
-    fun aSheetWithArgumentsSurvivesActivityRecreation() {
-        rule.awaitChat()
-        val route = ChatUserRoute(nickname = "someone", messageId = null)
-        rule.navigateTo(route)
-        rule.awaitSheet()
-
-        rule.activityRule.scenario.recreate()
-
-        rule.awaitSheet()
-        assertEquals(route, rule.topOfStack())
 
         rule.pressSystemBack()
         rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == ChatRoute }

@@ -39,7 +39,7 @@ class VerificationDestinationTest {
         rule.pressSystemBack()
 
         rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == MeshPeerListRoute }
-        rule.waitForIdle()
+        rule.awaitPeerList()
         assertFalse(rule.activity.isFinishing)
     }
 

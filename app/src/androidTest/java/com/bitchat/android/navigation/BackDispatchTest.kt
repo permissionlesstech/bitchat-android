@@ -107,9 +107,14 @@ class BackDispatchTest {
         rule.pressBack()
     }
 
-    /** A second Back while a screen is still sliding out pops nothing more. */
+    /**
+     * Two quick Back presses, the second while the first screen is still
+     * sliding out, never leave the app. Each may pop a screen, so either About
+     * or chat may end on top; what must not happen is the second press
+     * reaching the Activity and finishing it.
+     */
     @Test
-    fun twoQuickBackPressesPopOnlyOneScreen() {
+    fun twoQuickBackPressesNeverLeaveTheApp() {
         rule.awaitChat()
         rule.navigateTo(AboutRoute)
         rule.navigateTo(DebugSettingsRoute)
