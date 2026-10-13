@@ -63,8 +63,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
@@ -617,7 +617,7 @@ fun AboutSheet(
                                     )
 
                                     // === Prepare App for Sharing Section ===
-                                    val apkViewModel: ApkDownloadViewModel = viewModel()
+                                    val apkViewModel: ApkDownloadViewModel = hiltViewModel()
                                     val apkUiState by apkViewModel.state.collectAsStateWithLifecycle()
                                     val apkStatus = apkUiState.apkStatus
                                     val releaseStatus = apkUiState.releaseStatus
