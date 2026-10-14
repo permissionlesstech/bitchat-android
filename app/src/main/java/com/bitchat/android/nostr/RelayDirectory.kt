@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.core.content.edit
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
@@ -26,7 +27,12 @@ import okhttp3.Request
 object RelayDirectory {
 
     private const val TAG = "RelayDirectory"
-    private const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/georelays/refs/heads/main/nostr_relays.csv"
+
+    // The source URL matches iOS GeoRelayDirectory. Download timing and parser
+    // acceptance can leave clients with different loaded snapshots.
+    internal const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv"
+    // Download cache of ASSET_FILE_URL above, and the bundled list the weekly job
+    // refreshes from it; the file names predate the source's move to online_relays_gps.csv.
     private const val ASSET_FILE = "nostr_relays.csv"
     private const val DOWNLOADED_FILE = "nostr_relays_latest.csv"
     private const val PREFS_NAME = "relay_directory_prefs"
@@ -49,7 +55,10 @@ object RelayDirectory {
     private val relays: MutableList<RelayInfo> = mutableListOf()
     private val relaysLock = Any()
 
-    fun initialize(application: Application) {
+    fun initialize(application: Application) =
+        initialize(application, ioScope, System::currentTimeMillis)
+
+    internal fun initialize(application: Application, refreshScope: CoroutineScope, nowMillis: () -> Long) {
         if (initialized) return
         synchronized(this) {
             if (initialized) return
@@ -67,15 +76,8 @@ object RelayDirectory {
 
                 initialized = true
 
-                // Trigger an immediate fetch if the data is stale (older than 24h)
-                ioScope.launch {
-                    if (isStale(application)) {
-                        fetchAndMaybeSwap(application)
-                    }
-                }
-
-                // Start periodic staleness check every minute
-                startPeriodicRefresh(application)
+                // One worker checks immediately, then waits a minute after each iteration.
+                startPeriodicRefresh(application, refreshScope, nowMillis)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize RelayDirectory: ${e.message}")
             }
@@ -97,13 +99,17 @@ object RelayDirectory {
         }
 
         val (lat, lon) = center
-        return snapshot
-            .asSequence()
-            .sortedBy { haversineMeters(lat, lon, it.latitude, it.longitude) }
-            .take(nRelays.coerceAtLeast(0))
-            .map { it.url }
-            .toList()
+        return closestRelays(snapshot, lat, lon, nRelays)
     }
+
+    // City-level coordinates create distance ties. Break them by endpoint key,
+    // following GeoRelayDirectory.closestRelays for the accepted directory rows.
+    internal fun closestRelays(entries: List<RelayInfo>, lat: Double, lon: Double, nRelays: Int): List<String> =
+        entries
+            .map { it to haversineMeters(lat, lon, it.latitude, it.longitude) }
+            .sortedWith(compareBy({ it.second }, { it.first.url }))
+            .take(nRelays.coerceAtLeast(0))
+            .map { it.first.url }
 
     private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val R = 6371000.0 // meters
@@ -128,18 +134,18 @@ object RelayDirectory {
     private fun getDownloadedFile(application: Application): File =
         File(application.filesDir, DOWNLOADED_FILE)
 
-    private fun isStale(application: Application): Boolean {
+    private fun isStale(application: Application, nowMillis: () -> Long): Boolean {
         val last = getPrefs(application).getLong(KEY_LAST_UPDATE_MS, 0L)
-        val now = System.currentTimeMillis()
+        val now = nowMillis()
         return now - last >= ONE_DAY_MS
     }
 
-    private fun startPeriodicRefresh(application: Application) {
-        ioScope.launch {
+    private fun startPeriodicRefresh(application: Application, refreshScope: CoroutineScope, nowMillis: () -> Long) {
+        refreshScope.launch {
             while (true) {
                 try {
-                    if (isStale(application)) {
-                        fetchAndMaybeSwap(application)
+                    if (isStale(application, nowMillis)) {
+                        fetchAndMaybeSwap(application, nowMillis)
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Periodic refresh encountered an error: ${e.message}")
@@ -149,30 +155,27 @@ object RelayDirectory {
         }
     }
 
-    private fun fetchAndMaybeSwap(application: Application) {
+    private fun fetchAndMaybeSwap(application: Application, nowMillis: () -> Long) {
+        var temporaryDownload: File? = null
         try {
             val tmpFile = File.createTempFile("relays_", ".csv", application.cacheDir)
+            temporaryDownload = tmpFile
             val ok = downloadToFile(ASSET_FILE_URL, tmpFile)
             if (!ok) {
-                Log.w(TAG, "Failed to fetch latest relays; keeping current list (will fallback to bundled if none)")
-                tmpFile.delete()
+                Log.w(TAG, "Failed to fetch latest relays; keeping current list")
                 return
             }
 
             val parsed = parseCsv(FileInputStream(tmpFile))
             if (parsed.isEmpty()) {
                 Log.w(TAG, "Downloaded relay CSV parsed to 0 entries; ignoring")
-                tmpFile.delete()
                 return
             }
 
             val dest = getDownloadedFile(application)
             tmpFile.inputStream().use { input ->
-                FileOutputStream(dest, false).use { output ->
-                    input.copyTo(output)
-                }
+                RelayDirectoryCache.replace(input, dest)
             }
-            tmpFile.delete()
 
             val hash = fileSha256Hex(dest)
             val entries = parsed.size
@@ -182,11 +185,17 @@ object RelayDirectory {
                 relays.addAll(parsed)
             }
 
-            getPrefs(application).edit().putLong(KEY_LAST_UPDATE_MS, System.currentTimeMillis()).apply()
+            getPrefs(application).edit { putLong(KEY_LAST_UPDATE_MS, nowMillis()) }
 
             Log.i(TAG, "✅ Using downloaded relay list (${dest.absolutePath}), entries=$entries, sha256=$hash, updatedAtMs=${getPrefs(application).getLong(KEY_LAST_UPDATE_MS, 0L)}")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to fetch and swap relay list: ${e.message}")
+        } finally {
+            temporaryDownload?.let { file ->
+                if (file.exists() && !file.delete()) {
+                    Log.w(TAG, "Could not remove temporary relay download")
+                }
+            }
         }
     }
 
@@ -195,10 +204,10 @@ object RelayDirectory {
             val req = Request.Builder().url(url).get().build()
             httpClient.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) {
-                    Log.w(TAG, "HTTP ${'$'}{resp.code} when fetching $url")
+                    Log.w(TAG, "HTTP ${resp.code} when fetching $url")
                     return false
                 }
-                val body = resp.body ?: return false
+                val body = resp.body
                 FileOutputStream(dest).use { out ->
                     body.byteStream().use { input ->
                         input.copyTo(out)
@@ -250,13 +259,17 @@ object RelayDirectory {
                 streamSha256Hex(input)
             }
         } catch (e: Exception) {
-            "error:${'$'}{e.message}"
+            "error:${e.message}"
         }
         Log.i(TAG, "📦 Loaded ${list.size} relay entries from assets/$ASSET_FILE, sha256=$hash")
     }
 
-    private fun parseCsv(input: InputStream): List<RelayInfo> {
+    internal fun parseCsv(input: InputStream): List<RelayInfo> {
         val result = mutableListOf<RelayInfo>()
+        // The directory lists some relays twice, once bare and once with an explicit
+        // :443, which has the same endpoint key over wss. Without this check both copies can
+        // land in a nearest-N selection, and one of its slots connects nowhere new.
+        val seenEndpoints = HashSet<String>()
         BufferedReader(InputStreamReader(input)).use { reader ->
             var line: String?
             while (true) {
@@ -267,14 +280,30 @@ object RelayDirectory {
                 if (trimmed.lowercase().startsWith("relay url")) continue
                 val parts = trimmed.split(",")
                 if (parts.size < 3) continue
-                val url = normalizeRelayUrl(parts[0].trim())
+                val raw = normalizeRelayUrl(parts[0].trim())
                 val lat = parts[1].trim().toDoubleOrNull()
                 val lon = parts[2].trim().toDoubleOrNull()
-                if (url.isEmpty() || lat == null || lon == null) continue
-                result.add(RelayInfo(url = url, latitude = lat, longitude = lon))
+                if (raw.isEmpty() || lat == null || lon == null) continue
+                val canonical = canonicalHost(raw)
+                if (canonical.isEmpty() || !seenEndpoints.add(canonical)) continue
+                result.add(RelayInfo(url = "wss://$canonical", latitude = lat, longitude = lon))
             }
         }
         return result
+    }
+
+    /**
+     * Endpoint key for deduplication and distance ties: lowercase host, with
+     * port 443 omitted. This parser does not implement iOS directory validation.
+     */
+    internal fun canonicalHost(url: String): String {
+        val hostPort = url.substringAfter("://").substringBefore("/")
+        val idx = hostPort.lastIndexOf(':')
+        val hasPort = idx > 0 && idx < hostPort.length - 1 &&
+            hostPort.substring(idx + 1).all { it.isDigit() }
+        val host = (if (hasPort) hostPort.substring(0, idx) else hostPort).lowercase()
+        val port = if (hasPort) (hostPort.substring(idx + 1).toIntOrNull() ?: return "") else 443
+        return if (port == 443) host else "$host:$port"
     }
 
     private fun fileSha256Hex(file: File): String = try {
