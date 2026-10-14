@@ -55,7 +55,10 @@ object RelayDirectory {
     private val relays: MutableList<RelayInfo> = mutableListOf()
     private val relaysLock = Any()
 
-    fun initialize(application: Application) {
+    fun initialize(application: Application) =
+        initialize(application, ioScope, System::currentTimeMillis)
+
+    internal fun initialize(application: Application, refreshScope: CoroutineScope, nowMillis: () -> Long) {
         if (initialized) return
         synchronized(this) {
             if (initialized) return
@@ -73,15 +76,8 @@ object RelayDirectory {
 
                 initialized = true
 
-                // Trigger an immediate fetch if the data is stale (older than 24h)
-                ioScope.launch {
-                    if (isStale(application)) {
-                        fetchAndMaybeSwap(application)
-                    }
-                }
-
-                // Recheck staleness after a one-minute delay following each iteration.
-                startPeriodicRefresh(application)
+                // One worker checks immediately, then waits a minute after each iteration.
+                startPeriodicRefresh(application, refreshScope, nowMillis)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize RelayDirectory: ${e.message}")
             }
@@ -138,18 +134,18 @@ object RelayDirectory {
     private fun getDownloadedFile(application: Application): File =
         File(application.filesDir, DOWNLOADED_FILE)
 
-    private fun isStale(application: Application): Boolean {
+    private fun isStale(application: Application, nowMillis: () -> Long): Boolean {
         val last = getPrefs(application).getLong(KEY_LAST_UPDATE_MS, 0L)
-        val now = System.currentTimeMillis()
+        val now = nowMillis()
         return now - last >= ONE_DAY_MS
     }
 
-    private fun startPeriodicRefresh(application: Application) {
-        ioScope.launch {
+    private fun startPeriodicRefresh(application: Application, refreshScope: CoroutineScope, nowMillis: () -> Long) {
+        refreshScope.launch {
             while (true) {
                 try {
-                    if (isStale(application)) {
-                        fetchAndMaybeSwap(application)
+                    if (isStale(application, nowMillis)) {
+                        fetchAndMaybeSwap(application, nowMillis)
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Periodic refresh encountered an error: ${e.message}")
@@ -159,30 +155,27 @@ object RelayDirectory {
         }
     }
 
-    private fun fetchAndMaybeSwap(application: Application) {
+    private fun fetchAndMaybeSwap(application: Application, nowMillis: () -> Long) {
+        var temporaryDownload: File? = null
         try {
             val tmpFile = File.createTempFile("relays_", ".csv", application.cacheDir)
+            temporaryDownload = tmpFile
             val ok = downloadToFile(ASSET_FILE_URL, tmpFile)
             if (!ok) {
                 Log.w(TAG, "Failed to fetch latest relays; keeping current list")
-                tmpFile.delete()
                 return
             }
 
             val parsed = parseCsv(FileInputStream(tmpFile))
             if (parsed.isEmpty()) {
                 Log.w(TAG, "Downloaded relay CSV parsed to 0 entries; ignoring")
-                tmpFile.delete()
                 return
             }
 
             val dest = getDownloadedFile(application)
             tmpFile.inputStream().use { input ->
-                FileOutputStream(dest, false).use { output ->
-                    input.copyTo(output)
-                }
+                RelayDirectoryCache.replace(input, dest)
             }
-            tmpFile.delete()
 
             val hash = fileSha256Hex(dest)
             val entries = parsed.size
@@ -192,11 +185,17 @@ object RelayDirectory {
                 relays.addAll(parsed)
             }
 
-            getPrefs(application).edit { putLong(KEY_LAST_UPDATE_MS, System.currentTimeMillis()) }
+            getPrefs(application).edit { putLong(KEY_LAST_UPDATE_MS, nowMillis()) }
 
             Log.i(TAG, "✅ Using downloaded relay list (${dest.absolutePath}), entries=$entries, sha256=$hash, updatedAtMs=${getPrefs(application).getLong(KEY_LAST_UPDATE_MS, 0L)}")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to fetch and swap relay list: ${e.message}")
+        } finally {
+            temporaryDownload?.let { file ->
+                if (file.exists() && !file.delete()) {
+                    Log.w(TAG, "Could not remove temporary relay download")
+                }
+            }
         }
     }
 
@@ -205,7 +204,7 @@ object RelayDirectory {
             val req = Request.Builder().url(url).get().build()
             httpClient.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) {
-                    Log.w(TAG, "HTTP ${'$'}{resp.code} when fetching $url")
+                    Log.w(TAG, "HTTP ${resp.code} when fetching $url")
                     return false
                 }
                 val body = resp.body
@@ -260,7 +259,7 @@ object RelayDirectory {
                 streamSha256Hex(input)
             }
         } catch (e: Exception) {
-            "error:${'$'}{e.message}"
+            "error:${e.message}"
         }
         Log.i(TAG, "📦 Loaded ${list.size} relay entries from assets/$ASSET_FILE, sha256=$hash")
     }

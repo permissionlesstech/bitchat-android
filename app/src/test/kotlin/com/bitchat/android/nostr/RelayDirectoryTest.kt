@@ -14,7 +14,7 @@ class RelayDirectoryTest {
     private val header = "Relay URL,Latitude,Longitude\n"
 
     @Test
-    fun `fetch url is the file ios reads`() {
+    fun `fetch url points to online_relays_gps csv`() {
         assertEquals(
             "https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv",
             RelayDirectory.ASSET_FILE_URL
@@ -22,7 +22,7 @@ class RelayDirectoryTest {
     }
 
     @Test
-    fun `canonical host matches the key ios builds`() {
+    fun `canonical host normalizes host case and default port`() {
         assertEquals("relay.example.com", RelayDirectory.canonicalHost("wss://relay.example.com"))
         assertEquals("relay.example.com", RelayDirectory.canonicalHost("wss://relay.example.com:443"))
         assertEquals("relay.example.com:8443", RelayDirectory.canonicalHost("wss://relay.example.com:8443"))
@@ -77,7 +77,7 @@ class RelayDirectoryTest {
     }
 
     @Test
-    fun `distance ties order by host the way ios orders them`() {
+    fun `distance ties order by endpoint key`() {
         // Shared coordinates create ties; shuffled rows exercise the endpoint tie-break.
         val csv = header +
             "delta.example.com,12.34,56.78\n" +
@@ -101,7 +101,7 @@ class RelayDirectoryTest {
 
     @Test
     fun `five nearest means five distinct endpoint keys`() {
-        // A shape the live directory produces: the nearest relay listed twice
+        // The nearest relay is listed twice
         // (bare and :443), which used to occupy two of the five selection slots and
         // push out the fifth distinct endpoint.
         val csv = header +

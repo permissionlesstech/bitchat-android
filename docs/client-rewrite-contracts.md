@@ -47,14 +47,16 @@ Geohash directory downloads and the weekly bundled-asset update use
 `relays/online_relays_gps.csv` from the bitchat repo, the source used by iOS
 `GeoRelayDirectory`. Android deduplicates parsed rows by a lowercase host key,
 omits port 443, includes other ports when integer conversion succeeds, and
-breaks distance ties by that key. `RelayDirectoryTest` covers these selection rules.
+breaks distance ties by that key. `RelayDirectoryTest` covers these selection rules. Shared synthetic selection
+vectors and the Android/Swift check commands are documented in
+[the relay-selection test guide](../tools/relay-selection/README.md).
 
 Matching selections depend on the loaded entries. Bundled and cached copies
 can differ between clients; a configured source URL does not establish equal
 snapshots or successful delivery. Parsing remains permissive: rows with fewer
 than three fields or unparseable coordinates are skipped, and duplicate
 endpoints keep the first accepted row. iOS also checks hosts and coordinate ranges
-and rejects conflicting duplicate rows. For a host followed by a digit-only port, an integer-conversion failure skips
+and rejects a directory containing conflicting duplicate rows. For a host followed by a digit-only port, an integer-conversion failure skips
 that row. `RelayDirectoryPortTest` covers oversized ports between valid rows.
 
 ## Rewrite acceptance gate
