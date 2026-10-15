@@ -709,7 +709,14 @@ fun PeopleSection(
             }
         }
 
-        val peerVerifiedStates = remember(verifiedFingerprints, peerFingerprints, connectedPeers) {
+        // `peerNicknames` is a key because the verification check now reads the
+        // peer's announced name. Without it a rename repaints the NAME from the
+        // state flow while this cached `true` — and the seal — survives until
+        // some unrelated key happens to change. That is the live impersonation
+        // still showing a seal, which is the whole case this is meant to stop.
+        val peerVerifiedStates = remember(
+            verifiedFingerprints, peerFingerprints, connectedPeers, peerNicknames
+        ) {
             connectedPeers.associateWith { peerID ->
                 viewModel.isPeerVerified(peerID, verifiedFingerprints)
             }
@@ -864,7 +871,10 @@ fun PeopleSection(
             val (bName, _) = splitSuffix(dn)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
-            val isVerified = viewModel.isNoisePublicKeyVerified(fav.peerNoisePublicKey, verifiedFingerprints)
+            // `dn` is the name this row draws, so it is the name the seal has
+            // to be checked against — see isNoisePublicKeyVerified.
+            val isVerified = viewModel.isNoisePublicKeyVerified(
+                fav.peerNoisePublicKey, verifiedFingerprints, dn)
 
             val unreadCount = (
                 privateChats[conversationID]?.count { msg -> msg.sender != nickname && hasUnreadPrivateMessages.contains(conversationID) } ?: 0
@@ -999,7 +1009,10 @@ private fun ConversationSwipeItem(
     val theyFavoritedUs =
         (fingerprint != null && fingerprint in peerFavoritedUs) ||
             favoriteRelationship?.theyFavoritedUs == true
-    val isVerified = fingerprint != null && fingerprint in verifiedFingerprints
+    // Bound to the name this row draws. A key verified under one nickname that
+    // now presents another keeps its key, but not the claim about whose it is.
+    val isVerified = fingerprint != null && fingerprint in verifiedFingerprints &&
+        viewModel.sealAppliesToName(fingerprint, conversation.displayName)
     val dismissState = rememberSwipeToDismissBoxState()
     val shape = RoundedCornerShape(
         topStart = if (isFirst) 14.dp else 0.dp,
@@ -1784,7 +1797,8 @@ fun PrivateChatSheet(
         }
     }
 
-    val isVerified = remember(peerID, verifiedFingerprints) {
+    // Keyed on the announced nickname as well — see PeopleSection above.
+    val isVerified = remember(peerID, verifiedFingerprints, peerNicknames[peerID]) {
         viewModel.isPeerVerified(peerID, verifiedFingerprints)
     }
 

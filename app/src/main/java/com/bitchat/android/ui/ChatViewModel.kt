@@ -1258,16 +1258,43 @@ class ChatViewModel(
 
     // MARK: - QR Verification
     
+    /**
+     * A verification binds a fingerprint, but the seal is drawn beside a
+     * self-claimed nickname — so it is withheld once this key announces a
+     * different name than the one it was verified under. The key is still the
+     * key it was; only the claim about which name it belongs to is withdrawn.
+     */
     fun isPeerVerified(peerID: String, verifiedFingerprints: Set<String>): Boolean {
         if (peerID.startsWith("nostr_") || peerID.startsWith("nostr:")) return false
-        val fingerprint = verificationHandler.getPeerFingerprintForDisplay(peerID)
-        return fingerprint != null && verifiedFingerprints.contains(fingerprint)
+        val fingerprint = verificationHandler.getPeerFingerprintForDisplay(peerID) ?: return false
+        if (!verifiedFingerprints.contains(fingerprint)) return false
+        return !verificationHandler.verifiedNicknameMismatch(peerID)
     }
 
-    fun isNoisePublicKeyVerified(noisePublicKey: ByteArray, verifiedFingerprints: Set<String>): Boolean {
+    /**
+     * @param renderedName the name this row actually shows. Offline favourite
+     *   rows display a name held in the favourites record rather than a live
+     *   announce, so they must be checked against their own name — asking about
+     *   a "current" name a peer is not announcing would answer nothing.
+     *
+     *   Deliberately has no default. A missing name fails OPEN, by design, so a
+     *   defaulted parameter would let any future caller reinstate the rename
+     *   attack by simply not passing one — silently, and without touching this
+     *   file. Make it a decision at the call site.
+     */
+    fun isNoisePublicKeyVerified(
+        noisePublicKey: ByteArray,
+        verifiedFingerprints: Set<String>,
+        renderedName: String?,
+    ): Boolean {
         val fingerprint = verificationHandler.fingerprintFromNoiseBytes(noisePublicKey)
-        return verifiedFingerprints.contains(fingerprint)
+        if (!verifiedFingerprints.contains(fingerprint)) return false
+        return verificationHandler.sealAppliesToName(fingerprint, renderedName)
     }
+
+    /** Whether a seal drawn beside [renderedName] still applies to [fingerprint]. */
+    fun sealAppliesToName(fingerprint: String, renderedName: String?): Boolean =
+        verificationHandler.sealAppliesToName(fingerprint, renderedName)
 
     fun unverifyFingerprint(peerID: String) {
         verificationHandler.unverifyFingerprint(peerID)
