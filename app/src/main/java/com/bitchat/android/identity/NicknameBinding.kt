@@ -76,13 +76,26 @@ object NicknameBinding {
      * would let a key pinned as `medic` rename to `medic#cafe` and keep its
      * seal, and would drop the seal of a key honestly verified as `medic#cafe`.
      *
-     * Fails **open** when nothing was pinned, or when there is no announced
-     * name yet. Peers verified by builds from before this existed have no
-     * baseline, and dropping their seals on upgrade would teach people to
-     * ignore the signal — which costs more than the narrow case it would catch.
+     * The two missing cases are **not** the same and no longer share an answer.
+     *
+     * No pinned baseline fails **closed**. It used to fail open, so that seals
+     * from builds before this existed survived the upgrade — but that let any
+     * such key rename itself and keep its seal for ever, which is the whole
+     * defect this file exists to close, left open for exactly the users who
+     * have been trusting peers the longest.
+     * [SecureIdentityStateManager.migrateVerifiedNicknames] now gives those
+     * seals a baseline at startup, so reaching here means something narrower:
+     * trust in a key this device has never once seen announce a name. A
+     * name-bound seal over no name is a claim that cannot be supported.
+     *
+     * No announced name still fails **open**, and deliberately. The risk this
+     * guards is a seal drawn beside a name the key did not earn — with no name
+     * there is nothing beside it to misread, so withholding would only blink
+     * seals off whenever the peer list has not caught up yet.
      */
     fun sealAppliesToAnnounced(pinned: String?, announced: String?): Boolean {
-        if (pinned.isNullOrEmpty() || announced.isNullOrEmpty()) return true
+        if (pinned.isNullOrEmpty()) return false
+        if (announced.isNullOrEmpty()) return true
         return sameName(pinned, announced)
     }
 

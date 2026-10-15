@@ -103,20 +103,28 @@ class NicknameBindingTest {
         assertFalse(NicknameBinding.sealAppliesToAnnounced("ravi@hq", "ravi"))
     }
 
-    // ---- failing open ------------------------------------------------------
+    // ---- the two missing cases, which are not the same question ------------
 
     @Test
-    fun `a missing baseline never suppresses`() {
-        // Peers verified by builds from before this existed have no baseline.
-        // Dropping their seals on upgrade would teach people to ignore the
-        // signal, which costs more than the narrow case it would catch.
-        assertTrue(NicknameBinding.sealAppliesToAnnounced(null, "medic"))
-        assertTrue(NicknameBinding.sealAppliesToAnnounced("", "medic"))
+    fun `a missing baseline suppresses`() {
+        // This used to assert the opposite, so that seals from builds before
+        // the binding survived the upgrade. That left those seals renameable
+        // for ever — the defect this file exists to close, still open for the
+        // users who have been trusting peers the longest.
+        // SecureIdentityStateManager.migrateVerifiedNicknames gives them a
+        // baseline at startup, so what reaches here is narrower: trust in a key
+        // never once seen announcing a name.
+        assertFalse(NicknameBinding.sealAppliesToAnnounced(null, "medic"))
+        assertFalse(NicknameBinding.sealAppliesToAnnounced("", "medic"))
+        assertFalse(NicknameBinding.sealAppliesToRendered(null, "medic"))
     }
 
     @Test
     fun `an empty current name never suppresses`() {
-        // A row with no name to show yet is not evidence of a rename.
+        // Still fails open, unlike a missing baseline above. The risk is a
+        // seal drawn beside a name the key did not earn; with no name there is
+        // nothing beside it to misread, so withholding would only blink seals
+        // off whenever the peer list has not caught up.
         assertTrue(NicknameBinding.sealAppliesToAnnounced("medic", null))
         assertTrue(NicknameBinding.sealAppliesToAnnounced("medic", ""))
         // A peer that announces "#a1b2" has renamed, and says so — on either
