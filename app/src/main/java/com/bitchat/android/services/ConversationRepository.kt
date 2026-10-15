@@ -317,6 +317,7 @@ class ConversationRepository internal constructor(
             true
         } catch (error: Exception) {
             Log.e(TAG, "Unable to synchronously clear private conversations", error)
+            database.destroyStorage()
             _storeState.value = ConversationStoreState.Error(
                 error.message ?: "Unable to erase conversations"
             )
@@ -1095,6 +1096,22 @@ internal class ConversationDatabase(
         }
         writableDatabase.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { }
         writableDatabase.rawQuery("PRAGMA incremental_vacuum", null).use { }
+    }
+
+    /**
+     * Last-resort panic cleanup when [clearAll] throws: drop the encrypted database
+     * files so a later reload cannot resurrect erased conversations (#699).
+     */
+    fun destroyStorage() {
+        try {
+            clearAll()
+        } catch (error: Exception) {
+            Log.e(TAG, "clearAll failed during destroyStorage; deleting database files", error)
+        }
+        try {
+            close()
+        } catch (_: Exception) { }
+        applicationContext.deleteDatabase(databaseName)
     }
 
     fun pruneToRetentionLimits(): Set<String> {

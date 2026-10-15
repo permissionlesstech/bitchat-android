@@ -598,4 +598,65 @@ class SecurityManagerTest {
 
     private fun String.hexToBytes(): ByteArray =
         chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+
+    // Duplicate-detection identity.
+
+    /**
+     * Two distinct packets that agree on their first 64 bytes and share a
+     * timestamp. The old key hashed only that prefix, with a 32-bit
+     * `contentHashCode`, so these were "the same packet" and the second was
+     * silently dropped.
+     */
+    private fun prefixSharingPair(): Pair<BitchatPacket, BitchatPacket> {
+        val shared = ByteArray(64) { 0x7 }
+        val first = BitchatPacket(
+            version = 1u,
+            type = MessageType.NOISE_ENCRYPTED.value,
+            senderID = otherPeerID.hexToByteArrayForTest(),
+            recipientID = myPeerID.hexToByteArrayForTest(),
+            timestamp = 1_700_000_000_000uL,
+            payload = shared + byteArrayOf(0x01, 0x02, 0x03),
+            ttl = 7u
+        )
+        val second = first.copy(payload = shared + byteArrayOf(0x0A, 0x0B, 0x0C))
+        return first to second
+    }
+
+    @Test
+    fun `packets differing only past the first 64 bytes are not treated as duplicates`() {
+        val (first, second) = prefixSharingPair()
+
+        assertTrue(securityManager.validatePacket(first, otherPeerID))
+        assertTrue(
+            "A distinct packet must not be dropped as a duplicate",
+            securityManager.validatePacket(second, otherPeerID)
+        )
+    }
+
+    @Test
+    fun `a genuine replay of the same packet is still rejected`() {
+        // The other half: strengthening the identity must not weaken replay
+        // protection, which is the reason this cache exists.
+        val (first, _) = prefixSharingPair()
+
+        assertTrue(securityManager.validatePacket(first, otherPeerID))
+        assertFalse(
+            "The identical packet must still be caught",
+            securityManager.validatePacket(first, otherPeerID)
+        )
+    }
+
+    @Test
+    fun `the same packet from two different peers is tracked separately`() {
+        // Peer scoping is deliberately kept: PacketIdUtil covers the packet's
+        // own senderID, which is not the peer it was received from once a
+        // packet has been relayed.
+        val (first, _) = prefixSharingPair()
+
+        assertTrue(securityManager.validatePacket(first, otherPeerID))
+        assertTrue(securityManager.validatePacket(first, unknownPeerID))
+    }
+
+    private fun String.hexToByteArrayForTest(): ByteArray =
+        chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }

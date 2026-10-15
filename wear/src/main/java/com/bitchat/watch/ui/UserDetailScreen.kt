@@ -1,7 +1,6 @@
 package com.bitchat.watch.ui
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,10 +14,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
@@ -45,14 +44,21 @@ fun UserDetailScreen(
         WearPeerIdentityState.snapshot(peerID, mesh)
     }
     val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
-    val listState = rememberScalingLazyListState()
+    val listState = rememberScalingLazyListState(initialCenterItemIndex = 0)
     val palette = LocalBitchatPalette.current
 
-    ScreenScaffold(scrollState = listState) {
+    ScreenScaffold(scrollState = listState) { scaffoldPadding ->
+        val layoutDirection = LocalLayoutDirection.current
         ScalingLazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+            autoCentering = null,
+            contentPadding = scaffoldPadding
+                .withAdditionalPadding(
+                    layoutDirection = layoutDirection,
+                    horizontal = 10.dp
+                )
+                .withVerticalClearance(layoutDirection, top = 28.dp, bottom = 28.dp)
         ) {
             item {
                 ListHeader {
@@ -65,8 +71,7 @@ fun UserDetailScreen(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = colorForPeer(nickname + peerID, palette),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            textAlign = TextAlign.Center
                         )
                         Text(
                             text = "User details",
@@ -168,13 +173,13 @@ fun UserDetailScreen(
                                 text = if (identity.isVerified) {
                                     "Identity verified"
                                 } else {
-                                    "Verification code"
+                                    "Identity code"
                                 },
                                 style = ChatVisualTokens.SenderStyle,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Compare cryptographic fingerprints",
+                                text = "Compare identity codes",
                                 style = ChatVisualTokens.SystemActionStyle,
                                 color = palette.textTertiary
                             )

@@ -26,6 +26,7 @@ accompanist-permissions = "0.37.3"
 # Wear OS
 wear-compose = "1.6.2"
 wear-tooling-preview = "1.0.0"
+wear-ongoing = "1.1.0"
 
 # Cryptography
 bouncycastle = "1.85"
@@ -105,6 +106,7 @@ accompanist-permissions = { module = "com.google.accompanist:accompanist-permiss
 androidx-wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wear-compose" }
 androidx-wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "wear-compose" }
 androidx-wear-tooling-preview = { module = "androidx.wear:wear-tooling-preview", version.ref = "wear-tooling-preview" }
+androidx-wear-ongoing = { module = "androidx.wear:wear-ongoing", version.ref = "wear-ongoing" }
 
 # Cryptography
 bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }

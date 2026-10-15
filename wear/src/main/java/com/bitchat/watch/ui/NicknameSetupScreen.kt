@@ -1,10 +1,7 @@
 package com.bitchat.watch.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,7 +44,7 @@ fun NicknameSetupScreen(
     title: String = "bitchat",
     subtitle: String = "Pick a nickname",
     confirmLabel: String = "Join the mesh",
-    onConfirm: (String) -> Unit
+    onConfirm: (String) -> Unit,
 ) {
     val palette = LocalBitchatPalette.current
     // Pre-fill with the cursor at the end of the existing name, not the start.
@@ -55,7 +52,7 @@ fun NicknameSetupScreen(
         mutableStateOf(
             TextFieldValue(
                 text = initialNickname,
-                selection = TextRange(initialNickname.length)
+                selection = TextRange(initialNickname.length),
             )
         )
     }
@@ -64,71 +61,78 @@ fun NicknameSetupScreen(
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = palette.textTertiary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
-        )
-        BasicTextField(
-            value = name,
-            onValueChange = { newValue ->
-                val trimmed = newValue.text.trim().take(24)
-                name = if (trimmed == newValue.text) {
-                    newValue
-                } else {
-                    newValue.copy(text = trimmed, selection = TextRange(trimmed.length))
-                }
-            },
-            singleLine = true,
-            textStyle = ChatVisualTokens.MessageBodyStyle.copy(
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            ),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = {
-                keyboardController?.hide()
-            }),
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester)
-                .clip(RoundedCornerShape(18.dp))
-                .background(palette.inputSurface)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            decorationBox = { innerTextField ->
-                Box(contentAlignment = Alignment.Center) {
-                    if (name.text.isEmpty()) {
-                        Text(
-                            text = "Nickname",
-                            style = ChatVisualTokens.MessageBodyStyle,
-                            color = palette.textTertiary
-                        )
+    WearFormScreen {
+        item {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        item {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.textTertiary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+            )
+        }
+        item {
+            BasicTextField(
+                value = name,
+                onValueChange = { newValue ->
+                    val trimmed = newValue.text.trim().take(24)
+                    name =
+                        if (trimmed == newValue.text) {
+                            newValue
+                        } else {
+                            newValue.copy(text = trimmed, selection = TextRange(trimmed.length))
+                        }
+                },
+                singleLine = true,
+                textStyle =
+                    ChatVisualTokens.MessageBodyStyle.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions =
+                    KeyboardActions(
+                        onDone = {
+                            keyboardController?.hide()
+                        }
+                    ),
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .focusRequester(focusRequester)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(palette.inputSurface)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.Center) {
+                        if (name.text.isEmpty()) {
+                            Text(
+                                text = "Nickname",
+                                style = ChatVisualTokens.MessageBodyStyle,
+                                color = palette.textTertiary,
+                            )
+                        }
+                        innerTextField()
                     }
-                    innerTextField()
-                }
+                },
+            )
+        }
+        item {
+            Button(
+                onClick = { if (name.text.isNotBlank()) onConfirm(name.text.trim()) },
+                enabled = name.text.isNotBlank(),
+                modifier = Modifier.padding(top = 10.dp),
+            ) {
+                Text(confirmLabel, textAlign = TextAlign.Center)
             }
-        )
-        Button(
-            onClick = { if (name.text.isNotBlank()) onConfirm(name.text.trim()) },
-            enabled = name.text.isNotBlank(),
-            modifier = Modifier.padding(top = 10.dp)
-        ) {
-            Text(confirmLabel)
         }
     }
 }
