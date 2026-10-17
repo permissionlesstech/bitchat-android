@@ -1075,7 +1075,7 @@ class ChatViewModel(
     // MARK: - Utility Functions
     
     fun getPeerIDForNickname(nickname: String): String? {
-        return mesh.getPeerNicknames().entries.find { it.value == nickname }?.key
+        return uniquePeerIDForNickname(nickname, mesh.getPeerNicknames())
     }
     
     fun toggleFavorite(peerID: String) {
