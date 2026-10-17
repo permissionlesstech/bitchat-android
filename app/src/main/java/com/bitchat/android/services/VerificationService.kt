@@ -146,7 +146,10 @@ object VerificationService {
         val service = encryptionServiceRef?.get() ?: return null
         val qr = VerificationQR.fromUrlString(urlString) ?: return null
         val now = System.currentTimeMillis() / 1000L
-        if (now - qr.ts > maxAgeSeconds) return null
+        // Freshness in both directions: a future-dated timestamp must not
+        // buy a QR a longer validity window than a fresh one gets. Extreme
+        // timestamps saturate the skew instead of wrapping into an accepted age.
+        if (verificationTimestampSkewSeconds(now, qr.ts) > maxAgeSeconds) return null
 
         val sig = qr.sigHex.dataFromHexString() ?: return null
         val signKey = qr.signKeyHex.dataFromHexString() ?: return null
@@ -291,4 +294,16 @@ object VerificationService {
     private object Cache {
         var last: CacheEntry? = null
     }
+}
+
+/** Absolute age in seconds, saturating when the difference cannot fit in a Long. */
+internal fun verificationTimestampSkewSeconds(nowSeconds: Long, qrTimestampSeconds: Long): Long {
+    val difference = if (nowSeconds >= qrTimestampSeconds) {
+        nowSeconds - qrTimestampSeconds
+    } else {
+        qrTimestampSeconds - nowSeconds
+    }
+    // The ordered subtraction is nonnegative mathematically. A negative result
+    // means signed overflow (including Long.MIN_VALUE, whose abs is negative).
+    return if (difference < 0) Long.MAX_VALUE else difference
 }
