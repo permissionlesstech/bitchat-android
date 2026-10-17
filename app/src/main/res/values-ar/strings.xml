@@ -47,8 +47,10 @@
     <string name="notification_messages_from_people">%1$d رسالة من %2$d أشخاص</string>
     <string name="notification_more_conversations">و%1$d محادثات أخرى</string>
     <string name="notification_active_peers_title">مستخدمون قريبون!</string>
-    <string name="notification_active_peers_one">شخص واحد قريب</string>
-    <string name="notification_active_peers_many">%1$d أشخاص قريبون</string>
+    <plurals name="notification_active_peers_body">
+        <item quantity="one">شخص واحد قريب</item>
+        <item quantity="other">%1$d أشخاص قريبون</item>
+    </plurals>
     <string name="notification_new_messages">رسائل جديدة</string>
     <string name="notification_new_location_messages">رسائل موقع جديدة</string>
     <string name="notification_mentions_in">تم ذكرك في %1$s</string>
