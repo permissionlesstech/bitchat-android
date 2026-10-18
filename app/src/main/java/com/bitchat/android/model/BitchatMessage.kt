@@ -77,7 +77,9 @@ data class BitchatMessage(
      * surfaces color the sender by the same stable key while [senderPeerID] remains available for
      * mesh IDs and private-chat routing aliases.
      */
-    val senderNostrPubkey: String? = null
+    val senderNostrPubkey: String? = null,
+    /** Original protocol ID when an incoming message has a conversation-scoped local ID. */
+    val wireMessageID: String? = null
 ) : Parcelable {
 
     /**

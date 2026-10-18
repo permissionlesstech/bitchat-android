@@ -90,13 +90,13 @@ class IncomingMessageAdmissionTest {
         runBlocking { repository.awaitPendingWrites() }
         assertEquals(
             listOf(latest.id),
-            AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+            AppStateStore.privateMessages.value.getValue("peer-a").map { it.wireMessageID ?: it.id }
         )
 
         assertFalse(IncomingMessageAdmission.admitToAppState(older))
         assertEquals(
             listOf(latest.id),
-            AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+            AppStateStore.privateMessages.value.getValue("peer-a").map { it.wireMessageID ?: it.id }
         )
     }
 
@@ -116,7 +116,7 @@ class IncomingMessageAdmissionTest {
         AppStateStore.releasePrivateConversationHistory("peer-a")
         assertEquals(
             listOf(latest.id),
-            AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+            AppStateStore.privateMessages.value.getValue("peer-a").map { it.wireMessageID ?: it.id }
         )
 
         val delivered = DeliveryStatus.Delivered(to = "alice", at = Date(3L))

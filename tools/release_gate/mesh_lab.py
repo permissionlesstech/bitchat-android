@@ -23,6 +23,7 @@ import argparse
 import concurrent.futures
 import hashlib
 import json
+import os
 import random
 import shlex
 import subprocess
@@ -865,7 +866,53 @@ def scenario_file_oversize(a: Device, b: Device, fixtures: dict[str, dict]) -> d
     return {"send": send, "receiver_saw_file": False}
 
 
+def scenario_nostr_dm(a: Device, b: Device) -> dict:
+    """Explicit-only controlled relay test; requires externally enforced egress isolation."""
+    if os.environ.get("MESH_LAB_NOSTR_ISOLATED") != "1":
+        raise MeshLabError("Nostr fixture requires disposable app data and externally blocked non-loopback internet egress")
+    from tools.release_gate.nostr_relay_fixture import LocalRelay
+
+    id_a, id_b = whoami(a)["peer_id"], whoami(b)["peer_id"]
+    with LocalRelay() as relay:
+        try:
+            for device in (a, b):
+                run_adb(device.serial, ["reverse", "tcp:8765", f"tcp:{relay.port}"])
+                device.cmd_ok("nostr_fixture", port=8765)
+            a.cmd_ok("handshake", timeout_ms=60_000, peer=id_b)
+            b.cmd_ok("handshake", timeout_ms=60_000, peer=id_a)
+            a.cmd_ok("favorite_set", peer=id_b, enabled=True)
+            b.cmd_ok("favorite_set", peer=id_a, enabled=True)
+            deadline = time.monotonic() + 60
+            while not (a.cmd_ok("favorite_status", peer=id_b)["is_mutual"] and
+                       b.cmd_ok("favorite_status", peer=id_a)["is_mutual"]):
+                if time.monotonic() >= deadline:
+                    raise MeshLabError("mutual favorite exchange timed out")
+                time.sleep(0.2)
+            for device in (a, b):
+                device.cmd_ok("nostr_fixture", port=8765, offline_mesh=True)
+            for sender, receiver, recipient, author in ((a, b, id_b, id_a), (b, a, id_a, id_b)):
+                message_id = f"nostr-fixture-{uuid.uuid4().hex}"
+                sender.cmd_ok("routed_dm_send", peer=recipient, msg_id=message_id, content="synthetic offline DM")
+                received = receiver.cmd_ok("routed_dm_wait", timeout_ms=120_000, peer=author, msg_id=message_id)
+                assert received["content"] == "synthetic offline DM"
+                sender.cmd_ok("routed_dm_wait", timeout_ms=120_000, peer=recipient, msg_id=message_id, delivered=True)
+            # Receiver process death between publication and catch-up.
+            run_adb(b.serial, ["shell", "am", "force-stop", b.package])
+            message_id = f"nostr-restart-{uuid.uuid4().hex}"
+            a.cmd_ok("routed_dm_send", peer=id_b, msg_id=message_id, content="synthetic restart DM")
+            a.cmd_ok("routed_dm_wait", timeout_ms=120_000, peer=id_b, msg_id=message_id, published=True)
+            run_adb(b.serial, ["shell", "am", "start", "-n", b.activity_component])
+            b.cmd_ok("nostr_fixture", port=8765, offline_mesh=True)
+            b.cmd_ok("routed_dm_wait", timeout_ms=120_000, peer=id_a, msg_id=message_id)
+            a.cmd_ok("routed_dm_wait", timeout_ms=120_000, peer=id_b, msg_id=message_id, delivered=True)
+            return {"bidirectional_delivery": True, "restart_catchup": True}
+        finally:
+            for device in (a, b):
+                run_adb(device.serial, ["reverse", "--remove", "tcp:8765"])
+
+
 SCENARIOS = {
+    "nostr_dm": scenario_nostr_dm,
     "dm": scenario_dm,
     "favorite_verification": scenario_favorite_verification,
     "broadcast": scenario_broadcast,
@@ -918,6 +965,8 @@ def run_scenario(name: str, a: Device, b: Device, out: Path | None) -> dict:
             results = {}
             failures = []
             for n in supported:
+                if n == "nostr_dm":
+                    continue  # Explicit opt-in: isolated internet egress and a controlled relay.
                 sub = run_scenario(n, a, b, out)
                 results[n] = sub.get("results", {"error": sub.get("error", "unknown")})
                 if sub["status"] != "pass":

@@ -11,6 +11,14 @@ import kotlinx.coroutines.runBlocking
  * Public and channel messages retain their existing best-effort behavior if state reflection fails.
  */
 internal object IncomingMessageAdmission {
+    fun forDisplay(message: BitchatMessage): BitchatMessage {
+        if (!message.isPrivate) return message
+        val conversation = message.senderPeerID?.let(ContactDirectory::canonicalConversationId) ?: return message
+        val wireID = message.wireMessageID ?: message.id
+        return message.copy(id = AppStateStore.incomingLocalID(conversation, wireID),
+            senderPeerID = conversation, wireMessageID = wireID)
+    }
+
     fun admitToAppState(message: BitchatMessage): Boolean = try {
         when {
             message.isPrivate -> {
@@ -20,7 +28,7 @@ internal object IncomingMessageAdmission {
                 // serialized SQLite transaction so a notification can never advertise a message
                 // that an immediate process death would lose.
                 runBlocking {
-                    AppStateStore.addPrivateMessageDurably(peerID, message)
+                    AppStateStore.admitIncomingPrivate(message) == AppStateStore.PrivateAdmission.INSERTED
                 }
             }
 

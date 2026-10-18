@@ -35,7 +35,8 @@ class NostrSubscriptionManager(
         sinceMs: Long,
         id: String,
         handler: (NostrEvent) -> Unit,
-        liveLocationToken: Long? = null
+        liveLocationToken: Long? = null,
+        targetRelayUrls: List<String>? = null
     ) {
         if (!isAllowed(liveLocationToken)) return
         val filter = NostrFilter.giftWrapsFor(pubkey, sinceMs)
@@ -44,6 +45,7 @@ class NostrSubscriptionManager(
             id = id,
             handler = handler,
             owner = owner,
+            targetRelayUrls = targetRelayUrls,
             liveLocationToken = liveLocationToken
         )
     }

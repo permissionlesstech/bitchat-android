@@ -234,8 +234,8 @@ class WearMeshService private constructor(private val context: Context) {
         when {
             message.isPrivate -> {
                 val peer = message.senderPeerID ?: return false
-                if (!AppStateStore.addPrivateMessage(peer, message)) return false
-                try { onPrivateMessage?.invoke(message) } catch (_: Exception) { }
+                if (kotlinx.coroutines.runBlocking { AppStateStore.admitIncomingPrivate(message) } != AppStateStore.PrivateAdmission.INSERTED) return false
+                try { onPrivateMessage?.invoke(com.bitchat.android.services.IncomingMessageAdmission.forDisplay(message)) } catch (_: Exception) { }
                 true
             }
             message.channel != null -> {
