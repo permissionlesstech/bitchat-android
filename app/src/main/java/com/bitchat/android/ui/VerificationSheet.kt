@@ -2,7 +2,7 @@ package com.bitchat.android.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.QrCodeScanner
-import android.graphics.Bitmap
+import com.bitchat.android.hotspot.QrCodeGenerator
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -64,8 +64,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.createBitmap
-import androidx.core.graphics.set
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
@@ -81,9 +79,6 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.common.BitMatrix
-import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -101,6 +96,7 @@ fun VerificationSheet(
     val accent = MaterialTheme.colorScheme.primary
     
     var selectedTab by remember { mutableStateOf(0) } // 0 = My Code, 1 = Scan
+    var scanStatus by remember { mutableStateOf<Int?>(null) }
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     val npub = remember { viewModel.getCurrentNpub() }
 
@@ -177,10 +173,20 @@ fun VerificationSheet(
                     )
                     1 -> ScanTabContent(
                         accent = accent,
+                        statusRes = scanStatus,
+                        // Every rejection path used to return silently, so a scan that could not
+                        // work looked identical to one the camera never saw. Each outcome now says
+                        // which of the three things went wrong.
                         onScan = { code ->
                             val qr = VerificationService.verifyScannedQR(code)
-                            if (qr != null && viewModel.beginQRVerification(qr)) {
-                                selectedTab = 0
+                            scanStatus = when {
+                                qr == null -> R.string.verify_scan_invalid
+                                !viewModel.beginQRVerification(qr) ->
+                                    R.string.verify_scan_peer_not_connected
+                                else -> {
+                                    selectedTab = 0
+                                    null
+                                }
                             }
                         }
                     )
@@ -318,6 +324,7 @@ private fun MyQrTabContent(
 @Composable
 private fun ScanTabContent(
     accent: Color,
+    statusRes: Int?,
     onScan: (String) -> Unit
 ) {
     val permissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
@@ -364,6 +371,20 @@ private fun ScanTabContent(
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
+
+            Text(
+                text = statusRes?.let { stringResource(it) }
+                    ?: stringResource(R.string.verify_scan_requires_connection),
+                color = if (statusRes != null) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                fontFamily = BitchatFontFamily,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         } else {
             Column(
                 modifier = Modifier
@@ -479,7 +500,7 @@ private fun ScannerView(
 @Composable
 private fun QRCodeImage(data: String, size: Dp) {
     val sizePx = with(LocalDensity.current) { size.toPx().toInt() }
-    val bitmap = remember(data, sizePx) { generateQrBitmap(data, sizePx) }
+    val bitmap = remember(data, sizePx) { QrCodeGenerator.generateQrBitmap(data, sizePx) }
     if (bitmap != null) {
         Image(
             bitmap = bitmap.asImageBitmap(),
@@ -487,29 +508,6 @@ private fun QRCodeImage(data: String, size: Dp) {
             modifier = Modifier.size(size)
         )
     }
-}
-
-private fun generateQrBitmap(data: String, sizePx: Int): Bitmap? {
-    if (data.isBlank() || sizePx <= 0) return null
-    return try {
-        val matrix = QRCodeWriter().encode(data, BarcodeFormat.QR_CODE, sizePx, sizePx)
-        bitmapFromMatrix(matrix)
-    } catch (_: Exception) {
-        null
-    }
-}
-
-private fun bitmapFromMatrix(matrix: BitMatrix): Bitmap {
-    val width = matrix.width
-    val height = matrix.height
-    val bitmap = createBitmap(width, height)
-    for (x in 0 until width) {
-        for (y in 0 until height) {
-            bitmap[x, y] =
-                if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
-        }
-    }
-    return bitmap
 }
 
 private class QRCodeAnalyzer(

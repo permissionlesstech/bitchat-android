@@ -1,5 +1,7 @@
 package com.bitchat.android.ui
 
+import android.content.Context
+import android.text.format.DateFormat
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -10,6 +12,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatPalette
 import com.bitchat.android.ui.theme.ChatVisualTokens
+import com.bitchat.android.ui.theme.TimeFormatPreference
 import com.bitchat.android.ui.theme.colorForPeer
 import java.text.SimpleDateFormat
 import java.util.*
@@ -22,8 +25,42 @@ import java.util.*
 /** Opacity applied to the `#abcd` disambiguation suffix so the readable name dominates. */
 internal const val SUFFIX_ALPHA = ChatVisualTokens.SenderSuffixAlpha
 
-/** Compact transcript timestamp; seconds add noise without helping conversation scanning. */
+/**
+ * Compact transcript timestamp; seconds add noise without helping conversation scanning.
+ *
+ * Only a fixed fallback for the `timeFormatter` default arguments below, which the tests rely on.
+ * Rendering code must take its formatter from [chatTimeFormatter] instead - this pattern is always
+ * 24-hour and ignores the device setting.
+ */
 internal const val CHAT_TIMESTAMP_PATTERN = "HH:mm"
+
+/**
+ * Transcript time formatter honouring the clock settings.
+ *
+ * The fixed "HH:mm" pattern always rendered 24-hour, so a phone set to 12-hour showed a message
+ * sent at 1:42 pm as `13:42` while its own status bar said `1:45`. getBestDateTimePattern also
+ * settles the ordering and separator per locale, which a hand-written "h:mm a" would not.
+ */
+internal fun chatTimeFormatter(
+    context: Context,
+    preference: TimeFormatPreference = TimeFormatPreference.System,
+    showSeconds: Boolean = false
+): SimpleDateFormat {
+    val is24Hour = when (preference) {
+        TimeFormatPreference.System -> DateFormat.is24HourFormat(context)
+        TimeFormatPreference.TwelveHour -> false
+        TimeFormatPreference.TwentyFourHour -> true
+    }
+    val skeleton = buildString {
+        append(if (is24Hour) 'H' else 'h')
+        append('m')
+        if (showSeconds) append('s')
+    }
+    return SimpleDateFormat(
+        DateFormat.getBestDateTimePattern(Locale.getDefault(), skeleton),
+        Locale.getDefault()
+    )
+}
 
 /** Background opacity for a mention chip referring to somebody else. */
 internal const val MENTION_CHIP_ALPHA = ChatVisualTokens.HighlightAlpha

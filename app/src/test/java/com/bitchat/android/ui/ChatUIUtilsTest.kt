@@ -489,7 +489,7 @@ class ChatUIUtilsTest {
 
     @Test
     fun `material owns standard text while Bitchat palette owns peer chroma`() {
-        assertEquals(Color(0xFFF5F5F5), DarkBitchatColorScheme.onSurface)
+        assertEquals(Color(0xFFF3F3F5), DarkBitchatColorScheme.onSurface)
         assertTrue(LightBitchatColorScheme.onSurface != DarkBitchatColorScheme.onSurface)
         assertTrue(
             LightBitchatPalette.peerColors != DarkBitchatPalette.peerColors

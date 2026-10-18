@@ -172,6 +172,32 @@ class MessageArrivalTrackerTest {
     }
 
     @Test
+    fun `history backfilled behind the latest message is adopted silently`() {
+        // Opening a DM shows its compacted summary (just the latest message), then the stored
+        // history loads in behind it. Those older rows are not arrivals; animating them made the
+        // whole transcript flicker on every open of a short conversation.
+        val tracker = MessageArrivalTracker()
+        val latest = msg("latest")
+        tracker.arrivals(listOf(latest))
+
+        val backfilled = listOf(msg("h1"), msg("h2"), msg("h3"), latest)
+        assertTrue(tracker.arrivals(backfilled).isEmpty())
+        assertEquals(setOf("h1", "h2", "h3", "latest"), tracker.known)
+    }
+
+    @Test
+    fun `a new message arriving alongside a backfill still animates`() {
+        val tracker = MessageArrivalTracker()
+        val latest = msg("latest")
+        tracker.arrivals(listOf(latest))
+
+        assertEquals(
+            setOf("new"),
+            tracker.arrivals(listOf(msg("h1"), latest, msg("new")))
+        )
+    }
+
+    @Test
     fun `the known set never outgrows the conversation`() {
         val tracker = MessageArrivalTracker()
         val messages = mutableListOf(msg("a"), msg("b"))

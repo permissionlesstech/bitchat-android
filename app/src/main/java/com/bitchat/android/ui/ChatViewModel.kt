@@ -399,8 +399,8 @@ class ChatViewModel(
     val peerRSSI: StateFlow<Map<String, Int>> = state.peerRSSI
     val peerDirect: StateFlow<Map<String, Boolean>> = state.peerDirect
     val showAppInfo: StateFlow<Boolean> = state.showAppInfo
-    val showMeshPeerList: StateFlow<Boolean> = state.showMeshPeerList
-    val privateChatSheetPeer: StateFlow<String?> = state.privateChatSheetPeer
+    val openPrivateChatPeer: StateFlow<String?> = state.openPrivateChatPeer
+    val selectedTab: StateFlow<AppTab> = state.selectedTab
     val showVerificationSheet: StateFlow<Boolean> = state.showVerificationSheet
     val showSecurityVerificationSheet: StateFlow<Boolean> = state.showSecurityVerificationSheet
     val legacyPrivateMediaConsent: StateFlow<LegacyPrivateMediaConsentRequest?> =
@@ -742,7 +742,7 @@ class ChatViewModel(
         // Clear mesh mention notifications since user is now back in mesh chat
         clearMeshMentionNotifications()
         // Ensure sheet is hidden
-        hidePrivateChatSheet()
+        closePrivateChat()
     }
 
     internal suspend fun deletePrivateConversation(
@@ -786,13 +786,13 @@ class ChatViewModel(
             privateChatManager.endPrivateChat()
             setCurrentPrivateChatPeer(null)
         }
-        val sheetPeer = state.getPrivateChatSheetPeerValue()
+        val sheetPeer = state.getOpenPrivateChatPeerValue()
         if (
             sheetPeer != null &&
             ContactDirectory.canonicalConversationId(sheetPeer)
                 .equals(canonicalID, ignoreCase = true)
         ) {
-            hidePrivateChatSheet()
+            closePrivateChat()
         }
         clearNotificationsForSender(canonicalID)
         notificationManager.removeConversationShortcut(canonicalID)
@@ -917,7 +917,7 @@ class ChatViewModel(
                 canonical ?: targetKey
             }
 
-            showPrivateChatSheet(openPeer)
+            openPrivateChat(openPeer)
         } catch (e: Exception) {
             Log.w(TAG, "openLatestUnreadPrivateChat failed: ${e.message}")
         }
@@ -989,8 +989,8 @@ class ChatViewModel(
                 if (canonical != state.getSelectedPrivateChatPeerValue()) {
                     privateChatManager.startPrivateChat(canonical, mesh)
                     // If we're in the private chat sheet, update its active peer too
-                    if (state.getPrivateChatSheetPeerValue() != null) {
-                        showPrivateChatSheet(canonical)
+                    if (state.getOpenPrivateChatPeerValue() != null) {
+                        openPrivateChat(canonical)
                     }
                 }
             }
@@ -1303,21 +1303,12 @@ class ChatViewModel(
         notificationManager.clearMeshMentionNotifications()
     }
 
-    private var reopenSidebarAfterVerification = false
-
-    fun showVerificationSheet(fromSidebar: Boolean = false) {
-        if (fromSidebar) {
-            reopenSidebarAfterVerification = true
-        }
+    fun showVerificationSheet() {
         state.setShowVerificationSheet(true)
     }
 
     fun hideVerificationSheet() {
         state.setShowVerificationSheet(false)
-        if (reopenSidebarAfterVerification) {
-            reopenSidebarAfterVerification = false
-            state.setShowMeshPeerList(true)
-        }
     }
 
     fun showSecurityVerificationSheet() {
@@ -1328,21 +1319,13 @@ class ChatViewModel(
         state.setShowSecurityVerificationSheet(false)
     }
 
-    fun showMeshPeerList() {
-        state.setShowMeshPeerList(true)
-    }
-
-    fun hideMeshPeerList() {
-        state.setShowMeshPeerList(false)
-    }
-
-    fun showPrivateChatSheet(peerID: String) {
+    fun openPrivateChat(peerID: String) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
-        state.setPrivateChatSheetPeer(conversationID)
+        state.setOpenPrivateChatPeer(conversationID)
     }
 
-    fun hidePrivateChatSheet() {
-        state.setPrivateChatSheetPeer(null)
+    fun closePrivateChat() {
+        state.setOpenPrivateChatPeer(null)
     }
 
     fun getPeerFingerprintForDisplay(peerID: String): String? {
@@ -1648,24 +1631,28 @@ class ChatViewModel(
      */
     fun startGeohashDM(pubkeyHex: String) {
         geohashViewModel.startGeohashDM(pubkeyHex) { convKey ->
-            showPrivateChatSheet(convKey)
+            openPrivateChat(convKey)
         }
     }
 
     fun startGeohashDMByNickname(nickname: String) {
         geohashViewModel.startGeohashDMByNickname(nickname) { convKey ->
-            showPrivateChatSheet(convKey)
+            openPrivateChat(convKey)
         }
     }
 
     fun startGeohashDMByShortId(shortId: String) {
         geohashViewModel.startGeohashDMByShortId(shortId) { convKey ->
-            showPrivateChatSheet(convKey)
+            openPrivateChat(convKey)
         }
     }
 
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
         geohashViewModel.selectLocationChannel(channel)
+        // Its caller is a geohash notification tap, which can arrive on any tab; the channel only
+        // renders on Public. (The channels sheet selects through the location manager directly,
+        // and is only reachable from Public already.)
+        state.setSelectedTab(AppTab.Public)
     }
 
     /**
@@ -1683,6 +1670,15 @@ class ChatViewModel(
     
     fun hideAppInfo() {
         state.setShowAppInfo(false)
+    }
+
+    fun dismissPasswordPrompt() {
+        state.setShowPasswordPrompt(false)
+        state.setPasswordPromptChannel(null)
+    }
+
+    fun showTab(tab: AppTab) {
+        state.setSelectedTab(tab)
     }
 
     /**
@@ -1703,8 +1699,15 @@ class ChatViewModel(
                 true
             }
             // Exit private chat
-            state.getSelectedPrivateChatPeerValue() != null || state.getPrivateChatSheetPeerValue() != null -> {
+            state.getSelectedPrivateChatPeerValue() != null || state.getOpenPrivateChatPeerValue() != null -> {
                 endPrivateChat()
+                true
+            }
+            // Return to the timeline tab. Kept in this one unwind path rather than in a separate
+            // BackHandler in the shell, so the order - dialogs, conversation, tab, channel, exit -
+            // is decided in a single place.
+            state.getSelectedTabValue() != AppTab.Public -> {
+                showTab(AppTab.Public)
                 true
             }
             // Exit channel view

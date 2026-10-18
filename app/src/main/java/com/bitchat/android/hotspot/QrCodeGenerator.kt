@@ -3,7 +3,6 @@ package com.bitchat.android.hotspot
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.core.graphics.createBitmap
-import androidx.core.graphics.set
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
@@ -69,7 +68,7 @@ object QrCodeGenerator {
      * @param sizePx Size of the QR code in pixels
      * @return Bitmap of the QR code, or null on error
      */
-    private fun generateQrBitmap(data: String, sizePx: Int): Bitmap? {
+    fun generateQrBitmap(data: String, sizePx: Int): Bitmap? {
         if (data.isBlank() || sizePx <= 0) {
             Log.w(TAG, "Invalid data or size: data.length=${data.length}, sizePx=$sizePx")
             return null
@@ -91,24 +90,28 @@ object QrCodeGenerator {
 
     /**
      * Convert BitMatrix to Bitmap.
-     * Pattern from VerificationSheet.kt.
+     *
+     * Fills an IntArray and hands it over in a single setPixels call. Bitmap.setPixel crosses into
+     * native code once per pixel, so the obvious nested loop spends seconds on a full-screen QR
+     * before the sheet can draw its first frame.
      */
     private fun bitmapFromMatrix(matrix: BitMatrix): Bitmap {
         val width = matrix.width
         val height = matrix.height
-        val bitmap = createBitmap(width, height)
+        val black = android.graphics.Color.BLACK
+        val white = android.graphics.Color.WHITE
+        val pixels = IntArray(width * height)
 
-        for (x in 0 until width) {
-            for (y in 0 until height) {
-                bitmap[x, y] = if (matrix[x, y]) {
-                    android.graphics.Color.BLACK
-                } else {
-                    android.graphics.Color.WHITE
-                }
+        for (y in 0 until height) {
+            val row = y * width
+            for (x in 0 until width) {
+                pixels[row + x] = if (matrix[x, y]) black else white
             }
         }
 
-        return bitmap
+        return createBitmap(width, height).apply {
+            setPixels(pixels, 0, width, 0, 0, width, height)
+        }
     }
 
     /**
