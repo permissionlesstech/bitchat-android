@@ -5,7 +5,9 @@ import android.util.Log
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.NoiseSession
+import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +39,10 @@ class UnifiedMeshService(
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val powerManager = PowerManager.getInstance(context.applicationContext)
     private var announcementJob: Job? = null
+    private val diagnosticsScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val meshPingManager = MeshPingManager(bluetooth.myPeerID, diagnosticsScope) { packet ->
+        TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
+    }
 
     override val myPeerID: String
         get() = bluetooth.myPeerID
@@ -101,6 +107,29 @@ class UnifiedMeshService(
         }
     }
 
+    override fun sendNostrCarrier(payload: ByteArray, recipientPeerID: String?) {
+        when {
+            isBleEnabled() -> bluetooth.sendNostrCarrier(payload, recipientPeerID)
+            else -> wifiService()?.sendNostrCarrier(payload, recipientPeerID)
+        }
+    }
+
+    override fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String) {
+        when {
+            isBleConnected(recipientPeerID) || (isBleEnabled() && !isWifiConnected(recipientPeerID)) ->
+                bluetooth.sendCourierEnvelope(payload, recipientPeerID)
+            else -> wifiService()?.sendCourierEnvelope(payload, recipientPeerID)
+        }
+    }
+
+    override fun sendPrekeyBundle(payload: ByteArray) {
+        if (isBleEnabled()) {
+            bluetooth.sendPrekeyBundle(payload)
+        } else {
+            wifiService()?.sendPrekeyBundle(payload)
+        }
+    }
+
     override fun sendPrivateMessage(
         content: String,
         recipientPeerID: String,
@@ -115,6 +144,25 @@ class UnifiedMeshService(
             else -> wifiService()?.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
         }
     }
+
+    override fun getPeerInfos(): List<PeerInfo> = bluetooth.getPeerInfos()
+
+    override fun sendCourierMessage(
+        content: String,
+        messageID: String,
+        recipientNoiseKey: ByteArray,
+        courierPeerIDs: List<String>
+    ): List<String> = bluetooth.sendCourierMessage(content, messageID, recipientNoiseKey, courierPeerIDs)
+
+    override fun sendBridgeCourierMessage(
+        content: String,
+        messageID: String,
+        recipientNoiseKey: ByteArray,
+        onAccepted: () -> Unit
+    ): Boolean = bluetooth.sendBridgeCourierMessage(content, messageID, recipientNoiseKey, onAccepted)
+
+    override fun supportsPrivateMediaReceipts(peerID: String): Boolean =
+        bluetooth.supportsPrivateMediaReceipts(peerID) || wifiService()?.supportsPrivateMediaReceipts(peerID) == true
 
     override fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
         when {
@@ -147,6 +195,30 @@ class UnifiedMeshService(
         when {
             isBleReady(peerID) -> bluetooth.sendVerifyResponse(peerID, noiseKeyHex, nonceA)
             isWifiReady(peerID) -> wifiService()?.sendVerifyResponse(peerID, noiseKeyHex, nonceA)
+        }
+    }
+
+    override fun sendGroupInvite(payload: ByteArray, recipientPeerID: String) {
+        when {
+            isBleReady(recipientPeerID) -> bluetooth.sendGroupInvite(payload, recipientPeerID)
+            isWifiReady(recipientPeerID) ->
+                wifiService()?.sendGroupInvite(payload, recipientPeerID)
+        }
+    }
+
+    override fun sendGroupKeyUpdate(payload: ByteArray, recipientPeerID: String) {
+        when {
+            isBleReady(recipientPeerID) ->
+                bluetooth.sendGroupKeyUpdate(payload, recipientPeerID)
+            isWifiReady(recipientPeerID) ->
+                wifiService()?.sendGroupKeyUpdate(payload, recipientPeerID)
+        }
+    }
+
+    override fun broadcastGroupMessage(payload: ByteArray) {
+        when {
+            isBleEnabled() -> bluetooth.broadcastGroupMessage(payload)
+            else -> wifiService()?.broadcastGroupMessage(payload)
         }
     }
 
@@ -183,6 +255,15 @@ class UnifiedMeshService(
             else -> wifiService()?.sendVoiceFrame(recipientPeerID, payload)
         }
     }
+
+    override fun sendBoardPayload(payload: ByteArray) {
+        when {
+            isBleEnabled() -> bluetooth.sendBoardPayload(payload)
+            else -> wifiService()?.sendBoardPayload(payload)
+        }
+    }
+
+
 
     override fun prepareFilePrivate(
         recipientPeerID: String,
@@ -237,6 +318,10 @@ class UnifiedMeshService(
             isBleConnected(peerID) || (isBleEnabled() && !isWifiConnected(peerID)) -> bluetooth.sendAnnouncementToPeer(peerID)
             else -> wifiService()?.sendAnnouncementToPeer(peerID)
         }
+    }
+
+    override fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit) {
+        meshPingManager.ping(peerID, callback)
     }
 
     override fun getPeerNicknames(): Map<String, String> {
@@ -327,6 +412,12 @@ class UnifiedMeshService(
         return bluetooth.getStaticNoisePublicKey() ?: wifiService()?.getStaticNoisePublicKey()
     }
 
+    override fun getSigningPublicKey(): ByteArray? =
+        bluetooth.getSigningPublicKey() ?: wifiService()?.getSigningPublicKey()
+
+    override fun signData(data: ByteArray): ByteArray? =
+        bluetooth.signData(data) ?: wifiService()?.signData(data)
+
     override fun shouldShowEncryptionIcon(peerID: String): Boolean {
         return hasEstablishedSession(peerID)
     }
@@ -350,6 +441,13 @@ class UnifiedMeshService(
         try { merged.putAll(bluetooth.getDeviceAddressToPeerMapping()) } catch (_: Exception) { }
         return merged
     }
+
+    override fun getDirectBlePeerIDs(): Set<String> =
+        try {
+            bluetooth.getDeviceAddressToPeerMapping().values.toSet()
+        } catch (_: Exception) {
+            emptySet()
+        }
 
     override fun printDeviceAddressesForPeers(): String {
         return buildString {
@@ -376,8 +474,10 @@ class UnifiedMeshService(
     }
 
     override fun clearAllInternalData() {
-        try { bluetooth.clearAllInternalData() } catch (_: Exception) { }
-        try { wifiService()?.clearAllInternalData() } catch (_: Exception) { }
+        val bluetoothResult = runCatching { bluetooth.clearAllInternalData() }
+        val wifiResult = runCatching { wifiService()?.clearAllInternalData() }
+        bluetoothResult.getOrThrow()
+        wifiResult.getOrThrow()
     }
 
     override fun clearAllEncryptionData() {
@@ -411,6 +511,26 @@ class UnifiedMeshService(
 
     override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
         delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
+    }
+
+    override fun didReceiveGroupInvite(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {
+        delegate?.didReceiveGroupInvite(peerID, authenticatedRemoteStaticKey, payload)
+    }
+
+    override fun didReceiveGroupKeyUpdate(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        payload: ByteArray
+    ) {
+        delegate?.didReceiveGroupKeyUpdate(peerID, authenticatedRemoteStaticKey, payload)
+    }
+
+    override fun didReceiveGroupMessage(payload: ByteArray, timestampMs: Long) {
+        delegate?.didReceiveGroupMessage(payload, timestampMs)
     }
 
     override fun didResolvePrivateMediaPolicy(peerID: String) {

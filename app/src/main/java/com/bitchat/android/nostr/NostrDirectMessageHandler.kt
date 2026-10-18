@@ -60,8 +60,10 @@ class NostrDirectMessageHandler(
             try {
                 if (dedupe(giftWrap.id)) return@launch
 
-                val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
-                if (messageAge > 173700) return@launch // 48 hours + 15 mins
+                if (!NostrTimestampPolicy.isAcceptableGiftWrapTimestamp(giftWrap.createdAt)) {
+                    Log.v(TAG, "Ignoring gift wrap with implausible created_at")
+                    return@launch
+                }
 
                 val decryptResult = NostrProtocol.decryptPrivateMessage(giftWrap, identity)
                 if (decryptResult == null) {
@@ -70,6 +72,10 @@ class NostrDirectMessageHandler(
                 }
 
                 val (content, rawSenderPubkey, rumorTimestamp) = decryptResult
+                if (!NostrTimestampPolicy.isPlausibleRumorTimestamp(rumorTimestamp)) {
+                    Log.w(TAG, "Dropping Nostr DM with implausible rumor timestamp")
+                    return@launch
+                }
                 val senderPubkey = rawSenderPubkey.lowercase()
 
                 // If sender is blocked for geohash contexts, drop any events from this pubkey
@@ -188,6 +194,7 @@ class NostrDirectMessageHandler(
             }
             NoisePayloadType.DELIVERED -> {
                 val messageId = String(payload.data, Charsets.UTF_8)
+                com.bitchat.android.services.MessageRouter.tryGetInstance()?.onMessageAcknowledged(messageId, conversationID)
                 withContext(Dispatchers.Main) {
                     updateDeliveryStatus(
                         messageId,
@@ -197,6 +204,7 @@ class NostrDirectMessageHandler(
             }
             NoisePayloadType.READ_RECEIPT -> {
                 val messageId = String(payload.data, Charsets.UTF_8)
+                com.bitchat.android.services.MessageRouter.tryGetInstance()?.onMessageAcknowledged(messageId, conversationID)
                 withContext(Dispatchers.Main) {
                     updateDeliveryStatus(
                         messageId,
@@ -243,6 +251,9 @@ class NostrDirectMessageHandler(
             NoisePayloadType.VERIFY_CHALLENGE,
             NoisePayloadType.VERIFY_RESPONSE,
             NoisePayloadType.VOICE_FRAME,
+            NoisePayloadType.GROUP_INVITE,
+            NoisePayloadType.GROUP_KEY_UPDATE,
+            NoisePayloadType.VOUCH,
             NoisePayloadType.PEER_STATE -> Unit // Peer state is bound to a live mesh Noise generation.
         }
     }

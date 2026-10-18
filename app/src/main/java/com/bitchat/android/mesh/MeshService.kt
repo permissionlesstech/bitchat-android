@@ -13,15 +13,24 @@ interface MeshService {
     fun stopServices()
 
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null)
+    fun sendNostrCarrier(payload: ByteArray, recipientPeerID: String? = null)
+    fun sendCourierEnvelope(payload: ByteArray, recipientPeerID: String)
+    fun sendPrekeyBundle(payload: ByteArray)
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null)
+    fun supportsPrivateMediaReceipts(peerID: String): Boolean = false
+
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String)
     fun sendDeliveryAck(messageID: String, recipientPeerID: String) {}
     fun sendFavoriteNotification(peerID: String, isFavorite: Boolean) {}
     fun sendVerifyChallenge(peerID: String, noiseKeyHex: String, nonceA: ByteArray)
     fun sendVerifyResponse(peerID: String, noiseKeyHex: String, nonceA: ByteArray)
+    fun sendGroupInvite(payload: ByteArray, recipientPeerID: String)
+    fun sendGroupKeyUpdate(payload: ByteArray, recipientPeerID: String)
+    fun broadcastGroupMessage(payload: ByteArray)
     fun sendFileBroadcast(file: BitchatFilePacket)
     fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket)
     fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray)
+    fun sendBoardPayload(payload: ByteArray) {}
     fun prepareFilePrivate(
         recipientPeerID: String,
         file: BitchatFilePacket,
@@ -32,6 +41,7 @@ interface MeshService {
 
     fun sendBroadcastAnnounce()
     fun sendAnnouncementToPeer(peerID: String)
+    fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit)
 
     fun getPeerNicknames(): Map<String, String>
     fun getPeerRSSI(): Map<String, Int>
@@ -41,6 +51,19 @@ interface MeshService {
     fun initiateNoiseHandshake(peerID: String)
     fun getPeerFingerprint(peerID: String): String?
     fun getPeerInfo(peerID: String): PeerInfo?
+    fun getPeerInfos(): List<PeerInfo> = getPeerNicknames().keys.mapNotNull(::getPeerInfo)
+    fun sendCourierMessage(
+        content: String,
+        messageID: String,
+        recipientNoiseKey: ByteArray,
+        courierPeerIDs: List<String>
+    ): List<String> = emptyList()
+    fun sendBridgeCourierMessage(
+        content: String,
+        messageID: String,
+        recipientNoiseKey: ByteArray,
+        onAccepted: () -> Unit = {}
+    ): Boolean = false
     fun updatePeerInfo(
         peerID: String,
         nickname: String,
@@ -50,11 +73,14 @@ interface MeshService {
     ): Boolean
     fun getIdentityFingerprint(): String
     fun getStaticNoisePublicKey(): ByteArray?
+    fun getSigningPublicKey(): ByteArray?
+    fun signData(data: ByteArray): ByteArray?
     fun shouldShowEncryptionIcon(peerID: String): Boolean
     fun getEncryptedPeers(): List<String>
 
     fun getDeviceAddressForPeer(peerID: String): String?
     fun getDeviceAddressToPeerMapping(): Map<String, String>
+    fun getDirectBlePeerIDs(): Set<String> = emptySet()
     fun printDeviceAddressesForPeers(): String
     fun getDebugStatus(): String
 

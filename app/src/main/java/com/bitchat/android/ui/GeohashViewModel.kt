@@ -164,6 +164,7 @@ class GeohashViewModel(
                     teleported
                 )
                 val relayManager = NostrRelayManager.getInstance(getApplication())
+                com.bitchat.android.services.bridge.MeshGatewayService.uplinkIfOffline(event, channel.geohash, liveLocationToken)
                 relayManager.sendEventToGeohash(
                     event,
                     channel.geohash,

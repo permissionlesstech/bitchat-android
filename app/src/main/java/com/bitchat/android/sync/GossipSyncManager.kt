@@ -8,6 +8,9 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
+import android.content.Context
+import java.io.File
+import java.nio.file.StandardCopyOption
 
 /**
  * Gossip-based synchronization manager using on-demand GCS filters.
@@ -17,7 +20,8 @@ import java.util.concurrent.ConcurrentHashMap
 class GossipSyncManager(
     private val myPeerID: String,
     private val scope: CoroutineScope,
-    private val configProvider: ConfigProvider
+    private val configProvider: ConfigProvider,
+    context: Context? = null
 ) {
     interface Delegate {
         fun sendPacket(packet: BitchatPacket)
@@ -33,8 +37,21 @@ class GossipSyncManager(
 
     companion object {
         private const val TAG = "GossipSyncManager"
+        const val PUBLIC_MESSAGE_MAX_AGE_MS = 6 * 60 * 60 * 1000L
+        const val FRAGMENT_MAX_AGE_MS = 15 * 60 * 1000L
+        const val PUBLIC_PACKET_FUTURE_SKEW_MS = 10 * 60 * 1000L
+        private const val ARCHIVE_FILE = "gossip-public-history.bin"
     }
 
+    var boardPacketsProvider: (() -> List<BitchatPacket>)? = null
+    private val responseTimesByPeer = ConcurrentHashMap<String, ArrayDeque<Long>>()
+    private val observedBoardSyncPeers = ConcurrentHashMap.newKeySet<String>()
+    private fun peerSupportsBoard(peerID: String): Boolean =
+        peerID.lowercase() in observedBoardSyncPeers ||
+            latestAnnouncementByPeer[peerID.lowercase()]?.second?.payload?.let {
+                com.bitchat.android.model.IdentityAnnouncement.decode(it)?.capabilities
+                    ?.contains(com.bitchat.android.model.PeerCapabilities.BOARD)
+            } == true
     var delegate: Delegate? = null
 
     // Defaults (configurable constants)
@@ -44,11 +61,16 @@ class GossipSyncManager(
     // Stored packets for sync:
     // - broadcast messages: keep up to seenCapacity() most recent, keyed by packetId
     private val messages = LinkedHashMap<String, BitchatPacket>()
+    private val groupMessages = LinkedHashMap<String, BitchatPacket>()
+    private val fragments = LinkedHashMap<String, BitchatPacket>()
+    private val archiveFile = context?.applicationContext?.filesDir?.let { File(it, ARCHIVE_FILE) }
+    private var restoringArchive = false
     // - announcements: only keep latest per sender peerID
     private val latestAnnouncementByPeer = ConcurrentHashMap<String, Pair<String, BitchatPacket>>()
 
     private var periodicJob: Job? = null
     private var cleanupJob: Job? = null
+    init { restoreArchive() }
     fun start() {
         periodicJob?.cancel()
         periodicJob = scope.launch(Dispatchers.IO) {
@@ -84,7 +106,12 @@ class GossipSyncManager(
         synchronized(messages) {
             messages.clear()
         }
+        synchronized(fragments) { fragments.clear() }
+        synchronized(groupMessages) { groupMessages.clear() }
         latestAnnouncementByPeer.clear()
+        responseTimesByPeer.clear()
+        observedBoardSyncPeers.clear()
+        archiveFile?.delete()
         Log.d(TAG, "Cleared all gossip sync messages and announcements")
     }
 
@@ -106,13 +133,33 @@ class GossipSyncManager(
         // Only ANNOUNCE or broadcast MESSAGE
         val mt = MessageType.fromValue(packet.type)
         val isBroadcastMessage = (mt == MessageType.MESSAGE && (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST)))
+        val isGroupMessage = mt in setOf(MessageType.GROUP_MESSAGE, MessageType.PREKEY_BUNDLE) &&
+            (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
+        val isBroadcastFile = mt == MessageType.FILE_TRANSFER &&
+            (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
         val isAnnouncement = (mt == MessageType.ANNOUNCE)
-        if (!isBroadcastMessage && !isAnnouncement) return
+        val isFragment = (mt == MessageType.FRAGMENT || isBroadcastFile) &&
+            (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
+        if (!isBroadcastMessage && !isAnnouncement && !isFragment && !isGroupMessage) return
 
         val idBytes = PacketIdUtil.computeIdBytes(packet)
         val id = idBytes.joinToString("") { b -> "%02x".format(b) }
 
-        if (isBroadcastMessage) {
+        if (isGroupMessage) {
+            val age = System.currentTimeMillis() - packet.timestamp.toLong()
+            if (age !in -PUBLIC_PACKET_FUTURE_SKEW_MS..PUBLIC_MESSAGE_MAX_AGE_MS) return
+            synchronized(groupMessages) {
+                val cacheKey = if (mt == MessageType.PREKEY_BUNDLE) "prekey-${packet.senderID.toHexString()}" else id
+                groupMessages[cacheKey] = packet
+                while (groupMessages.size > 200) {
+                    val iterator = groupMessages.entries.iterator()
+                    iterator.next(); iterator.remove()
+                }
+            }
+        } else if (isBroadcastMessage) {
+            val now = System.currentTimeMillis()
+            val age = now - packet.timestamp.toLong()
+            if (age !in -PUBLIC_PACKET_FUTURE_SKEW_MS..PUBLIC_MESSAGE_MAX_AGE_MS) return
             synchronized(messages) {
                 messages[id] = packet
                 // Enforce capacity (remove oldest when exceeded)
@@ -120,6 +167,17 @@ class GossipSyncManager(
                 while (messages.size > cap) {
                     val it = messages.entries.iterator()
                     if (it.hasNext()) { it.next(); it.remove() } else break
+                }
+            }
+            if (!restoringArchive) persistArchive()
+        } else if (isFragment) {
+            val age = System.currentTimeMillis() - packet.timestamp.toLong()
+            if (age !in -PUBLIC_PACKET_FUTURE_SKEW_MS..FRAGMENT_MAX_AGE_MS) return
+            synchronized(fragments) {
+                fragments[id] = packet
+                while (fragments.size > configProvider.seenCapacity().coerceAtLeast(1)) {
+                    val iterator = fragments.entries.iterator()
+                    if (iterator.hasNext()) { iterator.next(); iterator.remove() } else break
                 }
             }
         } else if (isAnnouncement) {
@@ -143,22 +201,35 @@ class GossipSyncManager(
     }
 
     private fun sendRequestSync() {
-        val payload = buildGcsPayload()
-
-        val packet = BitchatPacket(
-            type = MessageType.REQUEST_SYNC.value,
-            senderID = hexStringToByteArray(myPeerID),
-            timestamp = System.currentTimeMillis().toULong(),
-            payload = payload,
-            ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS // neighbors only
-        )
-        // Sign and broadcast
-        val signed = delegate?.signPacketForBroadcast(packet) ?: packet
-        delegate?.sendPacket(signed)
+        listOf(
+            SyncTypeFlags.PUBLIC_MESSAGES,
+            SyncTypeFlags.FRAGMENT,
+            SyncTypeFlags.FILE_TRANSFER,
+            SyncTypeFlags.GROUP_MESSAGE.union(SyncTypeFlags.fromMessageTypes(MessageType.PREKEY_BUNDLE))
+        ).forEach { types ->
+            val payload = buildGcsPayload(types)
+            val packet = BitchatPacket(
+                type = MessageType.REQUEST_SYNC.value,
+                senderID = hexStringToByteArray(myPeerID),
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = payload,
+                ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS // neighbors only
+            )
+            val signed = delegate?.signPacketForBroadcast(packet) ?: packet
+            delegate?.sendPacket(signed)
+        }
+        if (boardPacketsProvider != null) {
+            latestAnnouncementByPeer.keys.filter(::peerSupportsBoard).forEach {
+                sendRequestSyncToPeer(it, SyncTypeFlags.BOARD)
+            }
+        }
     }
 
-    private fun sendRequestSyncToPeer(peerID: String) {
-        val payload = buildGcsPayload()
+    private fun sendRequestSyncToPeer(peerID: String, requestedTypes: SyncTypeFlags? = null) {
+        val types = requestedTypes ?: SyncTypeFlags.PUBLIC_MESSAGES.union(SyncTypeFlags.FRAGMENTS_AND_FILES)
+            .union(SyncTypeFlags.GROUP_MESSAGE).union(SyncTypeFlags.fromMessageTypes(MessageType.PREKEY_BUNDLE))
+            .let { if (boardPacketsProvider != null && peerSupportsBoard(peerID)) it.union(SyncTypeFlags.BOARD) else it }
+        val payload = buildGcsPayload(types)
 
         val packet = BitchatPacket(
             type = MessageType.REQUEST_SYNC.value,
@@ -175,6 +246,12 @@ class GossipSyncManager(
     }
 
     fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
+        val requestedTypes = request.types ?: SyncTypeFlags.PUBLIC_MESSAGES
+        if (requestedTypes.contains(MessageType.BOARD_POST) && latestAnnouncementByPeer.containsKey(fromPeerID.lowercase())) {
+            observedBoardSyncPeers.add(fromPeerID.lowercase())
+        }
+        if (!shouldRespondTo(fromPeerID)) return
+        val sinceTimestamp = request.sinceTimestamp
         // Decode GCS into sorted set for membership checks
         val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
         fun mightContain(id: ByteArray): Boolean {
@@ -183,26 +260,85 @@ class GossipSyncManager(
             return GCSFilter.contains(sorted, nonZeroV)
         }
 
-        // 1) Announcements: send latest per peerID if remote doesn't have them
-        for ((_, pair) in latestAnnouncementByPeer.entries) {
-            val (id, pkt) = pair
-            val idBytes = hexToBytes(id)
-            if (!mightContain(idBytes)) {
-                // Send original packet unchanged to requester only (keep local TTL)
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
-                delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
+        // Announcements are exempt from the cursor: only the latest per peer is retained,
+        // and peers need their signing keys before they can verify other sync responses.
+        if (requestedTypes.contains(MessageType.ANNOUNCE)) {
+            for ((_, pair) in latestAnnouncementByPeer.entries) {
+                val (id, pkt) = pair
+                val idBytes = hexToBytes(id)
+                if (!mightContain(idBytes)) {
+                    val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                    delegate?.sendPacketToPeer(fromPeerID, toSend)
+                    Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
+                }
             }
         }
 
-        // 2) Broadcast messages: send all they lack
-        val toSendMsgs = synchronized(messages) { messages.values.toList() }
-        for (pkt in toSendMsgs) {
+        if (requestedTypes.contains(MessageType.MESSAGE)) {
+            val toSendMsgs = synchronized(messages) { messages.values.toList() }
+            for (pkt in toSendMsgs) {
+                if (sinceTimestamp != null && pkt.timestamp < sinceTimestamp) continue
+                val idBytes = PacketIdUtil.computeIdBytes(pkt)
+                if (!mightContain(idBytes)) {
+                    val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                    delegate?.sendPacketToPeer(fromPeerID, toSend)
+                    Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
+                }
+            }
+        }
+
+        if (requestedTypes.contains(MessageType.GROUP_MESSAGE) || requestedTypes.contains(MessageType.PREKEY_BUNDLE)) {
+            typedSyncCandidates(requestedTypes).forEach { packet ->
+                if ((sinceTimestamp == null || packet.timestamp >= sinceTimestamp) &&
+                    !mightContain(PacketIdUtil.computeIdBytes(packet))) {
+                    delegate?.sendPacketToPeer(fromPeerID, packet.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS))
+                }
+            }
+        }
+        if (requestedTypes.contains(MessageType.BOARD_POST)) {
+            boardPacketsProvider?.invoke().orEmpty().take(200).forEach { packet ->
+                if ((sinceTimestamp == null || packet.timestamp >= sinceTimestamp) &&
+                    !mightContain(PacketIdUtil.computeIdBytes(packet))) {
+                    delegate?.sendPacketToPeer(fromPeerID, packet.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS))
+                }
+            }
+        }
+        val toSendFragments = synchronized(fragments) { fragments.values.toList() }
+        for (pkt in toSendFragments) {
+            val type = MessageType.fromValue(pkt.type) ?: continue
+            if (!requestedTypes.contains(type)) continue
+            if (sinceTimestamp != null && pkt.timestamp < sinceTimestamp) continue
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
             if (!mightContain(idBytes)) {
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
-                delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
+                delegate?.sendPacketToPeer(fromPeerID, pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS))
+            }
+        }
+    }
+
+    private fun typedSyncCandidates(types: SyncTypeFlags): List<BitchatPacket> = synchronized(groupMessages) {
+        val now = System.currentTimeMillis()
+        groupMessages.entries.removeAll { now - it.value.timestamp.toLong() > PUBLIC_MESSAGE_MAX_AGE_MS }
+        groupMessages.values.filter { packet ->
+            MessageType.fromValue(packet.type)?.let(types::contains) == true
+        }
+    }
+
+    private fun shouldRespondTo(peerID: String): Boolean {
+        val now = System.currentTimeMillis()
+        responseTimesByPeer.entries.removeIf { (_, times) ->
+            synchronized(times) { times.isEmpty() || now - times.last() >= 30_000L }
+        }
+        if (responseTimesByPeer.size >= 256 && !responseTimesByPeer.containsKey(peerID)) return false
+        val times = responseTimesByPeer.computeIfAbsent(peerID) { ArrayDeque() }
+        return synchronized(times) {
+            while (times.isNotEmpty() && now - times.first() >= 30_000L) {
+                times.removeFirst()
+            }
+            if (times.size >= 8) {
+                false
+            } else {
+                times.addLast(now)
+                true
             }
         }
     }
@@ -232,16 +368,25 @@ class GossipSyncManager(
         return out
     }
 
-    private fun buildGcsPayload(): ByteArray {
-        // Collect candidates: latest announcement per peer + recent broadcast messages
+    internal fun buildGcsPayload(types: SyncTypeFlags): ByteArray {
+        // Collect only the packet types represented by this filter.
         val list = ArrayList<BitchatPacket>()
-        // announcements
-        for ((_, pair) in latestAnnouncementByPeer) {
-            list.add(pair.second)
+        if (types.contains(MessageType.BOARD_POST)) list.addAll(boardPacketsProvider?.invoke().orEmpty().take(200))
+        list.addAll(typedSyncCandidates(types))
+        if (types.contains(MessageType.ANNOUNCE)) {
+            for ((_, pair) in latestAnnouncementByPeer) {
+                list.add(pair.second)
+            }
         }
-        // messages
-        synchronized(messages) {
-            list.addAll(messages.values)
+        if (types.contains(MessageType.MESSAGE)) {
+            synchronized(messages) {
+                list.addAll(messages.values)
+            }
+        }
+        synchronized(fragments) {
+            list.addAll(fragments.values.filter { packet ->
+                MessageType.fromValue(packet.type)?.let(types::contains) == true
+            })
         }
         // sort by timestamp desc, then take up to min(seenCapacity, fit capacity)
         list.sortByDescending { it.timestamp.toLong() }
@@ -254,15 +399,24 @@ class GossipSyncManager(
         val takeN = minOf(nMax, cap, list.size)
         if (takeN <= 0) {
             val p0 = GCSFilter.deriveP(fpr)
-            return RequestSyncPacket(p = p0, m = 1, data = ByteArray(0)).encode()
+            return RequestSyncPacket(p = p0, m = 1, data = ByteArray(0), types = types).encode()
         }
-        val ids = list.take(takeN).map { pkt -> PacketIdUtil.computeIdBytes(pkt) }
+        val included = list.take(takeN)
+        val ids = included.map { pkt -> PacketIdUtil.computeIdBytes(pkt) }
         val params = GCSFilter.buildFilter(ids, maxBytes, fpr)
         val mVal = if (params.m <= 0L) 1 else params.m
-        return RequestSyncPacket(p = params.p, m = mVal, data = params.data).encode()
+        val covered = params.includedCount
+        val sinceTimestamp = if (covered in 1 until list.size) included[covered - 1].timestamp else null
+        return RequestSyncPacket(
+            p = params.p,
+            m = mVal,
+            data = params.data,
+            types = types,
+            sinceTimestamp = sinceTimestamp
+        ).encode()
     }
 
-    // Periodically remove stale announcements and all their messages
+    // Announcements age out quickly; public history remains independently sync-able for six hours.
     private fun pruneStaleAnnouncements() {
         val now = System.currentTimeMillis()
         val stalePeers = mutableListOf<String>()
@@ -276,26 +430,17 @@ class GossipSyncManager(
             }
         }
 
-        if (stalePeers.isEmpty()) return
-
-        // Remove announcements and their messages
-        var totalPrunedMsgs = 0
+        var changed = false
         for (peerID in stalePeers) {
-            // Count messages to be pruned for logging
-            val toRemove = mutableListOf<String>()
-            synchronized(messages) {
-                for ((id, message) in messages) {
-                    val sender = message.senderID.joinToString("") { b -> "%02x".format(b) }
-                    if (sender == peerID) toRemove.add(id)
-                }
-            }
-            totalPrunedMsgs += toRemove.size
-
-            // Reuse existing removal which also clears announcement entry
-            removeAnnouncementForPeer(peerID)
+            changed = latestAnnouncementByPeer.remove(peerID) != null || changed
         }
-
-        Log.d(TAG, "Pruned ${stalePeers.size} stale announcements and $totalPrunedMsgs messages")
+        synchronized(messages) {
+            changed = messages.entries.removeAll { now - it.value.timestamp.toLong() > PUBLIC_MESSAGE_MAX_AGE_MS } || changed
+        }
+        synchronized(fragments) {
+            fragments.entries.removeAll { now - it.value.timestamp.toLong() > FRAGMENT_MAX_AGE_MS }
+        }
+        if (changed) persistArchive()
     }
 
     // Explicitly remove stored announcement for a given peer (hex ID)
@@ -305,26 +450,66 @@ class GossipSyncManager(
             Log.d(TAG, "Removed stored announcement for peer $peerID")
         }
 
-        // Collect IDs to remove first to avoid modifying collection while iterating
-        val idsToRemove = mutableListOf<String>()
-        synchronized(messages) {
-            for ((id, message) in messages) {
-                val sender = message.senderID.joinToString("") { b -> "%02x".format(b) }
-                if (sender == key) {
-                    idsToRemove.add(id)
+    }
+
+    private fun restoreArchive() {
+        val file = archiveFile ?: return
+        if (!file.exists()) return
+        try {
+            restoringArchive = true
+            java.io.DataInputStream(file.inputStream().buffered()).use { input ->
+                val count = input.readInt()
+                require(count in 0..configProvider.seenCapacity())
+                repeat(count) {
+                    val length = input.readInt()
+                    require(length in 1..(com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH + 256))
+                    val bytes = ByteArray(length)
+                    input.readFully(bytes)
+                    val packet = com.bitchat.android.protocol.BinaryProtocol.decode(bytes) ?: return@repeat
+                    onPublicPacketSeen(packet)
                 }
             }
+        } catch (_: Exception) {
+            synchronized(messages) { messages.clear() }
+        } finally {
+            restoringArchive = false
         }
-        
-        // Now remove the collected IDs
-        synchronized(messages) {
-            for (id in idsToRemove) {
-                messages.remove(id)
+    }
+
+    @Synchronized
+    private fun persistArchive() {
+        val file = archiveFile ?: return
+        try {
+            val packets = synchronized(messages) { messages.values.toList() }
+            val temporary = File(file.parentFile, "${file.name}.tmp")
+            java.io.DataOutputStream(temporary.outputStream().buffered()).use { output ->
+                output.writeInt(packets.size)
+                packets.forEach { packet ->
+                    val encoded = com.bitchat.android.protocol.BinaryProtocol.encode(packet, padding = false) ?: return@forEach
+                    output.writeInt(encoded.size)
+                    output.write(encoded)
+                }
             }
-        }
-        
-        if (idsToRemove.isNotEmpty()) {
-            Log.d(TAG, "Pruned ${idsToRemove.size} messages with senders without announcements")
-        }
+            try {
+                java.nio.file.Files.move(
+                    temporary.toPath(),
+                    file.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: Exception) {
+                // Some Android filesystems do not support ATOMIC_MOVE. Preserve the durable
+                // public-history guarantee with a regular replacement move before giving up.
+                try {
+                    java.nio.file.Files.move(
+                        temporary.toPath(),
+                        file.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                    )
+                } catch (_: Exception) {
+                    temporary.delete()
+                }
+            }
+        } catch (_: Exception) { }
     }
 }

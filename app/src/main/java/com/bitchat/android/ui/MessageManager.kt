@@ -196,6 +196,22 @@ class MessageManager(private val state: ChatState) {
         state.setPrivateChats(updatedChats)
         clearPrivateUnreadMessages(conversationID)
     }
+
+    fun removePrivateChat(peerID: String) {
+        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val updatedChats = state.getPrivateChatsValue().toMutableMap()
+        updatedChats.remove(peerID)
+        updatedChats.remove(conversationID)
+        state.setPrivateChats(updatedChats)
+        val unread = state.getUnreadPrivateMessagesValue().toMutableSet()
+        unread.remove(peerID)
+        unread.remove(conversationID)
+        state.setUnreadPrivateMessages(unread)
+        try {
+            com.bitchat.android.services.AppStateStore.removePrivateConversation(conversationID)
+        } catch (_: Exception) {
+        }
+    }
     
     fun initializePrivateChat(peerID: String) {
         val conversationID = ContactDirectory.canonicalConversationId(peerID)
@@ -283,10 +299,11 @@ class MessageManager(private val state: ChatState) {
     private fun statusPriority(status: DeliveryStatus?): Int = when (status) {
         null -> 0
         is DeliveryStatus.Sending -> 1
-        is DeliveryStatus.Sent -> 2
-        is DeliveryStatus.PartiallyDelivered -> 3
-        is DeliveryStatus.Delivered -> 4
-        is DeliveryStatus.Read -> 5
+        is DeliveryStatus.Queued -> 2
+        is DeliveryStatus.Sent -> 3
+        is DeliveryStatus.PartiallyDelivered -> 4
+        is DeliveryStatus.Delivered -> 5
+        is DeliveryStatus.Read -> 6
         is DeliveryStatus.Failed -> 0
     }
 

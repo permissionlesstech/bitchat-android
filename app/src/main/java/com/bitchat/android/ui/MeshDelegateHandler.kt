@@ -160,6 +160,8 @@ class MeshDelegateHandler(
     
     override fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
         coroutineScope.launch {
+            com.bitchat.android.services.MessageRouter.tryGetInstance()
+                ?.onMessageAcknowledged(messageID, recipientPeerID)
             messageManager.updateMessageDeliveryStatus(messageID, DeliveryStatus.Delivered(recipientPeerID, Date()))
         }
     }

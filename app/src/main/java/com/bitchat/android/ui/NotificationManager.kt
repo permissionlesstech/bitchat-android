@@ -68,6 +68,12 @@ class NotificationManager(
         private val liveManagers: MutableSet<NotificationManager> =
             Collections.newSetFromMap(WeakHashMap<NotificationManager, Boolean>())
 
+        fun clearAllForPrivacyChange(context: Context) {
+            synchronized(liveManagers) { liveManagers.toList() }
+                .forEach { it.clearAllNotifications(removeConversationShortcuts = true) }
+            NotificationManagerCompat.from(context).cancelAll()
+        }
+
         /**
          * Synchronizes notification action receivers with every manager instance in this process.
          * Without this, an old in-memory MessagingStyle history could reappear on the next DM.
@@ -198,8 +204,8 @@ class NotificationManager(
 
         val notification = PendingNotification(
             senderPeerID = conversationID,
-            senderNickname = senderNickname,
-            messageContent = messageContent,
+            senderNickname = if (ClientPrivacyPreferences.showNotificationPreviews(context)) senderNickname else context.getString(R.string.app_name),
+            messageContent = if (ClientPrivacyPreferences.showNotificationPreviews(context)) messageContent else context.getString(R.string.notification_hidden_message),
             timestamp = System.currentTimeMillis()
         )
 
@@ -243,11 +249,9 @@ class NotificationManager(
             .setKey(senderPeerID)
             .build()
         val shortcutID = conversationShortcutID(senderPeerID)
-        publishConversationShortcut(
-            shortcutID = shortcutID,
-            person = person,
-            contentIntent = intent
-        )
+        if (ClientPrivacyPreferences.showNotificationPreviews(context)) {
+            publishConversationShortcut(shortcutID = shortcutID, person = person, contentIntent = intent)
+        }
 
         // Build notification content
         val contentText = if (messageCount == 1) {
@@ -523,8 +527,8 @@ class NotificationManager(
 
         val notification = GeohashNotification(
             geohash = geohash,
-            senderNickname = senderNickname,
-            messageContent = messageContent,
+            senderNickname = if (ClientPrivacyPreferences.showNotificationPreviews(context)) senderNickname else context.getString(R.string.app_name),
+            messageContent = if (ClientPrivacyPreferences.showNotificationPreviews(context)) messageContent else context.getString(R.string.notification_hidden_message),
             timestamp = System.currentTimeMillis(),
             isMention = isMention,
             isFirstMessage = isFirstMessage,
@@ -748,8 +752,8 @@ class NotificationManager(
         val meshMentionKey = "mesh_mentions"
         val notification = PendingNotification(
             senderPeerID = senderPeerID ?: meshMentionKey,
-            senderNickname = senderNickname,
-            messageContent = messageContent,
+            senderNickname = if (ClientPrivacyPreferences.showNotificationPreviews(context)) senderNickname else context.getString(R.string.app_name),
+            messageContent = if (ClientPrivacyPreferences.showNotificationPreviews(context)) messageContent else context.getString(R.string.notification_hidden_message),
             timestamp = System.currentTimeMillis()
         )
 
