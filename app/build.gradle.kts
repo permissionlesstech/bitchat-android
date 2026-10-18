@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 val githubReleaseCertSha256 = providers
@@ -141,7 +143,12 @@ dependencies {
     
     // Navigation
     implementation(libs.androidx.navigation.compose)
-    
+
+    // Dependency injection
+    implementation(libs.hilt.android)
+    implementation(libs.androidx.hilt.navigation.compose)
+    ksp(libs.hilt.compiler)
+
     // Permissions
     implementation(libs.accompanist.permissions)
 
@@ -191,6 +198,10 @@ dependencies {
     implementation(libs.androidx.exifinterface)
     
     // Testing
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
     testImplementation(libs.bundles.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.bundles.compose.testing)
