@@ -88,6 +88,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.ui.media.FileMessageItem
+import com.bitchat.android.util.TrackingUrlDetector
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.ChatUiModeManager
@@ -761,6 +762,15 @@ internal fun TextMessageLayout(
     val isSelf = message.isFromSelf(currentUserNickname, myPeerId)
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    var pendingTrackedUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    val openOrWarn: (String) -> Unit = { rawUrl ->
+        if (TrackingUrlDetector.hasTrackingParameter(normalizeMessageUrl(rawUrl))) {
+            pendingTrackedUrl = rawUrl
+        } else {
+            openMessageUrl(context, rawUrl)
+        }
+        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
     val handleLongPress: () -> Unit = {
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         onMessageLongPress?.invoke(message)
@@ -802,12 +812,10 @@ internal fun TextMessageLayout(
             timeFormatter = timeFormatter,
             onNicknameClick = onNicknameClick,
             onLongPress = handleLongPress,
+            onUrlClick = openOrWarn,
             modifier = modifier,
         )
-        return
-    }
-
-    Column(
+    } else Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(MessageGrouping.SENDER_TO_BODY_SPACING),
     ) {
@@ -847,8 +855,7 @@ internal fun TextMessageLayout(
                     }
 
                     "url_click" -> {
-                        openMessageUrl(context, item)
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        openOrWarn(item)
                         true
                     }
 
@@ -860,6 +867,17 @@ internal fun TextMessageLayout(
             softWrap = true,
             overflow = TextOverflow.Visible,
             style = MessageBodyTextStyle.copy(color = colorScheme.onSurface),
+        )
+    }
+
+    pendingTrackedUrl?.let { url ->
+        TrackingWarningDialog(
+            message = R.string.tracking_link_open_warning,
+            onConfirm = {
+                pendingTrackedUrl = null
+                openMessageUrl(context, url)
+            },
+            onDismiss = { pendingTrackedUrl = null },
         )
     }
 }
@@ -884,6 +902,7 @@ private fun BubbleTextMessageLayout(
     timeFormatter: SimpleDateFormat,
     onNicknameClick: ((String) -> Unit)?,
     onLongPress: () -> Unit,
+    onUrlClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalBitchatPalette.current
@@ -1002,8 +1021,7 @@ private fun BubbleTextMessageLayout(
                                     }
 
                                     "url_click" -> {
-                                        openMessageUrl(context, item)
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onUrlClick(item)
                                         true
                                     }
 
