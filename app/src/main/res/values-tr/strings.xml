@@ -378,4 +378,252 @@
     <string name="about_app_language">Uygulama dili</string>
     <string name="about_system_default">Sistem varsayılanı</string>
     <string name="about_select_language">Dil seçin</string>
+
+    <!-- Cashu payments -->
+    <string name="cashu_pay_via">Cashu ile öde</string>
+    <string name="cashu_payment_description">Cashu ödemesi</string>
+    <string name="cashu_copy_token">Jetonu kopyala</string>
+    <string name="cashu_redeem_wallet">Cüzdanda bozdur</string>
+    <string name="cashu_redeem_web">Web’de bozdur</string>
+
+    <!-- Mesh Service Foreground Notification -->
+    <string name="mesh_service_channel_name">Mesh arka plan servisi</string>
+    <string name="mesh_service_channel_desc">Bluetooth mesh ağını arka planda çalışır durumda tutar</string>
+
+    <!-- Favorites accessibility -->
+    <string name="cd_favorite">Favori</string>
+    <string name="cd_favorited_you">Sizi favoriledi</string>
+
+    <!-- Conversations list -->
+    <string name="conversations">Sohbetler</string>
+    <string name="offline_not_in_mesh">Çevrimdışı · mesh’te değil</string>
+    <string name="offline_reachable_via_nostr">Mesh’te çevrimdışı · Nostr üzerinden erişilebilir</string>
+    <string name="delete">Sil</string>
+    <string name="delete_conversation_action">Sohbeti sil</string>
+    <string name="delete_conversation_title">Sohbet silinsin mi?</string>
+    <string name="delete_conversation_message">%1$s ile olan sohbetiniz bu cihazdan silinsin mi?</string>
+    <string name="search_conversations">Sohbetlerde ara</string>
+    <string name="clear">Temizle</string>
+    <string name="loading_conversations">Özel sohbetler yükleniyor…</string>
+    <string name="conversation_storage_error">Özel sohbetler yüklenemedi</string>
+    <string name="no_conversations_yet">Özel sohbetler burada görünecek</string>
+    <string name="no_conversation_results">Eşleşen sohbet yok</string>
+    <string name="online_conversations">ÇEVRİMİÇİ</string>
+    <string name="offline_conversations">ÇEVRİMDIŞI</string>
+    <string name="mark_read">Okundu olarak işaretle</string>
+    <string name="mark_unread">Okunmadı olarak işaretle</string>
+    <string name="pin_conversation">Sohbeti sabitle</string>
+    <string name="unpin_conversation">Sabitlemeyi kaldır</string>
+    <string name="mute_conversation">Sohbeti sessize al</string>
+    <string name="unmute_conversation">Sessize almayı kaldır</string>
+    <string name="conversation_actions">Sohbet işlemleri</string>
+    <string name="conversation_unread_count">%1$d okunmamış mesaj</string>
+    <string name="conversation_read">Okundu</string>
+    <string name="conversation_draft_preview">Taslak: %1$s</string>
+    <string name="conversation_you_preview">Siz: %1$s</string>
+    <string name="conversation_preview_timestamp">· %1$s</string>
+    <string name="conversation_delete_failed">Sohbet silinemedi</string>
+    <string name="conversation_deleted">%1$s ile olan sohbet silindi</string>
+    <string name="undo">Geri al</string>
+    <string name="conversation_restore_failed">Sohbet geri yüklenemedi</string>
+    <string name="notification_reply">Yanıtla</string>
+    <string name="notification_mark_read">Okundu işaretle</string>
+    <string name="notification_private_message">Yeni özel mesaj</string>
+    <string name="notification_content_hidden">Görüntülemek için bitchat’i aç</string>
+    <string name="notification_channel_direct_messages">Direkt Mesajlar</string>
+    <string name="notification_channel_direct_messages_description">Diğer kullanıcılardan gelen özel mesaj bildirimleri</string>
+    <string name="notification_channel_geohash">Geohash Sohbetleri</string>
+    <string name="notification_channel_geohash_description">Geohash konum kanallarındaki bahsetme ve mesaj bildirimleri</string>
+    <string name="you">Siz</string>
+    <string name="cd_location_notes">Konum notları</string>
+
+    <!-- File viewer dialog -->
+    <string name="cd_save_current_image">Geçerli görseli kaydet</string>
+    <string name="cd_close">Kapat</string>
+    <string name="toast_image_saved">Görsel "İndirilenler"e kaydedildi</string>
+    <string name="toast_failed_to_save_image">Görsel kaydedilemedi</string>
+    <string name="cd_image_index_of">Görsel %1$d / %2$d</string>
+    <string name="cd_pick_file">Dosya seç</string>
+
+    <!-- About sheet -->
+    <string name="about_tagline">Yan grup sohbeti</string>
+    <string name="about_tab_info">Bilgi</string>
+    <string name="about_tab_settings">Ayarlar</string>
+    <string name="about_how_to_use_heading">Nasıl Kullanılır</string>
+    <string name="about_howto_nickname">Takma adını değiştirmek için ona dokun</string>
+    <string name="about_howto_channels">Kanal değiştirmek için kanal adına dokun</string>
+    <string name="about_howto_people">Kanalda kimlerin olduğunu görmek için kişiler simgesine dokun</string>
+    <string name="about_howto_bookmark">Bir kanalı yer imlerine ekleyerek listende tut</string>
+    <string name="about_howto_mention">Birinden bahsetmek için @ yaz</string>
+    <string name="about_howto_commands">Kullanılabilir komutları görmek için / yaz</string>
+    <string name="about_howto_panic">Tüm verileri silmek için logoya üç kez dokun</string>
+    <string name="about_section_about">Hakkında</string>
+    <string name="about_section_theme">Tema</string>
+    <string name="about_section_settings">Ayarlar</string>
+    <string name="about_no_tracking_title">Takip Yok</string>
+    <string name="about_no_tracking_desc">Sunucu, hesap veya veri toplama yok.</string>
+    <string name="about_ephemeral_title">Geçici Kimlik</string>
+    <string name="about_ephemeral_desc">Düzenli olarak yeni bir eş kimliği oluşturulur.</string>
+    <string name="about_panic_desc">Tüm verileri anında temizlemek için logoya üç kez dokun.</string>
+    <string name="about_tor_title">Tor Ağı</string>
+    <string name="about_difficulty">Zorluk</string>
+    <string name="about_difficulty_value">%1$d bit • %2$s</string>
+    <string name="about_tor_connected">Bağlandı (%1$d%%)</string>
+    <string name="about_tor_disconnected">Bağlı değil</string>
+    <string name="chat_ui_matrix">Matrix</string>
+    <string name="chat_ui_bubbles">Baloncuklar</string>
+    <string name="cd_privacy_protected">Gizliliğin korunuyor</string>
+
+    <!-- APK Sharing -->
+    <string name="share_bitchat_title">BitChat’i Paylaş</string>
+    <string name="share_bitchat_subtitle">Çevrimdışı dağıtım için kurulum dosyasını paylaş</string>
+    <string name="share_apk_title">BitChat Uygulamasını Paylaş</string>
+    <string name="share_apk_explanation">Bu, başkalarının internet erişimi olmadan uygulamayı kurabilmesi için BitChat kurulum dosyasını/dosyalarını paylaşır. Mesh ağını genişletmek için idealdir!</string>
+    <string name="share_apk_receiver_instructions">Alıcının yapması gerekenler:\n• Android ayarlarından \"Bilinmeyen kaynaklardan yükleme\"yi etkinleştirmek\n• Zaten kuruluysa önce BitChat’i kaldırmak (imzalar farklı)</string>
+    <string name="share_apk_confirm">Uygulamayı Paylaş</string>
+    <string name="share_apk_chooser_title">BitChat’i şununla paylaş…</string>
+    <string name="share_apk_error">Uygulama paylaşıma hazırlanamadı. Lütfen tekrar deneyin.</string>
+
+    <!-- Universal APK Preparation -->
+    <string name="prepare_apk_title">Uygulamayı Paylaşıma Hazırla</string>
+    <string name="prepare_apk_ready_title">Uygulama Çevrimdışı Paylaşıma Hazır</string>
+    <string name="prepare_apk_subtitle">Çevrimdışı paylaşım için evrensel APK indir</string>
+    <string name="prepare_apk_status_not_downloaded">Hazır değil • İndirmek için dokun</string>
+    <string name="prepare_apk_status_ready">Paylaşıma hazır</string>
+    <string name="prepare_apk_ready_detail">Paylaşıma hazır • %1$s • %2$d MB\n%3$s</string>
+    <string name="prepare_apk_status_resumable">%1$s • %2$d%% indirildi</string>
+    <string name="prepare_apk_source_installed">Paylaşım kaynağı: bu kurulu APK</string>
+    <string name="prepare_apk_source_installed_arm64">Paylaşım kaynağı: bu kurulu APK • yalnızca ARM64 cihazlar</string>
+    <string name="prepare_apk_source_downloaded">Paylaşım kaynağı: doğrulanmış, indirilmiş evrensel APK</string>
+    <string name="prepare_apk_update_available">%1$s sürümü mevcut. Bu APK’yı paylaşmaya devam edebilir veya güncellemeyi indirebilirsin.</string>
+    <string name="prepare_apk_update_warning">Yeni sürüm mevcut</string>
+    <string name="prepare_apk_get_universal">Evrensel APK indir</string>
+    <string name="prepare_apk_retry">İndirmeyi yeniden dene</string>
+    <string name="prepare_apk_status_downloading">İndiriliyor… %1$d%%</string>
+    <string name="prepare_apk_phase_awaiting_connectivity">Ağ bekleniyor…</string>
+    <string name="prepare_apk_phase_retrying">Yeniden deneniyor…</string>
+    <string name="prepare_apk_phase_selecting_source">İndirme kaynağı seçiliyor…</string>
+    <string name="prepare_apk_phase_awaiting_route">Tor bekleniyor…</string>
+    <string name="prepare_apk_phase_transferring">İndiriliyor…</string>
+    <string name="prepare_apk_phase_verifying_signature">İmza doğrulanıyor…</string>
+    <string name="prepare_apk_stop">İndirmeyi durdur</string>
+    <string name="prepare_apk_button_prepare">Hazırla</string>
+    <string name="prepare_apk_button_delete">Sil</string>
+    <string name="prepare_apk_info">Sürüm %1$s • %2$d MB</string>
+    <string name="prepare_apk_dialog_title">Evrensel APK indirilsin mi?</string>
+    <string name="prepare_apk_update_dialog_title">Daha Yeni Evrensel APK İndirilsin mi?</string>
+    <string name="prepare_apk_dialog_message_unknown_size">Bu, yapılandırılmış bir kaynaktan doğrulanmış bir evrensel APK indirecek. Bunu yalnızca bir kez yapman yeterli.</string>
+    <string name="prepare_apk_update_dialog_message">%1$s sürümü GitHub’dan edinilebilir (%2$d MB). İndirme sırasında mevcut APK’n paylaşılabilir olmaya devam eder.</string>
+    <string name="prepare_apk_dialog_confirm">İndir</string>
+    <string name="prepare_apk_downloading_title">Evrensel APK İndiriliyor</string>
+    <string name="prepare_apk_downloading_message">%1$d MB indiriliyor…</string>
+    <string name="prepare_apk_success">Evrensel APK hazır!</string>
+    <string name="prepare_apk_error_network">Ağ hatası. Bağlantını kontrol et.</string>
+    <string name="prepare_apk_error_storage">Yeterli depolama alanı yok.</string>
+    <string name="prepare_apk_error_rate_limited">%1$s geçici olarak hız sınırlamasına takıldı. Daha sonra tekrar dene.</string>
+    <string name="prepare_apk_error_no_universal">%1$s şu anda evrensel bir APK’ya sahip değil.</string>
+    <string name="prepare_apk_error_http">%1$s indirmesi başarısız oldu: HTTP %2$s %3$s</string>
+    <string name="prepare_apk_error_generic">İndirme başarısız oldu. Lütfen tekrar dene.</string>
+    <string name="prepare_apk_error_storage_needed">Yetersiz depolama: %1$s MB gerekli, %2$s MB boş.</string>
+    <string name="prepare_apk_error_no_sources">Yapılandırılmış bir APK indirme kaynağı yok.</string>
+    <string name="prepare_apk_error_tor_connecting">Tor hâlâ bağlanıyor. Tor hazır olduğunda tekrar dene.</string>
+    <string name="prepare_apk_error_no_url">%1$s için kullanılabilir bir APK adresi yok.</string>
+    <string name="prepare_apk_error_unreachable">%1$s’e ulaşılamadı.</string>
+    <string name="prepare_apk_error_insecure_redirect">%1$s, güvensiz bir adrese yönlendirdi.</string>
+    <string name="prepare_apk_error_resume_rejected">%1$s, kaydedilen indirme konumunu reddetti. Bir sonraki deneme indirmeyi baştan başlatacak.</string>
+    <string name="prepare_apk_error_incomplete">%1$s indirmesi tüm veriler gelmeden sona erdi. Devam ettirilebilir.</string>
+    <string name="prepare_apk_error_invalid_resume">%1$s geçersiz bir devam ettirme yanıtı döndürdü. Bir sonraki deneme indirmeyi baştan başlatacak.</string>
+    <string name="prepare_apk_error_untrusted_key">%1$s kaynağındaki APK, güvenilir bir BitChat sürüm anahtarıyla imzalanmamış.</string>
+    <string name="prepare_apk_error_not_universal">%1$s, gerekli evrensel APK yerine mimariye özgü bir APK döndürdü.</string>
+    <string name="prepare_apk_error_apk_unreadable">İndirilen APK okunamadı.</string>
+    <string name="prepare_apk_error_not_bitchat">İndirilen dosya bir BitChat APK’sı değil.</string>
+    <string name="prepare_apk_error_no_version">İndirilen APK’da sürüm bilgisi yok.</string>
+    <string name="prepare_apk_error_source_failed">%1$s indirmesi başarısız oldu.</string>
+    <string name="prepare_apk_error_all_sources">Yapılandırılmış tüm APK kaynakları başarısız oldu.</string>
+    <string name="prepare_apk_delete_confirm">Önbellekteki APK silinsin mi?</string>
+    <string name="prepare_apk_delete_message">Bu, ~%1$d MB depolama alanı boşaltacak.</string>
+    <string name="prepare_apk_required">Lütfen önce uygulamayı paylaşıma hazırla.</string>
+    <string name="prepare_apk_download_interrupted">İndirme yarıda kesildi</string>
+    <string name="prepare_apk_download_cancelled">İndirme iptal edildi</string>
+    <string name="apk_download_notification_title">Evrensel APK indiriliyor</string>
+    <string name="apk_download_channel_name">APK indirmeleri</string>
+
+    <!-- Hotspot Sharing -->
+    <string name="hotspot_share_via">Hotspot ile Paylaş</string>
+    <string name="hotspot_share_via_subtitle">Çevrimdışı paylaşmak için Wi-Fi hotspot oluştur</string>
+    <string name="hotspot_share_other">Quick Share ile Paylaş</string>
+    <string name="hotspot_share_other_subtitle">Standart Android paylaşımını kullan</string>
+    <string name="hotspot_disconnect_title">Mevcut Wi-Fi Direct bağlantısı kesilsin mi?</string>
+    <string name="hotspot_disconnect_message">Hotspot’u başlatmak mevcut Wi-Fi Direct bağlantısını kesecek. Bu, Cast, Android Auto, Quick Share veya başka bir yakın cihaz bağlantısını kesintiye uğratabilir.</string>
+    <string name="hotspot_disconnect_confirm">Kes ve başlat</string>
+
+    <!-- APK Installation -->
+    <string name="install_bitchat_title">Alınan APK’yı Kur</string>
+    <string name="install_bitchat_subtitle">Alınan dosyalardan BitChat’i kur</string>
+    <string name="install_apk_dialog_title">BitChat Güncellemesini Kur</string>
+    <string name="install_apk_dialog_message">BitChat, alınan APK dosyasından/dosyalarından kurulsun mu? Bu, mesh ağlarında çevrimdışı uygulama dağıtımına olanak tanır.</string>
+    <string name="install_apk_permission_title">İzin Gerekli</string>
+    <string name="install_apk_permission_message">BitChat’in kendi kendini dağıtabilmesi için paket kurma izni gerekir. Lütfen bir sonraki ekranda \"Bilinmeyen uygulamaları yükle\"yi etkinleştir.</string>
+    <string name="install_apk_confirm">Kur</string>
+    <string name="install_apk_grant_permission">İzin Ver</string>
+    <string name="install_apk_select_files">APK Dosyalarını Seç</string>
+    <string name="install_apk_error">APK kurulamadı. Lütfen tekrar dene.</string>
+    <string name="install_apk_no_files">APK dosyası seçilmedi.</string>
+
+    <!-- Generic content descriptions -->
+    <string name="notification_action_quit_bitchat">bitchat’ten çık</string>
+    <string name="about_background_title">Arka Planda Çalıştır</string>
+    <string name="about_background_desc">Uygulama kapatıldığında mesh’i etkin tut (ön planda servis)</string>
+    <string name="location_bluetooth_wifi_subtitle">#bluetooth • wifi • %1$s</string>
+
+    <!-- Chat user sheet actions -->
+    <string name="action_private_message_title">%1$s kişisine mesaj gönder</string>
+    <string name="action_private_message_subtitle">Özel mesaj gönder</string>
+
+    <!-- Location channels sheet -->
+    <string name="location_channels_heading">Konum Kanalları</string>
+    <string name="location_channels_nearby">Yakındakiler</string>
+    <string name="mesh_section_subtitle">Çevrimdışı mesh. İnternet gerekmez.</string>
+
+    <!-- Location channels sheet: sections and Tor routing -->
+    <string name="section_nearby">Yakındakiler</string>
+    <string name="location_tor_routing_title">Tor Yönlendirmesi</string>
+    <string name="location_tor_routing_desc">Konum kanalları için IP adresini gizler.</string>
+    <string name="badge_recommended">Önerilir</string>
+
+    <!-- People sheet -->
+    <string name="people_count_title">Kişiler (%1$d)</string>
+    <string name="section_people">Kişiler</string>
+    <string name="section_on_location">Konumda</string>
+    <string name="section_teleported_in">Teleport edenler</string>
+    <string name="mesh_title">Mesh</string>
+
+    <!-- Debug / Diagnostics -->
+    <string name="debug_tools_desc">Tanılama ve kontrol için geliştirici araçları</string>
+    <string name="debug_verbose_hint">Eş katılma/ayrılmalarını, bağlantı yönünü, paket yönlendirmeyi ve röleleri günlükler</string>
+    <string name="debug_roles_hint">Rolleri aç/kapat ve devre dışı bırakıldığında tüm bağlantıları kapat</string>
+    <string name="debug_rssi_fmt">RSSI: %1$s</string>
+
+    <!-- Onboarding screens -->
+    <string name="background_location_required_title">Arka Plan Konumu Önerilir</string>
+    <string name="background_location_required_subtitle">İsteğe bağlı, mesh güvenilirliğini artırır</string>
+    <string name="background_location_explanation">Android, uygulama açık değilken bitchat’in yakındaki cihazları tarayabilmesi için arka plan konumunu önerir. Bu, yeniden başlatma sonrasında mesh’i canlı tutar.</string>
+    <string name="background_location_settings_tip">Ayarlar açıldığında \"Her zaman izin ver\"i seç.</string>
+    <string name="background_location_needs_for">bitchat arka plan konumunu şunlar için kullanır:</string>
+    <string name="background_location_needs_bullets">- Uygulama kapalıyken yakındaki cihazları tara\n- Yeniden başlatma sonrası yeniden bağlan\n- Mesh’i arka planda çalışır tut</string>
+    <string name="background_location_privacy_note">Konumunu ASLA toplamayız veya saklamayız. Gizliliğin güvende.</string>
+    <string name="grant_background_location">Arka Plan Konumuna İzin Ver</string>
+    <string name="skip_background_location">Arka plan konumu olmadan devam et</string>
+
+    <!-- Permission descriptions -->
+    <string name="perm_background_location_desc">Uygulama arka plandayken yakındaki cihazları taramak için önerilir</string>
+    <string name="perm_background_location_system">Arka plan konum erişimine izin ver</string>
+
+    <!-- Permission types -->
+    <string name="perm_type_background_location">Arka Plan Konumu</string>
+
+    <!-- Misc -->
+    <string name="tor_not_available_in_this_build">Bu derlemede Tor kullanılamıyor</string>
+    <string name="checking">Kontrol ediliyor...</string>
+    <string name="apk_not_ready_please_prepare_it_first">APK hazır değil. Lütfen önce hazırla.</string>
 </resources>
