@@ -2,24 +2,20 @@ package com.bitchat.android.ui.media
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,23 +29,23 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.features.file.FileUtils
-import com.bitchat.android.model.BitchatFilePacket
 
 /**
  * Modern chat-style file message display
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FileMessageItem(
-    packet: BitchatFilePacket,
-    onFileClick: () -> Unit,
-    modifier: Modifier = Modifier
+    attachment: FileAttachment,
+    modifier: Modifier = Modifier,
+    onLongPress: (() -> Unit)? = null
 ) {
-    var showDialog by remember { mutableStateOf(false) }
+    var showDialog by remember(attachment.path) { mutableStateOf(false) }
 
     Card(
         modifier = modifier
             .fillMaxWidth(0.8f)
-            .clickable { showDialog = true },
+            .combinedClickable(onClick = { showDialog = true }, onLongClick = onLongPress),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
@@ -64,7 +60,7 @@ fun FileMessageItem(
             Icon(
                 imageVector = Icons.Filled.Description,
                 contentDescription = stringResource(com.bitchat.android.R.string.cd_file),
-                tint = getFileIconColor(packet.fileName),
+                tint = getFileIconColor(attachment.fileName),
                 modifier = Modifier.size(32.dp)
             )
 
@@ -74,7 +70,7 @@ fun FileMessageItem(
             ) {
                 // File name
                     Text(
-                        text = packet.fileName,
+                        text = attachment.fileName,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                         maxLines = 1,
@@ -87,13 +83,13 @@ fun FileMessageItem(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = FileUtils.formatFileSize(packet.fileSize),
+                        text = FileUtils.formatFileSize(attachment.fileSize),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     // File type indicator
-                    FileTypeBadge(mimeType = packet.mimeType)
+                    FileTypeBadge(mimeType = attachment.mimeType)
                 }
             }
         }
@@ -102,13 +98,8 @@ fun FileMessageItem(
     // File viewer dialog
     if (showDialog) {
         FileViewerDialog(
-            packet = packet,
+            attachment = attachment,
             onDismiss = { showDialog = false },
-            onSaveToDevice = { content, fileName ->
-                // In a real implementation, this would save to Downloads
-                // For now, just log that file was "saved"
-                android.util.Log.d("FileSharing", "Would save file: $fileName")
-            }
         )
     }
 }
