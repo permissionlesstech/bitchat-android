@@ -67,6 +67,9 @@ object AppConstants {
 
     object Protocol {
         const val COMPRESSION_THRESHOLD_BYTES: Int = 100
+        // MUST stay in sync with iOS's FileTransferLimits.maxFramedFileBytes
+        // (LocalPackages/BitFoundation/Sources/BitFoundation/FileTransferLimits.swift in permissionlesstech/bitchat).
+        // Reference issue #1618, which fixed a mismatch where iOS's ceiling was ~1.13 MiB instead of 10 MiB.
         const val MAX_PAYLOAD_LENGTH: Int = 10_485_760
     }
 
