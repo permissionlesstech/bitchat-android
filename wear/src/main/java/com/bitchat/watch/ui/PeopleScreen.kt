@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
@@ -43,13 +43,13 @@ import com.bitchat.watch.ui.theme.colorForPeer
 @Composable
 fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
     val context = LocalContext.current
-    val peers by AppStateStore.peers.collectAsState()
-    val unread by WearChatState.unreadDms.collectAsState()
+    val peers by AppStateStore.peers.collectAsStateWithLifecycle()
+    val unread by WearChatState.unreadDms.collectAsStateWithLifecycle()
     val mesh = WearMeshService.peek()
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     val nicknames = mesh?.getPeerNicknames() ?: emptyMap()
-    val identityRevision by WearPeerIdentityState.revision.collectAsState()
+    val identityRevision by WearPeerIdentityState.revision.collectAsStateWithLifecycle()
     var liveVoiceEnabled by remember {
         mutableStateOf(com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context))
     }

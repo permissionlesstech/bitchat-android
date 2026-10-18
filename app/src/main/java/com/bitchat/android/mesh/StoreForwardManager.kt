@@ -5,6 +5,7 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -43,6 +44,7 @@ class StoreForwardManager {
     
     // Coroutines
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val cleanupSignal = Channel<Unit>(Channel.CONFLATED)
     
     init {
         startPeriodicCleanup()
@@ -105,6 +107,7 @@ class StoreForwardManager {
             cleanupMessageCache()
             
             messageCache.add(storedMessage)
+            cleanupSignal.trySend(Unit)
             
             // Limit cache size
             if (messageCache.size > MAX_CACHED_MESSAGES) {
@@ -162,6 +165,9 @@ class StoreForwardManager {
             // Mark as delivered
             val messageIDsToRemove = messagesToSend.map { it.messageID }
             deliveredMessages.addAll(messageIDsToRemove)
+            if (deliveredMessages.size > 1000 || cachedMessagesSentToPeer.size > 200) {
+                cleanupSignal.trySend(Unit)
+            }
             
             // Send with delays to avoid overwhelming the connection
             messagesToSend.forEachIndexed { index, storedMessage ->
@@ -194,6 +200,7 @@ class StoreForwardManager {
      */
     fun markMessageAsDelivered(messageID: String) {
         deliveredMessages.add(messageID)
+        if (deliveredMessages.size > 1000) cleanupSignal.trySend(Unit)
     }
     
     /**
@@ -242,12 +249,20 @@ class StoreForwardManager {
     private fun startPeriodicCleanup() {
         managerScope.launch {
             while (isActive) {
-                delay(CLEANUP_INTERVAL)
-                cleanupMessageCache()
-                cleanupDeliveredMessages()
+                if (cleanupSignal.receiveCatching().getOrNull() == null) break
+                while (isActive && hasPeriodicCleanupWork()) {
+                    delay(CLEANUP_INTERVAL)
+                    cleanupMessageCache()
+                    cleanupDeliveredMessages()
+                }
             }
         }
     }
+
+    private fun hasPeriodicCleanupWork(): Boolean =
+        messageCache.isNotEmpty() ||
+            deliveredMessages.size > 1000 ||
+            cachedMessagesSentToPeer.size > 200
     
     /**
      * Clean up old cached messages (not for favorites)
@@ -301,6 +316,7 @@ class StoreForwardManager {
      * Shutdown the manager
      */
     fun shutdown() {
+        cleanupSignal.close()
         managerScope.cancel()
         clearAllCache()
     }
