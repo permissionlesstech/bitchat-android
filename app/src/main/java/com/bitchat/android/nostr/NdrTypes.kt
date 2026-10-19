@@ -41,9 +41,7 @@ enum class NdrSendResult {
 data class NdrOutOfBandPayload(
     val actionId: String,
     val eventJson: String,
-    val peerPubkeyHex: String,
-    internal val runtimeEpoch: Long? = null,
-    internal val runtime: NdrPairwiseRuntime? = null
+    val peerPubkeyHex: String
 )
 
 internal object NdrInputPolicy {
@@ -74,19 +72,12 @@ internal object NdrInputPolicy {
 }
 
 data class NdrAcceptInviteResult(
-    val peerPubkeyHex: String,
-    val createdNewSession: Boolean
+    val peerPubkeyHex: String
 )
 
 data class NdrOutOfBandProcessResult(
-    val outboundPayloads: List<NdrOutOfBandPayload>,
     val sessionLookupPubkeyHex: String? = null
 )
-
-class NdrSessionNotReadyException(
-    message: String?,
-    cause: Throwable? = null
-) : Exception(message, cause)
 
 interface NdrRelayManager {
     fun subscribe(filter: NostrFilter, id: String, handler: (NostrEvent) -> Boolean)
@@ -105,13 +96,7 @@ fun interface NdrRetryScheduler {
 }
 
 data class NdrPairwiseSessionInfo(
-    val sendReady: Boolean,
-    val receiveReady: Boolean
-)
-
-data class NdrPairwiseSendResult(
-    val innerEventId: String,
-    val outerEventId: String
+    val sendReady: Boolean
 )
 
 interface NdrPairwiseRuntime {
@@ -135,7 +120,7 @@ interface NdrPairwiseRuntime {
         recipientPubkeyHex: String,
         text: String,
         expiresAtSeconds: ULong? = null
-    ): NdrPairwiseSendResult
+    )
     fun destroy()
 }
 

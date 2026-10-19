@@ -439,11 +439,11 @@ class NdrNostrServiceTest {
     }
 
     @Test
-    fun outOfBandInviteReturnsResponseWithoutRelayPublishOrEarlyAck() {
+    fun outOfBandInviteWaitsForCallbackAndAcksOnlyAfterAdmission() {
         val response = giftWrapEvent()
         val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey)).apply {
             acceptInviteEvents += outOfBandAction("response-action", response)
-            acceptInviteResult = NdrAcceptInviteResult(peerPubkey, createdNewSession = true)
+            acceptInviteResult = NdrAcceptInviteResult(peerPubkey)
         }
         val relay = FakeRelayManager()
         val service = service(
@@ -459,13 +459,24 @@ class NdrNostrServiceTest {
         )
 
         assertEquals(peerPubkey, result.sessionLookupPubkeyHex)
-        assertEquals(listOf("response-action"), result.outboundPayloads.map { it.actionId })
-        assertEquals(response, result.outboundPayloads.single().eventJson)
-        assertEquals(peerPubkey, result.outboundPayloads.single().peerPubkeyHex)
+        assertEquals(listOf("response-action"), runtime.pendingEvents.map { it.actionId })
         assertTrue(relay.sentEvents.isEmpty())
         assertFalse("response-action" in runtime.ackedActionIds)
 
-        assertTrue(service.acknowledgeOutOfBandPayload(result.outboundPayloads.single()))
+        val delivered = mutableListOf<NdrOutOfBandPayload>()
+        var completion: ((Boolean) -> Unit)? = null
+        service.onOutOfBandPayload = { payload, callback ->
+            delivered += payload
+            completion = callback
+        }
+
+        assertEquals("response-action", delivered.single().actionId)
+        assertEquals(response, delivered.single().eventJson)
+        assertEquals(peerPubkey, delivered.single().peerPubkeyHex)
+        assertTrue(relay.sentEvents.isEmpty())
+        assertFalse("response-action" in runtime.ackedActionIds)
+
+        requireNotNull(completion)(true)
         assertTrue("response-action" in runtime.ackedActionIds)
     }
 
@@ -561,7 +572,7 @@ class NdrNostrServiceTest {
             expectedPeerPubkeyHex = peerPubkey
         )
 
-        assertTrue(result.outboundPayloads.isEmpty())
+        assertNull(result.sessionLookupPubkeyHex)
         assertTrue(runtime.acceptedInvites.isEmpty())
     }
 
@@ -576,7 +587,7 @@ class NdrNostrServiceTest {
 
         val result = service.processOutOfBandEventJson(inviteEvent(peerPubkey))
 
-        assertTrue(result.outboundPayloads.isEmpty())
+        assertNull(result.sessionLookupPubkeyHex)
         assertTrue(runtime.acceptedInvites.isEmpty())
     }
 
@@ -599,7 +610,7 @@ class NdrNostrServiceTest {
             expectedPeerPubkeyHex = peerPubkey
         )
 
-        assertTrue(result.outboundPayloads.isEmpty())
+        assertNull(result.sessionLookupPubkeyHex)
         assertTrue(runtime.acceptedInvites.isEmpty())
         assertTrue(runtime.destroyed)
         assertEquals(NdrSendResult.FAILED, service.sendIfPossible("blocked", peerPubkey))
@@ -715,7 +726,7 @@ class NdrNostrServiceTest {
         val oldRuntime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey)).apply {
             pendingEvents += decryptedAction("shared-delivery", peerPubkey, "bitchat1:pending")
             acceptInviteEvents += outOfBandAction("shared-oob", giftWrapEvent())
-            acceptInviteResult = NdrAcceptInviteResult(peerPubkey, createdNewSession = true)
+            acceptInviteResult = NdrAcceptInviteResult(peerPubkey)
         }
         val newRuntime = FakeNdrPairwiseRuntime()
         val service = service(
@@ -726,11 +737,17 @@ class NdrNostrServiceTest {
         service.onDecryptedMessage = { _, completion ->
             deliveryCompletion = completion
         }
+        var outOfBandCompletion: ((Boolean) -> Unit)? = null
+        service.onOutOfBandPayload = { _, completion ->
+            outOfBandCompletion = completion
+        }
         service.configureIfNeeded(testIdentity())
-        val oldPayload = service.processOutOfBandEventJson(
+        service.processOutOfBandEventJson(
             inviteEvent(peerPubkey),
             peerPubkey
-        ).outboundPayloads.single()
+        )
+        val oldDeliveryCompletion = requireNotNull(deliveryCompletion)
+        val oldOutOfBandCompletion = requireNotNull(outOfBandCompletion)
 
         service.configureIfNeeded(
             NostrIdentity(
@@ -740,9 +757,8 @@ class NdrNostrServiceTest {
                 createdAt = 2L
             )
         )
-        deliveryCompletion?.invoke(NdrDeliveryResult.CONSUMED)
-
-        assertFalse(service.acknowledgeOutOfBandPayload(oldPayload))
+        oldDeliveryCompletion(NdrDeliveryResult.CONSUMED)
+        oldOutOfBandCompletion(true)
         assertTrue(newRuntime.ackedActionIds.isEmpty())
         assertTrue(oldRuntime.ackedActionIds.isEmpty())
     }
@@ -1481,8 +1497,7 @@ class NdrNostrServiceTest {
         val sendTextCalls = mutableListOf<String>()
         val sendTextExpirationCalls = mutableListOf<ULong?>()
         var acceptInviteResult = NdrAcceptInviteResult(
-            peerPubkeyHex = "aa".repeat(32),
-            createdNewSession = true
+            peerPubkeyHex = "aa".repeat(32)
         )
         var acceptInviteUrlResult = acceptInviteResult
         var currentInvite: String? = null
@@ -1546,13 +1561,11 @@ class NdrNostrServiceTest {
             return when {
                 peer in activeSessionPeers ->
                     NdrPairwiseSessionInfo(
-                        sendReady = true,
-                        receiveReady = true,
+                        sendReady = true
                     )
                 peer in halfReadySessionPeers ->
                     NdrPairwiseSessionInfo(
-                        sendReady = false,
-                        receiveReady = false,
+                        sendReady = false
                     )
                 else -> null
             }
@@ -1576,7 +1589,7 @@ class NdrNostrServiceTest {
             recipientPubkeyHex: String,
             text: String,
             expiresAtSeconds: ULong?
-        ): NdrPairwiseSendResult {
+        ) {
             sendTextCalls += recipientPubkeyHex
             sendTextExpirationCalls += expiresAtSeconds
             sendTextEntered?.countDown()
@@ -1584,10 +1597,6 @@ class NdrNostrServiceTest {
             sendTextFailure?.let { throw it }
             sendTextCompleted = true
             pendingEvents += sendTextEvents
-            return NdrPairwiseSendResult(
-                innerEventId = "21".repeat(32),
-                outerEventId = "22".repeat(32)
-            )
         }
 
 

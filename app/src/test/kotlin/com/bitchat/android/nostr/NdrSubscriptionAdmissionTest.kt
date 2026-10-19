@@ -235,7 +235,7 @@ class NdrSubscriptionAdmissionTest {
             recipientPubkeyHex: String,
             text: String,
             expiresAtSeconds: ULong?
-        ): NdrPairwiseSendResult = unsupported()
+        ): Unit = unsupported()
 
         override fun destroy() = Unit
 

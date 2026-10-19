@@ -50,7 +50,6 @@ object NostrBackgroundRuntime {
     private var subscriptionRevision = 0L
     private val installedGeohashDmSubscriptions =
         mutableMapOf<String, GeohashDmSubscription>()
-    private val pendingGeohashDmSubscriptions = mutableSetOf<String>()
     private lateinit var application: Application
     private lateinit var subscriptions: NostrSubscriptionManager
     private lateinit var locationChannels: LocationChannelManager
@@ -147,7 +146,6 @@ object NostrBackgroundRuntime {
         activeAccount = null
         conversationGeohash = null
         subscriptionRevision += 1
-        pendingGeohashDmSubscriptions.clear()
         // Invalidate first so an in-flight async derivation cannot install a
         // subscription after unsubscribeAllOwned().
         eventProcessor.invalidateAccount()
@@ -214,7 +212,6 @@ object NostrBackgroundRuntime {
         val account = activeAccount
         subscriptionRevision += 1
         val revision = subscriptionRevision
-        pendingGeohashDmSubscriptions.clear()
 
         val required = if (account == null) {
             emptyMap()
@@ -231,7 +228,6 @@ object NostrBackgroundRuntime {
 
         required.values.forEach { request ->
             if (installedGeohashDmSubscriptions[request.id] == request) return@forEach
-            pendingGeohashDmSubscriptions.add(request.id)
             scheduleGeohashDmSubscriptionLocked(account, request, revision)
         }
     }
@@ -322,7 +318,6 @@ object NostrBackgroundRuntime {
                             )
                         }
                     }
-                pendingGeohashDmSubscriptions.remove(request.id)
                 if (installed && didSubscribe) {
                     installedGeohashDmSubscriptions[request.id] = request
                 }

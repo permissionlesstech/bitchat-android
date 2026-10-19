@@ -458,20 +458,20 @@ class NdrNostrService(
         expectedPeerPubkeyHex: String? = null
     ): NdrOutOfBandProcessResult {
         if (!NdrFeatureGate.isEnabled()) {
-            return NdrOutOfBandProcessResult(emptyList())
+            return NdrOutOfBandProcessResult()
         }
-        val runtime = pairwiseRuntime ?: return NdrOutOfBandProcessResult(emptyList())
+        val runtime = pairwiseRuntime ?: return NdrOutOfBandProcessResult()
         val trimmedPayload = eventJson.trim()
         val expectedPeer = expectedPeerPubkeyHex
             ?.lowercase()
             ?.takeIf { it.matches(Regex("^[0-9a-f]{64}$")) }
-            ?: return NdrOutOfBandProcessResult(emptyList())
+            ?: return NdrOutOfBandProcessResult()
         if (!NdrInputPolicy.isWithinEncodedEventLimit(trimmedPayload)) {
-            return NdrOutOfBandProcessResult(emptyList())
+            return NdrOutOfBandProcessResult()
         }
         val parsedEvent = NostrEvent.fromJsonString(trimmedPayload)
         if (parsedEvent != null && !NdrInputPolicy.hasBoundedTags(parsedEvent)) {
-            return NdrOutOfBandProcessResult(emptyList())
+            return NdrOutOfBandProcessResult()
         }
         val inboundInvite = runCatching {
             parseOutOfBandInvite(trimmedPayload)
@@ -484,7 +484,7 @@ class NdrNostrService(
         val claimedPeer = inboundInvite?.peerPubkeyHex
         if (claimedPeer != null && claimedPeer != expectedPeer) {
             Log.w(TAG, "Rejecting OOB event with an authenticated-peer mismatch")
-            return NdrOutOfBandProcessResult(emptyList())
+            return NdrOutOfBandProcessResult()
         }
         val canMutateSession =
             inboundInvite?.transport == OutOfBandInviteTransport.EVENT_JSON ||
@@ -492,10 +492,10 @@ class NdrNostrService(
                 parsedEvent?.kind == NostrKind.GIFT_WRAP
         if (!canMutateSession) {
             Log.w(TAG, "Rejecting non-handshake OOB payload")
-            return NdrOutOfBandProcessResult(emptyList())
+            return NdrOutOfBandProcessResult()
         }
         if (!persistEstablishedMarkerIfNeededLocked(runtime, force = true)) {
-            return NdrOutOfBandProcessResult(emptyList())
+            return NdrOutOfBandProcessResult()
         }
 
         try {
@@ -514,8 +514,6 @@ class NdrNostrService(
                 }
                 else -> Unit
             }
-        } catch (_: NdrSessionNotReadyException) {
-            Log.d(TAG, "OOB session is not ready")
         } catch (_: Throwable) {
             Log.d(TAG, "Ignoring invalid OOB event")
         }
@@ -523,18 +521,15 @@ class NdrNostrService(
         acceptResult?.let {
             if (it.peerPubkeyHex.lowercase() != expectedPeer) {
                 Log.w(TAG, "Rejecting OOB result with an authenticated-peer mismatch")
-                return NdrOutOfBandProcessResult(emptyList())
+                return NdrOutOfBandProcessResult()
             }
         }
         if (processingSucceeded &&
             !persistEstablishedMarkerIfNeededLocked(runtime)
         ) {
-            return NdrOutOfBandProcessResult(emptyList())
+            return NdrOutOfBandProcessResult()
         }
-        val collectOutOfBandPublishes = onOutOfBandPayload == null
-        val outOfBandPublishes = drainAndApplyPubSubEventsLocked(
-            collectOutOfBandPublishes = collectOutOfBandPublishes
-        )
+        drainAndApplyPubSubEventsLocked()
         val sessionLookupPubkeyHex = if (processingSucceeded) {
             acceptResult?.peerPubkeyHex?.lowercase() ?: expectedPeer
         } else {
@@ -542,7 +537,6 @@ class NdrNostrService(
         }
 
         return NdrOutOfBandProcessResult(
-            outboundPayloads = outOfBandPublishes,
             sessionLookupPubkeyHex = sessionLookupPubkeyHex
         )
     }
@@ -601,19 +595,16 @@ class NdrNostrService(
     }
 
     @Synchronized
-    private fun drainAndApplyPubSubEventsLocked(
-        collectOutOfBandPublishes: Boolean = false
-    ): List<NdrOutOfBandPayload> {
-        val runtime = pairwiseRuntime ?: return emptyList()
-        val runtimeEpoch = activeRuntimeEpoch ?: return emptyList()
-        val outOfBandPublishes = mutableListOf<NdrOutOfBandPayload>()
+    private fun drainAndApplyPubSubEventsLocked() {
+        val runtime = pairwiseRuntime ?: return
+        val runtimeEpoch = activeRuntimeEpoch ?: return
         val acknowledgedActionIds = mutableListOf<String>()
 
         val events = try {
             runtime.pendingActions(nowSecondsProvider())
         } catch (_: Throwable) {
             Log.e(TAG, "Failed to drain NDR events")
-            return emptyList()
+            return
         }
         val sessionsAwaitingOutOfBandAdmission = events
             .asSequence()
@@ -626,12 +617,7 @@ class NdrNostrService(
                 runtime = runtime,
                 runtimeEpoch = runtimeEpoch,
                 event = event,
-                sessionsAwaitingOutOfBandAdmission = sessionsAwaitingOutOfBandAdmission,
-                collectOutOfBandPublish = if (collectOutOfBandPublishes) {
-                    { value -> outOfBandPublishes.add(value) }
-                } else {
-                    null
-                }
+                sessionsAwaitingOutOfBandAdmission = sessionsAwaitingOutOfBandAdmission
             )) {
                 acknowledgedActionIds += event.actionId
             }
@@ -639,8 +625,6 @@ class NdrNostrService(
         if (acknowledgedActionIds.isNotEmpty()) {
             acknowledgeEventsLocked(runtime, runtimeEpoch, acknowledgedActionIds)
         }
-
-        return outOfBandPublishes
     }
 
     @Synchronized
@@ -648,8 +632,7 @@ class NdrNostrService(
         runtime: NdrPairwiseRuntime,
         runtimeEpoch: Long,
         event: NdrPubSubEvent,
-        sessionsAwaitingOutOfBandAdmission: Set<String>,
-        collectOutOfBandPublish: ((NdrOutOfBandPayload) -> Unit)?
+        sessionsAwaitingOutOfBandAdmission: Set<String>
     ): Boolean {
         if (event.actionId.isBlank()) {
             Log.w(TAG, "Ignoring NDR action without a stable id")
@@ -793,21 +776,15 @@ class NdrNostrService(
                 val payload = NdrOutOfBandPayload(
                     actionId = event.actionId,
                     eventJson = eventJson,
-                    peerPubkeyHex = peerPubkeyHex,
-                    runtimeEpoch = runtimeEpoch,
-                    runtime = runtime
+                    peerPubkeyHex = peerPubkeyHex
                 )
-                if (collectOutOfBandPublish != null) {
-                    collectOutOfBandPublish(payload)
-                } else {
-                    onOutOfBandPayload?.let { callback ->
-                        dispatchOutOfBandPayloadLocked(
-                            runtime,
-                            runtimeEpoch,
-                            payload,
-                            callback
-                        )
-                    }
+                onOutOfBandPayload?.let { callback ->
+                    dispatchOutOfBandPayloadLocked(
+                        runtime,
+                        runtimeEpoch,
+                        payload,
+                        callback
+                    )
                 }
                 false
             }
@@ -876,20 +853,6 @@ class NdrNostrService(
             scheduleActionRetryLocked(runtime, runtimeEpoch, message.actionId)
             Log.w(TAG, "NDR delivery callback failed")
         }
-    }
-
-    @Synchronized
-    fun acknowledgeOutOfBandPayload(payload: NdrOutOfBandPayload): Boolean {
-        val runtime = payload.runtime ?: return false
-        val runtimeEpoch = payload.runtimeEpoch ?: return false
-        if (!NdrFeatureGate.isEnabled()) return false
-        val acknowledged =
-            acknowledgeEventsLocked(runtime, runtimeEpoch, listOf(payload.actionId))
-        if (acknowledged) {
-            clearOutOfBandRetryLocked(payload.actionId)
-            drainAndApplyPubSubEventsLocked()
-        }
-        return acknowledged
     }
 
     @Synchronized
@@ -1242,18 +1205,13 @@ private class UniffiNdrPairwiseRuntime(
         eventJson: String,
         expectedPeerPubkeyHex: String
     ): NdrAcceptInviteResult {
-        val result = try {
-            manager.`acceptInviteFromEventJson`(eventJson, expectedPeerPubkeyHex)
-        } catch (t: uniffi.ndr_ffi.NdrException.SessionNotReady) {
-            throw NdrSessionNotReadyException(t.message, t)
-        }
+        val result = manager.`acceptInviteFromEventJson`(eventJson, expectedPeerPubkeyHex)
         val peer = result.peerPubkeyHex.lowercase()
         check(peer == expectedPeerPubkeyHex.lowercase()) {
             "Pairwise invite identity mismatch"
         }
         return NdrAcceptInviteResult(
-            peerPubkeyHex = peer,
-            createdNewSession = result.createdNewSession
+            peerPubkeyHex = peer
         )
     }
 
@@ -1261,18 +1219,13 @@ private class UniffiNdrPairwiseRuntime(
         inviteUrl: String,
         expectedPeerPubkeyHex: String
     ): NdrAcceptInviteResult {
-        val result = try {
-            manager.`acceptInviteFromUrl`(inviteUrl, expectedPeerPubkeyHex)
-        } catch (t: uniffi.ndr_ffi.NdrException.SessionNotReady) {
-            throw NdrSessionNotReadyException(t.message, t)
-        }
+        val result = manager.`acceptInviteFromUrl`(inviteUrl, expectedPeerPubkeyHex)
         val peer = result.peerPubkeyHex.lowercase()
         check(peer == expectedPeerPubkeyHex.lowercase()) {
             "Pairwise invite identity mismatch"
         }
         return NdrAcceptInviteResult(
-            peerPubkeyHex = peer,
-            createdNewSession = result.createdNewSession
+            peerPubkeyHex = peer
         )
     }
 
@@ -1311,8 +1264,7 @@ private class UniffiNdrPairwiseRuntime(
     override fun sessionInfo(peerPubkeyHex: String): NdrPairwiseSessionInfo? =
         manager.`sessionInfo`(peerPubkeyHex)?.let {
             NdrPairwiseSessionInfo(
-                sendReady = it.sendReady,
-                receiveReady = it.receiveReady,
+                sendReady = it.sendReady
             )
         }
 
@@ -1326,12 +1278,8 @@ private class UniffiNdrPairwiseRuntime(
         recipientPubkeyHex: String,
         text: String,
         expiresAtSeconds: ULong?
-    ): NdrPairwiseSendResult {
-        val result = manager.`sendText`(recipientPubkeyHex, text, expiresAtSeconds)
-        return NdrPairwiseSendResult(
-            innerEventId = result.innerEventId,
-            outerEventId = result.outerEventId
-        )
+    ) {
+        manager.`sendText`(recipientPubkeyHex, text, expiresAtSeconds)
     }
 
 
