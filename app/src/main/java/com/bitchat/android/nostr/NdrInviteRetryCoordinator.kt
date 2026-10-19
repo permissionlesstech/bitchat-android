@@ -23,7 +23,9 @@ internal data class NdrInviteRetryRequest(
 )
 
 /**
- * Retries admission of one invite on one exact authenticated transport generation.
+ * Retries one invite until pairwise progress on one exact authenticated transport generation.
+ * Transport admission does not prove that the peer accepted it: the peer's mutual-favorite
+ * notification can still be in flight, so it may legitimately discard an admitted invite.
  *
  * A repeated trigger for the same token cannot reset its finite retry budget. Every delayed
  * attempt is revalidated by the caller so a replaced Noise generation, changed invite,
@@ -101,7 +103,6 @@ internal class NdrInviteRetryCoordinator(
             if (!isCurrent(request)) return
             if (admitted) {
                 onAdmitted(request)
-                return
             }
         }
     }

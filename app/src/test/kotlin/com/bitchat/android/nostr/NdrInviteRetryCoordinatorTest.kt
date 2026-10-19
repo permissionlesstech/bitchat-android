@@ -106,15 +106,21 @@ class NdrInviteRetryCoordinatorTest {
     }
 
     @Test
-    fun `successful admission stops retrying`() = runTest {
+    fun `admitted invite retries after peer discard until pairwise progress`() = runTest {
         var attempts = 0
+        var hasPairwiseSession = false
         val admitted = mutableListOf<NdrInviteRetryRequest>()
+        val attemptedInvites = mutableListOf<String>()
         val coordinator = NdrInviteRetryCoordinator(
             scope = this,
-            isStillValid = { true },
-            send = { _, completion ->
+            isStillValid = { !hasPairwiseSession },
+            send = { request, completion ->
                 attempts += 1
-                completion(attempts == 2)
+                attemptedInvites += request.eventJson
+                // Both BLE writes succeed. The first reaches the peer before its
+                // favorite notification; only the repeated invite advances the session.
+                if (attempts == 2) hasPairwiseSession = true
+                completion(true)
             },
             onAdmitted = admitted::add
         )
@@ -123,7 +129,30 @@ class NdrInviteRetryCoordinatorTest {
         advanceUntilIdle()
 
         assertEquals(2, attempts)
-        assertEquals(1, admitted.size)
+        assertEquals(2, admitted.size)
+        assertEquals(1, attemptedInvites.distinct().size)
+    }
+
+    @Test
+    fun `admitted invites without pairwise progress exhaust the same finite budget`() = runTest {
+        val attemptTimes = mutableListOf<Long>()
+        val request = request(generation = "generation-1")
+        val coordinator = NdrInviteRetryCoordinator(
+            scope = this,
+            isStillValid = { true },
+            send = { _, completion ->
+                attemptTimes += testScheduler.currentTime
+                completion(true)
+            },
+            onAdmitted = {}
+        )
+
+        coordinator.start(request)
+        advanceUntilIdle()
+        coordinator.start(request.copy())
+        advanceUntilIdle()
+
+        assertEquals(listOf(0L, 250L, 750L, 1_750L, 3_750L), attemptTimes)
     }
 
     private fun request(generation: String): NdrInviteRetryRequest =

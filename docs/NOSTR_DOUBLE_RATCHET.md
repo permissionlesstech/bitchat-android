@@ -30,6 +30,11 @@ Noise handoff, and durable application consumption acknowledge their respective
 actions. A temporary failure or cancelled receive epoch leaves delivery pending;
 bounded-backoff retries do not require another message to arrive.
 
+Invites retain a finite retry budget after a successful local Noise handoff:
+the peer may still be waiting for its mutual-favorite notification. Retries
+reuse the same invite while no local pairwise session exists, and recheck the
+authenticated route and favorite binding before every attempt.
+
 An established contact keeps a durable NDR-required binding. Disabling the
 rollout gate, losing native state, restarting, or removing a favorite must not
 silently enable legacy relay DMs for that binding. Legacy peers without such a
