@@ -85,7 +85,12 @@ jobs:
           rustup toolchain install "$RUST_VERSION" --profile minimal
           rustup target add --toolchain "$RUST_VERSION" \
             aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
-          sdkmanager "ndk;$ANDROID_NDK_VERSION"
+          sdkmanager="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager" ]]; then
+            echo "::error::Android SDK command-line tools are unavailable"
+            exit 1
+          fi
+          "$sdkmanager" "ndk;$ANDROID_NDK_VERSION"
           cargo "+$RUST_VERSION" install cargo-ndk --version "$CARGO_NDK_VERSION" --locked
           ./app/src/main/ndr-ffi/build-android.sh --check-bindings
 
