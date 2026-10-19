@@ -16,6 +16,18 @@ interface MeshTransport {
 
     fun sendPacketToPeer(peerID: String, packet: BitchatPacket): Boolean
 
+    fun currentNdrTransportTarget(peerID: String): NdrTransportTarget? = null
+
+    fun sendPacketToNdrTargetConfirmed(
+        peerID: String,
+        target: NdrTransportTarget,
+        routed: RoutedPacket,
+        preflight: () -> Boolean,
+        completion: (Boolean) -> Unit
+    ) {
+        completion(false)
+    }
+
     /**
      * Send through an exact transport generation rather than a reusable peer alias.
      * Transports that cannot prove the link identity must decline the operation.

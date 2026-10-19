@@ -54,7 +54,9 @@ class NostrEventDeduplicator(
     private val tail = LRUNode("TAIL") // Dummy tail node
     
     // Lock for thread-safe LRU operations
-    private val lruLock = Any()
+    @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
+    private val lruLock = java.lang.Object()
+    private val eventIdsBeingProcessed = mutableSetOf<String>()
     
     // Statistics
     @Volatile
@@ -121,6 +123,55 @@ class NostrEventDeduplicator(
             true
         } else {
             false
+        }
+    }
+
+    /**
+     * Runs [processor] without consuming the event ID first. The ID enters the
+     * dedupe cache only if the processor reports a successful durable commit.
+     */
+    fun processEventAfterSuccess(
+        event: NostrEvent,
+        processor: (NostrEvent) -> Boolean
+    ): Boolean {
+        totalChecks++
+        synchronized(lruLock) {
+            while (event.id in eventIdsBeingProcessed) {
+                try {
+                    lruLock.wait()
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return false
+                }
+            }
+            nodeMap[event.id]?.let { existing ->
+                moveToFront(existing)
+                duplicateCount++
+                return false
+            }
+            eventIdsBeingProcessed += event.id
+        }
+
+        var committed = false
+        try {
+            committed = processor(event)
+            return committed
+        } finally {
+            synchronized(lruLock) {
+                if (committed) {
+                    val existing = nodeMap[event.id]
+                    if (existing != null) {
+                        moveToFront(existing)
+                    } else {
+                        addToFront(event.id)
+                        if (nodeMap.size > maxCapacity) {
+                            evictOldest()
+                        }
+                    }
+                }
+                eventIdsBeingProcessed.remove(event.id)
+                lruLock.notifyAll()
+            }
         }
     }
     

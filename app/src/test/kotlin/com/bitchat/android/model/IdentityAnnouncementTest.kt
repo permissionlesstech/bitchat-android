@@ -47,6 +47,14 @@ class IdentityAnnouncementTest {
     }
 
     @Test
+    fun `double ratchet capability uses coordinated bit eleven`() {
+        assertArrayEquals(
+            byteArrayOf(0x00, 0x08),
+            PeerCapabilities.NOSTR_DOUBLE_RATCHET.encoded()
+        )
+    }
+
+    @Test
     fun `legacy announcement without capability TLV still decodes`() {
         val legacy = IdentityAnnouncement(nickname, noiseKey, signingKey).encode()!!
 
@@ -88,18 +96,36 @@ class IdentityAnnouncementTest {
     }
 
     @Test
-    fun `local announcement send advertises private media`() {
+    fun `local announcement keeps double ratchet dark by default`() {
         val encoded = IdentityAnnouncement.forLocalPeer(nickname, noiseKey, signingKey).encode()!!
 
         assertArrayEquals(
             byteArrayOf(0x05, 0x02, 0x00, 0x01),
             encoded.takeLast(4).toByteArray()
         )
-        assertTrue(
-            IdentityAnnouncement.decode(encoded)!!
-                .capabilities!!
-                .contains(PeerCapabilities.PRIVATE_MEDIA)
+        val capabilities = IdentityAnnouncement.decode(encoded)!!.capabilities!!
+        assertTrue(capabilities.contains(PeerCapabilities.PRIVATE_MEDIA))
+        org.junit.Assert.assertFalse(
+            capabilities.contains(PeerCapabilities.NOSTR_DOUBLE_RATCHET)
         )
         assertEquals(PeerCapabilities.PRIVATE_MEDIA, PeerCapabilities.LOCAL_SUPPORTED)
+    }
+
+    @Test
+    fun `local announcement can explicitly opt into coordinated double ratchet tests`() {
+        NdrFeatureGate.setEnabledForTests(true)
+        try {
+            val encoded = IdentityAnnouncement.forLocalPeer(nickname, noiseKey, signingKey).encode()!!
+
+            assertArrayEquals(
+                byteArrayOf(0x05, 0x02, 0x00, 0x09),
+                encoded.takeLast(4).toByteArray()
+            )
+            val capabilities = IdentityAnnouncement.decode(encoded)!!.capabilities!!
+            assertTrue(capabilities.contains(PeerCapabilities.PRIVATE_MEDIA))
+            assertTrue(capabilities.contains(PeerCapabilities.NOSTR_DOUBLE_RATCHET))
+        } finally {
+            NdrFeatureGate.setEnabledForTests(false)
+        }
     }
 }

@@ -31,6 +31,9 @@ jobs:
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
+      - name: Verify native build boundaries
+        run: python3 tools/reproducible-builds/test_native_source_build.py
+
       - name: Verify native library inputs
         run: tools/arti-build/verify-checksums.sh
 
@@ -64,6 +67,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
 
       - name: Set up pinned JDK
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
@@ -73,6 +78,16 @@ jobs:
 
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      - name: Build NDR FFI from pinned source
+        run: |
+          source tools/arti-build/TOOLCHAIN.env
+          rustup toolchain install "$RUST_VERSION" --profile minimal
+          rustup target add --toolchain "$RUST_VERSION" \
+            aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
+          sdkmanager "ndk;$ANDROID_NDK_VERSION"
+          cargo "+$RUST_VERSION" install cargo-ndk --version "$CARGO_NDK_VERSION" --locked
+          ./app/src/main/ndr-ffi/build-android.sh --check-bindings
 
       - name: Build debug APK
         run: ./gradlew assembleDebug
@@ -95,6 +110,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
 
       - name: Set up pinned JDK
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5

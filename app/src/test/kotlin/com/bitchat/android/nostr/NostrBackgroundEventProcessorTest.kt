@@ -2,6 +2,7 @@ package com.bitchat.android.nostr
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.model.NdrFeatureGate
 import com.bitchat.android.services.AppStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,11 +24,15 @@ class NostrBackgroundEventProcessorTest {
     @Before
     fun setUp() {
         AppStateStore.clear()
+        NdrFeatureGate.setEnabledForTests(false)
+        NostrInboundAccountLifecycle.invalidate()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     @After
     fun tearDown() {
+        NostrInboundAccountLifecycle.invalidate()
+        NdrFeatureGate.setEnabledForTests(false)
         scope.cancel()
         AppStateStore.clear()
     }
@@ -38,6 +43,7 @@ class NostrBackgroundEventProcessorTest {
         val processor = NostrBackgroundEventProcessor(application, scope)
         val identity = NostrIdentity.generate()
         val expectedIds = mutableSetOf<String>()
+        val accountEpoch = processor.configureAccount(NostrIdentity.generate())
 
         repeat(300) { index ->
             val event = NostrEvent(
@@ -51,7 +57,8 @@ class NostrBackgroundEventProcessorTest {
 
             processor.onGeohashMessage(
                 event = event,
-                geohash = "u4pruy"
+                geohash = "u4pruy",
+                accountEpoch = accountEpoch
             )
         }
 

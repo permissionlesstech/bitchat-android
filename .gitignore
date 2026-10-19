@@ -72,5 +72,8 @@ tools/arti-build/.arti-source/
 tools/arti-build/target/
 .reproducible-build/
 
+# Generated from the pinned nostr-double-ratchet source submodule.
+app/src/main/jniLibs/*/libndr_ffi.so
+
 # JVM heap dumps (a Gradle daemon OOM drops these in the repo root)
 *.hprof

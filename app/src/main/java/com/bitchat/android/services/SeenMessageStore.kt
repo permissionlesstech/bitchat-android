@@ -9,7 +9,8 @@ import com.google.gson.annotations.SerializedName
 
 /**
  * Persistent store for message IDs we've already acknowledged as delivered, read locally, or
- * admitted to a completed read-receipt send window.
+ * admitted to a completed read-receipt send window, plus pairwise-ratchet events
+ * durably committed before acknowledgement.
  *
  * Local read state must not be used as proof that a read-receipt packet reached the sender.
  * Transport delivery is best-effort and retryable, while local read state drives unread UI.
@@ -37,12 +38,14 @@ class SeenMessageStore private constructor(private val context: Context) {
     private val delivered = LinkedHashSet<String>(MAX_IDS)
     private val locallyRead = LinkedHashSet<String>(MAX_IDS)
     private val readReceiptsSent = LinkedHashSet<String>(MAX_IDS)
+    private val ndrProcessed = LinkedHashSet<String>(MAX_IDS)
 
     init { load() }
 
     @Synchronized fun hasDelivered(id: String) = delivered.contains(id)
     @Synchronized fun hasBeenReadLocally(id: String) = locallyRead.contains(id)
     @Synchronized fun hasReadReceiptBeenSent(id: String) = readReceiptsSent.contains(id)
+    @Synchronized fun hasProcessedNdr(id: String) = ndrProcessed.contains(id)
 
     @Synchronized fun markDelivered(id: String) {
         if (delivered.remove(id)) delivered.add(id) else {
@@ -69,11 +72,28 @@ class SeenMessageStore private constructor(private val context: Context) {
         persist()
     }
 
+    /**
+     * Returns only after the processed marker is committed to encrypted
+     * preferences. The pairwise action must not be acknowledged when this
+     * returns false.
+     */
+    @Synchronized fun markProcessedNdr(id: String): Boolean {
+        if (ndrProcessed.contains(id)) return true
+        val previous = ndrProcessed.toList()
+        ndrProcessed.add(id)
+        trim(ndrProcessed)
+        if (persistSynchronously()) return true
+        ndrProcessed.clear()
+        ndrProcessed.addAll(previous)
+        return false
+    }
+
     @Synchronized fun remove(ids: Set<String>) {
         if (ids.isEmpty()) return
         delivered.removeAll(ids)
         locallyRead.removeAll(ids)
         readReceiptsSent.removeAll(ids)
+        ndrProcessed.removeAll(ids)
         persist()
     }
 
@@ -81,6 +101,7 @@ class SeenMessageStore private constructor(private val context: Context) {
         delivered.clear()
         locallyRead.clear()
         readReceiptsSent.clear()
+        ndrProcessed.clear()
         persist()
     }
 
@@ -96,18 +117,22 @@ class SeenMessageStore private constructor(private val context: Context) {
         try {
             val json = secure.getSecureValue(STORAGE_KEY) ?: return
             val data = gson.fromJson(json, StorePayload::class.java) ?: return
-            delivered.clear(); locallyRead.clear(); readReceiptsSent.clear()
-            data.delivered.takeLast(MAX_IDS).forEach { delivered.add(it) }
-            data.locallyRead.takeLast(MAX_IDS).forEach { locallyRead.add(it) }
+            delivered.clear()
+            locallyRead.clear()
+            readReceiptsSent.clear()
+            ndrProcessed.clear()
+            data.delivered.orEmpty().takeLast(MAX_IDS).forEach { delivered.add(it) }
+            data.locallyRead.orEmpty().takeLast(MAX_IDS).forEach { locallyRead.add(it) }
             // Older payloads used the local-read set to suppress receipt sends. Seed the new
             // explicit set once during migration to avoid replaying an entire chat history.
-            (data.readReceiptsSent ?: data.locallyRead)
+            (data.readReceiptsSent ?: data.locallyRead.orEmpty())
                 .takeLast(MAX_IDS)
                 .forEach { readReceiptsSent.add(it) }
+            data.ndrProcessed.orEmpty().takeLast(MAX_IDS).forEach { ndrProcessed.add(it) }
             Log.d(
                 TAG,
                 "Loaded delivered=${delivered.size}, locallyRead=${locallyRead.size}, " +
-                    "readReceiptsSent=${readReceiptsSent.size}"
+                    "readReceiptsSent=${readReceiptsSent.size}, ndr=${ndrProcessed.size}"
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load SeenMessageStore: ${e.message}")
@@ -116,11 +141,7 @@ class SeenMessageStore private constructor(private val context: Context) {
 
     @Synchronized private fun persist() {
         try {
-            val payload = StorePayload(
-                delivered = delivered.toList(),
-                locallyRead = locallyRead.toList(),
-                readReceiptsSent = readReceiptsSent.toList()
-            )
+            val payload = currentPayload()
             val json = gson.toJson(payload)
             secure.storeSecureValue(STORAGE_KEY, json)
         } catch (e: Exception) {
@@ -128,12 +149,27 @@ class SeenMessageStore private constructor(private val context: Context) {
         }
     }
 
+    @Synchronized private fun persistSynchronously(): Boolean = try {
+        secure.storeSecureValueSynchronously(STORAGE_KEY, gson.toJson(currentPayload()))
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to durably persist SeenMessageStore: ${e.message}")
+        false
+    }
+
+    private fun currentPayload() = StorePayload(
+        delivered = delivered.toList(),
+        locallyRead = locallyRead.toList(),
+        readReceiptsSent = readReceiptsSent.toList(),
+        ndrProcessed = ndrProcessed.toList()
+    )
+
     private data class StorePayload(
-        val delivered: List<String> = emptyList(),
+        val delivered: List<String>? = emptyList(),
         // Keep the existing JSON field name for backward-compatible secure-store migration.
         @SerializedName("read")
-        val locallyRead: List<String> = emptyList(),
+        val locallyRead: List<String>? = emptyList(),
         @SerializedName("read_receipts_sent")
-        val readReceiptsSent: List<String>? = null
+        val readReceiptsSent: List<String>? = null,
+        val ndrProcessed: List<String>? = emptyList()
     )
 }

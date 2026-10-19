@@ -17,6 +17,13 @@
 -keep class com.bitchat.android.nostr.** { *; }
 -keep class com.bitchat.android.identity.** { *; }
 
+# UniFFI's JNA backend resolves exported functions and Structure fields by
+# their generated JVM names at runtime. Preserve both sides of that reflective
+# boundary in minified release builds.
+-keep class uniffi.ndr_ffi.** { *; }
+-keep class com.sun.jna.** { *; }
+-dontwarn com.sun.jna.**
+
 # Room loads generated database implementations by name and invokes their no-argument
 # constructors reflectively. R8 full-mode can otherwise optimize away WorkDatabase_Impl's
 # constructor, causing AndroidX Startup to crash before Application.onCreate.
