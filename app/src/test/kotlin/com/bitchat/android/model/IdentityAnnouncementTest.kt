@@ -96,7 +96,8 @@ class IdentityAnnouncementTest {
     }
 
     @Test
-    fun `local announcement keeps double ratchet dark by default`() {
+    fun `explicitly disabled double ratchet is not advertised`() {
+        NdrFeatureGate.setEnabledForTests(false)
         val encoded = IdentityAnnouncement.forLocalPeer(nickname, noiseKey, signingKey).encode()!!
 
         assertArrayEquals(
@@ -112,7 +113,7 @@ class IdentityAnnouncementTest {
     }
 
     @Test
-    fun `local announcement can explicitly opt into coordinated double ratchet tests`() {
+    fun `enabled double ratchet advertises the coordinated wire capability`() {
         NdrFeatureGate.setEnabledForTests(true)
         try {
             val encoded = IdentityAnnouncement.forLocalPeer(nickname, noiseKey, signingKey).encode()!!
