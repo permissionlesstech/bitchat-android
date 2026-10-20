@@ -1,9 +1,9 @@
 # Optional pairwise Nostr DMs
 
-This integration is coordinated with the Apple client. Production rollout stays
-disabled by `NDR_ROLLOUT_ENABLED`; Wear does not advertise or enable NDR. It does
-not change the legacy relay envelope or require the separate kind-1402 migration.
-Enabling rollout requires review and physical cross-client qualification.
+This integration is enabled for compatible mutual favorites on Android and Apple.
+Peers without the authenticated capability retain the existing relay envelope;
+Wear does not advertise or enable NDR. This does not change the legacy relay
+envelope or require the separate kind-1402 migration.
 
 ## Wire contract
 
@@ -12,6 +12,11 @@ Enabling rollout requires review and physical cross-client qualification.
   `0x22`. This inner payload type is distinct from the outer public file packet
   type with the same numeric value. The Noise peer's authenticated identity must
   match the intended contact's Nostr binding before accepting the handshake.
+- The lexicographically lower normalized Nostr public key initiates bootstrap.
+  Both peers use this rule, preventing crossed invitations from creating
+  competing sessions if their responses are lost. An unanswered inviter keeps
+  retrying its identical invite within the existing finite budget; accepting
+  that invite again replays the same native response and bootstrap envelope.
 - Relays carry only signed kind-1060 pairwise messages. They contain no recipient
   `p` tag. Subscription authors are ephemeral ratchet keys, not contact identity
   keys. A new native subscribe action replaces the filter even when its

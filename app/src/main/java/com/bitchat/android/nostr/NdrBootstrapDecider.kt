@@ -10,6 +10,12 @@ object NdrBootstrapDecider {
     private const val INVITE_RETRY_MS = 15_000L
     private const val HANDSHAKE_RETRY_MS = 5_000L
 
+    /** One initiator prevents crossed invites from installing competing sessions. */
+    fun shouldInitiate(localPubkeyHex: String, peerPubkeyHex: String): Boolean =
+        NdrInputPolicy.isPubkeyHex(localPubkeyHex) &&
+            NdrInputPolicy.isPubkeyHex(peerPubkeyHex) &&
+            localPubkeyHex.lowercase() < peerPubkeyHex.lowercase()
+
     fun decide(
         hasActiveDoubleRatchet: Boolean,
         hasEstablishedNoiseSession: Boolean,

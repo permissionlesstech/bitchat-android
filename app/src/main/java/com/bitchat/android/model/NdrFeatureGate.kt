@@ -5,15 +5,16 @@ import com.bitchat.android.BuildConfig
 /**
  * Coordinated rollout gate for Nostr double-ratchet transport.
  *
- * Production builds stay fail-closed until the pairwise NDR implementations
- * are reviewed and ready to be enabled together on Apple and Android.
+ * Compatible mutual favorites negotiate this transport over authenticated Noise.
+ * Peers without the capability retain the existing relay envelope.
  */
 object NdrFeatureGate {
     @Volatile
-    private var debugTestOverride = false
+    private var debugTestOverride: Boolean? = null
 
     fun isEnabled(): Boolean =
-        BuildConfig.NDR_ROLLOUT_ENABLED || (BuildConfig.DEBUG && debugTestOverride)
+        if (BuildConfig.DEBUG) debugTestOverride ?: BuildConfig.NDR_ROLLOUT_ENABLED
+        else BuildConfig.NDR_ROLLOUT_ENABLED
 
     internal fun setEnabledForTests(enabled: Boolean) {
         check(BuildConfig.DEBUG) { "The NDR test override is unavailable in release builds" }

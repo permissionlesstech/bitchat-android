@@ -37,9 +37,8 @@ android {
             "GITHUB_RELEASE_CERT_SHA256",
             "\"$normalizedGithubReleaseCertSha256\""
         )
-        // Keep NDR dark until the Apple and Android implementations are
-        // reviewed and ready to be enabled together.
-        buildConfigField("boolean", "NDR_ROLLOUT_ENABLED", "false")
+        // Negotiate pairwise NDR only with authenticated, capable mutual favorites.
+        buildConfigField("boolean", "NDR_ROLLOUT_ENABLED", "true")
 
         testInstrumentationRunner = "com.bitchat.android.ui.PerformanceTestRunner"
         vectorDrawables {

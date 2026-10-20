@@ -1664,6 +1664,8 @@ class ChatViewModel(
             return
         }
 
+        if (!NdrBootstrapDecider.shouldInitiate(identity.publicKeyHex, peerPubkeyHex)) return
+
         val now = System.currentTimeMillis()
         val hasEstablishedNoiseSession =
             mesh.getSessionState(peerID) is NoiseSession.NoiseSessionState.Established

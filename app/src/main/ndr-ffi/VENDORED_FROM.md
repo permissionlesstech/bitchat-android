@@ -34,8 +34,8 @@ bounded replay cache fills.
 
 ## Rollout sequencing
 
-Rollout remains disabled until iOS and Android enable the pairwise protocol
-together. Capability bit 11 and Noise payload `0x22` are accepted only for an
+Android and Apple enable the pairwise protocol through capability negotiation.
+Capability bit 11 and Noise payload `0x22` are accepted only for an
 authenticated Noise peer with an exact current Nostr identity binding and a
 mutual favorite advertising the same capability. The independent kind-1402
 fallback-envelope migration can land before or after this work.
