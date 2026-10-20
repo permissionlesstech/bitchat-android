@@ -6,18 +6,6 @@ import org.junit.Test
 class NdrBootstrapDeciderTest {
 
     @Test
-    fun authenticatedIdentitiesElectExactlyOneInitiator() {
-        val lower = "79".repeat(32)
-        val higher = "c6".repeat(32)
-        assertEquals(true, NdrBootstrapDecider.shouldInitiate(lower, higher))
-        assertEquals(false, NdrBootstrapDecider.shouldInitiate(higher, lower))
-        assertEquals(false, NdrBootstrapDecider.shouldInitiate(lower, lower))
-        assertEquals(true, NdrBootstrapDecider.shouldInitiate(lower, higher.uppercase()))
-        assertEquals(false, NdrBootstrapDecider.shouldInitiate("", higher))
-        assertEquals(false, NdrBootstrapDecider.shouldInitiate(lower, "g".repeat(64)))
-    }
-
-    @Test
     fun activeRatchetDoesNothing() {
         assertEquals(
             NdrBootstrapAction.NONE,

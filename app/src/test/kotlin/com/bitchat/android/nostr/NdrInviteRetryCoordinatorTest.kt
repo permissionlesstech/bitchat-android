@@ -106,35 +106,7 @@ class NdrInviteRetryCoordinatorTest {
     }
 
     @Test
-    fun `admitted invite retries after peer discard until pairwise progress`() = runTest {
-        var attempts = 0
-        var hasPairwiseSession = false
-        val admitted = mutableListOf<NdrInviteRetryRequest>()
-        val attemptedInvites = mutableListOf<String>()
-        val coordinator = NdrInviteRetryCoordinator(
-            scope = this,
-            isStillValid = { !hasPairwiseSession },
-            send = { request, completion ->
-                attempts += 1
-                attemptedInvites += request.eventJson
-                // Both BLE writes succeed. The first reaches the peer before its
-                // favorite notification; only the repeated invite advances the session.
-                if (attempts == 2) hasPairwiseSession = true
-                completion(true)
-            },
-            onAdmitted = admitted::add
-        )
-
-        coordinator.start(request(generation = "generation-1"))
-        advanceUntilIdle()
-
-        assertEquals(2, attempts)
-        assertEquals(2, admitted.size)
-        assertEquals(1, attemptedInvites.distinct().size)
-    }
-
-    @Test
-    fun `admitted invites without pairwise progress exhaust the same finite budget`() = runTest {
+    fun `admitted invites exhaust the same finite budget`() = runTest {
         val attemptTimes = mutableListOf<Long>()
         val request = request(generation = "generation-1")
         val coordinator = NdrInviteRetryCoordinator(

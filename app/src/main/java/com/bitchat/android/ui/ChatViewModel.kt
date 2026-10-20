@@ -253,9 +253,8 @@ class ChatViewModel(
         scope = viewModelScope,
         isStillValid = { request ->
             val token = request.token
-            !ndrService.hasPairwiseSession(token.peerPubkeyHex) &&
-                NostrEvent.fromJsonString(ndrService.currentInviteEventJson() ?: "")
-                    ?.id == token.inviteEventId &&
+            NostrEvent.fromJsonString(ndrService.currentInviteEventJson() ?: "")
+                ?.id == token.inviteEventId &&
                 isCurrentNdrRouteAuthorized(token.route, token.peerPubkeyHex)
         },
         send = { request, completion ->
@@ -264,9 +263,8 @@ class ChatViewModel(
                 route = token.route,
                 payload = request.eventJson,
                 isStillAuthorized = {
-                    !ndrService.hasPairwiseSession(token.peerPubkeyHex) &&
-                        NostrEvent.fromJsonString(ndrService.currentInviteEventJson() ?: "")
-                            ?.id == token.inviteEventId &&
+                    NostrEvent.fromJsonString(ndrService.currentInviteEventJson() ?: "")
+                        ?.id == token.inviteEventId &&
                         isCurrentNdrRouteAuthorized(token.route, token.peerPubkeyHex)
                 },
                 completion = completion
@@ -1658,13 +1656,12 @@ class ChatViewModel(
                 Log.e(TAG, "Existing NDR session remains quarantined until its pin is durable")
                 return
             }
-            ndrInviteRetries.cancel(peerID)
+            // Crossed invites can create local sessions while a response is lost.
+            // Keep any existing bounded invite retries so native arbitration converges.
             ndrBootstrapAttemptMs.remove(peerID)
             ndrNoiseHandshakeAttemptMs.remove(peerID)
             return
         }
-
-        if (!NdrBootstrapDecider.shouldInitiate(identity.publicKeyHex, peerPubkeyHex)) return
 
         val now = System.currentTimeMillis()
         val hasEstablishedNoiseSession =

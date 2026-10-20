@@ -23,13 +23,14 @@ internal data class NdrInviteRetryRequest(
 )
 
 /**
- * Retries one invite until pairwise progress on one exact authenticated transport generation.
+ * Retries one invite within a finite budget on one exact authenticated transport generation.
  * Transport admission does not prove that the peer accepted it: the peer's mutual-favorite
  * notification can still be in flight, so it may legitimately discard an admitted invite.
  *
  * A repeated trigger for the same token cannot reset its finite retry budget. Every delayed
  * attempt is revalidated by the caller so a replaced Noise generation, changed invite,
- * favorite revocation/rebind, or completed pairwise session makes the request stale.
+ * or favorite revocation/rebind makes the request stale. A crossed invite can create a local
+ * session before the peer receives our response, so local session state cannot cancel retries.
  */
 internal class NdrInviteRetryCoordinator(
     private val scope: CoroutineScope,
