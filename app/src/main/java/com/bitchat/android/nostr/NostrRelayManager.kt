@@ -32,7 +32,8 @@ class NostrRelayManager internal constructor(
         CoroutineScope(Dispatchers.IO + SupervisorJob()),
     private val eventDeduplicator: NostrEventDeduplicator =
         NostrEventDeduplicator.getInstance(),
-    private val webSocketFactory: ((Request, WebSocketListener) -> WebSocket)? = null
+    private val webSocketFactory: ((Request, WebSocketListener) -> WebSocket)? = null,
+    private val privateWebSocketFactory: ((Request, WebSocketListener) -> WebSocket)? = null
 ) {
     
     companion object {
@@ -91,6 +92,10 @@ class NostrRelayManager internal constructor(
     // Internal state
     private val relaysList = mutableListOf<Relay>()
     private val connections = ConcurrentHashMap<String, WebSocket>()
+    private val privatePublisher = NdrPrivatePublisher(scope) { request, listener ->
+        privateWebSocketFactory?.invoke(request, listener)
+            ?: com.bitchat.android.net.OkHttpProvider.privatePublishClient().newWebSocket(request, listener)
+    }
     private val reconnectJobs = ConcurrentHashMap<String, Job>()
     private val desiredConnected = AtomicBoolean(false)
     private val connectionEpoch = AtomicLong(0L)
@@ -566,6 +571,7 @@ class NostrRelayManager internal constructor(
             desiredConnected.set(false)
             connectionEpoch.incrementAndGet()
         }
+        privatePublisher.cancelAll()
 
         // Stop subscription validation
         stopSubscriptionValidation()
@@ -719,6 +725,16 @@ class NostrRelayManager internal constructor(
             completeConfirmedPublish(event.id, tracker, accepted = false)
         }
     }
+
+    fun sendPrivateEvent(event: NostrEvent, relayUrls: List<String>, completion: (Boolean) -> Unit) {
+        val generation = accountGeneration.get()
+        val epoch = connectionEpoch.get()
+        privatePublisher.send(event, relayUrls, {
+            isCurrentAccountGeneration(generation) && connectionEpoch.get() == epoch
+        }, completion)
+    }
+
+    fun cancelPrivateEvent(eventId: String) { privatePublisher.cancel(eventId) }
 
     fun cancelConfirmedEvent(eventId: String) {
         val tracker = confirmedPublishes.remove(eventId) ?: return
@@ -1095,6 +1111,7 @@ class NostrRelayManager internal constructor(
         resetToken: RelayAccountResetToken
     ): Boolean {
         val cleanup = prepareAccountResetCleanup(resetToken) ?: return false
+        privatePublisher.cancelAll()
 
         cleanup.jobs.forEach(Job::cancel)
         cleanup.sockets.forEach { socket ->

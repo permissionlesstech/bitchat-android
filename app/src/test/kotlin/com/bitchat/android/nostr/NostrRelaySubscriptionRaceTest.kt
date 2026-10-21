@@ -5,6 +5,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import okhttp3.Request
+import okhttp3.Response
+import okhttp3.Protocol
 import okhttp3.WebSocket
 import okio.ByteString
 import org.junit.Assert.assertEquals
@@ -56,9 +58,19 @@ class NostrRelaySubscriptionRaceTest {
     @Test
     fun ndrAdapterNeverUsesConnectedLiveLocationOnlyRelay() {
         val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+        val privateSockets = mutableListOf<RecordingWebSocket>()
+        val privateTargets = mutableListOf<String>()
         val manager = NostrRelayManager(
             scope,
-            NostrEventDeduplicator(maxCapacity = 8)
+            NostrEventDeduplicator(maxCapacity = 8),
+            privateWebSocketFactory = { request, listener ->
+                RecordingWebSocket().also {
+                    privateSockets += it
+                    privateTargets += request.url.toString()
+                    listener.onOpen(it, Response.Builder().request(request)
+                        .protocol(Protocol.HTTP_1_1).code(101).message("Switching Protocols").build())
+                }
+            }
         )
         val accountRelayUrl = NostrRelayManager.defaultRelays().first()
         val liveOnlyRelayUrl = "wss://live-location-only.example"
@@ -86,7 +98,9 @@ class NostrRelaySubscriptionRaceTest {
         adapter.sendEventConfirmed(event) { accepted = it }
 
         assertTrue(accountSocket.messages.any { "\"REQ\"" in it })
-        assertTrue(accountSocket.messages.any { "\"EVENT\"" in it })
+        assertFalse(accountSocket.messages.any { "\"EVENT\"" in it })
+        assertEquals(NostrRelayManager.defaultRelays().toSet(), privateTargets.map { it.removeSuffix("/") }.toSet())
+        assertTrue(privateSockets.all { it.messages.size == 1 && "\"EVENT\"" in it.messages.single() })
         assertTrue(liveOnlySocket.messages.isEmpty())
         assertEquals(null, accepted)
 

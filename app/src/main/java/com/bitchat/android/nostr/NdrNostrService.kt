@@ -39,7 +39,7 @@ internal class BitchatNdrRelayAdapter(
         event: NostrEvent,
         completion: (accepted: Boolean) -> Unit
     ) {
-        relayManager.sendEventConfirmed(
+        relayManager.sendPrivateEvent(
             event = event,
             relayUrls = accountRelayUrls,
             completion = completion
@@ -47,7 +47,7 @@ internal class BitchatNdrRelayAdapter(
     }
 
     override fun cancelConfirmedEvent(eventId: String) {
-        relayManager.cancelConfirmedEvent(eventId)
+        relayManager.cancelPrivateEvent(eventId)
     }
 
     override fun setOnConnectionAvailable(handler: () -> Unit) {
@@ -325,8 +325,8 @@ class NdrNostrService(
     }
 
     /**
-     * True for any durable native session record, including the half-ready state between the
-     * authenticated OOB response and bootstrap kind-1060 delivery.
+     * True for a compatible native session, including the receive-only state before bootstrap
+     * delivery. Quarantined pre-upgrade records have neither readiness bit and need a new invite.
      */
     @Synchronized
     fun hasPairwiseSession(peerPubkeyHex: String): Boolean {
@@ -334,7 +334,8 @@ class NdrNostrService(
         val runtime = pairwiseRuntime ?: return false
         val peer = peerPubkeyHex.lowercase()
         return try {
-            if (runtime.sessionInfo(peer) == null) {
+            val info = runtime.sessionInfo(peer)
+            if (info == null || (!info.sendReady && !info.receiveReady)) {
                 false
             } else {
                 persistEstablishedMarkerIfNeededLocked(runtime)
@@ -572,6 +573,7 @@ class NdrNostrService(
         if (!isCurrentRuntimeLocked(runtime, runtimeEpoch)) return false
         if (event.kind != NDR_MESSAGE_KIND) return false
         if (!NdrInputPolicy.hasBoundedTags(event)) return false
+        if (!hasPrivateWireVersion(event)) return false
         if (event.tags.any { it.firstOrNull() == "p" }) {
             Log.w(TAG, "Rejecting recipient-tagged inbound NDR relay event")
             return false
@@ -706,6 +708,10 @@ class NdrNostrService(
                 val nostrEvent = NostrEvent.fromJsonString(eventJson) ?: return true
                 if (nostrEvent.kind != NDR_MESSAGE_KIND) {
                     Log.w(TAG, "Rejecting non-message NDR relay publish")
+                    return true
+                }
+                if (!hasPrivateWireVersion(nostrEvent)) {
+                    Log.w(TAG, "Rejecting NDR relay publish requiring a privacy upgrade")
                     return true
                 }
                 if (nostrEvent.tags.any { it.firstOrNull() == "p" }) {
@@ -1151,6 +1157,9 @@ class NdrNostrService(
         )
     }
 
+    private fun hasPrivateWireVersion(event: NostrEvent): Boolean =
+        event.tags.filter { it.firstOrNull() == "v" } == listOf(listOf("v", "2"))
+
     private fun isPairwiseMessageSubscription(filter: NostrFilter): Boolean {
         return filter.kinds == listOf(NDR_MESSAGE_KIND) &&
             filter.authors.orEmpty().isNotEmpty() &&
@@ -1264,7 +1273,8 @@ private class UniffiNdrPairwiseRuntime(
     override fun sessionInfo(peerPubkeyHex: String): NdrPairwiseSessionInfo? =
         manager.`sessionInfo`(peerPubkeyHex)?.let {
             NdrPairwiseSessionInfo(
-                sendReady = it.sendReady
+                sendReady = it.sendReady,
+                receiveReady = it.receiveReady
             )
         }
 

@@ -209,6 +209,29 @@ class NdrNostrServiceTest {
     }
 
     @Test
+    fun relayRejectsUnversionedAndAmbiguousPrivacyEnvelopes() {
+        val invalidTags = listOf(
+            emptyList(), listOf(listOf("v", "1")),
+            listOf(listOf("v", "2"), listOf("v", "2")), listOf(listOf("v", "2", "extra"))
+        )
+        invalidTags.forEachIndexed { index, tags ->
+            val event = messageEvent(peerPubkey).copy(tags = tags)
+            val actionId = "obsolete-$index"
+            val runtime = FakeNdrPairwiseRuntime().apply {
+                pendingEvents += relayPublishAction(actionId, peerPubkey).copy(eventJson = event.toJsonString())
+            }
+            val relay = FakeRelayManager()
+            val service = service(relay, FakeNdrRuntimeFactory(runtime))
+            service.configureIfNeeded(testIdentity())
+
+            assertTrue(relay.sentEvents.isEmpty())
+            assertEquals(listOf(actionId), runtime.ackedActionIds)
+            assertFalse(service.processInboundRelayEvent(event))
+            assertTrue(runtime.processedEvents.isEmpty())
+        }
+    }
+
+    @Test
     fun recipientTaggedRelayPublishIsRejectedWithoutLeavingHost() {
         val runtime = FakeNdrPairwiseRuntime().apply {
             pendingEvents += NdrPubSubEvent(
@@ -980,6 +1003,28 @@ class NdrNostrServiceTest {
     }
 
     @Test
+    fun obsoleteSessionAllowsRebootstrapWithoutReopeningLegacyFallback() {
+        val markers = InMemoryMarkerStore()
+        val runtime = FakeNdrPairwiseRuntime().apply {
+            obsoleteSessionPeers += peerPubkey
+            currentInvite = inviteEvent(localPubkey)
+        }
+        val service = service(runtimeFactory = FakeNdrRuntimeFactory(runtime), markerStore = markers)
+        service.configureIfNeeded(testIdentity())
+
+        assertFalse(service.hasPairwiseSession(peerPubkey))
+        assertEquals(runtime.currentInvite, service.currentInviteEventJson())
+        assertEquals(NdrSendResult.FAILED, service.sendIfPossible("must-not-downgrade", peerPubkey))
+        assertTrue(runtime.sendTextCalls.isEmpty())
+        assertTrue(markers.contains(localPubkey))
+
+        runtime.obsoleteSessionPeers.clear()
+        runtime.halfReadySessionPeers += peerPubkey
+        assertTrue(service.hasPairwiseSession(peerPubkey))
+        assertTrue(markers.contains(localPubkey))
+    }
+
+    @Test
     fun persistedHalfReadyPairwiseSessionNeverFallsBackAfterRestart() {
         val markers = InMemoryMarkerStore()
         val runtime = FakeNdrPairwiseRuntime().apply {
@@ -1254,7 +1299,7 @@ class NdrNostrServiceTest {
         pubkey = pubkey,
         createdAt = 1,
         kind = 1060,
-        tags = emptyList(),
+        tags = listOf(listOf("v", "2")),
         content = "ciphertext",
         sig = "sig"
     )
@@ -1484,6 +1529,7 @@ class NdrNostrServiceTest {
         private val activeSessionPeers: MutableSet<String> = mutableSetOf()
     ) : NdrPairwiseRuntime {
         val halfReadySessionPeers = mutableSetOf<String>()
+        val obsoleteSessionPeers = mutableSetOf<String>()
         val pendingEvents = mutableListOf<NdrPubSubEvent>()
         val ackedActionIds = mutableListOf<String>()
         val processedEvents = mutableListOf<String>()
@@ -1561,19 +1607,23 @@ class NdrNostrServiceTest {
             return when {
                 peer in activeSessionPeers ->
                     NdrPairwiseSessionInfo(
-                        sendReady = true
+                        sendReady = true,
+                        receiveReady = true
                     )
                 peer in halfReadySessionPeers ->
                     NdrPairwiseSessionInfo(
-                        sendReady = false
+                        sendReady = false,
+                        receiveReady = true
                     )
+                peer in obsoleteSessionPeers ->
+                    NdrPairwiseSessionInfo(sendReady = false, receiveReady = false)
                 else -> null
             }
         }
 
         override fun knownPeerPubkeys(): List<String> {
             knownPeerPubkeysFailure?.let { throw it }
-            return (activeSessionPeers + halfReadySessionPeers).toList()
+            return (activeSessionPeers + halfReadySessionPeers + obsoleteSessionPeers).toList()
         }
 
         override fun retirePeer(peerPubkeyHex: String): Boolean {

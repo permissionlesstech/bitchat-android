@@ -17,9 +17,15 @@ envelope or require the separate kind-1402 migration.
   budget, even if a crossed invite creates a local session first; accepting a
   repeated invite replays the same native response and bootstrap envelope.
 - Relays carry only signed kind-1060 pairwise messages. They contain no recipient
-  `p` tag. Subscription authors are ephemeral ratchet keys, not contact identity
-  keys. A new native subscribe action replaces the filter even when its
+  `p` tag and require exactly one `v=2` tag. Subscription authors are private
+  ratchet keys, never contact identities or public invite keys. An acceptance-specific
+  responder key prevents linking private traffic to the public invite.
+  A new native subscribe action replaces the filter even when its
   subscription ID is unchanged.
+- Each publish attempt opens fresh send-only relay sockets, separate from
+  receiving subscriptions. They carry no cookies, credentials, `REQ` or `AUTH`;
+  an authentication challenge fails closed. Retries use new sockets. Tor routing
+  remains in force when selected. Authentication-required relays remain unsupported.
 - The pairwise runtime and codec define encrypted payloads and authenticated
   kind-14 rumors. Both clients pin the same source revision. The host checks the
   authenticated sender, rumor shape, and expiration before application delivery.
@@ -44,6 +50,14 @@ An established contact keeps a durable NDR-required binding. Disabling the
 rollout gate, losing native state, restarting, or removing a favorite must not
 silently enable legacy relay DMs for that binding. Legacy peers without such a
 binding continue using the existing format. Expiry-bound sends never downgrade.
+
+The privacy-v2 upgrade preserves history and downgrade pins while quarantining
+old native sessions, queued ciphertext and subscription authors. Both peers must
+upgrade and exchange fresh invitations over authenticated Noise. A retained
+session with neither send nor receive readiness permits this rebootstrap; a
+receive-only session still counts as an in-progress compatible handshake.
+Old unversioned invites and messages are rejected, with no legacy retry for an
+already pinned contact. Queued pre-upgrade ciphertext is not automatically resent.
 
 Identity changes retire the old native peer before committing the new binding.
 The rebind journal blocks both identities during interrupted retirement. Account

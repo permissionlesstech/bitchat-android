@@ -96,7 +96,8 @@ fun interface NdrRetryScheduler {
 }
 
 data class NdrPairwiseSessionInfo(
-    val sendReady: Boolean
+    val sendReady: Boolean,
+    val receiveReady: Boolean
 )
 
 interface NdrPairwiseRuntime {

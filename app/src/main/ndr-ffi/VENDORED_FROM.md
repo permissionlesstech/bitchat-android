@@ -4,9 +4,9 @@ The Android bindings are generated from the pinned
 `vendor/nostr-double-ratchet` submodule.
 
 - Source repository: `https://github.com/irislib/nostr-double-ratchet.git`
-- Source commit: `6177add831597f2e66f34ade3717c6201852cbdf`
-- Upstream base: `master` at `6177add831597f2e66f34ade3717c6201852cbdf`
-- Pairwise FFI crate: `0.0.168`; core crate: `0.0.170`; locked `nostr`: `0.44.8`
+- Source commit: `26006f4f1487117e486b35da4854987a7fde87f5`
+- Upstream base: `master` at `26006f4f1487117e486b35da4854987a7fde87f5`
+- Pairwise FFI crate: `0.0.168`; core crate: `0.0.171`; locked `nostr`: `0.44.8`
 - Crate: `ndr-pairwise-ffi` (library `ndr_ffi`)
 - Runtime: durable single-identity pairwise sessions only; no AppKeys,
   linked-device, sibling-sync, or group runtime
@@ -39,3 +39,8 @@ Capability bit 11 and Noise payload `0x22` are accepted only for an
 authenticated Noise peer with an exact current Nostr identity binding and a
 mutual favorite advertising the same capability. The independent kind-1402
 fallback-envelope migration can land before or after this work.
+
+Privacy-v2 uses an acceptance-specific responder key, excluding public invite
+keys from private relay authors and subscriptions. Pairwise runtime `0.0.169`
+quarantines pre-upgrade sessions and queued ciphertext. Both peers must upgrade
+and complete a fresh authenticated handshake; durable downgrade pins remain.
