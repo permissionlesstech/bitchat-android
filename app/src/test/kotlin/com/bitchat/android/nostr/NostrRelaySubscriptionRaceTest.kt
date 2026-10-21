@@ -99,7 +99,11 @@ class NostrRelaySubscriptionRaceTest {
 
         assertTrue(accountSocket.messages.any { "\"REQ\"" in it })
         assertFalse(accountSocket.messages.any { "\"EVENT\"" in it })
-        assertEquals(NostrRelayManager.defaultRelays().toSet(), privateTargets.map { it.removeSuffix("/") }.toSet())
+        // OkHttp normalizes WebSocket URLs to their HTTP handshake URLs.
+        val expectedTargets = NostrRelayManager.defaultRelays().map {
+            Request.Builder().url(it).build().url.toString()
+        }.toSet()
+        assertEquals(expectedTargets, privateTargets.toSet())
         assertTrue(privateSockets.all { it.messages.size == 1 && "\"EVENT\"" in it.messages.single() })
         assertTrue(liveOnlySocket.messages.isEmpty())
         assertEquals(null, accepted)
