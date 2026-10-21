@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
@@ -95,10 +96,12 @@ fun VerificationSheet(
     viewModel: ChatViewModel,
     modifier: Modifier = Modifier
 ) {
-    var scanError by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
     val errorInvalid = stringResource(R.string.verify_scan_error_invalid)
     val errorPeerNotFound = stringResource(R.string.verify_scan_error_peer_not_found)
+
     if (!isPresented) return
+
     val accent = MaterialTheme.colorScheme.primary
 
     var selectedTab by remember { mutableStateOf(0) } // 0 = My Code, 1 = Scan
@@ -179,15 +182,13 @@ fun VerificationSheet(
                     1 -> ScanTabContent(
                         accent = accent,
                         onScan = { code ->
-                            scanError = null
                             val qr = VerificationService.verifyScannedQR(code)
                             when {
-                                qr == null -> scanError = errorInvalid
-                                !viewModel.beginQRVerification(qr) -> scanError = errorPeerNotFound
+                                qr == null -> Toast.makeText(context, errorInvalid, Toast.LENGTH_SHORT).show()
+                                !viewModel.beginQRVerification(qr) -> Toast.makeText(context, errorPeerNotFound, Toast.LENGTH_SHORT).show()
                                 else -> selectedTab = 0
                             }
                         }
-
 
                     )
                 }
