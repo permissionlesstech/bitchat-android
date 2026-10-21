@@ -426,10 +426,8 @@ class NdrNostrService(
         if (!existedBefore) {
             return true
         }
-        val retiredActionIds = try {
-            runtime.pendingActions(nowSecondsProvider())
-                .filter { it.peerPubkeyHex == peer }
-                .map { it.actionId }
+        val pendingBefore = try {
+            runtime.pendingActions(nowSecondsProvider()).map { it.actionId }.toSet()
         } catch (_: Throwable) {
             return false
         }
@@ -439,6 +437,14 @@ class NdrNostrService(
             runCatching { runtime.sessionInfo(peer) == null }.getOrDefault(false)
         }
         if (!retired) return false
+        // Relay actions omit the peer key at the FFI boundary. Native retirement
+        // determines which actions disappeared, without touching other peers.
+        val pendingAfter = try {
+            runtime.pendingActions(nowSecondsProvider()).map { it.actionId }.toSet()
+        } catch (_: Throwable) {
+            return false
+        }
+        val retiredActionIds = pendingBefore - pendingAfter
         for (actionId in retiredActionIds) {
             inFlightRelayEventsByActionId.remove(actionId)?.let(relayManager::cancelConfirmedEvent)
             clearActionRetryLocked(actionId)

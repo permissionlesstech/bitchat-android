@@ -1126,7 +1126,8 @@ class NdrNostrServiceTest {
         val runtime = FakeNdrPairwiseRuntime(mutableSetOf(peerPubkey, failingPeer))
         val relay = FakeRelayManager(confirmationResult = null)
         val retries = FakeRetryScheduler()
-        runtime.pendingEvents += relayPublishAction("retired-send", peerPubkey).copy(peerPubkeyHex = peerPubkey)
+        runtime.pendingEvents += relayPublishAction("retired-send", peerPubkey)
+        runtime.retiredActionIds += "retired-send"
         val service = service(relayManager = relay, runtimeFactory = FakeNdrRuntimeFactory(runtime), retryScheduler = retries)
         service.configureIfNeeded(testIdentity())
         assertEquals(1, relay.confirmations.size)
@@ -1564,6 +1565,7 @@ class NdrNostrServiceTest {
         var retirePeerFailure: Throwable? = null
         var retirePeerFailureAfterRemoval: Throwable? = null
         val retiredPeers = mutableListOf<String>()
+        val retiredActionIds = mutableSetOf<String>()
         @Volatile
         var sendTextCompleted = false
         var destroyedAfterSendCompleted = false
@@ -1637,7 +1639,7 @@ class NdrNostrServiceTest {
         override fun retirePeer(peerPubkeyHex: String): Boolean {
             retirePeerFailure?.let { throw it }
             retiredPeers += peerPubkeyHex.lowercase()
-            pendingEvents.removeAll { it.peerPubkeyHex == peerPubkeyHex.lowercase() }
+            pendingEvents.removeAll { it.peerPubkeyHex == peerPubkeyHex.lowercase() || it.actionId in retiredActionIds }
             val removed = activeSessionPeers.remove(peerPubkeyHex.lowercase()) ||
                 halfReadySessionPeers.remove(peerPubkeyHex.lowercase())
             retirePeerFailureAfterRemoval?.let { throw it }
