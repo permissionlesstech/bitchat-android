@@ -426,31 +426,26 @@ class NdrNostrService(
         if (!existedBefore) {
             return true
         }
-        return try {
-            val retired = runtime.retirePeer(peer)
-            val absentAfter = runtime.sessionInfo(peer) == null
-            if (retired || absentAfter) {
-                if (drainPendingActions) {
-                    drainAndApplyPubSubEventsLocked()
-                }
-                true
-            } else {
-                false
-            }
+        val retiredActionIds = try {
+            runtime.pendingActions(nowSecondsProvider())
+                .filter { it.peerPubkeyHex == peer }
+                .map { it.actionId }
         } catch (_: Throwable) {
-            val absentAfter = runCatching {
-                runtime.sessionInfo(peer) == null
-            }.getOrDefault(false)
-            if (absentAfter) {
-                if (drainPendingActions) {
-                    runCatching { drainAndApplyPubSubEventsLocked() }
-                }
-                true
-            } else {
-                Log.e(TAG, "Failed to retire rebound NDR peer")
-                false
-            }
+            return false
         }
+        val retired = try {
+            runtime.retirePeer(peer) || runtime.sessionInfo(peer) == null
+        } catch (_: Throwable) {
+            runCatching { runtime.sessionInfo(peer) == null }.getOrDefault(false)
+        }
+        if (!retired) return false
+        for (actionId in retiredActionIds) {
+            inFlightRelayEventsByActionId.remove(actionId)?.let(relayManager::cancelConfirmedEvent)
+            clearActionRetryLocked(actionId)
+            clearOutOfBandRetryLocked(actionId)
+        }
+        if (drainPendingActions) drainAndApplyPubSubEventsLocked()
+        return true
     }
 
     @Synchronized
@@ -725,9 +720,9 @@ class NdrNostrService(
                 try {
                     relayManager.sendEventConfirmed(nostrEvent) { accepted ->
                         synchronized(this) {
-                            if (!isCurrentRuntimeLocked(runtime, runtimeEpoch)) {
-                                return@synchronized
-                            }
+                            if (!isCurrentRuntimeLocked(runtime, runtimeEpoch) ||
+                                inFlightRelayEventsByActionId[event.actionId] != nostrEvent.id
+                            ) return@synchronized
                             inFlightRelayEventsByActionId.remove(event.actionId)
                             if (accepted) {
                                 val acknowledged = acknowledgeEventsLocked(
