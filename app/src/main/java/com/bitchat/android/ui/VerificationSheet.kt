@@ -97,9 +97,10 @@ fun VerificationSheet(
     viewModel: ChatViewModel,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
+    var scanError by remember { mutableStateOf<String?>(null) }
+    val errorInvalid = stringResource(R.string.verify_scan_error_invalid)
+    val errorPeerNotFound = stringResource(R.string.verify_scan_error_peer_not_found)
     if (!isPresented) return
-
     val accent = MaterialTheme.colorScheme.primary
 
     var selectedTab by remember { mutableStateOf(0) } // 0 = My Code, 1 = Scan
@@ -180,17 +181,15 @@ fun VerificationSheet(
                     1 -> ScanTabContent(
                         accent = accent,
                         onScan = { code ->
+                            scanError = null
                             val qr = VerificationService.verifyScannedQR(code)
                             when {
-                                qr == null -> Toast.makeText(
-                                    context, "不是有效的 bitchat 验证码，或已超过 5 分钟", Toast.LENGTH_SHORT
-                                ).show()
-                                !viewModel.beginQRVerification(qr) -> Toast.makeText(
-                                    context, "尚未发现对方设备，请确认双方蓝牙已开启并靠近", Toast.LENGTH_SHORT
-                                ).show()
+                                qr == null -> scanError = errorInvalid
+                                !viewModel.beginQRVerification(qr) -> scanError = errorPeerNotFound
                                 else -> selectedTab = 0
                             }
                         }
+
 
                     )
                 }
@@ -479,7 +478,6 @@ private fun ScannerView(
     surfaceRequest?.let { request ->
         CameraXViewfinder(
             surfaceRequest = request,
-//            implementationMode = ImplementationMode.EMBEDDED,
             modifier = Modifier.fillMaxSize()
         )
     }
