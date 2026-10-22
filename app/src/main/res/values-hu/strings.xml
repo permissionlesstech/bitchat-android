@@ -477,14 +477,14 @@
     <string name="check_again">Újraellenőrzés</string>
     <string name="location_services_unavailable">A helymeghatározás nem érhető el</string>
     <string name="location_unavailable_explanation">A helymeghatározás nem érhető el ezen az eszközön. Ez szokatlan, mivel az Android-eszközökön alapfunkció.\n\nA bitchatnek helymeghatározásra van szüksége a Bluetooth-keresés megfelelő működéséhez (Android-követelmény). Enélkül az alkalmazás nem találja meg a közeli felhasználókat.</string>
-    <string name="checking_location_services">Helymeghatározás ellenőrzése...</string>
+    <string name="checking_location_services">Helymeghatározás ellenőrzése…</string>
     <string name="bluetooth_required">Bluetooth szükséges</string>
     <string name="bluetooth_needs_for">A bitchatnek a Bluetooth ezekhez kell:</string>
     <string name="bluetooth_needs_bullets">• Közeli felhasználók megtalálása\n• Mesh-hálózati kapcsolatok létrehozása\n• Üzenetek küldése és fogadása\n• Működés internet és szerverek nélkül</string>
     <string name="enable_bluetooth">Bluetooth bekapcsolása</string>
     <string name="bluetooth_not_supported">A Bluetooth nem támogatott</string>
     <string name="bluetooth_unsupported_explanation">Ez az eszköz nem támogatja a Bluetooth Low Energy (BLE) technológiát, amely a bitchat működéséhez szükséges.\n\nA bitchatnek BLE kell a mesh-hálózatok létrehozásához és a közeli eszközökkel való, internet nélküli kommunikációhoz.</string>
-    <string name="checking_bluetooth_status">Bluetooth állapotának ellenőrzése...</string>
+    <string name="checking_bluetooth_status">Bluetooth állapotának ellenőrzése…</string>
     <string name="battery_optimization_detected_title">Akkumulátor-optimalizálás észlelve</string>
     <string name="battery_optimization_enabled_title">Akkumulátor-optimalizálás bekapcsolva</string>
     <string name="battery_optimization_explanation_short">A bitchatnek a háttérben kell futnia a mesh-kapcsolatok fenntartásához. Az akkumulátor-optimalizálás megszakíthatja ezeket.</string>
@@ -495,7 +495,7 @@
     <string name="continue_btn">Tovább</string>
     <string name="initializing_mesh_network">Mesh-hálózat inicializálása</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Bluetooth mesh-hálózat beállítása...</string>
+    <string name="setting_up_bluetooth">Bluetooth mesh-hálózat beállítása…</string>
     <string name="should_take_seconds">Csak néhány másodpercig tart</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">A beállítás nem fejeződött be</string>

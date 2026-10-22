@@ -479,14 +479,14 @@
     <string name="check_again">Pārbaudīt vēlreiz</string>
     <string name="location_services_unavailable">Atrašanās vietas pakalpojumi nav pieejami</string>
     <string name="location_unavailable_explanation">Šajā ierīcē nav pieejami atrašanās vietas pakalpojumi. Tas ir neparasti, jo Android ierīcēs tie ir standarta.\n\nbitchat vajag atrašanās vietas pakalpojumus, lai Bluetooth skenēšana darbotos pareizi (Android prasība). Bez tiem lietotne nevar atrast tuvumā esošus lietotājus.</string>
-    <string name="checking_location_services">Pārbauda atrašanās vietas pakalpojumus...</string>
+    <string name="checking_location_services">Pārbauda atrašanās vietas pakalpojumus…</string>
     <string name="bluetooth_required">Vajadzīgs Bluetooth</string>
     <string name="bluetooth_needs_for">bitchat vajag Bluetooth, lai:</string>
     <string name="bluetooth_needs_bullets">• Atrastu tuvumā esošus lietotājus\n• Izveidotu mesh tīkla savienojumus\n• Sūtītu un saņemtu ziņas\n• Darbotos bez interneta un serveriem</string>
     <string name="enable_bluetooth">Ieslēgt Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth netiek atbalstīts</string>
     <string name="bluetooth_unsupported_explanation">Šī ierīce neatbalsta Bluetooth Low Energy (BLE), kas bitchat ir vajadzīgs darbībai.\n\nbitchat vajag BLE, lai veidotu mesh tīklus un sazinātos ar tuvumā esošām ierīcēm bez interneta.</string>
-    <string name="checking_bluetooth_status">Pārbauda Bluetooth statusu...</string>
+    <string name="checking_bluetooth_status">Pārbauda Bluetooth statusu…</string>
     <string name="battery_optimization_detected_title">Konstatēta akumulatora optimizācija</string>
     <string name="battery_optimization_enabled_title">Akumulatora optimizācija ieslēgta</string>
     <string name="battery_optimization_explanation_short">bitchat jādarbojas fonā, lai uzturētu mesh savienojumus. Akumulatora optimizācija var tos pārtraukt.</string>
@@ -497,7 +497,7 @@
     <string name="continue_btn">Turpināt</string>
     <string name="initializing_mesh_network">Inicializē mesh tīklu</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Iestata Bluetooth mesh tīklu...</string>
+    <string name="setting_up_bluetooth">Iestata Bluetooth mesh tīklu…</string>
     <string name="should_take_seconds">Tas aizņems tikai dažas sekundes</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Iestatīšana nav pabeigta</string>

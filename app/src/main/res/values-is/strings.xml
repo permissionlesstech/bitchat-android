@@ -477,14 +477,14 @@
     <string name="check_again">Athuga aftur</string>
     <string name="location_services_unavailable">Staðsetningarþjónusta ekki tiltæk</string>
     <string name="location_unavailable_explanation">Staðsetningarþjónusta er ekki tiltæk í þessu tæki. Það er óvenjulegt, því staðsetningarþjónusta er staðalbúnaður í Android-tækjum.\n\nbitchat þarf staðsetningarþjónustu til að Bluetooth-leit virki rétt (krafa Android). Án hennar getur forritið ekki fundið notendur í nágrenninu.</string>
-    <string name="checking_location_services">Athugar staðsetningarþjónustu...</string>
+    <string name="checking_location_services">Athugar staðsetningarþjónustu…</string>
     <string name="bluetooth_required">Bluetooth nauðsynlegt</string>
     <string name="bluetooth_needs_for">bitchat þarf Bluetooth til að:</string>
     <string name="bluetooth_needs_bullets">• Finna notendur í nágrenninu\n• Búa til tengingar í mesh-neti\n• Senda og taka á móti skilaboðum\n• Virka án internets eða netþjóna</string>
     <string name="enable_bluetooth">Kveikja á Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth ekki stutt</string>
     <string name="bluetooth_unsupported_explanation">Þetta tæki styður ekki Bluetooth Low Energy (BLE), sem bitchat þarf til að virka.\n\nbitchat þarf BLE til að búa til mesh-net og eiga samskipti við tæki í nágrenninu án internets.</string>
-    <string name="checking_bluetooth_status">Athugar stöðu Bluetooth...</string>
+    <string name="checking_bluetooth_status">Athugar stöðu Bluetooth…</string>
     <string name="battery_optimization_detected_title">Rafhlöðusparnaður greindur</string>
     <string name="battery_optimization_enabled_title">Kveikt á rafhlöðusparnaði</string>
     <string name="battery_optimization_explanation_short">bitchat þarf að keyra í bakgrunni til að viðhalda mesh-tengingum. Rafhlöðusparnaður getur rofið þessar tengingar.</string>
@@ -495,7 +495,7 @@
     <string name="continue_btn">Halda áfram</string>
     <string name="initializing_mesh_network">Ræsir mesh-net</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Setur upp Bluetooth-mesh-net...</string>
+    <string name="setting_up_bluetooth">Setur upp Bluetooth-mesh-net…</string>
     <string name="should_take_seconds">Þetta ætti aðeins að taka nokkrar sekúndur</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Uppsetningu ekki lokið</string>

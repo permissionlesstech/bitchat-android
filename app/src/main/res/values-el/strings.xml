@@ -477,14 +477,14 @@
     <string name="check_again">Νέος έλεγχος</string>
     <string name="location_services_unavailable">Οι υπηρεσίες τοποθεσίας δεν είναι διαθέσιμες</string>
     <string name="location_unavailable_explanation">Οι υπηρεσίες τοποθεσίας δεν είναι διαθέσιμες σε αυτή τη συσκευή. Αυτό είναι ασυνήθιστο, αφού είναι βασική λειτουργία των συσκευών Android.\n\nΤο bitchat χρειάζεται τις υπηρεσίες τοποθεσίας για να λειτουργεί σωστά η σάρωση Bluetooth (απαίτηση του Android). Χωρίς αυτές, η εφαρμογή δεν μπορεί να βρει κοντινούς χρήστες.</string>
-    <string name="checking_location_services">Έλεγχος υπηρεσιών τοποθεσίας...</string>
+    <string name="checking_location_services">Έλεγχος υπηρεσιών τοποθεσίας…</string>
     <string name="bluetooth_required">Απαιτείται Bluetooth</string>
     <string name="bluetooth_needs_for">Το bitchat χρειάζεται Bluetooth για:</string>
     <string name="bluetooth_needs_bullets">• Εύρεση κοντινών χρηστών\n• Δημιουργία συνδέσεων δικτύου mesh\n• Αποστολή και λήψη μηνυμάτων\n• Λειτουργία χωρίς internet ή διακομιστές</string>
     <string name="enable_bluetooth">Ενεργοποίηση Bluetooth</string>
     <string name="bluetooth_not_supported">Το Bluetooth δεν υποστηρίζεται</string>
     <string name="bluetooth_unsupported_explanation">Αυτή η συσκευή δεν υποστηρίζει Bluetooth Low Energy (BLE), που χρειάζεται το bitchat για να λειτουργήσει.\n\nΤο bitchat χρειάζεται BLE για να δημιουργεί δίκτυα mesh και να επικοινωνεί με κοντινές συσκευές χωρίς internet.</string>
-    <string name="checking_bluetooth_status">Έλεγχος κατάστασης Bluetooth...</string>
+    <string name="checking_bluetooth_status">Έλεγχος κατάστασης Bluetooth…</string>
     <string name="battery_optimization_detected_title">Εντοπίστηκε βελτιστοποίηση μπαταρίας</string>
     <string name="battery_optimization_enabled_title">Η βελτιστοποίηση μπαταρίας είναι ενεργή</string>
     <string name="battery_optimization_explanation_short">Το bitchat πρέπει να τρέχει στο παρασκήνιο για να διατηρεί τις συνδέσεις mesh. Η βελτιστοποίηση μπαταρίας μπορεί να τις διακόψει.</string>
@@ -495,7 +495,7 @@
     <string name="continue_btn">Συνέχεια</string>
     <string name="initializing_mesh_network">Προετοιμασία δικτύου mesh</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Ρύθμιση δικτύου mesh Bluetooth...</string>
+    <string name="setting_up_bluetooth">Ρύθμιση δικτύου mesh Bluetooth…</string>
     <string name="should_take_seconds">Θα πάρει μόνο λίγα δευτερόλεπτα</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Η ρύθμιση δεν ολοκληρώθηκε</string>

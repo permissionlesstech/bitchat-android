@@ -481,14 +481,14 @@
     <string name="check_again">Skontrolovať znova</string>
     <string name="location_services_unavailable">Služby určovania polohy nie sú k dispozícii</string>
     <string name="location_unavailable_explanation">Služby určovania polohy nie sú na tomto zariadení k dispozícii. To je nezvyčajné, pretože na zariadeniach s Androidom sú štandardné.\n\nbitchat potrebuje služby určovania polohy, aby skenovanie Bluetooth fungovalo správne (požiadavka Androidu). Bez nich aplikácia nenájde používateľov v okolí.</string>
-    <string name="checking_location_services">Kontrola služieb určovania polohy...</string>
+    <string name="checking_location_services">Kontrola služieb určovania polohy…</string>
     <string name="bluetooth_required">Vyžaduje sa Bluetooth</string>
     <string name="bluetooth_needs_for">bitchat potrebuje Bluetooth na:</string>
     <string name="bluetooth_needs_bullets">• Hľadanie používateľov v okolí\n• Vytváranie spojení v mesh sieti\n• Odosielanie a prijímanie správ\n• Fungovanie bez internetu a serverov</string>
     <string name="enable_bluetooth">Zapnúť Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth nie je podporovaný</string>
     <string name="bluetooth_unsupported_explanation">Toto zariadenie nepodporuje Bluetooth Low Energy (BLE), ktoré bitchat na svoju funkciu potrebuje.\n\nbitchat potrebuje BLE na vytváranie mesh sietí a komunikáciu so zariadeniami v okolí bez internetu.</string>
-    <string name="checking_bluetooth_status">Kontrola stavu Bluetooth...</string>
+    <string name="checking_bluetooth_status">Kontrola stavu Bluetooth…</string>
     <string name="battery_optimization_detected_title">Zistená optimalizácia batérie</string>
     <string name="battery_optimization_enabled_title">Optimalizácia batérie zapnutá</string>
     <string name="battery_optimization_explanation_short">bitchat musí bežať na pozadí, aby udržal mesh spojenia. Optimalizácia batérie ich môže prerušiť.</string>
@@ -499,7 +499,7 @@
     <string name="continue_btn">Pokračovať</string>
     <string name="initializing_mesh_network">Spúšťanie mesh siete</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Nastavuje sa Bluetooth mesh sieť...</string>
+    <string name="setting_up_bluetooth">Nastavuje sa Bluetooth mesh sieť…</string>
     <string name="should_take_seconds">Malo by to trvať len pár sekúnd</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Nastavenie nedokončené</string>

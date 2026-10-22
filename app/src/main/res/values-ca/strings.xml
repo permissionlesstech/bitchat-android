@@ -479,14 +479,14 @@
     <string name="check_again">Torna a comprovar</string>
     <string name="location_services_unavailable">Serveis d\'ubicació no disponibles</string>
     <string name="location_unavailable_explanation">Els serveis d\'ubicació no estan disponibles en aquest dispositiu. És inusual, perquè són estàndard als dispositius Android.\n\nbitchat necessita els serveis d\'ubicació perquè l\'escaneig Bluetooth funcioni correctament (requisit d\'Android). Sense ells, l\'aplicació no pot trobar usuaris propers.</string>
-    <string name="checking_location_services">S\'estan comprovant els serveis d\'ubicació...</string>
+    <string name="checking_location_services">S\'estan comprovant els serveis d\'ubicació…</string>
     <string name="bluetooth_required">Cal Bluetooth</string>
     <string name="bluetooth_needs_for">bitchat necessita Bluetooth per a:</string>
     <string name="bluetooth_needs_bullets">• Trobar usuaris propers\n• Crear connexions a la xarxa mesh\n• Enviar i rebre missatges\n• Funcionar sense internet ni servidors</string>
     <string name="enable_bluetooth">Activa el Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth no admès</string>
     <string name="bluetooth_unsupported_explanation">Aquest dispositiu no admet Bluetooth Low Energy (BLE), que bitchat necessita per funcionar.\n\nbitchat necessita BLE per crear xarxes mesh i comunicar-se sense internet amb els dispositius propers.</string>
-    <string name="checking_bluetooth_status">S\'està comprovant l\'estat del Bluetooth...</string>
+    <string name="checking_bluetooth_status">S\'està comprovant l\'estat del Bluetooth…</string>
     <string name="battery_optimization_detected_title">S\'ha detectat l\'optimització de bateria</string>
     <string name="battery_optimization_enabled_title">Optimització de bateria activada</string>
     <string name="battery_optimization_explanation_short">bitchat ha de funcionar en segon pla per mantenir les connexions mesh. L\'optimització de bateria les pot interrompre.</string>
@@ -497,7 +497,7 @@
     <string name="continue_btn">Continua</string>
     <string name="initializing_mesh_network">S\'està inicialitzant la xarxa mesh</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">S\'està configurant la xarxa mesh Bluetooth...</string>
+    <string name="setting_up_bluetooth">S\'està configurant la xarxa mesh Bluetooth…</string>
     <string name="should_take_seconds">Només hauria de trigar uns segons</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Configuració incompleta</string>

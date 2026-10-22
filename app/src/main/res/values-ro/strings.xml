@@ -479,14 +479,14 @@
     <string name="check_again">Verifică din nou</string>
     <string name="location_services_unavailable">Serviciile de localizare nu sunt disponibile</string>
     <string name="location_unavailable_explanation">Serviciile de localizare nu sunt disponibile pe acest dispozitiv. Este neobișnuit, deoarece sunt standard pe dispozitivele Android.\n\nbitchat are nevoie de serviciile de localizare pentru ca scanarea Bluetooth să funcționeze corect (cerință Android). Fără ele, aplicația nu poate găsi utilizatori din apropiere.</string>
-    <string name="checking_location_services">Se verifică serviciile de localizare...</string>
+    <string name="checking_location_services">Se verifică serviciile de localizare…</string>
     <string name="bluetooth_required">Bluetooth necesar</string>
     <string name="bluetooth_needs_for">bitchat are nevoie de Bluetooth pentru:</string>
     <string name="bluetooth_needs_bullets">• Găsirea utilizatorilor din apropiere\n• Crearea conexiunilor în rețeaua mesh\n• Trimiterea și primirea mesajelor\n• Funcționarea fără internet sau servere</string>
     <string name="enable_bluetooth">Activează Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth nu este acceptat</string>
     <string name="bluetooth_unsupported_explanation">Acest dispozitiv nu acceptă Bluetooth Low Energy (BLE), de care bitchat are nevoie pentru a funcționa.\n\nbitchat are nevoie de BLE pentru a crea rețele mesh și a comunica fără internet cu dispozitivele din apropiere.</string>
-    <string name="checking_bluetooth_status">Se verifică starea Bluetooth...</string>
+    <string name="checking_bluetooth_status">Se verifică starea Bluetooth…</string>
     <string name="battery_optimization_detected_title">Optimizarea bateriei detectată</string>
     <string name="battery_optimization_enabled_title">Optimizarea bateriei activată</string>
     <string name="battery_optimization_explanation_short">bitchat trebuie să ruleze în fundal pentru a menține conexiunile mesh. Optimizarea bateriei le poate întrerupe.</string>
@@ -497,7 +497,7 @@
     <string name="continue_btn">Continuă</string>
     <string name="initializing_mesh_network">Se inițializează rețeaua mesh</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Se configurează rețeaua mesh Bluetooth...</string>
+    <string name="setting_up_bluetooth">Se configurează rețeaua mesh Bluetooth…</string>
     <string name="should_take_seconds">Ar trebui să dureze doar câteva secunde</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Configurare incompletă</string>

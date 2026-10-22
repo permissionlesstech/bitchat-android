@@ -477,14 +477,14 @@
     <string name="check_again">Tarkista uudelleen</string>
     <string name="location_services_unavailable">Sijaintipalvelut eivät käytettävissä</string>
     <string name="location_unavailable_explanation">Sijaintipalvelut eivät ole käytettävissä tällä laitteella. Tämä on epätavallista, sillä sijaintipalvelut ovat vakiona Android-laitteissa.\n\nbitchat tarvitsee sijaintipalveluja, jotta Bluetooth-haku toimii oikein (Androidin vaatimus). Ilman niitä sovellus ei löydä lähellä olevia käyttäjiä.</string>
-    <string name="checking_location_services">Tarkistetaan sijaintipalveluja...</string>
+    <string name="checking_location_services">Tarkistetaan sijaintipalveluja…</string>
     <string name="bluetooth_required">Bluetooth vaaditaan</string>
     <string name="bluetooth_needs_for">bitchat tarvitsee Bluetoothia:</string>
     <string name="bluetooth_needs_bullets">• Lähellä olevien käyttäjien löytämiseen\n• Mesh-verkon yhteyksien luomiseen\n• Viestien lähettämiseen ja vastaanottamiseen\n• Toimimiseen ilman internetiä tai palvelimia</string>
     <string name="enable_bluetooth">Ota Bluetooth käyttöön</string>
     <string name="bluetooth_not_supported">Bluetoothia ei tueta</string>
     <string name="bluetooth_unsupported_explanation">Tämä laite ei tue Bluetooth Low Energyä (BLE), jota bitchat tarvitsee toimiakseen.\n\nbitchat tarvitsee BLE:tä luodakseen mesh-verkkoja ja viestiäkseen lähellä olevien laitteiden kanssa ilman internetiä.</string>
-    <string name="checking_bluetooth_status">Tarkistetaan Bluetoothin tilaa...</string>
+    <string name="checking_bluetooth_status">Tarkistetaan Bluetoothin tilaa…</string>
     <string name="battery_optimization_detected_title">Akun optimointi havaittu</string>
     <string name="battery_optimization_enabled_title">Akun optimointi käytössä</string>
     <string name="battery_optimization_explanation_short">bitchatin on toimittava taustalla mesh-yhteyksien ylläpitämiseksi. Akun optimointi voi katkaista nämä yhteydet.</string>
@@ -495,7 +495,7 @@
     <string name="continue_btn">Jatka</string>
     <string name="initializing_mesh_network">Alustetaan mesh-verkkoa</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Määritetään Bluetooth-mesh-verkkoa...</string>
+    <string name="setting_up_bluetooth">Määritetään Bluetooth-mesh-verkkoa…</string>
     <string name="should_take_seconds">Tämän pitäisi kestää vain muutama sekunti</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Määritys kesken</string>

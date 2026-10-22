@@ -481,14 +481,14 @@
     <string name="check_again">Tikrinti dar kartą</string>
     <string name="location_services_unavailable">Vietos paslaugos nepasiekiamos</string>
     <string name="location_unavailable_explanation">Šiame įrenginyje vietos paslaugos nepasiekiamos. Tai neįprasta, nes „Android“ įrenginiuose jos yra standartinės.\n\nbitchat reikia vietos paslaugų, kad Bluetooth nuskaitymas veiktų tinkamai („Android“ reikalavimas). Be jų programėlė negali rasti netoliese esančių naudotojų.</string>
-    <string name="checking_location_services">Tikrinamos vietos paslaugos...</string>
+    <string name="checking_location_services">Tikrinamos vietos paslaugos…</string>
     <string name="bluetooth_required">Reikalingas Bluetooth</string>
     <string name="bluetooth_needs_for">bitchat reikia Bluetooth, kad galėtų:</string>
     <string name="bluetooth_needs_bullets">• Rasti netoliese esančius naudotojus\n• Kurti mesh tinklo ryšius\n• Siųsti ir gauti žinutes\n• Veikti be interneto ir serverių</string>
     <string name="enable_bluetooth">Įjungti Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth nepalaikomas</string>
     <string name="bluetooth_unsupported_explanation">Šis įrenginys nepalaiko Bluetooth Low Energy (BLE), kurio reikia bitchat veikimui.\n\nbitchat reikia BLE, kad galėtų kurti mesh tinklus ir bendrauti su netoliese esančiais įrenginiais be interneto.</string>
-    <string name="checking_bluetooth_status">Tikrinama Bluetooth būsena...</string>
+    <string name="checking_bluetooth_status">Tikrinama Bluetooth būsena…</string>
     <string name="battery_optimization_detected_title">Aptiktas akumuliatoriaus optimizavimas</string>
     <string name="battery_optimization_enabled_title">Akumuliatoriaus optimizavimas įjungtas</string>
     <string name="battery_optimization_explanation_short">bitchat turi veikti fone, kad palaikytų mesh ryšius. Akumuliatoriaus optimizavimas gali juos nutraukti.</string>
@@ -499,7 +499,7 @@
     <string name="continue_btn">Tęsti</string>
     <string name="initializing_mesh_network">Paleidžiamas mesh tinklas</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Nustatomas Bluetooth mesh tinklas...</string>
+    <string name="setting_up_bluetooth">Nustatomas Bluetooth mesh tinklas…</string>
     <string name="should_take_seconds">Tai užtruks tik kelias sekundes</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Sąranka nebaigta</string>

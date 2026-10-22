@@ -477,14 +477,14 @@
     <string name="check_again">Nach eng Kéier iwwerpréiwen</string>
     <string name="location_services_unavailable">Standuertservicer net disponibel</string>
     <string name="location_unavailable_explanation">D\'Standuertservicer sinn op dësem Apparat net disponibel. Dat ass ongewéinlech, well se op Android-Apparater Standard sinn.\n\nbitchat brauch d\'Standuertservicer, fir datt de Bluetooth-Scan richteg funktionéiert (Android-Ufuerderung). Ouni se kann d\'App keng Benotzer an der Géigend fannen.</string>
-    <string name="checking_location_services">Standuertservicer ginn iwwerpréift...</string>
+    <string name="checking_location_services">Standuertservicer ginn iwwerpréift…</string>
     <string name="bluetooth_required">Bluetooth néideg</string>
     <string name="bluetooth_needs_for">bitchat brauch Bluetooth fir:</string>
     <string name="bluetooth_needs_bullets">• Benotzer an der Géigend ze fannen\n• Verbindungen am Mesh-Netzwierk opzebauen\n• Noriichten ze schécken an z\'empfänken\n• Ouni Internet oder Serveren ze funktionéieren</string>
     <string name="enable_bluetooth">Bluetooth aktivéieren</string>
     <string name="bluetooth_not_supported">Bluetooth net ënnerstëtzt</string>
     <string name="bluetooth_unsupported_explanation">Dësen Apparat ënnerstëtzt kee Bluetooth Low Energy (BLE), deen bitchat brauch fir ze funktionéieren.\n\nbitchat brauch BLE, fir Mesh-Netzwierker opzebauen an ouni Internet mat Apparater an der Géigend ze kommunizéieren.</string>
-    <string name="checking_bluetooth_status">Bluetooth-Status gëtt iwwerpréift...</string>
+    <string name="checking_bluetooth_status">Bluetooth-Status gëtt iwwerpréift…</string>
     <string name="battery_optimization_detected_title">Batterie-Optimiséierung erkannt</string>
     <string name="battery_optimization_enabled_title">Batterie-Optimiséierung aktivéiert</string>
     <string name="battery_optimization_explanation_short">bitchat muss am Hannergrond lafen, fir d\'Mesh-Verbindungen z\'erhalen. D\'Batterie-Optimiséierung kann dës ënnerbriechen.</string>
@@ -495,7 +495,7 @@
     <string name="continue_btn">Weider</string>
     <string name="initializing_mesh_network">Mesh-Netzwierk gëtt initialiséiert</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Bluetooth-Mesh-Netzwierk gëtt ageriicht...</string>
+    <string name="setting_up_bluetooth">Bluetooth-Mesh-Netzwierk gëtt ageriicht…</string>
     <string name="should_take_seconds">Dat sollt nëmmen e puer Sekonnen daueren</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Aariichtung net ofgeschloss</string>

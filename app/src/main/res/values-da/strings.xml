@@ -477,14 +477,14 @@
     <string name="check_again">Tjek igen</string>
     <string name="location_services_unavailable">Placeringstjenester ikke tilgængelige</string>
     <string name="location_unavailable_explanation">Placeringstjenester er ikke tilgængelige på denne enhed. Det er usædvanligt, da placeringstjenester er standard på Android-enheder.\n\nbitchat har brug for placeringstjenester, for at Bluetooth-scanning fungerer korrekt (et Android-krav). Uden dem kan appen ikke finde brugere i nærheden.</string>
-    <string name="checking_location_services">Tjekker placeringstjenester...</string>
+    <string name="checking_location_services">Tjekker placeringstjenester…</string>
     <string name="bluetooth_required">Bluetooth påkrævet</string>
     <string name="bluetooth_needs_for">bitchat har brug for Bluetooth til at:</string>
     <string name="bluetooth_needs_bullets">• Finde brugere i nærheden\n• Oprette forbindelser i mesh-netværket\n• Sende og modtage beskeder\n• Fungere uden internet eller servere</string>
     <string name="enable_bluetooth">Slå Bluetooth til</string>
     <string name="bluetooth_not_supported">Bluetooth understøttes ikke</string>
     <string name="bluetooth_unsupported_explanation">Denne enhed understøtter ikke Bluetooth Low Energy (BLE), som bitchat kræver for at fungere.\n\nbitchat skal bruge BLE til at oprette mesh-netværk og kommunikere med enheder i nærheden uden internet.</string>
-    <string name="checking_bluetooth_status">Tjekker Bluetooth-status...</string>
+    <string name="checking_bluetooth_status">Tjekker Bluetooth-status…</string>
     <string name="battery_optimization_detected_title">Batterioptimering registreret</string>
     <string name="battery_optimization_enabled_title">Batterioptimering aktiveret</string>
     <string name="battery_optimization_explanation_short">bitchat skal køre i baggrunden for at holde mesh-forbindelser. Batterioptimering kan afbryde disse forbindelser.</string>
@@ -495,7 +495,7 @@
     <string name="continue_btn">Fortsæt</string>
     <string name="initializing_mesh_network">Starter mesh-netværk</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Opsætter Bluetooth-mesh-netværk...</string>
+    <string name="setting_up_bluetooth">Opsætter Bluetooth-mesh-netværk…</string>
     <string name="should_take_seconds">Det tager kun nogle få sekunder</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Opsætning ikke fuldført</string>

@@ -477,14 +477,14 @@
     <string name="check_again">Kontrolli uuesti</string>
     <string name="location_services_unavailable">Asukohateenused pole saadaval</string>
     <string name="location_unavailable_explanation">Asukohateenused pole selles seadmes saadaval. See on ebatavaline, sest asukohateenused on Androidi seadmetes standardsed.\n\nbitchat vajab asukohateenuseid, et Bluetoothi skannimine korralikult töötaks (Androidi nõue). Ilma nendeta ei leia rakendus läheduses olevaid kasutajaid.</string>
-    <string name="checking_location_services">Asukohateenuste kontrollimine...</string>
+    <string name="checking_location_services">Asukohateenuste kontrollimine…</string>
     <string name="bluetooth_required">Bluetooth on vajalik</string>
     <string name="bluetooth_needs_for">bitchat vajab Bluetoothi, et:</string>
     <string name="bluetooth_needs_bullets">• Leida läheduses olevaid kasutajaid\n• Luua mesh-võrgu ühendusi\n• Saata ja vastu võtta sõnumeid\n• Töötada ilma interneti ja serveriteta</string>
     <string name="enable_bluetooth">Lülita Bluetooth sisse</string>
     <string name="bluetooth_not_supported">Bluetoothi ei toetata</string>
     <string name="bluetooth_unsupported_explanation">See seade ei toeta Bluetooth Low Energyt (BLE), mida bitchat töötamiseks vajab.\n\nbitchat vajab BLE-d mesh-võrkude loomiseks ja läheduses olevate seadmetega suhtlemiseks ilma internetita.</string>
-    <string name="checking_bluetooth_status">Bluetoothi oleku kontrollimine...</string>
+    <string name="checking_bluetooth_status">Bluetoothi oleku kontrollimine…</string>
     <string name="battery_optimization_detected_title">Aku optimeerimine tuvastatud</string>
     <string name="battery_optimization_enabled_title">Aku optimeerimine on sees</string>
     <string name="battery_optimization_explanation_short">bitchat peab mesh-ühenduste hoidmiseks taustal töötama. Aku optimeerimine võib neid ühendusi katkestada.</string>
@@ -495,7 +495,7 @@
     <string name="continue_btn">Jätka</string>
     <string name="initializing_mesh_network">Mesh-võrgu käivitamine</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Bluetoothi mesh-võrgu seadistamine...</string>
+    <string name="setting_up_bluetooth">Bluetoothi mesh-võrgu seadistamine…</string>
     <string name="should_take_seconds">See peaks võtma vaid mõne sekundi</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Seadistamine pole lõpetatud</string>

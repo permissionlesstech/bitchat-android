@@ -477,14 +477,14 @@
     <string name="check_again">Провери повторно</string>
     <string name="location_services_unavailable">Услугите за локација не се достапни</string>
     <string name="location_unavailable_explanation">Услугите за локација не се достапни на овој уред. Тоа е невообичаено бидејќи тие се стандардни на уредите со Android.\n\nНа bitchat му требаат услуги за локација за скенирањето преку Bluetooth да работи правилно (барање на Android). Без нив апликацијата не може да открие корисници во близина.</string>
-    <string name="checking_location_services">Се проверуваат услугите за локација...</string>
+    <string name="checking_location_services">Се проверуваат услугите за локација…</string>
     <string name="bluetooth_required">Потребен е Bluetooth</string>
     <string name="bluetooth_needs_for">На bitchat му треба Bluetooth за:</string>
     <string name="bluetooth_needs_bullets">• Откривање корисници во близина\n• Создавање врски во mesh мрежата\n• Испраќање и примање пораки\n• Работа без интернет и сервери</string>
     <string name="enable_bluetooth">Вклучи Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth не е поддржан</string>
     <string name="bluetooth_unsupported_explanation">Овој уред не поддржува Bluetooth Low Energy (BLE), кој му е потребен на bitchat за да работи.\n\nНа bitchat му треба BLE за да создава mesh мрежи и да комуницира со уредите во близина без интернет.</string>
-    <string name="checking_bluetooth_status">Се проверува статусот на Bluetooth...</string>
+    <string name="checking_bluetooth_status">Се проверува статусот на Bluetooth…</string>
     <string name="battery_optimization_detected_title">Откриена е оптимизација на батеријата</string>
     <string name="battery_optimization_enabled_title">Оптимизацијата на батеријата е вклучена</string>
     <string name="battery_optimization_explanation_short">bitchat мора да работи во заднина за да ги одржува mesh врските. Оптимизацијата на батеријата може да ги прекине.</string>
@@ -495,7 +495,7 @@
     <string name="continue_btn">Продолжи</string>
     <string name="initializing_mesh_network">Се стартува mesh мрежата</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Се поставува Bluetooth mesh мрежата...</string>
+    <string name="setting_up_bluetooth">Се поставува Bluetooth mesh мрежата…</string>
     <string name="should_take_seconds">Ова ќе трае само неколку секунди</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Поставувањето не е завршено</string>

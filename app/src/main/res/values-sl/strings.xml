@@ -481,14 +481,14 @@
     <string name="check_again">Preveri znova</string>
     <string name="location_services_unavailable">Lokacijske storitve niso na voljo</string>
     <string name="location_unavailable_explanation">Lokacijske storitve na tej napravi niso na voljo. To je nenavadno, saj so na napravah Android standardne.\n\nbitchat potrebuje lokacijske storitve, da iskanje Bluetooth deluje pravilno (zahteva Androida). Brez njih aplikacija ne najde uporabnikov v bližini.</string>
-    <string name="checking_location_services">Preverjanje lokacijskih storitev...</string>
+    <string name="checking_location_services">Preverjanje lokacijskih storitev…</string>
     <string name="bluetooth_required">Potreben je Bluetooth</string>
     <string name="bluetooth_needs_for">bitchat potrebuje Bluetooth za:</string>
     <string name="bluetooth_needs_bullets">• Iskanje uporabnikov v bližini\n• Ustvarjanje povezav v mesh omrežju\n• Pošiljanje in prejemanje sporočil\n• Delovanje brez interneta in strežnikov</string>
     <string name="enable_bluetooth">Vklopi Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth ni podprt</string>
     <string name="bluetooth_unsupported_explanation">Ta naprava ne podpira Bluetooth Low Energy (BLE), ki ga bitchat potrebuje za delovanje.\n\nbitchat potrebuje BLE za ustvarjanje mesh omrežij in komunikacijo z napravami v bližini brez interneta.</string>
-    <string name="checking_bluetooth_status">Preverjanje stanja Bluetootha...</string>
+    <string name="checking_bluetooth_status">Preverjanje stanja Bluetootha…</string>
     <string name="battery_optimization_detected_title">Zaznana optimizacija baterije</string>
     <string name="battery_optimization_enabled_title">Optimizacija baterije vklopljena</string>
     <string name="battery_optimization_explanation_short">bitchat mora delovati v ozadju, da ohranja mesh povezave. Optimizacija baterije jih lahko prekine.</string>
@@ -499,7 +499,7 @@
     <string name="continue_btn">Nadaljuj</string>
     <string name="initializing_mesh_network">Zaganjanje mesh omrežja</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Nastavljanje Bluetooth mesh omrežja...</string>
+    <string name="setting_up_bluetooth">Nastavljanje Bluetooth mesh omrežja…</string>
     <string name="should_take_seconds">To bo trajalo le nekaj sekund</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Nastavitev ni dokončana</string>

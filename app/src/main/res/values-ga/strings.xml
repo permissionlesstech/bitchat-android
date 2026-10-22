@@ -483,14 +483,14 @@
     <string name="check_again">Seiceáil arís</string>
     <string name="location_services_unavailable">Níl seirbhísí suímh ar fáil</string>
     <string name="location_unavailable_explanation">Níl seirbhísí suímh ar fáil ar an ngléas seo. Is neamhghnách é seo, mar is gnáthchuid de ghléasanna Android iad.\n\nTeastaíonn seirbhísí suímh ó bitchat ionas go n-oibreoidh scanadh Bluetooth i gceart (riachtanas Android). Gan iad, ní féidir leis an aip úsáideoirí in aice láimhe a aimsiú.</string>
-    <string name="checking_location_services">Seirbhísí suímh á seiceáil...</string>
+    <string name="checking_location_services">Seirbhísí suímh á seiceáil…</string>
     <string name="bluetooth_required">Tá Bluetooth ag teastáil</string>
     <string name="bluetooth_needs_for">Teastaíonn Bluetooth ó bitchat le haghaidh:</string>
     <string name="bluetooth_needs_bullets">• Úsáideoirí in aice láimhe a aimsiú\n• Naisc a chruthú sa líonra mesh\n• Teachtaireachtaí a sheoladh agus a fháil\n• Oibriú gan idirlíon ná freastalaithe</string>
     <string name="enable_bluetooth">Cumasaigh Bluetooth</string>
     <string name="bluetooth_not_supported">Ní thacaítear le Bluetooth</string>
     <string name="bluetooth_unsupported_explanation">Ní thacaíonn an gléas seo le Bluetooth Low Energy (BLE), atá ag teastáil ó bitchat chun oibriú.\n\nTeastaíonn BLE ó bitchat chun líonraí mesh a chruthú agus chun cumarsáid a dhéanamh gan idirlíon le gléasanna in aice láimhe.</string>
-    <string name="checking_bluetooth_status">Stádas Bluetooth á sheiceáil...</string>
+    <string name="checking_bluetooth_status">Stádas Bluetooth á sheiceáil…</string>
     <string name="battery_optimization_detected_title">Braitheadh barrfheabhsú ceallraí</string>
     <string name="battery_optimization_enabled_title">Tá barrfheabhsú ceallraí cumasaithe</string>
     <string name="battery_optimization_explanation_short">Ní mór do bitchat rith sa chúlra chun naisc mesh a choinneáil. Is féidir le barrfheabhsú ceallraí iad a bhriseadh.</string>
@@ -501,7 +501,7 @@
     <string name="continue_btn">Lean ar aghaidh</string>
     <string name="initializing_mesh_network">An líonra mesh á thúsú</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">An líonra mesh Bluetooth á shocrú...</string>
+    <string name="setting_up_bluetooth">An líonra mesh Bluetooth á shocrú…</string>
     <string name="should_take_seconds">Níor cheart go dtógfadh sé ach cúpla soicind</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Níl an socrú críochnaithe</string>

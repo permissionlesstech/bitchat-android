@@ -481,14 +481,14 @@
     <string name="check_again">Zkontrolovat znovu</string>
     <string name="location_services_unavailable">Služby určování polohy nejsou k dispozici</string>
     <string name="location_unavailable_explanation">Služby určování polohy nejsou na tomto zařízení k dispozici. To je neobvyklé, protože na zařízeních Android jsou standardní.\n\nbitchat potřebuje služby určování polohy, aby skenování Bluetooth fungovalo správně (požadavek Androidu). Bez nich aplikace nenajde uživatele v okolí.</string>
-    <string name="checking_location_services">Kontrola služeb určování polohy...</string>
+    <string name="checking_location_services">Kontrola služeb určování polohy…</string>
     <string name="bluetooth_required">Vyžadován Bluetooth</string>
     <string name="bluetooth_needs_for">bitchat potřebuje Bluetooth k:</string>
     <string name="bluetooth_needs_bullets">• Hledání uživatelů v okolí\n• Vytváření spojení v mesh síti\n• Odesílání a přijímání zpráv\n• Fungování bez internetu a serverů</string>
     <string name="enable_bluetooth">Zapnout Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth není podporován</string>
     <string name="bluetooth_unsupported_explanation">Toto zařízení nepodporuje Bluetooth Low Energy (BLE), které bitchat ke své funkci potřebuje.\n\nbitchat potřebuje BLE k vytváření mesh sítí a komunikaci se zařízeními v okolí bez internetu.</string>
-    <string name="checking_bluetooth_status">Kontrola stavu Bluetooth...</string>
+    <string name="checking_bluetooth_status">Kontrola stavu Bluetooth…</string>
     <string name="battery_optimization_detected_title">Zjištěna optimalizace baterie</string>
     <string name="battery_optimization_enabled_title">Optimalizace baterie zapnuta</string>
     <string name="battery_optimization_explanation_short">bitchat musí běžet na pozadí, aby udržel mesh spojení. Optimalizace baterie je může přerušit.</string>
@@ -499,7 +499,7 @@
     <string name="continue_btn">Pokračovat</string>
     <string name="initializing_mesh_network">Spouštění mesh sítě</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Nastavování Bluetooth mesh sítě...</string>
+    <string name="setting_up_bluetooth">Nastavování Bluetooth mesh sítě…</string>
     <string name="should_take_seconds">Mělo by to trvat jen pár sekund</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Nastavení nedokončeno</string>

@@ -483,14 +483,14 @@
     <string name="check_again">Iċċekkja mill-ġdid</string>
     <string name="location_services_unavailable">Is-servizzi tal-post mhumiex disponibbli</string>
     <string name="location_unavailable_explanation">Is-servizzi tal-post mhumiex disponibbli fuq dan l-apparat. Dan mhux tas-soltu, għax huma standard fuq l-apparati Android.\n\nbitchat għandu bżonn is-servizzi tal-post biex l-iskanjar tal-Bluetooth jaħdem sew (rekwiżit tal-Android). Mingħajrhom, l-app ma tistax issib utenti fil-qrib.</string>
-    <string name="checking_location_services">Qed jiġu ċċekkjati s-servizzi tal-post...</string>
+    <string name="checking_location_services">Qed jiġu ċċekkjati s-servizzi tal-post…</string>
     <string name="bluetooth_required">Il-Bluetooth huwa meħtieġ</string>
     <string name="bluetooth_needs_for">bitchat għandu bżonn il-Bluetooth għal:</string>
     <string name="bluetooth_needs_bullets">• Sejba ta\' utenti fil-qrib\n• Ħolqien ta\' konnessjonijiet fin-netwerk mesh\n• Bgħit u riċeviment ta\' messaġġi\n• Tħaddim mingħajr internet jew servers</string>
     <string name="enable_bluetooth">Attiva l-Bluetooth</string>
     <string name="bluetooth_not_supported">Il-Bluetooth mhux appoġġjat</string>
     <string name="bluetooth_unsupported_explanation">Dan l-apparat ma jappoġġjax Bluetooth Low Energy (BLE), li bitchat għandu bżonn biex jaħdem.\n\nbitchat għandu bżonn BLE biex joħloq netwerks mesh u jikkomunika mingħajr internet ma\' apparati fil-qrib.</string>
-    <string name="checking_bluetooth_status">Qed jiġi ċċekkjat l-istat tal-Bluetooth...</string>
+    <string name="checking_bluetooth_status">Qed jiġi ċċekkjat l-istat tal-Bluetooth…</string>
     <string name="battery_optimization_detected_title">Instabet l-ottimizzazzjoni tal-batterija</string>
     <string name="battery_optimization_enabled_title">L-ottimizzazzjoni tal-batterija hija attiva</string>
     <string name="battery_optimization_explanation_short">bitchat irid jaħdem fl-isfond biex iżomm il-konnessjonijiet mesh. L-ottimizzazzjoni tal-batterija tista\' taqtagħhom.</string>
@@ -501,7 +501,7 @@
     <string name="continue_btn">Kompli</string>
     <string name="initializing_mesh_network">Qed jinbeda n-netwerk mesh</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Qed jitwaqqaf in-netwerk mesh Bluetooth...</string>
+    <string name="setting_up_bluetooth">Qed jitwaqqaf in-netwerk mesh Bluetooth…</string>
     <string name="should_take_seconds">Għandu jieħu ftit sekondi biss</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Is-setup mhux komplut</string>

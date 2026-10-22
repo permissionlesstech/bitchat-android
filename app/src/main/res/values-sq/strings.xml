@@ -477,14 +477,14 @@
     <string name="check_again">Kontrollo përsëri</string>
     <string name="location_services_unavailable">Shërbimet e vendndodhjes nuk janë të disponueshme</string>
     <string name="location_unavailable_explanation">Shërbimet e vendndodhjes nuk janë të disponueshme në këtë pajisje. Kjo është e pazakontë, sepse janë standarde në pajisjet Android.\n\nbitchat ka nevojë për shërbimet e vendndodhjes që skanimi Bluetooth të funksionojë si duhet (kërkesë e Android-it). Pa to, aplikacioni nuk mund të gjejë përdorues afër.</string>
-    <string name="checking_location_services">Po kontrollohen shërbimet e vendndodhjes...</string>
+    <string name="checking_location_services">Po kontrollohen shërbimet e vendndodhjes…</string>
     <string name="bluetooth_required">Kërkohet Bluetooth</string>
     <string name="bluetooth_needs_for">bitchat ka nevojë për Bluetooth për:</string>
     <string name="bluetooth_needs_bullets">• Gjetjen e përdoruesve afër\n• Krijimin e lidhjeve në rrjetin mesh\n• Dërgimin dhe marrjen e mesazheve\n• Punën pa internet apo serverë</string>
     <string name="enable_bluetooth">Aktivizo Bluetooth-in</string>
     <string name="bluetooth_not_supported">Bluetooth-i nuk mbështetet</string>
     <string name="bluetooth_unsupported_explanation">Kjo pajisje nuk mbështet Bluetooth Low Energy (BLE), që i nevojitet bitchat për të punuar.\n\nbitchat ka nevojë për BLE për të krijuar rrjete mesh dhe për të komunikuar pa internet me pajisjet afër.</string>
-    <string name="checking_bluetooth_status">Po kontrollohet gjendja e Bluetooth-it...</string>
+    <string name="checking_bluetooth_status">Po kontrollohet gjendja e Bluetooth-it…</string>
     <string name="battery_optimization_detected_title">U zbulua optimizimi i baterisë</string>
     <string name="battery_optimization_enabled_title">Optimizimi i baterisë është aktiv</string>
     <string name="battery_optimization_explanation_short">bitchat duhet të punojë në sfond për të mbajtur lidhjet mesh. Optimizimi i baterisë mund t\'i ndërpresë ato.</string>
@@ -495,7 +495,7 @@
     <string name="continue_btn">Vazhdo</string>
     <string name="initializing_mesh_network">Po niset rrjeti mesh</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Po konfigurohet rrjeti mesh Bluetooth...</string>
+    <string name="setting_up_bluetooth">Po konfigurohet rrjeti mesh Bluetooth…</string>
     <string name="should_take_seconds">Do të zgjasë vetëm pak sekonda</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Konfigurimi nuk përfundoi</string>

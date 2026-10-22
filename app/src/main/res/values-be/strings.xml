@@ -481,14 +481,14 @@
     <string name="check_again">Праверыць зноў</string>
     <string name="location_services_unavailable">Службы месцазнаходжання недаступныя</string>
     <string name="location_unavailable_explanation">На гэтай прыладзе службы месцазнаходжання недаступныя. Гэта незвычайна, бо на прыладах Android яны стандартныя.\n\nbitchat патрэбныя службы месцазнаходжання, каб сканаванне Bluetooth працавала правільна (патрабаванне Android). Без іх праграма не можа знаходзіць карыстальнікаў побач.</string>
-    <string name="checking_location_services">Праверка служб месцазнаходжання...</string>
+    <string name="checking_location_services">Праверка служб месцазнаходжання…</string>
     <string name="bluetooth_required">Патрэбны Bluetooth</string>
     <string name="bluetooth_needs_for">bitchat патрэбны Bluetooth, каб:</string>
     <string name="bluetooth_needs_bullets">• Знаходзіць карыстальнікаў побач\n• Ствараць злучэнні mesh-сеткі\n• Адпраўляць і атрымліваць паведамленні\n• Працаваць без інтэрнэту і сервераў</string>
     <string name="enable_bluetooth">Уключыць Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth не падтрымліваецца</string>
     <string name="bluetooth_unsupported_explanation">Гэта прылада не падтрымлівае Bluetooth Low Energy (BLE), які патрэбны bitchat для працы.\n\nbitchat патрэбны BLE, каб ствараць mesh-сеткі і мець сувязь з прыладамі побач без інтэрнэту.</string>
-    <string name="checking_bluetooth_status">Праверка стану Bluetooth...</string>
+    <string name="checking_bluetooth_status">Праверка стану Bluetooth…</string>
     <string name="battery_optimization_detected_title">Выяўлена аптымізацыя батарэі</string>
     <string name="battery_optimization_enabled_title">Аптымізацыя батарэі ўключана</string>
     <string name="battery_optimization_explanation_short">bitchat павінен працаваць у фоне, каб падтрымліваць mesh-злучэнні. Аптымізацыя батарэі можа іх перарываць.</string>
@@ -499,7 +499,7 @@
     <string name="continue_btn">Працягнуць</string>
     <string name="initializing_mesh_network">Ініцыялізацыя mesh-сеткі</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Наладжванне Bluetooth mesh-сеткі...</string>
+    <string name="setting_up_bluetooth">Наладжванне Bluetooth mesh-сеткі…</string>
     <string name="should_take_seconds">Гэта зойме ўсяго некалькі секунд</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Наладжванне не завершана</string>

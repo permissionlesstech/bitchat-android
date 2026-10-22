@@ -477,14 +477,14 @@
     <string name="check_again">Провери отново</string>
     <string name="location_services_unavailable">Услугите за местоположение не са налични</string>
     <string name="location_unavailable_explanation">Услугите за местоположение не са налични на това устройство. Това е необичайно, тъй като те са стандартни за устройствата с Android.\n\nbitchat се нуждае от услуги за местоположение, за да работи правилно сканирането чрез Bluetooth (изискване на Android). Без тях приложението не може да открива потребители наблизо.</string>
-    <string name="checking_location_services">Проверка на услугите за местоположение...</string>
+    <string name="checking_location_services">Проверка на услугите за местоположение…</string>
     <string name="bluetooth_required">Необходим е Bluetooth</string>
     <string name="bluetooth_needs_for">bitchat се нуждае от Bluetooth, за да:</string>
     <string name="bluetooth_needs_bullets">• Открива потребители наблизо\n• Създава връзки в mesh мрежата\n• Изпраща и получава съобщения\n• Работи без интернет и сървъри</string>
     <string name="enable_bluetooth">Включи Bluetooth</string>
     <string name="bluetooth_not_supported">Bluetooth не се поддържа</string>
     <string name="bluetooth_unsupported_explanation">Това устройство не поддържа Bluetooth Low Energy (BLE), който е нужен на bitchat, за да работи.\n\nbitchat се нуждае от BLE, за да създава mesh мрежи и да комуникира с близки устройства без интернет.</string>
-    <string name="checking_bluetooth_status">Проверка на състоянието на Bluetooth...</string>
+    <string name="checking_bluetooth_status">Проверка на състоянието на Bluetooth…</string>
     <string name="battery_optimization_detected_title">Открита е оптимизация на батерията</string>
     <string name="battery_optimization_enabled_title">Оптимизацията на батерията е включена</string>
     <string name="battery_optimization_explanation_short">bitchat трябва да работи във фонов режим, за да поддържа mesh връзките. Оптимизацията на батерията може да ги прекъсне.</string>
@@ -495,7 +495,7 @@
     <string name="continue_btn">Продължи</string>
     <string name="initializing_mesh_network">Стартиране на mesh мрежата</string>
     <string name="dot">.</string>
-    <string name="setting_up_bluetooth">Настройване на Bluetooth mesh мрежата...</string>
+    <string name="setting_up_bluetooth">Настройване на Bluetooth mesh мрежата…</string>
     <string name="should_take_seconds">Това ще отнеме само няколко секунди</string>
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Настройката не е завършена</string>
