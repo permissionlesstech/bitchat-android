@@ -40,10 +40,13 @@ fun UserDetailScreen(
 ) {
     val mesh = WearMeshService.peek()
     val revision by WearPeerIdentityState.revision.collectAsState()
-    val identity = androidx.compose.runtime.remember(peerID, revision) {
+    val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
+    // Keyed on the announced nickname too — see DmScreen. This screen draws the
+    // seal as well, so without it a rename repaints the name here and leaves
+    // the checkmark sitting beside the new one.
+    val identity = androidx.compose.runtime.remember(peerID, revision, nickname) {
         WearPeerIdentityState.snapshot(peerID, mesh)
     }
-    val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
     val listState = rememberScalingLazyListState(initialCenterItemIndex = 0)
     val palette = LocalBitchatPalette.current
 

@@ -76,7 +76,8 @@ fun PeerDebugScreen() {
             items(peers) { peerID ->
                 val nick = nicknames[peerID] ?: peerID.take(8)
                 val encrypted = mesh?.hasEstablishedSession(peerID) == true
-                val identity = androidx.compose.runtime.remember(peerID, identityRevision) {
+                // Keyed on the nickname too — see DmScreen.
+                val identity = androidx.compose.runtime.remember(peerID, identityRevision, nick) {
                     WearPeerIdentityState.snapshot(peerID, mesh)
                 }
                 Row(
