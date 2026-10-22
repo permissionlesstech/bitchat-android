@@ -249,13 +249,7 @@ class SecureIdentityStateManager {
 
     fun cachePeerFingerprint(peerID: String, fingerprint: String) {
         if (!isValidFingerprint(fingerprint)) return
-        val pid = peerID.lowercase()
-        synchronized(lock) {
-            val current = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
-            current.removeAll { it.startsWith("$pid:") }
-            current.add("$pid:$fingerprint")
-            prefs.edit { putStringSet(KEY_CACHED_PEER_FINGERPRINTS, current) }
-        }
+        updateCache(KEY_CACHED_PEER_FINGERPRINTS, ':', mapOf(peerID.lowercase() to fingerprint))
     }
 
     fun getCachedNoiseKey(peerID: String): String? {
@@ -267,13 +261,7 @@ class SecureIdentityStateManager {
 
     fun cachePeerNoiseKey(peerID: String, noiseKeyHex: String) {
         if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
-        val pid = peerID.lowercase()
-        synchronized(lock) {
-            val current = prefs.getStringSet(KEY_CACHED_PEER_NOISE_KEYS, emptySet())?.toMutableSet() ?: mutableSetOf()
-            current.removeAll { it.startsWith("$pid=") }
-            current.add("$pid=${noiseKeyHex.lowercase()}")
-            prefs.edit { putStringSet(KEY_CACHED_PEER_NOISE_KEYS, current) }
-        }
+        updateCache(KEY_CACHED_PEER_NOISE_KEYS, '=', mapOf(peerID.lowercase() to noiseKeyHex.lowercase()))
     }
 
     fun getCachedNoiseFingerprint(noiseKeyHex: String): String? {
@@ -286,13 +274,7 @@ class SecureIdentityStateManager {
     fun cacheNoiseFingerprint(noiseKeyHex: String, fingerprint: String) {
         if (!isValidFingerprint(fingerprint)) return
         if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
-        val key = noiseKeyHex.lowercase()
-        synchronized(lock) {
-            val current = prefs.getStringSet(KEY_CACHED_NOISE_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
-            current.removeAll { it.startsWith("$key=") }
-            current.add("$key=$fingerprint")
-            prefs.edit { putStringSet(KEY_CACHED_NOISE_FINGERPRINTS, current) }
-        }
+        updateCache(KEY_CACHED_NOISE_FINGERPRINTS, '=', mapOf(noiseKeyHex.lowercase() to fingerprint))
     }
 
     fun getCachedFingerprintNickname(fingerprint: String): String? {
@@ -309,13 +291,53 @@ class SecureIdentityStateManager {
 
     fun cacheFingerprintNickname(fingerprint: String, nickname: String) {
         if (!isValidFingerprint(fingerprint)) return
-        val key = fingerprint.lowercase()
         val encoded = Base64.encodeToString(nickname.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
-        synchronized(lock) {
-            val current = prefs.getStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, emptySet())?.toMutableSet() ?: mutableSetOf()
-            current.removeAll { it.startsWith("$key=") }
-            current.add("$key=$encoded")
-            prefs.edit { putStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, current) }
+        updateCache(KEY_CACHED_FINGERPRINT_NICKNAMES, '=', mapOf(fingerprint.lowercase() to encoded))
+    }
+
+    data class CachedPeerIdentity(
+        val peerID: String,
+        val fingerprint: String,
+        val noiseKeyHex: String?,
+        val nickname: String?
+    )
+
+    /** Capture before collecting a snapshot that will be persisted on another dispatcher. */
+    fun cacheGeneration(): Long = synchronized(privateMediaPinsLock) { privateMediaPinsEpoch }
+
+    /** One read and at most one write per cache, fenced against a concurrent panic wipe. */
+    fun cachePeerIdentities(
+        identities: List<CachedPeerIdentity>,
+        generation: Long = cacheGeneration()
+    ) = synchronized(privateMediaPinsLock) {
+        if (generation != privateMediaPinsEpoch) return@synchronized
+        val valid = identities.filter { isValidFingerprint(it.fingerprint) }
+        updateCache(KEY_CACHED_PEER_FINGERPRINTS, ':', valid.associate {
+            it.peerID.lowercase() to it.fingerprint
+        })
+        val withKeys = valid.filter { it.noiseKeyHex?.matches(Regex("^[a-fA-F0-9]{64}$")) == true }
+        updateCache(KEY_CACHED_PEER_NOISE_KEYS, '=', withKeys.associate {
+            it.peerID.lowercase() to it.noiseKeyHex!!.lowercase()
+        })
+        updateCache(KEY_CACHED_NOISE_FINGERPRINTS, '=', withKeys.associate {
+            it.noiseKeyHex!!.lowercase() to it.fingerprint
+        })
+        updateCache(KEY_CACHED_FINGERPRINT_NICKNAMES, '=', valid.mapNotNull {
+            it.nickname?.takeIf(String::isNotBlank)?.let { nickname ->
+                it.fingerprint.lowercase() to Base64.encodeToString(nickname.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+            }
+        }.toMap())
+    }
+
+    private fun updateCache(preferenceKey: String, separator: Char, updates: Map<String, String>) {
+        if (updates.isEmpty()) return
+        synchronized(privateMediaPinsLock) {
+            val current = prefs.getStringSet(preferenceKey, emptySet()).orEmpty()
+            val updated = current.filterNotTo(mutableSetOf()) {
+                it.substringBefore(separator) in updates
+            }
+            updates.forEach { (key, value) -> updated.add("$key$separator$value") }
+            if (updated != current) prefs.edit { putStringSet(preferenceKey, updated) }
         }
     }
 

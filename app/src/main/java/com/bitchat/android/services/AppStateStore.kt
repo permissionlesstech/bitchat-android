@@ -12,10 +12,16 @@ import kotlinx.coroutines.flow.asStateFlow
  * The foreground Mesh service updates this store; UI subscribes/hydrates from it.
  */
 object AppStateStore {
+    const val MAX_PUBLIC_TIMELINE_MESSAGES = 1_000
+    const val MAX_RETAINED_CHANNEL_TIMELINES = 20
+    private const val MAX_RECENT_PUBLIC_MESSAGE_IDS = 10_000
     // Global de-dup set by message id to avoid duplicate keys in Compose lists
     private val seenMessageIds = mutableSetOf<String>()
     private val reservedPrivateMessageIds = mutableSetOf<String>()
     private val seenPublicMessageKeys = mutableSetOf<String>()
+    private val retainedPublicMessageIds = mutableSetOf<String>()
+    private val recentPublicMessageIds = linkedSetOf<String>()
+    private val recentPublicMessageKeys = ArrayDeque<String>()
     private val peerIdsByTransport = mutableMapOf<String, Set<String>>()
     private var privateWritesSinceGlobalPrune = 0
     // Direct (single-hop) peer IDs per transport, used to gossip a unified neighbor set.
@@ -189,10 +195,12 @@ object AppStateStore {
     fun addPublicMessage(msg: BitchatMessage) {
         synchronized(this) {
             val publicKey = publicMessageKey(msg)
-            if (seenMessageIds.contains(msg.id) || seenPublicMessageKeys.contains(publicKey)) return
-            seenMessageIds.add(msg.id)
-            seenPublicMessageKeys.add(publicKey)
-            _publicMessages.value = _publicMessages.value + msg
+            if (seenMessageIds.contains(msg.id) || retainedPublicMessageIds.contains(msg.id) ||
+                seenPublicMessageKeys.contains(publicKey)
+            ) return
+            rememberPublicMessageID(msg.id)
+            rememberPublicMessageKey(publicKey)
+            appendToPublicTimeline(msg)
         }
     }
 
@@ -203,9 +211,9 @@ object AppStateStore {
             if (index >= 0) {
                 _publicMessages.value = _publicMessages.value.toMutableList().also { it[index] = msg }
             } else {
-                seenMessageIds.add(msg.id)
-                seenPublicMessageKeys.add(publicMessageKey(msg))
-                _publicMessages.value = _publicMessages.value + msg
+                rememberPublicMessageID(msg.id)
+                rememberPublicMessageKey(publicMessageKey(msg))
+                appendToPublicTimeline(msg)
             }
         }
     }
@@ -215,6 +223,7 @@ object AppStateStore {
             val existing = _publicMessages.value.firstOrNull { it.id == messageID } ?: return
             _publicMessages.value = _publicMessages.value.filterNot { it.id == messageID }
             seenMessageIds.remove(messageID)
+            retainedPublicMessageIds.remove(messageID)
             seenPublicMessageKeys.remove(publicMessageKey(existing))
         }
     }
@@ -453,7 +462,11 @@ object AppStateStore {
         }
     }
 
-    fun unifyPrivateChatsIntoPeer(targetPeerID: String, keysToMerge: List<String>) {
+    fun unifyPrivateChatsIntoPeer(
+        targetPeerID: String,
+        keysToMerge: List<String>,
+        canonicalizeAfterMerge: Boolean = true
+    ) {
         if (keysToMerge.isEmpty()) return
         synchronized(this) {
             if (privateConversationWritesSuspended) return
@@ -500,6 +513,15 @@ object AppStateStore {
                     map[targetConversationID] = targetList
                 }
                 _privateMessages.value = map
+            }
+            if (canonicalizeAfterMerge) canonicalizePrivateConversationStateLocked()
+        }
+    }
+
+    internal fun reconcilePeerConversations(peers: List<PeerConversationReconciler.PeerAliases>) {
+        synchronized(this) {
+            peers.forEach { peer ->
+                unifyPrivateChatsIntoPeer(peer.conversationID, peer.aliases.toList(), canonicalizeAfterMerge = false)
             }
             canonicalizePrivateConversationStateLocked()
         }
@@ -825,12 +847,66 @@ object AppStateStore {
 
     fun addChannelMessage(channel: String, msg: BitchatMessage) {
         synchronized(this) {
-            if (seenMessageIds.contains(msg.id)) return
-            seenMessageIds.add(msg.id)
+            if (seenMessageIds.contains(msg.id) ||
+                _channelMessages.value[channel].orEmpty().any { it.id == msg.id }
+            ) return
+            rememberPublicMessageID(msg.id)
             val map = _channelMessages.value.toMutableMap()
-            val list = (map[channel] ?: emptyList()) + msg
+            val list = appendPublicMessage(map.remove(channel).orEmpty(), msg)
             map[channel] = list
+            while (map.size > MAX_RETAINED_CHANNEL_TIMELINES) map.remove(map.keys.first())
             _channelMessages.value = map
+        }
+    }
+
+    private fun appendPublicMessage(messages: List<BitchatMessage>, message: BitchatMessage) =
+        buildList(minOf(MAX_PUBLIC_TIMELINE_MESSAGES, messages.size + 1)) {
+            val start = (messages.size - MAX_PUBLIC_TIMELINE_MESSAGES + 1).coerceAtLeast(0)
+            for (index in start until messages.size) add(messages[index])
+            add(message)
+        }
+
+    private fun appendToPublicTimeline(message: BitchatMessage) {
+        val messages = _publicMessages.value
+        if (messages.size >= MAX_PUBLIC_TIMELINE_MESSAGES) {
+            retainedPublicMessageIds.remove(messages.first().id)
+        }
+        retainedPublicMessageIds.add(message.id)
+        _publicMessages.value = appendPublicMessage(messages, message)
+    }
+
+    private fun rememberPublicMessageID(id: String) {
+        seenMessageIds.add(id)
+        recentPublicMessageIds.add(id)
+        if (recentPublicMessageIds.size > MAX_RECENT_PUBLIC_MESSAGE_IDS) {
+            val oldest = recentPublicMessageIds.first()
+            recentPublicMessageIds.remove(oldest)
+            seenMessageIds.remove(oldest)
+        }
+    }
+
+    private fun rememberPublicMessageKey(key: String) {
+        if (!seenPublicMessageKeys.add(key)) return
+        recentPublicMessageKeys.addLast(key)
+        if (recentPublicMessageKeys.size > MAX_RECENT_PUBLIC_MESSAGE_IDS) {
+            seenPublicMessageKeys.remove(recentPublicMessageKeys.removeFirst())
+        }
+    }
+
+    /** Clear visible ephemeral history while retaining the bounded recent replay window. */
+    fun clearPublicTimelines() {
+        synchronized(this) {
+            _publicMessages.value = emptyList()
+            _channelMessages.value = emptyMap()
+            retainedPublicMessageIds.clear()
+        }
+    }
+
+    fun clearChannelMessages(channel: String, remove: Boolean = false) {
+        synchronized(this) {
+            val messages = _channelMessages.value.toMutableMap()
+            if (remove) messages.remove(channel) else if (channel in messages) messages[channel] = emptyList()
+            _channelMessages.value = messages
         }
     }
 
@@ -841,6 +917,9 @@ object AppStateStore {
             reservedPrivateMessageIds.clear()
             privateConversationGeneration += 1
             seenPublicMessageKeys.clear()
+            retainedPublicMessageIds.clear()
+            recentPublicMessageIds.clear()
+            recentPublicMessageKeys.clear()
             PrivateMessageArrivalOrder.clear()
             privateWritesSinceGlobalPrune = 0
             peerIdsByTransport.clear()
