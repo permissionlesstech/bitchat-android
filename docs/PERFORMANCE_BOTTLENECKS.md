@@ -7,7 +7,7 @@ frame times. Raw logs and device evidence stay outside the repository.
 
 ## 1. Repeated encrypted identity-cache writes
 
-**Status:** Confirmed and fixed; two focused regression tests pass.
+**Status:** Confirmed and fixed; focused regression tests pass.
 
 The once-per-second `ChatViewModel` peer poll calls four identity-cache setters
 per known fingerprint. Each setter reads, copies, scans, and rewrites its whole
@@ -84,6 +84,16 @@ The test passes on a fresh disposable API 35 emulator. Its runner uses a plain
 application so the fixture starts no app transports, identity persistence, or
 location services. This is a functional composition/scrolling check, not a frame
 time benchmark or physical-device visual review.
+
+A separate before/after visual review built the actual component at the merged
+base and reviewed commit in an isolated worktree. Four local captures on stable
+Android 17 / API 37 cover three-member and 40-member synthetic cards at about
+411 dp width in dark theme. Small-card geometry is unchanged; the large card
+uses its 400 dp viewport and leaves the following footer visible. The temporary
+debug Activity uses a plain application and starts no transports or location
+services. Captures were inspected and their paired dimensions validated. Raw
+images stay local under the repository privacy rules; this is component evidence,
+not full-sheet or physical-device validation.
 
 **Estimated improvement:** Row composition/state scales with the viewport and
 prefetch region rather than all P participants. For a 2,000-member card this
@@ -344,6 +354,11 @@ Automated results:
 - Participant card instrumentation: 1 passed with 2,000 synthetic members on a
   fresh API 35 emulator; off-screen composition is bounded and the final row is
   reachable.
+- Before/after participant visuals: two inspected pairs on stable API 37, with
+  small-card layout preserved and the large-card viewport bounded. Raw captures
+  remain local. The locked Espresso library fails before app code on API 37, so
+  this visual check uses an isolated temporary debug Activity and ADB capture;
+  the automated scrolling test remains validated on API 35.
 - App and Wear `lintDebug` tasks complete under the repository's non-aborting
   lint configuration. Reports are **not clean**: 305 app errors and 37 Wear
   errors remain. None of those errors intersects edited source lines. The
