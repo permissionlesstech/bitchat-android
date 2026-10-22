@@ -22,7 +22,7 @@ import com.bitchat.android.services.ConversationListPreferences
  * in the public composer, one tap from being sent to everyone.
  */
 @Composable
-internal fun rememberComposerText(
+fun rememberComposerText(
     conversation: String?,
     storedDraft: (String?) -> String,
 ): MutableState<TextFieldValue> = rememberSaveable(
