@@ -115,6 +115,7 @@ class MeshCore(
     private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
     private val voiceFrameQueue = Channel<VoiceFrameRequest>(capacity = 128)
     private val directPeers = ConcurrentHashMap.newKeySet<String>()
+    private val meshPingManager = MeshPingManager(myPeerID, scope, ::dispatchUnsignedDiagnostic)
 
     val gossipSyncManager: GossipSyncManager =
         sharedGossipManager ?: GossipSyncManager(myPeerID = myPeerID, scope = scope, configProvider = gossipConfigProvider)
@@ -527,7 +528,19 @@ class MeshCore(
                 val req = RequestSyncPacket.decode(routed.packet.payload) ?: return
                 gossipSyncManager.handleRequestSync(fromPeer, req)
             }
+
+            override fun handlePing(routed: RoutedPacket) = meshPingManager.handlePing(routed)
+
+            override fun handlePong(routed: RoutedPacket) = meshPingManager.handlePong(routed)
         }
+    }
+
+    private fun dispatchUnsignedDiagnostic(packet: BitchatPacket) {
+        dispatchGlobal(RoutedPacket(packet))
+    }
+
+    fun sendMeshPing(peerID: String, callback: (MeshPingResult?) -> Unit) {
+        meshPingManager.ping(peerID, callback)
     }
 
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
