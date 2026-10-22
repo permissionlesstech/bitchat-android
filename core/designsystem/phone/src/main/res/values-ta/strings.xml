@@ -4,4 +4,5 @@
   <string name="fingerprint_verified_label">சரிபார்க்கப்பட்டது</string>
   <string name="back">பின்</string>
   <string name="close_plain">மூடு</string>
+  <string name="cancel">ரத்து செய்</string>
 </resources>

@@ -3,4 +3,6 @@
     <string name="back">Retour</string>
     <string name="close_plain">Fermer</string>
   <string name="fingerprint_verified_label">vérifié</string>
+    <string name="cancel">Annuler</string>
+
 </resources>

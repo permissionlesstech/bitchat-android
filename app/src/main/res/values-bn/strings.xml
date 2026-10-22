@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">চ্যানেল %1$s পাসওয়ার্ড দিয়ে সুরক্ষিত। যোগ দিতে পাসওয়ার্ড লিখুন।</string>
     <string name="pwd_label">পাসওয়ার্ড</string>
     <string name="join">যোগ দিন</string>
-    <string name="cancel">বাতিল</string>
-
     <!-- বহুবচন -->
 
     <plurals name="people_count">

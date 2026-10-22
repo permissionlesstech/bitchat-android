@@ -291,8 +291,6 @@
     <string name="pwd_prompt_message">%1$s kanalı parolalıdır. Katılmak için parola gir.</string>
     <string name="pwd_label">Parola</string>
     <string name="join">Katıl</string>
-    <string name="cancel">İptal</string>
-
     <plurals name="people_count">
         <item quantity="one">1 kişi</item>
         <item quantity="other">%d kişi</item>

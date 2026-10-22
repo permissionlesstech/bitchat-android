@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">Kênh %1$s được bảo vệ bằng mật khẩu. Nhập mật khẩu để tham gia.</string>
     <string name="pwd_label">Mật khẩu</string>
     <string name="join">Tham gia</string>
-    <string name="cancel">Hủy</string>
-
     <!-- Số nhiều -->
 
     <plurals name="people_count">

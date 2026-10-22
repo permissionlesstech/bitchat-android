@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">O canal %1$s está protegido por palavra-passe. Insira a palavra-passe para entrar.</string>
     <string name="pwd_label">Palavra-passe</string>
     <string name="join">Entrar</string>
-    <string name="cancel">Cancelar</string>
-
     <!-- Plurais -->
 
     <plurals name="people_count">

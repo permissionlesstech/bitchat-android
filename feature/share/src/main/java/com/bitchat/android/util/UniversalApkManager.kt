@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
-import com.bitchat.android.BuildConfig
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.OkHttpProvider
+import com.bitchat.android.share.AppBuildInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -30,6 +30,7 @@ import java.security.MessageDigest
  */
 class UniversalApkManager(
     private val context: Context,
+    private val buildInfo: AppBuildInfo,
     private val downloadSources: List<ApkDownloadSource> = DefaultApkDownloadSources.all
 ) {
     init {
@@ -782,7 +783,7 @@ class UniversalApkManager(
             .getPackageInfo(context.packageName, 0)
             .versionName
             ?.takeIf { it.isNotBlank() }
-            ?: BuildConfig.VERSION_NAME
+            ?: buildInfo.versionName
     }
 
     /**
@@ -807,9 +808,9 @@ class UniversalApkManager(
                 context.packageManager.getPackageInfo(context.packageName, signingFlags())
             )
             // Every mirror must serve the same official release-signed APK.
-            // The BuildConfig field keeps its historical name for configuration compatibility.
+            // The build property keeps its historical name for configuration compatibility.
             val pinnedReleaseCert = normalizeCertificateDigest(
-                BuildConfig.GITHUB_RELEASE_CERT_SHA256
+                buildInfo.githubReleaseCertSha256
             )
             val trustedCerts = ownCerts + listOfNotNull(pinnedReleaseCert)
 
@@ -817,7 +818,7 @@ class UniversalApkManager(
             // require the downloaded artifact itself to be signed. Production
             // builds must match either this installation's signing lineage or
             // the explicitly pinned release certificate.
-            if (BuildConfig.DEBUG && pinnedReleaseCert == null) {
+            if (buildInfo.isDebug && pinnedReleaseCert == null) {
                 Log.w(TAG, "Debug build has no pinned release certificate; accepting signed APK")
                 return true
             }

@@ -390,7 +390,6 @@
   <string name="pwd_prompt_message">Saluran %1$s dilindungi kata laluan. Masukkan kata laluan untuk menyertai.</string>
   <string name="pwd_label">Kata Laluan</string>
   <string name="join">Sertai</string>
-  <string name="cancel">Batal</string>
     <string name="tor_not_available_in_this_build">Tor tidak tersedia dalam binaan ini</string>
 
     <!-- Plurals -->

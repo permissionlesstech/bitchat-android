@@ -314,8 +314,6 @@
     <string name="pwd_prompt_message">%1$s च्यानल पासवर्ड सुरक्षित छ। जडान हुन पासवर्ड लेख्नुहोस्।</string>
     <string name="pwd_label">पासवर्ड</string>
     <string name="join">जोडिनुहोस्</string>
-    <string name="cancel">रद्द</string>
-
     <!-- Plurals -->
 
     <plurals name="people_count">

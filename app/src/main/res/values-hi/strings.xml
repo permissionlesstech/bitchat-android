@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">चैनल %1$s पासवर्ड द्वारा सुरक्षित है। शामिल होने के लिए पासवर्ड दर्ज करें।</string>
     <string name="pwd_label">पासवर्ड</string>
     <string name="join">शामिल हों</string>
-    <string name="cancel">रद्द करें</string>
-
     <!-- बहुवचन -->
 
     <plurals name="people_count">

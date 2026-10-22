@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">Channel %1$s dilindungi kata sandi. Masukkan kata sandi untuk bergabung.</string>
     <string name="pwd_label">Kata sandi</string>
     <string name="join">Bergabung</string>
-    <string name="cancel">Batal</string>
-
     <!-- Jamak -->
 
     <plurals name="people_count">

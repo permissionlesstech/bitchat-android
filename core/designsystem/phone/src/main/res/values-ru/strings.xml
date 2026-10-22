@@ -3,4 +3,7 @@
     <string name="back">Назад</string>
     <string name="close_plain">Закрыть</string>
   <string name="fingerprint_verified_label">проверено</string>
+    <string name="cancel">Отмена</string>
+
+
 </resources>

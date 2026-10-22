@@ -351,7 +351,6 @@
   <string name="pwd_prompt_message">הערוץ %1$s מוגן בסיסמה. הזן את הסיסמה כדי להצטרף.</string>
   <string name="pwd_label">סיסמה</string>
   <string name="join">הצטרף</string>
-  <string name="cancel">בטל</string>
   <string name="tor_not_available_in_this_build">Tor אינו זמין בגרסה זו</string>
 
   <plurals name="people_count">

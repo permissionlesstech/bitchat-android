@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">القناة %1$s محمية بكلمة مرور. أدخل كلمة المرور للانضمام.</string>
     <string name="pwd_label">كلمة المرور</string>
     <string name="join">انضمام</string>
-    <string name="cancel">إلغاء</string>
-
     <!-- صيغ الجمع -->
 
     <plurals name="people_count">

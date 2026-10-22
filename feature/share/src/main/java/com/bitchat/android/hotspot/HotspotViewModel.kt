@@ -6,7 +6,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.bitchat.android.wifiaware.WifiAwareController
+import com.bitchat.android.share.HotspotRadioLease
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +20,8 @@ import java.io.File
  */
 @HiltViewModel
 class HotspotViewModel @Inject constructor(
-    application: Application
+    application: Application,
+    private val radioLease: HotspotRadioLease
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -44,7 +45,7 @@ class HotspotViewModel @Inject constructor(
     private var pendingGroupName: String? = null
 
     /** Once-releasable radio claim owned by the current hotspot session. */
-    private var awareLease: WifiAwareController.HotspotLease? = null
+    private var awareLease: AutoCloseable? = null
     private val context = application.applicationContext
 
     /**
@@ -67,7 +68,7 @@ class HotspotViewModel @Inject constructor(
             try {
                 // Wi-Fi Aware holds a NAN interface that blocks the P2P one; release it
                 // first or every createGroup comes back BUSY. Restored when we stop.
-                awareLease = WifiAwareController.acquireHotspotLease()
+                awareLease = radioLease.acquire()
 
                 // Start hotspot
                 val manager = HotspotManager(context)

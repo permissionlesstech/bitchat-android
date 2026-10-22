@@ -291,9 +291,6 @@
     <string name="pwd_prompt_message">Канал %1$s защищён паролем. Введите пароль, чтобы присоединиться.</string>
     <string name="pwd_label">Пароль</string>
     <string name="join">Войти</string>
-    <string name="cancel">Отмена</string>
-
-
     <plurals name="people_count">
         <item quantity="one">1 человек</item>
         <item quantity="other">%d человек</item>

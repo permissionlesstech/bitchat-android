@@ -3,4 +3,6 @@
     <string name="back">Zurück</string>
     <string name="close_plain">Schließen</string>
   <string name="fingerprint_verified_label">verifiziert</string>
+    <string name="cancel">Abbrechen</string>
+
 </resources>

@@ -2,7 +2,7 @@ package com.bitchat.android.ui
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.bitchat.android.R
+import com.bitchat.android.feature.share.R
 import com.bitchat.android.util.ApkDownloader
 import com.bitchat.android.util.ApkDownloadFailureReason
 import com.bitchat.android.util.GitHubReleaseClient

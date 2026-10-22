@@ -3,4 +3,6 @@
     <string name="back">Terug</string>
     <string name="close_plain">Sluiten</string>
   <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">Annuleren</string>
+
 </resources>

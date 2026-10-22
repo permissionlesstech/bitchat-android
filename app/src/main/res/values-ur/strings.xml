@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">چینل %1$s پاس ورڈ سے محفوظ ہے۔ شامل ہونے کے لیے پاس ورڈ داخل کریں۔</string>
     <string name="pwd_label">پاس ورڈ</string>
     <string name="join">شامل ہوں</string>
-    <string name="cancel">منسوخ کریں</string>
-
     <!-- جمع -->
 
     <plurals name="people_count">

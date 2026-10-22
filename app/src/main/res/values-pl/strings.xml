@@ -353,7 +353,6 @@
     <string name="pwd_prompt_message">Kanał %1$s jest chroniony hasłem. Wprowadź hasło, aby dołączyć.</string>
     <string name="pwd_label">Hasło</string>
     <string name="join">Dołącz</string>
-    <string name="cancel">Anuluj</string>
     <string name="tor_not_available_in_this_build">Tor niedostępny w tej wersji</string>
 
     <plurals name="people_count">

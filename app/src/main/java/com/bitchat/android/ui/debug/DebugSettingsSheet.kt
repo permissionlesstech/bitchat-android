@@ -48,6 +48,7 @@ import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.util.DistributionInfoProvider
+import com.bitchat.android.di.AppBuildFacts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -316,7 +317,7 @@ fun DebugSettingsScreen(
 
     LaunchedEffect(Unit) {
         distributionInfo = withContext(Dispatchers.IO) {
-            runCatching { DistributionInfoProvider.inspect(context) }.getOrNull()
+            runCatching { DistributionInfoProvider.inspect(context, AppBuildFacts) }.getOrNull()
         }
     }
 

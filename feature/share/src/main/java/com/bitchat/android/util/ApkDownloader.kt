@@ -97,15 +97,15 @@ internal fun queuedPhase(runAttemptCount: Int): ApkDownloader.DownloadPhase =
 /** Shared by the notification and the About sheet so both name a phase identically. */
 internal fun downloadPhaseLabel(phase: ApkDownloader.DownloadPhase): Int = when (phase) {
     ApkDownloader.DownloadPhase.AwaitingConnectivity ->
-        com.bitchat.android.R.string.prepare_apk_phase_awaiting_connectivity
+        com.bitchat.android.feature.share.R.string.prepare_apk_phase_awaiting_connectivity
     ApkDownloader.DownloadPhase.Retrying ->
-        com.bitchat.android.R.string.prepare_apk_phase_retrying
+        com.bitchat.android.feature.share.R.string.prepare_apk_phase_retrying
     ApkDownloader.DownloadPhase.SelectingSource ->
-        com.bitchat.android.R.string.prepare_apk_phase_selecting_source
+        com.bitchat.android.feature.share.R.string.prepare_apk_phase_selecting_source
     ApkDownloader.DownloadPhase.AwaitingNetworkRoute ->
-        com.bitchat.android.R.string.prepare_apk_phase_awaiting_route
+        com.bitchat.android.feature.share.R.string.prepare_apk_phase_awaiting_route
     ApkDownloader.DownloadPhase.Transferring ->
-        com.bitchat.android.R.string.prepare_apk_phase_transferring
+        com.bitchat.android.feature.share.R.string.prepare_apk_phase_transferring
     ApkDownloader.DownloadPhase.VerifyingSignature ->
-        com.bitchat.android.R.string.prepare_apk_phase_verifying_signature
+        com.bitchat.android.feature.share.R.string.prepare_apk_phase_verifying_signature
 }

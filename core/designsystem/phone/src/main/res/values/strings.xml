@@ -5,4 +5,5 @@
   <string name="cd_favorited_you">Favorited you</string>
   <string name="close_plain">Close</string>
   <string name="fingerprint_verified_label">Verified</string>
+  <string name="cancel">Cancel</string>
 </resources>

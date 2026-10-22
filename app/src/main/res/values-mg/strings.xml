@@ -323,8 +323,6 @@
     <string name="pwd_prompt_message">Voaaro amin\'ny teny miafina ny fantsona %1$s. Ampidiro ny teny miafina mba hidirana.</string>
     <string name="pwd_label">Teny miafina</string>
     <string name="join">Hiditra</string>
-    <string name="cancel">Hanafoana</string>
-
     <!-- Plurals -->
 
     <plurals name="people_count">

@@ -3,4 +3,5 @@
   <string name="fingerprint_verified_label">підтверджено</string>
     <string name="back">Назад</string>
     <string name="close_plain">Закрити</string>
+    <string name="cancel">Скасувати</string>
 </resources>

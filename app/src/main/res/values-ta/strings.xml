@@ -354,7 +354,6 @@
   <string name="pwd_prompt_message">%1$s சேனல் கடவுச்சொல் பாதுகாக்கப்பட்டுள்ளது. சேர கடவுச்சொல்லை உள்ளிடவும்.</string>
   <string name="pwd_label">கடவுச்சொல்</string>
   <string name="join">சேர்</string>
-  <string name="cancel">ரத்து செய்</string>
   <string name="tor_not_available_in_this_build">இந்த பதிப்பில் Tor கிடைக்கவில்லை</string>
     <string name="about_language">மொழி</string>
     <string name="about_app_language">பயன்பாட்டு மொழி</string>

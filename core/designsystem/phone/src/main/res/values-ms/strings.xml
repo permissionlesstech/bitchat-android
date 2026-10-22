@@ -3,4 +3,5 @@
     <string name="back">Kembali</string>
   <string name="close_plain">Tutup</string>
   <string name="fingerprint_verified_label">disahkan</string>
+  <string name="cancel">Batal</string>
 </resources>

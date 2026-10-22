@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">کانال %1$s با گذرواژه محافظت می‌شود. برای پیوستن، گذرواژه را وارد کنید.</string>
     <string name="pwd_label">گذرواژه</string>
     <string name="join">پیوستن</string>
-    <string name="cancel">لغو</string>
-
     <!-- حالت جمع -->
 
     <plurals name="people_count">

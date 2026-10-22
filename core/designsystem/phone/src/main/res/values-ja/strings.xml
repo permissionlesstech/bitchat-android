@@ -3,4 +3,6 @@
     <string name="back">戻る</string>
     <string name="close_plain">閉じる</string>
   <string name="fingerprint_verified_label">検証済み</string>
+    <string name="cancel">キャンセル</string>
+
 </resources>

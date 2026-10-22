@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">チャンネル %1$s はパスワードで保護されています。参加するにはパスワードを入力してください。</string>
     <string name="pwd_label">パスワード</string>
     <string name="join">参加</string>
-    <string name="cancel">キャンセル</string>
-
     <!-- 複数形 -->
 
     <plurals name="people_count">

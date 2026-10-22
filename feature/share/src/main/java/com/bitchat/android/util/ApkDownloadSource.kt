@@ -1,7 +1,7 @@
 package com.bitchat.android.util
 
 import androidx.annotation.StringRes
-import com.bitchat.android.R
+import com.bitchat.android.feature.share.R
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException

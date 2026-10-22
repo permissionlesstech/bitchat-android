@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">ช่อง %1$s มีการป้องกันด้วยรหัสผ่าน ป้อนรหัสผ่านเพื่อเข้าร่วม</string>
     <string name="pwd_label">รหัสผ่าน</string>
     <string name="join">เข้าร่วม</string>
-    <string name="cancel">ยกเลิก</string>
-
     <!-- พหูพจน์ -->
 
     <plurals name="people_count">

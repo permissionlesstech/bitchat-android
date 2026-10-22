@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <string name="share_apk_title">Share BitChat App</string>
+  <string name="share_apk_explanation">This will share the BitChat installation file(s) so others can install the app without internet access. Perfect for mesh network expansion!</string>
+  <string name="share_apk_receiver_instructions">The receiver will need to:\n• Enable \"Install from unknown sources\" in Android settings\n• Uninstall BitChat first if already installed (signatures differ)</string>
+  <string name="share_apk_confirm">Share App</string>
+  <string name="share_apk_chooser_title">Share BitChat via…</string>
+  <string name="share_apk_error">Failed to prepare app for sharing. Please try again.</string>
+
+  <!-- Universal APK Preparation -->
+  <string name="prepare_apk_title">Prepare App for Sharing</string>
+  <string name="prepare_apk_ready_title">App Ready for Offline Sharing</string>
+  <string name="prepare_apk_status_not_downloaded">Not ready • Tap to download</string>
+  <!-- Assembled as one string so translators control separator and line order, not Kotlin. -->
+  <string name="prepare_apk_ready_detail">Ready to share • %1$s • %2$d MB\n%3$s</string>
+  <string name="prepare_apk_status_resumable">%1$s • %2$d%% downloaded</string>
+  <string name="prepare_apk_source_installed">Sharing source: this installed APK</string>
+  <string name="prepare_apk_source_installed_arm64">Sharing source: this installed APK • ARM64 devices only</string>
+  <string name="prepare_apk_source_downloaded">Sharing source: verified downloaded universal APK</string>
+  <string name="prepare_apk_update_available">Version %1$s is available. You can keep sharing this APK or download the update.</string>
+  <string name="prepare_apk_update_warning">New version available</string>
+  <!-- Now the accessibility label and tooltip for an icon-only button, not a visible label. -->
+  <string name="prepare_apk_get_universal">Download universal APK</string>
+  <string name="prepare_apk_retry">Retry download</string>
+  <string name="prepare_apk_status_downloading">Downloading… %1$d%%</string>
+  <!-- Stages of preparing the APK. Only the transfer has a meaningful percentage. -->
+  <string name="prepare_apk_phase_awaiting_connectivity">Waiting for network…</string>
+  <string name="prepare_apk_phase_retrying">Retrying…</string>
+  <string name="prepare_apk_phase_selecting_source">Selecting download source…</string>
+  <string name="prepare_apk_phase_awaiting_route">Waiting for Tor…</string>
+  <string name="prepare_apk_phase_transferring">Downloading…</string>
+  <string name="prepare_apk_phase_verifying_signature">Verifying signature…</string>
+  <string name="prepare_apk_stop">Stop download</string>
+  <string name="prepare_apk_button_delete">Delete</string>
+  <string name="prepare_apk_dialog_title">Download Universal APK?</string>
+  <string name="prepare_apk_update_dialog_title">Download Newer Universal APK?</string>
+  <string name="prepare_apk_dialog_message_unknown_size">This will download a verified universal APK from a configured source. You only need to do this once.</string>
+  <string name="prepare_apk_update_dialog_message">Version %1$s is available from GitHub (%2$d MB). Your current APK remains shareable during the download.</string>
+  <string name="prepare_apk_dialog_confirm">Download</string>
+  <!--
+    Download failures. These are named in the util layer, which has no Context, and resolved at
+    the presentation boundary: the row resolves its own status text, the ViewModel resolves the
+    toast shown when an APK is still shareable.
+  -->
+  <string name="prepare_apk_error_rate_limited">%1$s is temporarily rate limited. Try again later.</string>
+  <string name="prepare_apk_error_no_universal">%1$s does not currently have a universal APK.</string>
+  <string name="prepare_apk_error_http">%1$s download failed: HTTP %2$s %3$s</string>
+  <string name="prepare_apk_error_generic">Download failed. Please try again.</string>
+  <string name="prepare_apk_error_storage_needed">Not enough storage: %1$s MB needed, %2$s MB free.</string>
+  <string name="prepare_apk_error_no_sources">No APK download sources are configured.</string>
+  <string name="prepare_apk_error_tor_connecting">Tor is still connecting. Try again when Tor is ready.</string>
+  <string name="prepare_apk_error_no_url">%1$s has no usable APK URL.</string>
+  <string name="prepare_apk_error_unreachable">%1$s could not be reached.</string>
+  <string name="prepare_apk_error_insecure_redirect">%1$s redirected to an insecure URL.</string>
+  <string name="prepare_apk_error_resume_rejected">%1$s rejected the saved download position. The next attempt will restart the download.</string>
+  <string name="prepare_apk_error_incomplete">%1$s download ended before all bytes arrived. It can be resumed.</string>
+  <string name="prepare_apk_error_invalid_resume">%1$s returned an invalid resume response. The next attempt will restart the download.</string>
+  <string name="prepare_apk_error_untrusted_key">The APK from %1$s is not signed by a trusted BitChat release key.</string>
+  <string name="prepare_apk_error_not_universal">%1$s returned an architecture-specific APK, not the required universal APK.</string>
+  <string name="prepare_apk_error_apk_unreadable">The downloaded APK could not be read.</string>
+  <string name="prepare_apk_error_not_bitchat">The downloaded file is not a BitChat APK.</string>
+  <string name="prepare_apk_error_no_version">The downloaded APK has no version information.</string>
+  <string name="prepare_apk_error_source_failed">%1$s download failed.</string>
+  <string name="prepare_apk_error_all_sources">All configured APK sources failed.</string>
+  <string name="prepare_apk_delete_confirm">Delete cached APK?</string>
+  <string name="prepare_apk_delete_message">This will free up ~%1$d MB of storage.</string>
+  <string name="prepare_apk_download_interrupted">Download interrupted</string>
+  <string name="prepare_apk_download_cancelled">Download cancelled</string>
+  <string name="apk_download_notification_title">Downloading universal APK</string>
+  <string name="apk_download_channel_name">APK downloads</string>
+
+  <!-- Hotspot Sharing -->
+  <string name="hotspot_share_via">Share via Hotspot</string>
+  <string name="hotspot_share_via_subtitle">Create Wi-Fi hotspot to share offline</string>
+  <string name="hotspot_share_other">Share via Quick Share</string>
+  <string name="hotspot_share_other_subtitle">Use standard Android sharing</string>
+  <string name="hotspot_disconnect_title">Disconnect current Wi-Fi Direct connection?</string>
+  <string name="hotspot_disconnect_message">Starting the hotspot will disconnect the current Wi-Fi Direct connection. This may interrupt Cast, Android Auto, Quick Share, or another nearby connection.</string>
+  <string name="hotspot_disconnect_confirm">Disconnect and start</string>
+
+    <string name="checking">Checking...</string>
+    <string name="apk_not_ready_please_prepare_it_first">APK not ready. Please prepare it first.</string>
+
+</resources>

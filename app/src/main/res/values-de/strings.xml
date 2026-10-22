@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">Kanal %1$s ist passwortgeschützt. Gib zum Beitreten das Passwort ein.</string>
     <string name="pwd_label">Passwort</string>
     <string name="join">Beitreten</string>
-    <string name="cancel">Abbrechen</string>
-
     <!-- Plurals -->
 
     <plurals name="people_count">

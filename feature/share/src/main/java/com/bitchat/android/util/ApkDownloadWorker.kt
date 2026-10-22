@@ -12,7 +12,12 @@ import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.bitchat.android.R
+import com.bitchat.android.feature.share.R
+import com.bitchat.android.share.AppBuildInfo
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 
 /**
  * WorkManager worker that downloads the universal APK in the background.
@@ -45,7 +50,21 @@ class ApkDownloadWorker(
         private const val NOTIFY_STEP_PERCENT = 5
     }
 
-    private val apkManager = UniversalApkManager(applicationContext)
+    /**
+     * WorkManager builds this worker by class name with the default factory, so
+     * it reaches the app's build facts through an entry point, not injection.
+     */
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface Dependencies {
+        fun appBuildInfo(): AppBuildInfo
+    }
+
+    private val apkManager = UniversalApkManager(
+        applicationContext,
+        EntryPointAccessors.fromApplication(applicationContext, Dependencies::class.java)
+            .appBuildInfo()
+    )
     private val notificationManager =
         applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 

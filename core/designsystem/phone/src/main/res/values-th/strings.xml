@@ -3,4 +3,6 @@
     <string name="back">กลับ</string>
     <string name="close_plain">ปิด</string>
   <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">ยกเลิก</string>
+
 </resources>

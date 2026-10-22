@@ -314,8 +314,6 @@
     <string name="pwd_prompt_message">Ang channel na %1$s ay protektado. Ilagay ang password para sumali.</string>
     <string name="pwd_label">Password</string>
     <string name="join">Sumali</string>
-    <string name="cancel">Kanselahin</string>
-
     <!-- Plurals -->
 
     <plurals name="people_count">

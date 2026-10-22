@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
-import com.bitchat.android.BuildConfig
+import com.bitchat.android.share.AppBuildInfo
 import java.io.File
 import java.security.MessageDigest
 import java.util.zip.ZipFile
@@ -22,7 +22,7 @@ object DistributionInfoProvider {
         "x86"
     )
 
-    fun inspect(context: Context): DistributionInfo {
+    fun inspect(context: Context, buildInfo: AppBuildInfo): DistributionInfo {
         val packageInfo = context.packageManager.getPackageInfo(
             context.packageName,
             signingFlags()
@@ -38,7 +38,7 @@ object DistributionInfoProvider {
         }
 
         return DistributionInfo(
-            installSource = installSourceLabel(installerPackage),
+            installSource = installSourceLabel(installerPackage, buildInfo),
             installerPackage = installerPackage,
             packageFormat = if (splitApks.isEmpty()) "Standalone APK" else "Split APK set",
             architecture = architectureLabel(applicationInfo.sourceDir, splitApks),
@@ -47,14 +47,14 @@ object DistributionInfoProvider {
                 ShareableApkVariant.ARM64 -> "Current installed APK (ARM64)"
                 null -> "Verified GitHub universal APK"
             },
-            versionName = packageInfo.versionName ?: BuildConfig.VERSION_NAME,
+            versionName = packageInfo.versionName ?: buildInfo.versionName,
             versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 packageInfo.longVersionCode
             } else {
                 @Suppress("DEPRECATION")
                 packageInfo.versionCode.toLong()
             },
-            signingChannel = signingChannel(installerPackage, certificateSha256),
+            signingChannel = signingChannel(installerPackage, certificateSha256, buildInfo),
             certificateSha256 = certificateSha256
         )
     }
@@ -74,7 +74,7 @@ object DistributionInfoProvider {
         }
     }
 
-    private fun installSourceLabel(installerPackage: String?): String {
+    private fun installSourceLabel(installerPackage: String?, buildInfo: AppBuildInfo): String {
         return when (installerPackage) {
             "com.android.vending" -> "Google Play"
             "com.amazon.venezia" -> "Amazon Appstore"
@@ -82,7 +82,7 @@ object DistributionInfoProvider {
             "com.android.packageinstaller",
             "com.google.android.packageinstaller",
             "com.android.permissioncontroller" -> "Android package installer"
-            null -> if (BuildConfig.DEBUG) "ADB / local install" else "Unknown / local install"
+            null -> if (buildInfo.isDebug) "ADB / local install" else "Unknown / local install"
             else -> installerPackage
         }
     }
@@ -158,11 +158,15 @@ object DistributionInfoProvider {
             .toSet()
     }
 
-    private fun signingChannel(installerPackage: String?, certificateSha256: String?): String {
-        if (BuildConfig.DEBUG) return "Debug"
+    private fun signingChannel(
+        installerPackage: String?,
+        certificateSha256: String?,
+        buildInfo: AppBuildInfo
+    ): String {
+        if (buildInfo.isDebug) return "Debug"
         if (installerPackage == "com.android.vending") return "Google Play"
 
-        val pinnedGitHubCert = BuildConfig.GITHUB_RELEASE_CERT_SHA256
+        val pinnedGitHubCert = buildInfo.githubReleaseCertSha256
             .replace(":", "")
             .lowercase()
             .takeIf { it.matches(Regex("[a-f0-9]{64}")) }

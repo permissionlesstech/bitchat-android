@@ -315,8 +315,6 @@
     <string name="pwd_prompt_message">Le canal %1$s est protégé par mot de passe. Entre le mot de passe pour rejoindre.</string>
     <string name="pwd_label">Mot de passe</string>
     <string name="join">Rejoindre</string>
-    <string name="cancel">Annuler</string>
-
     <!-- Pluriels -->
 
     <plurals name="people_count">

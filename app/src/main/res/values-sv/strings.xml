@@ -291,8 +291,6 @@
     <string name="pwd_prompt_message">Kanal %1$s är lösenordsskyddad. Ange lösenordet för att gå med.</string>
     <string name="pwd_label">Lösenord</string>
     <string name="join">Gå med</string>
-    <string name="cancel">Avbryt</string>
-
     <plurals name="people_count">
         <item quantity="one">1 person</item>
         <item quantity="other">%d personer</item>

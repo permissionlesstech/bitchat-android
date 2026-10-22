@@ -1,6 +1,6 @@
 package com.bitchat.android.ui
 
-import com.bitchat.android.R
+import com.bitchat.android.feature.share.R
 import com.bitchat.android.util.ApkDownloader
 import com.bitchat.android.util.ShareableApkVariant
 import com.bitchat.android.util.UniversalApkManager

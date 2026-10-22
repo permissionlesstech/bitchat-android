@@ -3,4 +3,6 @@
     <string name="back">Voltar</string>
     <string name="close_plain">Fechar</string>
   <string name="fingerprint_verified_label">verificado</string>
+    <string name="cancel">Cancelar</string>
+
 </resources>

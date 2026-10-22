@@ -303,8 +303,6 @@
     <string name="pwd_prompt_message">არხი %1$s დაცულია პაროლით. შეიყვანეთ პაროლი შესაერთებლად.</string>
     <string name="pwd_label">პაროლი</string>
     <string name="join">შეუერთდი</string>
-    <string name="cancel">გაუქმება</string>
-
     <!-- მრავლობითი რიცხვები -->
 
     <plurals name="people_count">

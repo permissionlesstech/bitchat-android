@@ -1,6 +1,7 @@
 package com.bitchat.android.util
 
 import android.content.Context
+import com.bitchat.android.share.AppBuildInfo
 import androidx.work.Constraints
 import androidx.work.BackoffPolicy
 import androidx.work.ExistingWorkPolicy
@@ -16,11 +17,14 @@ import java.util.concurrent.TimeUnit
  * WorkManager-backed implementation of [ApkDownloader].
  * Downloads survive app backgrounding, process death, and device reboots.
  */
-class WorkManagerApkDownloader(context: Context) : ApkDownloader {
+class WorkManagerApkDownloader(
+    context: Context,
+    buildInfo: AppBuildInfo
+) : ApkDownloader {
 
     private val appContext = context.applicationContext
     private val workManager = WorkManager.getInstance(appContext)
-    private val apkManager = UniversalApkManager(appContext)
+    private val apkManager = UniversalApkManager(appContext, buildInfo)
 
     override val downloadState: Flow<ApkDownloader.DownloadState> =
         workManager.getWorkInfosForUniqueWorkFlow(ApkDownloadWorker.WORK_NAME)

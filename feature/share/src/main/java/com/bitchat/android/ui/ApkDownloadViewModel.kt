@@ -7,7 +7,8 @@ import androidx.annotation.StringRes
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.bitchat.android.R
+import com.bitchat.android.feature.share.R
+import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.util.ApkDownloader
 import com.bitchat.android.util.AppVersion
 import com.bitchat.android.util.GitHubReleaseClient
@@ -166,10 +167,10 @@ class ApkDownloadViewModel internal constructor(
     // Kotlin types through Dagger's generated Java buys nothing here. Tests
     // keep using the primary constructor to substitute fakes.
     @Inject
-    constructor(application: Application) : this(
+    constructor(application: Application, buildInfo: AppBuildInfo) : this(
         application = application,
-        apkManager = UniversalApkManager(application),
-        downloader = WorkManagerApkDownloader(application),
+        apkManager = UniversalApkManager(application, buildInfo),
+        downloader = WorkManagerApkDownloader(application, buildInfo),
         latestReleaseProvider = GitHubReleaseClient(application)
     )
 

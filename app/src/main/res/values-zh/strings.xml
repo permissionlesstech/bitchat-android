@@ -314,8 +314,6 @@
     <string name="pwd_prompt_message">频道 %1$s 已受密码保护。请输入密码以加入。</string>
     <string name="pwd_label">密码</string>
     <string name="join">加入</string>
-    <string name="cancel">取消</string>
-
     <!-- 复数 -->
 
     <plurals name="people_count">

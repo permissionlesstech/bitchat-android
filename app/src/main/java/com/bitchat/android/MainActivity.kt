@@ -41,6 +41,7 @@ import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.BackAction
+import com.bitchat.android.share.ShareAppSection
 import com.bitchat.android.ui.AboutScreen
 import com.bitchat.android.ui.AppForegroundEffect
 import com.bitchat.android.ui.ChatBackUnwinder
@@ -146,6 +147,10 @@ class MainActivity : OrientationAwareActivity() {
 
     @Inject
     lateinit var geohashSession: GeohashSession
+
+    // The About settings card's APK-sharing rows, from :feature:share.
+    @Inject
+    lateinit var shareAppSection: ShareAppSection
 
     private val forceFinishReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
@@ -376,6 +381,7 @@ class MainActivity : OrientationAwareActivity() {
                         }
                         entry<AboutRoute> {
                             AboutScreen(
+                                shareAppSection = shareAppSection,
                                 onClose = { navigator.goBack() },
                                 onShowDebug = { navigator.goTo(DebugSettingsRoute) }
                             )

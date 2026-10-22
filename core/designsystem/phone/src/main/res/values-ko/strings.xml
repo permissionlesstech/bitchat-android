@@ -3,4 +3,6 @@
     <string name="back">뒤로</string>
     <string name="close_plain">닫기</string>
   <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">취소</string>
+
 </resources>

@@ -347,7 +347,6 @@
     <string name="pwd_prompt_message">Канал %1$s захищений паролем. Введіть пароль, щоб приєднатися.</string>
     <string name="pwd_label">Пароль</string>
     <string name="join">Приєднатися</string>
-    <string name="cancel">Скасувати</string>
     <string name="tor_not_available_in_this_build">Tor недоступний у цій збірці</string>
 
     <plurals name="location_notes_title">

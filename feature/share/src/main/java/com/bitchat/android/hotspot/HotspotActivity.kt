@@ -35,14 +35,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.R
+import com.bitchat.android.feature.share.R
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.BitchatTheme
+import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.util.UniversalApkManager
 import dagger.hilt.android.AndroidEntryPoint
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import java.io.File
+import javax.inject.Inject
 
 /**
  * Activity for managing Wi-Fi P2P hotspot for offline APK sharing.
@@ -56,6 +58,9 @@ class HotspotActivity : ComponentActivity() {
         private const val TAG = "HotspotActivity"
     }
 
+    @Inject
+    lateinit var appBuildInfo: AppBuildInfo
+
     private val viewModel: HotspotViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,7 +72,7 @@ class HotspotActivity : ComponentActivity() {
             File(apkPath)
         } else {
             // Fallback: Try to get cached APK
-            UniversalApkManager(this).getCachedApk()
+            UniversalApkManager(this, appBuildInfo).getCachedApk()
         }
 
         if (apkFile == null || !apkFile.exists()) {

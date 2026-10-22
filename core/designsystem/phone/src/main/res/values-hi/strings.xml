@@ -3,4 +3,6 @@
     <string name="back">वापस</string>
     <string name="close_plain">बंद करें</string>
   <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">रद्द करें</string>
+
 </resources>

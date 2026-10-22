@@ -138,6 +138,8 @@ dependencies {
     implementation(project(":core:nostr"))
     implementation(project(":core:chat"))
     implementation(project(":core:tor"))
+    implementation(project(":feature:share"))
+    implementation(project(":feature:share:api"))
 
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
@@ -187,11 +189,7 @@ dependencies {
     // WebSocket
     implementation(libs.okhttp)
 
-    // WorkManager for background APK downloads
-    implementation(libs.androidx.work.runtime.ktx)
-
-    // HTTP Server for hotspot APK sharing
-    implementation(libs.nanohttpd)
+    // WorkManager and NanoHTTPD for APK sharing live in :feature:share.
 
     // Arti (Tor in Rust), its native libraries and OkHttpProvider live in :core:tor.
 

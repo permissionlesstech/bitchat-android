@@ -3,4 +3,6 @@
     <string name="back">Geri</string>
     <string name="close_plain">Kapat</string>
   <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">İptal</string>
+
 </resources>
