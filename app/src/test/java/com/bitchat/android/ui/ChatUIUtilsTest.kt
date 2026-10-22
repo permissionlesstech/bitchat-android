@@ -333,6 +333,134 @@ class ChatUIUtilsTest {
     }
 
     @Test
+    fun `unsuffixed nickname is unique when only one peer uses it`() {
+        val resolved = resolvePeerIDForNickname(
+            "Alice",
+            mapOf("aabbccdd" to "alice")
+        )
+        assertEquals(NicknameResolution.Unique("aabbccdd"), resolved)
+    }
+
+    @Test
+    fun `unsuffixed nickname is refused when two peers share it`() {
+        val resolved = resolvePeerIDForNickname(
+            "alice",
+            mapOf(
+                "1111aaaa" to "alice",
+                "2222bbbb" to "alice",
+            )
+        )
+        assertEquals(NicknameResolution.Ambiguous, resolved)
+        assertEquals(null, uniquePeerIDForNickname("alice", mapOf(
+            "1111aaaa" to "alice",
+            "2222bbbb" to "alice",
+        )))
+    }
+
+    @Test
+    fun `hash suffix selects the colliding peer`() {
+        val nicknames = mapOf(
+            "1111aaaa" to "alice",
+            "2222bbbb" to "alice",
+        )
+        assertEquals(
+            NicknameResolution.Unique("1111aaaa"),
+            resolvePeerIDForNickname("alice#1111", nicknames)
+        )
+        assertEquals(
+            NicknameResolution.Unique("2222bbbb"),
+            resolvePeerIDForNickname("ALICE#2222", nicknames)
+        )
+    }
+
+    @Test
+    fun `mesh people-list suffix is the first four hex characters of the peer id`() {
+        val nicknames = mapOf(
+            "1111aaaa" to "alice",
+            "2222bbbb" to "alice",
+            "ccccdddd" to "bob",
+        )
+        val duplicates = duplicateMeshBaseNames(nicknames)
+        assertEquals(setOf("alice"), duplicates)
+        assertEquals("alice#1111", disambiguatedMeshDisplayName("1111aaaa", "alice", duplicates))
+        assertEquals("alice#2222", disambiguatedMeshDisplayName("2222bbbb", "alice", duplicates))
+        assertEquals("bob", disambiguatedMeshDisplayName("ccccdddd", "bob", duplicates))
+        assertEquals(
+            "#1111",
+            meshIdentitySuffix("1111aaaa", "alice", showHashSuffix = true)
+        )
+        assertEquals("", meshIdentitySuffix("1111aaaa", "alice", showHashSuffix = false))
+        assertEquals("#1111", meshIdentitySuffix("1111aaaa", "You", showHashSuffix = true))
+    }
+
+    @Test
+    fun `claimed suffix cannot impersonate another mesh peer`() {
+        val nicknames = mapOf("1111aaaa" to "alice", "2222bbbb" to "alice#1111")
+        val duplicates = duplicateMeshBaseNames(nicknames)
+        assertEquals("alice#2222", disambiguatedMeshDisplayName("2222bbbb", "alice#1111", duplicates))
+        assertEquals(NicknameResolution.Ambiguous, resolvePeerIDForNickname("alice", nicknames))
+        assertEquals(NicknameResolution.Unique("1111aaaa"), resolvePeerIDForNickname("alice#1111", nicknames))
+        assertEquals(NicknameResolution.Unique("2222bbbb"), resolvePeerIDForNickname("alice#2222", nicknames))
+    }
+
+    @Test
+    fun `cached geohash decorations are resolved using the actual pubkey suffix`() {
+        val nicknames = mapOf("1111aaaa" to "alice#bbbb", "2222bbbb" to "alice#bbbb")
+        val lastFour: (String) -> String = { "#${it.takeLast(4)}" }
+        assertEquals(NicknameResolution.Ambiguous, resolvePeerIDForNickname("alice", nicknames, lastFour))
+        assertEquals(NicknameResolution.Unique("1111aaaa"), resolvePeerIDForNickname("alice#aaaa", nicknames, lastFour))
+        assertEquals(NicknameResolution.Unique("2222bbbb"), resolvePeerIDForNickname("alice#bbbb", nicknames, lastFour))
+    }
+
+    @Test
+    fun `whitespace cannot hide a collision from the people list`() {
+        val nicknames = mapOf("1111aaaa" to "alice", "2222bbbb" to " alice ")
+        assertEquals(setOf("alice"), duplicateMeshBaseNames(nicknames))
+        assertEquals("alice#2222", disambiguatedMeshDisplayName("2222bbbb", " alice ", duplicateMeshBaseNames(nicknames)))
+        assertEquals(NicknameResolution.Ambiguous, resolvePeerIDForNickname("alice", nicknames))
+    }
+
+    @Test
+    fun `canonically equivalent Unicode names share the same collision policy`() {
+        val nicknames = mapOf("1111aaaa" to "café", "2222bbbb" to "cafe\u0301")
+        assertEquals(setOf("café"), duplicateMeshBaseNames(nicknames))
+        assertEquals(NicknameResolution.Ambiguous, resolvePeerIDForNickname("café", nicknames))
+        assertEquals(NicknameResolution.Unique("2222bbbb"), resolvePeerIDForNickname("café#2222", nicknames))
+    }
+
+    @Test
+    fun `colliding identity abbreviations remain ambiguous`() {
+        assertEquals(NicknameResolution.Ambiguous, resolvePeerIDForNickname(
+            "alice#1111", mapOf("1111aaaa" to "alice", "1111bbbb" to "alice")
+        ))
+    }
+
+    @Test
+    fun `unknown nickname resolves to none`() {
+        assertEquals(
+            NicknameResolution.None,
+            resolvePeerIDForNickname("bob", mapOf("1111aaaa" to "alice"))
+        )
+    }
+
+    @Test
+    fun `geohash last-four suffix selects the colliding pubkey`() {
+        val nicknames = mapOf(
+            "1111aaaa" to "alice",
+            "2222bbbb" to "alice",
+        )
+        val lastFour: (String) -> String = { "#${it.takeLast(4)}" }
+        assertEquals(
+            NicknameResolution.Unique("1111aaaa"),
+            resolvePeerIDForNickname("alice#aaaa", nicknames, lastFour)
+        )
+        assertEquals(
+            NicknameResolution.Ambiguous,
+            resolvePeerIDForNickname("alice", nicknames, lastFour)
+        )
+    }
+
+    @Test
     fun `message without mentions has no background chips`() {
         val body = formatTextMessageBody(
             message = message("no mentions in here"),

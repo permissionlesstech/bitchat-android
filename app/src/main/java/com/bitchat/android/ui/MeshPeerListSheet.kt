@@ -751,13 +751,13 @@ fun PeopleSection(
             compareBy<String> { !hasUnreadPrivateMessages.contains(it) } // Unread DM senders first
             .thenByDescending { privateChats[it]?.maxByOrNull { msg -> msg.timestamp }?.timestamp?.time ?: 0L } // Most recent DM (convert Date to Long)
             .thenBy { !(peerFavoriteStates[it] ?: false) } // Favorites first
-            .thenBy { (if (it == nickname) "You" else (peerNicknames[it] ?: it)).lowercase() } // Alphabetical
+            .thenBy { (if (it == viewModel.myPeerID) "You" else (peerNicknames[it] ?: it)).lowercase() } // Alphabetical
         )
         
         // Build a map of base name counts across all people shown in the list (connected + offline + nostr)
         // Helper to compute display name used for a given key
         fun computeDisplayNameForPeerId(key: String): String {
-            return if (key == nickname) "You" else (peerNicknames[key] ?: (privateChats[key]?.lastOrNull()?.sender ?: key.take(12)))
+            return if (key == viewModel.myPeerID) "You" else (peerNicknames[key] ?: (privateChats[key]?.lastOrNull()?.sender ?: key.take(12)))
         }
 
         val baseNameCounts = mutableMapOf<String, Int>()
@@ -765,8 +765,8 @@ fun PeopleSection(
         // Connected peers
         sortedPeers.forEach { pid ->
             val dn = computeDisplayNameForPeerId(pid)
-            val (b, _) = splitSuffix(dn)
-            if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
+            val b = canonicalNicknameBase(dn)
+            baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
         }
 
         // Offline favorites (exclude ones mapped to connected)
@@ -778,8 +778,8 @@ fun PeopleSection(
                 !isFavoriteMappedToConnected(fav)
             ) {
                 val dn = peerNicknames[favPeerID] ?: fav.peerNickname
-                val (b, _) = splitSuffix(dn)
-                if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
+                val b = canonicalNicknameBase(dn)
+                baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
         }
 
@@ -820,8 +820,8 @@ fun PeopleSection(
                 if (noiseHex != null) privateChats[noiseHex]?.count { msg -> msg.sender != nickname && nostrUnread } ?: 0 else 0
             )
 
-            val displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12)))
-            val (bName, _) = splitSuffix(displayName)
+            val displayName = if (peerID == viewModel.myPeerID) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12)))
+            val bName = canonicalNicknameBase(displayName)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
             val isDirectLive = directMap[peerID] ?: try { viewModel.getMeshPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false }
@@ -861,7 +861,7 @@ fun PeopleSection(
 
             val mappedConnectedPeerID = noiseHexByPeerID.entries.firstOrNull { it.value.equals(favPeerID, ignoreCase = true) }?.key
             val dn = peerNicknames[favPeerID] ?: fav.peerNickname
-            val (bName, _) = splitSuffix(dn)
+            val bName = canonicalNicknameBase(dn)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
             val isVerified = viewModel.isNoisePublicKeyVerified(fav.peerNoisePublicKey, verifiedFingerprints)
@@ -1474,16 +1474,15 @@ private fun PeerItem(
     showNostrGlobe: Boolean = false,
     showHashSuffix: Boolean = true
 ) {
-    val currentNickname by viewModel.nickname.collectAsStateWithLifecycle()
     val connectionDescription = meshConnectionDescription(
         isWifiAware = isWifiAware,
         isDirect = isDirect
     )
     // Split display name for hashtag suffix support (iOS-compatible)
-    val (baseNameRaw, suffixRaw) = splitSuffix(displayName)
+    val (baseNameRaw, _) = splitSuffix(displayName)
     val baseName = truncateNickname(baseNameRaw)
-    val suffix = if (showHashSuffix) suffixRaw else ""
-    val isMe = displayName == "You" || peerID == currentNickname
+    val suffix = meshIdentitySuffix(peerID, displayName, showHashSuffix)
+    val isMe = peerID == viewModel.myPeerID
 
     // Get consistent peer color (iOS-compatible)
     val palette = LocalBitchatPalette.current
