@@ -24,6 +24,13 @@
     <init>();
 }
 
+# ML Kit instantiates the component registrars listed in the manifest by name. Without their
+# no-argument constructors ML Kit never initializes and BarcodeScanning.getClient() crashes
+# when the verification Scan tab opens.
+-keepclassmembers class * implements com.google.firebase.components.ComponentRegistrar {
+    <init>();
+}
+
 # Keep Tor implementation (always included)
 -keep class com.bitchat.android.net.RealTorProvider { *; }
 

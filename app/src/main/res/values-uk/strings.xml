@@ -17,6 +17,7 @@
   <string name="verify_paste_label">вставити посилання для підтвердження</string>
   <string name="verify_validate">підтвердити</string>
   <string name="verify_scanned">запит на підтвердження надіслано</string>
+  <string name="verify_scan_failed">Недійсний або прострочений код, або ця людина не підключена поблизу</string>
   <string name="security_verification_title">перевірка безпеки</string>
   <string name="fingerprint_their">їхній відбиток</string>
   <string name="fingerprint_yours">ваш відбиток</string>

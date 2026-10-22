@@ -374,6 +374,7 @@
   <string name="verify_paste_label">coller url de vérification</string>
   <string name="verify_validate">valider</string>
   <string name="verify_scanned">vérification demandée</string>
+  <string name="verify_scan_failed">Code invalide ou expiré, ou cette personne n’est pas connectée à proximité</string>
   <string name="security_verification_title">vérification de sécurité</string>
   <string name="fingerprint_their">leur empreinte</string>
   <string name="fingerprint_yours">votre empreinte</string>

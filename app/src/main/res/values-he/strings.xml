@@ -31,6 +31,7 @@
   <string name="verify_paste_label">הדבק כתובת אימות</string>
   <string name="verify_validate">אמת</string>
   <string name="verify_scanned">בקשת אימות נשלחה</string>
+  <string name="verify_scan_failed">קוד לא תקין או שפג תוקפו, או שהאדם הזה לא מחובר בקרבת מקום</string>
   <string name="security_verification_title">אימות אבטחה</string>
   <string name="fingerprint_their">טביעת האצבע שלהם</string>
   <string name="fingerprint_yours">טביעת האצבע שלך</string>

@@ -486,6 +486,7 @@
   <string name="verify_paste_label">Paste verification URL</string>
   <string name="verify_validate">Validate</string>
   <string name="verify_scanned">Verification requested</string>
+  <string name="verify_scan_failed">Invalid or expired code, or this person isn\'t connected nearby</string>
   <string name="security_verification_title">Security verification</string>
   <string name="fingerprint_their">Their fingerprint</string>
   <string name="fingerprint_yours">Your fingerprint</string>

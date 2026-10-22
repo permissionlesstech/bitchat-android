@@ -362,6 +362,7 @@
   <string name="verify_paste_label">検証URLを貼り付け</string>
   <string name="verify_validate">検証する</string>
   <string name="verify_scanned">検証をリクエストしました</string>
+  <string name="verify_scan_failed">コードが無効か期限切れ、またはこの相手が近くで接続されていません</string>
   <string name="security_verification_title">セキュリティ検証</string>
   <string name="fingerprint_their">相手の指紋</string>
   <string name="fingerprint_yours">あなたの指紋</string>

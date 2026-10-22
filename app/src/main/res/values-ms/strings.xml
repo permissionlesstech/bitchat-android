@@ -268,6 +268,7 @@
   <string name="verify_paste_label">tampal pautan pengesahan</string>
   <string name="verify_validate">sahkan</string>
   <string name="verify_scanned">pengesahan diminta</string>
+  <string name="verify_scan_failed">kod tidak sah atau tamat tempoh, atau orang ini tidak bersambung berdekatan</string>
   <string name="security_verification_title">pengesahan keselamatan</string>
   <string name="fingerprint_their">cap jari mereka</string>
   <string name="fingerprint_yours">cap jari anda</string>

@@ -31,6 +31,7 @@
   <string name="verify_paste_label">貼上驗證連結</string>
   <string name="verify_validate">驗證</string>
   <string name="verify_scanned">已請求驗證</string>
+  <string name="verify_scan_failed">二維碼無效或已過期，或對方不在附近</string>
   <string name="security_verification_title">安全驗證</string>
   <string name="fingerprint_their">對方指紋</string>
   <string name="fingerprint_yours">你的指紋</string>

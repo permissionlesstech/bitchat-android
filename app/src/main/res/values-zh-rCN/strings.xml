@@ -31,6 +31,7 @@
   <string name="verify_paste_label">粘贴验证链接</string>
   <string name="verify_validate">验证</string>
   <string name="verify_scanned">已请求验证</string>
+  <string name="verify_scan_failed">二维码无效或已过期，或对方不在附近</string>
   <string name="security_verification_title">安全验证</string>
   <string name="fingerprint_their">对方指纹</string>
   <string name="fingerprint_yours">你的指纹</string>
