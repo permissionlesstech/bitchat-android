@@ -7,7 +7,8 @@ import org.junit.Test
 /**
  * The module graph rules, read from the Gradle files: a feature reaches another feature only
  * through its `:api`, an `:api` module names only `:core:navigation` and `:core:domain`, and
- * `:core:tor` is a leaf.
+ * `:core:tor` is a leaf, the shared `:core:designsystem` names no project and no Material3, and
+ * `:core:designsystem:phone` builds on it alone.
  */
 class FeatureDependencyRulesTest {
 
@@ -71,5 +72,29 @@ class FeatureDependencyRulesTest {
     fun torIsALeaf() {
         val deps = projectDependencies(File(root, "core/tor/build.gradle.kts"))
         assertTrue(":core:tor must depend on no project module: $deps", deps.isEmpty())
+    }
+
+    private fun codeOf(buildFile: File): String =
+        buildFile.readText()
+            .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+            .lineSequence()
+            .map { it.substringBefore("//") }
+            .joinToString("\n")
+
+    @Test
+    fun sharedDesignSystemDependsOnNoProjectAndNoMaterial() {
+        val file = File(root, "core/designsystem/build.gradle.kts")
+        val deps = projectDependencies(file)
+        assertTrue(":core:designsystem must depend on no project module: $deps", deps.isEmpty())
+        assertTrue(
+            ":core:designsystem is shared with Wear and must not use Material3",
+            !codeOf(file).contains("material3", ignoreCase = true)
+        )
+    }
+
+    @Test
+    fun phoneDesignSystemBuildsOnlyOnTheSharedOne() {
+        val deps = projectDependencies(File(root, "core/designsystem/phone/build.gradle.kts"))
+        assertTrue(":core:designsystem:phone may depend only on :core:designsystem: $deps", deps == listOf(":core:designsystem"))
     }
 }
