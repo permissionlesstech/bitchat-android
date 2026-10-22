@@ -41,7 +41,7 @@ class GeohashMessageHandlerSignatureTest {
         chatState = ChatState(scope = testScope)
         dataManager = DataManager(context = application)
         messageManager = MessageManager(state = chatState)
-        repo = GeohashRepository(application, chatState, dataManager)
+        repo = GeohashRepository(application, chatState, dataManager, testScope)
         handler = GeohashMessageHandler(
             application = application,
             repo = repo,
