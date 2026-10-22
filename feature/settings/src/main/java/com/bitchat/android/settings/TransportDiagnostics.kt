@@ -1,14 +1,12 @@
 package com.bitchat.android.settings
 
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
  * What Debug settings reads from, and does to, the app's transports: the
- * Bluetooth mesh service and the Wi-Fi Aware controller, both of which live in
+ * Wi-Fi Aware controller and the Bluetooth mesh service, both of which live in
  * the app. One member per thing the screen uses, named for what it does there.
- *
- * Mesh members resolve the app's current mesh service when called, never when
- * this is injected, so opening Debug creates the service no earlier than before.
  */
 interface TransportDiagnostics {
 
@@ -18,7 +16,10 @@ interface TransportDiagnostics {
     val wifiAwareAvailable: StateFlow<Boolean>
 
     /** Why Wi-Fi Aware is unsupported; null until it is evaluated, or when no reason is given. */
-    val wifiAwareSupportReason: StateFlow<String?>
+    val wifiAwareSupportReason: Flow<String?>
+
+    /** The value [wifiAwareSupportReason] holds right now, to collect it from without a blank frame. */
+    fun currentWifiAwareSupportReason(): String?
     val wifiAwareRunning: StateFlow<Boolean>
 
     /** Peer ID to IP address, for each open Wi-Fi Aware socket. */
@@ -35,6 +36,16 @@ interface TransportDiagnostics {
     fun wifiAwarePermissions(): List<String>
 
     // Bluetooth mesh
+
+    /**
+     * Gets the app's mesh service, creating or replacing it as needed, and
+     * returns a handle bound to that instance. Debug calls this once per visit.
+     */
+    fun openMesh(): MeshDiagnostics
+}
+
+/** One mesh service instance, as Debug settings sees it. */
+interface MeshDiagnostics {
 
     val myPeerID: String
 

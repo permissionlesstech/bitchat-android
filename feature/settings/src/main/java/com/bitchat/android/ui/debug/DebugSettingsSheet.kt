@@ -224,6 +224,10 @@ fun DebugSettingsScreen(
     val gcsMaxBytes by manager.gcsMaxBytes.collectAsState()
     val gcsFpr by manager.gcsFprPercent.collectAsState()
     val context = LocalContext.current
+    // Resolved rather than passed in. A panic clear replaces the mesh service, so
+    // a reference captured when the screen was opened could be a stale instance;
+    // the holder always has the current one.
+    val mesh = remember(context) { diagnostics.openMesh() }
     var distributionInfo by remember {
         mutableStateOf<DistributionInfoProvider.DistributionInfo?>(null)
     }
@@ -266,7 +270,8 @@ fun DebugSettingsScreen(
     val wifiAwareConnected by manager.wifiAwareConnected.collectAsState()
     val wifiAwareSupported by diagnostics.wifiAwareSupported.collectAsState()
     val wifiAwareAvailable by diagnostics.wifiAwareAvailable.collectAsState()
-    val wifiAwareSupportReason by diagnostics.wifiAwareSupportReason.collectAsState()
+    val wifiAwareSupportReason by diagnostics.wifiAwareSupportReason
+        .collectAsState(initial = diagnostics.currentWifiAwareSupportReason())
     // Persistent notification is now controlled solely by MeshServicePreferences.isBackgroundEnabled
     val listState = rememberLazyListState()
     val isScrolled by remember {
@@ -283,11 +288,11 @@ fun DebugSettingsScreen(
     LaunchedEffect(Unit) {
         // Poll device list periodically for now (TODO: add callbacks)
         while (true) {
-            val entries = diagnostics.connectedDeviceEntries()
-            val mapping = diagnostics.deviceAddressToPeerMapping()
+            val entries = mesh.connectedDeviceEntries()
+            val mapping = mesh.deviceAddressToPeerMapping()
             val peers = mapping.values.toSet()
-            val nicknames = diagnostics.peerNicknames()
-            val directMap = peers.associateWith { pid -> diagnostics.isDirectConnection(pid) }
+            val nicknames = mesh.peerNicknames()
+            val directMap = peers.associateWith { pid -> mesh.isDirectConnection(pid) }
             val devices = entries.map { (address, isClient, rssi) ->
                 val pid = mapping[address]
                 com.bitchat.android.ui.debug.ConnectedDevice(
@@ -382,7 +387,7 @@ fun DebugSettingsScreen(
                 }
                 MeshTopologySection(
                     diagnostics = diagnostics,
-                    localPeerID = diagnostics.myPeerID,
+                    localPeerID = mesh.myPeerID,
                     blePeerIDs = blePeerIDs,
                 )
             }
@@ -400,7 +405,7 @@ fun DebugSettingsScreen(
                             Switch(checked = gattServerEnabled, onCheckedChange = {
                                 manager.setGattServerEnabled(it)
                                 scope.launch {
-                                    if (it) diagnostics.startGattServer() else diagnostics.stopGattServer()
+                                    if (it) mesh.startGattServer() else mesh.stopGattServer()
                                 }
                             })
                         }
@@ -420,7 +425,7 @@ fun DebugSettingsScreen(
                             Switch(checked = gattClientEnabled, onCheckedChange = {
                                 manager.setGattClientEnabled(it)
                                 scope.launch {
-                                    if (it) diagnostics.startGattClient() else diagnostics.stopGattClient()
+                                    if (it) mesh.startGattClient() else mesh.stopGattClient()
                                 }
                             })
                         }
@@ -535,10 +540,10 @@ fun DebugSettingsScreen(
                         val nicknameMap = remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
                         val devicePeerMap = remember { mutableStateOf<Map<String, String>>(emptyMap()) }
                         LaunchedEffect(Unit) {
-                            try { nicknameMap.value = diagnostics.peerNicknames() } catch (_: Exception) { }
+                            try { nicknameMap.value = mesh.peerNicknames() } catch (_: Exception) { }
                             // Try to fetch device->peer map periodically for legend resolution
                             while (true) {
-                                try { devicePeerMap.value = diagnostics.deviceAddressToPeerMapping() } catch (_: Exception) { }
+                                try { devicePeerMap.value = mesh.deviceAddressToPeerMapping() } catch (_: Exception) { }
                                 kotlinx.coroutines.delay(1000)
                             }
                         }
@@ -852,7 +857,7 @@ fun DebugSettingsScreen(
                             Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF4CAF50))
                             Text(stringResource(R.string.debug_connected_devices), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
-                        val localAddr = remember { diagnostics.localAdapterAddress() }
+                        val localAddr = remember { mesh.localAdapterAddress() }
                         Text(stringResource(R.string.debug_our_device_id_fmt, localAddr ?: stringResource(R.string.unknown)), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         if (connectedDevices.isEmpty()) {
                             Text("None", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
@@ -866,7 +871,7 @@ fun DebugSettingsScreen(
                                             Text("${dev.nickname ?: ""} • " + stringResource(R.string.debug_rssi_fmt, dev.rssi ?: stringResource(R.string.debug_question_mark)) + " • $roleLabel" + (if (dev.isDirectConnection) stringResource(R.string.debug_direct_suffix) else ""), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text(stringResource(R.string.debug_disconnect), color = Color(0xFFBF1A1A), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
-                                            diagnostics.disconnectDevice(dev.deviceAddress)
+                                            mesh.disconnectDevice(dev.deviceAddress)
                                         })
                                     }
                                 }
@@ -895,7 +900,7 @@ fun DebugSettingsScreen(
                                             Text(stringResource(R.string.debug_rssi_fmt, res.rssi.toString()), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text(stringResource(R.string.debug_connect), color = Color(0xFF00C851), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
-                                            diagnostics.connectToDevice(res.deviceAddress)
+                                            mesh.connectToDevice(res.deviceAddress)
                                         })
                                     }
                                 }
