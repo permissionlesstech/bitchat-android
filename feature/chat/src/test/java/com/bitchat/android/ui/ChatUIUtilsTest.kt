@@ -289,6 +289,28 @@ class ChatUIUtilsTest {
     }
 
     @Test
+    fun `separate history and participant candidates preserve ambiguous mentions`() {
+        val first = PeerIdentity.mesh("1111111111111111")
+        val second = PeerIdentity.mesh("2222222222222222")
+        val history = buildMentionCandidates(
+            emptyList(), listOf("alice#1111" to first, "alice#2222" to second)
+        )
+        val participants = buildMentionCandidates(emptyList(), listOf("alice#1111" to first))
+
+        val resolved = resolveMentionCandidates(history, participants)
+
+        assertFalse(resolved.containsKey("alice"))
+        assertEquals(first, resolved["alice#1111"])
+        assertEquals(second, resolved["alice#2222"])
+        assertEquals(
+            buildMentionPeerIdentityMap(
+                emptyList(), listOf("alice#1111" to first, "alice#2222" to second)
+            ),
+            resolved
+        )
+    }
+
+    @Test
     fun `ambiguous base nickname is not assigned to the wrong peer`() {
         val firstIdentity = PeerIdentity.nostr("11111111".repeat(8))
         val secondIdentity = PeerIdentity.nostr("22222222".repeat(8))

@@ -93,7 +93,7 @@ class NostrDirectMessageHandlerTest {
             inbox = ChatPrivateMessageInbox(state, privateChatManager),
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, dataManager) { state.getNicknameValue() },
+            repo = GeohashRepository(application, dataManager, scope) { state.getNicknameValue() },
             dataManager = dataManager,
             seenStoreProvider = { seenStore }
         )
@@ -166,7 +166,7 @@ class NostrDirectMessageHandlerTest {
             inbox = refusingInbox,
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, dataManager) { "recipient" },
+            repo = GeohashRepository(application, dataManager, scope) { "recipient" },
             dataManager = dataManager,
             seenStoreProvider = { seenStore }
         )

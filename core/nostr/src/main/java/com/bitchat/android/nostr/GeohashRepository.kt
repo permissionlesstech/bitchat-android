@@ -3,6 +3,10 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.util.Log
 import com.bitchat.android.ui.GeoPerson
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Date
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,10 +20,17 @@ import kotlinx.coroutines.flow.asStateFlow
 class GeohashRepository(
     private val application: Application,
     private val dataManager: com.bitchat.android.ui.DataManager,
+    /** Owns the coalesced presence publication; cancelling it drops a pending refresh. */
+    private val scope: CoroutineScope,
     /** This device's nickname, shown for our own entry in a geohash. */
     private val nickname: () -> String,
 ) {
-    companion object { private const val TAG = "GeohashRepository" }
+    companion object {
+        private const val TAG = "GeohashRepository"
+        private const val PRESENCE_REFRESH_INTERVAL_MS = 100L
+    }
+
+    private var presenceRefreshJob: Job? = null
 
     // What the geohash UI shows. Set from background threads as events arrive.
     private val _geohashPeople = MutableStateFlow<List<GeoPerson>>(emptyList())
@@ -89,6 +100,8 @@ class GeohashRepository(
 
     @Synchronized
     fun clearAll() {
+        presenceRefreshJob?.cancel()
+        presenceRefreshJob = null
         geohashParticipants.clear()
         geoNicknames.clear()
         nostrKeyMapping.clear()
@@ -104,7 +117,7 @@ class GeohashRepository(
         val previous = geoNicknames[lower]
         geoNicknames[lower] = nickname
         if (previous != nickname && currentGeohash != null) {
-            refreshGeohashPeople()
+            schedulePresenceRefresh()
         }
     }
 
@@ -140,8 +153,25 @@ class GeohashRepository(
         if (existing == null || effective.after(existing)) {
             participants[participantId] = effective
         }
-        if (currentGeohash == geohash) refreshGeohashPeople()
-        updateReactiveParticipantCounts()
+        schedulePresenceRefresh()
+    }
+
+    /**
+     * Relays can replay hundreds of presence events at once when entering a channel. Keep
+     * individual updates cheap and publish one complete snapshot per interval, rather than
+     * rebuilding and sorting the growing people list twice per event on the UI thread.
+     * The supplied owner scope also cancels pending publication when its UI is destroyed.
+     */
+    private fun schedulePresenceRefresh() {
+        if (presenceRefreshJob?.isActive == true) return
+        presenceRefreshJob = scope.launch {
+            delay(PRESENCE_REFRESH_INTERVAL_MS)
+            synchronized(this@GeohashRepository) {
+                presenceRefreshJob = null
+                refreshGeohashPeople()
+                updateReactiveParticipantCounts()
+            }
+        }
     }
 
     @Synchronized

@@ -53,7 +53,7 @@ class GeohashSession(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    private val repo = GeohashRepository(application, dataManager) { state.getNicknameValue() }
+    private val repo = GeohashRepository(application, dataManager, scope) { state.getNicknameValue() }
     private val uiSubscriptionOwner = "geohash-ui-${UUID.randomUUID()}"
     private val subscriptionManager = NostrSubscriptionManager(
         application,

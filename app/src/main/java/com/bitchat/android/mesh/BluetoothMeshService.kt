@@ -608,8 +608,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 return true
             }
             
-            override fun handleMessage(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleMessage(routed) }
+            override suspend fun handleMessage(routed: RoutedPacket) {
+                messageHandler.handleMessage(routed)
                 // Track broadcast messages for sync
                 try {
                     val pkt = routed.packet
@@ -623,8 +623,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
                 messageHandler.handlePublicVoiceFrame(routed)
             
-            override fun handleLeave(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleLeave(routed) }
+            override suspend fun handleLeave(routed: RoutedPacket) {
+                messageHandler.handleLeave(routed)
             }
             
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {

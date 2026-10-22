@@ -181,15 +181,14 @@ fun ChatScreen(
     val displayMessages = timeline.messages
     val conversationKey = timeline.conversationKey
 
-    val mentionPeerIdentities = remember(
-        displayMessages,
+    val knownMentionPeers = remember(
         currentChannel,
         selectedLocationChannel,
         connectedPeers,
         peerNicknames,
         geohashPeople,
     ) {
-        val knownPeers = if (
+        if (
             currentChannel == null && selectedLocationChannel is ChannelID.Location
         ) {
             val duplicateNames = duplicateGeohashBaseNames(geohashPeople)
@@ -205,8 +204,10 @@ fun ChatScreen(
                 }
             }
         }
-        buildMentionPeerIdentityMap(displayMessages, knownPeers)
     }
+    val mentionPeerIdentities = rememberMentionPeerIdentities(
+        displayMessages, knownMentionPeers, conversationKey
+    )
 
     // Determine whether to show media buttons (only hide in geohash location chats)
     val showMediaButtons = when {
