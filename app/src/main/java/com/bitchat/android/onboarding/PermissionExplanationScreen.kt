@@ -187,7 +187,7 @@ private fun PermissionCategoryCard(
     ) {
         Icon(
             imageVector = getPermissionIcon(category.type),
-            contentDescription = category.type.nameValue,
+            contentDescription = stringResource(category.type.titleRes),
             tint = colorScheme.primary,
             modifier = Modifier
                 .padding(top = 2.dp)
@@ -196,7 +196,7 @@ private fun PermissionCategoryCard(
         Spacer(modifier = Modifier.width(16.dp))
         Column {
             Text(
-                text = category.type.nameValue,
+                text = stringResource(category.type.titleRes),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
                 color = colorScheme.onBackground
