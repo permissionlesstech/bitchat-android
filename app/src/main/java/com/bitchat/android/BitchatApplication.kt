@@ -30,6 +30,7 @@ class BitchatApplication : Application() {
         com.bitchat.android.nostr.NostrNetwork.install(object : com.bitchat.android.nostr.NostrHttpClients {
             override fun httpClient() = com.bitchat.android.net.OkHttpProvider.httpClient()
             override fun webSocketClient() = com.bitchat.android.net.OkHttpProvider.webSocketClient()
+            override val routeChanges = com.bitchat.android.net.ArtiTorManager.getInstance().routeChanges
         })
 
         // Initialize relay directory (loads assets/nostr_relays.csv)

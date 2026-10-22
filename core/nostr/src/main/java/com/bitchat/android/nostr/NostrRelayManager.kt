@@ -116,6 +116,11 @@ class NostrRelayManager private constructor() {
     
     // Subscription validation timer
     private var subscriptionValidationJob: Job? = null
+
+    // Closes relay sockets when the installed clients report a route change.
+    private val routeChangeLock = Any()
+    private var routeChangeSource: NostrHttpClients? = null
+    private var routeChangeJob: Job? = null
     private val powerManager: com.bitchat.android.mesh.PowerManager?
         get() = appContext?.let { com.bitchat.android.mesh.PowerManager.getInstance(it) }
     @Volatile private var appContext: android.content.Context? = null
@@ -392,6 +397,7 @@ class NostrRelayManager private constructor() {
      * Connect to all configured relays
      */
     fun connect() {
+        watchRouteChanges()
         desiredConnected.set(true)
         Log.i(TAG, "Connecting to ${relaysList.size} Nostr relays")
         scope.launch {
@@ -601,6 +607,7 @@ class NostrRelayManager private constructor() {
      */
     fun retryConnection(relayUrl: String) {
         val relay = relaysList.find { it.url == relayUrl } ?: return
+        watchRouteChanges()
         desiredConnected.set(true)
         val liveToken = liveLocationRelayTokens[relayUrl]
             ?.takeIf { relayUrl !in nonLiveRelayUrls }
@@ -620,6 +627,25 @@ class NostrRelayManager private constructor() {
         }
     }
     
+    /**
+     * Collect the installed clients' [NostrHttpClients.routeChanges] so a route change resets
+     * every relay socket. Called before anything that turns connectivity on, so the collector
+     * is subscribed (undispatched) before a socket can exist. Idempotent, and it never cancels
+     * itself: [resetAllConnections] calls back into [connect]. Without installed clients there
+     * is nothing to watch, and no socket can open either.
+     */
+    private fun watchRouteChanges() {
+        val clients = NostrNetwork.installedOrNull() ?: return
+        synchronized(routeChangeLock) {
+            if (routeChangeSource === clients) return
+            routeChangeJob?.cancel()
+            routeChangeSource = clients
+            routeChangeJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                clients.routeChanges.collect { resetAllConnections() }
+            }
+        }
+    }
+
     /**
      * Reset all relay connections
      * This will automatically restore all subscriptions when reconnected

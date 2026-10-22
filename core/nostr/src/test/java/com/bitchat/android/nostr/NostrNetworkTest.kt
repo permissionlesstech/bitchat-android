@@ -1,5 +1,6 @@
 package com.bitchat.android.nostr
 
+import kotlinx.coroutines.flow.emptyFlow
 import org.junit.After
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
@@ -22,6 +23,7 @@ class NostrNetworkTest {
         val clients = object : NostrHttpClients {
             override fun httpClient() = error("not called")
             override fun webSocketClient() = error("not called")
+            override val routeChanges = emptyFlow<Unit>()
         }
         NostrNetwork.install(clients)
 

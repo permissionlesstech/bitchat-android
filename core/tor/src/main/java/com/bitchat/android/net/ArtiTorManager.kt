@@ -2,13 +2,16 @@ package com.bitchat.android.net
 
 import android.app.Application
 import android.util.Log
-import com.bitchat.android.util.AppConstants
 import info.guardianproject.arti.ArtiLogListener
 import info.guardianproject.arti.ArtiProxy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -53,11 +56,11 @@ class ArtiTorManager private constructor() {
 
     companion object {
         private const val TAG = "ArtiTorManager"
-        private const val DEFAULT_SOCKS_PORT = AppConstants.Tor.DEFAULT_SOCKS_PORT
-        private const val RESTART_DELAY_MS = AppConstants.Tor.RESTART_DELAY_MS
-        private const val INACTIVITY_TIMEOUT_MS = AppConstants.Tor.INACTIVITY_TIMEOUT_MS
-        private const val MAX_RETRY_ATTEMPTS = AppConstants.Tor.MAX_RETRY_ATTEMPTS
-        private const val STOP_TIMEOUT_MS = AppConstants.Tor.STOP_TIMEOUT_MS
+        private const val DEFAULT_SOCKS_PORT: Int = 9060
+        private const val RESTART_DELAY_MS: Long = 2_000L
+        private const val INACTIVITY_TIMEOUT_MS: Long = 5_000L
+        private const val MAX_RETRY_ATTEMPTS: Int = 5
+        private const val STOP_TIMEOUT_MS: Long = 7_000L
 
         @Volatile
         private var INSTANCE: ArtiTorManager? = null
@@ -110,6 +113,18 @@ class ArtiTorManager private constructor() {
     )
 
     val statusFlow: StateFlow<TorStatus> = _statusFlow.asStateFlow()
+
+    private val _routeChanges = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    /**
+     * Emits after every route change, once [OkHttpProvider] has dropped its cached clients.
+     * Whoever holds connections opened on the old route closes them here. Emission never
+     * suspends, and a signal sent while the collector is busy is kept, not lost.
+     */
+    val routeChanges: SharedFlow<Unit> = _routeChanges.asSharedFlow()
 
     private val stateChangeDeferred = AtomicReference<CompletableDeferred<TorState>?>(null)
 
@@ -324,17 +339,14 @@ class ArtiTorManager private constructor() {
 
     /**
      * Reset network connections after Tor state changes.
-     * Rebuilds OkHttp clients and reconnects Nostr relays.
+     * Rebuilds OkHttp clients, then signals [routeChanges] so open connections are closed.
      */
     private fun resetNetworkConnections() {
         try {
             OkHttpProvider.reset()
         } catch (_: Throwable) {
         }
-        try {
-            com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections()
-        } catch (_: Throwable) {
-        }
+        _routeChanges.tryEmit(Unit)
     }
 
     private fun stopArtiInternal() {

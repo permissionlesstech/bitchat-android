@@ -1,6 +1,7 @@
 package com.bitchat.android.nostr
 
 import androidx.annotation.VisibleForTesting
+import kotlinx.coroutines.flow.Flow
 import okhttp3.OkHttpClient
 
 /**
@@ -13,6 +14,14 @@ import okhttp3.OkHttpClient
 interface NostrHttpClients {
     fun httpClient(): OkHttpClient
     fun webSocketClient(): OkHttpClient
+
+    /**
+     * Emits whenever the network route changes, for example when Tor turns on
+     * or off or moves to another SOCKS port. On each emission every relay
+     * socket opened on the old route is closed, and relays reconnect through
+     * the clients this interface hands out next.
+     */
+    val routeChanges: Flow<Unit>
 }
 
 /**
@@ -28,6 +37,8 @@ object NostrNetwork {
     fun install(clients: NostrHttpClients) {
         installed = clients
     }
+
+    internal fun installedOrNull(): NostrHttpClients? = installed
 
     internal fun clients(): NostrHttpClients = checkNotNull(installed) {
         "No Nostr HTTP clients installed; relay traffic must not bypass the app's network policy"

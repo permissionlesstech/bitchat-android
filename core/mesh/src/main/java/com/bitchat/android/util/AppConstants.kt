@@ -109,14 +109,6 @@ object AppConstants {
         const val SUBSCRIPTION_VALIDATION_INTERVAL_MS: Long = 30_000L
     }
 
-    object Tor {
-        const val DEFAULT_SOCKS_PORT: Int = 9060
-        const val RESTART_DELAY_MS: Long = 2_000L
-        const val INACTIVITY_TIMEOUT_MS: Long = 5_000L
-        const val MAX_RETRY_ATTEMPTS: Int = 5
-        const val STOP_TIMEOUT_MS: Long = 7_000L
-    }
-
     object UI {
         const val MAX_NICKNAME_LENGTH: Int = 15
         const val MESSAGE_DEDUP_TIMEOUT_MS: Long = 30_000L
