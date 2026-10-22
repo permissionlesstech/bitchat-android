@@ -17,8 +17,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Every route resolves to exactly one entry once the host's own entries and
- * every feature's Hilt-provided installers are assembled, as MainActivity does.
+ * Every route in [routes] resolves to exactly one entry once the host's own
+ * entries and the feature installers are assembled.
+ *
+ * This does not exercise the Hilt graph. It assembles the installers by calling
+ * the three providers by hand, so a feature module that is missing from the
+ * graph (not a dependency of :app, or lacking @InstallIn) is not caught, and
+ * neither is a route missing from the hand-written [routes] list.
  *
  * Builds the installers the way Hilt would, by calling each provider with fakes,
  * then resolves each route through Nav3's own [entryProvider]: an unknown key
