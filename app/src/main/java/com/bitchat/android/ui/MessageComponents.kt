@@ -159,6 +159,9 @@ internal const val MaxAnimatedArrivals = 6
 internal class MessageArrivalTracker {
     val known = HashSet<String>()
     var seeded = false
+    var previousSize = 0
+    var previousFirstID: String? = null
+    var previousLastID: String? = null
 }
 
 /**
@@ -169,12 +172,28 @@ internal class MessageArrivalTracker {
  * have missed its cue.
  */
 internal fun MessageArrivalTracker.arrivals(messages: List<BitchatMessage>): Set<String> {
+    val oldSize = previousSize
+    // Ordinary arrivals append to an unchanged timeline. Only inspect the new suffix in that case.
+    // Replacements, clears, and retention trimming use the full reconciliation path below.
+    val appended = seeded && oldSize > 0 && messages.size > oldSize &&
+        messages.first().id == previousFirstID && messages[oldSize - 1].id == previousLastID
+    previousSize = messages.size
+    previousFirstID = messages.firstOrNull()?.id
+    previousLastID = messages.lastOrNull()?.id
+
     if (!seeded) {
         // First load adopts everything silently. A whole screenful animating on open reads as a
         // glitch, not a flourish.
         messages.forEach { known.add(it.id) }
         seeded = true
         return emptySet()
+    }
+
+    if (appended) {
+        val added = messages.subList(oldSize, messages.size).filter { known.add(it.id) }
+        return if (added.size in 1..MaxAnimatedArrivals) {
+            added.mapTo(HashSet(added.size)) { it.id }
+        } else emptySet()
     }
 
     // A list with nothing in common with the last one is a different conversation, not a burst of
@@ -228,9 +247,8 @@ fun MessagesList(
     onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
     onImageClick: ((String, List<String>, Int) -> Unit)? = null
 ) {
-    val resolvedMentionPeerIdentities = remember(messages, mentionPeerIdentities) {
-        mentionPeerIdentities ?: buildMentionPeerIdentityMap(messages)
-    }
+    val resolvedMentionPeerIdentities = mentionPeerIdentities
+        ?: rememberMentionPeerIdentities(messages, conversationKey = conversationKey)
 
     // Collected once here so individual rows never subscribe to the preference flow; a mode
     // switch simply recomposes the list against the new layout.

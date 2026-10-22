@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
+import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -38,6 +39,7 @@ class GeohashMessageHandlerSignatureTest {
 
     @Before
     fun setup() {
+        com.bitchat.android.services.AppStateStore.clear()
         chatState = ChatState(scope = testScope)
         dataManager = DataManager(context = application)
         messageManager = MessageManager(state = chatState)
@@ -50,6 +52,11 @@ class GeohashMessageHandlerSignatureTest {
             addChannelMessage = messageManager::addChannelMessage,
             signatureVerificationDispatcher = testDispatcher
         )
+    }
+
+    @After
+    fun tearDown() {
+        com.bitchat.android.services.AppStateStore.clear()
     }
 
     private fun buildSignedEvent(identity: NostrIdentity, content: String): NostrEvent {
