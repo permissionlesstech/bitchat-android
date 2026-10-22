@@ -73,7 +73,7 @@ bypass Tor.
 managers, private conversations, notifications and QR verification, in the
 Activity-retained scope. It takes what is the app's own through ports the app
 binds (`NotificationTargets`, `SessionMeshSource`, `WifiAwarePeers`). Screens and
-their ViewModels stay in `app/` until they get feature modules.
+their ViewModels live in the `feature/` modules.
 
 `core/domain/` holds the domain models that Android library modules
 need (Gradle forbids a library module depending on an application module).
@@ -84,9 +84,30 @@ test doubles, including the JVM `android.util` shims, live in
 `core/mesh/src/testFixtures/`.
 
 `core/navigation/` holds the Navigator, the NavDisplay host and the Hilt
-module that binds them. Routes stay in `app/`, because they name this app's
-destinations. The `core/` modules keep the package names they had inside
-`app/`, so moving a file between them needs no import changes.
+module that binds them. Routes live in the `feature/*/api` modules. The `core/`
+modules keep the package names they had inside `app/`, so moving a file between
+them needs no import changes.
+
+`core/designsystem/` is the base both clients share: palette, motion, peer colors
+and the font, on Compose foundation/ui only, with no Material3 and no other
+project module. `core/designsystem/phone/` adds the phone's Material3 theme,
+generic components and the resources shared between `:app` and the features.
+
+`core/tor/` holds Arti and the Tor HTTP stack. It depends on no other project
+module. It signals route changes through `ArtiTorManager.routeChanges`, which the
+app wires into the `NostrHttpClients` port, so relays reset on a route change.
+
+`feature/share`, `feature/settings`, `feature/location` and `feature/chat` hold
+the phone screens, each with an `:api` module for its routes (and, for chat,
+`openPrivateChat`). A feature registers its Nav3 destinations as Hilt
+`@IntoSet EntryProviderInstaller`s. A feature depends only on another feature's
+`:api`, never on the feature. An `:api` module depends only on
+`:core:navigation` and `:core:domain` among project modules; external Compose
+runtime/ui libraries are allowed. `FeatureDependencyRulesTest` enforces this and
+that `:core:tor` has no project dependencies. `:app` keeps `MainActivity`,
+onboarding, the application class, the mesh, Wi-Fi Aware and foreground service,
+the DI modules that bind ports, the debug hooks and all instrumented tests.
+`MainActivity` registers only `OnboardingRoute` inline.
 
 `build-logic/` holds the Gradle convention plugins (`bitchat.android.*`)
 applied by library modules. It is an included build; it does not appear in
