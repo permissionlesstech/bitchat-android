@@ -762,7 +762,7 @@ private fun RecordingCancelButton(
         ) {
             Icon(
                 imageVector = Icons.Filled.Close,
-                contentDescription = "Cancel recording",
+                contentDescription = stringResource(R.string.cd_cancel_recording),
                 tint = tint,
                 modifier = Modifier.size(ComposerIconSize)
             )

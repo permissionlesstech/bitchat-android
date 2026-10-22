@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
 import com.bitchat.android.R
 
@@ -255,10 +256,10 @@ class PermissionManager(private val context: Context) {
         categories.add(
             PermissionCategory(
                 type = PermissionType.NEARBY_DEVICES,
-                description = "Required to discover bitchat users via Bluetooth",
+                description = context.getString(R.string.perm_nearby_devices_desc),
                 permissions = bluetoothPermissions,
                 isGranted = bluetoothPermissions.all { isPermissionGranted(it) },
-                systemDescription = "Allow bitchat to connect to nearby devices"
+                systemDescription = context.getString(R.string.perm_nearby_devices_system)
             )
         )
 
@@ -271,10 +272,10 @@ class PermissionManager(private val context: Context) {
         categories.add(
             PermissionCategory(
                 type = PermissionType.PRECISE_LOCATION,
-                description = "Required by Android to discover nearby bitchat users via Bluetooth",
+                description = context.getString(R.string.perm_location_desc),
                 permissions = locationPermissions,
                 isGranted = locationPermissions.all { isPermissionGranted(it) },
-                systemDescription = "bitchat needs this to scan for nearby devices"
+                systemDescription = context.getString(R.string.perm_location_system)
             )
         )
 
@@ -284,10 +285,10 @@ class PermissionManager(private val context: Context) {
             categories.add(
                 PermissionCategory(
                     type = PermissionType.WIFI_AWARE,
-                    description = "Enable Wi‑Fi Aware to discover and connect to nearby bitchat users over Wi‑Fi.",
+                    description = context.getString(R.string.perm_wifi_aware_desc),
                     permissions = wifiAwarePermissions,
                     isGranted = wifiAwarePermissions.all { isPermissionGranted(it) },
-                    systemDescription = "Allow bitchat to discover nearby Wi‑Fi devices"
+                    systemDescription = context.getString(R.string.perm_wifi_aware_system)
                 )
             )
         }
@@ -310,10 +311,10 @@ class PermissionManager(private val context: Context) {
             categories.add(
                 PermissionCategory(
                     type = PermissionType.NOTIFICATIONS,
-                    description = "Receive notifications when you receive private messages",
+                    description = context.getString(R.string.perm_notifications_desc),
                     permissions = listOf(Manifest.permission.POST_NOTIFICATIONS),
                     isGranted = isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS),
-                    systemDescription = "Allow bitchat to send you notifications"
+                    systemDescription = context.getString(R.string.perm_notifications_system)
                 )
             )
         }
@@ -325,10 +326,10 @@ class PermissionManager(private val context: Context) {
             categories.add(
                 PermissionCategory(
                     type = PermissionType.BATTERY_OPTIMIZATION,
-                    description = "Disable battery optimization to ensure bitchat runs reliably in the background and maintains mesh network connections",
+                    description = context.getString(R.string.perm_battery_desc),
                     permissions = listOf("BATTERY_OPTIMIZATION"), // Custom identifier
                     isGranted = isBatteryOptimizationDisabled(),
-                    systemDescription = "Allow bitchat to run without battery restrictions"
+                    systemDescription = context.getString(R.string.perm_battery_system)
                 )
             )
         }
@@ -385,13 +386,13 @@ data class PermissionCategory(
     val systemDescription: String
 )
 
-enum class PermissionType(val nameValue: String) {
-    NEARBY_DEVICES("Nearby Devices"),
-    PRECISE_LOCATION("Precise Location"),
-    BACKGROUND_LOCATION("Background Location"),
-    MICROPHONE("Microphone"),
-    NOTIFICATIONS("Notifications"),
-    WIFI_AWARE("Wi‑Fi Aware"),
-    BATTERY_OPTIMIZATION("Battery Optimization"),
-    OTHER("Other")
+enum class PermissionType(val nameValue: String, @StringRes val titleRes: Int) {
+    NEARBY_DEVICES("Nearby Devices", R.string.perm_type_nearby_devices),
+    PRECISE_LOCATION("Precise Location", R.string.perm_type_precise_location),
+    BACKGROUND_LOCATION("Background Location", R.string.perm_type_background_location),
+    MICROPHONE("Microphone", R.string.perm_type_microphone),
+    NOTIFICATIONS("Notifications", R.string.perm_type_notifications),
+    WIFI_AWARE("Wi‑Fi Aware", R.string.perm_type_wifi_aware),
+    BATTERY_OPTIMIZATION("Battery Optimization", R.string.perm_type_battery_optimization),
+    OTHER("Other", R.string.perm_type_other)
 }
