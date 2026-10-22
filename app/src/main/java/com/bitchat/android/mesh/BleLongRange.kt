@@ -284,6 +284,60 @@ data class BleRangeIndicator(
 }
 
 /**
+ * Groups diagnostic link entries into peers and real radio connections.
+ *
+ * Android reports our own outgoing (client) connection to the app's GATT server as well, so it
+ * appears a second time as a server link on the same address. That mirror is the same radio
+ * link, not another connection. Bitchat also connects in both directions, so a fully connected
+ * peer normally shows two radio connections (outgoing + incoming) and three entries.
+ */
+object BleLinkGrouping {
+    data class Connection(
+        val link: BleLinkDiagnostics.Link,
+        /** Android's server-side report of this same outgoing connection, if present. */
+        val mirror: BleLinkDiagnostics.Link? = null
+    ) {
+        val outgoing: Boolean get() = link.isClient
+        val sendOk: Long get() = link.sendOk + (mirror?.sendOk ?: 0)
+        val sendFailed: Long get() = link.sendFailed + (mirror?.sendFailed ?: 0)
+        val received: Long get() = link.received + (mirror?.received ?: 0)
+    }
+
+    data class Peer(
+        /** Mesh peer ID when known from a validated announce, else null. */
+        val peerID: String?,
+        /** All addresses this peer is seen on (for name lookup). */
+        val addresses: Set<String>,
+        /** Outgoing connection first, then incoming ones. */
+        val connections: List<Connection>
+    )
+
+    fun group(links: List<BleLinkDiagnostics.Link>): List<Peer> {
+        val clientAddresses = links.filter { it.isClient }.map { it.address }.toSet()
+        val mirrors = links.filter { !it.isClient && it.address in clientAddresses }
+        val mains = links.filter { it !in mirrors }
+        val peerByAddress = links.mapNotNull { link -> link.peerID?.let { link.address to it } }.toMap()
+        fun peerOf(link: BleLinkDiagnostics.Link) = link.peerID ?: peerByAddress[link.address]
+
+        return mains
+            .groupBy { peerOf(it) ?: "address:${it.address}" }
+            .map { (_, groupLinks) ->
+                val connections = groupLinks
+                    .map { main ->
+                        Connection(main, if (main.isClient) mirrors.firstOrNull { it.address == main.address } else null)
+                    }
+                    .sortedWith(compareByDescending<Connection> { it.outgoing }.thenBy { it.link.connectedAt })
+                Peer(
+                    peerID = groupLinks.firstNotNullOfOrNull { peerOf(it) },
+                    addresses = connections.flatMap { listOfNotNull(it.link.address, it.mirror?.address) }.toSet(),
+                    connections = connections
+                )
+            }
+            .sortedBy { it.connections.minOf { c -> c.link.connectedAt } }
+    }
+}
+
+/**
  * Client-side PHY switching for [BleLongRangeMode.ADAPTIVE]: exponential smoothing plus
  * hysteresis and a minimum dwell, so a link near the threshold does not flap between PHYs.
  */

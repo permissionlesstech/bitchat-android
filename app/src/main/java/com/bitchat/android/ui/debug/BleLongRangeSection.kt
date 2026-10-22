@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.mesh.BleCodedCoding
 import com.bitchat.android.mesh.BleLinkDiagnostics
 import com.bitchat.android.mesh.BleLinkDiagnostics.AdvertiserState
+import com.bitchat.android.mesh.BleLinkGrouping
 import com.bitchat.android.mesh.BleLongRangeMode
 import com.bitchat.android.mesh.BleLongRangePolicy
 import com.bitchat.android.mesh.BleRangeIndicator
@@ -202,12 +203,23 @@ fun BleLongRangeSection(
                 "to Coded < ${PhyHysteresis.ENTER_CODED_BELOW_DBM} dBm • to 1M > ${PhyHysteresis.LEAVE_CODED_ABOVE_DBM} dBm"
             )
 
-            // Links
-            SubHeader("Links (${snapshot.links.size})")
-            if (snapshot.links.isEmpty()) {
-                Hint("No BLE links.")
+            // Devices: entries grouped per peer into real radio connections
+            val peers = BleLinkGrouping.group(snapshot.links)
+            val connectionCount = peers.sumOf { it.connections.size }
+            SubHeader("Connected devices (${peers.size}) • radio connections ($connectionCount)")
+            if (peers.isEmpty()) {
+                Hint("No BLE connections.")
+            } else {
+                Hint(
+                    "Bitchat connects both ways, so a device normally has 2 radio connections: outgoing " +
+                        "(we connected) and incoming (it connected). Android also reports our outgoing " +
+                        "connection as a server link; that mirror is merged into the outgoing one."
+                )
             }
-            snapshot.links.forEach { link -> LinkCard(link, peerForAddress(link.address) ?: link.peerID?.take(8), now) }
+            peers.forEach { peer ->
+                val name = peer.addresses.firstNotNullOfOrNull(peerForAddress) ?: peer.peerID?.take(8)
+                PeerCard(peer, name, now)
+            }
 
             // Actions
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -249,13 +261,14 @@ private fun StatusBanner(indicator: BleRangeIndicator, snapshot: BleLinkDiagnost
         BleRangeIndicator.Kind.STANDARD_UNSUPPORTED -> WarnColor to "STANDARD BLE (not supported)"
         BleRangeIndicator.Kind.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant to "BLUETOOTH NOT STARTED"
     }
-    val known = snapshot.links.filter { it.txPhy != 0 }
+    val connections = BleLinkGrouping.group(snapshot.links).flatMap { it.connections }.map { it.link }
+    val known = connections.filter { it.txPhy != 0 }
     val coded = known.count { it.txPhy == BluetoothDevice.PHY_LE_CODED && it.rxPhy == BluetoothDevice.PHY_LE_CODED }
     val detail = buildList {
         if (indicator.kind == BleRangeIndicator.Kind.LONG_RANGE) add("requesting ${coding.label}")
         add(
-            if (known.isEmpty()) "no links"
-            else "$coded/${known.size} links on Coded"
+            if (known.isEmpty()) "no connections"
+            else "$coded/${known.size} connections on Coded"
         )
         add("est. ~${indicator.estimatedRangeMeters.first}–${indicator.estimatedRangeMeters.last} m")
     }.joinToString(" • ")
@@ -272,52 +285,80 @@ private fun StatusBanner(indicator: BleRangeIndicator, snapshot: BleLinkDiagnost
 }
 
 @Composable
-private fun LinkCard(link: BleLinkDiagnostics.Link, name: String?, now: Long) {
+private fun PeerCard(peer: BleLinkGrouping.Peer, name: String?, now: Long) {
     val colorScheme = MaterialTheme.colorScheme
-    val txCoded = link.txPhy == BluetoothDevice.PHY_LE_CODED
-    val rxCoded = link.rxPhy == BluetoothDevice.PHY_LE_CODED
+    val allCoded = peer.connections.all {
+        it.link.txPhy == BluetoothDevice.PHY_LE_CODED && it.link.rxPhy == BluetoothDevice.PHY_LE_CODED
+    }
     Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
         Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
-                "${name ?: "unknown peer"} • ${if (link.isClient) "we are client" else "we are server"} • ${link.state}",
-                fontFamily = BitchatFontFamily, fontSize = 12.sp, fontWeight = FontWeight.Medium
+                (name ?: "unidentified device") + " • ${peer.connections.size} radio connection" +
+                    if (peer.connections.size == 1) "" else "s",
+                fontFamily = BitchatFontFamily, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                color = if (allCoded) CodedColor else colorScheme.onSurface
             )
-            Text(link.address, fontFamily = BitchatFontFamily, fontSize = 10.sp, color = colorScheme.onSurfaceVariant)
-            HorizontalDivider(Modifier.padding(vertical = 2.dp), color = colorScheme.outline.copy(alpha = 0.2f))
-            // Android never reports S=2 vs S=8 for a live link; show what this side asked for.
-            val requestedCoding = link.lastPhyRequest?.takeIf { it.startsWith("Coded ") }?.removePrefix("Coded ")
-            InfoRow(
-                "PHY now",
-                "TX ${phyText(link.txPhy)} • RX ${phyText(link.rxPhy)}" +
-                    if (txCoded || rxCoded) {
-                        " (" + (requestedCoding?.let { "$it requested" } ?: "coding not reported") + ")"
-                    } else "",
-                if (txCoded && rxCoded) CodedColor else null
-            )
-            InfoRow(
-                "Requested",
-                (link.lastPhyRequest ?: "nothing (kept as negotiated)") +
-                    if (link.phyRequests > 0) " • ${link.phyRequests}×" else ""
-            )
-            link.lastPhyStatus?.takeIf { it != 0 }?.let { status ->
-                InfoRow("Last PHY result", BleLongRangePolicy.statusName(status), WarnColor)
+            if (peer.peerID == null) {
+                Hint("Not identified yet: no announce received on this connection.")
             }
-            InfoRow("Found on", link.discoveredPhy?.let(BleLongRangePolicy::phyName)?.let { "$it advertisement" } ?: "incoming connection")
-            InfoRow(
-                "Signal",
-                link.rssi?.let { "$it dBm • ${signalLabel(it)}" } ?: "not measured (server side)",
-                link.rssi?.let(::signalColor)
-            )
-            val total = link.sendOk + link.sendFailed
-            InfoRow(
-                "Delivery",
-                "sent ${link.sendOk}/$total" + (if (link.sendFailed > 0) " (${link.sendFailed} failed)" else "") +
-                    " • received ${link.received}",
-                if (link.sendFailed > 0) WarnColor else null
-            )
-            InfoRow("Connected for", ageText(now - link.connectedAt))
+            peer.connections.forEach { connection ->
+                HorizontalDivider(Modifier.padding(vertical = 4.dp), color = colorScheme.outline.copy(alpha = 0.2f))
+                ConnectionRows(connection, now)
+            }
         }
     }
+}
+
+@Composable
+private fun ConnectionRows(connection: BleLinkGrouping.Connection, now: Long) {
+    val colorScheme = MaterialTheme.colorScheme
+    val link = connection.link
+    val txCoded = link.txPhy == BluetoothDevice.PHY_LE_CODED
+    val rxCoded = link.rxPhy == BluetoothDevice.PHY_LE_CODED
+    Text(
+        (if (connection.outgoing) "↗ Outgoing (we connected)" else "↙ Incoming (it connected)") + " • ${link.state}",
+        fontFamily = BitchatFontFamily, fontSize = 12.sp, fontWeight = FontWeight.Medium
+    )
+    Text(
+        link.address + if (connection.mirror != null) " • + Android server-side mirror" else "",
+        fontFamily = BitchatFontFamily, fontSize = 10.sp, color = colorScheme.onSurfaceVariant
+    )
+    // Android never reports S=2 vs S=8 for a live link; show what this side asked for.
+    val request = link.lastPhyRequest ?: connection.mirror?.lastPhyRequest
+    val requestedCoding = request?.takeIf { it.startsWith("Coded ") }?.removePrefix("Coded ")
+    InfoRow(
+        "PHY now",
+        "TX ${phyText(link.txPhy)} • RX ${phyText(link.rxPhy)}" +
+            if (txCoded || rxCoded) {
+                " (" + (requestedCoding?.let { "$it requested" } ?: "coding not reported") + ")"
+            } else "",
+        if (txCoded && rxCoded) CodedColor else null
+    )
+    val requests = link.phyRequests + (connection.mirror?.phyRequests ?: 0)
+    InfoRow(
+        "Requested",
+        (request ?: "nothing (kept as negotiated)") + if (requests > 0) " • ${requests}×" else ""
+    )
+    (link.lastPhyStatus ?: connection.mirror?.lastPhyStatus)?.takeIf { it != 0 }?.let { status ->
+        InfoRow("Last PHY result", BleLongRangePolicy.statusName(status), WarnColor)
+    }
+    if (connection.outgoing) {
+        InfoRow("Found on", link.discoveredPhy?.let(BleLongRangePolicy::phyName)?.let { "$it advertisement" } ?: "manual connect")
+    }
+    InfoRow(
+        "Signal",
+        link.rssi?.let { "$it dBm • ${signalLabel(it)}" } ?: "not measured (incoming side)",
+        link.rssi?.let(::signalColor)
+    )
+    val total = connection.sendOk + connection.sendFailed
+    InfoRow(
+        "Delivery",
+        "sent ${connection.sendOk}/$total" +
+            (if (connection.sendFailed > 0) " (${connection.sendFailed} failed)" else "") +
+            " • received ${connection.received}",
+        if (connection.sendFailed > 0) WarnColor else null
+    )
+    InfoRow("Connected for", ageText(now - link.connectedAt))
 }
 
 @Composable
