@@ -326,16 +326,19 @@
     <!-- Plurales -->
     <plurals name="notification_and_more">
         <item quantity="one">y %d más</item>
+        <item quantity="many">y %d más</item>
         <item quantity="other">y %d más</item>
     </plurals>
 
     <plurals name="people_count">
         <item quantity="one">1 persona</item>
+        <item quantity="many">%d de personas</item>
         <item quantity="other">%d personas</item>
     </plurals>
 
   <plurals name="location_notes_title">
     <item quantity="one">#%1$s ± 1 • %2$d nota</item>
+    <item quantity="many">#%1$s ± 1 • %2$d de notas</item>
     <item quantity="other">#%1$s ± 1 • %2$d notas</item>
   </plurals>
   <string name="location_notes_description">Agrega notas cortas y permanentes a este lugar para que otros visitantes las encuentren.</string>

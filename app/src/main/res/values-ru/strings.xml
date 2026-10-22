@@ -313,17 +313,23 @@
 
     <plurals name="notification_and_more">
         <item quantity="one">и ещё %d</item>
+        <item quantity="few">и ещё %d</item>
+        <item quantity="many">и ещё %d</item>
         <item quantity="other">и ещё %d</item>
     </plurals>
 
     <plurals name="people_count">
-        <item quantity="one">1 человек</item>
-        <item quantity="other">%d человек</item>
+        <item quantity="one">%d человек</item>
+        <item quantity="few">%d человека</item>
+        <item quantity="many">%d человек</item>
+        <item quantity="other">%d человека</item>
     </plurals>
 
   <plurals name="location_notes_title">
-    <item quantity="one">#%1$s ± 1 • %2$d заметка</item>
-    <item quantity="other">#%1$s ± 1 • %2$d заметок</item>
+      <item quantity="one">#%1$s ± 1 • %2$d заметка</item>
+      <item quantity="few">#%1$s ± 1 • %2$d заметки</item>
+      <item quantity="many">#%1$s ± 1 • %2$d заметок</item>
+      <item quantity="other">#%1$s ± 1 • %2$d заметки</item>
   </plurals>
   <string name="location_notes_description">Добавьте короткие постоянные заметки к этому месту, чтобы другие посетители могли их найти.</string>
   <string name="location_notes_relays_unavailable">Гео-релей недоступны; заметки приостановлены</string>
