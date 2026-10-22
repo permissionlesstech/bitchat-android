@@ -13,12 +13,8 @@
     <string name="leave_channel">离开</string>
     <string name="show_commands">显示命令</string>
     <string name="people">成员</string>
-    <string name="channels">频道</string>
     <string name="online_users">在线用户</string>
-    <string name="no_one_connected">无人连接</string>
     <string name="emergency_clear_hint">三击以清除所有数据</string>
-    <string name="your_network">网络</string>
-
     <!-- 电池优化 -->
     <string name="battery_optimization_detected">检测到电池优化</string>
     <string name="battery_optimization_disabled">电池优化已禁用</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">附近 %1$d 人</string>
     <string name="notification_and_more">以及另外 %1$d 条</string>
 
-    <!-- 收藏 / 可访问性 -->
-    <string name="cd_add_favorite">加入收藏</string>
-    <string name="cd_remove_favorite">移出收藏</string>
-    <!-- 聊天头部 / 可访问性 -->
-    <string name="cd_nostr_reachable">可通过 Nostr 联系</string>
-    <string name="cd_unread_private_messages">未读私信</string>
-    <string name="cd_open_location_channels">打开位置和频道设置</string>
-    <string name="cd_connected_peers">已连接节点</string>
-    <string name="cd_geohash_participants">Geohash 参与者</string>
-    <string name="cd_ready_for_handshake">准备握手</string>
-    <string name="cd_handshake_in_progress">握手中</string>
-    <string name="cd_encrypted">端到端加密</string>
-    <string name="cd_handshake_failed">握手失败</string>
-
-    <!-- 文件查看对话框 -->
-    <string name="file_viewer_title">📎 收到文件</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 大小：%1$s</string>
-    <string name="file_viewer_type">🏷️ 类型：%1$s</string>
-    <string name="file_viewer_open_save">📂 打开 / 保存</string>
-    <string name="close_with_emoji">❌ 关闭</string>
-    <string name="pick_image">选择图片</string>
-
     <string name="about_pow_off">pow 关</string>
     <string name="about_pow_on">pow 开</string>
     <string name="about_pow_difficulty">难度：%1$d 位 (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">Tor 状态：%1$s，引导 %2$d%%</string>
     <string name="about_last">最近：%1$s</string>
     <string name="about_emergency_title">紧急数据删除</string>
-    <string name="cancel_lower">取消</string>
-
     <!-- 通用 CD -->
     <string name="cd_warning">警告</string>
     <string name="cd_location_services">定位服务</string>
@@ -88,45 +59,20 @@
     <string name="cd_checking_battery_optimization">检查电池优化</string>
     <string name="cd_not_supported_battery_optimization">不支持</string>
     <string name="cd_bluetooth">Bluetooth</string>
-    <string name="cd_unread_message">未读消息</string>
     <string name="cd_teleport">传送</string>
     <string name="cd_leave_channel">离开频道</string>
-    <string name="cd_reachable_via_nostr">可通过 Nostr 联系</string>
-    <string name="cd_offline_favorite">收藏（离线）</string>
-    <string name="cd_scroll_to_bottom">滚动到底部</string>
-    <string name="cd_file">文件</string>
-    <string name="cd_image">图片</string>
-    <string name="cd_cancel">取消</string>
-    <string name="cd_link">链接</string>
-    <string name="cd_pick_media">选择媒体</string>
-    <string name="cd_record_voice">录制语音</string>
     <string name="cd_offline_mesh_chat">离线 Mesh 聊天</string>
     <string name="cd_online_geohash_channels">在线 Geohash 频道</string>
     <string name="cd_end_to_end_encryption">端到端加密</string>
 
     <!-- 图片/文件 -->
     <string name="image_page_of">图片 %1$d / %2$d</string>
-    <string name="image_unavailable">图片不可用</string>
     <string name="image_saved_to_downloads">图片已保存到“下载”</string>
     <string name="image_save_failed">图片保存失败</string>
     <string name="pick_file">选择文件</string>
-    <string name="file_unavailable">[文件不可用]</string>
-    <!-- 用户操作面板 -->
-    <string name="choose_action_message_or_user">为此消息或用户选择操作</string>
-    <string name="choose_action_user">为此用户选择操作</string>
-    <string name="action_copy_message_title">复制消息</string>
-    <string name="action_copy_message_subtitle">将此消息复制到剪贴板</string>
-    <string name="action_slap_title">扇 %1$s 一下</string>
-    <string name="action_slap_subtitle">发送一个打趣的“扇巴掌”</string>
-    <string name="action_hug_title">拥抱 %1$s</string>
-    <string name="action_hug_subtitle">发送一个友好的拥抱</string>
-    <string name="action_block_title">屏蔽 %1$s</string>
-    <string name="action_block_subtitle">屏蔽该用户的所有消息</string>
-
     <string name="grant_location_permission">授予定位权限</string>
     <string name="location_permission_granted">\u2713 已授予定位权限</string>
     <string name="checking_permissions">正在检查权限…</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">自启动以来：%1$d</string>
     <string name="debug_sync_settings">同步设置</string>
     <string name="debug_relays_window_fmt">最近 10 秒：%1$d • 1 分钟：%2$d • 15 分钟：%3$d</string>
@@ -168,29 +114,9 @@
     <string name="permissions_header">权限</string>
     <string name="grant_permissions">授予权限</string>
     <string name="location_tracking_warning">bitchat 不会跟踪你的位置</string>
-    <string name="at_symbol">@</string>
-    <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="nobody_around">附近无人…</string>
-    <string name="you_suffix"> (你)</string>
-    <string name="type_a_message_placeholder">输入消息…</string>
-    <string name="mention_suggestion_at">@%1$s</string>
-    <string name="mention">提及</string>
-    <string name="image_counter">%1$d / %2$d</string>
-    <string name="at_nickname">@%1$s</string>
-    <string name="underscore">_</string>
-    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
-    <string name="progress_filled">█</string>
-    <string name="progress_empty">░</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">图片</string>
-    <string name="media_type_file">文件</string>
-
     <!-- 消息状态 -->
 
-    <!-- 通知文本辅助 -->
-    <string name="notification_sent_image">📷 发送了图片</string>
-    <string name="notification_sent_voice">🎤 发送了语音消息</string>
-    <string name="notification_sent_file">📎 发送了文件</string>
     <string name="notification_file_pdf">📄</string>
     <string name="notification_file_zip">🗜️</string>
     <string name="notification_file_doc">📄</string>
@@ -220,42 +146,14 @@
     <string name="perm_type_battery_optimization">电池优化</string>
     <string name="perm_type_other">其他</string>
 
-    <!-- 密码提示对话框 -->
-    <string name="pwd_prompt_title">输入频道密码</string>
-    <string name="pwd_prompt_message">频道 %1$s 已受密码保护。请输入密码以加入。</string>
-    <string name="pwd_label">密码</string>
-    <string name="join">加入</string>
     <!-- 复数 -->
 
     <string name="bluetooth_recommended">建议开启蓝牙</string>
     <string name="mesh_service_notification_content">Mesh 运行中 — %1$d 个节点</string>
 
-  <string name="verify_title">验证</string>
-  <string name="verify_my_qr_title">扫描以验证我</string>
-  <string name="verify_scan_prompt_friend">扫描他人的QR码</string>
   <string name="verify_scan_someone">扫描他人的QR码</string>
   <string name="verify_show_my_qr">显示我的QR码</string>
-  <string name="verify_remove">移除验证</string>
-  <string name="verify_qr_unavailable">QR码不可用</string>
-  <string name="verify_camera_permission">需要相机权限扫描QR码</string>
-  <string name="verify_request_camera">启用相机</string>
   <string name="verify_paste_label">粘贴验证链接</string>
   <string name="verify_validate">验证</string>
   <string name="verify_scanned">已请求验证</string>
-  <string name="security_verification_title">安全验证</string>
-  <string name="fingerprint_their">对方指纹</string>
-  <string name="fingerprint_yours">你的指纹</string>
-  <string name="fingerprint_pending">握手中</string>
-  <string name="fingerprint_status_verified">已加密且已验证</string>
-  <string name="fingerprint_status_encrypted">已加密</string>
-  <string name="fingerprint_status_handshaking">握手中</string>
-  <string name="fingerprint_status_failed">握手失败</string>
-  <string name="fingerprint_status_uninitialized">未加密</string>
-  <string name="fingerprint_verified_message">你已验证此人身份。</string>
-  <string name="fingerprint_not_verified_label">未验证</string>
-  <string name="fingerprint_not_verified_message_fmt">请通过安全渠道与 %1$s 比对指纹。</string>
-  <string name="fingerprint_mark_verified">标记为已验证</string>
-  <string name="fingerprint_start_handshake">开始握手</string>
-  <string name="fingerprint_copy">复制</string>
-    <string name="cd_open_about">打开“关于”</string>
 </resources>

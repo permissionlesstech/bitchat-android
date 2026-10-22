@@ -66,6 +66,7 @@ The authoritative pins are:
 - `feature/location/api/gradle.lockfile`
 - `feature/settings/gradle.lockfile`
 - `feature/settings/api/gradle.lockfile`
+- `feature/chat/gradle.lockfile`
 - `feature/chat/api/gradle.lockfile`
 - `gradle/verification-metadata.xml`
 - `tools/reproducible-builds/TOOLCHAIN.env`

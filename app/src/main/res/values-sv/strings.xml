@@ -10,12 +10,8 @@
     <string name="leave_channel">Lämna</string>
     <string name="show_commands">Visa kommandon</string>
     <string name="people">Personer</string>
-    <string name="channels">Kanaler</string>
     <string name="online_users">Användare online</string>
-    <string name="no_one_connected">Ingen ansluten</string>
     <string name="emergency_clear_hint">Tryck tre gånger för att rensa all data</string>
-    <string name="your_network">Nätverk</string>
-
     <string name="battery_optimization_detected">Batterioptimering upptäckt</string>
     <string name="battery_optimization_disabled">Batterioptimering inaktiverad</string>
     <string name="battery_optimization_not_required">Batterioptimering krävs inte</string>
@@ -39,26 +35,6 @@
     <string name="notification_active_peers_many">%1$d personer i närheten</string>
     <string name="notification_and_more">och %1$d till</string>
 
-    <string name="cd_add_favorite">Lägg till som favorit</string>
-    <string name="cd_remove_favorite">Ta bort favorit</string>
-    <string name="cd_nostr_reachable">Nås via Nostr</string>
-    <string name="cd_unread_private_messages">Olästa privata meddelanden</string>
-    <string name="cd_open_location_channels">Öppna plats- och kanalinställningar</string>
-    <string name="cd_connected_peers">Anslutna noder</string>
-    <string name="cd_geohash_participants">Geohash‑deltagare</string>
-    <string name="cd_ready_for_handshake">Redo för handshake</string>
-    <string name="cd_handshake_in_progress">Handshake pågår</string>
-    <string name="cd_encrypted">Ända‑till‑ända‑krypterat</string>
-    <string name="cd_handshake_failed">Handshake misslyckades</string>
-
-    <string name="file_viewer_title">📎 Fil mottagen</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 Storlek: %1$s</string>
-    <string name="file_viewer_type">🏷️ Typ: %1$s</string>
-    <string name="file_viewer_open_save">📂 Öppna / Spara</string>
-    <string name="close_with_emoji">❌ Stäng</string>
-    <string name="pick_image">Välj bild</string>
-
     <string name="about_pow_off">pow av</string>
     <string name="about_pow_on">pow på</string>
     <string name="about_pow_difficulty">svårighet: %1$d bitar (~%2$s)</string>
@@ -68,8 +44,6 @@
     <string name="about_tor_status">Tor‑status: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Senast: %1$s</string>
     <string name="about_emergency_title">Nödradering av data</string>
-    <string name="cancel_lower">avbryt</string>
-
     <string name="cd_warning">Varning</string>
     <string name="cd_location_services">Plats­tjänster</string>
     <string name="cd_privacy">Integritet</string>
@@ -79,43 +53,19 @@
     <string name="cd_checking_battery_optimization">Kontrollerar optimering</string>
     <string name="cd_not_supported_battery_optimization">Stöds ej</string>
     <string name="cd_bluetooth">Bluetooth</string>
-    <string name="cd_unread_message">Oläst meddelande</string>
     <string name="cd_teleport">Teleportera</string>
     <string name="cd_leave_channel">Lämna kanal</string>
-    <string name="cd_reachable_via_nostr">Nås via Nostr</string>
-    <string name="cd_offline_favorite">Favorit (offline)</string>
-    <string name="cd_scroll_to_bottom">Rulla längst ned</string>
-    <string name="cd_file">Fil</string>
-    <string name="cd_image">Bild</string>
-    <string name="cd_cancel">Avbryt</string>
-    <string name="cd_link">Länk</string>
-    <string name="cd_pick_media">Välj media</string>
-    <string name="cd_record_voice">Spela in röstanteckning</string>
     <string name="cd_offline_mesh_chat">Offline Mesh‑chatt</string>
     <string name="cd_online_geohash_channels">Online Geohash‑kanaler</string>
     <string name="cd_end_to_end_encryption">Ända‑till‑ända‑kryptering</string>
 
     <string name="image_page_of">Bild %1$d / %2$d</string>
-    <string name="image_unavailable">Bild ej tillgänglig</string>
     <string name="image_saved_to_downloads">Bild sparad i "Hämtade filer"</string>
     <string name="image_save_failed">Kunde inte spara bild</string>
     <string name="pick_file">Välj fil</string>
-    <string name="file_unavailable">[fil ej tillgänglig]</string>
-    <string name="choose_action_message_or_user">välj en åtgärd för meddelandet eller användaren</string>
-    <string name="choose_action_user">välj en åtgärd för den här användaren</string>
-    <string name="action_copy_message_title">kopiera meddelande</string>
-    <string name="action_copy_message_subtitle">kopiera meddelandet till urklipp</string>
-    <string name="action_slap_title">ge %1$s en örfil</string>
-    <string name="action_slap_subtitle">skicka en skämtsam örfil</string>
-    <string name="action_hug_title">krama %1$s</string>
-    <string name="action_hug_subtitle">skicka en vänlig kram</string>
-    <string name="action_block_title">blockera %1$s</string>
-    <string name="action_block_subtitle">blockera alla meddelanden från den här användaren</string>
-
     <string name="grant_location_permission">ge platsbehörighet</string>
     <string name="location_permission_granted">\u2713 platsbehörighet beviljad</string>
     <string name="checking_permissions">kontrollerar behörigheter…</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">sedan start: %1$d</string>
     <string name="debug_sync_settings">synkinställningar</string>
     <string name="debug_relays_window_fmt">senaste 10 s: %1$d • 1 m: %2$d • 15 m: %3$d</string>
@@ -156,26 +106,7 @@
     <string name="permissions_header">behörigheter</string>
     <string name="grant_permissions">Ge behörigheter</string>
     <string name="location_tracking_warning">bitchat spårar INTE din plats</string>
-    <string name="at_symbol">@</string>
-    <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="nobody_around">ingen i närheten…</string>
-    <string name="you_suffix"> (du)</string>
-    <string name="type_a_message_placeholder">skriv ett meddelande…</string>
-    <string name="mention_suggestion_at">@%1$s</string>
-    <string name="mention">nämn</string>
-    <string name="image_counter">%1$d / %2$d</string>
-    <string name="at_nickname">@%1$s</string>
-    <string name="underscore">_</string>
-    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
-    <string name="progress_filled">█</string>
-    <string name="progress_empty">░</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">Bild</string>
-    <string name="media_type_file">Fil</string>
-
-    <string name="notification_sent_image">📷 skickade en bild</string>
-    <string name="notification_sent_voice">🎤 skickade ett röstmeddelande</string>
-    <string name="notification_sent_file">📎 skickade en fil</string>
     <string name="notification_file_pdf">📄</string>
     <string name="notification_file_zip">🗜️</string>
     <string name="notification_file_doc">📄</string>
@@ -202,39 +133,12 @@
     <string name="perm_type_battery_optimization">Batterioptimering</string>
     <string name="perm_type_other">Övrigt</string>
 
-    <string name="pwd_prompt_title">Ange kanalens lösenord</string>
-    <string name="pwd_prompt_message">Kanal %1$s är lösenordsskyddad. Ange lösenordet för att gå med.</string>
-    <string name="pwd_label">Lösenord</string>
-    <string name="join">Gå med</string>
     <string name="bluetooth_recommended">Bluetooth rekommenderas</string>
     <string name="mesh_service_notification_content">Mesh körs — %1$d peers</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
   <string name="verify_scan_someone">scan someone elses qr</string>
   <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-    <string name="cd_open_about">Öppna Om</string>
 </resources>

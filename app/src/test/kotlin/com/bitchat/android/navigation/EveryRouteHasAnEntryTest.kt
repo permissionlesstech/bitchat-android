@@ -3,6 +3,7 @@ package com.bitchat.android.navigation
 import android.os.Build
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
+import com.bitchat.android.chat.ChatEntriesModule
 import com.bitchat.android.location.LocationEntriesModule
 import com.bitchat.android.settings.SettingsEntriesModule
 import com.bitchat.android.share.AppBuildInfo
@@ -55,7 +56,8 @@ class EveryRouteHasAnEntryTest {
                 buildInfo = AppBuildInfo(versionName = "0.0.0", isDebug = true, githubReleaseCertSha256 = ""),
             ),
             LocationEntriesModule.locationEntries(navigator = navigator, chatState = chatState),
-        ) + appEntries(navigator = navigator, chatState = chatState, onboarding = {})
+            ChatEntriesModule.chatEntries(navigator = navigator, chatState = chatState),
+        ) + appEntries(onboarding = {})
 
         val unresolved = mutableListOf<NavKey>()
         val provider = entryProvider<NavKey>(

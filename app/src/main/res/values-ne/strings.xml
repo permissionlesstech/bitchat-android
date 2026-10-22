@@ -13,12 +13,8 @@
     <string name="leave_channel">छोड्नुहोस्</string>
     <string name="show_commands">आज्ञाहरू देखाउनुहोस्</string>
     <string name="people">मानिसहरू</string>
-    <string name="channels">च्यानलहरू</string>
     <string name="online_users">अनलाइन प्रयोगकर्ता</string>
-    <string name="no_one_connected">कसैसँग जडान छैन</string>
     <string name="emergency_clear_hint">सबै डेटा मेटाउन तीन पटक ट्याप गर्नुहोस्</string>
-    <string name="your_network">सञ्जाल</string>
-
     <!-- ब्याट्री अनुकूलन -->
     <string name="battery_optimization_detected">ब्याट्री अनुकूलन भेटियो</string>
     <string name="battery_optimization_disabled">ब्याट्री अनुकूलन बन्द</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">%1$d जना नजिकै</string>
     <string name="notification_and_more">र %1$d थप</string>
 
-    <!-- मनपर्ने / पहुँचयोग्यता -->
-    <string name="cd_add_favorite">मनपर्नेमा थप्नुहोस्</string>
-    <string name="cd_remove_favorite">मनपरिबाट हटाउनुहोस्</string>
-    <!-- च्याट शीर्षक / पहुँचयोग्यता -->
-    <string name="cd_nostr_reachable">Nostr मार्फत पुग्न सकिने</string>
-    <string name="cd_unread_private_messages">नपढिएका निजी सन्देश</string>
-    <string name="cd_open_location_channels">स्थान र च्यानल सेटिङ खोल्नुहोस्</string>
-    <string name="cd_connected_peers">जडान भएका साथीहरू</string>
-    <string name="cd_geohash_participants">Geohash सहभागिहरू</string>
-    <string name="cd_ready_for_handshake">ह्यान्डशेकका लागि तयार</string>
-    <string name="cd_handshake_in_progress">ह्यान्डशेक भइरहेको</string>
-    <string name="cd_encrypted">अन्त्यदेखि अन्त्य एनक्रिप्टेड</string>
-    <string name="cd_handshake_failed">ह्यान्डशेक असफल</string>
-
-    <!-- फाइल दर्शक संवाद -->
-    <string name="file_viewer_title">📎 फाइल प्राप्त भयो</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 साइज: %1$s</string>
-    <string name="file_viewer_type">🏷️ प्रकार: %1$s</string>
-    <string name="file_viewer_open_save">📂 खोल्नुहोस् / बचत गर्नुहोस्</string>
-    <string name="close_with_emoji">❌ बन्द गर्नुहोस्</string>
-    <string name="pick_image">तस्वीर छान्नुहोस्</string>
-
     <string name="about_pow_off">pow बन्द</string>
     <string name="about_pow_on">pow चालु</string>
     <string name="about_pow_difficulty">कठिनाइ: %1$d बिट (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">Tor स्थिति: %1$s, बुटस्ट्र्याप %2$d%%</string>
     <string name="about_last">अन्तिम: %1$s</string>
     <string name="about_emergency_title">आपतकालीन डेटा मेटाउने</string>
-    <string name="cancel_lower">रद्द गर्नुहोस्</string>
-
     <!-- सामान्य CD -->
     <string name="cd_warning">चेतावनी</string>
     <string name="cd_location_services">स्थान सेवाहरू</string>
@@ -88,45 +59,20 @@
     <string name="cd_checking_battery_optimization">ब्याट्री अनुकूलन जाँचिँदै</string>
     <string name="cd_not_supported_battery_optimization">समर्थन छैन</string>
     <string name="cd_bluetooth">ब्लुटुथ</string>
-    <string name="cd_unread_message">नपढिएको सन्देश</string>
     <string name="cd_teleport">टेलिपोर्ट</string>
     <string name="cd_leave_channel">च्यानल छोड्नुहोस्</string>
-    <string name="cd_reachable_via_nostr">Nostr बाट पहुँचयोग्य</string>
-    <string name="cd_offline_favorite">मनपर्ने (अफलाइन)</string>
-    <string name="cd_scroll_to_bottom">तल स्क्रोल गर्नुहोस्</string>
-    <string name="cd_file">फाइल</string>
-    <string name="cd_image">तस्वीर</string>
-    <string name="cd_cancel">रद्द</string>
-    <string name="cd_link">लिङ्क</string>
-    <string name="cd_pick_media">मेडिया छान्नुहोस्</string>
-    <string name="cd_record_voice">भ्वाइस नोट रेकर्ड</string>
     <string name="cd_offline_mesh_chat">अफलाइन मेष च्याट</string>
     <string name="cd_online_geohash_channels">अनलाइन Geohash च्यानल</string>
     <string name="cd_end_to_end_encryption">एन्ड‑टु‑एन्ड इन्क्रिप्सन</string>
 
     <!-- छवि / फाइल -->
     <string name="image_page_of">तस्वीर %1$d / %2$d</string>
-    <string name="image_unavailable">तस्वीर उपलब्ध छैन</string>
     <string name="image_saved_to_downloads">तस्वीर "Downloads" मा सुरक्षित भयो</string>
     <string name="image_save_failed">तस्वीर बचत असफल</string>
     <string name="pick_file">फाइल छान्नुहोस्</string>
-    <string name="file_unavailable">[फाइल उपलब्ध छैन]</string>
-    <!-- प्रयोगकर्ता कार्य शीट -->
-    <string name="choose_action_message_or_user">यो सन्देश वा प्रयोगकर्ताका लागि कार्य छान्नुहोस्</string>
-    <string name="choose_action_user">यस प्रयोगकर्ताका लागि कार्य छान्नुहोस्</string>
-    <string name="action_copy_message_title">सन्देश प्रतिलिपि</string>
-    <string name="action_copy_message_subtitle">यो सन्देश क्लिपबोर्डमा प्रतिलिपि गर्नुहोस्</string>
-    <string name="action_slap_title">%1$s लाई चड्कन</string>
-    <string name="action_slap_subtitle">मनोरञ्जनका लागि चड्कन पठाउनुहोस्</string>
-    <string name="action_hug_title">%1$s लाई अँगालो</string>
-    <string name="action_hug_subtitle">मैत्रीपूर्ण अँगालो पठाउनुहोस्</string>
-    <string name="action_block_title">%1$s लाई ब्लक गर्नुहोस्</string>
-    <string name="action_block_subtitle">यस प्रयोगकर्ताबाट सबै सन्देश ब्लक गर्नुहोस्</string>
-
     <string name="grant_location_permission">स्थान अनुमति दिनुहोस्</string>
     <string name="location_permission_granted">\u2713 स्थान अनुमति दिइयो</string>
     <string name="checking_permissions">अनुमति जाँचिँदै…</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">सुरु भएकोयता: %1$d</string>
     <string name="debug_sync_settings">सिङ्क सेटिङ</string>
     <string name="debug_relays_window_fmt">अन्तिम 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -168,29 +114,9 @@
     <string name="permissions_header">अनुमति</string>
     <string name="grant_permissions">अनुमति दिनुहोस्</string>
     <string name="location_tracking_warning">bitchat ले तपाईंको स्थान पछ्याउँदैन</string>
-    <string name="at_symbol">@</string>
-    <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="nobody_around">वरिपरि कोही छैन…</string>
-    <string name="you_suffix"> (तपाईं)</string>
-    <string name="type_a_message_placeholder">सन्देश टाइप गर्नुहोस्…</string>
-    <string name="mention_suggestion_at">@%1$s</string>
-    <string name="mention">उल्लेख</string>
-    <string name="image_counter">%1$d / %2$d</string>
-    <string name="at_nickname">@%1$s</string>
-    <string name="underscore">_</string>
-    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
-    <string name="progress_filled">█</string>
-    <string name="progress_empty">░</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">तस्वीर</string>
-    <string name="media_type_file">फाइल</string>
-
     <!-- सन्देश स्थिति -->
 
-    <!-- सूचना पाठ सहायक -->
-    <string name="notification_sent_image">📷 तस्वीर पठाइयो</string>
-    <string name="notification_sent_voice">🎤 भ्वाइस सन्देश पठाइयो</string>
-    <string name="notification_sent_file">📎 फाइल पठाइयो</string>
     <string name="notification_file_pdf">📄</string>
     <string name="notification_file_zip">🗜️</string>
     <string name="notification_file_doc">📄</string>
@@ -220,42 +146,14 @@
     <string name="perm_type_battery_optimization">ब्याट्री अनुकूलन</string>
     <string name="perm_type_other">अन्य</string>
 
-    <!-- पासवर्ड संवाद -->
-    <string name="pwd_prompt_title">च्यानल पासवर्ड प्रविष्ट गर्नुहोस्</string>
-    <string name="pwd_prompt_message">%1$s च्यानल पासवर्ड सुरक्षित छ। जडान हुन पासवर्ड लेख्नुहोस्।</string>
-    <string name="pwd_label">पासवर्ड</string>
-    <string name="join">जोडिनुहोस्</string>
     <!-- Plurals -->
 
     <string name="bluetooth_recommended">ब्लुटुथ सिफारिस गरिएको</string>
     <string name="mesh_service_notification_content">मेश चलिरहेको छ — %1$d पियर्स</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
   <string name="verify_scan_someone">scan someone elses qr</string>
   <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-    <string name="cd_open_about">परिचय खोल्नुहोस्</string>
 </resources>

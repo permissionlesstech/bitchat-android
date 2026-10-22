@@ -13,12 +13,8 @@
     <string name="leave_channel">خروج</string>
     <string name="show_commands">نمایش دستورات</string>
     <string name="people">افراد</string>
-    <string name="channels">کانال‌ها</string>
     <string name="online_users">کاربران آنلاین</string>
-    <string name="no_one_connected">هیچ‌کس متصل نیست</string>
     <string name="emergency_clear_hint">برای پاک کردن همهٔ داده‌ها سه بار ضربه بزنید</string>
-    <string name="your_network">شبکه</string>
-
     <!-- بهینه‌سازی باتری -->
     <string name="battery_optimization_detected">بهینه‌سازی باتری شناسایی شد</string>
     <string name="battery_optimization_disabled">بهینه‌سازی باتری غیرفعال شد</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">%1$d نفر در نزدیکی</string>
     <string name="notification_and_more">و %1$d مورد دیگر</string>
 
-    <!-- دسترسی‌پذیری موارد دلخواه -->
-    <string name="cd_add_favorite">افزودن به موارد دلخواه</string>
-    <string name="cd_remove_favorite">حذف از موارد دلخواه</string>
-    <!-- سربرگ چت و دسترسی‌پذیری -->
-    <string name="cd_nostr_reachable">قابل دسترس از طریق Nostr</string>
-    <string name="cd_unread_private_messages">پیام‌های خصوصی خوانده‌نشده</string>
-    <string name="cd_open_location_channels">باز کردن تنظیمات مکان و کانال‌ها</string>
-    <string name="cd_connected_peers">همتایان متصل</string>
-    <string name="cd_geohash_participants">شرکت‌کنندگان geohash</string>
-    <string name="cd_ready_for_handshake">آمادهٔ دست‌دهی</string>
-    <string name="cd_handshake_in_progress">دست‌دهی در حال انجام</string>
-    <string name="cd_encrypted">رمزگذاری سرتاسری</string>
-    <string name="cd_handshake_failed">دست‌دهی ناموفق بود</string>
-
-    <!-- گفت‌وگوگر نمایش فایل -->
-    <string name="file_viewer_title">📎 فایل دریافت شد</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 اندازه: %1$s</string>
-    <string name="file_viewer_type">🏷️ نوع: %1$s</string>
-    <string name="file_viewer_open_save">📂 باز کردن / ذخیره</string>
-    <string name="close_with_emoji">❌ بستن</string>
-    <string name="pick_image">انتخاب تصویر</string>
-
     <string name="about_pow_off">PoW خاموش</string>
     <string name="about_pow_on">PoW روشن</string>
     <string name="about_pow_difficulty">سختی: %1$d بیت (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">وضعیت Tor: %1$s، بوت‌استرپ %2$d%%</string>
     <string name="about_last">آخرین: %1$s</string>
     <string name="about_emergency_title">پاکسازی اضطراری داده</string>
-    <string name="cancel_lower">لغو</string>
-
     <!-- توضیحات عمومی محتوا -->
     <string name="cd_warning">هشدار</string>
     <string name="cd_location_services">خدمات مکان</string>
@@ -88,52 +59,21 @@
     <string name="cd_checking_battery_optimization">در حال بررسی بهینه‌سازی باتری</string>
     <string name="cd_not_supported_battery_optimization">بهینه‌سازی باتری پشتیبانی نمی‌شود</string>
     <string name="cd_bluetooth">بلوتوث</string>
-    <string name="cd_unread_message">پیام خوانده‌نشده</string>
     <string name="cd_teleport">انتقال</string>
     <string name="cd_leave_channel">خروج از کانال</string>
-    <string name="cd_reachable_via_nostr">قابل دسترس از طریق Nostr</string>
-    <string name="cd_offline_favorite">دلخواه (آفلاین)</string>
-    <string name="cd_scroll_to_bottom">اسکرول به پایین</string>
-    <string name="cd_file">فایل</string>
-    <string name="cd_image">تصویر</string>
-    <string name="cd_cancel">لغو</string>
-    <string name="cd_link">پیوند</string>
-    <string name="cd_pick_media">انتخاب رسانه</string>
-    <string name="cd_pick_file">انتخاب فایل</string>
-    <string name="cd_save_current_image">ذخیرهٔ تصویر فعلی</string>
-    <string name="cd_close">بستن</string>
-    <string name="cd_image_index_of">تصویر %1$d از %2$d</string>
     <string name="cd_privacy_protected">حریم خصوصی محافظت شده است</string>
-    <string name="cd_record_voice">ضبط پیام صوتی</string>
     <string name="cd_offline_mesh_chat">گفت‌وگوی مِش آفلاین</string>
     <string name="cd_online_geohash_channels">کانال‌های geohash آنلاین</string>
     <string name="cd_end_to_end_encryption">رمزگذاری سرتاسری</string>
 
     <!-- تصاویر و فایل‌ها -->
     <string name="image_page_of">تصویر %1$d از %2$d</string>
-    <string name="image_unavailable">تصویر در دسترس نیست</string>
     <string name="image_saved_to_downloads">تصویر در \"Downloads\" ذخیره شد</string>
     <string name="image_save_failed">ذخیرهٔ تصویر ناموفق بود</string>
-    <string name="toast_image_saved">تصویر در \"Downloads\" ذخیره شد</string>
-    <string name="toast_failed_to_save_image">ذخیرهٔ تصویر ناموفق بود</string>
     <string name="pick_file">انتخاب فایل</string>
-    <string name="file_unavailable">[فایل در دسترس نیست]</string>
-    <!-- برگهٔ اقدامات کاربر -->
-    <string name="choose_action_message_or_user">اقدامی برای این پیام یا کاربر انتخاب کنید</string>
-    <string name="choose_action_user">اقدامی برای این کاربر انتخاب کنید</string>
-    <string name="action_copy_message_title">کپی پیام</string>
-    <string name="action_copy_message_subtitle">این پیام را در کلیپ‌بورد کپی کن</string>
-    <string name="action_slap_title">%1$s را سیلی بزن</string>
-    <string name="action_slap_subtitle">یک سیلی شوخی ارسال کن</string>
-    <string name="action_hug_title">%1$s را بغل کن</string>
-    <string name="action_hug_subtitle">یک بغل دوستانه ارسال کن</string>
-    <string name="action_block_title">%1$s را مسدود کن</string>
-    <string name="action_block_subtitle">همهٔ پیام‌های این کاربر را مسدود کن</string>
-
     <string name="grant_location_permission">اعطای مجوز مکان</string>
     <string name="location_permission_granted">\u2713 مجوز مکان اعطا شد</string>
     <string name="checking_permissions">در حال بررسی مجوزها …</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">از شروع: %1$d</string>
     <string name="debug_sync_settings">تنظیمات همگام‌سازی</string>
     <string name="debug_relays_window_fmt">۱۰ث اخیر: %1$d • ۱د: %2$d • ۱۵د: %3$d</string>
@@ -173,19 +113,7 @@
     <string name="permissions_header">مجوزها</string>
     <string name="grant_permissions">اعطای مجوزها</string>
     <string name="location_tracking_warning">bitchat موقعیت شما را پیگیری نمی‌کند</string>
-    <string name="nobody_around">کسی در اطراف نیست …</string>
-    <string name="you_suffix"> (شما)</string>
-    <string name="type_a_message_placeholder">نوشتن پیام …</string>
-    <string name="mention">ذکر</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">تصویر</string>
-    <string name="media_type_file">فایل</string>
-
-    <!-- راهنمای متن اعلان -->
-    <string name="notification_sent_image">📷 یک تصویر ارسال کرد</string>
-    <string name="notification_sent_voice">🎤 یک پیام صوتی ارسال کرد</string>
-    <string name="notification_sent_file">📎 یک فایل ارسال کرد</string>
-
     <!-- دسترسی‌پذیری پخش‌کنندهٔ صوت -->
     <string name="cd_play_voice">پخش</string>
     <string name="cd_pause_voice">توقف</string>
@@ -208,42 +136,14 @@
     <string name="perm_type_battery_optimization">بهینه‌سازی باتری</string>
     <string name="perm_type_other">سایر</string>
 
-    <!-- گفت‌وگوی گذرواژه -->
-    <string name="pwd_prompt_title">گذرواژهٔ کانال را وارد کنید</string>
-    <string name="pwd_prompt_message">کانال %1$s با گذرواژه محافظت می‌شود. برای پیوستن، گذرواژه را وارد کنید.</string>
-    <string name="pwd_label">گذرواژه</string>
-    <string name="join">پیوستن</string>
     <!-- حالت جمع -->
 
     <string name="bluetooth_recommended">بلوتوث توصیه می شود</string>
     <string name="mesh_service_notification_content">مش در حال اجرا — %1$d همتا</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
   <string name="verify_scan_someone">scan someone elses qr</string>
   <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-    <string name="cd_open_about">باز کردن درباره</string>
 </resources>

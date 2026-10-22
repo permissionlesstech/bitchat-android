@@ -13,12 +13,8 @@
     <string name="leave_channel">Umalis</string>
     <string name="show_commands">Ipakita ang mga utos</string>
     <string name="people">Tao</string>
-    <string name="channels">Mga Channel</string>
     <string name="online_users">Mga Online na User</string>
-    <string name="no_one_connected">Walang nakakonekta</string>
     <string name="emergency_clear_hint">I‑tap nang tatlong beses para burahin ang lahat ng data</string>
-    <string name="your_network">Network</string>
-
     <!-- Pag‑optimize ng baterya -->
     <string name="battery_optimization_detected">Natukoy ang pag‑optimize ng baterya</string>
     <string name="battery_optimization_disabled">Naka‑disable ang pag‑optimize ng baterya</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">%1$d tao sa paligid</string>
     <string name="notification_and_more">at %1$d pa</string>
 
-    <!-- Paborito / Accessibility -->
-    <string name="cd_add_favorite">Idagdag sa paborito</string>
-    <string name="cd_remove_favorite">Alisin sa paborito</string>
-    <!-- Header at accessibility -->
-    <string name="cd_nostr_reachable">Maabot sa Nostr</string>
-    <string name="cd_unread_private_messages">Hindi nabasang pribadong mensahe</string>
-    <string name="cd_open_location_channels">Buksan ang mga setting ng lokasyon at channel</string>
-    <string name="cd_connected_peers">Nakakonektang peers</string>
-    <string name="cd_geohash_participants">Mga kalahok sa geohash</string>
-    <string name="cd_ready_for_handshake">Handa para sa handshake</string>
-    <string name="cd_handshake_in_progress">Isinasagawa ang handshake</string>
-    <string name="cd_encrypted">End‑to‑end naka‑encrypt</string>
-    <string name="cd_handshake_failed">Bigo ang handshake</string>
-
-    <!-- Dialog ng file -->
-    <string name="file_viewer_title">📎 Nakakuha ng file</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 Laki: %1$s</string>
-    <string name="file_viewer_type">🏷️ Uri: %1$s</string>
-    <string name="file_viewer_open_save">📂 Buksan / I‑save</string>
-    <string name="close_with_emoji">❌ Isara</string>
-    <string name="pick_image">Pumili ng larawan</string>
-
     <string name="about_pow_off">pow off</string>
     <string name="about_pow_on">pow on</string>
     <string name="about_pow_difficulty">hirap: %1$d bits (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">katayuan ng Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Huli: %1$s</string>
     <string name="about_emergency_title">Emergency Data Deletion</string>
-    <string name="cancel_lower">kanselahin</string>
-
     <!-- Generic CD -->
     <string name="cd_warning">Babala</string>
     <string name="cd_location_services">Mga serbisyo sa lokasyon</string>
@@ -88,45 +59,20 @@
     <string name="cd_checking_battery_optimization">Sinusuri ang pag‑optimize</string>
     <string name="cd_not_supported_battery_optimization">Hindi suportado</string>
     <string name="cd_bluetooth">Bluetooth</string>
-    <string name="cd_unread_message">Hindi nabasang mensahe</string>
     <string name="cd_teleport">Teleport</string>
     <string name="cd_leave_channel">Umalis sa channel</string>
-    <string name="cd_reachable_via_nostr">Maabot sa Nostr</string>
-    <string name="cd_offline_favorite">Paborito (offline)</string>
-    <string name="cd_scroll_to_bottom">Mag‑scroll pababa</string>
-    <string name="cd_file">File</string>
-    <string name="cd_image">Larawan</string>
-    <string name="cd_cancel">Kanselahin</string>
-    <string name="cd_link">Link</string>
-    <string name="cd_pick_media">Pumili ng media</string>
-    <string name="cd_record_voice">Mag‑record ng voice note</string>
     <string name="cd_offline_mesh_chat">Offline Mesh Chat</string>
     <string name="cd_online_geohash_channels">Online na Geohash Channels</string>
     <string name="cd_end_to_end_encryption">End‑to‑End Encryption</string>
 
     <!-- Larawan / File -->
     <string name="image_page_of">Larawan %1$d ng %2$d</string>
-    <string name="image_unavailable">Hindi available ang larawan</string>
     <string name="image_saved_to_downloads">Na‑save ang larawan sa "Downloads"</string>
     <string name="image_save_failed">Nabigo ang pag‑save ng larawan</string>
     <string name="pick_file">Pumili ng file</string>
-    <string name="file_unavailable">[hindi available ang file]</string>
-    <!-- User action sheet -->
-    <string name="choose_action_message_or_user">pumili ng aksyon para sa mensaheng ito o user</string>
-    <string name="choose_action_user">pumili ng aksyon para sa user na ito</string>
-    <string name="action_copy_message_title">kopyahin ang mensahe</string>
-    <string name="action_copy_message_subtitle">kopyahin ang mensaheng ito sa clipboard</string>
-    <string name="action_slap_title">sapakin si %1$s</string>
-    <string name="action_slap_subtitle">magpadala ng birong sampal</string>
-    <string name="action_hug_title">yakapin si %1$s</string>
-    <string name="action_hug_subtitle">magpadala ng magiliw na yakap</string>
-    <string name="action_block_title">harangan si %1$s</string>
-    <string name="action_block_subtitle">harangan ang lahat ng mensahe mula sa user na ito</string>
-
     <string name="grant_location_permission">payagan ang lokasyon</string>
     <string name="location_permission_granted">\u2713 pinayagan ang lokasyon</string>
     <string name="checking_permissions">sini‑siyasat ang mga permiso…</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">mula umpisa: %1$d</string>
     <string name="debug_sync_settings">mga setting ng sync</string>
     <string name="debug_relays_window_fmt">huling 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -168,29 +114,9 @@
     <string name="permissions_header">mga permiso</string>
     <string name="grant_permissions">Payagan</string>
     <string name="location_tracking_warning">HINDI sinusubaybayan ng bitchat ang lokasyon mo</string>
-    <string name="at_symbol">@</string>
-    <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="nobody_around">walang tao sa paligid…</string>
-    <string name="you_suffix"> (ikaw)</string>
-    <string name="type_a_message_placeholder">magtype ng mensahe…</string>
-    <string name="mention_suggestion_at">@%1$s</string>
-    <string name="mention">banggit</string>
-    <string name="image_counter">%1$d / %2$d</string>
-    <string name="at_nickname">@%1$s</string>
-    <string name="underscore">_</string>
-    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
-    <string name="progress_filled">█</string>
-    <string name="progress_empty">░</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">Larawan</string>
-    <string name="media_type_file">File</string>
-
     <!-- Mga status ng mensahe -->
 
-    <!-- Tulong na text sa abiso -->
-    <string name="notification_sent_image">📷 nagpadala ng larawan</string>
-    <string name="notification_sent_voice">🎤 nagpadala ng voice message</string>
-    <string name="notification_sent_file">📎 nagpadala ng file</string>
     <string name="notification_file_pdf">📄</string>
     <string name="notification_file_zip">🗜️</string>
     <string name="notification_file_doc">📄</string>
@@ -220,42 +146,14 @@
     <string name="perm_type_battery_optimization">Pag‑optimize ng baterya</string>
     <string name="perm_type_other">Iba pa</string>
 
-    <!-- Dialog ng password -->
-    <string name="pwd_prompt_title">Ilagay ang password ng channel</string>
-    <string name="pwd_prompt_message">Ang channel na %1$s ay protektado. Ilagay ang password para sumali.</string>
-    <string name="pwd_label">Password</string>
-    <string name="join">Sumali</string>
     <!-- Plurals -->
 
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Tumatakbo ang Mesh — %1$d na peer</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
   <string name="verify_scan_someone">scan someone elses qr</string>
   <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-    <string name="cd_open_about">Buksan ang Tungkol</string>
 </resources>

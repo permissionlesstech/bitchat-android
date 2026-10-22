@@ -140,6 +140,7 @@ dependencies {
     implementation(project(":core:tor"))
     implementation(project(":feature:share"))
     implementation(project(":feature:share:api"))
+    implementation(project(":feature:chat"))
     implementation(project(":feature:chat:api"))
     implementation(project(":feature:location"))
     implementation(project(":feature:location:api"))

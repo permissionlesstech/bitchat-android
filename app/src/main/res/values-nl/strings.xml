@@ -13,12 +13,8 @@
     <string name="leave_channel">Verlaten</string>
     <string name="show_commands">Commando\'s weergeven</string>
     <string name="people">Personen</string>
-    <string name="channels">Kanalen</string>
     <string name="online_users">Online gebruikers</string>
-    <string name="no_one_connected">Niemand verbonden</string>
     <string name="emergency_clear_hint">Tik drie keer om alle gegevens te wissen</string>
-    <string name="your_network">Netwerk</string>
-
     <!-- Batterijoptimalisatie -->
     <string name="battery_optimization_detected">Batterijoptimalisatie gedetecteerd</string>
     <string name="battery_optimization_disabled">Batterijoptimalisatie uitgeschakeld</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">%1$d personen in de buurt</string>
     <string name="notification_and_more">en %1$d meer</string>
 
-    <!-- Favorieten toegankelijkheid -->
-    <string name="cd_add_favorite">Toevoegen aan favorieten</string>
-    <string name="cd_remove_favorite">Verwijderen uit favorieten</string>
-    <!-- Chatkop &amp; toegankelijkheid -->
-    <string name="cd_nostr_reachable">Bereikbaar via Nostr</string>
-    <string name="cd_unread_private_messages">Ongelezen privéberichten</string>
-    <string name="cd_open_location_channels">Locatie- en kanaalinstellingen openen</string>
-    <string name="cd_connected_peers">Verbonden peers</string>
-    <string name="cd_geohash_participants">Geohash-deelnemers</string>
-    <string name="cd_ready_for_handshake">Klaar voor handshake</string>
-    <string name="cd_handshake_in_progress">Handshake bezig</string>
-    <string name="cd_encrypted">End-to-end versleuteld</string>
-    <string name="cd_handshake_failed">Handshake mislukt</string>
-
-    <!-- Bestandsweergave dialoog -->
-    <string name="file_viewer_title">📎 Bestand ontvangen</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 Grootte: %1$s</string>
-    <string name="file_viewer_type">🏷️ Type: %1$s</string>
-    <string name="file_viewer_open_save">📂 Openen / Opslaan</string>
-    <string name="close_with_emoji">❌ Sluiten</string>
-    <string name="pick_image">Afbeelding kiezen</string>
-
     <string name="about_pow_off">PoW uit</string>
     <string name="about_pow_on">PoW aan</string>
     <string name="about_pow_difficulty">moeilijkheidsgraad: %1$d bits (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">Tor-status: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Laatste: %1$s</string>
     <string name="about_emergency_title">Noodgegevensverwijdering</string>
-    <string name="cancel_lower">annuleren</string>
-
     <!-- Algemene content-beschrijvingen -->
     <string name="cd_warning">Waarschuwing</string>
     <string name="cd_location_services">Locatiediensten</string>
@@ -88,52 +59,21 @@
     <string name="cd_checking_battery_optimization">Batterijoptimalisatie controleren</string>
     <string name="cd_not_supported_battery_optimization">Batterijoptimalisatie niet ondersteund</string>
     <string name="cd_bluetooth">Bluetooth</string>
-    <string name="cd_unread_message">Ongelezen bericht</string>
     <string name="cd_teleport">Teleporteren</string>
     <string name="cd_leave_channel">Kanaal verlaten</string>
-    <string name="cd_reachable_via_nostr">Bereikbaar via Nostr</string>
-    <string name="cd_offline_favorite">Offline favoriet</string>
-    <string name="cd_scroll_to_bottom">Naar beneden scrollen</string>
-    <string name="cd_file">Bestand</string>
-    <string name="cd_image">Afbeelding</string>
-    <string name="cd_cancel">Annuleren</string>
-    <string name="cd_link">Link</string>
-    <string name="cd_pick_media">Media kiezen</string>
-    <string name="cd_pick_file">Bestand kiezen</string>
-    <string name="cd_save_current_image">Huidige afbeelding opslaan</string>
-    <string name="cd_close">Sluiten</string>
-    <string name="cd_image_index_of">Afbeelding %1$d van %2$d</string>
     <string name="cd_privacy_protected">Privacy beschermd</string>
-    <string name="cd_record_voice">Spraaknotitie opnemen</string>
     <string name="cd_offline_mesh_chat">Offline meshchat</string>
     <string name="cd_online_geohash_channels">Online geohash-kanalen</string>
     <string name="cd_end_to_end_encryption">End-to-end-versleuteling</string>
 
     <!-- Afbeeldingen &amp; bestanden -->
     <string name="image_page_of">Afbeelding %1$d van %2$d</string>
-    <string name="image_unavailable">Afbeelding niet beschikbaar</string>
     <string name="image_saved_to_downloads">Afbeelding opgeslagen in Downloads</string>
     <string name="image_save_failed">Opslaan afbeelding mislukt</string>
-    <string name="toast_image_saved">Afbeelding opgeslagen in Downloads</string>
-    <string name="toast_failed_to_save_image">Opslaan afbeelding mislukt</string>
     <string name="pick_file">Bestand kiezen</string>
-    <string name="file_unavailable">[bestand niet beschikbaar]</string>
-    <!-- Gebruikersactie-sheet -->
-    <string name="choose_action_message_or_user">kies een actie voor dit bericht of deze gebruiker</string>
-    <string name="choose_action_user">kies een actie voor deze gebruiker</string>
-    <string name="action_copy_message_title">bericht kopiëren</string>
-    <string name="action_copy_message_subtitle">kopieer dit bericht naar klembord</string>
-    <string name="action_slap_title">%1$s een tik geven</string>
-    <string name="action_slap_subtitle">stuur een speelse tik</string>
-    <string name="action_hug_title">%1$s knuffelen</string>
-    <string name="action_hug_subtitle">stuur een vriendelijke knuffel</string>
-    <string name="action_block_title">%1$s blokkeren</string>
-    <string name="action_block_subtitle">blokkeer alle berichten van deze gebruiker</string>
-
     <string name="grant_location_permission">locatietoestemming verlenen</string>
     <string name="location_permission_granted">\u2713 locatietoestemming verleend</string>
     <string name="checking_permissions">toestemmingen controleren…</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">sinds start: %1$d</string>
     <string name="debug_sync_settings">sync-instellingen</string>
     <string name="debug_relays_window_fmt">laatste 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -173,19 +113,7 @@
     <string name="permissions_header">toestemmingen</string>
     <string name="grant_permissions">Toestemmingen verlenen</string>
     <string name="location_tracking_warning">bitchat volgt NIET uw locatie</string>
-    <string name="nobody_around">niemand in de buurt…</string>
-    <string name="you_suffix"> (jij)</string>
-    <string name="type_a_message_placeholder">typ een bericht…</string>
-    <string name="mention">vermelden</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">Afbeelding</string>
-    <string name="media_type_file">Bestand</string>
-
-    <!-- Berichtstatus-tekst helpers -->
-    <string name="notification_sent_image">📷 heeft een afbeelding verstuurd</string>
-    <string name="notification_sent_voice">🎤 heeft een spraakbericht verstuurd</string>
-    <string name="notification_sent_file">📎 heeft een bestand verstuurd</string>
-
     <!-- Spraakspeler toegankelijkheid -->
     <string name="cd_play_voice">Afspelen</string>
     <string name="cd_pause_voice">Pauzeren</string>
@@ -208,21 +136,6 @@
     <string name="perm_type_battery_optimization">Batterijoptimalisatie</string>
     <string name="perm_type_other">Overig</string>
 
-    <!-- Wachtwoord-dialoog -->
-    <string name="pwd_prompt_title">Kanaalwachtwoord invoeren</string>
-    <string name="pwd_prompt_message">Kanaal %1$s is met een wachtwoord beveiligd. Voer het wachtwoord in om deel te nemen.</string>
-    <string name="pwd_label">Wachtwoord</string>
-    <string name="join">Deelnemen</string>
-    <!-- Symbolen &amp; speciale strings -->
-    <string name="at_symbol">@</string>
-    <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="mention_suggestion_at">@%1$s</string>
-    <string name="image_counter">%1$d / %2$d</string>
-    <string name="at_nickname">@%1$s</string>
-    <string name="underscore">_</string>
-    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
-    <string name="progress_filled">█</string>
-    <string name="progress_empty">░</string>
     <string name="dot">.</string>
     <string name="warning_emoji">⚠️</string>
     <!-- Berichtstatus-pictogrammen -->
@@ -240,32 +153,9 @@
     <string name="bluetooth_recommended">Bluetooth aanbevolen</string>
     <string name="mesh_service_notification_content">Mesh actief — %1$d peers</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
   <string name="verify_scan_someone">scan someone elses qr</string>
   <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-    <string name="cd_open_about">Info openen</string>
 </resources>

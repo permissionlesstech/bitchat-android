@@ -13,12 +13,8 @@
     <string name="leave_channel">باہر آؤ</string>
     <string name="show_commands">کمانڈ وکھاؤ</string>
     <string name="people">لوگ</string>
-    <string name="channels">چینل</string>
     <string name="online_users">آن لائن یوزر</string>
-    <string name="no_one_connected">کوئی وی منسلک نہیں</string>
     <string name="emergency_clear_hint">ساری ڈیٹا مٹاون لئی تین وار ٹیپ کرو</string>
-    <string name="your_network">نیٹ ورک</string>
-
     <!-- بیٹری آپٹمائزیشن -->
     <string name="battery_optimization_detected">بیٹری آپٹمائزیشن لبھیا گیا</string>
     <string name="battery_optimization_disabled">بیٹری آپٹمائزیشن بند اے</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">نیڑے %1$d بندے</string>
     <string name="notification_and_more">تے %1$d ہور</string>
 
-    <!-- پسندیدہ رسائی پذیری -->
-    <string name="cd_add_favorite">پسندیدہ وچ پاؤ</string>
-    <string name="cd_remove_favorite">پسندیدہ توں ہٹاؤ</string>
-    <!-- چیٹ ہیڈر &amp; رسائی پذیری -->
-    <string name="cd_nostr_reachable">Nostr راہین پہنچ ممکن اے</string>
-    <string name="cd_unread_private_messages">انہ پڑھیا ذاتی پیغام</string>
-    <string name="cd_open_location_channels">مقام تے چینل دیاں ترتیباں کھولو</string>
-    <string name="cd_connected_peers">جُڑے پیئر</string>
-    <string name="cd_geohash_participants">geohash شریک</string>
-    <string name="cd_ready_for_handshake">ہینڈشیک لئی تیار</string>
-    <string name="cd_handshake_in_progress">ہینڈشیک جاری</string>
-    <string name="cd_encrypted">اینڈ ٹو اینڈ انکرپٹڈ</string>
-    <string name="cd_handshake_failed">ہینڈشیک فیل ہویا</string>
-
-    <!-- فائل ویؤر ڈائیلاگ -->
-    <string name="file_viewer_title">📎 فائل ملی</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 سائز: %1$s</string>
-    <string name="file_viewer_type">🏷️ قسم: %1$s</string>
-    <string name="file_viewer_open_save">📂 کھولو / سیو کرو</string>
-    <string name="close_with_emoji">❌ بند کرو</string>
-    <string name="pick_image">تصویر چُنو</string>
-
     <string name="about_pow_off">PoW بند</string>
     <string name="about_pow_on">PoW چالو</string>
     <string name="about_pow_difficulty">مشکلی: %1$d بٹ (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">Tor حالت: %1$s، بوٹ اسٹرَیپ %2$d%%</string>
     <string name="about_last">آخری: %1$s</string>
     <string name="about_emergency_title">ایمرجنسی ڈیٹا صاف</string>
-    <string name="cancel_lower">منسوخ</string>
-
     <!-- عمومی مواد دی وضاحت -->
     <string name="cd_warning">خبردار</string>
     <string name="cd_location_services">لوکیشن سروسز</string>
@@ -88,52 +59,21 @@
     <string name="cd_checking_battery_optimization">بیٹری آپٹمائزیشن چیک ہورہی اے</string>
     <string name="cd_not_supported_battery_optimization">بیٹری آپٹمائزیشن سپورٹڈ نئیں</string>
     <string name="cd_bluetooth">بلوٹوتھ</string>
-    <string name="cd_unread_message">انہ پڑھیا پیغام</string>
     <string name="cd_teleport">ٹیلپورٹ</string>
     <string name="cd_leave_channel">چینل چھوڑو</string>
-    <string name="cd_reachable_via_nostr">Nostr راہین پہنچ ممکن اے</string>
-    <string name="cd_offline_favorite">پسندیدہ (آف لائن)</string>
-    <string name="cd_scroll_to_bottom">تھلے سکرول کرو</string>
-    <string name="cd_file">فائل</string>
-    <string name="cd_image">تصویر</string>
-    <string name="cd_cancel">منسوخ</string>
-    <string name="cd_link">لنک</string>
-    <string name="cd_pick_media">میڈیا چُنو</string>
-    <string name="cd_pick_file">فائل چُنو</string>
-    <string name="cd_save_current_image">موجودہ تصویر سیو کرو</string>
-    <string name="cd_close">بند کرو</string>
-    <string name="cd_image_index_of">تصویر %1$d توں %2$d</string>
     <string name="cd_privacy_protected">پرائیویسی محفوظ اے</string>
-    <string name="cd_record_voice">وائس پیغام ریکارڈ کرو</string>
     <string name="cd_offline_mesh_chat">آف لائن میش چیٹ</string>
     <string name="cd_online_geohash_channels">آن لائن geohash چینل</string>
     <string name="cd_end_to_end_encryption">اینڈ ٹو اینڈ انکرپشن</string>
 
     <!-- تصویراں &amp; فائلز -->
     <string name="image_page_of">تصویر %1$d وچوں %2$d</string>
-    <string name="image_unavailable">تصویر دستیاب نئیں</string>
     <string name="image_saved_to_downloads">تصویر \"Downloads\" وچ سیو ہو گئی</string>
     <string name="image_save_failed">تصویر سیو نئیں ہو سکدی</string>
-    <string name="toast_image_saved">تصویر \"Downloads\" وچ سیو ہو گئی</string>
-    <string name="toast_failed_to_save_image">تصویر سیو نئیں ہو سکدی</string>
     <string name="pick_file">فائل چُنو</string>
-    <string name="file_unavailable">[فائل دستیاب نئیں]</string>
-    <!-- یوزر ایکشن شیٹ -->
-    <string name="choose_action_message_or_user">اس پیغام یا یوزر لئی عمل چُنو</string>
-    <string name="choose_action_user">اس یوزر لئی عمل چُنو</string>
-    <string name="action_copy_message_title">پیغام کاپی کرو</string>
-    <string name="action_copy_message_subtitle">ایہ پیغام کلپ بورڈ وچ کاپی کرو</string>
-    <string name="action_slap_title">%1$s نوں چپیڑ مارو</string>
-    <string name="action_slap_subtitle">مزاحیہ چپیڑ پھجو</string>
-    <string name="action_hug_title">%1$s نوں گلے لاؤ</string>
-    <string name="action_hug_subtitle">دوستانہ گلے ملنا پھجو</string>
-    <string name="action_block_title">%1$s نوں بلاک کرو</string>
-    <string name="action_block_subtitle">اس یوزر دے سارے پیغام بلاک کرو</string>
-
     <string name="grant_location_permission">لوکیشن دی اجازت دو</string>
     <string name="location_permission_granted">\u2713 لوکیشن دی اجازت مل گئی</string>
     <string name="checking_permissions">اجازت چیک ہورہی اے …</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">شروع توں: %1$d</string>
     <string name="debug_sync_settings">سنک سیٹنگا</string>
     <string name="debug_relays_window_fmt">پچھلے 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -173,19 +113,7 @@
     <string name="permissions_header">اجازتاں</string>
     <string name="grant_permissions">اجازت دو</string>
     <string name="location_tracking_warning">bitchat توانڈی لوکیشن نئیں ٹریک کردا</string>
-    <string name="nobody_around">کوئی وی نیڑے نئیں …</string>
-    <string name="you_suffix"> (تُسی)</string>
-    <string name="type_a_message_placeholder">پیغام لکھو …</string>
-    <string name="mention">ذکر</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">تصویر</string>
-    <string name="media_type_file">فائل</string>
-
-    <!-- نوٹیفکیشن متن مددگار -->
-    <string name="notification_sent_image">📷 تصویر بھیجی</string>
-    <string name="notification_sent_voice">🎤 وائس پیغام بھیجیا</string>
-    <string name="notification_sent_file">📎 فائل بھیجی</string>
-
     <!-- وائس پلیئر رسائی پذیری -->
     <string name="cd_play_voice">چلاؤ</string>
     <string name="cd_pause_voice">روکੋ</string>
@@ -208,42 +136,14 @@
     <string name="perm_type_battery_optimization">بیٹری آپٹمائزیشن</string>
     <string name="perm_type_other">ہور</string>
 
-    <!-- پاس ورڈ ڈائیلاگ -->
-    <string name="pwd_prompt_title">چینل دا پاس ورڈ لکھو</string>
-    <string name="pwd_prompt_message">چینل %1$s پاس ورڈ نال محفوظ اے۔ شامل ہون لئی پاس ورڈ لکھو۔</string>
-    <string name="pwd_label">پاس ورڈ</string>
-    <string name="join">شامل ہوو</string>
     <!-- جمع -->
 
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">میش چل رہا ہے — %1$d ساتھی</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
   <string name="verify_scan_someone">scan someone elses qr</string>
   <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-    <string name="cd_open_about">ایپ بارے کھولو</string>
 </resources>

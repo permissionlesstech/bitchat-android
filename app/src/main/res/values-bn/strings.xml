@@ -13,12 +13,8 @@
     <string name="leave_channel">ছেড়ে দিন</string>
     <string name="show_commands">কমান্ড দেখান</string>
     <string name="people">মানুষ</string>
-    <string name="channels">চ্যানেল</string>
     <string name="online_users">অনলাইন ব্যবহারকারী</string>
-    <string name="no_one_connected">কেউ সংযুক্ত নেই</string>
     <string name="emergency_clear_hint">সমস্ত ডেটা সাফ করতে তিনবার ট্যাপ করুন</string>
-    <string name="your_network">নেটওয়ার্ক</string>
-
     <!-- ব্যাটারি অপ্টিমাইজেশন -->
     <string name="battery_optimization_detected">ব্যাটারি অপ্টিমাইজেশন সনাক্ত</string>
     <string name="battery_optimization_disabled">ব্যাটারি অপ্টিমাইজেশন নিষ্ক্রিয়</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">কাছাকাছি %1$d জন</string>
     <string name="notification_and_more">এবং %1$d আরো</string>
 
-    <!-- প্রিয় অ্যাক্সেসিবিলিটি -->
-    <string name="cd_add_favorite">প্রিয়তে যোগ করুন</string>
-    <string name="cd_remove_favorite">প্রিয় থেকে সরান</string>
-    <!-- চ্যাট হেডার ও অ্যাক্সেসিবিলিটি -->
-    <string name="cd_nostr_reachable">Nostr এর মাধ্যমে পৌঁছানো যায়</string>
-    <string name="cd_unread_private_messages">অপঠিত ব্যক্তিগত বার্তা</string>
-    <string name="cd_open_location_channels">অবস্থান ও চ্যানেল সেটিংস খুলুন</string>
-    <string name="cd_connected_peers">সংযুক্ত পিয়ার</string>
-    <string name="cd_geohash_participants">জিওহ্যাশ অংশগ্রহণকারী</string>
-    <string name="cd_ready_for_handshake">হ্যান্ডশেকের জন্য প্রস্তুত</string>
-    <string name="cd_handshake_in_progress">হ্যান্ডশেক চলছে</string>
-    <string name="cd_encrypted">এন্ড-টু-এন্ড এনক্রিপ্ট করা</string>
-    <string name="cd_handshake_failed">হ্যান্ডশেক ব্যর্থ</string>
-
-    <!-- ফাইল ভিউয়ার ডায়ালগ -->
-    <string name="file_viewer_title">📎 ফাইল প্রাপ্ত</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 আকার: %1$s</string>
-    <string name="file_viewer_type">🏷️ ধরণ: %1$s</string>
-    <string name="file_viewer_open_save">📂 খুলুন / সংরক্ষণ করুন</string>
-    <string name="close_with_emoji">❌ বন্ধ করুন</string>
-    <string name="pick_image">ছবি নির্বাচন করুন</string>
-
     <string name="about_pow_off">PoW বন্ধ</string>
     <string name="about_pow_on">PoW চালু</string>
     <string name="about_pow_difficulty">কঠিনতা: %1$d বিট (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">Tor অবস্থা: %1$s, বুটস্ট্র্যাপ %2$d%%</string>
     <string name="about_last">শেষ: %1$s</string>
     <string name="about_emergency_title">জরুরী ডেটা ক্লিয়ার</string>
-    <string name="cancel_lower">বাতিল</string>
-
     <!-- সাধারণ বিষয়বস্তু বিবরণ -->
     <string name="cd_warning">সতর্কতা</string>
     <string name="cd_location_services">অবস্থান সেবা</string>
@@ -88,52 +59,21 @@
     <string name="cd_checking_battery_optimization">ব্যাটারি অপ্টিমাইজেশন পরীক্ষা করা হচ্ছে</string>
     <string name="cd_not_supported_battery_optimization">ব্যাটারি অপ্টিমাইজেশন সমর্থিত নয়</string>
     <string name="cd_bluetooth">ব্লুটুথ</string>
-    <string name="cd_unread_message">অপঠিত বার্তা</string>
     <string name="cd_teleport">টেলিপোর্ট</string>
     <string name="cd_leave_channel">চ্যানেল ছেড়ে দিন</string>
-    <string name="cd_reachable_via_nostr">Nostr এর মাধ্যমে পৌঁছানো যায়</string>
-    <string name="cd_offline_favorite">প্রিয় (অফলাইন)</string>
-    <string name="cd_scroll_to_bottom">নিচে স্ক্রল করুন</string>
-    <string name="cd_file">ফাইল</string>
-    <string name="cd_image">ছবি</string>
-    <string name="cd_cancel">বাতিল</string>
-    <string name="cd_link">লিঙ্ক</string>
-    <string name="cd_pick_media">মিডিয়া নির্বাচন করুন</string>
-    <string name="cd_pick_file">ফাইল নির্বাচন করুন</string>
-    <string name="cd_save_current_image">বর্তমান ছবি সংরক্ষণ করুন</string>
-    <string name="cd_close">বন্ধ করুন</string>
-    <string name="cd_image_index_of">ছবি %1$d এর %2$d</string>
     <string name="cd_privacy_protected">গোপনীয়তা সুরক্ষিত</string>
-    <string name="cd_record_voice">ভয়েস বার্তা রেকর্ড করুন</string>
     <string name="cd_offline_mesh_chat">অফলাইন মেশ চ্যাট</string>
     <string name="cd_online_geohash_channels">অনলাইন জিওহ্যাশ চ্যানেল</string>
     <string name="cd_end_to_end_encryption">এন্ড-টু-এন্ড এনক্রিপশন</string>
 
     <!-- ছবি ও ফাইল -->
     <string name="image_page_of">ছবি %1$d এর %2$d</string>
-    <string name="image_unavailable">ছবি অনুপলব্ধ</string>
     <string name="image_saved_to_downloads">ছবি \"Downloads\" এ সংরক্ষিত</string>
     <string name="image_save_failed">ছবি সংরক্ষণ করতে ব্যর্থ</string>
-    <string name="toast_image_saved">ছবি \"Downloads\" এ সংরক্ষিত</string>
-    <string name="toast_failed_to_save_image">ছবি সংরক্ষণ করতে ব্যর্থ</string>
     <string name="pick_file">ফাইল নির্বাচন করুন</string>
-    <string name="file_unavailable">[ফাইল অনুপলব্ধ]</string>
-    <!-- ব্যবহারকারী অ্যাকশন শিট -->
-    <string name="choose_action_message_or_user">এই বার্তা বা ব্যবহারকারীর জন্য অ্যাকশন নির্বাচন করুন</string>
-    <string name="choose_action_user">এই ব্যবহারকারীর জন্য অ্যাকশন নির্বাচন করুন</string>
-    <string name="action_copy_message_title">বার্তা কপি করুন</string>
-    <string name="action_copy_message_subtitle">এই বার্তাটি ক্লিপবোর্ডে কপি করুন</string>
-    <string name="action_slap_title">%1$s কে চড় দিন</string>
-    <string name="action_slap_subtitle">একটি কৌতুকপূর্ণ চড় পাঠান</string>
-    <string name="action_hug_title">%1$s কে আলিঙ্গন করুন</string>
-    <string name="action_hug_subtitle">একটি বন্ধুত্বপূর্ণ আলিঙ্গন পাঠান</string>
-    <string name="action_block_title">%1$s কে ব্লক করুন</string>
-    <string name="action_block_subtitle">এই ব্যবহারকারীর সমস্ত বার্তা ব্লক করুন</string>
-
     <string name="grant_location_permission">অবস্থান অনুমতি দিন</string>
     <string name="location_permission_granted">\u2713 অবস্থান অনুমতি দেওয়া হয়েছে</string>
     <string name="checking_permissions">অনুমতি পরীক্ষা করা হচ্ছে …</string>
-    <string name="mesh_label">মেশ</string>
     <string name="debug_since_start_fmt">শুরু থেকে: %1$d</string>
     <string name="debug_sync_settings">সিঙ্ক সেটিংস</string>
     <string name="debug_relays_window_fmt">শেষ 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -173,19 +113,7 @@
     <string name="permissions_header">অনুমতি</string>
     <string name="grant_permissions">অনুমতি দিন</string>
     <string name="location_tracking_warning">bitchat আপনার অবস্থান ট্র্যাক করে না</string>
-    <string name="nobody_around">কেউ আশেপাশে নেই …</string>
-    <string name="you_suffix"> (আপনি)</string>
-    <string name="type_a_message_placeholder">বার্তা টাইপ করুন …</string>
-    <string name="mention">উল্লেখ</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">ছবি</string>
-    <string name="media_type_file">ফাইল</string>
-
-    <!-- বিজ্ঞপ্তি টেক্সট সহায়ক -->
-    <string name="notification_sent_image">📷 একটি ছবি পাঠিয়েছে</string>
-    <string name="notification_sent_voice">🎤 একটি ভয়েস বার্তা পাঠিয়েছে</string>
-    <string name="notification_sent_file">📎 একটি ফাইল পাঠিয়েছে</string>
-
     <!-- ভয়েস প্লেয়ার অ্যাক্সেসিবিলিটি -->
     <string name="cd_play_voice">প্লে করুন</string>
     <string name="cd_pause_voice">বিরাম</string>
@@ -208,42 +136,14 @@
     <string name="perm_type_battery_optimization">ব্যাটারি অপ্টিমাইজেশন</string>
     <string name="perm_type_other">অন্যান্য</string>
 
-    <!-- পাসওয়ার্ড ডায়ালগ -->
-    <string name="pwd_prompt_title">চ্যানেল পাসওয়ার্ড লিখুন</string>
-    <string name="pwd_prompt_message">চ্যানেল %1$s পাসওয়ার্ড দিয়ে সুরক্ষিত। যোগ দিতে পাসওয়ার্ড লিখুন।</string>
-    <string name="pwd_label">পাসওয়ার্ড</string>
-    <string name="join">যোগ দিন</string>
     <!-- বহুবচন -->
 
     <string name="bluetooth_recommended">ব্লুটুথ প্রস্তাবিত</string>
     <string name="mesh_service_notification_content">মেশ চলছে — %1$d পিয়ার</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
   <string name="verify_scan_someone">scan someone elses qr</string>
   <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-    <string name="cd_open_about">পরিচিতি খুলুন</string>
 </resources>

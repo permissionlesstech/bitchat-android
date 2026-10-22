@@ -10,12 +10,8 @@
     <string name="leave_channel">Keluar</string>
     <string name="show_commands">Tunjukkan arahan</string>
     <string name="people">Orang</string>
-    <string name="channels">Saluran</string>
     <string name="online_users">Pengguna Dalam Talian</string>
-    <string name="no_one_connected">Tiada sesiapa yang disambungkan</string>
     <string name="emergency_clear_hint">Ketik tiga kali untuk memadam semua data</string>
-    <string name="your_network">Rangkaian</string>
-
     <!-- Battery Optimization Strings -->
     <string name="battery_optimization_detected">Pengoptimuman Bateri Dikesan</string>
     <string name="battery_optimization_disabled">Pengoptimuman Bateri Dilumpuhkan</string>
@@ -45,35 +41,6 @@
   <string name="mesh_service_channel_desc">Mengekalkan mesh Bluetooth berjalan di latar belakang</string>
     <string name="mesh_service_notification_content">Mesh sedang berjalan — %1$d rakan</string>
 
-  <!-- Favorites accessibility -->
-  <string name="cd_add_favorite">Tambah ke kegemaran</string>
-  <string name="cd_remove_favorite">Alih keluar daripada kegemaran</string>
-  <!-- Chat header &amp; accessibility -->
-  <string name="cd_nostr_reachable">Boleh dihubungi melalui Nostr</string>
-  <string name="cd_unread_private_messages">Mesej peribadi belum dibaca</string>
-  <string name="cd_open_location_channels">Buka tetapan lokasi dan saluran</string>
-  <string name="cd_connected_peers">Rakan disambungkan</string>
-  <string name="cd_geohash_participants">Peserta geohash</string>
-  <string name="cd_ready_for_handshake">Sedia untuk berjabat tangan</string>
-  <string name="cd_handshake_in_progress">Jabat tangan sedang berlangsung</string>
-  <string name="cd_encrypted">Disulitkan hujung-ke-hujung</string>
-  <string name="cd_handshake_failed">Jabat tangan gagal</string>
-
-  <!-- File viewer dialog -->
-  <string name="file_viewer_title">📎 Fail Diterima</string>
-  <string name="file_viewer_name">📄 %1$s</string>
-  <string name="file_viewer_size">📏 Saiz: %1$s</string>
-  <string name="file_viewer_type">🏷️ Jenis: %1$s</string>
-  <string name="file_viewer_open_save">📂 Buka / Simpan</string>
-  <string name="close_with_emoji">❌ Tutup</string>
-  <string name="pick_image">Pilih imej</string>
-  <string name="cd_save_current_image">Simpan imej semasa</string>
-  <string name="cd_close">Tutup</string>
-  <string name="toast_image_saved">Imej disimpan ke Muat Turun</string>
-  <string name="toast_failed_to_save_image">Gagal menyimpan imej</string>
-  <string name="cd_image_index_of">Imej %1$d daripada %2$d</string>
-  <string name="cd_pick_file">Pilih fail</string>
-
   <string name="about_pow_off">pow dimatikan</string>
   <string name="about_pow_on">pow dihidupkan</string>
   <string name="about_pow_difficulty">tahap kesukaran: %1$d bit (~%2$s)</string>
@@ -84,8 +51,6 @@
   <string name="about_last">Terakhir: %1$s</string>
   <string name="about_emergency_title">Pemadaman Data Kecemasan</string>
   <string name="cd_privacy_protected">Privasi Dilindungi</string>
-  <string name="cancel_lower">batal</string>
-
   <!-- Generic content descriptions -->
   <string name="cd_warning">Amaran</string>
   <string name="cd_location_services">Perkhidmatan Lokasi</string>
@@ -96,78 +61,26 @@
   <string name="cd_checking_battery_optimization">Menyemak Pengoptimuman Bateri</string>
   <string name="cd_not_supported_battery_optimization">Pengoptimuman Bateri Tidak Disokong</string>
   <string name="cd_bluetooth">Bluetooth</string>
-  <string name="cd_unread_message">Mesej belum dibaca</string>
   <string name="cd_teleport">Teleport</string>
   <string name="notification_action_quit_bitchat">Keluar bitchat</string>
   <string name="cd_leave_channel">Keluar saluran</string>
-  <string name="cd_reachable_via_nostr">Boleh dihubungi melalui Nostr</string>
-  <string name="cd_offline_favorite">Kegemaran luar talian</string>
-  <string name="cd_scroll_to_bottom">Tatal ke bawah</string>
-  <string name="cd_file">Fail</string>
-  <string name="cd_image">Imej</string>
-  <string name="cd_cancel">Batal</string>
-  <string name="cd_link">Pautan</string>
-  <string name="cd_record_voice">Rakam nota suara</string>
-  <string name="cd_pick_media">Pilih media</string>
   <string name="cd_offline_mesh_chat">Sembang Mesh Luar Talian</string>
   <string name="cd_online_geohash_channels">Saluran Geohash Dalam Talian</string>
   <string name="cd_end_to_end_encryption">Penyulitan Hujung-ke-Hujung</string>
   <string name="image_page_of">Imej %1$d daripada %2$d</string>
-  <string name="image_unavailable">Imej tidak tersedia</string>
   <string name="image_saved_to_downloads">Imej disimpan ke Muat Turun</string>
   <string name="image_save_failed">Gagal menyimpan imej</string>
   <string name="pick_file">Pilih fail</string>
-  <string name="file_unavailable">[fail tidak tersedia]</string>
-  <!-- Chat user sheet actions -->
-  <string name="choose_action_message_or_user">pilih tindakan untuk mesej atau pengguna ini</string>
-  <string name="choose_action_user">pilih tindakan untuk pengguna ini</string>
-  <string name="action_copy_message_title">salin mesej</string>
-  <string name="action_copy_message_subtitle">salin mesej ini ke papan keratan</string>
-  <string name="action_slap_title">tampar %1$s</string>
-  <string name="action_slap_subtitle">hantar mesej tamparan bergurau</string>
-  <string name="action_hug_title">peluk %1$s</string>
-  <string name="action_hug_subtitle">hantar mesej pelukan mesra</string>
-  <string name="action_block_title">sekat %1$s</string>
-    <string name="action_block_subtitle">sekat semua mesej daripada pengguna ini</string>
-    <string name="action_private_message_title">mesej %1$s</string>
-    <string name="action_private_message_subtitle">hantar mesej peribadi</string>
-
-
   <string name="grant_location_permission">berikan kebenaran lokasi</string>
   <string name="location_permission_granted">✓ kebenaran lokasi diberikan</string>
   <string name="checking_permissions">menyemak kebenaran...</string>
-  <string name="mesh_label">mesh</string>
   <string name="debug_since_start_fmt">sejak permulaan: %1$d</string>
   <string name="debug_sync_settings">tetapan penyegerakan</string>
-  <string name="verify_title">sahkan</string>
-  <string name="verify_my_qr_title">imbas untuk sahkan saya</string>
-  <string name="verify_scan_prompt_friend">imbas kod qr orang lain</string>
   <string name="verify_scan_someone">imbas kod qr orang lain</string>
   <string name="verify_show_my_qr">tunjukkan kod qr saya</string>
-  <string name="verify_remove">alih keluar pengesahan</string>
-  <string name="verify_qr_unavailable">kod qr tidak tersedia</string>
-  <string name="verify_camera_permission">kebenaran kamera diperlukan untuk mengimbas kod qr</string>
-  <string name="verify_request_camera">dayakan kamera</string>
   <string name="verify_paste_label">tampal pautan pengesahan</string>
   <string name="verify_validate">sahkan</string>
   <string name="verify_scanned">pengesahan diminta</string>
-  <string name="security_verification_title">pengesahan keselamatan</string>
-  <string name="fingerprint_their">cap jari mereka</string>
-  <string name="fingerprint_yours">cap jari anda</string>
-  <string name="fingerprint_pending">jabat tangan tertangguh</string>
-  <string name="fingerprint_status_verified">disulitkan &amp; disahkan</string>
-  <string name="fingerprint_status_encrypted">disulitkan</string>
-  <string name="fingerprint_status_handshaking">berjabat tangan</string>
-  <string name="fingerprint_status_failed">jabat tangan gagal</string>
-  <string name="fingerprint_status_uninitialized">tidak disulitkan</string>
-  <string name="fingerprint_verified_message">anda telah mengesahkan identiti orang ini.</string>
-  <string name="fingerprint_not_verified_label">tidak disahkan</string>
-  <string name="fingerprint_not_verified_message_fmt">bandingkan cap jari ini dengan %1$s menggunakan saluran selamat.</string>
-  <string name="fingerprint_mark_verified">tanda sebagai disahkan</string>
-  <string name="fingerprint_start_handshake">mulakan jabat tangan</string>
-  <string name="fingerprint_copy">salin</string>
-
-
   <string name="debug_relays_window_fmt">10s lepas: %1$d • 1m: %2$d • 15m: %3$d</string>
   <!-- Onboarding screens -->
   <string name="location_services_required">Perkhidmatan Lokasi Diperlukan</string>
@@ -216,29 +129,9 @@
   <string name="permissions_header">kebenaran</string>
   <string name="grant_permissions">Berikan Kebenaran</string>
   <string name="location_tracking_warning">bitchat TIDAK menjejaki lokasi anda</string>
-  <string name="at_symbol">@</string>
-  <string name="channel_count_prefix"> · ⧉ </string>
-  <string name="nobody_around">tiada sesiapa berdekatan...</string>
-  <string name="you_suffix"> (anda)</string>
-  <string name="type_a_message_placeholder">taip mesej...</string>
-  <string name="mention_suggestion_at">@%1$s</string>
-  <string name="mention">sebutan</string>
-  <string name="image_counter">%1$d / %2$d</string>
-  <string name="at_nickname">@%1$s</string>
-  <string name="underscore">_</string>
-  <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
-  <string name="progress_filled">█</string>
-  <string name="progress_empty">░</string>
   <string name="image_star">image/*</string>
-  <string name="media_type_image">Imej</string>
-  <string name="media_type_file">Fail</string>
-
   <!-- Message status icons -->
 
-  <!-- Notification text helpers -->
-  <string name="notification_sent_image">📷 menghantar imej</string>
-  <string name="notification_sent_voice">🎤 menghantar mesej suara</string>
-  <string name="notification_sent_file">📎 menghantar fail</string>
   <string name="notification_file_pdf">📄</string>
   <string name="notification_file_zip">🗜️</string>
   <string name="notification_file_doc">📄</string>
@@ -271,11 +164,6 @@
   <string name="perm_type_battery_optimization">Pengoptimuman Bateri</string>
   <string name="perm_type_other">Lain-lain</string>
 
-  <!-- Password prompt dialog -->
-  <string name="pwd_prompt_title">Masukkan Kata Laluan Saluran</string>
-  <string name="pwd_prompt_message">Saluran %1$s dilindungi kata laluan. Masukkan kata laluan untuk menyertai.</string>
-  <string name="pwd_label">Kata Laluan</string>
-  <string name="join">Sertai</string>
     <!-- Plurals -->
 
     <string name="bluetooth_recommended">Bluetooth Disyorkan</string>

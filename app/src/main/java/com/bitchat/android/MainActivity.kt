@@ -284,7 +284,7 @@ class MainActivity : OrientationAwareActivity() {
                     }
 
                     val sheetSceneStrategy = remember { SheetSceneStrategy() }
-                    val entries = appEntries(navigator, chatState) {
+                    val entries = appEntries {
                         OnboardingFlowScreen(onboardingModifier)
                     }
 

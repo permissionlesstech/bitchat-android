@@ -13,12 +13,8 @@
     <string name="leave_channel">Rời khỏi</string>
     <string name="show_commands">Hiển thị lệnh</string>
     <string name="people">Mọi người</string>
-    <string name="channels">Kênh</string>
     <string name="online_users">Người dùng trực tuyến</string>
-    <string name="no_one_connected">Không có ai kết nối</string>
     <string name="emergency_clear_hint">Nhấn ba lần để xóa tất cả dữ liệu</string>
-    <string name="your_network">Mạng lưới</string>
-
     <!-- Tối ưu hóa pin -->
     <string name="battery_optimization_detected">Đã phát hiện tối ưu hóa pin</string>
     <string name="battery_optimization_disabled">Tối ưu hóa pin đã tắt</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">%1$d người gần đó</string>
     <string name="notification_and_more">và %1$d khác</string>
 
-    <!-- Khả năng truy cập yêu thích -->
-    <string name="cd_add_favorite">Thêm vào yêu thích</string>
-    <string name="cd_remove_favorite">Xóa khỏi yêu thích</string>
-    <!-- Header trò chuyện &amp; khả năng truy cập -->
-    <string name="cd_nostr_reachable">Có thể tiếp cận qua Nostr</string>
-    <string name="cd_unread_private_messages">Tin nhắn riêng chưa đọc</string>
-    <string name="cd_open_location_channels">Mở cài đặt vị trí và kênh</string>
-    <string name="cd_connected_peers">Peers đã kết nối</string>
-    <string name="cd_geohash_participants">Người tham gia geohash</string>
-    <string name="cd_ready_for_handshake">Sẵn sàng cho handshake</string>
-    <string name="cd_handshake_in_progress">Handshake đang tiến hành</string>
-    <string name="cd_encrypted">Mã hóa đầu cuối</string>
-    <string name="cd_handshake_failed">Handshake thất bại</string>
-
-    <!-- Dialog xem file -->
-    <string name="file_viewer_title">📎 File đã nhận</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 Kích thước: %1$s</string>
-    <string name="file_viewer_type">🏷️ Loại: %1$s</string>
-    <string name="file_viewer_open_save">📂 Mở / Lưu</string>
-    <string name="close_with_emoji">❌ Đóng</string>
-    <string name="pick_image">Chọn hình ảnh</string>
-
     <string name="about_pow_off">PoW tắt</string>
     <string name="about_pow_on">PoW bật</string>
     <string name="about_pow_difficulty">Độ khó: %1$d bit (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">Trạng thái Tor: %1$s, Bootstrap %2$d%%</string>
     <string name="about_last">Cuối cùng: %1$s</string>
     <string name="about_emergency_title">Xóa dữ liệu khẩn cấp</string>
-    <string name="cancel_lower">hủy</string>
-
     <!-- Mô tả nội dung chung -->
     <string name="cd_warning">Cảnh báo</string>
     <string name="cd_location_services">Dịch vụ vị trí</string>
@@ -88,52 +59,21 @@
     <string name="cd_checking_battery_optimization">Đang kiểm tra tối ưu hóa pin</string>
     <string name="cd_not_supported_battery_optimization">Tối ưu hóa pin không được hỗ trợ</string>
     <string name="cd_bluetooth">Bluetooth</string>
-    <string name="cd_unread_message">Tin nhắn chưa đọc</string>
     <string name="cd_teleport">Dịch chuyển</string>
     <string name="cd_leave_channel">Rời khỏi kênh</string>
-    <string name="cd_reachable_via_nostr">Có thể tiếp cận qua Nostr</string>
-    <string name="cd_offline_favorite">Yêu thích (ngoại tuyến)</string>
-    <string name="cd_scroll_to_bottom">Cuộn xuống dưới</string>
-    <string name="cd_file">File</string>
-    <string name="cd_image">Hình ảnh</string>
-    <string name="cd_cancel">Hủy</string>
-    <string name="cd_link">Liên kết</string>
-    <string name="cd_pick_media">Chọn media</string>
-    <string name="cd_pick_file">Chọn file</string>
-    <string name="cd_save_current_image">Lưu hình ảnh hiện tại</string>
-    <string name="cd_close">Đóng</string>
-    <string name="cd_image_index_of">Hình ảnh %1$d trong %2$d</string>
     <string name="cd_privacy_protected">Quyền riêng tư được bảo vệ</string>
-    <string name="cd_record_voice">Ghi tin nhắn thoại</string>
     <string name="cd_offline_mesh_chat">Trò chuyện Mesh ngoại tuyến</string>
     <string name="cd_online_geohash_channels">Kênh Geohash trực tuyến</string>
     <string name="cd_end_to_end_encryption">Mã hóa đầu cuối</string>
 
     <!-- Hình ảnh &amp; file -->
     <string name="image_page_of">Hình ảnh %1$d trong %2$d</string>
-    <string name="image_unavailable">Hình ảnh không có sẵn</string>
     <string name="image_saved_to_downloads">Hình ảnh đã lưu vào \"Downloads\"</string>
     <string name="image_save_failed">Không thể lưu hình ảnh</string>
-    <string name="toast_image_saved">Hình ảnh đã lưu vào \"Downloads\"</string>
-    <string name="toast_failed_to_save_image">Không thể lưu hình ảnh</string>
     <string name="pick_file">Chọn file</string>
-    <string name="file_unavailable">[File không có sẵn]</string>
-    <!-- Sheet hành động người dùng -->
-    <string name="choose_action_message_or_user">Chọn hành động cho tin nhắn hoặc người dùng này</string>
-    <string name="choose_action_user">Chọn hành động cho người dùng này</string>
-    <string name="action_copy_message_title">Sao chép tin nhắn</string>
-    <string name="action_copy_message_subtitle">Sao chép tin nhắn này vào clipboard</string>
-    <string name="action_slap_title">Tát %1$s</string>
-    <string name="action_slap_subtitle">Gửi một cái tát vui nhộn</string>
-    <string name="action_hug_title">Ôm %1$s</string>
-    <string name="action_hug_subtitle">Gửi một cái ôm thân thiện</string>
-    <string name="action_block_title">Chặn %1$s</string>
-    <string name="action_block_subtitle">Chặn tất cả tin nhắn từ người dùng này</string>
-
     <string name="grant_location_permission">Cấp quyền vị trí</string>
     <string name="location_permission_granted">\u2713 Đã cấp quyền vị trí</string>
     <string name="checking_permissions">Đang kiểm tra quyền …</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">từ lúc bắt đầu: %1$d</string>
     <string name="debug_sync_settings">Cài đặt sync</string>
     <string name="debug_relays_window_fmt">10s cuối: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -173,19 +113,7 @@
     <string name="permissions_header">Quyền</string>
     <string name="grant_permissions">Cấp quyền</string>
     <string name="location_tracking_warning">bitchat KHÔNG theo dõi vị trí của bạn</string>
-    <string name="nobody_around">không có ai xung quanh …</string>
-    <string name="you_suffix"> (bạn)</string>
-    <string name="type_a_message_placeholder">Nhập tin nhắn …</string>
-    <string name="mention">nhắc đến</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">Hình ảnh</string>
-    <string name="media_type_file">File</string>
-
-    <!-- Trợ giúp văn bản thông báo -->
-    <string name="notification_sent_image">📷 đã gửi hình ảnh</string>
-    <string name="notification_sent_voice">🎤 đã gửi tin nhắn thoại</string>
-    <string name="notification_sent_file">📎 đã gửi file</string>
-
     <!-- Khả năng truy cập trình phát thoại -->
     <string name="cd_play_voice">Phát</string>
     <string name="cd_pause_voice">Tạm dừng</string>
@@ -208,42 +136,14 @@
     <string name="perm_type_battery_optimization">Tối ưu hóa pin</string>
     <string name="perm_type_other">Khác</string>
 
-    <!-- Dialog mật khẩu -->
-    <string name="pwd_prompt_title">Nhập mật khẩu kênh</string>
-    <string name="pwd_prompt_message">Kênh %1$s được bảo vệ bằng mật khẩu. Nhập mật khẩu để tham gia.</string>
-    <string name="pwd_label">Mật khẩu</string>
-    <string name="join">Tham gia</string>
     <!-- Số nhiều -->
 
     <string name="bluetooth_recommended">Khuyên dùng Bluetooth</string>
     <string name="mesh_service_notification_content">Mesh đang chạy — %1$d ngang hàng</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
   <string name="verify_scan_someone">scan someone elses qr</string>
   <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-    <string name="cd_open_about">Mở phần Giới thiệu</string>
 </resources>

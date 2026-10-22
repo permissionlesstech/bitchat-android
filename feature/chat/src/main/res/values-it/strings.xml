@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">Canali</string>
+    <string name="no_one_connected">Nessuno connesso</string>
+    <string name="your_network">Rete</string>
+
+    <!-- Accessibilità favoriti -->
+    <string name="cd_add_favorite">Aggiungi ai preferiti</string>
+    <string name="cd_remove_favorite">Rimuovi dai preferiti</string>
+    <!-- Intestazione chat e accessibilità -->
+    <string name="cd_nostr_reachable">Raggiungibile via Nostr</string>
+    <string name="cd_unread_private_messages">Messaggi privati non letti</string>
+    <string name="cd_open_location_channels">Apri le impostazioni di posizione e canali</string>
+    <string name="cd_connected_peers">Peer connessi</string>
+    <string name="cd_geohash_participants">Partecipanti geohash</string>
+    <string name="cd_ready_for_handshake">Pronto per l\'handshake</string>
+    <string name="cd_handshake_in_progress">Handshake in corso</string>
+    <string name="cd_encrypted">Crittografia end-to-end</string>
+    <string name="cd_handshake_failed">Handshake fallito</string>
+
+    <!-- Finestra di visualizzazione file -->
+    <string name="file_viewer_title">📎 File ricevuto</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Dimensione: %1$s</string>
+    <string name="file_viewer_type">🏷️ Tipo: %1$s</string>
+    <string name="file_viewer_open_save">📂 Apri / Salva</string>
+    <string name="close_with_emoji">❌ Chiudi</string>
+    <string name="pick_image">Scegli immagine</string>
+
+    <string name="cancel_lower">annulla</string>
+
+    <string name="cd_unread_message">Messaggio non letto</string>
+    <string name="cd_reachable_via_nostr">Raggiungibile via Nostr</string>
+    <string name="cd_offline_favorite">Preferito offline</string>
+    <string name="cd_scroll_to_bottom">Scorri in fondo</string>
+    <string name="cd_file">File</string>
+    <string name="cd_image">Immagine</string>
+    <string name="cd_cancel">Annulla</string>
+    <string name="cd_link">Link</string>
+    <string name="cd_pick_media">Scegli media</string>
+    <string name="cd_pick_file">Scegli file</string>
+    <string name="cd_save_current_image">Salva immagine corrente</string>
+    <string name="cd_close">Chiudi</string>
+    <string name="cd_image_index_of">Immagine %1$d di %2$d</string>
+    <string name="cd_record_voice">Registra nota vocale</string>
+    <string name="image_unavailable">Immagine non disponibile</string>
+    <string name="toast_image_saved">Immagine salvata in Download</string>
+    <string name="toast_failed_to_save_image">Impossibile salvare l\'immagine</string>
+    <string name="file_unavailable">[file non disponibile]</string>
+    <!-- Azioni utente schermata -->
+    <string name="choose_action_message_or_user">scegli un\'azione per questo messaggio o utente</string>
+    <string name="choose_action_user">scegli un\'azione per questo utente</string>
+    <string name="action_copy_message_title">copia messaggio</string>
+    <string name="action_copy_message_subtitle">copia questo messaggio negli appunti</string>
+    <string name="action_slap_title">schiaffeggia %1$s</string>
+    <string name="action_slap_subtitle">invia uno schiaffo giocoso</string>
+    <string name="action_hug_title">abbraccia %1$s</string>
+    <string name="action_hug_subtitle">invia un abbraccio amichevole</string>
+    <string name="action_block_title">blocca %1$s</string>
+    <string name="action_block_subtitle">blocca tutti i messaggi da questo utente</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="nobody_around">nessuno nei dintorni…</string>
+    <string name="you_suffix"> (tu)</string>
+    <string name="type_a_message_placeholder">scrivi un messaggio…</string>
+    <string name="mention">menzione</string>
+    <string name="media_type_image">Immagine</string>
+    <string name="media_type_file">File</string>
+
+    <!-- Helper testo notifiche -->
+    <string name="notification_sent_image">📷 ha inviato un\'immagine</string>
+    <string name="notification_sent_voice">🎤 ha inviato un messaggio vocale</string>
+    <string name="notification_sent_file">📎 ha inviato un file</string>
+
+    <!-- Dialogo richiesta password -->
+    <string name="pwd_prompt_title">Inserisci password del canale</string>
+    <string name="pwd_prompt_message">Il canale %1$s è protetto da password. Inserisci la password per entrare.</string>
+    <string name="pwd_label">Password</string>
+    <string name="join">Entra</string>
+    <!-- Simboli e stringhe speciali -->
+    <string name="at_symbol">@</string>
+    <string name="channel_count_prefix"> · ⧉ </string>
+    <string name="mention_suggestion_at">@%1$s</string>
+    <string name="image_counter">%1$d / %2$d</string>
+    <string name="at_nickname">@%1$s</string>
+    <string name="underscore">_</string>
+    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+    <string name="progress_filled">█</string>
+    <string name="progress_empty">░</string>
+  <string name="verify_title">verifica</string>
+  <string name="verify_my_qr_title">scansiona per verificarmi</string>
+  <string name="verify_scan_prompt_friend">scansiona qr altrui</string>
+  <string name="verify_remove">rimuovi verifica</string>
+  <string name="verify_qr_unavailable">qr non disponibile</string>
+  <string name="verify_camera_permission">permesso fotocamera necessario</string>
+  <string name="verify_request_camera">abilita fotocamera</string>
+  <string name="security_verification_title">verifica sicurezza</string>
+  <string name="fingerprint_their">loro impronta</string>
+  <string name="fingerprint_yours">tua impronta</string>
+  <string name="fingerprint_pending">handshake in corso</string>
+  <string name="fingerprint_status_verified">criptato &amp; verificato</string>
+  <string name="fingerprint_status_encrypted">criptato</string>
+  <string name="fingerprint_status_handshaking">handshake</string>
+  <string name="fingerprint_status_failed">handshake fallito</string>
+  <string name="fingerprint_status_uninitialized">non criptato</string>
+  <string name="fingerprint_verified_message">hai verificato questa persona.</string>
+  <string name="fingerprint_not_verified_label">non verificato</string>
+  <string name="fingerprint_not_verified_message_fmt">confronta con %1$s via canale sicuro.</string>
+  <string name="fingerprint_mark_verified">segna verificato</string>
+  <string name="fingerprint_start_handshake">avvia handshake</string>
+  <string name="fingerprint_copy">copia</string>
+    <string name="cd_open_about">Apri Informazioni</string>
+</resources>

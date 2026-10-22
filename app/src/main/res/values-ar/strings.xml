@@ -13,12 +13,8 @@
     <string name="leave_channel">مغادرة</string>
     <string name="show_commands">عرض الأوامر</string>
     <string name="people">أشخاص</string>
-    <string name="channels">القنوات</string>
     <string name="online_users">مستخدمون متصلون</string>
-    <string name="no_one_connected">لا أحد متصل</string>
     <string name="emergency_clear_hint">انقر ثلاث مرات لمسح جميع البيانات</string>
-    <string name="your_network">شبكتك</string>
-
     <!-- تحسين البطارية -->
     <string name="battery_optimization_detected">تم اكتشاف تحسين البطارية</string>
     <string name="battery_optimization_disabled">تحسين البطارية معطّل</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">%1$d أشخاص قريبون</string>
     <string name="notification_and_more">و%1$d إضافية</string>
 
-    <!-- سهولة الوصول للمفضلة -->
-    <string name="cd_add_favorite">إضافة إلى المفضلة</string>
-    <string name="cd_remove_favorite">إزالة من المفضلة</string>
-    <!-- ترويسة الدردشة وسهولة الوصول -->
-    <string name="cd_nostr_reachable">يمكن الوصول عبر Nostr</string>
-    <string name="cd_unread_private_messages">رسائل خاصة غير مقروءة</string>
-    <string name="cd_open_location_channels">فتح إعدادات الموقع والقنوات</string>
-    <string name="cd_connected_peers">الأقران المتصلون</string>
-    <string name="cd_geohash_participants">مشاركو geohash</string>
-    <string name="cd_ready_for_handshake">جاهز للمصافحة</string>
-    <string name="cd_handshake_in_progress">المصافحة جارية</string>
-    <string name="cd_encrypted">تشفير طرف إلى طرف</string>
-    <string name="cd_handshake_failed">فشلت المصافحة</string>
-
-    <!-- مربع عرض الملفات -->
-    <string name="file_viewer_title">📎 تم استلام ملف</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 الحجم: %1$s</string>
-    <string name="file_viewer_type">🏷️ النوع: %1$s</string>
-    <string name="file_viewer_open_save">📂 فتح / حفظ</string>
-    <string name="close_with_emoji">❌ إغلاق</string>
-    <string name="pick_image">اختيار صورة</string>
-
     <string name="about_pow_off">PoW معطّل</string>
     <string name="about_pow_on">PoW مفعّل</string>
     <string name="about_pow_difficulty">الصعوبة: %1$d بت (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">حالة Tor: %1$s، التمهيد %2$d%%</string>
     <string name="about_last">آخر: %1$s</string>
     <string name="about_emergency_title">مسح البيانات الطارئ</string>
-    <string name="cancel_lower">إلغاء</string>
-
     <!-- أوصاف عامة للمحتوى -->
     <string name="cd_warning">تحذير</string>
     <string name="cd_location_services">خدمات الموقع</string>
@@ -88,52 +59,21 @@
     <string name="cd_checking_battery_optimization">جارٍ التحقق من تحسين البطارية</string>
     <string name="cd_not_supported_battery_optimization">تحسين البطارية غير مدعوم</string>
     <string name="cd_bluetooth">Bluetooth</string>
-    <string name="cd_unread_message">رسالة غير مقروءة</string>
     <string name="cd_teleport">انتقال</string>
     <string name="cd_leave_channel">مغادرة القناة</string>
-    <string name="cd_reachable_via_nostr">يمكن الوصول عبر Nostr</string>
-    <string name="cd_offline_favorite">مفضل (غير متصل)</string>
-    <string name="cd_scroll_to_bottom">التمرير إلى الأسفل</string>
-    <string name="cd_file">ملف</string>
-    <string name="cd_image">صورة</string>
-    <string name="cd_cancel">إلغاء</string>
-    <string name="cd_link">رابط</string>
-    <string name="cd_pick_media">اختيار وسائط</string>
-    <string name="cd_pick_file">اختيار ملف</string>
-    <string name="cd_save_current_image">حفظ الصورة الحالية</string>
-    <string name="cd_close">إغلاق</string>
-    <string name="cd_image_index_of">صورة %1$d من %2$d</string>
     <string name="cd_privacy_protected">الخصوصية محمية</string>
-    <string name="cd_record_voice">تسجيل مذكرة صوتية</string>
     <string name="cd_offline_mesh_chat">دردشة شبكية دون اتصال</string>
     <string name="cd_online_geohash_channels">قنوات geohash عبر الإنترنت</string>
     <string name="cd_end_to_end_encryption">تشفير طرف إلى طرف</string>
 
     <!-- الصور والملفات -->
     <string name="image_page_of">صورة %1$d من %2$d</string>
-    <string name="image_unavailable">الصورة غير متاحة</string>
     <string name="image_saved_to_downloads">تم حفظ الصورة في "التنزيلات"</string>
     <string name="image_save_failed">تعذّر حفظ الصورة</string>
-    <string name="toast_image_saved">تم حفظ الصورة في "التنزيلات"</string>
-    <string name="toast_failed_to_save_image">تعذّر حفظ الصورة</string>
     <string name="pick_file">اختيار ملف</string>
-    <string name="file_unavailable">[الملف غير متاح]</string>
-    <!-- ورقة إجراءات المستخدم -->
-    <string name="choose_action_message_or_user">اختر إجراءً لهذه الرسالة أو هذا المستخدم</string>
-    <string name="choose_action_user">اختر إجراءً لهذا المستخدم</string>
-    <string name="action_copy_message_title">نسخ الرسالة</string>
-    <string name="action_copy_message_subtitle">انسخ هذه الرسالة إلى الحافظة</string>
-    <string name="action_slap_title">صفع %1$s</string>
-    <string name="action_slap_subtitle">إرسال صفعة ودّية</string>
-    <string name="action_hug_title">عناق %1$s</string>
-    <string name="action_hug_subtitle">إرسال عناق ودي</string>
-    <string name="action_block_title">حظر %1$s</string>
-    <string name="action_block_subtitle">حظر جميع رسائل هذا المستخدم</string>
-
     <string name="grant_location_permission">منح إذن الموقع</string>
     <string name="location_permission_granted">\u2713 تم منح إذن الموقع</string>
     <string name="checking_permissions">جارٍ التحقق من الأذونات…</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">منذ البدء: %1$d</string>
     <string name="debug_sync_settings">إعدادات المزامنة</string>
     <string name="debug_relays_window_fmt">آخر 10 ثوان: %1$d • 1 دقيقة: %2$d • 15 دقيقة: %3$d</string>
@@ -173,19 +113,7 @@
     <string name="permissions_header">الأذونات</string>
     <string name="grant_permissions">منح الأذونات</string>
     <string name="location_tracking_warning">bitchat لا يتتبع موقعك</string>
-    <string name="nobody_around">لا أحد هنا…</string>
-    <string name="you_suffix"> (أنت)</string>
-    <string name="type_a_message_placeholder">اكتب رسالة…</string>
-    <string name="mention">إشارة</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">صورة</string>
-    <string name="media_type_file">ملف</string>
-
-    <!-- مساعدو نص الإشعارات -->
-    <string name="notification_sent_image">📷 أرسل صورة</string>
-    <string name="notification_sent_voice">🎤 أرسل مذكرة صوتية</string>
-    <string name="notification_sent_file">📎 أرسل ملفًا</string>
-
     <!-- سهولة استخدام مشغّل الصوت -->
     <string name="cd_play_voice">تشغيل</string>
     <string name="cd_pause_voice">إيقاف مؤقت</string>
@@ -208,42 +136,14 @@
     <string name="perm_type_battery_optimization">تحسين البطارية</string>
     <string name="perm_type_other">أخرى</string>
 
-    <!-- مربع كلمة المرور -->
-    <string name="pwd_prompt_title">أدخل كلمة مرور القناة</string>
-    <string name="pwd_prompt_message">القناة %1$s محمية بكلمة مرور. أدخل كلمة المرور للانضمام.</string>
-    <string name="pwd_label">كلمة المرور</string>
-    <string name="join">انضمام</string>
     <!-- صيغ الجمع -->
 
     <string name="bluetooth_recommended">بلوتوث موصى به</string>
     <string name="mesh_service_notification_content">الشبكة تعمل — %1$d أقران</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
   <string name="verify_scan_someone">scan someone elses qr</string>
   <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-    <string name="cd_open_about">فتح قسم حول</string>
 </resources>

@@ -13,12 +13,8 @@
     <string name="leave_channel">ออก</string>
     <string name="show_commands">แสดงคำสั่ง</string>
     <string name="people">ผู้คน</string>
-    <string name="channels">ช่อง</string>
     <string name="online_users">ผู้ใช้ที่ออนไลน์</string>
-    <string name="no_one_connected">ไม่มีการเชื่อมต่อ</string>
     <string name="emergency_clear_hint">แตะสามครั้งเพื่อลบข้อมูลทั้งหมด</string>
-    <string name="your_network">เครือข่ายของคุณ</string>
-
     <!-- การเพิ่มประสิทธิภาพแบตเตอรี่ -->
     <string name="battery_optimization_detected">ตรวจพบการเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="battery_optimization_disabled">ปิดการเพิ่มประสิทธิภาพแบตเตอรี่แล้ว</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">มี %1$d คนใกล้คุณ</string>
     <string name="notification_and_more">และอีก %1$d</string>
 
-    <!-- การช่วยสำหรับการเข้าถึงรายการโปรด -->
-    <string name="cd_add_favorite">เพิ่มในรายการโปรด</string>
-    <string name="cd_remove_favorite">เอาออกจากรายการโปรด</string>
-    <!-- ส่วนหัวแชท &amp; การช่วยสำหรับการเข้าถึง -->
-    <string name="cd_nostr_reachable">ติดต่อได้ผ่าน Nostr</string>
-    <string name="cd_unread_private_messages">ข้อความส่วนตัวยังไม่ได้อ่าน</string>
-    <string name="cd_open_location_channels">เปิดการตั้งค่าตำแหน่งและช่อง</string>
-    <string name="cd_connected_peers">เพียร์ที่เชื่อมต่อ</string>
-    <string name="cd_geohash_participants">ผู้เข้าร่วม geohash</string>
-    <string name="cd_ready_for_handshake">พร้อมสำหรับการจับมือ</string>
-    <string name="cd_handshake_in_progress">กำลังจับมือ</string>
-    <string name="cd_encrypted">เข้ารหัสจากปลายทางถึงปลายทาง</string>
-    <string name="cd_handshake_failed">การจับมือล้มเหลว</string>
-
-    <!-- กล่องโต้ตอบตัวดูไฟล์ -->
-    <string name="file_viewer_title">📎 รับไฟล์แล้ว</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 ขนาด: %1$s</string>
-    <string name="file_viewer_type">🏷️ ประเภท: %1$s</string>
-    <string name="file_viewer_open_save">📂 เปิด / บันทึก</string>
-    <string name="close_with_emoji">❌ ปิด</string>
-    <string name="pick_image">เลือกภาพ</string>
-
     <string name="about_pow_off">ปิด PoW</string>
     <string name="about_pow_on">เปิด PoW</string>
     <string name="about_pow_difficulty">ความยาก: %1$d บิต (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">สถานะ Tor: %1$s, การบูต %2$d%%</string>
     <string name="about_last">ล่าสุด: %1$s</string>
     <string name="about_emergency_title">ลบข้อมูลฉุกเฉิน</string>
-    <string name="cancel_lower">ยกเลิก</string>
-
     <!-- คำอธิบายเนื้อหาทั่วไป -->
     <string name="cd_warning">คำเตือน</string>
     <string name="cd_location_services">บริการตำแหน่ง</string>
@@ -88,52 +59,21 @@
     <string name="cd_checking_battery_optimization">กำลังตรวจสอบการเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="cd_not_supported_battery_optimization">ไม่รองรับการเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="cd_bluetooth">Bluetooth</string>
-    <string name="cd_unread_message">ข้อความที่ยังไม่ได้อ่าน</string>
     <string name="cd_teleport">เทเลพอร์ต</string>
     <string name="cd_leave_channel">ออกจากช่อง</string>
-    <string name="cd_reachable_via_nostr">ติดต่อได้ผ่าน Nostr</string>
-    <string name="cd_offline_favorite">รายการโปรด (ออฟไลน์)</string>
-    <string name="cd_scroll_to_bottom">เลื่อนไปด้านล่างสุด</string>
-    <string name="cd_file">ไฟล์</string>
-    <string name="cd_image">รูปภาพ</string>
-    <string name="cd_cancel">ยกเลิก</string>
-    <string name="cd_link">ลิงก์</string>
-    <string name="cd_pick_media">เลือกมีเดีย</string>
-    <string name="cd_pick_file">เลือกไฟล์</string>
-    <string name="cd_save_current_image">บันทึกรูปภาพปัจจุบัน</string>
-    <string name="cd_close">ปิด</string>
-    <string name="cd_image_index_of">รูปภาพ %1$d จาก %2$d</string>
     <string name="cd_privacy_protected">คุ้มครองความเป็นส่วนตัว</string>
-    <string name="cd_record_voice">บันทึกบันทึกเสียง</string>
     <string name="cd_offline_mesh_chat">แชทเมชออฟไลน์</string>
     <string name="cd_online_geohash_channels">ช่อง geohash ออนไลน์</string>
     <string name="cd_end_to_end_encryption">การเข้ารหัสแบบปลายทางถึงปลายทาง</string>
 
     <!-- รูปภาพ &amp; ไฟล์ -->
     <string name="image_page_of">รูปภาพ %1$d จาก %2$d</string>
-    <string name="image_unavailable">ไม่สามารถใช้รูปภาพได้</string>
     <string name="image_saved_to_downloads">บันทึกรูปภาพไว้ใน "ดาวน์โหลด" แล้ว</string>
     <string name="image_save_failed">ไม่สามารถบันทึกรูปภาพได้</string>
-    <string name="toast_image_saved">บันทึกรูปภาพไว้ใน "ดาวน์โหลด" แล้ว</string>
-    <string name="toast_failed_to_save_image">ไม่สามารถบันทึกรูปภาพได้</string>
     <string name="pick_file">เลือกไฟล์</string>
-    <string name="file_unavailable">[ไม่สามารถใช้ไฟล์ได้]</string>
-    <!-- แผ่นการทำงานของผู้ใช้ -->
-    <string name="choose_action_message_or_user">เลือกการทำงานสำหรับข้อความนี้หรือผู้ใช้นี้</string>
-    <string name="choose_action_user">เลือกการทำงานสำหรับผู้ใช้นี้</string>
-    <string name="action_copy_message_title">คัดลอกข้อความ</string>
-    <string name="action_copy_message_subtitle">คัดลอกข้อความนี้ไปยังคลิปบอร์ด</string>
-    <string name="action_slap_title">ตบ %1$s</string>
-    <string name="action_slap_subtitle">ส่งตบแบบขำ ๆ</string>
-    <string name="action_hug_title">กอด %1$s</string>
-    <string name="action_hug_subtitle">ส่งกอดแบบเป็นมิตร</string>
-    <string name="action_block_title">บล็อก %1$s</string>
-    <string name="action_block_subtitle">บล็อกข้อความทั้งหมดจากผู้ใช้นี้</string>
-
     <string name="grant_location_permission">ให้สิทธิ์ตำแหน่ง</string>
     <string name="location_permission_granted">\u2713 อนุญาตตำแหน่งแล้ว</string>
     <string name="checking_permissions">กำลังตรวจสอบสิทธิ์…</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">ตั้งแต่เริ่มต้น: %1$d</string>
     <string name="debug_sync_settings">การตั้งค่าการซิงค์</string>
     <string name="debug_relays_window_fmt">10 วิ ล่าสุด: %1$d • 1 นาที: %2$d • 15 นาที: %3$d</string>
@@ -173,19 +113,7 @@
     <string name="permissions_header">สิทธิ์</string>
     <string name="grant_permissions">ให้สิทธิ์</string>
     <string name="location_tracking_warning">bitchat ไม่ติดตามตำแหน่งของคุณ</string>
-    <string name="nobody_around">ไม่มีใครอยู่ใกล้…</string>
-    <string name="you_suffix"> (คุณ)</string>
-    <string name="type_a_message_placeholder">พิมพ์ข้อความ…</string>
-    <string name="mention">กล่าวถึง</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">รูปภาพ</string>
-    <string name="media_type_file">ไฟล์</string>
-
-    <!-- ตัวช่วยข้อความการแจ้งเตือน -->
-    <string name="notification_sent_image">📷 ส่งรูปภาพแล้ว</string>
-    <string name="notification_sent_voice">🎤 ส่งบันทึกเสียงแล้ว</string>
-    <string name="notification_sent_file">📎 ส่งไฟล์แล้ว</string>
-
     <!-- การช่วยสำหรับการเข้าถึงของเครื่องเล่นเสียง -->
     <string name="cd_play_voice">เล่น</string>
     <string name="cd_pause_voice">หยุดชั่วคราว</string>
@@ -208,42 +136,14 @@
     <string name="perm_type_battery_optimization">การเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="perm_type_other">อื่น ๆ</string>
 
-    <!-- กล่องโต้ตอบรหัสผ่าน -->
-    <string name="pwd_prompt_title">ป้อนรหัสผ่านของช่อง</string>
-    <string name="pwd_prompt_message">ช่อง %1$s มีการป้องกันด้วยรหัสผ่าน ป้อนรหัสผ่านเพื่อเข้าร่วม</string>
-    <string name="pwd_label">รหัสผ่าน</string>
-    <string name="join">เข้าร่วม</string>
     <!-- พหูพจน์ -->
 
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Mesh กำลังทำงาน — %1$d เพื่อน</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
   <string name="verify_scan_someone">scan someone elses qr</string>
   <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-    <string name="cd_open_about">เปิดเกี่ยวกับ</string>
 </resources>

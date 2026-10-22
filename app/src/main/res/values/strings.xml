@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="cashu_pay_via">pay via Cashu</string>
-    <string name="cashu_payment_description">Cashu payment</string>
-    <string name="cashu_copy_token">Copy token</string>
-    <string name="cashu_redeem_wallet">Redeem in wallet</string>
-    <string name="cashu_redeem_web">Redeem on web</string>
     <string name="permission_bluetooth_rationale">Bluetooth permission is required for peer-to-peer messaging without internet.</string>
     <string name="permission_location_rationale">Location permission is required to discover nearby devices via Bluetooth.</string>
     <string name="permission_notification_rationale">Notification permission is required to alert you of new messages.</string>
@@ -15,12 +10,8 @@
     <string name="leave_channel">Leave</string>
     <string name="show_commands">Show commands</string>
     <string name="people">People</string>
-    <string name="channels">Channels</string>
     <string name="online_users">Online Users</string>
-    <string name="no_one_connected">No one connected</string>
     <string name="emergency_clear_hint">Triple tap to clear all data</string>
-    <string name="your_network">Network</string>
-    
     <!-- Battery Optimization Strings -->
     <string name="battery_optimization_detected">Battery Optimization Detected</string>
     <string name="battery_optimization_disabled">Battery Optimization Disabled</string>
@@ -51,71 +42,6 @@
   <string name="mesh_service_channel_desc">Keeps the Bluetooth mesh running in the background</string>
     <string name="mesh_service_notification_content">Mesh running — %1$d peers</string>
 
-  <!-- Favorites accessibility -->
-  <string name="cd_add_favorite">Add to favorites</string>
-  <string name="cd_remove_favorite">Remove from favorites</string>
-  <!-- Chat header &amp; accessibility -->
-  <string name="cd_nostr_reachable">Nostr reachable</string>
-  <string name="cd_unread_private_messages">Messages</string>
-  <string name="conversations">Conversations</string>
-  <string name="offline_not_in_mesh">Offline · not in mesh</string>
-  <string name="offline_reachable_via_nostr">Offline from mesh · Nostr available</string>
-  <string name="delete">Delete</string>
-  <string name="delete_conversation_action">Delete conversation</string>
-  <string name="delete_conversation_title">Delete conversation?</string>
-  <string name="delete_conversation_message">Delete your conversation with %1$s from this device?</string>
-  <string name="search_conversations">Search conversations</string>
-  <string name="clear">Clear</string>
-  <string name="loading_conversations">Loading private conversations…</string>
-  <string name="conversation_storage_error">Private conversations could not be loaded</string>
-  <string name="no_conversations_yet">Private conversations will appear here</string>
-  <string name="no_conversation_results">No matching conversations</string>
-  <string name="online_conversations">ONLINE</string>
-  <string name="offline_conversations">OFFLINE</string>
-  <string name="mark_read">Mark as read</string>
-  <string name="mark_unread">Mark as unread</string>
-  <string name="pin_conversation">Pin conversation</string>
-  <string name="unpin_conversation">Unpin conversation</string>
-  <string name="mute_conversation">Mute conversation</string>
-  <string name="unmute_conversation">Unmute conversation</string>
-  <string name="conversation_actions">Conversation actions</string>
-  <string name="conversation_unread_count">%1$d unread messages</string>
-  <string name="conversation_read">Read</string>
-  <string name="conversation_draft_preview">Draft: %1$s</string>
-  <string name="conversation_you_preview">You: %1$s</string>
-  <string name="conversation_preview_timestamp">· %1$s</string>
-  <string name="conversation_delete_failed">Conversation could not be deleted</string>
-  <string name="conversation_deleted">Deleted conversation with %1$s</string>
-  <string name="undo">Undo</string>
-  <string name="conversation_restore_failed">Conversation could not be restored</string>
-  <string name="cd_open_location_channels">Open location and channel settings</string>
-  <string name="cd_connected_peers">Connected peers</string>
-  <string name="cd_geohash_participants">Geohash participants</string>
-  <string name="cd_ready_for_handshake">Ready for handshake</string>
-  <string name="cd_handshake_in_progress">Handshake in progress</string>
-  <string name="cd_encrypted">End-to-end encrypted</string>
-  <string name="cd_handshake_failed">Handshake failed</string>
-
-  <!-- One-shot private-media downgrade consent -->
-  <string name="private_media_legacy_title" tools:ignore="MissingTranslation">Send without end-to-end encryption?</string>
-  <string name="private_media_legacy_body" tools:ignore="MissingTranslation">%1$s cannot be sent encrypted to %2$s because their client is older. %3$s</string>
-  <string name="private_media_legacy_send_once" tools:ignore="MissingTranslation">Send this file once</string>
-
-  <!-- File viewer dialog -->
-  <string name="file_viewer_title">📎 File Received</string>
-  <string name="file_viewer_name">📄 %1$s</string>
-  <string name="file_viewer_size">📏 Size: %1$s</string>
-  <string name="file_viewer_type">🏷️ Type: %1$s</string>
-  <string name="file_viewer_open_save">📂 Open / Save</string>
-  <string name="close_with_emoji">❌ Close</string>
-  <string name="pick_image">Pick image</string>
-  <string name="cd_save_current_image">Save current image</string>
-  <string name="cd_close">Close</string>
-  <string name="toast_image_saved">Image saved to Downloads</string>
-  <string name="toast_failed_to_save_image">Failed to save image</string>
-  <string name="cd_image_index_of">Image %1$d of %2$d</string>
-  <string name="cd_pick_file">Pick file</string>
-
   <string name="about_ephemeral_title">Ephemeral Identity</string>
   <string name="about_ephemeral_desc">A new peer ID is generated regularly.</string>
   <string name="about_panic_desc">Triple-tap the logo to instantly clear all data.</string>
@@ -130,8 +56,6 @@
   <string name="about_last">Last: %1$s</string>
   <string name="about_emergency_title">Panic Mode</string>
   <string name="cd_privacy_protected">Privacy Protected</string>
-  <string name="cancel_lower">Cancel</string>
-
   <!-- APK Sharing -->
   <string name="share_bitchat_title">Share BitChat</string>
   <string name="share_bitchat_subtitle">Share installation file for offline distribution</string>
@@ -168,89 +92,29 @@
   <string name="cd_checking_battery_optimization">Checking Battery Optimization</string>
   <string name="cd_not_supported_battery_optimization">Battery Optimization Not Supported</string>
   <string name="cd_bluetooth">Bluetooth</string>
-  <string name="cd_direct_wifi_aware" tools:ignore="MissingTranslation">Direct Wi-Fi Aware</string>
-  <string name="cd_direct_bluetooth" tools:ignore="MissingTranslation">Direct Bluetooth</string>
-  <string name="cd_routed_mesh" tools:ignore="MissingTranslation">Routed mesh</string>
-  <string name="cd_unread_message">Unread message</string>
   <string name="cd_teleport">Teleport</string>
   <string name="notification_action_quit_bitchat">Quit bitchat</string>
   <string name="cd_leave_channel">Leave channel</string>
-  <string name="cd_reachable_via_nostr">Reachable via Nostr</string>
-  <string name="cd_offline_favorite">Offline favorite</string>
-  <string name="cd_scroll_to_bottom">Scroll to bottom</string>
-  <string name="cd_file">File</string>
-  <string name="cd_image">Image</string>
-  <string name="cd_cancel">Cancel</string>
-  <string name="cd_link">Link</string>
-  <string name="cd_record_voice">Record voice note</string>
-  <string name="cd_pick_media">Pick media</string>
   <string name="cd_offline_mesh_chat">Offline Mesh Chat</string>
   <string name="cd_online_geohash_channels">Online Geohash Channels</string>
   <string name="cd_end_to_end_encryption">End-to-End Encryption</string>
   <string name="image_page_of">Image %1$d of %2$d</string>
-  <string name="image_unavailable">Image unavailable</string>
   <string name="image_saved_to_downloads">Image saved to Downloads</string>
   <string name="image_save_failed">Failed to save image</string>
   <string name="pick_file">Pick file</string>
-  <string name="file_unavailable">[file unavailable]</string>
-  <!-- Chat user sheet actions -->
-  <string name="choose_action_message_or_user">Choose an action for this message or user</string>
-  <string name="choose_action_user">Choose an action for this user</string>
-  <string name="action_copy_message_title">Copy message</string>
-  <string name="action_copy_message_subtitle">Copy this message to clipboard</string>
-  <string name="action_slap_title">Slap %1$s</string>
-  <string name="action_slap_subtitle">Send a playful slap message</string>
-  <string name="action_hug_title">Hug %1$s</string>
-  <string name="action_hug_subtitle">Send a friendly hug message</string>
-  <string name="action_block_title">Block %1$s</string>
-    <string name="action_block_subtitle">Block all messages from this user</string>
-    <string name="action_private_message_title">Message %1$s</string>
-    <string name="action_private_message_subtitle">Send a private message</string>
-
-
   <!-- Location channels sheet: sections and Tor routing -->
   <string name="section_nearby">Nearby</string>
-  <!-- People sheet -->
-  <string name="people_count_title">People (%1$d)</string>
   <string name="section_people">People</string>
-  <string name="section_on_location">On location</string>
-  <string name="section_teleported_in">Teleported in</string>
-
   <string name="grant_location_permission">Grant location permission</string>
   <string name="location_permission_granted">\u2713 Location permission granted</string>
   <string name="checking_permissions">Checking permissions…</string>
-  <string name="mesh_label">mesh</string>
   <string name="debug_since_start_fmt">Since start: %1$d</string>
   <string name="debug_sync_settings">Sync settings</string>
-  <string name="verify_title">Verify</string>
-  <string name="verify_my_qr_title">Scan to verify me</string>
-  <string name="verify_scan_prompt_friend">Scan someone else\'s QR</string>
   <string name="verify_scan_someone">Scan someone else\'s QR</string>
   <string name="verify_show_my_qr">Show my QR</string>
-  <string name="verify_remove">Remove verification</string>
-  <string name="verify_qr_unavailable">QR unavailable</string>
-  <string name="verify_camera_permission">Camera permission is needed to scan QR codes</string>
-  <string name="verify_request_camera">Enable camera</string>
   <string name="verify_paste_label">Paste verification URL</string>
   <string name="verify_validate">Validate</string>
   <string name="verify_scanned">Verification requested</string>
-  <string name="security_verification_title">Security verification</string>
-  <string name="fingerprint_their">Their fingerprint</string>
-  <string name="fingerprint_yours">Your fingerprint</string>
-  <string name="fingerprint_pending">Handshake pending</string>
-  <string name="fingerprint_status_verified">Encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">Encrypted</string>
-  <string name="fingerprint_status_handshaking">Handshaking</string>
-  <string name="fingerprint_status_failed">Handshake failed</string>
-  <string name="fingerprint_status_uninitialized">Not encrypted</string>
-  <string name="fingerprint_verified_message">You have verified this person\'s identity.</string>
-  <string name="fingerprint_not_verified_label">Not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">Compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">Mark as verified</string>
-  <string name="fingerprint_start_handshake">Start handshake</string>
-  <string name="fingerprint_copy">Copy</string>
-
-
   <string name="debug_relays_window_fmt">Last 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
   <!-- Onboarding screens -->
   <string name="location_services_required">Location Services Required</string>
@@ -299,28 +163,7 @@
   <string name="permissions_header">Permissions</string>
   <string name="grant_permissions">Grant Permissions</string>
   <string name="location_tracking_warning">bitchat does NOT track your location</string>
-  <string name="at_symbol">@</string>
-  <string name="cd_open_about">Open About</string>
-  <string name="channel_count_prefix"> · ⧉ </string>
-  <string name="nobody_around">Nobody around…</string>
-  <string name="you_suffix"> (you)</string>
-  <string name="type_a_message_placeholder">Type a message…</string>
-  <string name="mention_suggestion_at">@%1$s</string>
-  <string name="mention">Mention</string>
-  <string name="image_counter">%1$d / %2$d</string>
-  <string name="at_nickname">@%1$s</string>
-  <string name="underscore">_</string>
-  <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
-  <string name="progress_filled">█</string>
-  <string name="progress_empty">░</string>
   <string name="image_star">image/*</string>
-  <string name="media_type_image">Image</string>
-  <string name="media_type_file">File</string>
-
-  <!-- Notification text helpers -->
-  <string name="notification_sent_image">📷 sent an image</string>
-  <string name="notification_sent_voice">🎤 sent a voice message</string>
-  <string name="notification_sent_file">📎 sent a file</string>
   <string name="notification_file_pdf">📄</string>
   <string name="notification_file_zip">🗜️</string>
   <string name="notification_file_doc">📄</string>
@@ -353,11 +196,6 @@
   <string name="perm_type_battery_optimization">Battery Optimization</string>
   <string name="perm_type_other">Other</string>
 
-  <!-- Password prompt dialog -->
-  <string name="pwd_prompt_title">Enter Channel Password</string>
-  <string name="pwd_prompt_message">Channel %1$s is password protected. Enter the password to join.</string>
-  <string name="pwd_label">Password</string>
-  <string name="join">Join</string>
     <!-- Plurals -->
 
     <string name="bluetooth_recommended">Bluetooth Recommended</string>

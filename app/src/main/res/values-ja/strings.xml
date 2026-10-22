@@ -13,12 +13,8 @@
     <string name="leave_channel">退出</string>
     <string name="show_commands">コマンドを表示</string>
     <string name="people">人</string>
-    <string name="channels">チャンネル</string>
     <string name="online_users">オンラインユーザー</string>
-    <string name="no_one_connected">接続中のユーザーはいません</string>
     <string name="emergency_clear_hint">3 回タップで全データを消去</string>
-    <string name="your_network">あなたのネットワーク</string>
-
     <!-- バッテリー最適化 -->
     <string name="battery_optimization_detected">バッテリー最適化を検出</string>
     <string name="battery_optimization_disabled">バッテリー最適化は無効です</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">近くに %1$d 人</string>
     <string name="notification_and_more">ほか %1$d</string>
 
-    <!-- お気に入り アクセシビリティ -->
-    <string name="cd_add_favorite">お気に入りに追加</string>
-    <string name="cd_remove_favorite">お気に入りから削除</string>
-    <!-- チャットヘッダー &amp; アクセシビリティ -->
-    <string name="cd_nostr_reachable">Nostr 経由で到達可能</string>
-    <string name="cd_unread_private_messages">未読のプライベートメッセージ</string>
-    <string name="cd_open_location_channels">位置情報とチャンネルの設定を開く</string>
-    <string name="cd_connected_peers">接続中のピア</string>
-    <string name="cd_geohash_participants">Geohash 参加者</string>
-    <string name="cd_ready_for_handshake">ハンドシェイク準備完了</string>
-    <string name="cd_handshake_in_progress">ハンドシェイク中</string>
-    <string name="cd_encrypted">エンドツーエンド暗号化</string>
-    <string name="cd_handshake_failed">ハンドシェイク失敗</string>
-
-    <!-- ファイルビューア ダイアログ -->
-    <string name="file_viewer_title">📎 ファイルを受信</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 サイズ: %1$s</string>
-    <string name="file_viewer_type">🏷️ 種類: %1$s</string>
-    <string name="file_viewer_open_save">📂 開く / 保存</string>
-    <string name="close_with_emoji">❌ 閉じる</string>
-    <string name="pick_image">画像を選択</string>
-
     <string name="about_pow_off">PoW オフ</string>
     <string name="about_pow_on">PoW オン</string>
     <string name="about_pow_difficulty">難易度: %1$d ビット (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">Tor ステータス: %1$s、ブートストラップ %2$d%%</string>
     <string name="about_last">最終: %1$s</string>
     <string name="about_emergency_title">緊急データ消去</string>
-    <string name="cancel_lower">キャンセル</string>
-
     <!-- 一般のコンテンツ記述 -->
     <string name="cd_warning">警告</string>
     <string name="cd_location_services">位置情報サービス</string>
@@ -88,52 +59,21 @@
     <string name="cd_checking_battery_optimization">バッテリー最適化を確認中</string>
     <string name="cd_not_supported_battery_optimization">バッテリー最適化は非対応</string>
     <string name="cd_bluetooth">Bluetooth</string>
-    <string name="cd_unread_message">未読メッセージ</string>
     <string name="cd_teleport">テレポート</string>
     <string name="cd_leave_channel">チャンネルから退出</string>
-    <string name="cd_reachable_via_nostr">Nostr 経由で到達可能</string>
-    <string name="cd_offline_favorite">お気に入り (オフライン)</string>
-    <string name="cd_scroll_to_bottom">一番下へスクロール</string>
-    <string name="cd_file">ファイル</string>
-    <string name="cd_image">画像</string>
-    <string name="cd_cancel">キャンセル</string>
-    <string name="cd_link">リンク</string>
-    <string name="cd_pick_media">メディアを選択</string>
-    <string name="cd_pick_file">ファイルを選択</string>
-    <string name="cd_save_current_image">現在の画像を保存</string>
-    <string name="cd_close">閉じる</string>
-    <string name="cd_image_index_of">画像 %1$d / %2$d</string>
     <string name="cd_privacy_protected">プライバシー保護</string>
-    <string name="cd_record_voice">ボイスメモを録音</string>
     <string name="cd_offline_mesh_chat">オフライン・メッシュチャット</string>
     <string name="cd_online_geohash_channels">オンライン Geohash チャンネル</string>
     <string name="cd_end_to_end_encryption">エンドツーエンド暗号化</string>
 
     <!-- 画像 &amp; ファイル -->
     <string name="image_page_of">画像 %1$d / %2$d</string>
-    <string name="image_unavailable">画像は利用できません</string>
     <string name="image_saved_to_downloads">画像を「ダウンロード」に保存しました</string>
     <string name="image_save_failed">画像を保存できませんでした</string>
-    <string name="toast_image_saved">画像を「ダウンロード」に保存しました</string>
-    <string name="toast_failed_to_save_image">画像を保存できませんでした</string>
     <string name="pick_file">ファイルを選択</string>
-    <string name="file_unavailable">[ファイルは利用できません]</string>
-    <!-- ユーザーアクション シート -->
-    <string name="choose_action_message_or_user">このメッセージまたはユーザーの操作を選択</string>
-    <string name="choose_action_user">このユーザーの操作を選択</string>
-    <string name="action_copy_message_title">メッセージをコピー</string>
-    <string name="action_copy_message_subtitle">このメッセージをクリップボードにコピー</string>
-    <string name="action_slap_title">%1$s を平手打ち</string>
-    <string name="action_slap_subtitle">冗談の平手打ちを送る</string>
-    <string name="action_hug_title">%1$s をハグ</string>
-    <string name="action_hug_subtitle">フレンドリーなハグを送る</string>
-    <string name="action_block_title">%1$s をブロック</string>
-    <string name="action_block_subtitle">このユーザーからのすべてのメッセージをブロック</string>
-
     <string name="grant_location_permission">位置情報の許可を与える</string>
     <string name="location_permission_granted">\u2713 位置情報の許可が付与されました</string>
     <string name="checking_permissions">権限を確認中…</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">開始以降: %1$d</string>
     <string name="debug_sync_settings">同期設定</string>
     <string name="debug_relays_window_fmt">直近 10 秒: %1$d • 1 分: %2$d • 15 分: %3$d</string>
@@ -173,19 +113,7 @@
     <string name="permissions_header">権限</string>
     <string name="grant_permissions">権限を付与</string>
     <string name="location_tracking_warning">bitchat はあなたの位置情報を追跡しません</string>
-    <string name="nobody_around">誰もいません…</string>
-    <string name="you_suffix"> (あなた)</string>
-    <string name="type_a_message_placeholder">メッセージを入力…</string>
-    <string name="mention">メンション</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">画像</string>
-    <string name="media_type_file">ファイル</string>
-
-    <!-- 通知テキストヘルパー -->
-    <string name="notification_sent_image">📷 画像を送信しました</string>
-    <string name="notification_sent_voice">🎤 ボイスメモを送信しました</string>
-    <string name="notification_sent_file">📎 ファイルを送信しました</string>
-
     <!-- ボイスプレイヤー アクセシビリティ -->
     <string name="cd_play_voice">再生</string>
     <string name="cd_pause_voice">一時停止</string>
@@ -208,42 +136,14 @@
     <string name="perm_type_battery_optimization">バッテリー最適化</string>
     <string name="perm_type_other">その他</string>
 
-    <!-- パスワード ダイアログ -->
-    <string name="pwd_prompt_title">チャンネルのパスワードを入力</string>
-    <string name="pwd_prompt_message">チャンネル %1$s はパスワードで保護されています。参加するにはパスワードを入力してください。</string>
-    <string name="pwd_label">パスワード</string>
-    <string name="join">参加</string>
     <!-- 複数形 -->
 
     <string name="bluetooth_recommended">Bluetooth推奨</string>
     <string name="mesh_service_notification_content">メッシュ実行中 — %1$d ピア</string>
 
-  <string name="verify_title">検証</string>
-  <string name="verify_my_qr_title">私を検証するためにスキャン</string>
-  <string name="verify_scan_prompt_friend">他人のQRをスキャン</string>
   <string name="verify_scan_someone">他人のQRをスキャン</string>
   <string name="verify_show_my_qr">QRコードを表示</string>
-  <string name="verify_remove">検証を削除</string>
-  <string name="verify_qr_unavailable">QR利用不可</string>
-  <string name="verify_camera_permission">QRスキャンにカメラ権限が必要です</string>
-  <string name="verify_request_camera">カメラを有効化</string>
   <string name="verify_paste_label">検証URLを貼り付け</string>
   <string name="verify_validate">検証する</string>
   <string name="verify_scanned">検証をリクエストしました</string>
-  <string name="security_verification_title">セキュリティ検証</string>
-  <string name="fingerprint_their">相手の指紋</string>
-  <string name="fingerprint_yours">あなたの指紋</string>
-  <string name="fingerprint_pending">ハンドシェイク保留中</string>
-  <string name="fingerprint_status_verified">暗号化＆検証済み</string>
-  <string name="fingerprint_status_encrypted">暗号化済み</string>
-  <string name="fingerprint_status_handshaking">ハンドシェイク中</string>
-  <string name="fingerprint_status_failed">ハンドシェイク失敗</string>
-  <string name="fingerprint_status_uninitialized">未暗号化</string>
-  <string name="fingerprint_verified_message">この人物の身元を検証しました。</string>
-  <string name="fingerprint_not_verified_label">未検証</string>
-  <string name="fingerprint_not_verified_message_fmt">安全な経路で %1$s と指紋を比較してください。</string>
-  <string name="fingerprint_mark_verified">検証済みにする</string>
-  <string name="fingerprint_start_handshake">ハンドシェイク開始</string>
-  <string name="fingerprint_copy">コピー</string>
-    <string name="cd_open_about">このアプリについてを開く</string>
 </resources>

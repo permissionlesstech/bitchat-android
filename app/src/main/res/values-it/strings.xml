@@ -13,12 +13,8 @@
     <string name="leave_channel">Esci</string>
     <string name="show_commands">Mostra comandi</string>
     <string name="people">Persone</string>
-    <string name="channels">Canali</string>
     <string name="online_users">Utenti online</string>
-    <string name="no_one_connected">Nessuno connesso</string>
     <string name="emergency_clear_hint">Tocca tre volte per cancellare tutti i dati</string>
-    <string name="your_network">Rete</string>
-
     <!-- Ottimizzazione batteria -->
     <string name="battery_optimization_detected">Ottimizzazione batteria rilevata</string>
     <string name="battery_optimization_disabled">Ottimizzazione batteria disattivata</string>
@@ -44,29 +40,6 @@
     <string name="notification_active_peers_many">%1$d persone nei dintorni</string>
     <string name="notification_and_more">e altri %1$d</string>
 
-    <!-- Accessibilità favoriti -->
-    <string name="cd_add_favorite">Aggiungi ai preferiti</string>
-    <string name="cd_remove_favorite">Rimuovi dai preferiti</string>
-    <!-- Intestazione chat e accessibilità -->
-    <string name="cd_nostr_reachable">Raggiungibile via Nostr</string>
-    <string name="cd_unread_private_messages">Messaggi privati non letti</string>
-    <string name="cd_open_location_channels">Apri le impostazioni di posizione e canali</string>
-    <string name="cd_connected_peers">Peer connessi</string>
-    <string name="cd_geohash_participants">Partecipanti geohash</string>
-    <string name="cd_ready_for_handshake">Pronto per l\'handshake</string>
-    <string name="cd_handshake_in_progress">Handshake in corso</string>
-    <string name="cd_encrypted">Crittografia end-to-end</string>
-    <string name="cd_handshake_failed">Handshake fallito</string>
-
-    <!-- Finestra di visualizzazione file -->
-    <string name="file_viewer_title">📎 File ricevuto</string>
-    <string name="file_viewer_name">📄 %1$s</string>
-    <string name="file_viewer_size">📏 Dimensione: %1$s</string>
-    <string name="file_viewer_type">🏷️ Tipo: %1$s</string>
-    <string name="file_viewer_open_save">📂 Apri / Salva</string>
-    <string name="close_with_emoji">❌ Chiudi</string>
-    <string name="pick_image">Scegli immagine</string>
-
     <string name="about_pow_off">PoW off</string>
     <string name="about_pow_on">PoW on</string>
     <string name="about_pow_difficulty">difficoltà: %1$d bit (~%2$s)</string>
@@ -76,8 +49,6 @@
     <string name="about_tor_status">Stato Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Ultimo: %1$s</string>
     <string name="about_emergency_title">Eliminazione dati di emergenza</string>
-    <string name="cancel_lower">annulla</string>
-
     <!-- Descrizioni contenuto generiche -->
     <string name="cd_warning">Avviso</string>
     <string name="cd_location_services">Servizi di localizzazione</string>
@@ -88,52 +59,21 @@
     <string name="cd_checking_battery_optimization">Controllo ottimizzazione batteria</string>
     <string name="cd_not_supported_battery_optimization">Ottimizzazione batteria non supportata</string>
     <string name="cd_bluetooth">Bluetooth</string>
-    <string name="cd_unread_message">Messaggio non letto</string>
     <string name="cd_teleport">Teletrasporta</string>
     <string name="cd_leave_channel">Esci dal canale</string>
-    <string name="cd_reachable_via_nostr">Raggiungibile via Nostr</string>
-    <string name="cd_offline_favorite">Preferito offline</string>
-    <string name="cd_scroll_to_bottom">Scorri in fondo</string>
-    <string name="cd_file">File</string>
-    <string name="cd_image">Immagine</string>
-    <string name="cd_cancel">Annulla</string>
-    <string name="cd_link">Link</string>
-    <string name="cd_pick_media">Scegli media</string>
-    <string name="cd_pick_file">Scegli file</string>
-    <string name="cd_save_current_image">Salva immagine corrente</string>
-    <string name="cd_close">Chiudi</string>
-    <string name="cd_image_index_of">Immagine %1$d di %2$d</string>
     <string name="cd_privacy_protected">Privacy protetta</string>
-    <string name="cd_record_voice">Registra nota vocale</string>
     <string name="cd_offline_mesh_chat">Chat mesh offline</string>
     <string name="cd_online_geohash_channels">Canali geohash online</string>
     <string name="cd_end_to_end_encryption">Crittografia end-to-end</string>
 
     <!-- Immagini e file -->
     <string name="image_page_of">Immagine %1$d di %2$d</string>
-    <string name="image_unavailable">Immagine non disponibile</string>
     <string name="image_saved_to_downloads">Immagine salvata in Download</string>
     <string name="image_save_failed">Impossibile salvare l\'immagine</string>
-    <string name="toast_image_saved">Immagine salvata in Download</string>
-    <string name="toast_failed_to_save_image">Impossibile salvare l\'immagine</string>
     <string name="pick_file">Scegli file</string>
-    <string name="file_unavailable">[file non disponibile]</string>
-    <!-- Azioni utente schermata -->
-    <string name="choose_action_message_or_user">scegli un\'azione per questo messaggio o utente</string>
-    <string name="choose_action_user">scegli un\'azione per questo utente</string>
-    <string name="action_copy_message_title">copia messaggio</string>
-    <string name="action_copy_message_subtitle">copia questo messaggio negli appunti</string>
-    <string name="action_slap_title">schiaffeggia %1$s</string>
-    <string name="action_slap_subtitle">invia uno schiaffo giocoso</string>
-    <string name="action_hug_title">abbraccia %1$s</string>
-    <string name="action_hug_subtitle">invia un abbraccio amichevole</string>
-    <string name="action_block_title">blocca %1$s</string>
-    <string name="action_block_subtitle">blocca tutti i messaggi da questo utente</string>
-
     <string name="grant_location_permission">concedi permesso di localizzazione</string>
     <string name="location_permission_granted">\u2713 permesso di localizzazione concesso</string>
     <string name="checking_permissions">controllo permessi…</string>
-    <string name="mesh_label">mesh</string>
     <string name="debug_since_start_fmt">dall\'avvio: %1$d</string>
     <string name="debug_sync_settings">impostazioni sincronizzazione</string>
     <string name="debug_relays_window_fmt">ultimi 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -173,19 +113,7 @@
     <string name="permissions_header">permessi</string>
     <string name="grant_permissions">Concedi permessi</string>
     <string name="location_tracking_warning">bitchat NON traccia la tua posizione</string>
-    <string name="nobody_around">nessuno nei dintorni…</string>
-    <string name="you_suffix"> (tu)</string>
-    <string name="type_a_message_placeholder">scrivi un messaggio…</string>
-    <string name="mention">menzione</string>
     <string name="image_star">image/*</string>
-    <string name="media_type_image">Immagine</string>
-    <string name="media_type_file">File</string>
-
-    <!-- Helper testo notifiche -->
-    <string name="notification_sent_image">📷 ha inviato un\'immagine</string>
-    <string name="notification_sent_voice">🎤 ha inviato un messaggio vocale</string>
-    <string name="notification_sent_file">📎 ha inviato un file</string>
-
     <!-- Accessibilità lettore vocale -->
     <string name="cd_play_voice">Riproduci</string>
     <string name="cd_pause_voice">Pausa</string>
@@ -208,21 +136,6 @@
     <string name="perm_type_battery_optimization">Ottimizzazione batteria</string>
     <string name="perm_type_other">Altro</string>
 
-    <!-- Dialogo richiesta password -->
-    <string name="pwd_prompt_title">Inserisci password del canale</string>
-    <string name="pwd_prompt_message">Il canale %1$s è protetto da password. Inserisci la password per entrare.</string>
-    <string name="pwd_label">Password</string>
-    <string name="join">Entra</string>
-    <!-- Simboli e stringhe speciali -->
-    <string name="at_symbol">@</string>
-    <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="mention_suggestion_at">@%1$s</string>
-    <string name="image_counter">%1$d / %2$d</string>
-    <string name="at_nickname">@%1$s</string>
-    <string name="underscore">_</string>
-    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
-    <string name="progress_filled">█</string>
-    <string name="progress_empty">░</string>
     <string name="dot">.</string>
     <string name="warning_emoji">⚠️</string>
 
@@ -241,32 +154,9 @@
     <string name="bluetooth_recommended">Bluetooth consigliato</string>
     <string name="mesh_service_notification_content">Mesh in esecuzione — %1$d peer</string>
 
-  <string name="verify_title">verifica</string>
-  <string name="verify_my_qr_title">scansiona per verificarmi</string>
-  <string name="verify_scan_prompt_friend">scansiona qr altrui</string>
   <string name="verify_scan_someone">scansiona qr altrui</string>
   <string name="verify_show_my_qr">mostra mio qr</string>
-  <string name="verify_remove">rimuovi verifica</string>
-  <string name="verify_qr_unavailable">qr non disponibile</string>
-  <string name="verify_camera_permission">permesso fotocamera necessario</string>
-  <string name="verify_request_camera">abilita fotocamera</string>
   <string name="verify_paste_label">incolla url verifica</string>
   <string name="verify_validate">convalida</string>
   <string name="verify_scanned">verifica richiesta</string>
-  <string name="security_verification_title">verifica sicurezza</string>
-  <string name="fingerprint_their">loro impronta</string>
-  <string name="fingerprint_yours">tua impronta</string>
-  <string name="fingerprint_pending">handshake in corso</string>
-  <string name="fingerprint_status_verified">criptato &amp; verificato</string>
-  <string name="fingerprint_status_encrypted">criptato</string>
-  <string name="fingerprint_status_handshaking">handshake</string>
-  <string name="fingerprint_status_failed">handshake fallito</string>
-  <string name="fingerprint_status_uninitialized">non criptato</string>
-  <string name="fingerprint_verified_message">hai verificato questa persona.</string>
-  <string name="fingerprint_not_verified_label">non verificato</string>
-  <string name="fingerprint_not_verified_message_fmt">confronta con %1$s via canale sicuro.</string>
-  <string name="fingerprint_mark_verified">segna verificato</string>
-  <string name="fingerprint_start_handshake">avvia handshake</string>
-  <string name="fingerprint_copy">copia</string>
-    <string name="cd_open_about">Apri Informazioni</string>
 </resources>
