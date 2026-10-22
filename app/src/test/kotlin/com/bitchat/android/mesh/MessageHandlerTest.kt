@@ -78,6 +78,24 @@ class MessageHandlerTest {
     }
 
     @Test
+    fun `encrypted broadcast without channel context is rejected`() = runBlocking {
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(peerInfo(signingKey))
+        val envelope = BitchatMessage(
+            sender = "sender", content = "", timestamp = java.util.Date(0),
+            isEncrypted = true, encryptedContent = ByteArray(32)
+        )
+        val packet = BitchatPacket(
+            version = 1u, type = MessageType.MESSAGE.value,
+            senderID = peerID.hexToBytes(), recipientID = SpecialRecipients.BROADCAST,
+            timestamp = 1_700_000_000_000uL, payload = envelope.toBinaryPayload()!!,
+            signature = signature, ttl = 7u
+        )
+        handler.handleMessage(RoutedPacket(packet, peerID, "test-link"))
+        verify(delegate, never()).onMessageReceived(any())
+    }
+
+    @Test
     fun `encrypted channel envelopes retain ciphertext when the password is unavailable`() = runBlocking {
         whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
         whenever(delegate.getPeerNickname(peerID)).thenReturn(nickname)
