@@ -248,7 +248,7 @@ class ChatUIUtilsTest {
             includeTimestamp = false,
         )
 
-        val expected = colorForPeer(identity, palette)
+        val expected = colorForPeer(identity.stableKey, palette)
         val chip = mentionChipSpans(body).single()
         assertEquals(expected.copy(alpha = MENTION_CHIP_ALPHA), chip.item.background)
         assertTrue(body.spanStyles.any { it.item.color == expected })
@@ -265,7 +265,7 @@ class ChatUIUtilsTest {
             palette = palette,
         ).filter(AnnotatedString(input)).text
 
-        val expectedColor = colorForPeer(identity, palette)
+        val expectedColor = colorForPeer(identity.stableKey, palette)
         val tokenStart = input.indexOf(token)
         val suffixStart = input.indexOf("#04af")
         val tokenEnd = tokenStart + token.length
@@ -448,8 +448,8 @@ class ChatUIUtilsTest {
         // Hue derivation must stay byte-identical to iOS; only saturation/value are tuned per
         // theme so dark mode stays muted-but-bright and light mode stays deep-but-readable.
         val identity = PeerIdentity.mesh("abc")
-        val dark = colorForPeer(identity, DarkBitchatPalette)
-        val light = colorForPeer(identity, LightBitchatPalette)
+        val dark = colorForPeer(identity.stableKey, DarkBitchatPalette)
+        val light = colorForPeer(identity.stableKey, LightBitchatPalette)
 
         val darkHsv = FloatArray(3)
         val lightHsv = FloatArray(3)
@@ -474,7 +474,7 @@ class ChatUIUtilsTest {
         // Sweep a range of seeds; none may land within the reserved orange band.
         repeat(500) { i ->
             val color = colorForPeer(
-                PeerIdentity.mesh("seed$i"),
+                PeerIdentity.mesh("seed$i").stableKey,
                 DarkBitchatPalette
             )
             val hsv = FloatArray(3)
@@ -512,8 +512,8 @@ class ChatUIUtilsTest {
 
         assertEquals(peopleIdentity, chatIdentity)
         assertEquals(
-            colorForPeer(peopleIdentity, palette),
-            colorForPeer(chatIdentity, palette)
+            colorForPeer(peopleIdentity.stableKey, palette),
+            colorForPeer(chatIdentity.stableKey, palette)
         )
     }
 

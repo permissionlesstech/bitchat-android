@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
 import androidx.wear.compose.foundation.rotary.rotaryScrollable
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,10 +48,12 @@ import com.bitchat.watch.ui.media.FileMessageChip
 import com.bitchat.watch.ui.media.FullScreenImageViewer
 import com.bitchat.watch.ui.media.ImageMessageItem
 import com.bitchat.watch.ui.media.VoiceNoteItem
-import com.bitchat.watch.ui.theme.BitchatMotion
+import com.bitchat.android.ui.peerIdentityForMessage
+import com.bitchat.android.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.BitchatPalette
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
-import com.bitchat.watch.ui.theme.colorForPeer
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.colorForPeer
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -194,6 +197,21 @@ private fun ChatHeader(
     }
 }
 
+/**
+ * The sender's name color: orange for this watch, otherwise the peer's identity color, keyed the
+ * same way as on the phone and iOS so a nickname change never recolors a peer.
+ */
+internal fun messageSenderColor(
+    message: BitchatMessage,
+    myPeerID: String,
+    palette: BitchatPalette,
+): Color =
+    if (message.senderPeerID == myPeerID) {
+        palette.accentOrange
+    } else {
+        colorForPeer(peerIdentityForMessage(message).stableKey, palette)
+    }
+
 @Composable
 fun MessageItem(
     message: BitchatMessage,
@@ -203,10 +221,7 @@ fun MessageItem(
 ) {
     val palette = LocalBitchatPalette.current
     val isSelf = message.senderPeerID == myPeerID
-    val senderColor = when {
-        isSelf -> palette.accentOrange
-        else -> colorForPeer(message.sender + (message.senderPeerID ?: ""), palette)
-    }
+    val senderColor = messageSenderColor(message, myPeerID, palette)
 
     // Snappy appear animation for incoming messages (BitchatMotion.EMPHASIZED_MS)
     var appeared by remember { mutableStateOf(false) }

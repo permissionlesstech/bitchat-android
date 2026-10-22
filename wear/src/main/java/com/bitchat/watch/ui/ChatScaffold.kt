@@ -50,9 +50,9 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.watch.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 

@@ -63,7 +63,7 @@ fun MediaBubbleShell(
     val isSelf = message.isFromSelf(currentUserNickname, myPeerID)
 
     val authorColor = remember(message, isSelf, palette) {
-        if (isSelf) palette.accentOrange else colorForPeer(peerIdentityForMessage(message), palette)
+        if (isSelf) palette.accentOrange else colorForPeer(peerIdentityForMessage(message).stableKey, palette)
     }
 
     val corner = ChatVisualTokens.BubbleCornerRadius

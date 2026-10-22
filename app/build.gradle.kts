@@ -132,6 +132,7 @@ dependencies {
     // Project modules
     implementation(project(":core:domain"))
     implementation(project(":core:navigation"))
+    implementation(project(":core:designsystem"))
     implementation(project(":core:mesh"))
     implementation(project(":core:nostr"))
     implementation(project(":core:chat"))

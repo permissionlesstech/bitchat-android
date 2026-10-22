@@ -1159,7 +1159,7 @@ private fun ConversationRow(
     val peerIdentity = conversation.nostrPubkey
         ?.let(viewModel::peerIdentityForNostrPubkey)
         ?: viewModel.peerIdentityForMeshPeer(conversation.conversationID)
-    val assignedColor = colorForPeer(peerIdentity, palette)
+    val assignedColor = colorForPeer(peerIdentity.stableKey, palette)
     val (baseNameRaw, suffix) = splitSuffix(conversation.displayName)
     val relativeTime by produceState(
         initialValue = conversationRelativeTime(conversation.latestMessageAt),
@@ -1469,7 +1469,7 @@ private fun PeerItem(
     // Get consistent peer color (iOS-compatible)
     val palette = LocalBitchatPalette.current
     val assignedColor = colorForPeer(
-        viewModel.peerIdentityForMeshPeer(peerID),
+        viewModel.peerIdentityForMeshPeer(peerID).stableKey,
         palette
     )
     val baseColor = if (isMe) palette.accentOrange else assignedColor

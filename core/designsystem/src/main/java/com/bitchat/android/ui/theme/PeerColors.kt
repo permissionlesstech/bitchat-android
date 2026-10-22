@@ -2,7 +2,6 @@ package com.bitchat.android.ui.theme
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
-import com.bitchat.android.ui.PeerIdentity
 import kotlin.math.abs
 
 /**
@@ -34,12 +33,14 @@ data class PeerColorStyle(
 /**
  * The single identity-to-color boundary used by chat, people sheets, and mentions.
  *
- * The djb2 hash and hue adjustment are byte-identical to the iOS implementation. Orange is
- * avoided because it is reserved for the current user.
+ * Callers pass `PeerIdentity.stableKey` (from :core:domain), never a hand-built string, so every
+ * surface hashes the same normalized key. The djb2 hash and hue
+ * adjustment are byte-identical to the iOS implementation. Orange is avoided because it is
+ * reserved for the current user.
  */
-fun colorForPeer(identity: PeerIdentity, palette: BitchatPalette): Color {
+fun colorForPeer(stableKey: String, palette: BitchatPalette): Color {
     var hash = 5381UL
-    for (byte in identity.stableKey.toByteArray()) {
+    for (byte in stableKey.toByteArray()) {
         hash = ((hash shl 5) + hash) + byte.toUByte().toULong()
     }
 

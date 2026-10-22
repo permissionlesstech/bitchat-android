@@ -391,8 +391,8 @@ internal fun WearNavHost(
     AnimatedContent(
         targetState = navigation.screen,
         transitionSpec = {
-            fadeIn(tween(com.bitchat.watch.ui.theme.BitchatMotion.EMPHASIZED_MS)) togetherWith
-                fadeOut(tween(com.bitchat.watch.ui.theme.BitchatMotion.QUICK_MS))
+            fadeIn(tween(com.bitchat.android.ui.theme.BitchatMotion.EMPHASIZED_MS)) togetherWith
+                fadeOut(tween(com.bitchat.android.ui.theme.BitchatMotion.QUICK_MS))
         },
         label = "screenTransition"
     ) { current ->

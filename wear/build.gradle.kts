@@ -89,6 +89,7 @@ dependencies {
     // Both modules' minSdk is below the watch's, so neither needs a copy of its own.
     implementation(project(":core:domain"))
     implementation(project(":core:mesh"))
+    implementation(project(":core:designsystem"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
 

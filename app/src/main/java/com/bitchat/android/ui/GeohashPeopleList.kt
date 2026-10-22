@@ -253,7 +253,7 @@ private fun GeohashPersonItem(
     val baseName = truncateNickname(baseNameRaw)
     val suffix = geohashIdentitySuffix(person, showHashSuffix)
     val assignedColor = colorForPeer(
-        viewModel.peerIdentityForNostrPubkey(person.id),
+        viewModel.peerIdentityForNostrPubkey(person.id).stableKey,
         palette
     )
     val baseColor = if (isMe) palette.accentOrange else assignedColor

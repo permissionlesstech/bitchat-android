@@ -29,8 +29,9 @@ import androidx.wear.compose.material3.Text
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.R
 import com.bitchat.watch.mesh.WearMeshService
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
-import com.bitchat.watch.ui.theme.colorForPeer
+import com.bitchat.android.ui.PeerIdentity
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.colorForPeer
 
 /**
  * Internal debug screen (M2): raw peer list with RSSI. Kept for troubleshooting; the real
@@ -89,7 +90,7 @@ fun PeerDebugScreen() {
                     Text(
                         text = nick,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = colorForPeer(nick + peerID, palette),
+                        color = colorForPeer(PeerIdentity.mesh(peerID).stableKey, palette),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)

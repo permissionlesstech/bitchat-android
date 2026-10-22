@@ -30,8 +30,9 @@ import androidx.wear.compose.material3.Text
 import com.bitchat.watch.R
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
-import com.bitchat.watch.ui.theme.colorForPeer
+import com.bitchat.android.ui.PeerIdentity
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.colorForPeer
 
 @Composable
 fun UserDetailScreen(
@@ -70,7 +71,7 @@ fun UserDetailScreen(
                             text = nickname,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = colorForPeer(nickname + peerID, palette),
+                            color = colorForPeer(PeerIdentity.mesh(peerID).stableKey, palette),
                             textAlign = TextAlign.Center
                         )
                         Text(

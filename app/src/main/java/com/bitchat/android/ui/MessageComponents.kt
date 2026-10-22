@@ -891,7 +891,7 @@ private fun BubbleTextMessageLayout(
     val context = LocalContext.current
 
     val authorColor = remember(message, isSelf, palette) {
-        if (isSelf) palette.accentOrange else colorForPeer(peerIdentityForMessage(message), palette)
+        if (isSelf) palette.accentOrange else colorForPeer(peerIdentityForMessage(message).stableKey, palette)
     }
 
     val corner = ChatVisualTokens.BubbleCornerRadius

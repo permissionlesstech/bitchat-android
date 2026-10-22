@@ -73,7 +73,7 @@ fun formatTextMessageSender(
     val senderColor = if (isSelf) {
         palette.accentOrange
     } else {
-        colorForPeer(peerIdentityForMessage(message), palette)
+        colorForPeer(peerIdentityForMessage(message).stableKey, palette)
     }
     val senderWeight = FontWeight.SemiBold
     val (baseName, suffix) = splitSuffix(message.sender)
@@ -282,7 +282,7 @@ fun formatMessageHeaderAnnotatedString(
         val baseColor = if (isSelf) {
             palette.accentOrange
         } else {
-            colorForPeer(peerIdentityForMessage(message), palette)
+            colorForPeer(peerIdentityForMessage(message).stableKey, palette)
         }
         val (baseName, suffix) = splitSuffix(message.sender)
 
@@ -387,7 +387,7 @@ internal fun colorForMention(
     val mentionWithoutAt = mention.trim().removePrefix("@")
     val identity = resolveMentionPeerIdentity(mentionWithoutAt, mentionPeerIdentities)
         ?: PeerIdentity.nickname(mentionWithoutAt)
-    return colorForPeer(identity, palette)
+    return colorForPeer(identity.stableKey, palette)
 }
 
 /**

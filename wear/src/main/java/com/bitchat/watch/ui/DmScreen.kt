@@ -40,10 +40,11 @@ import com.bitchat.watch.R
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.ui.media.FullScreenImageViewer
-import com.bitchat.watch.ui.theme.BitchatMotion
+import com.bitchat.android.ui.PeerIdentity
+import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
-import com.bitchat.watch.ui.theme.colorForPeer
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.colorForPeer
 
 @Composable
 fun DmScreen(
@@ -172,7 +173,7 @@ private fun DmHeader(
             fontSize = headerTitleSize.sp,
             lineHeight = (headerTitleSize * 1.3f).sp,
             fontWeight = FontWeight.Bold,
-            color = colorForPeer(nickname + peerID, palette),
+            color = colorForPeer(PeerIdentity.mesh(peerID).stableKey, palette),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
