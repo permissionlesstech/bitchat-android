@@ -107,9 +107,9 @@ class GeohashPresenceGroupingTest {
     }
 
     @Test
-    fun `existing chat-style suffix is preserved`() {
+    fun `announced suffix cannot replace the actual identity suffix`() {
         assertEquals(
-            "#04af",
+            "#cdef",
             geohashIdentitySuffix(person("0123456789abcdef", "alice#04af"), showHashSuffix = true)
         )
     }

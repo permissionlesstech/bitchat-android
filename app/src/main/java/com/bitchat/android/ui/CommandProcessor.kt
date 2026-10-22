@@ -593,7 +593,7 @@ class CommandProcessor(
                     geohashPeople.mapNotNull { person ->
                         val baseName = splitSuffix(person.displayName).first
                         val hasNicknameCollision =
-                            baseName.lowercase(Locale.ROOT) in duplicateNames
+                            canonicalNicknameBase(baseName) in duplicateNames
                         val displayName = disambiguatedGeohashDisplayName(person, duplicateNames)
                         // A unique local nickname can be excluded directly. If it collides, the
                         // nickname alone cannot identify which row is self, so keep the suffixed

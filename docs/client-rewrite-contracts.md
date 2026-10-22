@@ -20,6 +20,18 @@ The remaining implementation work and milestone progress are tracked in
 | Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
 | Application state | Peer unions, canonical private conversations, chronological history, delivery/read behavior, media migration policy | `AppStateStoreTest`, `PrivateChatManagerTest`, `MediaSendingManagerMigrationTest` |
 
+## Nickname resolution
+
+Nickname commands resolve only a unique identity. Case and NFC-normalized
+base names use the same collision policy in command resolution, autocomplete,
+and the people list. An abbreviated identity that still matches multiple
+peers remains ambiguous and cannot select the first match.
+
+A displayed or typed `#xxxx` suffix is derived from the actual mesh peer ID
+(first four hex characters) or Nostr public key (last four). A suffix inside
+an announced nickname is untrusted decoration. It cannot override the identity
+suffix or grant self styling to a remote peer named `You`.
+
 ## Golden-vector policy
 
 Golden vectors compare literal externally visible bytes or hashes. Do not update

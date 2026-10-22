@@ -12,6 +12,7 @@ import com.bitchat.android.ui.theme.BitchatPalette
 import com.bitchat.android.ui.theme.ChatVisualTokens
 import com.bitchat.android.ui.theme.colorForPeer
 import java.text.SimpleDateFormat
+import java.text.Normalizer
 import java.util.*
 
 /**
@@ -355,6 +356,11 @@ internal sealed class NicknameResolution {
     data object Ambiguous : NicknameResolution()
 }
 
+private fun canonicalNickname(name: String): String = Normalizer.normalize(
+    Normalizer.normalize(name.trim(), Normalizer.Form.NFC).lowercase(Locale.ROOT),
+    Normalizer.Form.NFC
+)
+
 internal fun resolvePeerIDForNickname(
     query: String,
     nicknames: Map<String, String>,
@@ -366,12 +372,13 @@ internal fun resolvePeerIDForNickname(
     val (base, suffix) = splitSuffix(target)
     val matches = linkedSetOf<String>()
     for ((peerID, nickname) in nicknames) {
-        val nick = nickname.trim()
-        if (nick.equals(target, ignoreCase = true)) {
+        // A claimed suffix is display text, never proof of the peer's identity.
+        val nick = splitSuffix(nickname.trim()).first
+        if (suffix.isEmpty() && canonicalNickname(nick) == canonicalNickname(base)) {
             matches.add(peerID)
             continue
         }
-        if (suffix.isNotEmpty() && nick.equals(base, ignoreCase = true)) {
+        if (suffix.isNotEmpty() && canonicalNickname(nick) == canonicalNickname(base)) {
             if (suffixOf(peerID).equals(suffix, ignoreCase = true)) {
                 matches.add(peerID)
             }
@@ -393,9 +400,11 @@ internal fun uniquePeerIDForNickname(
 /** First four hex characters of a mesh peer ID, matching mention coloring. */
 internal fun meshPeerSuffix(peerID: String): String = "#${peerID.take(4)}"
 
+internal fun canonicalNicknameBase(name: String): String = canonicalNickname(splitSuffix(name.trim()).first)
+
 internal fun duplicateMeshBaseNames(nicknames: Map<String, String>): Set<String> =
     nicknames.values
-        .groupingBy { splitSuffix(it).first.lowercase(Locale.ROOT) }
+        .groupingBy { canonicalNicknameBase(it) }
         .eachCount()
         .filterValues { it > 1 }
         .keys
@@ -404,16 +413,15 @@ internal fun duplicateMeshBaseNames(nicknames: Map<String, String>): Set<String>
  * People-list / autocomplete suffix for a mesh peer.
  *
  * Mesh nicknames are stored unsuffixed, unlike some geohash announcements, so a collision
- * has to derive `#xxxx` from the peer ID. Preserve an already-embedded suffix if present.
+ * has to derive `#xxxx` from the peer ID, never from self-claimed nickname text.
  */
 internal fun meshIdentitySuffix(
     peerID: String,
     displayName: String,
     showHashSuffix: Boolean,
 ): String {
-    if (!showHashSuffix || displayName == "You") return ""
-    val announcedSuffix = splitSuffix(displayName).second
-    return announcedSuffix.ifEmpty { meshPeerSuffix(peerID) }
+    if (!showHashSuffix) return ""
+    return meshPeerSuffix(peerID)
 }
 
 internal fun disambiguatedMeshDisplayName(
@@ -421,8 +429,8 @@ internal fun disambiguatedMeshDisplayName(
     displayName: String,
     duplicateBaseNames: Set<String>,
 ): String {
-    val baseName = splitSuffix(displayName).first
-    val showSuffix = baseName.lowercase(Locale.ROOT) in duplicateBaseNames
+    val baseName = splitSuffix(displayName.trim()).first
+    val showSuffix = canonicalNickname(baseName) in duplicateBaseNames
     return baseName + meshIdentitySuffix(peerID, displayName, showSuffix)
 }
 
