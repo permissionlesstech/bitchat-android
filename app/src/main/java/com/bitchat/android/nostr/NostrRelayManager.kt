@@ -35,6 +35,8 @@ class NostrRelayManager private constructor() {
          */
         fun getInstance(context: android.content.Context): NostrRelayManager {
             shared.appContext = context.applicationContext
+            NostrRelaySettings.init(context.applicationContext)
+            shared.syncCustomRelays()
             return shared
         }
 
@@ -45,6 +47,9 @@ class NostrRelayManager private constructor() {
             "wss://offchain.pub",
             "wss://nostr21.com"
         )
+
+        /** Built-in clearnet set — used when rejecting duplicate custom adds. */
+        val builtInRelayUrls: Set<String> = DEFAULT_RELAYS.toSet()
         
         // Reconnect backoff lives in RelayReconnectPolicy.
 
@@ -131,6 +136,7 @@ class NostrRelayManager private constructor() {
     private val liveGeohashTokens = ConcurrentHashMap<String, Long>()
     private val liveLocationRelayTokens = ConcurrentHashMap<String, Long>()
     private val nonLiveRelayUrls = ConcurrentHashMap.newKeySet<String>()
+    private val customRelayUrls = ConcurrentHashMap.newKeySet<String>()
     private val liveLocationConnectionJobs = ConcurrentHashMap.newKeySet<Job>()
 
     // --- Public API for geohash-specific operation ---
@@ -369,14 +375,8 @@ class NostrRelayManager private constructor() {
     init {
         // Initialize with default relays - avoid static initialization order issues
         try {
-            val defaultRelayUrls = listOf(
-                "wss://relay.damus.io",
-                "wss://relay.primal.net",
-                "wss://offchain.pub",
-                "wss://nostr21.com"
-            )
-            relaysList.addAll(defaultRelayUrls.map { Relay(it) })
-            nonLiveRelayUrls.addAll(defaultRelayUrls)
+            relaysList.addAll(DEFAULT_RELAYS.map { Relay(it) })
+            nonLiveRelayUrls.addAll(DEFAULT_RELAYS)
             _relays.value = relaysList.toList()
             updateConnectionStatus()
             LiveLocationPrivacyGate.addRevocationListener(::revokeLiveLocationAccess)
@@ -386,6 +386,50 @@ class NostrRelayManager private constructor() {
             _relays.value = emptyList()
             _isConnected.value = false
         }
+    }
+
+    /**
+     * Reconcile hand-added relays against [NostrRelaySettings]. Called when the
+     * manager first gets a context and whenever the settings store changes.
+     */
+    fun syncCustomRelays() {
+        val desired = NostrRelaySettings.customRelays().toSet()
+        val previous = customRelayUrls.toSet()
+        val toAdd = desired - previous
+        val toDrop = previous - desired
+
+        toAdd.forEach { url ->
+            customRelayUrls.add(url)
+            nonLiveRelayUrls.add(url)
+            if (relaysList.none { it.url == url }) {
+                relaysList.add(Relay(url))
+            }
+            if (desiredConnected.get()) {
+                scope.launch {
+                    if (desiredConnected.get() && !connections.containsKey(url)) {
+                        connectToRelay(url, null)
+                    }
+                }
+            }
+        }
+
+        toDrop.forEach { url ->
+            customRelayUrls.remove(url)
+            val stillNeeded = url in DEFAULT_RELAYS ||
+                geohashToRelays.values.any { url in it }
+            if (!stillNeeded) {
+                nonLiveRelayUrls.remove(url)
+                reconnectJobs.remove(url)?.cancel()
+                connections.remove(url)?.close(1000, "Custom relay removed")
+                subscriptions.remove(url)
+                synchronized(relaysList) {
+                    relaysList.removeAll { it.url == url }
+                }
+            }
+        }
+
+        updateRelaysList()
+        updateConnectionStatus()
     }
     
     /**
