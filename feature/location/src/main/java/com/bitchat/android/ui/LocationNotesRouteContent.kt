@@ -16,7 +16,7 @@ import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.R
+import com.bitchat.android.feature.location.R
 
 /**
  * The location notes screen: the notes once the building is known, and

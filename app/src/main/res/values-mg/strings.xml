@@ -11,7 +11,6 @@
     <string name="channel_password_hint">Teny miafina</string>
     <string name="join_channel">Hiditra amin\'ny fantsona</string>
     <string name="leave_channel">Hiala</string>
-    <string name="send_message">Handefa</string>
     <string name="show_commands">Haneho baiko</string>
     <string name="people">Olona</string>
     <string name="channels">Fantsona</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">Hanamarina indray</string>
     <string name="battery_optimization_skip">Hitsambikina ankehitriny</string>
     <string name="battery_optimization_continue">Hanohy</string>
-    <string name="retry">Hanandrana indray</string>
     <string name="skip">Hitsambikina</string>
 
     <!-- Fampandrenesana -->
@@ -49,12 +47,9 @@
     <!-- Fahafinaretana momba ny ankafizina -->
     <string name="cd_add_favorite">Hampidirina amin\'ny ankafizina</string>
     <string name="cd_remove_favorite">Hanesorana amin\'ny ankafizina</string>
-    <string name="cd_add_bookmark">Hanampy bookmark</string>
-
     <!-- Lohan\'ny resaka &amp; fahafaha-miditra -->
     <string name="cd_nostr_reachable">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
     <string name="cd_unread_private_messages">Hafatra manokana tsy voavaky</string>
-    <string name="cd_teleported">Nafindra toerana</string>
     <string name="cd_open_location_channels">Sokafy ny fikirana toerana sy fantsona</string>
     <string name="cd_connected_peers">Mpiara-miasa mifandray</string>
     <string name="cd_geohash_participants">Mpandray anjara Geohash</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">pow mandeha</string>
     <string name="about_pow_difficulty">sarotra: %1$d bit (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">sarotra %1$d mitaky ~%2$s fanandramana hash</string>
-    <string name="about_network">tambazotry</string>
     <string name="about_tor_off">tor tapaka</string>
     <string name="about_tor_on">tor mandeha</string>
     <string name="about_tor_status">Toe-javatra Tor: %1$s, bootstrap %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">Tsy tohanana ny Fanamafisana Bateria</string>
     <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_unread_message">Hafatra tsy voavaky</string>
-    <string name="cd_open_map">Hanokatra sarintany</string>
-    <string name="cd_remove_bookmark">Hanesorana bookmark</string>
     <string name="cd_teleport">Hamindra toerana</string>
     <string name="cd_leave_channel">Hiala amin\'ny fantsona</string>
     <string name="cd_reachable_via_nostr">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
     <string name="cd_offline_favorite">Ankafizina tsy an-tserasera</string>
-    <string name="cd_decrease_precision">Hampihenana ny fahamarinana</string>
-    <string name="cd_increase_precision">Hampitombo ny fahamarinana</string>
-    <string name="cd_select_geohash">Hifidy geohash</string>
     <string name="cd_scroll_to_bottom">Hidina any ambany</string>
     <string name="cd_file">Rakitra</string>
     <string name="cd_image">Sary</string>
@@ -141,29 +130,10 @@
     <string name="action_block_title">hanorina %1$s</string>
     <string name="action_block_subtitle">hanorina ny hafatra rehetra avy amin\'ity mpampiasa ity</string>
 
-    <!-- Takelaka fantsona toerana -->
-    <string name="location_channels_title">#fantsona toerana</string>
-    <string name="location_channels_desc">miresaka amin\'ny olona akaiky anao amin\'ny fampiasana fantsona geohash. geohash marivo ihany no zarainy, tsy GPS marina akory. aza maka sary an-efijery na mizara ity efijery ity mba hiarovana ny fiainanao manokana.</string>
     <string name="grant_location_permission">omeo alalana momba ny toerana</string>
-    <string name="location_permission_denied">nolavina ny alalana momba ny toerana. alefaso ao amin\'ny fametrahana mba hampiasa fantsona toerana.</string>
-    <string name="open_settings">Hanokatra fametrahana</string>
     <string name="location_permission_granted">\u2713 omena ny alalana momba ny toerana</string>
     <string name="checking_permissions">manamarina ny alalana...</string>
-    <string name="finding_nearby_channels">mitady fantsona akaiky…</string>
-    <string name="bookmarked">voaisy bookmark</string>
-    <string name="geohash_placeholder">geohash</string>
-    <string name="invalid_geohash">geohash tsy mety</string>
-    <string name="teleport">hamindra toerana</string>
-    <string name="disable_location_services">hanajanona sampan-draharaham-pitoerana</string>
-    <string name="enable_location_services">halefa sampan-draharaham-pitoerana</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">sakana</string>
-    <string name="location_level_neighborhood">manodidina</string>
-    <string name="location_level_city">tanàna</string>
-    <string name="location_level_province">faritany</string>
-    <string name="location_level_region">faritra</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
-
     <string name="debug_since_start_fmt">hatramin\'ny fanombohana: %1$d</string>
     <string name="debug_sync_settings">fametrahana sync</string>
     <string name="debug_relays_window_fmt">10s farany: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -209,14 +179,11 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">tsy misy olona manodidina...</string>
     <string name="you_suffix"> (ianao)</string>
-    <string name="pan_zoom_instruction">ahetsika sy ataovy lehibe mba hifidianana geohash</string>
-    <string name="select">hifidy</string>
     <string name="type_a_message_placeholder">soraty hafatra...</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">hanonona</string>
     <string name="image_counter">%1$d / %2$d</string>
     <string name="at_nickname">@%1$s</string>
-    <string name="hash_symbol">#</string>
     <string name="underscore">_</string>
     <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
     <string name="progress_filled">█</string>
@@ -267,11 +234,6 @@
     <string name="join">Hiditra</string>
     <!-- Plurals -->
 
-    <plurals name="people_count">
-        <item quantity="one">Olona 1</item>
-        <item quantity="other">Olona %d</item>
-    </plurals>
-
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Mandeha ny Mesh — %1$d peers</string>
 
@@ -303,7 +265,4 @@
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
     <string name="cd_open_about">Sokafy ny momba</string>
-  <string name="nearby_notes_reveal">hizaha raha misy naoty navela teto</string>
-  <string name="nearby_notes_one">naoty 1 no navela teto — tsindrio raha hamaky</string>
-  <string name="nearby_notes_many">naoty %d no navela teto — tsindrio raha hamaky</string>
 </resources>

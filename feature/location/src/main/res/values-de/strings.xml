@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Erneut versuchen</string>
+    <string name="cd_add_bookmark">Lesezeichen hinzufügen</string>
+
+    <string name="about_network">Netzwerk</string>
+    <string name="cd_open_map">Karte öffnen</string>
+    <string name="cd_remove_bookmark">Lesezeichen entfernen</string>
+    <string name="cd_decrease_precision">Genauigkeit verringern</string>
+    <string name="cd_increase_precision">Genauigkeit erhöhen</string>
+    <string name="cd_select_geohash">Geohash auswählen</string>
+    <!-- Geohash‑Kanäle Sheet -->
+    <string name="location_channels_title">#Standort‑Kanäle</string>
+    <string name="location_channels_desc">Chatte mit Menschen in deiner Nähe über Geohash‑Kanäle. Es wird nur ein grober Geohash geteilt, niemals exakte GPS‑Daten. Mache zur Wahrung deiner Privatsphäre keine Screenshots und teile diesen Bildschirm nicht.</string>
+    <string name="location_permission_denied">Standortberechtigung verweigert. In den Einstellungen aktivieren, um Standort‑Kanäle zu nutzen.</string>
+    <string name="finding_nearby_channels">Nahe Kanäle werden gesucht …</string>
+    <string name="bookmarked">Lesezeichen</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">Ungültiger Geohash</string>
+    <string name="teleport">teleportieren</string>
+    <string name="disable_location_services">Standortdienste deaktivieren</string>
+    <string name="enable_location_services">Standortdienste aktivieren</string>
+    <string name="location_level_block">Block</string>
+    <string name="location_level_neighborhood">Nachbarschaft</string>
+    <string name="location_level_city">Stadt</string>
+    <string name="location_level_province">Provinz</string>
+    <string name="location_level_region">Region</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <string name="pan_zoom_instruction">schwenken und zoomen, um einen Geohash auszuwählen</string>
+    <string name="select">auswählen</string>
+    <plurals name="people_count">
+        <item quantity="one">1 Person</item>
+        <item quantity="other">%d Personen</item>
+    </plurals>
+
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d Notiz</item>
+    <item quantity="other">#%1$s ± 1 • %2$d Notizen</item>
+  </plurals>
+  <string name="location_notes_description">füge kurze dauerhafte Notizen zu diesem Ort hinzu, damit andere Besucher sie finden.</string>
+  <string name="location_notes_relays_unavailable">Geo-Relays nicht verfügbar; Notizen pausiert</string>
+  <string name="location_notes_no_relays_title">keine Geo-Relays in der Nähe</string>
+  <string name="location_notes_no_relays_desc">Notizen basieren auf Geo-Relays. Verbindung prüfen und erneut versuchen.</string>
+  <string name="loading_location_notes">Notizen werden geladen…</string>
+  <string name="location_notes_empty_title">noch keine Notizen</string>
+  <string name="location_notes_empty_desc">sei der Erste, der hier eine Notiz hinterlässt.</string>
+  <string name="dismiss">schließen</string>
+  <string name="location_notes_input_placeholder">füge eine Notiz zu diesem Ort hinzu</string>
+  <string name="nearby_notes_reveal">nachsehen, ob hier notizen hinterlassen wurden</string>
+</resources>

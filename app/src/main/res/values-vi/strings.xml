@@ -11,7 +11,6 @@
     <string name="channel_password_hint">Mật khẩu</string>
     <string name="join_channel">Tham gia kênh</string>
     <string name="leave_channel">Rời khỏi</string>
-    <string name="send_message">Gửi</string>
     <string name="show_commands">Hiển thị lệnh</string>
     <string name="people">Mọi người</string>
     <string name="channels">Kênh</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">Kiểm tra lại</string>
     <string name="battery_optimization_skip">Bỏ qua ngay</string>
     <string name="battery_optimization_continue">Tiếp tục</string>
-    <string name="retry">Thử lại</string>
     <string name="skip">Bỏ qua</string>
 
     <!-- Thông báo -->
@@ -49,12 +47,9 @@
     <!-- Khả năng truy cập yêu thích -->
     <string name="cd_add_favorite">Thêm vào yêu thích</string>
     <string name="cd_remove_favorite">Xóa khỏi yêu thích</string>
-    <string name="cd_add_bookmark">Thêm bookmark</string>
-
     <!-- Header trò chuyện &amp; khả năng truy cập -->
     <string name="cd_nostr_reachable">Có thể tiếp cận qua Nostr</string>
     <string name="cd_unread_private_messages">Tin nhắn riêng chưa đọc</string>
-    <string name="cd_teleported">Đã dịch chuyển</string>
     <string name="cd_open_location_channels">Mở cài đặt vị trí và kênh</string>
     <string name="cd_connected_peers">Peers đã kết nối</string>
     <string name="cd_geohash_participants">Người tham gia geohash</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">PoW bật</string>
     <string name="about_pow_difficulty">Độ khó: %1$d bit (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">Độ khó %1$d cần ~%2$s lần thử hash</string>
-    <string name="about_network">Mạng lưới</string>
     <string name="about_tor_off">Tor tắt</string>
     <string name="about_tor_on">Tor bật</string>
     <string name="about_tor_status">Trạng thái Tor: %1$s, Bootstrap %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">Tối ưu hóa pin không được hỗ trợ</string>
     <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_unread_message">Tin nhắn chưa đọc</string>
-    <string name="cd_open_map">Mở bản đồ</string>
-    <string name="cd_remove_bookmark">Xóa bookmark</string>
     <string name="cd_teleport">Dịch chuyển</string>
     <string name="cd_leave_channel">Rời khỏi kênh</string>
     <string name="cd_reachable_via_nostr">Có thể tiếp cận qua Nostr</string>
     <string name="cd_offline_favorite">Yêu thích (ngoại tuyến)</string>
-    <string name="cd_decrease_precision">Giảm độ chính xác</string>
-    <string name="cd_increase_precision">Tăng độ chính xác</string>
-    <string name="cd_select_geohash">Chọn geohash</string>
     <string name="cd_scroll_to_bottom">Cuộn xuống dưới</string>
     <string name="cd_file">File</string>
     <string name="cd_image">Hình ảnh</string>
@@ -141,29 +130,10 @@
     <string name="action_block_title">Chặn %1$s</string>
     <string name="action_block_subtitle">Chặn tất cả tin nhắn từ người dùng này</string>
 
-    <!-- Sheet kênh geohash -->
-    <string name="location_channels_title">#Kênh vị trí</string>
-    <string name="location_channels_desc">Trò chuyện với những người gần bạn qua các kênh geohash. Chỉ geohash thô được chia sẻ, không phải dữ liệu GPS chính xác. Vui lòng không chụp màn hình hoặc chia sẻ chế độ xem này để bảo vệ quyền riêng tư.</string>
     <string name="grant_location_permission">Cấp quyền vị trí</string>
-    <string name="location_permission_denied">Quyền vị trí bị từ chối. Hãy bật trong Cài đặt để sử dụng kênh vị trí.</string>
-    <string name="open_settings">Mở Cài đặt</string>
     <string name="location_permission_granted">\u2713 Đã cấp quyền vị trí</string>
     <string name="checking_permissions">Đang kiểm tra quyền …</string>
-    <string name="finding_nearby_channels">Đang tìm kênh gần đó …</string>
-    <string name="bookmarked">Đã bookmark</string>
-    <string name="geohash_placeholder">Geohash</string>
-    <string name="invalid_geohash">Geohash không hợp lệ</string>
-    <string name="teleport">dịch chuyển</string>
-    <string name="disable_location_services">Tắt dịch vụ vị trí</string>
-    <string name="enable_location_services">Bật dịch vụ vị trí</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">Khối</string>
-    <string name="location_level_neighborhood">Khu phố</string>
-    <string name="location_level_city">Thành phố</string>
-    <string name="location_level_province">Tỉnh</string>
-    <string name="location_level_region">Khu vực</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
-
     <string name="debug_since_start_fmt">từ lúc bắt đầu: %1$d</string>
     <string name="debug_sync_settings">Cài đặt sync</string>
     <string name="debug_relays_window_fmt">10s cuối: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -205,8 +175,6 @@
     <string name="location_tracking_warning">bitchat KHÔNG theo dõi vị trí của bạn</string>
     <string name="nobody_around">không có ai xung quanh …</string>
     <string name="you_suffix"> (bạn)</string>
-    <string name="pan_zoom_instruction">di chuyển và zoom để chọn geohash</string>
-    <string name="select">chọn</string>
     <string name="type_a_message_placeholder">Nhập tin nhắn …</string>
     <string name="mention">nhắc đến</string>
     <string name="image_star">image/*</string>
@@ -247,11 +215,6 @@
     <string name="join">Tham gia</string>
     <!-- Số nhiều -->
 
-    <plurals name="people_count">
-        <item quantity="one">1 người</item>
-        <item quantity="other">%d người</item>
-    </plurals>
-
     <string name="bluetooth_recommended">Khuyên dùng Bluetooth</string>
     <string name="mesh_service_notification_content">Mesh đang chạy — %1$d ngang hàng</string>
 
@@ -283,7 +246,4 @@
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
     <string name="cd_open_about">Mở phần Giới thiệu</string>
-  <string name="nearby_notes_reveal">kiểm tra ghi chú để lại ở đây</string>
-  <string name="nearby_notes_one">có 1 ghi chú để lại ở đây — chạm để đọc</string>
-  <string name="nearby_notes_many">có %d ghi chú để lại ở đây — chạm để đọc</string>
 </resources>

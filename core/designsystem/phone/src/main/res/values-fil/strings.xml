@@ -2,9 +2,14 @@
 <resources>
     <string name="app_name">bitchat</string>
 
+    <string name="send_message">Ipadala</string>
     <string name="back">Bumalik</string>
+    <string name="cd_teleported">Naiteleport</string>
     <string name="close_plain">Isara</string>
+    <string name="open_settings">Buksan ang Settings</string>
   <string name="fingerprint_verified_label">verified</string>
     <string name="cancel">Kanselahin</string>
 
+  <string name="nearby_notes_one">1 note ang naiwan dito — i-tap para basahin</string>
+  <string name="nearby_notes_many">%d note ang naiwan dito — i-tap para basahin</string>
 </resources>

@@ -2,9 +2,13 @@
 <resources>
   <string name="fingerprint_verified_label">已驗證</string>
   <string name="app_name">bitchat</string>
+  <string name="send_message">傳送</string>
   <string name="back">返回</string>
+  <string name="cd_location_notes">位置筆記</string>
+  <string name="cd_teleported">已傳送</string>
   <string name="about_tagline">具端對端加密的去中心化 mesh 傳訊</string>
   <string name="close_plain">關閉</string>
+  <string name="open_settings">開啟設定</string>
   <string name="cancel">取消</string>
   <string name="tor_not_available_in_this_build">此版本不支援 Tor</string>
 

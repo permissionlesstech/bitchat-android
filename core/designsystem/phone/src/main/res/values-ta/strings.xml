@@ -3,9 +3,13 @@
 <resources>
   <string name="fingerprint_verified_label">சரிபார்க்கப்பட்டது</string>
   <string name="app_name">bitchat</string>
+  <string name="send_message">அனுப்பு</string>
   <string name="back">பின்</string>
+  <string name="cd_location_notes">இருப்பிட குறிப்புகள்</string>
+  <string name="cd_teleported">டெலிபோர்ட் செய்யப்பட்டது</string>
   <string name="about_tagline">எண்ட்-டு-எண்ட் என்க்ரிப்ஷனுடன் கூடிய பரவலாக்கப்பட்ட மெஷ் செய்தியிடல்</string>
   <string name="close_plain">மூடு</string>
+  <string name="open_settings">அமைப்புகளைத் திற</string>
   <string name="cancel">ரத்து செய்</string>
   <string name="tor_not_available_in_this_build">இந்த பதிப்பில் Tor கிடைக்கவில்லை</string>
 </resources>

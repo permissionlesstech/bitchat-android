@@ -19,15 +19,6 @@ data object OnboardingRoute : NavKey
 data object ChatRoute : NavKey
 
 /**
- * Location notes, a full-screen destination.
- *
- * No argument: the notes belong to the building the device is in, which the
- * screen reads from the location manager when it opens.
- */
-@Serializable
-data object LocationNotesRoute : NavKey
-
-/**
  * Actions on a user, shown as a sheet over chat.
  *
  * [messageId] names the message that was long-pressed, not the message
@@ -48,13 +39,6 @@ data class ChatUserRoute(val nickname: String, val messageId: String?) : NavKey
  */
 @Serializable
 data class VerificationRoute(val peerID: String?) : NavKey
-
-/**
- * Location channels, a full-screen destination: it launches the geohash picker
- * for a result.
- */
-@Serializable
-data object LocationChannelsRoute : NavKey
 
 /**
  * The network view: conversations, channels and nearby people, a full-screen

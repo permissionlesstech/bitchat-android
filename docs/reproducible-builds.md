@@ -62,6 +62,8 @@ The authoritative pins are:
 - `core/designsystem/phone/gradle.lockfile`
 - `feature/share/gradle.lockfile`
 - `feature/share/api/gradle.lockfile`
+- `feature/location/gradle.lockfile`
+- `feature/location/api/gradle.lockfile`
 - `feature/settings/gradle.lockfile`
 - `feature/settings/api/gradle.lockfile`
 - `gradle/verification-metadata.xml`

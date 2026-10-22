@@ -2,9 +2,13 @@
 <resources>
   <string name="fingerprint_verified_label">מאומת</string>
   <string name="app_name">bitchat</string>
+  <string name="send_message">שלח</string>
   <string name="back">חזרה</string>
+  <string name="cd_location_notes">הערות מיקום</string>
+  <string name="cd_teleported">טלפורט</string>
   <string name="about_tagline">העברת הודעות מבוזרת ברשת Mesh עם הצפנה מקצה לקצה</string>
   <string name="close_plain">סגור</string>
+  <string name="open_settings">פתח הגדרות</string>
   <string name="cancel">בטל</string>
   <string name="tor_not_available_in_this_build">Tor אינו זמין בגרסה זו</string>
 

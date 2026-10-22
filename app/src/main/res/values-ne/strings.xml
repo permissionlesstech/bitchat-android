@@ -11,7 +11,6 @@
     <string name="channel_password_hint">पासवर्ड</string>
     <string name="join_channel">च्यानलमा जोडिनुहोस्</string>
     <string name="leave_channel">छोड्नुहोस्</string>
-    <string name="send_message">पठाउनुहोस्</string>
     <string name="show_commands">आज्ञाहरू देखाउनुहोस्</string>
     <string name="people">मानिसहरू</string>
     <string name="channels">च्यानलहरू</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">फेरि जाँच्नुहोस्</string>
     <string name="battery_optimization_skip">अहिलेलाई बेवास्ता गर्नुहोस्</string>
     <string name="battery_optimization_continue">जारी राख्नुहोस्</string>
-    <string name="retry">फेरि प्रयास गर्नुहोस्</string>
     <string name="skip">बेवास्ता गर्नुहोस्</string>
 
     <!-- सूचनाहरू -->
@@ -49,12 +47,9 @@
     <!-- मनपर्ने / पहुँचयोग्यता -->
     <string name="cd_add_favorite">मनपर्नेमा थप्नुहोस्</string>
     <string name="cd_remove_favorite">मनपरिबाट हटाउनुहोस्</string>
-    <string name="cd_add_bookmark">बुकमार्क थप्नुहोस्</string>
-
     <!-- च्याट शीर्षक / पहुँचयोग्यता -->
     <string name="cd_nostr_reachable">Nostr मार्फत पुग्न सकिने</string>
     <string name="cd_unread_private_messages">नपढिएका निजी सन्देश</string>
-    <string name="cd_teleported">टेलिपोर्ट भयो</string>
     <string name="cd_open_location_channels">स्थान र च्यानल सेटिङ खोल्नुहोस्</string>
     <string name="cd_connected_peers">जडान भएका साथीहरू</string>
     <string name="cd_geohash_participants">Geohash सहभागिहरू</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">pow चालु</string>
     <string name="about_pow_difficulty">कठिनाइ: %1$d बिट (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">कठिनाइ %1$d का लागि ~%2$s ह्यास प्रयास</string>
-    <string name="about_network">सञ्जाल</string>
     <string name="about_tor_off">tor बन्द</string>
     <string name="about_tor_on">tor चालु</string>
     <string name="about_tor_status">Tor स्थिति: %1$s, बुटस्ट्र्याप %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">समर्थन छैन</string>
     <string name="cd_bluetooth">ब्लुटुथ</string>
     <string name="cd_unread_message">नपढिएको सन्देश</string>
-    <string name="cd_open_map">नक्सा खोल्नुहोस्</string>
-    <string name="cd_remove_bookmark">बुकमार्क हटाउनुहोस्</string>
     <string name="cd_teleport">टेलिपोर्ट</string>
     <string name="cd_leave_channel">च्यानल छोड्नुहोस्</string>
     <string name="cd_reachable_via_nostr">Nostr बाट पहुँचयोग्य</string>
     <string name="cd_offline_favorite">मनपर्ने (अफलाइन)</string>
-    <string name="cd_decrease_precision">शुद्धता घटाउनुहोस्</string>
-    <string name="cd_increase_precision">शुद्धता बढाउनुहोस्</string>
-    <string name="cd_select_geohash">geohash छान्नुहोस्</string>
     <string name="cd_scroll_to_bottom">तल स्क्रोल गर्नुहोस्</string>
     <string name="cd_file">फाइल</string>
     <string name="cd_image">तस्वीर</string>
@@ -134,29 +123,10 @@
     <string name="action_block_title">%1$s लाई ब्लक गर्नुहोस्</string>
     <string name="action_block_subtitle">यस प्रयोगकर्ताबाट सबै सन्देश ब्लक गर्नुहोस्</string>
 
-    <!-- स्थान च्यानल शीट -->
-    <string name="location_channels_title">#स्थान च्यानल</string>
-    <string name="location_channels_desc">तपाईंको वरिपरिका मानिसहरूसँग geohash च्यानल प्रयोग गरी च्याट गर्नुहोस्। केवल सामान्य geohash साझा हुन्छ, कहिल्यै ठ्याक्कै GPS होइन। गोपनीयताका लागि स्क्रिनसट नलिनुहोस् र नबाँड्नुहोस्।</string>
     <string name="grant_location_permission">स्थान अनुमति दिनुहोस्</string>
-    <string name="location_permission_denied">स्थान अनुमति अस्वीकार। स्थान च्यानल प्रयोग गर्न सेटिङमा सक्षम गर्नुहोस्।</string>
-    <string name="open_settings">सेटिङ खोल्नुहोस्</string>
     <string name="location_permission_granted">\u2713 स्थान अनुमति दिइयो</string>
     <string name="checking_permissions">अनुमति जाँचिँदै…</string>
-    <string name="finding_nearby_channels">नजिकका च्यानल खोजिँदै…</string>
-    <string name="bookmarked">बुकमार्क गरिएको</string>
-    <string name="geohash_placeholder">geohash</string>
-    <string name="invalid_geohash">अवैध geohash</string>
-    <string name="teleport">टेलिपोर्ट</string>
-    <string name="disable_location_services">स्थान सेवाहरू बन्द गर्नुहोस्</string>
-    <string name="enable_location_services">स्थान सेवाहरू सुरु गर्नुहोस्</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">ब्लक</string>
-    <string name="location_level_neighborhood">छिमेक</string>
-    <string name="location_level_city">सहर</string>
-    <string name="location_level_province">प्रान्त</string>
-    <string name="location_level_region">क्षेत्र</string>
-
     <string name="debug_since_start_fmt">सुरु भएकोयता: %1$d</string>
     <string name="debug_sync_settings">सिङ्क सेटिङ</string>
     <string name="debug_relays_window_fmt">अन्तिम 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -202,14 +172,11 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">वरिपरि कोही छैन…</string>
     <string name="you_suffix"> (तपाईं)</string>
-    <string name="pan_zoom_instruction">geohash छान्न प्यान र जुम गर्नुहोस्</string>
-    <string name="select">छान्नुहोस्</string>
     <string name="type_a_message_placeholder">सन्देश टाइप गर्नुहोस्…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">उल्लेख</string>
     <string name="image_counter">%1$d / %2$d</string>
     <string name="at_nickname">@%1$s</string>
-    <string name="hash_symbol">#</string>
     <string name="underscore">_</string>
     <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
     <string name="progress_filled">█</string>
@@ -260,11 +227,6 @@
     <string name="join">जोडिनुहोस्</string>
     <!-- Plurals -->
 
-    <plurals name="people_count">
-        <item quantity="one">1 जना</item>
-        <item quantity="other">%d जना</item>
-    </plurals>
-
     <string name="bluetooth_recommended">ब्लुटुथ सिफारिस गरिएको</string>
     <string name="mesh_service_notification_content">मेश चलिरहेको छ — %1$d पियर्स</string>
 
@@ -296,7 +258,4 @@
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
     <string name="cd_open_about">परिचय खोल्नुहोस्</string>
-  <string name="nearby_notes_reveal">यहाँ छोडिएका नोटहरू छन् कि हेर्नुहोस्</string>
-  <string name="nearby_notes_one">यहाँ 1 नोट छोडिएको छ — पढ्न ट्याप गर्नुहोस्</string>
-  <string name="nearby_notes_many">यहाँ %d नोटहरू छोडिएका छन् — पढ्न ट्याप गर्नुहोस्</string>
 </resources>

@@ -60,7 +60,7 @@ import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.R
+import com.bitchat.android.feature.location.R
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.geohash.ChannelID
@@ -73,7 +73,6 @@ import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
-import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -128,7 +127,7 @@ fun LocationChannelsScreen(
     val bookmarkNames by bookmarksStore.bookmarkNames.collectAsStateWithLifecycle()
     val geohashParticipantCounts by viewModel.geohashParticipantCounts.collectAsStateWithLifecycle()
     val meshPeopleCount by viewModel.meshPeopleCount.collectAsStateWithLifecycle()
-    val wifiAwareEnabled by WifiAwareController.enabled.collectAsStateWithLifecycle()
+    val wifiAwareEnabled by viewModel.wifiAwareEnabled.collectAsStateWithLifecycle()
 
     var customGeohash by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }

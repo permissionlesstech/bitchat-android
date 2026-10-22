@@ -11,7 +11,6 @@
     <string name="channel_password_hint">パスワード</string>
     <string name="join_channel">チャンネルに参加</string>
     <string name="leave_channel">退出</string>
-    <string name="send_message">送信</string>
     <string name="show_commands">コマンドを表示</string>
     <string name="people">人</string>
     <string name="channels">チャンネル</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">再確認</string>
     <string name="battery_optimization_skip">今はスキップ</string>
     <string name="battery_optimization_continue">続行</string>
-    <string name="retry">再試行</string>
     <string name="skip">スキップ</string>
 
     <!-- 通知 -->
@@ -49,12 +47,9 @@
     <!-- お気に入り アクセシビリティ -->
     <string name="cd_add_favorite">お気に入りに追加</string>
     <string name="cd_remove_favorite">お気に入りから削除</string>
-    <string name="cd_add_bookmark">ブックマークに追加</string>
-
     <!-- チャットヘッダー &amp; アクセシビリティ -->
     <string name="cd_nostr_reachable">Nostr 経由で到達可能</string>
     <string name="cd_unread_private_messages">未読のプライベートメッセージ</string>
-    <string name="cd_teleported">テレポート済み</string>
     <string name="cd_open_location_channels">位置情報とチャンネルの設定を開く</string>
     <string name="cd_connected_peers">接続中のピア</string>
     <string name="cd_geohash_participants">Geohash 参加者</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">PoW オン</string>
     <string name="about_pow_difficulty">難易度: %1$d ビット (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">難易度 %1$d は約 %2$s 回のハッシュ試行が必要</string>
-    <string name="about_network">ネットワーク</string>
     <string name="about_tor_off">Tor オフ</string>
     <string name="about_tor_on">Tor オン</string>
     <string name="about_tor_status">Tor ステータス: %1$s、ブートストラップ %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">バッテリー最適化は非対応</string>
     <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_unread_message">未読メッセージ</string>
-    <string name="cd_open_map">地図を開く</string>
-    <string name="cd_remove_bookmark">ブックマークを削除</string>
     <string name="cd_teleport">テレポート</string>
     <string name="cd_leave_channel">チャンネルから退出</string>
     <string name="cd_reachable_via_nostr">Nostr 経由で到達可能</string>
     <string name="cd_offline_favorite">お気に入り (オフライン)</string>
-    <string name="cd_decrease_precision">精度を下げる</string>
-    <string name="cd_increase_precision">精度を上げる</string>
-    <string name="cd_select_geohash">Geohash を選択</string>
     <string name="cd_scroll_to_bottom">一番下へスクロール</string>
     <string name="cd_file">ファイル</string>
     <string name="cd_image">画像</string>
@@ -141,29 +130,10 @@
     <string name="action_block_title">%1$s をブロック</string>
     <string name="action_block_subtitle">このユーザーからのすべてのメッセージをブロック</string>
 
-    <!-- Geohash チャンネル シート -->
-    <string name="location_channels_title">#ロケーション・チャンネル</string>
-    <string name="location_channels_desc">Geohash チャンネルで近くの人とチャットしましょう。共有されるのは大まかな geohash のみで、正確な GPS データは共有されません。プライバシー保護のため、この画面のスクリーンショットや共有は行わないでください。</string>
     <string name="grant_location_permission">位置情報の許可を与える</string>
-    <string name="location_permission_denied">位置情報の許可が拒否されました。ロケーション・チャンネルを使用するには設定で有効にしてください。</string>
-    <string name="open_settings">設定を開く</string>
     <string name="location_permission_granted">\u2713 位置情報の許可が付与されました</string>
     <string name="checking_permissions">権限を確認中…</string>
-    <string name="finding_nearby_channels">近くのチャンネルを検索中…</string>
-    <string name="bookmarked">ブックマーク</string>
-    <string name="geohash_placeholder">Geohash</string>
-    <string name="invalid_geohash">無効な geohash</string>
-    <string name="teleport">テレポート</string>
-    <string name="disable_location_services">位置情報サービスを無効にする</string>
-    <string name="enable_location_services">位置情報サービスを有効にする</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">ブロック</string>
-    <string name="location_level_neighborhood">近隣</string>
-    <string name="location_level_city">市</string>
-    <string name="location_level_province">州 / 県</string>
-    <string name="location_level_region">地域</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
-
     <string name="debug_since_start_fmt">開始以降: %1$d</string>
     <string name="debug_sync_settings">同期設定</string>
     <string name="debug_relays_window_fmt">直近 10 秒: %1$d • 1 分: %2$d • 15 分: %3$d</string>
@@ -205,8 +175,6 @@
     <string name="location_tracking_warning">bitchat はあなたの位置情報を追跡しません</string>
     <string name="nobody_around">誰もいません…</string>
     <string name="you_suffix"> (あなた)</string>
-    <string name="pan_zoom_instruction">パン/ズームして geohash を選択</string>
-    <string name="select">選択</string>
     <string name="type_a_message_placeholder">メッセージを入力…</string>
     <string name="mention">メンション</string>
     <string name="image_star">image/*</string>
@@ -247,24 +215,6 @@
     <string name="join">参加</string>
     <!-- 複数形 -->
 
-    <plurals name="people_count">
-        <item quantity="one">1 人</item>
-        <item quantity="other">%d 人</item>
-    </plurals>
-
-  <plurals name="location_notes_title">
-    <item quantity="one">#%1$s ± 1 • %2$d 件のメモ</item>
-    <item quantity="other">#%1$s ± 1 • %2$d 件のメモ</item>
-  </plurals>
-  <string name="location_notes_description">他の訪問者が見つけられるよう、この場所に短いメモを追加しましょう。</string>
-  <string name="location_notes_relays_unavailable">ジオリレーが利用できません。メモを一時停止中</string>
-  <string name="location_notes_no_relays_title">近くにジオリレーがありません</string>
-  <string name="location_notes_no_relays_desc">メモはジオリレーに依存します。接続を確認して再試行してください。</string>
-  <string name="loading_location_notes">メモを読み込み中…</string>
-  <string name="location_notes_empty_title">まだメモはありません</string>
-  <string name="location_notes_empty_desc">この場所の最初のメモを追加しましょう。</string>
-  <string name="dismiss">閉じる</string>
-  <string name="location_notes_input_placeholder">この場所へのメモを追加</string>
     <string name="bluetooth_recommended">Bluetooth推奨</string>
     <string name="mesh_service_notification_content">メッシュ実行中 — %1$d ピア</string>
 
@@ -296,7 +246,4 @@
   <string name="fingerprint_start_handshake">ハンドシェイク開始</string>
   <string name="fingerprint_copy">コピー</string>
     <string name="cd_open_about">このアプリについてを開く</string>
-  <string name="nearby_notes_reveal">ここに残されたメモを確認</string>
-  <string name="nearby_notes_one">ここに1件のメモがあります — タップして読む</string>
-  <string name="nearby_notes_many">ここに%d件のメモがあります — タップして読む</string>
 </resources>

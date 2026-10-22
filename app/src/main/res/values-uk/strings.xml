@@ -41,7 +41,6 @@
     <string name="channel_password_hint">Пароль</string>
     <string name="join_channel">Приєднатися до каналу</string>
     <string name="leave_channel">Вийти</string>
-    <string name="send_message">Надіслати</string>
     <string name="show_commands">Показати команди</string>
     <string name="people">Люди</string>
     <string name="channels">Канали</string>
@@ -64,7 +63,6 @@
     <string name="battery_optimization_check_again">Перевірити знову</string>
     <string name="battery_optimization_skip">Пропустити зараз</string>
     <string name="battery_optimization_continue">Продовжити</string>
-    <string name="retry">Повторити</string>
     <string name="notification_summary_more">і ще %1$d</string>
     <string name="notification_active_peers_title">👥 bitchat-користувачі поруч!</string>
     <string name="notification_active_peers_one">1 людина поруч</string>
@@ -73,11 +71,8 @@
     <string name="mesh_service_channel_desc">Підтримує роботу Bluetooth mesh-мережі у фоновому режимі</string>
     <string name="cd_add_favorite">Додати в обране</string>
     <string name="cd_remove_favorite">Прибрати з обраного</string>
-    <string name="cd_add_bookmark">Додати закладку</string>
     <string name="cd_nostr_reachable">Доступний через Nostr</string>
     <string name="cd_unread_private_messages">Непрочитані приватні повідомлення</string>
-    <string name="cd_location_notes">Нотатки про місце</string>
-    <string name="cd_teleported">Телепортовано</string>
     <string name="cd_open_location_channels">Відкрити налаштування розташування та каналів</string>
     <string name="cd_connected_peers">Підключені піри</string>
     <string name="cd_geohash_participants">Учасники геохешу</string>
@@ -102,7 +97,6 @@
     <string name="about_pow_on">pow увімкнено</string>
     <string name="about_pow_difficulty">складність: %1$d бітів (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">складність %1$d вимагає ~%2$s спроб хешування</string>
-    <string name="about_network">мережа</string>
     <string name="about_tor_off">tor вимкнено</string>
     <string name="about_tor_on">tor увімкнено</string>
     <string name="about_tor_status">статус tor: %1$s, завантаження %2$d%%</string>
@@ -120,16 +114,11 @@
     <string name="cd_not_supported_battery_optimization">Оптимізація батареї не підтримується</string>
     <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_unread_message">Непрочитане повідомлення</string>
-    <string name="cd_open_map">Відкрити карту</string>
-    <string name="cd_remove_bookmark">Прибрати закладку</string>
     <string name="cd_teleport">Телепортуватися</string>
     <string name="notification_action_quit_bitchat">Закрити bitchat</string>
     <string name="cd_leave_channel">Вийти з каналу</string>
     <string name="cd_reachable_via_nostr">Доступний через Nostr</string>
     <string name="cd_offline_favorite">Офлайн обране</string>
-    <string name="cd_decrease_precision">Зменшити точність</string>
-    <string name="cd_increase_precision">Збільшити точність</string>
-    <string name="cd_select_geohash">Вибрати геохеш</string>
     <string name="cd_scroll_to_bottom">Прогорнути донизу</string>
     <string name="cd_file">Файл</string>
     <string name="cd_image">Зображення</string>
@@ -140,7 +129,6 @@
     <string name="cd_offline_mesh_chat">Офлайн Mesh-чат</string>
     <string name="cd_online_geohash_channels">Онлайн-канали за геохешем</string>
     <string name="cd_end_to_end_encryption">Наскрізне шифрування</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
     <string name="image_page_of">Зображення %1$d з %2$d</string>
     <string name="image_unavailable">Зображення недоступне</string>
     <string name="image_saved_to_downloads">Зображення збережено в Завантаження</string>
@@ -159,34 +147,10 @@
     <string name="action_block_subtitle">заблокувати всі повідомлення від цього користувача</string>
     <string name="action_private_message_title">написати %1$s</string>
     <string name="action_private_message_subtitle">надіслати приватне повідомлення</string>
-    <string name="location_channels_title">#канали за геолокацією</string>
-    <string name="location_channels_desc">спілкуйтеся з людьми поруч, використовуючи канали за геохешем. надається лише приблизний геохеш, ніколи точні gps-координати. не робіть скріншотів і не діліться цим екраном, щоб захистити свою приватність.</string>
     <string name="grant_location_permission">надати дозвіл на геолокацію</string>
-    <string name="location_permission_denied">у дозволі на геолокацію відмовлено. увімкніть його в налаштуваннях, щоб користуватися каналами за геолокацією.</string>
     <string name="location_permission_granted">✓ дозвіл на геолокацію надано</string>
     <string name="checking_permissions">перевірка дозволів...</string>
-    <string name="finding_nearby_channels">пошук каналів поруч…</string>
-    <string name="bookmarked">додано в закладки</string>
-    <string name="geohash_placeholder">геохеш</string>
-    <string name="invalid_geohash">недійсний геохеш</string>
-    <string name="teleport">телепорт</string>
-    <string name="disable_location_services">вимкнути служби геолокації</string>
-    <string name="enable_location_services">увімкнути служби геолокації</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">квартал</string>
-    <string name="location_level_neighborhood">район</string>
-    <string name="location_level_city">місто</string>
-    <string name="location_level_province">область</string>
-    <string name="location_level_region">регіон</string>
-    <string name="location_notes_description">додайте короткі постійні нотатки до цього місця, щоб їх могли знайти інші відвідувачі.</string>
-    <string name="location_notes_relays_unavailable">гео-ретранслятори недоступні; нотатки призупинено</string>
-    <string name="location_notes_no_relays_title">поруч немає гео-ретрансляторів</string>
-    <string name="location_notes_no_relays_desc">нотатки залежать від гео-ретрансляторів. перевірте з’єднання і спробуйте ще раз.</string>
-    <string name="loading_location_notes">завантаження нотаток…</string>
-    <string name="location_notes_empty_title">поки що немає нотаток</string>
-    <string name="location_notes_empty_desc">будьте першим, хто додасть нотатку для цього місця.</string>
-    <string name="dismiss">закрити</string>
-    <string name="location_notes_input_placeholder">додати нотатку для цього місця</string>
     <string name="debug_since_start_fmt">з початку: %1$d</string>
     <string name="debug_sync_settings">налаштування синхронізації</string>
     <string name="debug_relays_window_fmt">останні 10с: %1$d • 1хв: %2$d • 15хв: %3$d</string>
@@ -231,7 +195,6 @@
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Налаштування не завершено</string>
     <string name="try_again">Спробувати знову</string>
-    <string name="open_settings">Відкрити налаштування</string>
     <string name="privacy_protected">Вашу приватність захищено</string>
     <string name="privacy_bullets">• без відстеження чи збору даних\n• Bluetooth mesh-чати повністю офлайн\n• Геочати використовують інтернет</string>
     <string name="permissions_header">дозволи</string>
@@ -241,14 +204,11 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">нікого немає поруч...</string>
     <string name="you_suffix"> (ви)</string>
-    <string name="pan_zoom_instruction">панорамуйте та масштабуйте, щоб вибрати геохеш</string>
-    <string name="select">вибрати</string>
     <string name="type_a_message_placeholder">введіть повідомлення...</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">згадка</string>
     <string name="image_counter">%1$d / %2$d</string>
     <string name="at_nickname">@%1$s</string>
-    <string name="hash_symbol">#</string>
     <string name="underscore">_</string>
     <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
     <string name="progress_filled">█</string>
@@ -288,18 +248,4 @@
     <string name="pwd_prompt_message">Канал %1$s захищений паролем. Введіть пароль, щоб приєднатися.</string>
     <string name="pwd_label">Пароль</string>
     <string name="join">Приєднатися</string>
-    <plurals name="location_notes_title">
-        <item quantity="one">#%1$s ± 1 • %2$d нотатка</item>
-        <item quantity="few">#%1$s ± 1 • %2$d нотатки</item>
-        <item quantity="many">#%1$s ± 1 • %2$d нотаток</item>
-        <item quantity="other">#%1$s ± 1 • %2$d нотатки</item>
-    </plurals>
-
-
-    <plurals name="people_count">
-        <item quantity="one">%1$d людина</item>
-        <item quantity="few">%1$d людини</item>
-        <item quantity="many">%1$d людей</item>
-        <item quantity="other">%1$d людини</item>
-    </plurals>
 </resources>

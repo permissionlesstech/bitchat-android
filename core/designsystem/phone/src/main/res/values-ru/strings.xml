@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">bitchat</string>
+    <string name="send_message">Отправить</string>
     <string name="back">Назад</string>
+    <string name="cd_teleported">Телепортировано</string>
     <string name="close_plain">Закрыть</string>
+    <string name="open_settings">Открыть настройки</string>
   <string name="fingerprint_verified_label">проверено</string>
     <string name="cancel">Отмена</string>
 
 
+  <string name="nearby_notes_one">здесь оставлена 1 заметка — нажмите, чтобы прочитать</string>
+  <string name="nearby_notes_many">здесь оставлено заметок: %d — нажмите, чтобы прочитать</string>
 </resources>

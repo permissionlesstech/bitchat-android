@@ -8,7 +8,6 @@
     <string name="channel_password_hint">Пароль</string>
     <string name="join_channel">Войти в канал</string>
     <string name="leave_channel">Покинуть</string>
-    <string name="send_message">Отправить</string>
     <string name="show_commands">Показать команды</string>
     <string name="people">Люди</string>
     <string name="channels">Каналы</string>
@@ -32,7 +31,6 @@
     <string name="battery_optimization_check_again">Проверить снова</string>
     <string name="battery_optimization_skip">Пропустить пока</string>
     <string name="battery_optimization_continue">Продолжить</string>
-    <string name="retry">Повторить</string>
     <string name="skip">Пропустить</string>
 
     <string name="notification_summary_more">и ещё %1$d</string>
@@ -43,11 +41,8 @@
 
     <string name="cd_add_favorite">В избранное</string>
     <string name="cd_remove_favorite">Убрать из избранного</string>
-    <string name="cd_add_bookmark">Добавить закладку</string>
-
     <string name="cd_nostr_reachable">Доступен через Nostr</string>
     <string name="cd_unread_private_messages">Непрочитанные личные</string>
-    <string name="cd_teleported">Телепортировано</string>
     <string name="cd_open_location_channels">Открыть настройки местоположения и каналов</string>
     <string name="cd_connected_peers">Подключённые узлы</string>
     <string name="cd_geohash_participants">Участники geohash</string>
@@ -68,7 +63,6 @@
     <string name="about_pow_on">pow вкл</string>
     <string name="about_pow_difficulty">сложность: %1$d бит (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">сложность %1$d ≈ ~%2$s попыток хеширования</string>
-    <string name="about_network">сеть</string>
     <string name="about_tor_off">tor выкл</string>
     <string name="about_tor_on">tor вкл</string>
     <string name="about_tor_status">статус Tor: %1$s, загрузка %2$d%%</string>
@@ -86,15 +80,10 @@
     <string name="cd_not_supported_battery_optimization">Не поддерживается</string>
     <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_unread_message">Непрочитанное сообщение</string>
-    <string name="cd_open_map">Открыть карту</string>
-    <string name="cd_remove_bookmark">Удалить закладку</string>
     <string name="cd_teleport">Телепорт</string>
     <string name="cd_leave_channel">Покинуть канал</string>
     <string name="cd_reachable_via_nostr">Доступен через Nostr</string>
     <string name="cd_offline_favorite">Избранное (оффлайн)</string>
-    <string name="cd_decrease_precision">Уменьшить точность</string>
-    <string name="cd_increase_precision">Увеличить точность</string>
-    <string name="cd_select_geohash">Выбрать geohash</string>
     <string name="cd_scroll_to_bottom">Прокрутить вниз</string>
     <string name="cd_file">Файл</string>
     <string name="cd_image">Изображение</string>
@@ -123,28 +112,10 @@
     <string name="action_block_title">заблокировать %1$s</string>
     <string name="action_block_subtitle">заблокировать все сообщения от этого пользователя</string>
 
-    <string name="location_channels_title">#каналы локации</string>
-    <string name="location_channels_desc">общайся с людьми рядом через каналы geohash. делится только грубый geohash, никогда точный gps. не делай скриншоты и не делись экраном для защиты приватности.</string>
     <string name="grant_location_permission">выдать доступ к локации</string>
-    <string name="location_permission_denied">доступ к локации запрещён. включите в настройках для использования каналов.</string>
-    <string name="open_settings">Открыть настройки</string>
     <string name="location_permission_granted">\u2713 доступ к локации выдан</string>
     <string name="checking_permissions">проверка разрешений…</string>
-    <string name="finding_nearby_channels">поиск близких каналов…</string>
-    <string name="bookmarked">в закладках</string>
-    <string name="geohash_placeholder">geohash</string>
-    <string name="invalid_geohash">некорректный geohash</string>
-    <string name="teleport">телепорт</string>
-    <string name="disable_location_services">отключить службы локации</string>
-    <string name="enable_location_services">включить службы локации</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">квартал</string>
-    <string name="location_level_neighborhood">район</string>
-    <string name="location_level_city">город</string>
-    <string name="location_level_province">область</string>
-    <string name="location_level_region">регион</string>
-
     <string name="debug_since_start_fmt">с начала: %1$d</string>
     <string name="debug_sync_settings">настройки синхр.</string>
     <string name="debug_relays_window_fmt">посл. 10с: %1$d • 1м: %2$d • 15м: %3$d</string>
@@ -189,14 +160,11 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">никого рядом…</string>
     <string name="you_suffix"> (вы)</string>
-    <string name="pan_zoom_instruction">прокрутите/масштабируйте для выбора geohash</string>
-    <string name="select">выбрать</string>
     <string name="type_a_message_placeholder">введите сообщение…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">упоминание</string>
     <string name="image_counter">%1$d / %2$d</string>
     <string name="at_nickname">@%1$s</string>
-    <string name="hash_symbol">#</string>
     <string name="underscore">_</string>
     <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
     <string name="progress_filled">█</string>
@@ -238,24 +206,6 @@
     <string name="pwd_prompt_message">Канал %1$s защищён паролем. Введите пароль, чтобы присоединиться.</string>
     <string name="pwd_label">Пароль</string>
     <string name="join">Войти</string>
-    <plurals name="people_count">
-        <item quantity="one">1 человек</item>
-        <item quantity="other">%d человек</item>
-    </plurals>
-
-  <plurals name="location_notes_title">
-    <item quantity="one">#%1$s ± 1 • %2$d заметка</item>
-    <item quantity="other">#%1$s ± 1 • %2$d заметок</item>
-  </plurals>
-  <string name="location_notes_description">добавьте короткие постоянные заметки к этому месту, чтобы другие посетители могли их найти.</string>
-  <string name="location_notes_relays_unavailable">гео-релей недоступны; заметки приостановлены</string>
-  <string name="location_notes_no_relays_title">рядом нет гео-релеев</string>
-  <string name="location_notes_no_relays_desc">заметки зависят от гео-релеев. проверьте подключение и повторите попытку.</string>
-  <string name="loading_location_notes">загрузка заметок…</string>
-  <string name="location_notes_empty_title">заметок пока нет</string>
-  <string name="location_notes_empty_desc">станьте первым, кто добавит заметку для этого места.</string>
-  <string name="dismiss">закрыть</string>
-  <string name="location_notes_input_placeholder">добавьте заметку для этого места</string>
     <string name="bluetooth_recommended">Рекомендуется Bluetooth</string>
     <string name="mesh_service_notification_content">Mesh запущен — %1$d пиров</string>
 
@@ -287,7 +237,4 @@
   <string name="fingerprint_start_handshake">начать рукопожатие</string>
   <string name="fingerprint_copy">копировать</string>
     <string name="cd_open_about">Открыть раздел «О приложении»</string>
-  <string name="nearby_notes_reveal">проверить, есть ли здесь заметки</string>
-  <string name="nearby_notes_one">здесь оставлена 1 заметка — нажмите, чтобы прочитать</string>
-  <string name="nearby_notes_many">здесь оставлено заметок: %d — нажмите, чтобы прочитать</string>
 </resources>

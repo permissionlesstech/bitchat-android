@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">دوبارہ کوشش کریں</string>
+    <string name="cd_add_bookmark">بک مارک شامل کریں</string>
+
+    <string name="about_network">نیٹ ورک</string>
+    <string name="cd_open_map">نقشہ کھولیں</string>
+    <string name="cd_remove_bookmark">بک مارک ہٹائیں</string>
+    <string name="cd_decrease_precision">درستگی کم کریں</string>
+    <string name="cd_increase_precision">درستگی بڑھائیں</string>
+    <string name="cd_select_geohash">geohash منتخب کریں</string>
+    <!-- geohash چینلز شیٹ -->
+    <string name="location_channels_title">#مقام چینلز</string>
+    <string name="location_channels_desc">geohash چینلز کے ذریعے اپنے قریب کے لوگوں سے چیٹ کریں۔ صرف ایک مبہم geohash شیئر کیا جاتا ہے، کبھی درست GPS ڈیٹا نہیں۔ اپنی پرائیویسی کے لیے، اس اسکرین کا اسکرین شاٹ نہ لیں اور اسے شیئر نہ کریں۔</string>
+    <string name="location_permission_denied">مقام کی اجازت منع کی گئی۔ مقام چینلز استعمال کرنے کے لیے سیٹنگز میں فعال کریں۔</string>
+    <string name="finding_nearby_channels">قریبی چینلز تلاش کر رہے ہیں…</string>
+    <string name="bookmarked">بک مارکڈ</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">غلط geohash</string>
+    <string name="teleport">ٹیلی پورٹ</string>
+    <string name="disable_location_services">مقام کی خدمات بند کریں</string>
+    <string name="enable_location_services">مقام کی خدمات چالو کریں</string>
+    <string name="location_level_block">بلاک</string>
+    <string name="location_level_neighborhood">محلہ</string>
+    <string name="location_level_city">شہر</string>
+    <string name="location_level_province">صوبہ</string>
+    <string name="location_level_region">علاقہ</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <string name="pan_zoom_instruction">geohash منتخب کرنے کے لیے پین/زوم کریں</string>
+    <string name="select">منتخب کریں</string>
+    <plurals name="people_count">
+        <item quantity="one">1 شخص</item>
+        <item quantity="other">%d لوگ</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d نوٹ</item>
+    <item quantity="other">#%1$s ± 1 • %2$d نوٹس</item>
+  </plurals>
+  <string name="location_notes_description">دیگر زائرین کے لیے اس جگہ پر مختصر مستقل نوٹس شامل کریں۔</string>
+  <string name="location_notes_relays_unavailable">جغرافیائی ریلے دستیاب نہیں؛ نوٹس معطل</string>
+  <string name="location_notes_no_relays_title">قریب کوئی جغرافیائی ریلے نہیں</string>
+  <string name="location_notes_no_relays_desc">نوٹس جغرافیائی ریلے پر منحصر ہیں۔ کنکشن چیک کریں اور دوبارہ کوشش کریں۔</string>
+  <string name="loading_location_notes">نوٹس لوڈ ہو رہے ہیں…</string>
+  <string name="location_notes_empty_title">ابھی تک کوئی نوٹس نہیں</string>
+  <string name="location_notes_empty_desc">اس جگہ کے لیے پہلا نوٹ شامل کریں۔</string>
+  <string name="dismiss">بند کریں</string>
+  <string name="location_notes_input_placeholder">اس جگہ کے لیے ایک نوٹ شامل کریں</string>
+  <string name="nearby_notes_reveal">دیکھیں کہ یہاں نوٹ چھوڑے گئے ہیں یا نہیں</string>
+</resources>

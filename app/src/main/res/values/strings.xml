@@ -13,7 +13,6 @@
     <string name="channel_password_hint">Password</string>
     <string name="join_channel">Join Channel</string>
     <string name="leave_channel">Leave</string>
-    <string name="send_message">Send</string>
     <string name="show_commands">Show commands</string>
     <string name="people">People</string>
     <string name="channels">Channels</string>
@@ -38,7 +37,6 @@
     <string name="battery_optimization_check_again">Check Again</string>
     <string name="battery_optimization_skip">Skip for Now</string>
     <string name="battery_optimization_continue">Continue</string>
-    <string name="retry">Retry</string>
   <string name="skip">Skip</string>
   
   <!-- Notifications -->
@@ -56,8 +54,6 @@
   <!-- Favorites accessibility -->
   <string name="cd_add_favorite">Add to favorites</string>
   <string name="cd_remove_favorite">Remove from favorites</string>
-  <string name="cd_add_bookmark">Add bookmark</string>
-
   <!-- Chat header &amp; accessibility -->
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Messages</string>
@@ -92,8 +88,6 @@
   <string name="conversation_deleted">Deleted conversation with %1$s</string>
   <string name="undo">Undo</string>
   <string name="conversation_restore_failed">Conversation could not be restored</string>
-  <string name="cd_location_notes">Location notes</string>
-  <string name="cd_teleported">Teleported</string>
   <string name="cd_open_location_channels">Open location and channel settings</string>
   <string name="cd_connected_peers">Connected peers</string>
   <string name="cd_geohash_participants">Geohash participants</string>
@@ -130,7 +124,6 @@
   <string name="about_pow_on">PoW On</string>
   <string name="about_pow_difficulty">Difficulty: %1$d bits (~%2$s)</string>
   <string name="about_pow_difficulty_attempts">Difficulty %1$d requires ~%2$s hash attempts</string>
-  <string name="about_network">Network</string>
   <string name="about_tor_off">Tor Off</string>
   <string name="about_tor_on">Tor On</string>
   <string name="about_tor_status">Tor Status: %1$s, bootstrap %2$d%%</string>
@@ -179,16 +172,11 @@
   <string name="cd_direct_bluetooth" tools:ignore="MissingTranslation">Direct Bluetooth</string>
   <string name="cd_routed_mesh" tools:ignore="MissingTranslation">Routed mesh</string>
   <string name="cd_unread_message">Unread message</string>
-  <string name="cd_open_map">Open map</string>
-  <string name="cd_remove_bookmark">Remove bookmark</string>
   <string name="cd_teleport">Teleport</string>
   <string name="notification_action_quit_bitchat">Quit bitchat</string>
   <string name="cd_leave_channel">Leave channel</string>
   <string name="cd_reachable_via_nostr">Reachable via Nostr</string>
   <string name="cd_offline_favorite">Offline favorite</string>
-  <string name="cd_decrease_precision">Decrease precision</string>
-  <string name="cd_increase_precision">Increase precision</string>
-  <string name="cd_select_geohash">Select geohash</string>
   <string name="cd_scroll_to_bottom">Scroll to bottom</string>
   <string name="cd_file">File</string>
   <string name="cd_image">Image</string>
@@ -199,9 +187,6 @@
   <string name="cd_offline_mesh_chat">Offline Mesh Chat</string>
   <string name="cd_online_geohash_channels">Online Geohash Channels</string>
   <string name="cd_end_to_end_encryption">End-to-End Encryption</string>
-  <string name="location_bluetooth_subtitle">Bluetooth • %1$s</string>
-  <string name="location_bluetooth_wifi_subtitle">Bluetooth • Wifi • %1$s</string>
-
   <string name="image_page_of">Image %1$d of %2$d</string>
   <string name="image_unavailable">Image unavailable</string>
   <string name="image_saved_to_downloads">Image saved to Downloads</string>
@@ -223,19 +208,8 @@
     <string name="action_private_message_subtitle">Send a private message</string>
 
 
-  <!-- Location channels sheet -->
-  <string name="location_channels_title">Channels</string>
-  <string name="location_channels_heading">Location Channels</string>
-  <string name="location_channels_desc">Chat by coarse location. Never shares exact GPS.</string>
-  <string name="location_channels_nearby">Nearby</string>
-  <string name="mesh_section_subtitle">Offline mesh. No internet required.</string>
-
   <!-- Location channels sheet: sections and Tor routing -->
   <string name="section_nearby">Nearby</string>
-  <string name="location_tor_routing_title">Tor Routing</string>
-  <string name="location_tor_routing_desc">Hides your IP for location channels.</string>
-  <string name="badge_recommended">Recommended</string>
-
   <!-- People sheet -->
   <string name="people_count_title">People (%1$d)</string>
   <string name="section_people">People</string>
@@ -243,44 +217,9 @@
   <string name="section_teleported_in">Teleported in</string>
 
   <string name="grant_location_permission">Grant location permission</string>
-  <string name="location_permission_denied">Location permission denied. Enable in settings to use location channels.</string>
-
   <string name="location_permission_granted">\u2713 Location permission granted</string>
   <string name="checking_permissions">Checking permissions…</string>
-  <string name="finding_nearby_channels">Finding nearby channels…</string>
-  <string name="bookmarked">Bookmarked</string>
-  <string name="geohash_placeholder">geohash</string>
-  <string name="invalid_geohash">Invalid geohash</string>
-  <string name="teleport">Teleport</string>
-  <string name="disable_location_services">Remove location access</string>
-  <string name="enable_location_services">Enable location services</string>
   <string name="mesh_label">mesh</string>
-  <string name="mesh_title">Mesh</string>
-  <string name="location_level_block">Block</string>
-  <string name="location_level_neighborhood">Neighborhood</string>
-  <string name="location_level_city">City</string>
-  <string name="location_level_province">Province</string>
-  <string name="location_level_region">Region</string>
-
-  <!-- Location notes sheet -->
-  <string name="nearby_notes_reveal">check for notes left here</string>
-  <string name="nearby_notes_one">1 note left here — tap to read</string>
-  <!-- Explicit one/many copy mirrors iOS across locales without CLDR quantity gaps. -->
-  <string name="nearby_notes_many" tools:ignore="PluralsCandidate">%d notes left here — tap to read</string>
-  <plurals name="location_notes_title">
-    <item quantity="one">#%1$s ± 1 • %2$d note</item>
-    <item quantity="other">#%1$s ± 1 • %2$d notes</item>
-  </plurals>
-  <string name="location_notes_description">Add short permanent notes to this location for other visitors to find.</string>
-  <string name="location_notes_relays_unavailable">Geo relays unavailable; notes paused</string>
-  <string name="location_notes_no_relays_title">No geo relays nearby</string>
-  <string name="location_notes_no_relays_desc">Notes rely on geo relays. Check connection and try again.</string>
-  <string name="loading_location_notes">Loading notes…</string>
-  <string name="location_notes_empty_title">No notes yet</string>
-  <string name="location_notes_empty_desc">Be the first to add one for this spot.</string>
-  <string name="dismiss">Dismiss</string>
-  <string name="location_notes_input_placeholder">Add a note for this place</string>
-
   <string name="debug_since_start_fmt">Since start: %1$d</string>
   <string name="debug_sync_settings">Sync settings</string>
   <string name="verify_title">Verify</string>
@@ -355,7 +294,6 @@
   <string name="warning_emoji">⚠️</string>
   <string name="setup_not_complete">Setup Not Complete</string>
   <string name="try_again">Try Again</string>
-  <string name="open_settings">Open Settings</string>
   <string name="privacy_protected">Your Privacy is Protected</string>
   <string name="privacy_bullets">• No tracking or data collection\n• Bluetooth mesh chats are fully offline\n• Geohash chats use the internet</string>
   <string name="permissions_header">Permissions</string>
@@ -366,14 +304,11 @@
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="nobody_around">Nobody around…</string>
   <string name="you_suffix"> (you)</string>
-  <string name="pan_zoom_instruction">Drag to spin · Pinch to zoom · Tap to focus</string>
-  <string name="select">Select</string>
   <string name="type_a_message_placeholder">Type a message…</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">Mention</string>
   <string name="image_counter">%1$d / %2$d</string>
   <string name="at_nickname">@%1$s</string>
-  <string name="hash_symbol">#</string>
   <string name="underscore">_</string>
   <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
   <string name="progress_filled">█</string>
@@ -424,11 +359,6 @@
   <string name="pwd_label">Password</string>
   <string name="join">Join</string>
     <!-- Plurals -->
-
-  <plurals name="people_count">
-    <item quantity="one">1 person</item>
-    <item quantity="other">%d people</item>
-  </plurals>
 
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
 </resources>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">فیر کوشِش کرو</string>
+    <string name="cd_add_bookmark">بُک مارک پاؤ</string>
+
+    <string name="about_network">نیٹ ورک</string>
+    <string name="cd_open_map">نقشہ کھولو</string>
+    <string name="cd_remove_bookmark">بُک مارک ہٹاؤ</string>
+    <string name="cd_decrease_precision">درستگی گھٹاؤ</string>
+    <string name="cd_increase_precision">درستگی وداؤ</string>
+    <string name="cd_select_geohash">geohash چُنو</string>
+    <!-- geohash چینل شیٹ -->
+    <string name="location_channels_title">#لوکیشن چینل</string>
+    <string name="location_channels_desc">geohash چینلاں راہین اپنے نیڑے والے لوکاں نال چیٹ کرو۔ صرف اوکھا geohash شیئر ہوندا اے، ٹھیک GPS ڈیٹا نئیں۔ پرائیویسی لئی مہربانی کر کے ایہہ ویو اسکرین شاٹ یا شیئر نہ کرو۔</string>
+    <string name="location_permission_denied">لوکیشن دی اجازت رد ہوگئی۔ لوکیشن چینل لئی سیٹنگز وچ فعال کرو۔</string>
+    <string name="finding_nearby_channels">نیڑے چینل لبھ رہے آں …</string>
+    <string name="bookmarked">بُک مارک ہویا</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">غلط geohash</string>
+    <string name="teleport">ٹیلپورٹ</string>
+    <string name="disable_location_services">لوکیشن سروسز بند کرو</string>
+    <string name="enable_location_services">لوکیشن سروسز چالو کرو</string>
+    <string name="location_level_block">بلاک</string>
+    <string name="location_level_neighborhood">پڑوس</string>
+    <string name="location_level_city">شہر</string>
+    <string name="location_level_province">صوبہ</string>
+    <string name="location_level_region">خطہ</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <string name="pan_zoom_instruction">geohash چُنن لئی پین تے زوم کرو</string>
+    <string name="select">چُنو</string>
+    <plurals name="people_count">
+        <item quantity="one">1 بندہ</item>
+        <item quantity="other">%d بندے</item>
+    </plurals>
+
+  <string name="nearby_notes_reveal">ایتھے چھڈے نوٹس ویکھو</string>
+</resources>

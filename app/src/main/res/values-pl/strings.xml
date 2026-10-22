@@ -3,19 +3,6 @@
     <!-- TODO: Polish translations -->
     <!-- Machine-translated (Claude) — pending native-speaker review -->
     
-  <plurals name="location_notes_title">
-    <item quantity="one">#%1$s ± 1 • %2$d notatka</item>
-    <item quantity="other">#%1$s ± 1 • %2$d notatek</item>
-  </plurals>
-  <string name="location_notes_description">dodaj krótkie stałe notatki do tej lokalizacji, aby inni odwiedzający mogli je znaleźć.</string>
-  <string name="location_notes_relays_unavailable">przekaźniki geo niedostępne; notatki wstrzymane</string>
-  <string name="location_notes_no_relays_title">brak przekaźników geo w pobliżu</string>
-  <string name="location_notes_no_relays_desc">notatki zależą od przekaźników geo. sprawdź połączenie i spróbuj ponownie.</string>
-  <string name="loading_location_notes">ładowanie notatek…</string>
-  <string name="location_notes_empty_title">brak notatek</string>
-  <string name="location_notes_empty_desc">bądź pierwszy, który doda notatkę dla tego miejsca.</string>
-  <string name="dismiss">zamknij</string>
-  <string name="location_notes_input_placeholder">dodaj notatkę dla tego miejsca</string>
     <string name="skip">Pomiń</string>
     <string name="bluetooth_recommended">Bluetooth zalecany</string>
     <string name="mesh_service_notification_content">Mesh działa — %1$d peerów</string>
@@ -56,7 +43,6 @@
     <string name="channel_password_hint">Hasło</string>
     <string name="join_channel">Dołącz do kanału</string>
     <string name="leave_channel">Opuść</string>
-    <string name="send_message">Wyślij</string>
     <string name="show_commands">Pokaż komendy</string>
     <string name="people">Osoby</string>
     <string name="channels">Kanały</string>
@@ -79,7 +65,6 @@
     <string name="battery_optimization_check_again">Sprawdź ponownie</string>
     <string name="battery_optimization_skip">Pomiń na razie</string>
     <string name="battery_optimization_continue">Kontynuuj</string>
-    <string name="retry">Ponów</string>
     <string name="notification_summary_more">i jeszcze %1$d</string>
     <string name="notification_active_peers_title">👥 bitchatowicze w pobliżu!</string>
     <string name="notification_active_peers_one">1 osoba w pobliżu</string>
@@ -88,11 +73,8 @@
     <string name="mesh_service_channel_desc">Utrzymuje działanie sieci mesh Bluetooth w tle</string>
     <string name="cd_add_favorite">Dodaj do ulubionych</string>
     <string name="cd_remove_favorite">Usuń z ulubionych</string>
-    <string name="cd_add_bookmark">Dodaj zakładkę</string>
     <string name="cd_nostr_reachable">Dostępny przez Nostr</string>
     <string name="cd_unread_private_messages">Nieprzeczytane wiadomości prywatne</string>
-    <string name="cd_location_notes">Notatki lokalizacji</string>
-    <string name="cd_teleported">Teleportowany</string>
     <string name="cd_open_location_channels">Otwórz ustawienia lokalizacji i kanałów</string>
     <string name="cd_connected_peers">Połączeni użytkownicy</string>
     <string name="cd_geohash_participants">Uczestnicy geohash</string>
@@ -117,7 +99,6 @@
     <string name="about_pow_on">pow włączony</string>
     <string name="about_pow_difficulty">trudność: %1$d bitów (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">trudność %1$d wymaga ~%2$s prób hashowania</string>
-    <string name="about_network">sieć</string>
     <string name="about_tor_off">tor wyłączony</string>
     <string name="about_tor_on">tor włączony</string>
     <string name="about_tor_status">Status tor: %1$s, bootstrap %2$d%%</string>
@@ -135,16 +116,11 @@
     <string name="cd_not_supported_battery_optimization">Optymalizacja baterii nieobsługiwana</string>
     <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_unread_message">Nieprzeczytana wiadomość</string>
-    <string name="cd_open_map">Otwórz mapę</string>
-    <string name="cd_remove_bookmark">Usuń zakładkę</string>
     <string name="cd_teleport">Teleportuj</string>
     <string name="notification_action_quit_bitchat">Zamknij bitchat</string>
     <string name="cd_leave_channel">Opuść kanał</string>
     <string name="cd_reachable_via_nostr">Dostępny przez Nostr</string>
     <string name="cd_offline_favorite">Ulubiony offline</string>
-    <string name="cd_decrease_precision">Zmniejsz precyzję</string>
-    <string name="cd_increase_precision">Zwiększ precyzję</string>
-    <string name="cd_select_geohash">Wybierz geohash</string>
     <string name="cd_scroll_to_bottom">Przewiń na dół</string>
     <string name="cd_file">Plik</string>
     <string name="cd_image">Obraz</string>
@@ -155,7 +131,6 @@
     <string name="cd_offline_mesh_chat">Czat mesh offline</string>
     <string name="cd_online_geohash_channels">Kanały geohash online</string>
     <string name="cd_end_to_end_encryption">Szyfrowanie end-to-end</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
     <string name="image_page_of">Obraz %1$d z %2$d</string>
     <string name="image_unavailable">Obraz niedostępny</string>
     <string name="image_saved_to_downloads">Obraz zapisany w Pobranych</string>
@@ -174,25 +149,10 @@
     <string name="action_block_subtitle">zablokuj wszystkie wiadomości od tego użytkownika</string>
     <string name="action_private_message_title">napisz do %1$s</string>
     <string name="action_private_message_subtitle">wyślij prywatną wiadomość</string>
-    <string name="location_channels_title">#kanały lokalizacyjne</string>
-    <string name="location_channels_desc">rozmawiaj z osobami w pobliżu za pomocą kanałów geohash. udostępniany jest tylko przybliżony geohash, nigdy dokładne GPS. nie rób zrzutów ekranu ani nie udostępniaj tego ekranu, aby chronić swoją prywatność.</string>
     <string name="grant_location_permission">przyznaj uprawnienie lokalizacji</string>
-    <string name="location_permission_denied">odmówiono uprawnienia lokalizacji. włącz je w ustawieniach, aby korzystać z kanałów lokalizacyjnych.</string>
     <string name="location_permission_granted">\u2713 przyznano uprawnienie lokalizacji</string>
     <string name="checking_permissions">sprawdzanie uprawnień...</string>
-    <string name="finding_nearby_channels">wyszukiwanie pobliskich kanałów…</string>
-    <string name="bookmarked">dodano do zakładek</string>
-    <string name="geohash_placeholder">geohash</string>
-    <string name="invalid_geohash">nieprawidłowy geohash</string>
-    <string name="teleport">teleportuj</string>
-    <string name="disable_location_services">wyłącz usługi lokalizacji</string>
-    <string name="enable_location_services">włącz usługi lokalizacji</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">blok</string>
-    <string name="location_level_neighborhood">dzielnica</string>
-    <string name="location_level_city">miasto</string>
-    <string name="location_level_province">województwo</string>
-    <string name="location_level_region">region</string>
     <string name="debug_since_start_fmt">od startu: %1$d</string>
     <string name="debug_sync_settings">ustawienia synchronizacji</string>
     <string name="debug_relays_window_fmt">ostatnie 10s: %1$d • 1min: %2$d • 15min: %3$d</string>
@@ -237,7 +197,6 @@
     <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Konfiguracja niekompletna</string>
     <string name="try_again">Spróbuj ponownie</string>
-    <string name="open_settings">Otwórz ustawienia</string>
     <string name="privacy_protected">Twoja prywatność jest chroniona</string>
     <string name="privacy_bullets">• brak śledzenia ani gromadzenia danych\n• czaty sieci mesh Bluetooth są całkowicie offline\n• czaty geohash korzystają z internetu</string>
     <string name="permissions_header">uprawnienia</string>
@@ -247,14 +206,11 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">nikogo w pobliżu...</string>
     <string name="you_suffix"> (ty)</string>
-    <string name="pan_zoom_instruction">przesuwaj i powiększaj, aby wybrać geohash</string>
-    <string name="select">wybierz</string>
     <string name="type_a_message_placeholder">napisz wiadomość...</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">wzmianka</string>
     <string name="image_counter">%1$d / %2$d</string>
     <string name="at_nickname">@%1$s</string>
-    <string name="hash_symbol">#</string>
     <string name="underscore">_</string>
     <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
     <string name="progress_filled">█</string>
@@ -294,10 +250,4 @@
     <string name="pwd_prompt_message">Kanał %1$s jest chroniony hasłem. Wprowadź hasło, aby dołączyć.</string>
     <string name="pwd_label">Hasło</string>
     <string name="join">Dołącz</string>
-    <plurals name="people_count">
-        <item quantity="one">%1$d osoba</item>
-        <item quantity="few">%1$d osoby</item>
-        <item quantity="many">%1$d osób</item>
-        <item quantity="other">%1$d osoby</item>
-    </plurals>
 </resources>

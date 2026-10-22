@@ -11,7 +11,6 @@
     <string name="channel_password_hint">Password</string>
     <string name="join_channel">Entra nel canale</string>
     <string name="leave_channel">Esci</string>
-    <string name="send_message">Invia</string>
     <string name="show_commands">Mostra comandi</string>
     <string name="people">Persone</string>
     <string name="channels">Canali</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">Controlla di nuovo</string>
     <string name="battery_optimization_skip">Salta per ora</string>
     <string name="battery_optimization_continue">Continua</string>
-    <string name="retry">Riprova</string>
     <string name="skip">Salta</string>
 
     <!-- Notifiche -->
@@ -49,12 +47,9 @@
     <!-- Accessibilità favoriti -->
     <string name="cd_add_favorite">Aggiungi ai preferiti</string>
     <string name="cd_remove_favorite">Rimuovi dai preferiti</string>
-    <string name="cd_add_bookmark">Aggiungi segnalibro</string>
-
     <!-- Intestazione chat e accessibilità -->
     <string name="cd_nostr_reachable">Raggiungibile via Nostr</string>
     <string name="cd_unread_private_messages">Messaggi privati non letti</string>
-    <string name="cd_teleported">Teletrasportato</string>
     <string name="cd_open_location_channels">Apri le impostazioni di posizione e canali</string>
     <string name="cd_connected_peers">Peer connessi</string>
     <string name="cd_geohash_participants">Partecipanti geohash</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">PoW on</string>
     <string name="about_pow_difficulty">difficoltà: %1$d bit (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">difficoltà %1$d richiede ~%2$s tentativi di hash</string>
-    <string name="about_network">rete</string>
     <string name="about_tor_off">Tor off</string>
     <string name="about_tor_on">Tor on</string>
     <string name="about_tor_status">Stato Tor: %1$s, bootstrap %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">Ottimizzazione batteria non supportata</string>
     <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_unread_message">Messaggio non letto</string>
-    <string name="cd_open_map">Apri mappa</string>
-    <string name="cd_remove_bookmark">Rimuovi segnalibro</string>
     <string name="cd_teleport">Teletrasporta</string>
     <string name="cd_leave_channel">Esci dal canale</string>
     <string name="cd_reachable_via_nostr">Raggiungibile via Nostr</string>
     <string name="cd_offline_favorite">Preferito offline</string>
-    <string name="cd_decrease_precision">Diminuisci precisione</string>
-    <string name="cd_increase_precision">Aumenta precisione</string>
-    <string name="cd_select_geohash">Seleziona geohash</string>
     <string name="cd_scroll_to_bottom">Scorri in fondo</string>
     <string name="cd_file">File</string>
     <string name="cd_image">Immagine</string>
@@ -141,29 +130,10 @@
     <string name="action_block_title">blocca %1$s</string>
     <string name="action_block_subtitle">blocca tutti i messaggi da questo utente</string>
 
-    <!-- Schermata canali di posizione -->
-    <string name="location_channels_title">#canali di posizione</string>
-    <string name="location_channels_desc">chatta con persone vicino a te usando i canali geohash. viene condiviso solo un geohash approssimativo, mai la posizione GPS esatta. non fare screenshot o condividere questa schermata per proteggere la tua privacy.</string>
     <string name="grant_location_permission">concedi permesso di localizzazione</string>
-    <string name="location_permission_denied">permesso di localizzazione negato. abilita nelle impostazioni per usare i canali di posizione.</string>
-    <string name="open_settings">Apri impostazioni</string>
     <string name="location_permission_granted">\u2713 permesso di localizzazione concesso</string>
     <string name="checking_permissions">controllo permessi…</string>
-    <string name="finding_nearby_channels">ricerca canali vicini…</string>
-    <string name="bookmarked">segnalibro</string>
-    <string name="geohash_placeholder">geohash</string>
-    <string name="invalid_geohash">geohash non valido</string>
-    <string name="teleport">teletrasporta</string>
-    <string name="disable_location_services">disattiva servizi di localizzazione</string>
-    <string name="enable_location_services">attiva servizi di localizzazione</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">blocco</string>
-    <string name="location_level_neighborhood">quartiere</string>
-    <string name="location_level_city">città</string>
-    <string name="location_level_province">provincia</string>
-    <string name="location_level_region">regione</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
-
     <string name="debug_since_start_fmt">dall\'avvio: %1$d</string>
     <string name="debug_sync_settings">impostazioni sincronizzazione</string>
     <string name="debug_relays_window_fmt">ultimi 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -205,8 +175,6 @@
     <string name="location_tracking_warning">bitchat NON traccia la tua posizione</string>
     <string name="nobody_around">nessuno nei dintorni…</string>
     <string name="you_suffix"> (tu)</string>
-    <string name="pan_zoom_instruction">scorri e ingrandisci per selezionare un geohash</string>
-    <string name="select">seleziona</string>
     <string name="type_a_message_placeholder">scrivi un messaggio…</string>
     <string name="mention">menzione</string>
     <string name="image_star">image/*</string>
@@ -251,7 +219,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="image_counter">%1$d / %2$d</string>
     <string name="at_nickname">@%1$s</string>
-    <string name="hash_symbol">#</string>
     <string name="underscore">_</string>
     <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
     <string name="progress_filled">█</string>
@@ -271,24 +238,6 @@
 
     <!-- Plurali -->
 
-    <plurals name="people_count">
-        <item quantity="one">1 persona</item>
-        <item quantity="other">%d persone</item>
-    </plurals>
-
-  <plurals name="location_notes_title">
-    <item quantity="one">#%1$s ± 1 • %2$d nota</item>
-    <item quantity="other">#%1$s ± 1 • %2$d note</item>
-  </plurals>
-  <string name="location_notes_description">aggiungi brevi note permanenti a questo luogo per altri visitatori.</string>
-  <string name="location_notes_relays_unavailable">relay geolocalizzati non disponibili; note in pausa</string>
-  <string name="location_notes_no_relays_title">nessun relay geolocalizzato nelle vicinanze</string>
-  <string name="location_notes_no_relays_desc">le note dipendono dai relay geo. controlla la connessione e riprova.</string>
-  <string name="loading_location_notes">caricamento note…</string>
-  <string name="location_notes_empty_title">nessuna nota ancora</string>
-  <string name="location_notes_empty_desc">sii il primo ad aggiungerne una per questo posto.</string>
-  <string name="dismiss">chiudi</string>
-  <string name="location_notes_input_placeholder">aggiungi una nota per questo luogo</string>
     <string name="bluetooth_recommended">Bluetooth consigliato</string>
     <string name="mesh_service_notification_content">Mesh in esecuzione — %1$d peer</string>
 
@@ -320,7 +269,4 @@
   <string name="fingerprint_start_handshake">avvia handshake</string>
   <string name="fingerprint_copy">copia</string>
     <string name="cd_open_about">Apri Informazioni</string>
-  <string name="nearby_notes_reveal">controlla se ci sono note lasciate qui</string>
-  <string name="nearby_notes_one">1 nota lasciata qui — tocca per leggere</string>
-  <string name="nearby_notes_many">%d note lasciate qui — tocca per leggere</string>
 </resources>

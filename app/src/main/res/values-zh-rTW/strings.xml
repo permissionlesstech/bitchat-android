@@ -1,20 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- TODO: Chinese (Traditional) translations -->
-    <!-- Machine-translated (Claude) — pending native-speaker review. Also corrected Simplified->Traditional script errors in verify_*/fingerprint_* strings. -->
-  <plurals name="location_notes_title">
-    <item quantity="one">#%1$s ± 1 • %2$d 則筆記</item>
-    <item quantity="other">#%1$s ± 1 • %2$d 則筆記</item>
-  </plurals>
-  <string name="location_notes_description">為此位置新增簡短永久備註，供其他訪客查看。</string>
-  <string name="location_notes_relays_unavailable">地理中繼無法使用；筆記已暫停</string>
-  <string name="location_notes_no_relays_title">附近沒有地理中繼</string>
-  <string name="location_notes_no_relays_desc">筆記依賴地理中繼。請檢查連線後重試。</string>
-  <string name="loading_location_notes">正在載入筆記…</string>
-  <string name="location_notes_empty_title">尚無筆記</string>
-  <string name="location_notes_empty_desc">成為第一個為此地點新增筆記的人。</string>
-  <string name="dismiss">關閉</string>
-  <string name="location_notes_input_placeholder">為此地點新增一則筆記</string>
     <string name="skip">跳過</string>
     <string name="bluetooth_recommended">建議開啟藍牙</string>
     <string name="mesh_service_notification_content">Mesh 運行中 — %1$d 個節點</string>
@@ -55,7 +40,6 @@
   <string name="channel_password_hint">密碼</string>
   <string name="join_channel">加入頻道</string>
   <string name="leave_channel">離開</string>
-  <string name="send_message">傳送</string>
   <string name="show_commands">顯示指令</string>
   <string name="people">使用者</string>
   <string name="channels">頻道</string>
@@ -78,7 +62,6 @@
   <string name="battery_optimization_check_again">再次檢查</string>
   <string name="battery_optimization_skip">暫時略過</string>
   <string name="battery_optimization_continue">繼續</string>
-  <string name="retry">重試</string>
   <string name="notification_summary_more">還有 %1$d 則</string>
   <string name="notification_active_peers_title">👥 附近有 bitchat 使用者！</string>
   <string name="notification_active_peers_one">附近有 1 人</string>
@@ -87,11 +70,8 @@
   <string name="mesh_service_channel_desc">讓藍牙 mesh 網路在背景持續運作</string>
   <string name="cd_add_favorite">加入最愛</string>
   <string name="cd_remove_favorite">從最愛移除</string>
-  <string name="cd_add_bookmark">新增書籤</string>
   <string name="cd_nostr_reachable">可透過 Nostr 連線</string>
   <string name="cd_unread_private_messages">未讀私訊</string>
-  <string name="cd_location_notes">位置筆記</string>
-  <string name="cd_teleported">已傳送</string>
   <string name="cd_connected_peers">已連線的節點</string>
   <string name="cd_geohash_participants">地理雜湊參與者</string>
   <string name="cd_ready_for_handshake">準備好進行握手</string>
@@ -115,7 +95,6 @@
   <string name="about_pow_on">工作量證明已開啟</string>
   <string name="about_pow_difficulty">難度：%1$d 位元（約 %2$s）</string>
   <string name="about_pow_difficulty_attempts">難度 %1$d 需要約 %2$s 次雜湊嘗試</string>
-  <string name="about_network">網路</string>
   <string name="about_tor_off">Tor 已關閉</string>
   <string name="about_tor_on">Tor 已開啟</string>
   <string name="about_tor_status">Tor 狀態：%1$s，啟動進度 %2$d%%</string>
@@ -133,16 +112,11 @@
   <string name="cd_not_supported_battery_optimization">不支援電池最佳化</string>
   <string name="cd_bluetooth">藍牙</string>
   <string name="cd_unread_message">未讀訊息</string>
-  <string name="cd_open_map">開啟地圖</string>
-  <string name="cd_remove_bookmark">移除書籤</string>
   <string name="cd_teleport">傳送</string>
   <string name="notification_action_quit_bitchat">結束 bitchat</string>
   <string name="cd_leave_channel">離開頻道</string>
   <string name="cd_reachable_via_nostr">可透過 Nostr 連線</string>
   <string name="cd_offline_favorite">離線最愛</string>
-  <string name="cd_decrease_precision">降低精確度</string>
-  <string name="cd_increase_precision">提高精確度</string>
-  <string name="cd_select_geohash">選擇地理雜湊</string>
   <string name="cd_scroll_to_bottom">捲動到底部</string>
   <string name="cd_file">檔案</string>
   <string name="cd_image">圖片</string>
@@ -153,7 +127,6 @@
   <string name="cd_offline_mesh_chat">離線 Mesh 聊天</string>
   <string name="cd_online_geohash_channels">線上地理雜湊頻道</string>
   <string name="cd_end_to_end_encryption">端對端加密</string>
-  <string name="location_bluetooth_subtitle">#藍牙 • %1$s</string>
   <string name="image_page_of">圖片 %1$d／%2$d</string>
   <string name="image_unavailable">圖片無法使用</string>
   <string name="image_saved_to_downloads">圖片已儲存至下載資料夾</string>
@@ -172,25 +145,10 @@
   <string name="action_block_subtitle">封鎖來自此使用者的所有訊息</string>
   <string name="action_private_message_title">傳訊給 %1$s</string>
   <string name="action_private_message_subtitle">傳送一則私訊</string>
-  <string name="location_channels_title">#位置頻道</string>
-  <string name="location_channels_desc">使用地理雜湊頻道與你附近的人聊天。僅分享粗略的地理雜湊，絕不分享精確的 GPS 位置。請勿對此畫面截圖或分享，以保護你的隱私。</string>
   <string name="grant_location_permission">授予位置權限</string>
-  <string name="location_permission_denied">位置權限已遭拒。請至設定中啟用以使用位置頻道。</string>
   <string name="location_permission_granted">✓ 位置權限已授予</string>
   <string name="checking_permissions">正在檢查權限…</string>
-  <string name="finding_nearby_channels">正在尋找附近的頻道…</string>
-  <string name="bookmarked">已加入書籤</string>
-  <string name="geohash_placeholder">地理雜湊</string>
-  <string name="invalid_geohash">無效的地理雜湊</string>
-  <string name="teleport">傳送</string>
-  <string name="disable_location_services">停用位置服務</string>
-  <string name="enable_location_services">啟用位置服務</string>
   <string name="mesh_label">mesh</string>
-  <string name="location_level_block">街區</string>
-  <string name="location_level_neighborhood">鄰里</string>
-  <string name="location_level_city">城市</string>
-  <string name="location_level_province">省份</string>
-  <string name="location_level_region">地區</string>
   <string name="debug_since_start_fmt">自啟動以來：%1$d</string>
   <string name="debug_sync_settings">同步設定</string>
   <string name="debug_relays_window_fmt">過去 10 秒：%1$d • 1 分鐘：%2$d • 15 分鐘：%3$d</string>
@@ -235,7 +193,6 @@
   <string name="warning_emoji">⚠️</string>
   <string name="setup_not_complete">設定尚未完成</string>
   <string name="try_again">再試一次</string>
-  <string name="open_settings">開啟設定</string>
   <string name="privacy_protected">你的隱私已受保護</string>
   <string name="privacy_bullets">• 不追蹤或收集資料\n• 藍牙 mesh 聊天完全離線\n• 地理雜湊聊天使用網際網路</string>
   <string name="permissions_header">權限</string>
@@ -245,14 +202,11 @@
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="nobody_around">附近沒有人…</string>
   <string name="you_suffix"> （你）</string>
-  <string name="pan_zoom_instruction">平移並縮放以選擇地理雜湊</string>
-  <string name="select">選擇</string>
   <string name="type_a_message_placeholder">輸入訊息…</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">提及</string>
   <string name="image_counter">%1$d／%2$d</string>
   <string name="at_nickname">@%1$s</string>
-  <string name="hash_symbol">#</string>
   <string name="underscore">_</string>
   <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
   <string name="progress_filled">█</string>
@@ -292,7 +246,4 @@
   <string name="pwd_prompt_message">頻道 %1$s 受密碼保護。請輸入密碼以加入。</string>
   <string name="pwd_label">密碼</string>
   <string name="join">加入</string>
-  <plurals name="people_count">
-    <item quantity="other">%1$d 人</item>
-  </plurals>
 </resources>

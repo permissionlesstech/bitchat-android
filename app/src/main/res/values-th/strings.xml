@@ -11,7 +11,6 @@
     <string name="channel_password_hint">รหัสผ่าน</string>
     <string name="join_channel">เข้าร่วมช่อง</string>
     <string name="leave_channel">ออก</string>
-    <string name="send_message">ส่ง</string>
     <string name="show_commands">แสดงคำสั่ง</string>
     <string name="people">ผู้คน</string>
     <string name="channels">ช่อง</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">ตรวจสอบอีกครั้ง</string>
     <string name="battery_optimization_skip">ข้ามตอนนี้</string>
     <string name="battery_optimization_continue">ดำเนินการต่อ</string>
-    <string name="retry">ลองอีกครั้ง</string>
     <string name="skip">ข้าม</string>
 
     <!-- การแจ้งเตือน -->
@@ -49,12 +47,9 @@
     <!-- การช่วยสำหรับการเข้าถึงรายการโปรด -->
     <string name="cd_add_favorite">เพิ่มในรายการโปรด</string>
     <string name="cd_remove_favorite">เอาออกจากรายการโปรด</string>
-    <string name="cd_add_bookmark">เพิ่มที่คั่นหน้า</string>
-
     <!-- ส่วนหัวแชท &amp; การช่วยสำหรับการเข้าถึง -->
     <string name="cd_nostr_reachable">ติดต่อได้ผ่าน Nostr</string>
     <string name="cd_unread_private_messages">ข้อความส่วนตัวยังไม่ได้อ่าน</string>
-    <string name="cd_teleported">เทเลพอร์ตแล้ว</string>
     <string name="cd_open_location_channels">เปิดการตั้งค่าตำแหน่งและช่อง</string>
     <string name="cd_connected_peers">เพียร์ที่เชื่อมต่อ</string>
     <string name="cd_geohash_participants">ผู้เข้าร่วม geohash</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">เปิด PoW</string>
     <string name="about_pow_difficulty">ความยาก: %1$d บิต (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">ความยาก %1$d ต้องใช้การลองแฮชประมาณ %2$s ครั้ง</string>
-    <string name="about_network">เครือข่าย</string>
     <string name="about_tor_off">ปิด Tor</string>
     <string name="about_tor_on">เปิด Tor</string>
     <string name="about_tor_status">สถานะ Tor: %1$s, การบูต %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">ไม่รองรับการเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_unread_message">ข้อความที่ยังไม่ได้อ่าน</string>
-    <string name="cd_open_map">เปิดแผนที่</string>
-    <string name="cd_remove_bookmark">เอาที่คั่นหน้าออก</string>
     <string name="cd_teleport">เทเลพอร์ต</string>
     <string name="cd_leave_channel">ออกจากช่อง</string>
     <string name="cd_reachable_via_nostr">ติดต่อได้ผ่าน Nostr</string>
     <string name="cd_offline_favorite">รายการโปรด (ออฟไลน์)</string>
-    <string name="cd_decrease_precision">ลดความแม่นยำ</string>
-    <string name="cd_increase_precision">เพิ่มความแม่นยำ</string>
-    <string name="cd_select_geohash">เลือก geohash</string>
     <string name="cd_scroll_to_bottom">เลื่อนไปด้านล่างสุด</string>
     <string name="cd_file">ไฟล์</string>
     <string name="cd_image">รูปภาพ</string>
@@ -141,29 +130,10 @@
     <string name="action_block_title">บล็อก %1$s</string>
     <string name="action_block_subtitle">บล็อกข้อความทั้งหมดจากผู้ใช้นี้</string>
 
-    <!-- แผ่นช่อง geohash -->
-    <string name="location_channels_title">#ช่องตามตำแหน่ง</string>
-    <string name="location_channels_desc">แชทกับผู้คนใกล้คุณผ่านช่อง geohash จะแชร์เฉพาะ geohash โดยคร่าว ๆ เท่านั้น ไม่ใช่ข้อมูล GPS ที่แม่นยำ เพื่อคุ้มครองความเป็นส่วนตัวของคุณ โปรดอย่าถ่ายภาพหน้าจอหรือแชร์หน้าจอนี้</string>
     <string name="grant_location_permission">ให้สิทธิ์ตำแหน่ง</string>
-    <string name="location_permission_denied">ปฏิเสธสิทธิ์ตำแหน่ง เปิดใช้งานในการตั้งค่าเพื่อใช้ช่องตามตำแหน่ง</string>
-    <string name="open_settings">เปิดการตั้งค่า</string>
     <string name="location_permission_granted">\u2713 อนุญาตตำแหน่งแล้ว</string>
     <string name="checking_permissions">กำลังตรวจสอบสิทธิ์…</string>
-    <string name="finding_nearby_channels">กำลังค้นหาช่องใกล้เคียง…</string>
-    <string name="bookmarked">มีที่คั่นหน้า</string>
-    <string name="geohash_placeholder">Geohash</string>
-    <string name="invalid_geohash">geohash ไม่ถูกต้อง</string>
-    <string name="teleport">เทเลพอร์ต</string>
-    <string name="disable_location_services">ปิดบริการตำแหน่ง</string>
-    <string name="enable_location_services">เปิดบริการตำแหน่ง</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">บล็อก</string>
-    <string name="location_level_neighborhood">ละแวกใกล้เคียง</string>
-    <string name="location_level_city">เมือง</string>
-    <string name="location_level_province">จังหวัด</string>
-    <string name="location_level_region">ภูมิภาค</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
-
     <string name="debug_since_start_fmt">ตั้งแต่เริ่มต้น: %1$d</string>
     <string name="debug_sync_settings">การตั้งค่าการซิงค์</string>
     <string name="debug_relays_window_fmt">10 วิ ล่าสุด: %1$d • 1 นาที: %2$d • 15 นาที: %3$d</string>
@@ -205,8 +175,6 @@
     <string name="location_tracking_warning">bitchat ไม่ติดตามตำแหน่งของคุณ</string>
     <string name="nobody_around">ไม่มีใครอยู่ใกล้…</string>
     <string name="you_suffix"> (คุณ)</string>
-    <string name="pan_zoom_instruction">ลาก/ซูมเพื่อเลือก geohash</string>
-    <string name="select">เลือก</string>
     <string name="type_a_message_placeholder">พิมพ์ข้อความ…</string>
     <string name="mention">กล่าวถึง</string>
     <string name="image_star">image/*</string>
@@ -247,11 +215,6 @@
     <string name="join">เข้าร่วม</string>
     <!-- พหูพจน์ -->
 
-    <plurals name="people_count">
-        <item quantity="one">1 คน</item>
-        <item quantity="other">%d คน</item>
-    </plurals>
-
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Mesh กำลังทำงาน — %1$d เพื่อน</string>
 
@@ -283,7 +246,4 @@
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
     <string name="cd_open_about">เปิดเกี่ยวกับ</string>
-  <string name="nearby_notes_reveal">ดูว่ามีโน้ตทิ้งไว้ที่นี่หรือไม่</string>
-  <string name="nearby_notes_one">มี 1 โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
-  <string name="nearby_notes_many">มี %d โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
 </resources>

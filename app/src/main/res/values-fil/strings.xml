@@ -11,7 +11,6 @@
     <string name="channel_password_hint">Password</string>
     <string name="join_channel">Sumali sa Channel</string>
     <string name="leave_channel">Umalis</string>
-    <string name="send_message">Ipadala</string>
     <string name="show_commands">Ipakita ang mga utos</string>
     <string name="people">Tao</string>
     <string name="channels">Mga Channel</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">Suriin muli</string>
     <string name="battery_optimization_skip">Laktawan muna</string>
     <string name="battery_optimization_continue">Magpatuloy</string>
-    <string name="retry">Subukang muli</string>
     <string name="skip">Laktawan</string>
 
     <!-- Mga Abiso -->
@@ -49,12 +47,9 @@
     <!-- Paborito / Accessibility -->
     <string name="cd_add_favorite">Idagdag sa paborito</string>
     <string name="cd_remove_favorite">Alisin sa paborito</string>
-    <string name="cd_add_bookmark">Mag‑bookmark</string>
-
     <!-- Header at accessibility -->
     <string name="cd_nostr_reachable">Maabot sa Nostr</string>
     <string name="cd_unread_private_messages">Hindi nabasang pribadong mensahe</string>
-    <string name="cd_teleported">Naiteleport</string>
     <string name="cd_open_location_channels">Buksan ang mga setting ng lokasyon at channel</string>
     <string name="cd_connected_peers">Nakakonektang peers</string>
     <string name="cd_geohash_participants">Mga kalahok sa geohash</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">pow on</string>
     <string name="about_pow_difficulty">hirap: %1$d bits (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">ang hirap na %1$d ay ~%2$s hash attempts</string>
-    <string name="about_network">network</string>
     <string name="about_tor_off">tor off</string>
     <string name="about_tor_on">tor on</string>
     <string name="about_tor_status">katayuan ng Tor: %1$s, bootstrap %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">Hindi suportado</string>
     <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_unread_message">Hindi nabasang mensahe</string>
-    <string name="cd_open_map">Buksan ang mapa</string>
-    <string name="cd_remove_bookmark">Alisin ang bookmark</string>
     <string name="cd_teleport">Teleport</string>
     <string name="cd_leave_channel">Umalis sa channel</string>
     <string name="cd_reachable_via_nostr">Maabot sa Nostr</string>
     <string name="cd_offline_favorite">Paborito (offline)</string>
-    <string name="cd_decrease_precision">Bawasan ang precision</string>
-    <string name="cd_increase_precision">Dagdagan ang precision</string>
-    <string name="cd_select_geohash">Piliin ang geohash</string>
     <string name="cd_scroll_to_bottom">Mag‑scroll pababa</string>
     <string name="cd_file">File</string>
     <string name="cd_image">Larawan</string>
@@ -134,29 +123,10 @@
     <string name="action_block_title">harangan si %1$s</string>
     <string name="action_block_subtitle">harangan ang lahat ng mensahe mula sa user na ito</string>
 
-    <!-- Location channels sheet -->
-    <string name="location_channels_title">#mga channel sa lokasyon</string>
-    <string name="location_channels_desc">makipag‑usap sa mga tao sa paligid gamit ang mga geohash na channel. tanging malabong geohash ang ibinabahagi, hindi eksaktong gps. huwag mag‑screenshot o ibahagi ang screen na ito para sa privacy.</string>
     <string name="grant_location_permission">payagan ang lokasyon</string>
-    <string name="location_permission_denied">tinanggihan ang permiso sa lokasyon. i‑enable sa settings para magamit ang mga channel sa lokasyon.</string>
-    <string name="open_settings">Buksan ang Settings</string>
     <string name="location_permission_granted">\u2713 pinayagan ang lokasyon</string>
     <string name="checking_permissions">sini‑siyasat ang mga permiso…</string>
-    <string name="finding_nearby_channels">naghahanap ng kalapit na channel…</string>
-    <string name="bookmarked">na‑bookmark</string>
-    <string name="geohash_placeholder">geohash</string>
-    <string name="invalid_geohash">maling geohash</string>
-    <string name="teleport">teleport</string>
-    <string name="disable_location_services">i‑disable ang location services</string>
-    <string name="enable_location_services">i‑enable ang location services</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">bloke</string>
-    <string name="location_level_neighborhood">barangay</string>
-    <string name="location_level_city">lungsod</string>
-    <string name="location_level_province">probinsya</string>
-    <string name="location_level_region">rehiyon</string>
-
     <string name="debug_since_start_fmt">mula umpisa: %1$d</string>
     <string name="debug_sync_settings">mga setting ng sync</string>
     <string name="debug_relays_window_fmt">huling 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -202,14 +172,11 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">walang tao sa paligid…</string>
     <string name="you_suffix"> (ikaw)</string>
-    <string name="pan_zoom_instruction">i‑pan at i‑zoom para pumili ng geohash</string>
-    <string name="select">piliin</string>
     <string name="type_a_message_placeholder">magtype ng mensahe…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">banggit</string>
     <string name="image_counter">%1$d / %2$d</string>
     <string name="at_nickname">@%1$s</string>
-    <string name="hash_symbol">#</string>
     <string name="underscore">_</string>
     <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
     <string name="progress_filled">█</string>
@@ -260,11 +227,6 @@
     <string name="join">Sumali</string>
     <!-- Plurals -->
 
-    <plurals name="people_count">
-        <item quantity="one">1 tao</item>
-        <item quantity="other">%d tao</item>
-    </plurals>
-
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Tumatakbo ang Mesh — %1$d na peer</string>
 
@@ -296,7 +258,4 @@
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
     <string name="cd_open_about">Buksan ang Tungkol</string>
-  <string name="nearby_notes_reveal">tingnan kung may mga note na naiwan dito</string>
-  <string name="nearby_notes_one">1 note ang naiwan dito — i-tap para basahin</string>
-  <string name="nearby_notes_many">%d note ang naiwan dito — i-tap para basahin</string>
 </resources>

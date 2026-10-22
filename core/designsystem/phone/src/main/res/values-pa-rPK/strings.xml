@@ -2,9 +2,14 @@
 <resources>
     <string name="app_name">bitchat</string>
 
+    <string name="send_message">پھجو</string>
     <string name="back">واپس</string>
+    <string name="cd_teleported">ٹیلپورٹ کیتا گیا</string>
     <string name="close_plain">بند کرو</string>
+    <string name="open_settings">سیٹنگز کھولو</string>
   <string name="fingerprint_verified_label">verified</string>
     <string name="cancel">منسوخ</string>
 
+  <string name="nearby_notes_one">ایتھے 1 نوٹ چھڈیا گیا — پڑھݨ لئی ٹیپ کرو</string>
+  <string name="nearby_notes_many">ایتھے %d نوٹس چھڈے گئے — پڑھݨ لئی ٹیپ کرو</string>
 </resources>

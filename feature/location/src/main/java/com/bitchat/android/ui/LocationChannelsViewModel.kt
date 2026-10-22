@@ -21,10 +21,14 @@ class LocationChannelsViewModel @Inject constructor(
     state: ChatState,
     private val mesh: ChatSessionMesh,
     private val geohashSession: GeohashSession,
+    wifiAwarePeers: WifiAwarePeers,
 ) : ViewModel() {
 
     /** Participants seen per geohash while sampling. */
     val geohashParticipantCounts: StateFlow<Map<String, Int>> = geohashSession.geohashParticipantCounts
+
+    /** Whether the user has Wi-Fi Aware switched on. */
+    val wifiAwareEnabled: StateFlow<Boolean> = wifiAwarePeers.enabled
 
     /** People on the mesh, not counting this device. */
     val meshPeopleCount: StateFlow<Int> = state.connectedPeers

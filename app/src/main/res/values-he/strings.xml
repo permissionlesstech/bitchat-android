@@ -1,20 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- TODO: Hebrew translations -->
-    <!-- Machine-translated (Claude) — pending native-speaker review -->
-  <plurals name="location_notes_title">
-    <item quantity="one">#%1$s ± 1 • %2$d הערה</item>
-    <item quantity="other">#%1$s ± 1 • %2$d הערות</item>
-  </plurals>
-  <string name="location_notes_description">הוסף הערות קצרות וקבועות למיקום זה כדי שמבקרים אחרים ימצאו אותן.</string>
-  <string name="location_notes_relays_unavailable">ממסרי מיקום אינם זמינים; ההערות הושהו</string>
-  <string name="location_notes_no_relays_title">אין ממסרי מיקום בקרבת מקום</string>
-  <string name="location_notes_no_relays_desc">ההערות תלויות בממסרי מיקום. בדוק חיבור ונסה שוב.</string>
-  <string name="loading_location_notes">טוען הערות…</string>
-  <string name="location_notes_empty_title">אין עדיין הערות</string>
-  <string name="location_notes_empty_desc">היה הראשון להוסיף הערה למקום זה.</string>
-  <string name="dismiss">סגור</string>
-  <string name="location_notes_input_placeholder">הוסף הערה למקום זה</string>
     <string name="skip">דלג</string>
     <string name="bluetooth_recommended">מומלץ Bluetooth</string>
     <string name="mesh_service_notification_content">רשת Mesh פועלת — %1$d עמיתים</string>
@@ -55,7 +40,6 @@
   <string name="channel_password_hint">סיסמה</string>
   <string name="join_channel">הצטרף לערוץ</string>
   <string name="leave_channel">עזוב</string>
-  <string name="send_message">שלח</string>
   <string name="show_commands">הצג פקודות</string>
   <string name="people">אנשים</string>
   <string name="channels">ערוצים</string>
@@ -78,7 +62,6 @@
   <string name="battery_optimization_check_again">בדוק שוב</string>
   <string name="battery_optimization_skip">דלג לעת עתה</string>
   <string name="battery_optimization_continue">המשך</string>
-  <string name="retry">נסה שוב</string>
   <string name="notification_summary_more">ועוד %1$d</string>
   <string name="notification_active_peers_title">👥 יש בצ׳אטרים בקרבת מקום!</string>
   <string name="notification_active_peers_one">אדם אחד בסביבה</string>
@@ -87,11 +70,8 @@
   <string name="mesh_service_channel_desc">שומר על פעילות רשת ה-Mesh ברקע</string>
   <string name="cd_add_favorite">הוסף למועדפים</string>
   <string name="cd_remove_favorite">הסר מהמועדפים</string>
-  <string name="cd_add_bookmark">הוסף סימנייה</string>
   <string name="cd_nostr_reachable">נגיש דרך Nostr</string>
   <string name="cd_unread_private_messages">הודעות פרטיות שלא נקראו</string>
-  <string name="cd_location_notes">הערות מיקום</string>
-  <string name="cd_teleported">טלפורט</string>
   <string name="cd_open_location_channels">פתיחת הגדרות מיקום וערוצים</string>
   <string name="cd_connected_peers">עמיתים מחוברים</string>
   <string name="cd_geohash_participants">משתתפי geohash</string>
@@ -116,7 +96,6 @@
   <string name="about_pow_on">הוכחת עבודה דלוקה</string>
   <string name="about_pow_difficulty">קושי: %1$d ביטים (~%2$s)</string>
   <string name="about_pow_difficulty_attempts">קושי %1$d דורש כ-%2$s ניסיונות גיבוב</string>
-  <string name="about_network">רשת</string>
   <string name="about_tor_off">Tor כבוי</string>
   <string name="about_tor_on">Tor דלוק</string>
   <string name="about_tor_status">סטטוס Tor: %1$s, אתחול %2$d%%</string>
@@ -134,16 +113,11 @@
   <string name="cd_not_supported_battery_optimization">ייעול צריכת סוללה אינו נתמך</string>
   <string name="cd_bluetooth">Bluetooth</string>
   <string name="cd_unread_message">הודעה שלא נקראה</string>
-  <string name="cd_open_map">פתח מפה</string>
-  <string name="cd_remove_bookmark">הסר סימנייה</string>
   <string name="cd_teleport">טלפורט</string>
   <string name="notification_action_quit_bitchat">צא מ-bitchat</string>
   <string name="cd_leave_channel">עזוב ערוץ</string>
   <string name="cd_reachable_via_nostr">נגיש דרך Nostr</string>
   <string name="cd_offline_favorite">מועדף לא מקוון</string>
-  <string name="cd_decrease_precision">הפחת דיוק</string>
-  <string name="cd_increase_precision">הגבר דיוק</string>
-  <string name="cd_select_geohash">בחר geohash</string>
   <string name="cd_scroll_to_bottom">גלול לתחתית</string>
   <string name="cd_file">קובץ</string>
   <string name="cd_image">תמונה</string>
@@ -154,7 +128,6 @@
   <string name="cd_offline_mesh_chat">צ׳אט Mesh לא מקוון</string>
   <string name="cd_online_geohash_channels">ערוצי geohash מקוונים</string>
   <string name="cd_end_to_end_encryption">הצפנה מקצה לקצה</string>
-  <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
   <string name="image_page_of">תמונה %1$d מתוך %2$d</string>
   <string name="image_unavailable">התמונה אינה זמינה</string>
   <string name="image_saved_to_downloads">התמונה נשמרה בהורדות</string>
@@ -173,25 +146,10 @@
   <string name="action_block_subtitle">חסום את כל ההודעות ממשתמש זה</string>
   <string name="action_private_message_title">הודעה ל-%1$s</string>
   <string name="action_private_message_subtitle">שלח הודעה פרטית</string>
-  <string name="location_channels_title">#ערוצי מיקום</string>
-  <string name="location_channels_desc">שוחח עם אנשים בקרבתך באמצעות ערוצי geohash. משותף רק geohash גס, לעולם לא מיקום GPS מדויק. אל תצלם מסך או תשתף מסך זה כדי להגן על פרטיותך.</string>
   <string name="grant_location_permission">הענק הרשאת מיקום</string>
-  <string name="location_permission_denied">הרשאת המיקום נדחתה. אפשר בהגדרות כדי להשתמש בערוצי מיקום.</string>
   <string name="location_permission_granted">✓ הרשאת מיקום ניתנה</string>
   <string name="checking_permissions">בודק הרשאות...</string>
-  <string name="finding_nearby_channels">מחפש ערוצים בקרבת מקום…</string>
-  <string name="bookmarked">סומן</string>
-  <string name="geohash_placeholder">geohash</string>
-  <string name="invalid_geohash">geohash לא תקין</string>
-  <string name="teleport">טלפורט</string>
-  <string name="disable_location_services">בטל שירותי מיקום</string>
-  <string name="enable_location_services">אפשר שירותי מיקום</string>
   <string name="mesh_label">mesh</string>
-  <string name="location_level_block">רחוב</string>
-  <string name="location_level_neighborhood">שכונה</string>
-  <string name="location_level_city">עיר</string>
-  <string name="location_level_province">מחוז</string>
-  <string name="location_level_region">אזור</string>
   <string name="debug_since_start_fmt">מאז ההתחלה: %1$d</string>
   <string name="debug_sync_settings">הגדרות סנכרון</string>
   <string name="debug_relays_window_fmt">10 שנ׳ אחרונות: %1$d • 1 דקה: %2$d • 15 דקות: %3$d</string>
@@ -236,7 +194,6 @@
   <string name="warning_emoji">⚠️</string>
   <string name="setup_not_complete">ההגדרה לא הושלמה</string>
   <string name="try_again">נסה שוב</string>
-  <string name="open_settings">פתח הגדרות</string>
   <string name="privacy_protected">הפרטיות שלך מוגנת</string>
   <string name="privacy_bullets">• ללא מעקב או איסוף נתונים\n• צ׳אטים ברשת Mesh דרך Bluetooth הם לחלוטין לא מקוונים\n• צ׳אטים לפי מיקום (Geohash) משתמשים באינטרנט</string>
   <string name="permissions_header">הרשאות</string>
@@ -246,14 +203,11 @@
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="nobody_around">אין אף אחד בסביבה...</string>
   <string name="you_suffix"> (אתה)</string>
-  <string name="pan_zoom_instruction">הזז ושנה תצוגה כדי לבחור geohash</string>
-  <string name="select">בחר</string>
   <string name="type_a_message_placeholder">הקלד הודעה...</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">אזכור</string>
   <string name="image_counter">%1$d / %2$d</string>
   <string name="at_nickname">@%1$s</string>
-  <string name="hash_symbol">#</string>
   <string name="underscore">_</string>
   <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
   <string name="progress_filled">█</string>
@@ -293,8 +247,4 @@
   <string name="pwd_prompt_message">הערוץ %1$s מוגן בסיסמה. הזן את הסיסמה כדי להצטרף.</string>
   <string name="pwd_label">סיסמה</string>
   <string name="join">הצטרף</string>
-  <plurals name="people_count">
-    <item quantity="one">איש אחד</item>
-    <item quantity="other">%1$d אנשים</item>
-  </plurals>
 </resources>

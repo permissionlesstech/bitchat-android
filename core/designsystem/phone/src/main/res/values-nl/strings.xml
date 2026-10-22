@@ -2,9 +2,14 @@
 <resources>
     <string name="app_name">bitchat</string>
 
+    <string name="send_message">Verzenden</string>
     <string name="back">Terug</string>
+    <string name="cd_teleported">Geteleporteerd</string>
     <string name="close_plain">Sluiten</string>
+    <string name="open_settings">Instellingen openen</string>
   <string name="fingerprint_verified_label">verified</string>
     <string name="cancel">Annuleren</string>
 
+  <string name="nearby_notes_one">1 notitie hier achtergelaten — tik om te lezen</string>
+  <string name="nearby_notes_many">%d notities hier achtergelaten — tik om te lezen</string>
 </resources>

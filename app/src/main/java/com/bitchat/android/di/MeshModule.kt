@@ -53,5 +53,6 @@ object MeshModule {
     @Provides
     fun provideWifiAwarePeers(): WifiAwarePeers = object : WifiAwarePeers {
         override val connected = WifiAwareController.connectedPeers
+        override val enabled = WifiAwareController.enabled
     }
 }

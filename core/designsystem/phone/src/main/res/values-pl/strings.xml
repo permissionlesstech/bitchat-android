@@ -3,9 +3,13 @@
   <string name="fingerprint_verified_label">zweryfikowano</string>
     <!-- Newly translated strings -->
     <string name="app_name">bitchat</string>
+    <string name="send_message">Wyślij</string>
     <string name="back">Wstecz</string>
+    <string name="cd_location_notes">Notatki lokalizacji</string>
+    <string name="cd_teleported">Teleportowany</string>
     <string name="about_tagline">zdecentralizowana komunikacja mesh z szyfrowaniem end-to-end</string>
     <string name="close_plain">Zamknij</string>
+    <string name="open_settings">Otwórz ustawienia</string>
     <string name="cancel">Anuluj</string>
     <string name="tor_not_available_in_this_build">Tor niedostępny w tej wersji</string>
 

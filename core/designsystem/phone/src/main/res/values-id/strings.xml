@@ -2,9 +2,14 @@
 <resources>
     <string name="app_name">bitchat</string>
 
+    <string name="send_message">Kirim</string>
     <string name="back">Kembali</string>
+    <string name="cd_teleported">Diteleportasi</string>
     <string name="close_plain">Tutup</string>
+    <string name="open_settings">Buka Pengaturan</string>
   <string name="fingerprint_verified_label">verified</string>
     <string name="cancel">Batal</string>
 
+  <string name="nearby_notes_one">1 catatan ditinggalkan di sini — ketuk untuk membaca</string>
+  <string name="nearby_notes_many">%d catatan ditinggalkan di sini — ketuk untuk membaca</string>
 </resources>

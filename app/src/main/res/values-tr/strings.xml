@@ -8,7 +8,6 @@
     <string name="channel_password_hint">Parola</string>
     <string name="join_channel">Kanala katıl</string>
     <string name="leave_channel">Ayrıl</string>
-    <string name="send_message">Gönder</string>
     <string name="show_commands">Komutları göster</string>
     <string name="people">Kişiler</string>
     <string name="channels">Kanallar</string>
@@ -32,7 +31,6 @@
     <string name="battery_optimization_check_again">Tekrar kontrol et</string>
     <string name="battery_optimization_skip">Şimdilik atla</string>
     <string name="battery_optimization_continue">Devam</string>
-    <string name="retry">Yeniden dene</string>
     <string name="skip">Atla</string>
 
     <string name="notification_summary_more">ve %1$d daha</string>
@@ -43,11 +41,8 @@
 
     <string name="cd_add_favorite">Sık kullanılanlara ekle</string>
     <string name="cd_remove_favorite">Sık kullanılandan kaldır</string>
-    <string name="cd_add_bookmark">Yer imi ekle</string>
-
     <string name="cd_nostr_reachable">Nostr üzerinden ulaşılabilir</string>
     <string name="cd_unread_private_messages">Okunmamış özel mesaj</string>
-    <string name="cd_teleported">Teleport edildi</string>
     <string name="cd_open_location_channels">Konum ve kanal ayarlarını aç</string>
     <string name="cd_connected_peers">Bağlı eşler</string>
     <string name="cd_geohash_participants">Geohash katılımcıları</string>
@@ -68,7 +63,6 @@
     <string name="about_pow_on">pow açık</string>
     <string name="about_pow_difficulty">zorluk: %1$d bit (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">%1$d zorluğu ~%2$s hash denemesi gerektirir</string>
-    <string name="about_network">ağ</string>
     <string name="about_tor_off">tor kapalı</string>
     <string name="about_tor_on">tor açık</string>
     <string name="about_tor_status">Tor durumu: %1$s, önyükleme %2$d%%</string>
@@ -86,15 +80,10 @@
     <string name="cd_not_supported_battery_optimization">Desteklenmiyor</string>
     <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_unread_message">Okunmamış mesaj</string>
-    <string name="cd_open_map">Haritayı aç</string>
-    <string name="cd_remove_bookmark">Yer imini kaldır</string>
     <string name="cd_teleport">Teleport</string>
     <string name="cd_leave_channel">Kanaldan ayrıl</string>
     <string name="cd_reachable_via_nostr">Nostr üzerinden erişilebilir</string>
     <string name="cd_offline_favorite">Favori (çevrimdışı)</string>
-    <string name="cd_decrease_precision">Hassasiyeti azalt</string>
-    <string name="cd_increase_precision">Hassasiyeti artır</string>
-    <string name="cd_select_geohash">Geohash seç</string>
     <string name="cd_scroll_to_bottom">Alta kaydır</string>
     <string name="cd_file">Dosya</string>
     <string name="cd_image">Görsel</string>
@@ -123,28 +112,10 @@
     <string name="action_block_title">%1$s kişisini engelle</string>
     <string name="action_block_subtitle">bu kullanıcıdan gelen tüm mesajları engelle</string>
 
-    <string name="location_channels_title">#konum kanalları</string>
-    <string name="location_channels_desc">yakındaki insanlarla geohash kanallarıyla sohbet et. yalnızca kabaca geohash paylaşılır, kesin gps asla değil. gizliliğin için ekran görüntüsü alma ve paylaşma.</string>
     <string name="grant_location_permission">konum izni ver</string>
-    <string name="location_permission_denied">konum izni reddedildi. konum kanalları için ayarlardan etkinleştir.</string>
-    <string name="open_settings">Ayarları aç</string>
     <string name="location_permission_granted">\u2713 konum izni verildi</string>
     <string name="checking_permissions">izinler kontrol ediliyor…</string>
-    <string name="finding_nearby_channels">yakın kanallar aranıyor…</string>
-    <string name="bookmarked">yer imli</string>
-    <string name="geohash_placeholder">geohash</string>
-    <string name="invalid_geohash">geçersiz geohash</string>
-    <string name="teleport">teleport</string>
-    <string name="disable_location_services">konum servislerini kapat</string>
-    <string name="enable_location_services">konum servislerini aç</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">blok</string>
-    <string name="location_level_neighborhood">mahalle</string>
-    <string name="location_level_city">şehir</string>
-    <string name="location_level_province">eyalet</string>
-    <string name="location_level_region">bölge</string>
-
     <string name="debug_since_start_fmt">başlangıçtan beri: %1$d</string>
     <string name="debug_sync_settings">senk. ayarları</string>
     <string name="debug_relays_window_fmt">son 10 sn: %1$d • 1 dk: %2$d • 15 dk: %3$d</string>
@@ -189,14 +160,11 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">yakında kimse yok…</string>
     <string name="you_suffix"> (sen)</string>
-    <string name="pan_zoom_instruction">geohash seçmek için kaydır/zoom yap</string>
-    <string name="select">seç</string>
     <string name="type_a_message_placeholder">mesaj yaz…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">bahset</string>
     <string name="image_counter">%1$d / %2$d</string>
     <string name="at_nickname">@%1$s</string>
-    <string name="hash_symbol">#</string>
     <string name="underscore">_</string>
     <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
     <string name="progress_filled">█</string>
@@ -238,23 +206,6 @@
     <string name="pwd_prompt_message">%1$s kanalı parolalıdır. Katılmak için parola gir.</string>
     <string name="pwd_label">Parola</string>
     <string name="join">Katıl</string>
-    <plurals name="people_count">
-        <item quantity="one">1 kişi</item>
-        <item quantity="other">%d kişi</item>
-    </plurals>
-  <plurals name="location_notes_title">
-    <item quantity="one">#%1$s ± 1 • %2$d not</item>
-    <item quantity="other">#%1$s ± 1 • %2$d not</item>
-  </plurals>
-  <string name="location_notes_description">Diğer ziyaretçilerin bulabilmesi için bu konuma kısa kalıcı notlar ekleyin.</string>
-  <string name="location_notes_relays_unavailable">coğrafi röleler kullanılamıyor; notlar duraklatıldı</string>
-  <string name="location_notes_no_relays_title">yakınlarda coğrafi röle yok</string>
-  <string name="location_notes_no_relays_desc">notlar coğrafi rölelere bağlıdır. bağlantıyı kontrol edip tekrar deneyin.</string>
-  <string name="loading_location_notes">notlar yükleniyor…</string>
-  <string name="location_notes_empty_title">henüz not yok</string>
-  <string name="location_notes_empty_desc">bu yer için ilk notu ekleyen siz olun.</string>
-  <string name="dismiss">kapat</string>
-  <string name="location_notes_input_placeholder">bu yer için bir not ekleyin</string>
     <string name="bluetooth_recommended">Bluetooth Önerilir</string>
     <string name="mesh_service_notification_content">Mesh çalışıyor — %1$d eş</string>
 
@@ -286,7 +237,4 @@
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
     <string name="cd_open_about">Hakkında’yı aç</string>
-  <string name="nearby_notes_reveal">buraya bırakılan notlara bak</string>
-  <string name="nearby_notes_one">buraya 1 not bırakıldı — okumak için dokun</string>
-  <string name="nearby_notes_many">buraya %d not bırakıldı — okumak için dokun</string>
 </resources>

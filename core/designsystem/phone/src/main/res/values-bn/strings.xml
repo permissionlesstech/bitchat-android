@@ -2,9 +2,14 @@
 <resources>
     <string name="app_name">bitchat</string>
 
+    <string name="send_message">পাঠান</string>
     <string name="back">ফিরে যান</string>
+    <string name="cd_teleported">টেলিপোর্ট করা হয়েছে</string>
     <string name="close_plain">বন্ধ করুন</string>
+    <string name="open_settings">সেটিংস খুলুন</string>
   <string name="fingerprint_verified_label">verified</string>
     <string name="cancel">বাতিল</string>
 
+  <string name="nearby_notes_one">এখানে 1টি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
+  <string name="nearby_notes_many">এখানে %dটি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
 </resources>

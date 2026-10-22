@@ -2,11 +2,15 @@
 <resources>
     <!-- Machine-translated (Claude) — pending native-speaker review -->
     <string name="app_name">bitchat</string>
+    <string name="send_message">Hantar</string>
     <string name="back">Kembali</string>
+  <string name="cd_location_notes">Nota lokasi</string>
+  <string name="cd_teleported">Diteleport</string>
   <!-- About sheet -->
   <string name="about_tagline">pemesejan mesh terdesentralisasi dengan penyulitan hujung-ke-hujung</string>
   <string name="close_plain">Tutup</string>
   <string name="fingerprint_verified_label">disahkan</string>
+  <string name="open_settings">Buka Tetapan</string>
   <string name="cancel">Batal</string>
     <string name="tor_not_available_in_this_build">Tor tidak tersedia dalam binaan ini</string>
 

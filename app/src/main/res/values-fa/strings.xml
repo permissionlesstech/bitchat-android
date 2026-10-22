@@ -11,7 +11,6 @@
     <string name="channel_password_hint">گذرواژه</string>
     <string name="join_channel">پیوستن به کانال</string>
     <string name="leave_channel">خروج</string>
-    <string name="send_message">ارسال</string>
     <string name="show_commands">نمایش دستورات</string>
     <string name="people">افراد</string>
     <string name="channels">کانال‌ها</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">بررسی مجدد</string>
     <string name="battery_optimization_skip">فعلاً رد کردن</string>
     <string name="battery_optimization_continue">ادامه</string>
-    <string name="retry">تلاش دوباره</string>
     <string name="skip">رد کردن</string>
 
     <!-- اعلان‌ها -->
@@ -49,12 +47,9 @@
     <!-- دسترسی‌پذیری موارد دلخواه -->
     <string name="cd_add_favorite">افزودن به موارد دلخواه</string>
     <string name="cd_remove_favorite">حذف از موارد دلخواه</string>
-    <string name="cd_add_bookmark">افزودن نشانک</string>
-
     <!-- سربرگ چت و دسترسی‌پذیری -->
     <string name="cd_nostr_reachable">قابل دسترس از طریق Nostr</string>
     <string name="cd_unread_private_messages">پیام‌های خصوصی خوانده‌نشده</string>
-    <string name="cd_teleported">انتقال مکانی</string>
     <string name="cd_open_location_channels">باز کردن تنظیمات مکان و کانال‌ها</string>
     <string name="cd_connected_peers">همتایان متصل</string>
     <string name="cd_geohash_participants">شرکت‌کنندگان geohash</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">PoW روشن</string>
     <string name="about_pow_difficulty">سختی: %1$d بیت (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">سختی %1$d به ~%2$s کوشش هش نیاز دارد</string>
-    <string name="about_network">شبکه</string>
     <string name="about_tor_off">Tor خاموش</string>
     <string name="about_tor_on">Tor روشن</string>
     <string name="about_tor_status">وضعیت Tor: %1$s، بوت‌استرپ %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">بهینه‌سازی باتری پشتیبانی نمی‌شود</string>
     <string name="cd_bluetooth">بلوتوث</string>
     <string name="cd_unread_message">پیام خوانده‌نشده</string>
-    <string name="cd_open_map">باز کردن نقشه</string>
-    <string name="cd_remove_bookmark">حذف نشانک</string>
     <string name="cd_teleport">انتقال</string>
     <string name="cd_leave_channel">خروج از کانال</string>
     <string name="cd_reachable_via_nostr">قابل دسترس از طریق Nostr</string>
     <string name="cd_offline_favorite">دلخواه (آفلاین)</string>
-    <string name="cd_decrease_precision">کاهش دقت</string>
-    <string name="cd_increase_precision">افزایش دقت</string>
-    <string name="cd_select_geohash">انتخاب geohash</string>
     <string name="cd_scroll_to_bottom">اسکرول به پایین</string>
     <string name="cd_file">فایل</string>
     <string name="cd_image">تصویر</string>
@@ -141,29 +130,10 @@
     <string name="action_block_title">%1$s را مسدود کن</string>
     <string name="action_block_subtitle">همهٔ پیام‌های این کاربر را مسدود کن</string>
 
-    <!-- برگهٔ کانال‌های geohash -->
-    <string name="location_channels_title">#کانال‌های مکانی</string>
-    <string name="location_channels_desc">از طریق کانال‌های geohash با افراد نزدیک خود چت کنید. فقط geohash کلی به اشتراک گذاشته می‌شود، نه دادهٔ GPS دقیق. برای حفظ حریم خصوصی، لطفاً از این نما اسکرین‌شات نگیرید یا آن را به اشتراک نگذارید.</string>
     <string name="grant_location_permission">اعطای مجوز مکان</string>
-    <string name="location_permission_denied">مجوز مکان رد شد. برای استفاده از کانال‌های مکانی، آن را در تنظیمات فعال کنید.</string>
-    <string name="open_settings">باز کردن تنظیمات</string>
     <string name="location_permission_granted">\u2713 مجوز مکان اعطا شد</string>
     <string name="checking_permissions">در حال بررسی مجوزها …</string>
-    <string name="finding_nearby_channels">در حال یافتن کانال‌های نزدیک …</string>
-    <string name="bookmarked">نشانک شده</string>
-    <string name="geohash_placeholder">Geohash</string>
-    <string name="invalid_geohash">geohash نامعتبر است</string>
-    <string name="teleport">انتقال مکانی</string>
-    <string name="disable_location_services">غیرفعال‌کردن خدمات مکان</string>
-    <string name="enable_location_services">فعال‌کردن خدمات مکان</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">بلوک</string>
-    <string name="location_level_neighborhood">محله</string>
-    <string name="location_level_city">شهر</string>
-    <string name="location_level_province">استان</string>
-    <string name="location_level_region">منطقه</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
-
     <string name="debug_since_start_fmt">از شروع: %1$d</string>
     <string name="debug_sync_settings">تنظیمات همگام‌سازی</string>
     <string name="debug_relays_window_fmt">۱۰ث اخیر: %1$d • ۱د: %2$d • ۱۵د: %3$d</string>
@@ -205,8 +175,6 @@
     <string name="location_tracking_warning">bitchat موقعیت شما را پیگیری نمی‌کند</string>
     <string name="nobody_around">کسی در اطراف نیست …</string>
     <string name="you_suffix"> (شما)</string>
-    <string name="pan_zoom_instruction">برای انتخاب geohash، جابه‌جا و زوم کنید</string>
-    <string name="select">انتخاب</string>
     <string name="type_a_message_placeholder">نوشتن پیام …</string>
     <string name="mention">ذکر</string>
     <string name="image_star">image/*</string>
@@ -247,11 +215,6 @@
     <string name="join">پیوستن</string>
     <!-- حالت جمع -->
 
-    <plurals name="people_count">
-        <item quantity="one">۱ نفر</item>
-        <item quantity="other">%d نفر</item>
-    </plurals>
-
     <string name="bluetooth_recommended">بلوتوث توصیه می شود</string>
     <string name="mesh_service_notification_content">مش در حال اجرا — %1$d همتا</string>
 
@@ -283,7 +246,4 @@
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
     <string name="cd_open_about">باز کردن درباره</string>
-  <string name="nearby_notes_reveal">یادداشت‌های باقی‌مانده در اینجا را بررسی کنید</string>
-  <string name="nearby_notes_one">۱ یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>
-  <string name="nearby_notes_many">%d یادداشت اینجا باقی مانده — برای خواندن ضربه بزنید</string>
 </resources>

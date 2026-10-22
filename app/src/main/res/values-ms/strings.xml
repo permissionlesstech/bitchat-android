@@ -8,7 +8,6 @@
     <string name="channel_password_hint">Kata Laluan</string>
     <string name="join_channel">Sertai Saluran</string>
     <string name="leave_channel">Keluar</string>
-    <string name="send_message">Hantar</string>
     <string name="show_commands">Tunjukkan arahan</string>
     <string name="people">Orang</string>
     <string name="channels">Saluran</string>
@@ -33,7 +32,6 @@
     <string name="battery_optimization_check_again">Semak Semula</string>
     <string name="battery_optimization_skip">Langkau Buat Masa Ini</string>
     <string name="battery_optimization_continue">Teruskan</string>
-    <string name="retry">Cuba Lagi</string>
   <string name="skip">Skip</string>
 
   <!-- Notifications -->
@@ -50,13 +48,9 @@
   <!-- Favorites accessibility -->
   <string name="cd_add_favorite">Tambah ke kegemaran</string>
   <string name="cd_remove_favorite">Alih keluar daripada kegemaran</string>
-  <string name="cd_add_bookmark">Tambah penanda buku</string>
-
   <!-- Chat header &amp; accessibility -->
   <string name="cd_nostr_reachable">Boleh dihubungi melalui Nostr</string>
   <string name="cd_unread_private_messages">Mesej peribadi belum dibaca</string>
-  <string name="cd_location_notes">Nota lokasi</string>
-  <string name="cd_teleported">Diteleport</string>
   <string name="cd_open_location_channels">Buka tetapan lokasi dan saluran</string>
   <string name="cd_connected_peers">Rakan disambungkan</string>
   <string name="cd_geohash_participants">Peserta geohash</string>
@@ -84,7 +78,6 @@
   <string name="about_pow_on">pow dihidupkan</string>
   <string name="about_pow_difficulty">tahap kesukaran: %1$d bit (~%2$s)</string>
   <string name="about_pow_difficulty_attempts">kesukaran %1$d memerlukan ~%2$s percubaan hash</string>
-  <string name="about_network">rangkaian</string>
   <string name="about_tor_off">tor dimatikan</string>
   <string name="about_tor_on">tor dihidupkan</string>
   <string name="about_tor_status">Status tor: %1$s, but-mula %2$d%%</string>
@@ -104,16 +97,11 @@
   <string name="cd_not_supported_battery_optimization">Pengoptimuman Bateri Tidak Disokong</string>
   <string name="cd_bluetooth">Bluetooth</string>
   <string name="cd_unread_message">Mesej belum dibaca</string>
-  <string name="cd_open_map">Buka peta</string>
-  <string name="cd_remove_bookmark">Alih keluar penanda buku</string>
   <string name="cd_teleport">Teleport</string>
   <string name="notification_action_quit_bitchat">Keluar bitchat</string>
   <string name="cd_leave_channel">Keluar saluran</string>
   <string name="cd_reachable_via_nostr">Boleh dihubungi melalui Nostr</string>
   <string name="cd_offline_favorite">Kegemaran luar talian</string>
-  <string name="cd_decrease_precision">Kurangkan ketepatan</string>
-  <string name="cd_increase_precision">Tingkatkan ketepatan</string>
-  <string name="cd_select_geohash">Pilih geohash</string>
   <string name="cd_scroll_to_bottom">Tatal ke bawah</string>
   <string name="cd_file">Fail</string>
   <string name="cd_image">Imej</string>
@@ -124,8 +112,6 @@
   <string name="cd_offline_mesh_chat">Sembang Mesh Luar Talian</string>
   <string name="cd_online_geohash_channels">Saluran Geohash Dalam Talian</string>
   <string name="cd_end_to_end_encryption">Penyulitan Hujung-ke-Hujung</string>
-  <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
-
   <string name="image_page_of">Imej %1$d daripada %2$d</string>
   <string name="image_unavailable">Imej tidak tersedia</string>
   <string name="image_saved_to_downloads">Imej disimpan ke Muat Turun</string>
@@ -147,42 +133,10 @@
     <string name="action_private_message_subtitle">hantar mesej peribadi</string>
 
 
-  <!-- Location channels sheet -->
-  <string name="location_channels_title">#saluran lokasi</string>
-  <string name="location_channels_desc">berbual dengan orang berdekatan anda menggunakan saluran geohash. hanya geohash kasar dikongsi, tidak sekali-kali gps tepat. jangan ambil tangkapan skrin atau kongsi skrin ini untuk melindungi privasi anda.</string>
   <string name="grant_location_permission">berikan kebenaran lokasi</string>
-  <string name="location_permission_denied">kebenaran lokasi ditolak. aktifkan dalam tetapan untuk menggunakan saluran lokasi.</string>
-
   <string name="location_permission_granted">✓ kebenaran lokasi diberikan</string>
   <string name="checking_permissions">menyemak kebenaran...</string>
-  <string name="finding_nearby_channels">mencari saluran berdekatan…</string>
-  <string name="bookmarked">ditanda buku</string>
-  <string name="geohash_placeholder">geohash</string>
-  <string name="invalid_geohash">geohash tidak sah</string>
-  <string name="teleport">teleport</string>
-  <string name="disable_location_services">lumpuhkan perkhidmatan lokasi</string>
-  <string name="enable_location_services">aktifkan perkhidmatan lokasi</string>
   <string name="mesh_label">mesh</string>
-  <string name="location_level_block">blok</string>
-  <string name="location_level_neighborhood">kejiranan</string>
-  <string name="location_level_city">bandar</string>
-  <string name="location_level_province">wilayah</string>
-  <string name="location_level_region">rantau</string>
-
-  <!-- Location notes sheet -->
-  <plurals name="location_notes_title">
-    <item quantity="other">#%1$s ± 1 • %2$d nota</item>
-  </plurals>
-  <string name="location_notes_description">tambah nota kekal ringkas pada lokasi ini untuk pelawat lain temui.</string>
-  <string name="location_notes_relays_unavailable">geganti geo tidak tersedia; nota dijeda</string>
-  <string name="location_notes_no_relays_title">tiada geganti geo berdekatan</string>
-  <string name="location_notes_no_relays_desc">nota bergantung pada geganti geo. semak sambungan dan cuba lagi.</string>
-  <string name="loading_location_notes">memuatkan nota…</string>
-  <string name="location_notes_empty_title">belum ada nota</string>
-  <string name="location_notes_empty_desc">jadilah yang pertama menambah satu untuk tempat ini.</string>
-  <string name="dismiss">tolak</string>
-  <string name="location_notes_input_placeholder">tambah nota untuk tempat ini</string>
-
   <string name="debug_since_start_fmt">sejak permulaan: %1$d</string>
   <string name="debug_sync_settings">tetapan penyegerakan</string>
   <string name="verify_title">sahkan</string>
@@ -257,7 +211,6 @@
   <string name="warning_emoji">⚠️</string>
   <string name="setup_not_complete">Persediaan Tidak Lengkap</string>
   <string name="try_again">Cuba Lagi</string>
-  <string name="open_settings">Buka Tetapan</string>
   <string name="privacy_protected">Privasi Anda Dilindungi</string>
   <string name="privacy_bullets">• tiada penjejakan atau pengumpulan data\n• sembang mesh Bluetooth sepenuhnya luar talian\n• sembang Geohash menggunakan internet</string>
   <string name="permissions_header">kebenaran</string>
@@ -267,14 +220,11 @@
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="nobody_around">tiada sesiapa berdekatan...</string>
   <string name="you_suffix"> (anda)</string>
-  <string name="pan_zoom_instruction">gerak dan zum untuk memilih geohash</string>
-  <string name="select">pilih</string>
   <string name="type_a_message_placeholder">taip mesej...</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">sebutan</string>
   <string name="image_counter">%1$d / %2$d</string>
   <string name="at_nickname">@%1$s</string>
-  <string name="hash_symbol">#</string>
   <string name="underscore">_</string>
   <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
   <string name="progress_filled">█</string>
@@ -327,10 +277,6 @@
   <string name="pwd_label">Kata Laluan</string>
   <string name="join">Sertai</string>
     <!-- Plurals -->
-
-  <plurals name="people_count">
-    <item quantity="other">%d orang</item>
-  </plurals>
 
     <string name="bluetooth_recommended">Bluetooth Disyorkan</string>
 </resources>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Повторити</string>
+    <string name="cd_add_bookmark">Додати закладку</string>
+    <string name="about_network">мережа</string>
+    <string name="cd_open_map">Відкрити карту</string>
+    <string name="cd_remove_bookmark">Прибрати закладку</string>
+    <string name="cd_decrease_precision">Зменшити точність</string>
+    <string name="cd_increase_precision">Збільшити точність</string>
+    <string name="cd_select_geohash">Вибрати геохеш</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="location_channels_title">#канали за геолокацією</string>
+    <string name="location_channels_desc">спілкуйтеся з людьми поруч, використовуючи канали за геохешем. надається лише приблизний геохеш, ніколи точні gps-координати. не робіть скріншотів і не діліться цим екраном, щоб захистити свою приватність.</string>
+    <string name="location_permission_denied">у дозволі на геолокацію відмовлено. увімкніть його в налаштуваннях, щоб користуватися каналами за геолокацією.</string>
+    <string name="finding_nearby_channels">пошук каналів поруч…</string>
+    <string name="bookmarked">додано в закладки</string>
+    <string name="geohash_placeholder">геохеш</string>
+    <string name="invalid_geohash">недійсний геохеш</string>
+    <string name="teleport">телепорт</string>
+    <string name="disable_location_services">вимкнути служби геолокації</string>
+    <string name="enable_location_services">увімкнути служби геолокації</string>
+    <string name="location_level_block">квартал</string>
+    <string name="location_level_neighborhood">район</string>
+    <string name="location_level_city">місто</string>
+    <string name="location_level_province">область</string>
+    <string name="location_level_region">регіон</string>
+    <string name="location_notes_description">додайте короткі постійні нотатки до цього місця, щоб їх могли знайти інші відвідувачі.</string>
+    <string name="location_notes_relays_unavailable">гео-ретранслятори недоступні; нотатки призупинено</string>
+    <string name="location_notes_no_relays_title">поруч немає гео-ретрансляторів</string>
+    <string name="location_notes_no_relays_desc">нотатки залежать від гео-ретрансляторів. перевірте з’єднання і спробуйте ще раз.</string>
+    <string name="loading_location_notes">завантаження нотаток…</string>
+    <string name="location_notes_empty_title">поки що немає нотаток</string>
+    <string name="location_notes_empty_desc">будьте першим, хто додасть нотатку для цього місця.</string>
+    <string name="dismiss">закрити</string>
+    <string name="location_notes_input_placeholder">додати нотатку для цього місця</string>
+    <string name="pan_zoom_instruction">панорамуйте та масштабуйте, щоб вибрати геохеш</string>
+    <string name="select">вибрати</string>
+    <string name="hash_symbol">#</string>
+    <plurals name="location_notes_title">
+        <item quantity="one">#%1$s ± 1 • %2$d нотатка</item>
+        <item quantity="few">#%1$s ± 1 • %2$d нотатки</item>
+        <item quantity="many">#%1$s ± 1 • %2$d нотаток</item>
+        <item quantity="other">#%1$s ± 1 • %2$d нотатки</item>
+    </plurals>
+
+
+    <plurals name="people_count">
+        <item quantity="one">%1$d людина</item>
+        <item quantity="few">%1$d людини</item>
+        <item quantity="many">%1$d людей</item>
+        <item quantity="other">%1$d людини</item>
+    </plurals>
+</resources>

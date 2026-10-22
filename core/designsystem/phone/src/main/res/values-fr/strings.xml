@@ -2,9 +2,14 @@
 <resources>
     <string name="app_name">bitchat</string>
 
+    <string name="send_message">Envoyer</string>
     <string name="back">Retour</string>
+    <string name="cd_teleported">Téléporté</string>
     <string name="close_plain">Fermer</string>
+    <string name="open_settings">Ouvrir les paramètres</string>
   <string name="fingerprint_verified_label">vérifié</string>
     <string name="cancel">Annuler</string>
 
+  <string name="nearby_notes_one">1 note laissée ici — appuyez pour lire</string>
+  <string name="nearby_notes_many">%d notes laissées ici — appuyez pour lire</string>
 </resources>

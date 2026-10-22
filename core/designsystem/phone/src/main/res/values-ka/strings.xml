@@ -2,9 +2,14 @@
 <resources>
     <string name="app_name">bitchat</string>
 
+    <string name="send_message">გაგზავნა</string>
     <string name="back">უკან</string>
+    <string name="cd_teleported">ტელეპორტირებული</string>
     <string name="close_plain">დახურვა</string>
+    <string name="open_settings">პარამეტრების გახსნა</string>
   <string name="fingerprint_verified_label">verified</string>
     <string name="cancel">გაუქმება</string>
 
+  <string name="nearby_notes_one">აქ 1 ჩანაწერია დატოვებული — წასაკითხად შეეხეთ</string>
+  <string name="nearby_notes_many">აქ %d ჩანაწერია დატოვებული — წასაკითხად შეეხეთ</string>
 </resources>

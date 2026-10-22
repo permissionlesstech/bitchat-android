@@ -11,7 +11,6 @@
     <string name="channel_password_hint">পাসওয়ার্ড</string>
     <string name="join_channel">চ্যানেলে যোগ দিন</string>
     <string name="leave_channel">ছেড়ে দিন</string>
-    <string name="send_message">পাঠান</string>
     <string name="show_commands">কমান্ড দেখান</string>
     <string name="people">মানুষ</string>
     <string name="channels">চ্যানেল</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">আবার পরীক্ষা করুন</string>
     <string name="battery_optimization_skip">এখন এড়িয়ে যান</string>
     <string name="battery_optimization_continue">চালিয়ে যান</string>
-    <string name="retry">আবার চেষ্টা করুন</string>
     <string name="skip">এড়িয়ে যান</string>
 
     <!-- বিজ্ঞপ্তি -->
@@ -49,12 +47,9 @@
     <!-- প্রিয় অ্যাক্সেসিবিলিটি -->
     <string name="cd_add_favorite">প্রিয়তে যোগ করুন</string>
     <string name="cd_remove_favorite">প্রিয় থেকে সরান</string>
-    <string name="cd_add_bookmark">বুকমার্ক যোগ করুন</string>
-
     <!-- চ্যাট হেডার ও অ্যাক্সেসিবিলিটি -->
     <string name="cd_nostr_reachable">Nostr এর মাধ্যমে পৌঁছানো যায়</string>
     <string name="cd_unread_private_messages">অপঠিত ব্যক্তিগত বার্তা</string>
-    <string name="cd_teleported">টেলিপোর্ট করা হয়েছে</string>
     <string name="cd_open_location_channels">অবস্থান ও চ্যানেল সেটিংস খুলুন</string>
     <string name="cd_connected_peers">সংযুক্ত পিয়ার</string>
     <string name="cd_geohash_participants">জিওহ্যাশ অংশগ্রহণকারী</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">PoW চালু</string>
     <string name="about_pow_difficulty">কঠিনতা: %1$d বিট (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">কঠিনতা %1$d প্রয়োজন ~%2$s হ্যাশ প্রচেষ্টা</string>
-    <string name="about_network">নেটওয়ার্ক</string>
     <string name="about_tor_off">Tor বন্ধ</string>
     <string name="about_tor_on">Tor চালু</string>
     <string name="about_tor_status">Tor অবস্থা: %1$s, বুটস্ট্র্যাপ %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">ব্যাটারি অপ্টিমাইজেশন সমর্থিত নয়</string>
     <string name="cd_bluetooth">ব্লুটুথ</string>
     <string name="cd_unread_message">অপঠিত বার্তা</string>
-    <string name="cd_open_map">মানচিত্র খুলুন</string>
-    <string name="cd_remove_bookmark">বুকমার্ক সরান</string>
     <string name="cd_teleport">টেলিপোর্ট</string>
     <string name="cd_leave_channel">চ্যানেল ছেড়ে দিন</string>
     <string name="cd_reachable_via_nostr">Nostr এর মাধ্যমে পৌঁছানো যায়</string>
     <string name="cd_offline_favorite">প্রিয় (অফলাইন)</string>
-    <string name="cd_decrease_precision">নির্ভুলতা কমান</string>
-    <string name="cd_increase_precision">নির্ভুলতা বাড়ান</string>
-    <string name="cd_select_geohash">জিওহ্যাশ নির্বাচন করুন</string>
     <string name="cd_scroll_to_bottom">নিচে স্ক্রল করুন</string>
     <string name="cd_file">ফাইল</string>
     <string name="cd_image">ছবি</string>
@@ -141,29 +130,10 @@
     <string name="action_block_title">%1$s কে ব্লক করুন</string>
     <string name="action_block_subtitle">এই ব্যবহারকারীর সমস্ত বার্তা ব্লক করুন</string>
 
-    <!-- জিওহ্যাশ চ্যানেল শিট -->
-    <string name="location_channels_title">#অবস্থান চ্যানেল</string>
-    <string name="location_channels_desc">জিওহ্যাশ চ্যানেলের মাধ্যমে আপনার কাছাকাছি মানুষদের সাথে চ্যাট করুন। শুধুমাত্র রূঢ় জিওহ্যাশ শেয়ার করা হয়, সঠিক GPS ডেটা নয়। গোপনীয়তার জন্য দয়া করে এই ভিউ স্ক্রিনশট করবেন না বা শেয়ার করবেন না।</string>
     <string name="grant_location_permission">অবস্থান অনুমতি দিন</string>
-    <string name="location_permission_denied">অবস্থান অনুমতি প্রত্যাখ্যাত। অবস্থান চ্যানেল ব্যবহার করতে সেটিংসে সক্ষম করুন।</string>
-    <string name="open_settings">সেটিংস খুলুন</string>
     <string name="location_permission_granted">\u2713 অবস্থান অনুমতি দেওয়া হয়েছে</string>
     <string name="checking_permissions">অনুমতি পরীক্ষা করা হচ্ছে …</string>
-    <string name="finding_nearby_channels">কাছাকাছি চ্যানেল খোঁজা হচ্ছে …</string>
-    <string name="bookmarked">বুকমার্ক করা</string>
-    <string name="geohash_placeholder">জিওহ্যাশ</string>
-    <string name="invalid_geohash">অবৈধ জিওহ্যাশ</string>
-    <string name="teleport">টেলিপোর্ট</string>
-    <string name="disable_location_services">অবস্থান সেবা নিষ্ক্রিয় করুন</string>
-    <string name="enable_location_services">অবস্থান সেবা সক্রিয় করুন</string>
     <string name="mesh_label">মেশ</string>
-    <string name="location_level_block">ব্লক</string>
-    <string name="location_level_neighborhood">আশপাশ</string>
-    <string name="location_level_city">শহর</string>
-    <string name="location_level_province">প্রদেশ</string>
-    <string name="location_level_region">অঞ্চল</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
-
     <string name="debug_since_start_fmt">শুরু থেকে: %1$d</string>
     <string name="debug_sync_settings">সিঙ্ক সেটিংস</string>
     <string name="debug_relays_window_fmt">শেষ 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -205,8 +175,6 @@
     <string name="location_tracking_warning">bitchat আপনার অবস্থান ট্র্যাক করে না</string>
     <string name="nobody_around">কেউ আশেপাশে নেই …</string>
     <string name="you_suffix"> (আপনি)</string>
-    <string name="pan_zoom_instruction">জিওহ্যাশ নির্বাচন করতে প্যান এবং জুম করুন</string>
-    <string name="select">নির্বাচন করুন</string>
     <string name="type_a_message_placeholder">বার্তা টাইপ করুন …</string>
     <string name="mention">উল্লেখ</string>
     <string name="image_star">image/*</string>
@@ -247,11 +215,6 @@
     <string name="join">যোগ দিন</string>
     <!-- বহুবচন -->
 
-    <plurals name="people_count">
-        <item quantity="one">১ জন</item>
-        <item quantity="other">%d জন</item>
-    </plurals>
-
     <string name="bluetooth_recommended">ব্লুটুথ প্রস্তাবিত</string>
     <string name="mesh_service_notification_content">মেশ চলছে — %1$d পিয়ার</string>
 
@@ -283,7 +246,4 @@
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
     <string name="cd_open_about">পরিচিতি খুলুন</string>
-  <string name="nearby_notes_reveal">এখানে রাখা নোট আছে কি না দেখুন</string>
-  <string name="nearby_notes_one">এখানে 1টি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
-  <string name="nearby_notes_many">এখানে %dটি নোট রাখা আছে — পড়তে ট্যাপ করুন</string>
 </resources>

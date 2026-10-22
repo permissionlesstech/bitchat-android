@@ -2,9 +2,14 @@
 <resources>
     <string name="app_name">bitchat</string>
 
+    <string name="send_message">보내기</string>
     <string name="back">뒤로</string>
+    <string name="cd_teleported">텔레포트됨</string>
     <string name="close_plain">닫기</string>
+    <string name="open_settings">설정 열기</string>
   <string name="fingerprint_verified_label">verified</string>
     <string name="cancel">취소</string>
 
+  <string name="nearby_notes_one">여기 남겨진 쪽지 1개 — 탭하여 읽기</string>
+  <string name="nearby_notes_many">여기 남겨진 쪽지 %d개 — 탭하여 읽기</string>
 </resources>

@@ -11,7 +11,6 @@
     <string name="channel_password_hint">پاس ورڈ</string>
     <string name="join_channel">چینل وچ شامل ہوو</string>
     <string name="leave_channel">باہر آؤ</string>
-    <string name="send_message">پھجو</string>
     <string name="show_commands">کمانڈ وکھاؤ</string>
     <string name="people">لوگ</string>
     <string name="channels">چینل</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">فیر چیک کرو</string>
     <string name="battery_optimization_skip">ہور ویلے</string>
     <string name="battery_optimization_continue">جاری رکھو</string>
-    <string name="retry">فیر کوشِش کرو</string>
     <string name="skip">سکِپ</string>
 
     <!-- نوٹیفکیشن -->
@@ -49,12 +47,9 @@
     <!-- پسندیدہ رسائی پذیری -->
     <string name="cd_add_favorite">پسندیدہ وچ پاؤ</string>
     <string name="cd_remove_favorite">پسندیدہ توں ہٹاؤ</string>
-    <string name="cd_add_bookmark">بُک مارک پاؤ</string>
-
     <!-- چیٹ ہیڈر &amp; رسائی پذیری -->
     <string name="cd_nostr_reachable">Nostr راہین پہنچ ممکن اے</string>
     <string name="cd_unread_private_messages">انہ پڑھیا ذاتی پیغام</string>
-    <string name="cd_teleported">ٹیلپورٹ کیتا گیا</string>
     <string name="cd_open_location_channels">مقام تے چینل دیاں ترتیباں کھولو</string>
     <string name="cd_connected_peers">جُڑے پیئر</string>
     <string name="cd_geohash_participants">geohash شریک</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">PoW چالو</string>
     <string name="about_pow_difficulty">مشکلی: %1$d بٹ (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">مشکلی %1$d لئی ~%2$s ہیش کوششاں چاہیدن</string>
-    <string name="about_network">نیٹ ورک</string>
     <string name="about_tor_off">Tor بند</string>
     <string name="about_tor_on">Tor چالو</string>
     <string name="about_tor_status">Tor حالت: %1$s، بوٹ اسٹرَیپ %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">بیٹری آپٹمائزیشن سپورٹڈ نئیں</string>
     <string name="cd_bluetooth">بلوٹوتھ</string>
     <string name="cd_unread_message">انہ پڑھیا پیغام</string>
-    <string name="cd_open_map">نقشہ کھولو</string>
-    <string name="cd_remove_bookmark">بُک مارک ہٹاؤ</string>
     <string name="cd_teleport">ٹیلپورٹ</string>
     <string name="cd_leave_channel">چینل چھوڑو</string>
     <string name="cd_reachable_via_nostr">Nostr راہین پہنچ ممکن اے</string>
     <string name="cd_offline_favorite">پسندیدہ (آف لائن)</string>
-    <string name="cd_decrease_precision">درستگی گھٹاؤ</string>
-    <string name="cd_increase_precision">درستگی وداؤ</string>
-    <string name="cd_select_geohash">geohash چُنو</string>
     <string name="cd_scroll_to_bottom">تھلے سکرول کرو</string>
     <string name="cd_file">فائل</string>
     <string name="cd_image">تصویر</string>
@@ -141,29 +130,10 @@
     <string name="action_block_title">%1$s نوں بلاک کرو</string>
     <string name="action_block_subtitle">اس یوزر دے سارے پیغام بلاک کرو</string>
 
-    <!-- geohash چینل شیٹ -->
-    <string name="location_channels_title">#لوکیشن چینل</string>
-    <string name="location_channels_desc">geohash چینلاں راہین اپنے نیڑے والے لوکاں نال چیٹ کرو۔ صرف اوکھا geohash شیئر ہوندا اے، ٹھیک GPS ڈیٹا نئیں۔ پرائیویسی لئی مہربانی کر کے ایہہ ویو اسکرین شاٹ یا شیئر نہ کرو۔</string>
     <string name="grant_location_permission">لوکیشن دی اجازت دو</string>
-    <string name="location_permission_denied">لوکیشن دی اجازت رد ہوگئی۔ لوکیشن چینل لئی سیٹنگز وچ فعال کرو۔</string>
-    <string name="open_settings">سیٹنگز کھولو</string>
     <string name="location_permission_granted">\u2713 لوکیشن دی اجازت مل گئی</string>
     <string name="checking_permissions">اجازت چیک ہورہی اے …</string>
-    <string name="finding_nearby_channels">نیڑے چینل لبھ رہے آں …</string>
-    <string name="bookmarked">بُک مارک ہویا</string>
-    <string name="geohash_placeholder">Geohash</string>
-    <string name="invalid_geohash">غلط geohash</string>
-    <string name="teleport">ٹیلپورٹ</string>
-    <string name="disable_location_services">لوکیشن سروسز بند کرو</string>
-    <string name="enable_location_services">لوکیشن سروسز چالو کرو</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">بلاک</string>
-    <string name="location_level_neighborhood">پڑوس</string>
-    <string name="location_level_city">شہر</string>
-    <string name="location_level_province">صوبہ</string>
-    <string name="location_level_region">خطہ</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
-
     <string name="debug_since_start_fmt">شروع توں: %1$d</string>
     <string name="debug_sync_settings">سنک سیٹنگا</string>
     <string name="debug_relays_window_fmt">پچھلے 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
@@ -205,8 +175,6 @@
     <string name="location_tracking_warning">bitchat توانڈی لوکیشن نئیں ٹریک کردا</string>
     <string name="nobody_around">کوئی وی نیڑے نئیں …</string>
     <string name="you_suffix"> (تُسی)</string>
-    <string name="pan_zoom_instruction">geohash چُنن لئی پین تے زوم کرو</string>
-    <string name="select">چُنو</string>
     <string name="type_a_message_placeholder">پیغام لکھو …</string>
     <string name="mention">ذکر</string>
     <string name="image_star">image/*</string>
@@ -247,11 +215,6 @@
     <string name="join">شامل ہوو</string>
     <!-- جمع -->
 
-    <plurals name="people_count">
-        <item quantity="one">1 بندہ</item>
-        <item quantity="other">%d بندے</item>
-    </plurals>
-
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">میش چل رہا ہے — %1$d ساتھی</string>
 
@@ -283,7 +246,4 @@
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
     <string name="cd_open_about">ایپ بارے کھولو</string>
-  <string name="nearby_notes_reveal">ایتھے چھڈے نوٹس ویکھو</string>
-  <string name="nearby_notes_one">ایتھے 1 نوٹ چھڈیا گیا — پڑھݨ لئی ٹیپ کرو</string>
-  <string name="nearby_notes_many">ایتھے %d نوٹس چھڈے گئے — پڑھݨ لئی ٹیپ کرو</string>
 </resources>

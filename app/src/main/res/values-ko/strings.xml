@@ -11,7 +11,6 @@
     <string name="channel_password_hint">비밀번호</string>
     <string name="join_channel">채널 참가</string>
     <string name="leave_channel">나가기</string>
-    <string name="send_message">보내기</string>
     <string name="show_commands">명령 보기</string>
     <string name="people">사람들</string>
     <string name="channels">채널</string>
@@ -36,7 +35,6 @@
     <string name="battery_optimization_check_again">다시 확인</string>
     <string name="battery_optimization_skip">지금 건너뛰기</string>
     <string name="battery_optimization_continue">계속</string>
-    <string name="retry">다시 시도</string>
     <string name="skip">건너뛰기</string>
 
     <!-- 알림 -->
@@ -49,12 +47,9 @@
     <!-- 즐겨찾기 접근성 -->
     <string name="cd_add_favorite">즐겨찾기에 추가</string>
     <string name="cd_remove_favorite">즐겨찾기에서 제거</string>
-    <string name="cd_add_bookmark">북마크 추가</string>
-
     <!-- 채팅 헤더 &amp; 접근성 -->
     <string name="cd_nostr_reachable">Nostr로 연결 가능</string>
     <string name="cd_unread_private_messages">읽지 않은 개인 메시지</string>
-    <string name="cd_teleported">텔레포트됨</string>
     <string name="cd_open_location_channels">위치 및 채널 설정 열기</string>
     <string name="cd_connected_peers">연결된 피어</string>
     <string name="cd_geohash_participants">geohash 참여자</string>
@@ -76,7 +71,6 @@
     <string name="about_pow_on">PoW 켬</string>
     <string name="about_pow_difficulty">난이도: %1$d 비트 (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">난이도 %1$d는 ~%2$s 해시 시도가 필요합니다</string>
-    <string name="about_network">네트워크</string>
     <string name="about_tor_off">Tor 끔</string>
     <string name="about_tor_on">Tor 켬</string>
     <string name="about_tor_status">Tor 상태: %1$s, 부트스트랩 %2$d%%</string>
@@ -95,15 +89,10 @@
     <string name="cd_not_supported_battery_optimization">배터리 최적화 미지원</string>
     <string name="cd_bluetooth">블루투스</string>
     <string name="cd_unread_message">읽지 않은 메시지</string>
-    <string name="cd_open_map">지도 열기</string>
-    <string name="cd_remove_bookmark">북마크 제거</string>
     <string name="cd_teleport">텔레포트</string>
     <string name="cd_leave_channel">채널 나가기</string>
     <string name="cd_reachable_via_nostr">Nostr로 연결 가능</string>
     <string name="cd_offline_favorite">즐겨찾기 (오프라인)</string>
-    <string name="cd_decrease_precision">정밀도 낮추기</string>
-    <string name="cd_increase_precision">정밀도 높이기</string>
-    <string name="cd_select_geohash">geohash 선택</string>
     <string name="cd_scroll_to_bottom">아래로 스크롤</string>
     <string name="cd_file">파일</string>
     <string name="cd_image">이미지</string>
@@ -141,29 +130,10 @@
     <string name="action_block_title">%1$s 차단</string>
     <string name="action_block_subtitle">이 사용자의 모든 메시지 차단</string>
 
-    <!-- geohash 채널 시트 -->
-    <string name="location_channels_title">#위치 채널</string>
-    <string name="location_channels_desc">geohash 채널을 통해 주변 사람들과 채팅하세요. 정확한 GPS 데이터가 아닌 대략적인 geohash만 공유됩니다. 개인 정보 보호를 위해 이 화면을 스크린샷하거나 공유하지 마세요.</string>
     <string name="grant_location_permission">위치 권한 허용</string>
-    <string name="location_permission_denied">위치 권한이 거부되었습니다. 위치 채널을 사용하려면 설정에서 활성화하세요.</string>
-    <string name="open_settings">설정 열기</string>
     <string name="location_permission_granted">\u2713 위치 권한 허용됨</string>
     <string name="checking_permissions">권한 확인 중 …</string>
-    <string name="finding_nearby_channels">주변 채널 찾는 중 …</string>
-    <string name="bookmarked">북마크됨</string>
-    <string name="geohash_placeholder">Geohash</string>
-    <string name="invalid_geohash">유효하지 않은 geohash</string>
-    <string name="teleport">텔레포트</string>
-    <string name="disable_location_services">위치 서비스 비활성화</string>
-    <string name="enable_location_services">위치 서비스 활성화</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">블록</string>
-    <string name="location_level_neighborhood">이웃</string>
-    <string name="location_level_city">도시</string>
-    <string name="location_level_province">주/도</string>
-    <string name="location_level_region">지역</string>
-    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
-
     <string name="debug_since_start_fmt">시작 이후: %1$d</string>
     <string name="debug_sync_settings">동기화 설정</string>
     <string name="debug_relays_window_fmt">마지막 10초: %1$d • 1분: %2$d • 15분: %3$d</string>
@@ -205,8 +175,6 @@
     <string name="location_tracking_warning">bitchat은 사용자의 위치를 추적하지 않습니다</string>
     <string name="nobody_around">주변에 아무도 없음 …</string>
     <string name="you_suffix"> (나)</string>
-    <string name="pan_zoom_instruction">geohash를 선택하려면 이동하고 확대/축소하세요</string>
-    <string name="select">선택</string>
     <string name="type_a_message_placeholder">메시지 입력 …</string>
     <string name="mention">멘션</string>
     <string name="image_star">image/*</string>
@@ -247,24 +215,6 @@
     <string name="join">참가</string>
     <!-- 복수형 -->
 
-    <plurals name="people_count">
-        <item quantity="one">1명</item>
-        <item quantity="other">%d명</item>
-    </plurals>
-
-  <plurals name="location_notes_title">
-    <item quantity="one">#%1$s ± 1 • %2$d개의 노트</item>
-    <item quantity="other">#%1$s ± 1 • %2$d개의 노트</item>
-  </plurals>
-  <string name="location_notes_description">다른 방문자들이 볼 수 있도록 이 위치에 짧은 영구 노트를 추가하세요.</string>
-  <string name="location_notes_relays_unavailable">지오 릴레이를 사용할 수 없음; 노트 일시 중지됨</string>
-  <string name="location_notes_no_relays_title">주변에 지오 릴레이가 없음</string>
-  <string name="location_notes_no_relays_desc">노트는 지오 릴레이에 의존합니다. 연결을 확인하고 다시 시도하세요.</string>
-  <string name="loading_location_notes">노트 불러오는 중…</string>
-  <string name="location_notes_empty_title">아직 노트가 없습니다</string>
-  <string name="location_notes_empty_desc">이 장소에 첫 번째 노트를 추가해 보세요.</string>
-  <string name="dismiss">닫기</string>
-  <string name="location_notes_input_placeholder">이 장소에 노트 추가</string>
     <string name="bluetooth_recommended">블루투스 권장</string>
     <string name="mesh_service_notification_content">메시 실행 중 — %1$d 피어</string>
 
@@ -296,7 +246,4 @@
   <string name="fingerprint_start_handshake">start handshake</string>
   <string name="fingerprint_copy">copy</string>
     <string name="cd_open_about">정보 열기</string>
-  <string name="nearby_notes_reveal">여기 남겨진 쪽지 확인</string>
-  <string name="nearby_notes_one">여기 남겨진 쪽지 1개 — 탭하여 읽기</string>
-  <string name="nearby_notes_many">여기 남겨진 쪽지 %d개 — 탭하여 읽기</string>
 </resources>

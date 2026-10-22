@@ -2,13 +2,9 @@ package com.bitchat.android.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.ChatUserSheet
-import com.bitchat.android.ui.LocationChannelsScreen
-import com.bitchat.android.ui.LocationNotesScreen
 import com.bitchat.android.ui.MeshPeerListScreen
 import com.bitchat.android.ui.PrivateChatScreen
 import com.bitchat.android.ui.SecurityVerificationSheet
@@ -68,14 +64,6 @@ fun appEntries(
             onDismiss = { navigator.popTo(route, inclusive = true) },
         )
     }
-    entry<LocationChannelsRoute> {
-        LocationChannelsScreen(
-            onClose = { navigator.popTo(LocationChannelsRoute, inclusive = true) },
-            // Pushed like any list → detail step: Back from notes
-            // returns to channels, not to chat.
-            onShowLocationNotes = { navigator.goTo(LocationNotesRoute) },
-        )
-    }
     entry<VerificationRoute> { route ->
         // One close for the header button and Back. Popping by
         // key makes it idempotent, so a second press during the
@@ -92,13 +80,6 @@ fun appEntries(
             onDismiss = { navigator.popTo(route, inclusive = true) },
             targetNickname = route.nickname,
             messageId = route.messageId,
-        )
-    }
-    entry<LocationNotesRoute> {
-        val nickname by chatState.nickname.collectAsStateWithLifecycle()
-        LocationNotesScreen(
-            nickname = nickname,
-            onBack = { navigator.popTo(LocationNotesRoute, inclusive = true) },
         )
     }
 }
