@@ -137,6 +137,7 @@ dependencies {
     implementation(project(":core:mesh"))
     implementation(project(":core:nostr"))
     implementation(project(":core:chat"))
+    implementation(project(":core:tor"))
 
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
@@ -192,11 +193,7 @@ dependencies {
     // HTTP Server for hotspot APK sharing
     implementation(libs.nanohttpd)
 
-    // Arti (Tor in Rust) Android bridge - custom build from latest source
-    // Built with rustls, 16KB page size support, and onio//un service client
-    // Native libraries are in src/tor/jniLibs/ (extracted from arti-custom.aar)
-    // Only included in tor flavor to reduce APK size for standard builds
-    // Note: AAR is kept in libs/ for reference, but libraries loaded from jniLibs/
+    // Arti (Tor in Rust), its native libraries and OkHttpProvider live in :core:tor.
 
     // Google Play Services Location
     implementation(libs.gms.location)

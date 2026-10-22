@@ -34,7 +34,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ARTI_SOURCE_DIR="$SCRIPT_DIR/.arti-source"
-JNILIBS_DIR="$PROJECT_ROOT/app/src/main/jniLibs"
+JNILIBS_DIR="$PROJECT_ROOT/core/tor/src/main/jniLibs"
 TOOLCHAIN_FILE="$SCRIPT_DIR/TOOLCHAIN.env"
 LOCKFILE_SOURCE="$SCRIPT_DIR/Cargo.lock"
 
@@ -495,9 +495,9 @@ write_checksums() {
   for abi in arm64-v8a armeabi-v7a x86 x86_64; do
     local lib_path="$JNILIBS_DIR/$abi/libarti_android.so"
     if command -v sha256sum >/dev/null 2>&1; then
-      sha256sum "$lib_path" | sed "s#  $JNILIBS_DIR/#  app/src/main/jniLibs/#" >> "$checksum_file"
+      sha256sum "$lib_path" | sed "s#  $JNILIBS_DIR/#  core/tor/src/main/jniLibs/#" >> "$checksum_file"
     else
-      shasum -a 256 "$lib_path" | sed "s#  $JNILIBS_DIR/#  app/src/main/jniLibs/#" >> "$checksum_file"
+      shasum -a 256 "$lib_path" | sed "s#  $JNILIBS_DIR/#  core/tor/src/main/jniLibs/#" >> "$checksum_file"
     fi
   done
   print_success "Wrote $checksum_file"

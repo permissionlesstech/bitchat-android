@@ -24,4 +24,4 @@ include(":core:designsystem:phone")
 include(":core:mesh")
 include(":core:nostr")
 include(":core:chat")
-// Using published Arti AAR; local module not included
+include(":core:tor")

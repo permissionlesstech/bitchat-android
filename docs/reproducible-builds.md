@@ -57,6 +57,9 @@ The authoritative pins are:
 - `core/mesh/gradle.lockfile`
 - `core/nostr/gradle.lockfile`
 - `core/chat/gradle.lockfile`
+- `core/tor/gradle.lockfile`
+- `core/designsystem/gradle.lockfile`
+- `core/designsystem/phone/gradle.lockfile`
 - `gradle/verification-metadata.xml`
 - `tools/reproducible-builds/TOOLCHAIN.env`
 - `tools/arti-build/TOOLCHAIN.env`
