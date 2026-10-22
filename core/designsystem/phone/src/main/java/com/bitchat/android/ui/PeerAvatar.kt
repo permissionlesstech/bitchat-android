@@ -22,7 +22,7 @@ import com.bitchat.android.core.designsystem.phone.R
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 
-val PeerAvatarBadgeSize = 18.dp
+internal val PeerAvatarBadgeSize = 18.dp
 private val PeerAvatarStarSize = 16.dp
 private val PeerAvatarVerifiedSize = 16.dp
 

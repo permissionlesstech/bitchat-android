@@ -286,7 +286,6 @@ org.jetbrains.kotlin:kotlin-reflect:2.1.20=debugUnitTestLintChecksClasspath,debu
 org.jetbrains.kotlin:kotlin-reflect:2.2.10=androidLintTool,unified-test-platform-android-test-plugin-result-listener-gradle
 org.jetbrains.kotlin:kotlin-script-runtime:2.4.0=kotlinAbiValidationCompatClasspath
 org.jetbrains.kotlin:kotlin-script-runtime:2.4.10=kotlinBuildToolsApiClasspath,kotlinCompilerClasspath
-org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable:2.4.10=kotlinCompilerPluginClasspathDebug,kotlinCompilerPluginClasspathDebugAndroidTest,kotlinCompilerPluginClasspathDebugUnitTest,kotlinCompilerPluginClasspathRelease
 org.jetbrains.kotlin:kotlin-stdlib-common:1.8.21=unified-test-platform-android-test-plugin,unified-test-platform-core
 org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0=unified-test-platform-android-driver-instrumentation,unified-test-platform-launcher
 org.jetbrains.kotlin:kotlin-stdlib-common:2.2.10=unified-test-platform-android-device-provider-ddmlib,unified-test-platform-android-test-plugin-host-additional-test-output,unified-test-platform-android-test-plugin-host-apk-installer,unified-test-platform-android-test-plugin-host-coverage,unified-test-platform-android-test-plugin-host-device-info,unified-test-platform-android-test-plugin-host-emulator-control,unified-test-platform-android-test-plugin-host-logcat,unified-test-platform-gradle-work-action

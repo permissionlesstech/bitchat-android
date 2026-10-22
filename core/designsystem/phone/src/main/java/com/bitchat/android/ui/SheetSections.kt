@@ -52,7 +52,7 @@ val SheetRowVertical = 13.dp
  * whose height depends on its content makes the whole card change height every time the order
  * changes. Equals the leading glyph plus [SheetRowVertical] above and below.
  */
-val SheetRowHeight = SheetRowLeadingSlot + SheetRowVertical * 2
+internal val SheetRowHeight = SheetRowLeadingSlot + SheetRowVertical * 2
 val SheetRowDividerInset = SheetRowHorizontal + SheetRowLeadingSlot + SheetRowLeadingGutter
 /** Selection indicator sized for [SheetRowLeadingSlot]. */
 val SheetRowSelectedDot = 12.dp
@@ -165,60 +165,6 @@ fun BitchatBadge(
 }
 
 // MARK: - Shared bottom-sheet primitives
-
-/** Horizontal inset for sheet content. Cards inset from here; labels align to the same edge. */
-val SheetHorizontalPadding = 16.dp
-
-/**
- * Section divider label used across the sheets, e.g. `BOOKMARKED`, `NEARBY`, `ON LOCATION`.
- */
-@Composable
-fun SheetSectionLabel(
-    text: String,
-    modifier: Modifier = Modifier
-) {
-    val palette = LocalBitchatPalette.current
-    Text(
-        text = text.uppercase(),
-        fontFamily = BitchatFontFamily,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0.8.sp,
-        color = palette.textTertiary,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(
-                start = SheetHorizontalPadding + 14.dp,
-                end = SheetHorizontalPadding,
-                top = 20.dp,
-                bottom = 6.dp
-            )
-    )
-}
-
-/**
- * Circular tinted badge holding a section's icon, used at the top of the sheets.
- */
-@Composable
-fun SheetHeaderBadge(
-    icon: ImageVector,
-    modifier: Modifier = Modifier
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    Box(
-        modifier = modifier
-            .size(44.dp)
-            .background(colorScheme.surface, androidx.compose.foundation.shape.CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = colorScheme.primary,
-            modifier = Modifier.size(26.dp)
-        )
-    }
-}
 
 /**
  * Full-width destructive action, e.g. `REMOVE LOCATION ACCESS`.

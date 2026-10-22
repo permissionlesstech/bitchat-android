@@ -321,7 +321,7 @@ Core files:
 
 Core files:
 
-- `app/src/main/java/com/bitchat/android/features/media/ImageUtils.kt` (/Users/cc/git/bitchat-android/app/src/main/java/com/bitchat/android/features/media/ImageUtils.kt)
+- `feature/chat/src/main/java/com/bitchat/android/features/media/ImageUtils.kt` (/Users/cc/git/bitchat-android/feature/chat/src/main/java/com/bitchat/android/features/media/ImageUtils.kt)
 - `feature/chat/src/main/java/com/bitchat/android/ui/ChatViewModel.kt` (sendImageNote) (/Users/cc/git/bitchat-android/feature/chat/src/main/java/com/bitchat/android/ui/ChatViewModel.kt)
 - `app/src/main/java/com/bitchat/android/mesh/BluetoothMeshService.kt` (/Users/cc/git/bitchat-android/app/src/main/java/com/bitchat/android/mesh/BluetoothMeshService.kt)
 
@@ -380,7 +380,7 @@ Files:
 Files:
 
 - `feature/chat/src/main/java/com/bitchat/android/ui/media/ImagePickerButton.kt` (/Users/cc/git/bitchat-android/feature/chat/src/main/java/com/bitchat/android/ui/media/ImagePickerButton.kt)
-- `app/src/main/java/com/bitchat/android/features/media/ImageUtils.kt` (/Users/cc/git/bitchat-android/app/src/main/java/com/bitchat/android/features/media/ImageUtils.kt)
+- `feature/chat/src/main/java/com/bitchat/android/features/media/ImageUtils.kt` (/Users/cc/git/bitchat-android/feature/chat/src/main/java/com/bitchat/android/features/media/ImageUtils.kt)
 - `feature/chat/src/main/java/com/bitchat/android/ui/media/BlockRevealImage.kt` (/Users/cc/git/bitchat-android/feature/chat/src/main/java/com/bitchat/android/ui/media/BlockRevealImage.kt)
 - `feature/chat/src/main/java/com/bitchat/android/ui/MessageComponents.kt` (/Users/cc/git/bitchat-android/feature/chat/src/main/java/com/bitchat/android/ui/MessageComponents.kt)
 
@@ -457,7 +457,7 @@ Audio capture and waveform:
 
 Image pipeline:
 
-- `app/src/main/java/com/bitchat/android/features/media/ImageUtils.kt` — downscale and save to app files. (/Users/cc/git/bitchat-android/app/src/main/java/com/bitchat/android/features/media/ImageUtils.kt)
+- `feature/chat/src/main/java/com/bitchat/android/features/media/ImageUtils.kt` — downscale and save to app files. (/Users/cc/git/bitchat-android/feature/chat/src/main/java/com/bitchat/android/features/media/ImageUtils.kt)
 - `feature/chat/src/main/java/com/bitchat/android/ui/media/ImagePickerButton.kt` — SAF picker button. (/Users/cc/git/bitchat-android/feature/chat/src/main/java/com/bitchat/android/ui/media/ImagePickerButton.kt)
 - `feature/chat/src/main/java/com/bitchat/android/ui/media/BlockRevealImage.kt` — block‑reveal progress renderer (no gaps, dense grid). (/Users/cc/git/bitchat-android/feature/chat/src/main/java/com/bitchat/android/ui/media/BlockRevealImage.kt)
 

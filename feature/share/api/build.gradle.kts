@@ -1,6 +1,5 @@
 plugins {
     id("bitchat.android.library.compose")
-    alias(libs.plugins.kotlin.serialization)
 }
 
 android {

@@ -7,7 +7,7 @@ android {
     namespace = "com.bitchat.android.feature.location.api"
 }
 
-// What the rest of the app may know about settings: the location channels and location notes routes.
+// What the rest of the app may know about location: the location channels and location notes routes.
 dependencies {
     api(project(":core:navigation"))
     // Aligns the Compose runtime that Navigation 3 brings with the rest of the app.
