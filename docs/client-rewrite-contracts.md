@@ -24,13 +24,16 @@ The remaining implementation work and milestone progress are tracked in
 
 Public Mesh text retains its UTF-8 payload. Channel text uses the existing
 binary chat envelope, preserving the channel and mentions. If that envelope
-cannot be encoded (including the encoder's capacity limit), the sender must
-reject it; it must never fall back to public Mesh text.
+cannot be encoded (including the encoder's capacity limit and the 255-byte
+UTF-8 channel-name limit), the sender must reject it; it must never fall back to public Mesh text.
 
 A decoded broadcast envelope supplies content, channel and mentions only.
 The receiver takes sender identity, nickname, message ID and timestamp from
-its verified peer and outer packet, and clears private, relay and encryption
-metadata. Inner fields cannot turn a broadcast into a private conversation.
+its verified peer and outer packet, and clears private and relay metadata.
+Encrypted channel envelopes retain their ciphertext and encryption flag for password unlock; without a matching
+key, the visible content is an encrypted-message placeholder. Encrypted
+envelopes without a channel are rejected. Inner fields cannot turn a
+broadcast into a private conversation.
 `ChannelMessagePayloadTest` and `MessageHandlerTest` enforce these rules;
 `ClientRewriteWireContractTest` retains the literal chat payload vectors.
 

@@ -12,6 +12,8 @@ internal fun encodePublicOrChannelMessage(
     peerID: String
 ): ByteArray? {
     if (channel == null) return content.toByteArray(Charsets.UTF_8)
+    // The wire length is one byte. Never silently truncate a channel into another one.
+    if (channel.toByteArray(Charsets.UTF_8).size !in 1..255) return null
     return BitchatMessage(
         sender = nickname,
         content = content,

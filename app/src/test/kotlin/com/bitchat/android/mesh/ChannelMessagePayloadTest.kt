@@ -29,6 +29,18 @@ class ChannelMessagePayloadTest {
     }
 
     @Test
+    fun `channel names exceeding the UTF8 wire limit are rejected without truncation`() {
+        assertNull(encodePublicOrChannelMessage(
+            "hello", emptyList(), "#" + "é".repeat(128), "sender", "1111222233334444"
+        ))
+        val channel = "#" + "é".repeat(127)
+        val encoded = encodePublicOrChannelMessage(
+            "hello", emptyList(), channel, "sender", "1111222233334444"
+        )
+        assertEquals(channel, BitchatMessage.fromBinaryPayload(encoded!!)!!.channel)
+    }
+
+    @Test
     fun `oversized channel envelopes cannot escape as public mesh text`() {
         assertNull(encodePublicOrChannelMessage(
             "x".repeat(5_000), emptyList(), "#test", "sender", "1111222233334444"

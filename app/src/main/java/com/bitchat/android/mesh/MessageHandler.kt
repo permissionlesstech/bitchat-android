@@ -488,18 +488,23 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             // legacy UTF-8 mesh text for older peers and for iOS public broadcasts.
             val packetId = PacketIdUtil.computeIdHex(packet).uppercase()
             val peerNickname = delegate?.getPeerNickname(peerID) ?: "unknown"
-            val message = BitchatMessage.fromBinaryPayload(packet.payload)?.let { decoded ->
+            val decoded = BitchatMessage.fromBinaryPayload(packet.payload)
+            // Encrypted broadcasts need channel context; never reinterpret them as public text.
+            if (decoded?.isEncrypted == true && decoded.channel.isNullOrBlank()) return
+            val message = decoded?.let {
                 decoded.copy(
                     id = packetId,
                     sender = peerNickname,
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong()),
+                    content = if (decoded.isEncrypted) {
+                        delegate?.decryptChannelMessage(decoded.encryptedContent ?: return, decoded.channel!!)
+                            ?: "[Encrypted message - password required]"
+                    } else decoded.content,
                     isPrivate = false,
                     isRelay = false,
                     originalSender = null,
-                    recipientNickname = null,
-                    isEncrypted = false,
-                    encryptedContent = null
+                    recipientNickname = null
                 )
             } ?: BitchatMessage(
                 id = packetId,

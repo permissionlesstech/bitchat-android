@@ -78,6 +78,58 @@ class MessageHandlerTest {
     }
 
     @Test
+    fun `encrypted broadcast without channel context is rejected`() = runBlocking {
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(peerInfo(signingKey))
+        val envelope = BitchatMessage(
+            sender = "sender", content = "", timestamp = java.util.Date(0),
+            isEncrypted = true, encryptedContent = ByteArray(32)
+        )
+        val packet = BitchatPacket(
+            version = 1u, type = MessageType.MESSAGE.value,
+            senderID = peerID.hexToBytes(), recipientID = SpecialRecipients.BROADCAST,
+            timestamp = 1_700_000_000_000uL, payload = envelope.toBinaryPayload()!!,
+            signature = signature, ttl = 7u
+        )
+        handler.handleMessage(RoutedPacket(packet, peerID, "test-link"))
+        verify(delegate, never()).onMessageReceived(any())
+    }
+
+    @Test
+    fun `encrypted channel envelopes retain ciphertext when the password is unavailable`() = runBlocking {
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(delegate.getPeerNickname(peerID)).thenReturn(nickname)
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(peerInfo(signingKey))
+        val ciphertext = ByteArray(32) { it.toByte() }
+        val envelope = BitchatMessage(
+            sender = "untrusted-name",
+            content = "",
+            timestamp = java.util.Date(0),
+            isEncrypted = true,
+            encryptedContent = ciphertext,
+            channel = "#test"
+        )
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = peerID.hexToBytes(),
+            recipientID = SpecialRecipients.BROADCAST,
+            timestamp = 1_700_000_000_000uL,
+            payload = envelope.toBinaryPayload()!!,
+            signature = signature,
+            ttl = 7u
+        )
+        handler.handleMessage(RoutedPacket(packet, peerID, "test-link"))
+        val received = argumentCaptor<BitchatMessage>()
+        verify(delegate).onMessageReceived(received.capture())
+        assertTrue(received.firstValue.isEncrypted)
+        org.junit.Assert.assertArrayEquals(ciphertext, received.firstValue.encryptedContent)
+        assertEquals("[Encrypted message - password required]", received.firstValue.content)
+        assertEquals("#test", received.firstValue.channel)
+        assertFalse(received.firstValue.isPrivate)
+    }
+
+    @Test
     fun `broadcast envelope cannot forge a private message or sender name`() = runBlocking {
         whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
         whenever(delegate.getPeerNickname(peerID)).thenReturn(nickname)
