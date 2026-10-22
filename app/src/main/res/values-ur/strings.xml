@@ -15,7 +15,6 @@
     <string name="leave_channel">چھوڑیں</string>
     <string name="send_message">بھیجیں</string>
     <string name="show_commands">کمانڈز دکھائیں</string>
-    <string name="back">واپس</string>
     <string name="people">لوگ</string>
     <string name="channels">چینلز</string>
     <string name="online_users">آن لائن صارفین</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">ہنگامی ڈیٹا صافی</string>
     <string name="about_debug_settings">ڈیبگ سیٹنگز</string>
     <string name="about_footer">اوپن سورس • پرائیویسی پہلے • غیر مرکزی</string>
-    <string name="close_plain">بند کریں</string>
     <string name="cancel_lower">منسوخ کریں</string>
 
     <!-- عمومی کنٹینٹ تفصیل -->
@@ -351,7 +349,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

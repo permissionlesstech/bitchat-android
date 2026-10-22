@@ -15,7 +15,6 @@
     <string name="leave_channel">Rời khỏi</string>
     <string name="send_message">Gửi</string>
     <string name="show_commands">Hiển thị lệnh</string>
-    <string name="back">Quay lại</string>
     <string name="people">Mọi người</string>
     <string name="channels">Kênh</string>
     <string name="online_users">Người dùng trực tuyến</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">Xóa dữ liệu khẩn cấp</string>
     <string name="about_debug_settings">Cài đặt debug</string>
     <string name="about_footer">Mã nguồn mở • Quyền riêng tư trước tiên • Phi tập trung</string>
-    <string name="close_plain">Đóng</string>
     <string name="cancel_lower">hủy</string>
 
     <!-- Mô tả nội dung chung -->
@@ -338,7 +336,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

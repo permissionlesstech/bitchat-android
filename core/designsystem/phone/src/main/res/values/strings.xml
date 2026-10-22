@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="back">Back</string>
+  <string name="cd_favorite">Favorite</string>
+  <string name="cd_favorited_you">Favorited you</string>
+  <string name="close_plain">Close</string>
+  <string name="fingerprint_verified_label">Verified</string>
+</resources>

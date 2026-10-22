@@ -15,7 +15,6 @@
     <string name="leave_channel">Umalis</string>
     <string name="send_message">Ipadala</string>
     <string name="show_commands">Ipakita ang mga utos</string>
-    <string name="back">Bumalik</string>
     <string name="people">Tao</string>
     <string name="channels">Mga Channel</string>
     <string name="online_users">Mga Online na User</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">Emergency Data Deletion</string>
     <string name="about_debug_settings">Debug Settings</string>
     <string name="about_footer">Open Source • Privacy First • Desentralisado</string>
-    <string name="close_plain">Isara</string>
     <string name="cancel_lower">kanselahin</string>
 
     <!-- Generic CD -->
@@ -349,7 +347,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

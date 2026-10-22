@@ -15,7 +15,6 @@
     <string name="leave_channel">خروج</string>
     <string name="send_message">ارسال</string>
     <string name="show_commands">نمایش دستورات</string>
-    <string name="back">بازگشت</string>
     <string name="people">افراد</string>
     <string name="channels">کانال‌ها</string>
     <string name="online_users">کاربران آنلاین</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">پاکسازی اضطراری داده</string>
     <string name="about_debug_settings">تنظیمات اشکال‌زدایی</string>
     <string name="about_footer">متن‌باز • حریم خصوصی در اولویت • غیرمتمرکز</string>
-    <string name="close_plain">بستن</string>
     <string name="cancel_lower">لغو</string>
 
     <!-- توضیحات عمومی محتوا -->
@@ -338,7 +336,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

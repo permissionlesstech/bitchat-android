@@ -119,7 +119,6 @@ object AppConstants {
 
     object UI {
         const val MAX_NICKNAME_LENGTH: Int = 15
-        const val BASE_FONT_SIZE_SP: Int = 14
         const val MESSAGE_DEDUP_TIMEOUT_MS: Long = 30_000L
         const val SYSTEM_EVENT_DEDUP_TIMEOUT_MS: Long = 5_000L
         const val ACTION_FORCE_FINISH: String = "com.bitchat.android.ACTION_FORCE_FINISH"

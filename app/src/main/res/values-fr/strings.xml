@@ -15,7 +15,6 @@
     <string name="leave_channel">Quitter</string>
     <string name="send_message">Envoyer</string>
     <string name="show_commands">Afficher les commandes</string>
-    <string name="back">Retour</string>
     <string name="people">Personnes</string>
     <string name="channels">Canaux</string>
     <string name="online_users">Utilisateurs en ligne</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">Suppression d’urgence des données</string>
     <string name="about_debug_settings">Paramètres de debug</string>
     <string name="about_footer">Open Source • Privacy First • Décentralisé</string>
-    <string name="close_plain">Fermer</string>
     <string name="cancel_lower">annuler</string>
 
     <!-- Descriptions génériques -->
@@ -363,7 +361,6 @@
   <string name="fingerprint_status_handshaking">négociation</string>
   <string name="fingerprint_status_failed">échec négociation</string>
   <string name="fingerprint_status_uninitialized">non chiffré</string>
-  <string name="fingerprint_verified_label">vérifié</string>
   <string name="fingerprint_verified_message">vous avez vérifié cette personne.</string>
   <string name="fingerprint_not_verified_label">non vérifié</string>
   <string name="fingerprint_not_verified_message_fmt">comparez avec %1$s via canal sûr.</string>

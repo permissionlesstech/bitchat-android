@@ -15,7 +15,6 @@
     <string name="leave_channel">Keluar</string>
     <string name="send_message">Kirim</string>
     <string name="show_commands">Tampilkan perintah</string>
-    <string name="back">Kembali</string>
     <string name="people">Orang</string>
     <string name="channels">Channel</string>
     <string name="online_users">Pengguna online</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">Hapus data darurat</string>
     <string name="about_debug_settings">Pengaturan debug</string>
     <string name="about_footer">Sumber Terbuka • Privasi Pertama • Terdesentralisasi</string>
-    <string name="close_plain">Tutup</string>
     <string name="cancel_lower">batal</string>
 
     <!-- Deskripsi konten umum -->
@@ -351,7 +349,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

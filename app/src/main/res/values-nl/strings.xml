@@ -15,7 +15,6 @@
     <string name="leave_channel">Verlaten</string>
     <string name="send_message">Verzenden</string>
     <string name="show_commands">Commando\'s weergeven</string>
-    <string name="back">Terug</string>
     <string name="people">Personen</string>
     <string name="channels">Kanalen</string>
     <string name="online_users">Online gebruikers</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">Noodgegevensverwijdering</string>
     <string name="about_debug_settings">Debug-instellingen</string>
     <string name="about_footer">Open Source • Privacy First • Gedecentraliseerd</string>
-    <string name="close_plain">Sluiten</string>
     <string name="cancel_lower">annuleren</string>
 
     <!-- Algemene content-beschrijvingen -->
@@ -376,7 +374,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

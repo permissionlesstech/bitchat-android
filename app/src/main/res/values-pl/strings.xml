@@ -41,7 +41,6 @@
   <string name="fingerprint_status_handshaking">uzgadnianie</string>
   <string name="fingerprint_status_failed">uzgadnianie nie powiodło się</string>
   <string name="fingerprint_status_uninitialized">niezaszyfrowane</string>
-  <string name="fingerprint_verified_label">zweryfikowano</string>
   <string name="fingerprint_verified_message">zweryfikowałeś tożsamość tej osoby.</string>
   <string name="fingerprint_not_verified_label">niezweryfikowano</string>
   <string name="fingerprint_not_verified_message_fmt">porównaj te odciski z %1$s za pomocą bezpiecznego kanału.</string>
@@ -61,7 +60,6 @@
     <string name="leave_channel">Opuść</string>
     <string name="send_message">Wyślij</string>
     <string name="show_commands">Pokaż komendy</string>
-    <string name="back">Wstecz</string>
     <string name="people">Osoby</string>
     <string name="channels">Kanały</string>
     <string name="online_users">Użytkownicy online</string>
@@ -149,7 +147,6 @@
     <string name="about_emergency_title">Awaryjne usuwanie danych</string>
     <string name="about_debug_settings">Ustawienia debugowania</string>
     <string name="about_footer">Open Source • Prywatność przede wszystkim • Zdecentralizowane</string>
-    <string name="close_plain">Zamknij</string>
     <string name="cd_privacy_protected">Prywatność chroniona</string>
     <string name="cancel_lower">anuluj</string>
     <string name="cd_warning">Ostrzeżenie</string>

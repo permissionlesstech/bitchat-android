@@ -26,7 +26,6 @@
   <string name="fingerprint_status_handshaking">рукостискання</string>
   <string name="fingerprint_status_failed">рукостискання не вдалося</string>
   <string name="fingerprint_status_uninitialized">не зашифровано</string>
-  <string name="fingerprint_verified_label">підтверджено</string>
   <string name="fingerprint_verified_message">ви підтвердили особу цієї людини.</string>
   <string name="fingerprint_not_verified_label">не підтверджено</string>
   <string name="fingerprint_not_verified_message_fmt">порівняйте ці відбитки з %1$s, використовуючи безпечний канал.</string>
@@ -46,7 +45,6 @@
     <string name="leave_channel">Вийти</string>
     <string name="send_message">Надіслати</string>
     <string name="show_commands">Показати команди</string>
-    <string name="back">Назад</string>
     <string name="people">Люди</string>
     <string name="channels">Канали</string>
     <string name="online_users">Користувачі онлайн</string>
@@ -134,7 +132,6 @@
     <string name="about_emergency_title">Екстрене видалення даних</string>
     <string name="about_debug_settings">Налаштування для розробників</string>
     <string name="about_footer">Відкритий код • Приватність понад усе • Децентралізовано</string>
-    <string name="close_plain">Закрити</string>
     <string name="cd_privacy_protected">Приватність захищено</string>
     <string name="cancel_lower">скасувати</string>
     <string name="cd_warning">Попередження</string>

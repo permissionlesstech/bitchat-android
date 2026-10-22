@@ -15,7 +15,6 @@
     <string name="leave_channel">باہر آؤ</string>
     <string name="send_message">پھجو</string>
     <string name="show_commands">کمانڈ وکھاؤ</string>
-    <string name="back">واپس</string>
     <string name="people">لوگ</string>
     <string name="channels">چینل</string>
     <string name="online_users">آن لائن یوزر</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">ایمرجنسی ڈیٹا صاف</string>
     <string name="about_debug_settings">ڈی بگ سیٹنگا</string>
     <string name="about_footer">اوپن سورس • پرائیویسی پہلے • غیر مرکزی</string>
-    <string name="close_plain">بند کرو</string>
     <string name="cancel_lower">منسوخ</string>
 
     <!-- عمومی مواد دی وضاحت -->
@@ -338,7 +336,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

@@ -15,7 +15,6 @@
     <string name="leave_channel">나가기</string>
     <string name="send_message">보내기</string>
     <string name="show_commands">명령 보기</string>
-    <string name="back">뒤로</string>
     <string name="people">사람들</string>
     <string name="channels">채널</string>
     <string name="online_users">온라인 사용자</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">긴급 데이터 삭제</string>
     <string name="about_debug_settings">디버그 설정</string>
     <string name="about_footer">오픈 소스 • 프라이버시 우선 • 탈중앙</string>
-    <string name="close_plain">닫기</string>
     <string name="cancel_lower">취소</string>
 
     <!-- 일반 콘텐츠 설명 -->
@@ -351,7 +349,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

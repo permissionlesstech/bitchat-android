@@ -15,7 +15,6 @@
     <string name="leave_channel">გამოსვლა</string>
     <string name="send_message">გაგზავნა</string>
     <string name="show_commands">ბრძანებების ჩვენება</string>
-    <string name="back">უკან</string>
     <string name="people">ხალხი</string>
     <string name="channels">არხები</string>
     <string name="online_users">ონლაინ მომხმარებლები</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">სასწრაფო მონაცემების წაშლა</string>
     <string name="about_debug_settings">დebug პარამეტრები</string>
     <string name="about_footer">ღია კოდი • კონფიდენციალობა პირველია • დეცენტრალიზებული</string>
-    <string name="close_plain">დახურვა</string>
     <string name="cancel_lower">გაუქმება</string>
 
     <!-- ზოგადი კონტენტის აღწერები -->
@@ -338,7 +336,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

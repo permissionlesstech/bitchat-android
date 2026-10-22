@@ -15,7 +15,6 @@
     <string name="leave_channel">退出</string>
     <string name="send_message">送信</string>
     <string name="show_commands">コマンドを表示</string>
-    <string name="back">戻る</string>
     <string name="people">人</string>
     <string name="channels">チャンネル</string>
     <string name="online_users">オンラインユーザー</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">緊急データ消去</string>
     <string name="about_debug_settings">デバッグ設定</string>
     <string name="about_footer">オープンソース • プライバシーファースト • 分散型</string>
-    <string name="close_plain">閉じる</string>
     <string name="cancel_lower">キャンセル</string>
 
     <!-- 一般のコンテンツ記述 -->
@@ -351,7 +349,6 @@
   <string name="fingerprint_status_handshaking">ハンドシェイク中</string>
   <string name="fingerprint_status_failed">ハンドシェイク失敗</string>
   <string name="fingerprint_status_uninitialized">未暗号化</string>
-  <string name="fingerprint_verified_label">検証済み</string>
   <string name="fingerprint_verified_message">この人物の身元を検証しました。</string>
   <string name="fingerprint_not_verified_label">未検証</string>
   <string name="fingerprint_not_verified_message_fmt">安全な経路で %1$s と指紋を比較してください。</string>

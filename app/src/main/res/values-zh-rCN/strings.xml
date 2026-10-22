@@ -40,7 +40,6 @@
   <string name="fingerprint_status_handshaking">握手中</string>
   <string name="fingerprint_status_failed">握手失败</string>
   <string name="fingerprint_status_uninitialized">未加密</string>
-  <string name="fingerprint_verified_label">已验证</string>
   <string name="fingerprint_verified_message">你已验证此人身份。</string>
   <string name="fingerprint_not_verified_label">未验证</string>
   <string name="fingerprint_not_verified_message_fmt">请通过安全渠道与 %1$s 比对指纹。</string>
@@ -59,7 +58,6 @@
   <string name="leave_channel">离开</string>
   <string name="send_message">发送</string>
   <string name="show_commands">显示命令</string>
-  <string name="back">返回</string>
   <string name="people">人员</string>
   <string name="channels">频道</string>
   <string name="online_users">在线用户</string>
@@ -146,7 +144,6 @@
   <string name="about_emergency_title">紧急数据删除</string>
   <string name="about_debug_settings">调试设置</string>
   <string name="about_footer">开源 • 隐私优先 • 去中心化</string>
-  <string name="close_plain">关闭</string>
   <string name="cd_privacy_protected">隐私已受保护</string>
   <string name="cancel_lower">取消</string>
   <string name="cd_warning">警告</string>

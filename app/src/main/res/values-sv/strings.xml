@@ -11,7 +11,6 @@
     <string name="leave_channel">Lämna</string>
     <string name="send_message">Skicka</string>
     <string name="show_commands">Visa kommandon</string>
-    <string name="back">Tillbaka</string>
     <string name="people">Personer</string>
     <string name="channels">Kanaler</string>
     <string name="online_users">Användare online</string>
@@ -97,7 +96,6 @@
     <string name="about_emergency_title">Nödradering av data</string>
     <string name="about_debug_settings">Felsökningsinställningar</string>
     <string name="about_footer">Open Source • Privacy First • Decentraliserad</string>
-    <string name="close_plain">Stäng</string>
     <string name="cancel_lower">avbryt</string>
 
     <string name="cd_warning">Varning</string>
@@ -336,7 +334,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

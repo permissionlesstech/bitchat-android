@@ -133,6 +133,7 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:navigation"))
     implementation(project(":core:designsystem"))
+    implementation(project(":core:designsystem:phone"))
     implementation(project(":core:mesh"))
     implementation(project(":core:nostr"))
     implementation(project(":core:chat"))

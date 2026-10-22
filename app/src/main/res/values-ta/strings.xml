@@ -26,7 +26,6 @@
   <string name="fingerprint_status_handshaking">கைகுலுக்கல் நடைபெறுகிறது</string>
   <string name="fingerprint_status_failed">கைகுலுக்கல் தோல்வியடைந்தது</string>
   <string name="fingerprint_status_uninitialized">குறியாக்கம் செய்யப்படவில்லை</string>
-  <string name="fingerprint_verified_label">சரிபார்க்கப்பட்டது</string>
   <string name="fingerprint_verified_message">இந்த நபரின் அடையாளத்தை நீங்கள் சரிபார்த்துவிட்டீர்கள்.</string>
   <string name="fingerprint_not_verified_label">சரிபார்க்கப்படவில்லை</string>
   <string name="fingerprint_not_verified_message_fmt">பாதுகாப்பான சேனலைப் பயன்படுத்தி இந்த கைரேகைகளை %1$s உடன் ஒப்பிடவும்.</string>
@@ -45,7 +44,6 @@
   <string name="leave_channel">வெளியேறு</string>
   <string name="send_message">அனுப்பு</string>
   <string name="show_commands">கட்டளைகளைக் காட்டு</string>
-  <string name="back">பின்</string>
   <string name="people">நபர்கள்</string>
   <string name="channels">சேனல்கள்</string>
   <string name="online_users">ஆன்லைன் பயனர்கள்</string>
@@ -137,7 +135,6 @@
   <string name="about_emergency_title">அவசர தரவு நீக்கம்</string>
   <string name="about_debug_settings">பிழைதிருத்த அமைப்புகள்</string>
   <string name="about_footer">ஓபன் சோர்ஸ் • தனியுரிமை முதலில் • பரவலாக்கப்பட்டது</string>
-  <string name="close_plain">மூடு</string>
   <string name="cd_privacy_protected">தனியுரிமை பாதுகாக்கப்பட்டது</string>
   <string name="cancel_lower">ரத்து செய்</string>
   <string name="cd_warning">எச்சரிக்கை</string>

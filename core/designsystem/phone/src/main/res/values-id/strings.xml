@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="back">Kembali</string>
+    <string name="close_plain">Tutup</string>
+  <string name="fingerprint_verified_label">verified</string>
+</resources>

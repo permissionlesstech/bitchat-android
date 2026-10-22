@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="back">戻る</string>
+    <string name="close_plain">閉じる</string>
+  <string name="fingerprint_verified_label">検証済み</string>
+</resources>

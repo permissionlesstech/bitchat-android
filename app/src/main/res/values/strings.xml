@@ -16,7 +16,6 @@
     <string name="leave_channel">Leave</string>
     <string name="send_message">Send</string>
     <string name="show_commands">Show commands</string>
-    <string name="back">Back</string>
     <string name="people">People</string>
     <string name="channels">Channels</string>
     <string name="online_users">Online Users</string>
@@ -58,8 +57,6 @@
   <!-- Favorites accessibility -->
   <string name="cd_add_favorite">Add to favorites</string>
   <string name="cd_remove_favorite">Remove from favorites</string>
-  <string name="cd_favorite">Favorite</string>
-  <string name="cd_favorited_you">Favorited you</string>
   <string name="cd_add_bookmark">Add bookmark</string>
 
   <!-- Chat header &amp; accessibility -->
@@ -195,7 +192,6 @@
   <string name="about_emergency_title">Panic Mode</string>
   <string name="about_debug_settings">Debug Settings</string>
   <string name="about_footer">Open Source • Privacy First • Decentralized</string>
-  <string name="close_plain">Close</string>
   <string name="cd_privacy_protected">Privacy Protected</string>
   <string name="cancel_lower">Cancel</string>
 
@@ -470,7 +466,6 @@
   <string name="fingerprint_status_handshaking">Handshaking</string>
   <string name="fingerprint_status_failed">Handshake failed</string>
   <string name="fingerprint_status_uninitialized">Not encrypted</string>
-  <string name="fingerprint_verified_label">Verified</string>
   <string name="fingerprint_verified_message">You have verified this person\'s identity.</string>
   <string name="fingerprint_not_verified_label">Not verified</string>
   <string name="fingerprint_not_verified_message_fmt">Compare these fingerprints with %1$s using a secure channel.</string>

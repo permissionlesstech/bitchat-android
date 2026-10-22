@@ -11,7 +11,6 @@
     <string name="leave_channel">Покинуть</string>
     <string name="send_message">Отправить</string>
     <string name="show_commands">Показать команды</string>
-    <string name="back">Назад</string>
     <string name="people">Люди</string>
     <string name="channels">Каналы</string>
     <string name="online_users">Пользователи онлайн</string>
@@ -97,7 +96,6 @@
     <string name="about_emergency_title">Экстренное удаление данных</string>
     <string name="about_debug_settings">Настройки отладки</string>
     <string name="about_footer">Open Source • Privacy First • Децентрализация</string>
-    <string name="close_plain">Закрыть</string>
     <string name="cancel_lower">отмена</string>
 
     <string name="cd_warning">Предупреждение</string>
@@ -338,7 +336,6 @@
   <string name="fingerprint_status_handshaking">рукопожатие</string>
   <string name="fingerprint_status_failed">сбой рукопожатия</string>
   <string name="fingerprint_status_uninitialized">не шифровано</string>
-  <string name="fingerprint_verified_label">проверено</string>
   <string name="fingerprint_verified_message">вы проверили этого человека.</string>
   <string name="fingerprint_not_verified_label">не проверено</string>
   <string name="fingerprint_not_verified_message_fmt">сравните с %1$s.</string>

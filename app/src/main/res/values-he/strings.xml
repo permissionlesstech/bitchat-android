@@ -40,7 +40,6 @@
   <string name="fingerprint_status_handshaking">מבצע לחיצת יד</string>
   <string name="fingerprint_status_failed">לחיצת היד נכשלה</string>
   <string name="fingerprint_status_uninitialized">לא מוצפן</string>
-  <string name="fingerprint_verified_label">מאומת</string>
   <string name="fingerprint_verified_message">אימתת את זהותו של אדם זה.</string>
   <string name="fingerprint_not_verified_label">לא מאומת</string>
   <string name="fingerprint_not_verified_message_fmt">השווה טביעות אצבע אלה עם %1$s באמצעות ערוץ מאובטח.</string>
@@ -59,7 +58,6 @@
   <string name="leave_channel">עזוב</string>
   <string name="send_message">שלח</string>
   <string name="show_commands">הצג פקודות</string>
-  <string name="back">חזרה</string>
   <string name="people">אנשים</string>
   <string name="channels">ערוצים</string>
   <string name="online_users">משתמשים מחוברים</string>
@@ -147,7 +145,6 @@
   <string name="about_emergency_title">מחיקת נתונים חירומית</string>
   <string name="about_debug_settings">הגדרות דיבוג</string>
   <string name="about_footer">קוד פתוח • פרטיות תחילה • מבוזר</string>
-  <string name="close_plain">סגור</string>
   <string name="cd_privacy_protected">פרטיות מוגנת</string>
   <string name="cancel_lower">בטל</string>
   <string name="cd_warning">אזהרה</string>

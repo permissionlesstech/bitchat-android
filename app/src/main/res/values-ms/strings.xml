@@ -12,7 +12,6 @@
     <string name="leave_channel">Keluar</string>
     <string name="send_message">Hantar</string>
     <string name="show_commands">Tunjukkan arahan</string>
-    <string name="back">Kembali</string>
     <string name="people">Orang</string>
     <string name="channels">Saluran</string>
     <string name="online_users">Pengguna Dalam Talian</string>
@@ -116,7 +115,6 @@
   <string name="about_emergency_title">Pemadaman Data Kecemasan</string>
   <string name="about_debug_settings">Tetapan Nyahpepijat</string>
   <string name="about_footer">Sumber Terbuka • Privasi Diutamakan • Terdesentralisasi</string>
-  <string name="close_plain">Tutup</string>
   <string name="cd_privacy_protected">Privasi Dilindungi</string>
   <string name="cancel_lower">batal</string>
 
@@ -261,7 +259,6 @@
   <string name="fingerprint_status_handshaking">berjabat tangan</string>
   <string name="fingerprint_status_failed">jabat tangan gagal</string>
   <string name="fingerprint_status_uninitialized">tidak disulitkan</string>
-  <string name="fingerprint_verified_label">disahkan</string>
   <string name="fingerprint_verified_message">anda telah mengesahkan identiti orang ini.</string>
   <string name="fingerprint_not_verified_label">tidak disahkan</string>
   <string name="fingerprint_not_verified_message_fmt">bandingkan cap jari ini dengan %1$s menggunakan saluran selamat.</string>

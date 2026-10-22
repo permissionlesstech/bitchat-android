@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="back">Zurück</string>
+    <string name="close_plain">Schließen</string>
+  <string name="fingerprint_verified_label">verifiziert</string>
+</resources>

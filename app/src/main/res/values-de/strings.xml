@@ -15,7 +15,6 @@
     <string name="leave_channel">Verlassen</string>
     <string name="send_message">Senden</string>
     <string name="show_commands">Befehle anzeigen</string>
-    <string name="back">Zurück</string>
     <string name="people">Personen</string>
     <string name="channels">Kanäle</string>
     <string name="online_users">Online‑Benutzer</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">Notfall‑Datenlöschung</string>
     <string name="about_debug_settings">Debug‑Einstellungen</string>
     <string name="about_footer">Open Source • Privacy First • Dezentral</string>
-    <string name="close_plain">Schließen</string>
     <string name="cancel_lower">abbrechen</string>
 
     <!-- Allgemeine Content‑Descriptions -->
@@ -352,7 +350,6 @@
   <string name="fingerprint_status_handshaking">handshake</string>
   <string name="fingerprint_status_failed">handshake fehlgeschlagen</string>
   <string name="fingerprint_status_uninitialized">unverschlüsselt</string>
-  <string name="fingerprint_verified_label">verifiziert</string>
   <string name="fingerprint_verified_message">du hast diese person verifiziert.</string>
   <string name="fingerprint_not_verified_label">nicht verifiziert</string>
   <string name="fingerprint_not_verified_message_fmt">vergleiche fingerabdrücke mit %1$s.</string>

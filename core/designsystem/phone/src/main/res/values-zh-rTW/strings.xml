@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="fingerprint_verified_label">已驗證</string>
+  <string name="back">返回</string>
+  <string name="close_plain">關閉</string>
+</resources>

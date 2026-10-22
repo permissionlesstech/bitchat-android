@@ -15,7 +15,6 @@
     <string name="leave_channel">ছেড়ে দিন</string>
     <string name="send_message">পাঠান</string>
     <string name="show_commands">কমান্ড দেখান</string>
-    <string name="back">ফিরে যান</string>
     <string name="people">মানুষ</string>
     <string name="channels">চ্যানেল</string>
     <string name="online_users">অনলাইন ব্যবহারকারী</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">জরুরী ডেটা ক্লিয়ার</string>
     <string name="about_debug_settings">ডিবাগ সেটিংস</string>
     <string name="about_footer">ওপেন সোর্স • গোপনীয়তা প্রথম • বিকেন্দ্রীভূত</string>
-    <string name="close_plain">বন্ধ করুন</string>
     <string name="cancel_lower">বাতিল</string>
 
     <!-- সাধারণ বিষয়বস্তু বিবরণ -->
@@ -338,7 +336,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

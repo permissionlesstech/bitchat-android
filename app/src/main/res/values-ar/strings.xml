@@ -15,7 +15,6 @@
     <string name="leave_channel">مغادرة</string>
     <string name="send_message">إرسال</string>
     <string name="show_commands">عرض الأوامر</string>
-    <string name="back">رجوع</string>
     <string name="people">أشخاص</string>
     <string name="channels">القنوات</string>
     <string name="online_users">مستخدمون متصلون</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">مسح البيانات الطارئ</string>
     <string name="about_debug_settings">إعدادات التصحيح</string>
     <string name="about_footer">مفتوح المصدر • الخصوصية أولاً • لامركزي</string>
-    <string name="close_plain">إغلاق</string>
     <string name="cancel_lower">إلغاء</string>
 
     <!-- أوصاف عامة للمحتوى -->
@@ -351,7 +349,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

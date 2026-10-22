@@ -15,7 +15,6 @@
     <string name="leave_channel">ออก</string>
     <string name="send_message">ส่ง</string>
     <string name="show_commands">แสดงคำสั่ง</string>
-    <string name="back">กลับ</string>
     <string name="people">ผู้คน</string>
     <string name="channels">ช่อง</string>
     <string name="online_users">ผู้ใช้ที่ออนไลน์</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">ลบข้อมูลฉุกเฉิน</string>
     <string name="about_debug_settings">การตั้งค่าดีบัก</string>
     <string name="about_footer">โอเพนซอร์ส • ความเป็นส่วนตัวมาก่อน • กระจายศูนย์</string>
-    <string name="close_plain">ปิด</string>
     <string name="cancel_lower">ยกเลิก</string>
 
     <!-- คำอธิบายเนื้อหาทั่วไป -->
@@ -338,7 +336,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>

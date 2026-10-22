@@ -15,7 +15,6 @@
     <string name="leave_channel">छोड्नुहोस्</string>
     <string name="send_message">पठाउनुहोस्</string>
     <string name="show_commands">आज्ञाहरू देखाउनुहोस्</string>
-    <string name="back">पछाडि</string>
     <string name="people">मानिसहरू</string>
     <string name="channels">च्यानलहरू</string>
     <string name="online_users">अनलाइन प्रयोगकर्ता</string>
@@ -107,7 +106,6 @@
     <string name="about_emergency_title">आपतकालीन डेटा मेटाउने</string>
     <string name="about_debug_settings">डिबग सेटिङ</string>
     <string name="about_footer">Open Source • Privacy First • विकेन्द्रित</string>
-    <string name="close_plain">बन्द गर्नुहोस्</string>
     <string name="cancel_lower">रद्द गर्नुहोस्</string>
 
     <!-- सामान्य CD -->
@@ -349,7 +347,6 @@
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>
   <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
   <string name="fingerprint_verified_message">you have verified this persons identity.</string>
   <string name="fingerprint_not_verified_label">not verified</string>
   <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
