@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
     <string name="permission_bluetooth_rationale">Требуется разрешение Bluetooth для общения p2p без интернета.</string>
     <string name="permission_location_rationale">Требуется доступ к геопозиции для поиска ближайших устройств по Bluetooth.</string>
     <string name="permission_notification_rationale">Требуется доступ к уведомлениям для оповещения о новых сообщениях.</string>
@@ -65,37 +64,16 @@
     <string name="close_with_emoji">❌ Закрыть</string>
     <string name="pick_image">Выбрать изображение</string>
 
-    <string name="about_offline_mesh_title">Оффлайн Mesh‑чат</string>
-    <string name="about_offline_mesh_desc">Общение напрямую по Bluetooth LE без интернета и серверов. Сообщения ретранслируются близлежащими устройствами.</string>
-    <string name="about_online_geohash_title">Онлайн‑каналы Geohash</string>
-    <string name="about_online_geohash_desc">Общайся с людьми поблизости через каналы на основе geohash. Расширяй mesh через публичные ретрансляторы.</string>
-    <string name="about_e2e_title">Сквозное шифрование</string>
-    <string name="about_e2e_desc">Личные сообщения — зашифрованы. Канальные — публичны.</string>
-    <string name="about_system">система</string>
-    <string name="about_light">светлая</string>
-    <string name="about_dark">тёмная</string>
-    <string name="about_pow">proof of work</string>
     <string name="about_pow_off">pow выкл</string>
     <string name="about_pow_on">pow вкл</string>
-    <string name="about_pow_tip">добавь proof of work к сообщениям geohash для защиты от спама.</string>
     <string name="about_pow_difficulty">сложность: %1$d бит (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">сложность %1$d ≈ ~%2$s попыток хеширования</string>
-    <string name="about_pow_desc_none">proof of work не требуется</string>
-    <string name="about_pow_desc_very_low">очень низкая — минимальная защита</string>
-    <string name="about_pow_desc_low">низкая — базовая защита</string>
-    <string name="about_pow_desc_medium">средняя — хорошая защита</string>
-    <string name="about_pow_desc_high">высокая — сильная защита</string>
-    <string name="about_pow_desc_very_high">очень высокая — возможны задержки</string>
-    <string name="about_pow_desc_extreme">экстремальная — требуется много вычислений</string>
     <string name="about_network">сеть</string>
     <string name="about_tor_off">tor выкл</string>
     <string name="about_tor_on">tor вкл</string>
-    <string name="about_tor_route">направляй интернет через Tor для приватности.</string>
     <string name="about_tor_status">статус Tor: %1$s, загрузка %2$d%%</string>
     <string name="about_last">Последнее: %1$s</string>
     <string name="about_emergency_title">Экстренное удаление данных</string>
-    <string name="about_debug_settings">Настройки отладки</string>
-    <string name="about_footer">Open Source • Privacy First • Децентрализация</string>
     <string name="cancel_lower">отмена</string>
 
     <string name="cd_warning">Предупреждение</string>
@@ -134,8 +112,6 @@
     <string name="image_save_failed">Не удалось сохранить изображение</string>
     <string name="pick_file">Выбрать файл</string>
     <string name="file_unavailable">[файл недоступен]</string>
-    <string name="unknown">неизвестно</string>
-
     <string name="choose_action_message_or_user">выберите действие для сообщения или пользователя</string>
     <string name="choose_action_user">выберите действие для пользователя</string>
     <string name="action_copy_message_title">копировать сообщение</string>
@@ -169,37 +145,9 @@
     <string name="location_level_province">область</string>
     <string name="location_level_region">регион</string>
 
-    <string name="debug_tools">инструменты отладки</string>
-    <string name="debug_verbose_logging">подробное логирование</string>
-    <string name="debug_bluetooth_roles">роли Bluetooth</string>
-    <string name="debug_gatt_server">сервер GATT</string>
-    <string name="debug_connections_fmt">подключения: %1$d / %2$d</string>
-    <string name="debug_max_server">макс. сервер</string>
-    <string name="debug_gatt_client">клиент GATT</string>
-    <string name="debug_max_client">макс. клиент</string>
-    <string name="debug_overall_connections_fmt">подключения: %1$d / %2$d</string>
-    <string name="debug_max_overall">макс. всего</string>
-    <string name="debug_packet_relay">ретрансляция пакетов</string>
     <string name="debug_since_start_fmt">с начала: %1$d</string>
     <string name="debug_sync_settings">настройки синхр.</string>
-    <string name="debug_max_packets_per_sync_fmt">макс. пакетов на синхр.: %1$d</string>
-    <string name="debug_max_gcs_filter_size_fmt">макс. размер фильтра GCS: %1$d байт (128–1024)</string>
-    <string name="debug_target_fpr_fmt">целевой FPR: %1$.2f%%</string>
-    <string name="debug_connected_devices">подключённые устройства</string>
-    <string name="debug_our_device_id_fmt">ID нашего устройства: %1$s</string>
-    <string name="debug_none">нет</string>
-    <string name="debug_disconnect">отключить</string>
-    <string name="debug_recent_scan_results">последние результаты сканирования</string>
-    <string name="debug_connect">подключить</string>
-    <string name="debug_debug_console">консоль отладки</string>
-    <string name="debug_clear">очистить</string>
     <string name="debug_relays_window_fmt">посл. 10с: %1$d • 1м: %2$d • 15м: %3$d</string>
-    <string name="debug_derived_p_fmt">выведенный P: %1$s • оцен. макс. элементов: %2$s</string>
-    <string name="debug_direct_suffix"> • напрямую</string>
-    <string name="debug_question_mark">?</string>
-    <string name="debug_role_server">как сервер (мы хостим)</string>
-    <string name="debug_role_client">как клиент (мы подключаемся)</string>
-
     <string name="location_services_required">Требуются службы локации</string>
     <string name="privacy_first">Приватность прежде всего</string>
     <string name="location_explanation">bitchat НЕ отслеживает вашу геопозицию.\n\nСлужбы локации нужны для сканирования Bluetooth и функции чата Geohash.</string>
@@ -248,7 +196,6 @@
     <string name="mention">упоминание</string>
     <string name="image_counter">%1$d / %2$d</string>
     <string name="at_nickname">@%1$s</string>
-    <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
     <string name="underscore">_</string>
     <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
@@ -343,8 +290,4 @@
   <string name="nearby_notes_reveal">проверить, есть ли здесь заметки</string>
   <string name="nearby_notes_one">здесь оставлена 1 заметка — нажмите, чтобы прочитать</string>
   <string name="nearby_notes_many">здесь оставлено заметок: %d — нажмите, чтобы прочитать</string>
-    <string name="about_language">Язык</string>
-    <string name="about_app_language">Язык приложения</string>
-    <string name="about_system_default">Системный язык</string>
-    <string name="about_select_language">Выбрать язык</string>
 </resources>

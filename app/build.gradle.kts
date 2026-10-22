@@ -140,6 +140,8 @@ dependencies {
     implementation(project(":core:tor"))
     implementation(project(":feature:share"))
     implementation(project(":feature:share:api"))
+    implementation(project(":feature:settings"))
+    implementation(project(":feature:settings:api"))
 
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)

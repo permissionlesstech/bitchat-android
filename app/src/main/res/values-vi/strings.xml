@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
-
     <!-- Lý do quyền -->
     <string name="permission_bluetooth_rationale">Quyền Bluetooth là cần thiết để trò chuyện trực tiếp với những người khác mà không cần Internet.</string>
     <string name="permission_location_rationale">Quyền vị trí là cần thiết để tìm các thiết bị gần đó qua Bluetooth.</string>
@@ -74,38 +72,16 @@
     <string name="close_with_emoji">❌ Đóng</string>
     <string name="pick_image">Chọn hình ảnh</string>
 
-    <!-- Sheet giới thiệu -->
-    <string name="about_offline_mesh_title">Trò chuyện Mesh ngoại tuyến</string>
-    <string name="about_offline_mesh_desc">Liên lạc trực tiếp qua Bluetooth LE mà không cần Internet hoặc máy chủ. Tin nhắn được chuyển tiếp qua các thiết bị gần để mở rộng phạm vi.</string>
-    <string name="about_online_geohash_title">Kênh Geohash trực tuyến</string>
-    <string name="about_online_geohash_desc">Kết nối với những người trong khu vực của bạn qua các kênh dựa trên geohash. Mở rộng mesh qua các relay Internet công cộng.</string>
-    <string name="about_e2e_title">Mã hóa đầu cuối</string>
-    <string name="about_e2e_desc">Tin nhắn riêng được mã hóa. Tin nhắn kênh là công khai.</string>
-    <string name="about_system">Hệ thống</string>
-    <string name="about_light">Sáng</string>
-    <string name="about_dark">Tối</string>
-    <string name="about_pow">Proof of Work</string>
     <string name="about_pow_off">PoW tắt</string>
     <string name="about_pow_on">PoW bật</string>
-    <string name="about_pow_tip">Thêm proof of work vào tin nhắn geohash để làm cho spam khó hơn.</string>
     <string name="about_pow_difficulty">Độ khó: %1$d bit (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">Độ khó %1$d cần ~%2$s lần thử hash</string>
-    <string name="about_pow_desc_none">không cần proof of work</string>
-    <string name="about_pow_desc_very_low">rất thấp – bảo vệ spam tối thiểu</string>
-    <string name="about_pow_desc_low">thấp – bảo vệ spam cơ bản</string>
-    <string name="about_pow_desc_medium">trung bình – bảo vệ spam tốt</string>
-    <string name="about_pow_desc_high">cao – bảo vệ spam mạnh</string>
-    <string name="about_pow_desc_very_high">rất cao – có thể gây độ trễ</string>
-    <string name="about_pow_desc_extreme">cực cao – cần sức mạnh tính toán đáng kể</string>
     <string name="about_network">Mạng lưới</string>
     <string name="about_tor_off">Tor tắt</string>
     <string name="about_tor_on">Tor bật</string>
-    <string name="about_tor_route">Định tuyến lưu lượng Internet qua Tor để có thêm quyền riêng tư.</string>
     <string name="about_tor_status">Trạng thái Tor: %1$s, Bootstrap %2$d%%</string>
     <string name="about_last">Cuối cùng: %1$s</string>
     <string name="about_emergency_title">Xóa dữ liệu khẩn cấp</string>
-    <string name="about_debug_settings">Cài đặt debug</string>
-    <string name="about_footer">Mã nguồn mở • Quyền riêng tư trước tiên • Phi tập trung</string>
     <string name="cancel_lower">hủy</string>
 
     <!-- Mô tả nội dung chung -->
@@ -153,8 +129,6 @@
     <string name="toast_failed_to_save_image">Không thể lưu hình ảnh</string>
     <string name="pick_file">Chọn file</string>
     <string name="file_unavailable">[File không có sẵn]</string>
-    <string name="unknown">không rõ</string>
-
     <!-- Sheet hành động người dùng -->
     <string name="choose_action_message_or_user">Chọn hành động cho tin nhắn hoặc người dùng này</string>
     <string name="choose_action_user">Chọn hành động cho người dùng này</string>
@@ -190,40 +164,9 @@
     <string name="location_level_region">Khu vực</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <!-- Debug / Chẩn đoán -->
-    <string name="debug_tools">Công cụ debug</string>
-    <string name="debug_tools_desc">Công cụ nhà phát triển cho chẩn đoán và điều khiển</string>
-    <string name="debug_verbose_logging">ghi log chi tiết</string>
-    <string name="debug_verbose_hint">Ghi log peer join/leave, hướng kết nối, chuyển tiếp gói và relay</string>
-    <string name="debug_bluetooth_roles">Vai trò Bluetooth</string>
-    <string name="debug_gatt_server">GATT Server</string>
-    <string name="debug_connections_fmt">Kết nối: %1$d / %2$d</string>
-    <string name="debug_max_server">server tối đa</string>
-    <string name="debug_gatt_client">GATT Client</string>
-    <string name="debug_max_client">client tối đa</string>
-    <string name="debug_overall_connections_fmt">Kết nối: %1$d / %2$d</string>
-    <string name="debug_max_overall">tối đa tổng</string>
-    <string name="debug_packet_relay">Packet Relay</string>
     <string name="debug_since_start_fmt">từ lúc bắt đầu: %1$d</string>
-    <string name="debug_roles_hint">Bật/tắt vai trò và đóng tất cả kết nối khi tắt</string>
     <string name="debug_sync_settings">Cài đặt sync</string>
-    <string name="debug_max_packets_per_sync_fmt">gói tối đa mỗi sync: %1$d</string>
-    <string name="debug_max_gcs_filter_size_fmt">kích thước bộ lọc GCS tối đa: %1$d Byte (128–1024)</string>
-    <string name="debug_target_fpr_fmt">FPR mục tiêu: %1$.2f%%</string>
-    <string name="debug_connected_devices">thiết bị đã kết nối</string>
-    <string name="debug_our_device_id_fmt">ID thiết bị của chúng tôi: %1$s</string>
-    <string name="debug_none">không có</string>
-    <string name="debug_disconnect">ngắt kết nối</string>
-    <string name="debug_recent_scan_results">thiết bị được quét gần đây</string>
-    <string name="debug_connect">kết nối</string>
-    <string name="debug_debug_console">Console debug</string>
-    <string name="debug_clear">xóa</string>
     <string name="debug_relays_window_fmt">10s cuối: %1$d • 1m: %2$d • 15m: %3$d</string>
-    <string name="debug_derived_p_fmt">P dẫn xuất: %1$s • phần tử tối đa ước tính: %2$s</string>
-    <string name="debug_direct_suffix"> • trực tiếp</string>
-    <string name="debug_role_server">làm server (chúng tôi host)</string>
-    <string name="debug_role_client">làm client (chúng tôi kết nối)</string>
-
     <!-- Màn hình onboarding -->
     <string name="location_services_required">Yêu cầu dịch vụ vị trí</string>
     <string name="privacy_first">Quyền riêng tư trước tiên</string>
@@ -266,7 +209,6 @@
     <string name="select">chọn</string>
     <string name="type_a_message_placeholder">Nhập tin nhắn …</string>
     <string name="mention">nhắc đến</string>
-    <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Hình ảnh</string>
     <string name="media_type_file">File</string>
@@ -344,8 +286,4 @@
   <string name="nearby_notes_reveal">kiểm tra ghi chú để lại ở đây</string>
   <string name="nearby_notes_one">có 1 ghi chú để lại ở đây — chạm để đọc</string>
   <string name="nearby_notes_many">có %d ghi chú để lại ở đây — chạm để đọc</string>
-    <string name="about_language">Ngôn ngữ</string>
-    <string name="about_app_language">Ngôn ngữ ứng dụng</string>
-    <string name="about_system_default">Mặc định hệ thống</string>
-    <string name="about_select_language">Chọn ngôn ngữ</string>
 </resources>

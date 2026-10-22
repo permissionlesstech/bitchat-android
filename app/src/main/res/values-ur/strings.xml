@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
-
     <!-- اجازات کی وضاحت -->
     <string name="permission_bluetooth_rationale">بلوٹوتھ کی اجازت انٹرنیٹ کے بغیر دوسروں سے براہ راست چیٹ کرنے کے لیے ضروری ہے۔</string>
     <string name="permission_location_rationale">مقام کی اجازت بلوٹوتھ کے ذریعے قریبی آلات تلاش کرنے کے لیے ضروری ہے۔</string>
@@ -74,38 +72,16 @@
     <string name="close_with_emoji">❌ بند کریں</string>
     <string name="pick_image">تصویر منتخب کریں</string>
 
-    <!-- تفصیلات شیٹ -->
-    <string name="about_offline_mesh_title">آف لائن میش چیٹ</string>
-    <string name="about_offline_mesh_desc">انٹرنیٹ یا سرورز کے بغیر Bluetooth LE کے ذریعے براہ راست بات چیت کریں۔ پیغامات قریبی آلات کے ذریعے ریلے ہوتے ہیں تاکہ رسائی بڑھے۔</string>
-    <string name="about_online_geohash_title">آن لائن geohash چینلز</string>
-    <string name="about_online_geohash_desc">geohash پر مبنی چینلز کے ذریعے اپنے قریب کے لوگوں سے جڑیں۔ عوامی انٹرنیٹ ریلے کے ذریعے میش کو پھیلائیں۔</string>
-    <string name="about_e2e_title">اینڈ‑ٹو‑اینڈ انکرپشن</string>
-    <string name="about_e2e_desc">نجی پیغامات انکرپٹڈ ہیں۔ چینل پیغامات عوامی ہیں۔</string>
-    <string name="about_system">سسٹم</string>
-    <string name="about_light">ہلکا</string>
-    <string name="about_dark">گہرا</string>
-    <string name="about_pow">پروف آف ورک</string>
     <string name="about_pow_off">PoW بند</string>
     <string name="about_pow_on">PoW چالو</string>
-    <string name="about_pow_tip">اسپام کو مشکل بنانے کے لیے geohash پیغامات میں Proof of Work شامل کریں۔</string>
     <string name="about_pow_difficulty">مشکل: %1$d بٹ (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">مشکل %1$d کے لیے ~%2$s ہیش کوششیں</string>
-    <string name="about_pow_desc_none">Proof of Work ضروری نہیں</string>
-    <string name="about_pow_desc_very_low">بہت کم – کم سے کم اسپام تحفظ</string>
-    <string name="about_pow_desc_low">کم – بنیادی اسپام تحفظ</string>
-    <string name="about_pow_desc_medium">درمیانہ – اچھا اسپام تحفظ</string>
-    <string name="about_pow_desc_high">اعلیٰ – مضبوط اسپام تحفظ</string>
-    <string name="about_pow_desc_very_high">بہت اعلیٰ – تاخیر ہو سکتی ہے</string>
-    <string name="about_pow_desc_extreme">انتہائی – اہم کمپیوٹیشنل طاقت درکار</string>
     <string name="about_network">نیٹ ورک</string>
     <string name="about_tor_off">Tor بند</string>
     <string name="about_tor_on">Tor چالو</string>
-    <string name="about_tor_route">زیادہ پرائیویسی کے لیے انٹرنیٹ ٹریفک کو Tor کے ذریعے بھیجیں۔</string>
     <string name="about_tor_status">Tor کی کیفیت: %1$s، بوٹ اسٹریپ %2$d%%</string>
     <string name="about_last">آخری: %1$s</string>
     <string name="about_emergency_title">ہنگامی ڈیٹا صافی</string>
-    <string name="about_debug_settings">ڈیبگ سیٹنگز</string>
-    <string name="about_footer">اوپن سورس • پرائیویسی پہلے • غیر مرکزی</string>
     <string name="cancel_lower">منسوخ کریں</string>
 
     <!-- عمومی کنٹینٹ تفصیل -->
@@ -153,8 +129,6 @@
     <string name="toast_failed_to_save_image">تصویر محفوظ نہیں ہو سکی</string>
     <string name="pick_file">فائل منتخب کریں</string>
     <string name="file_unavailable">[فائل دستیاب نہیں]</string>
-    <string name="unknown">نامعلوم</string>
-
     <!-- صارف ایکشن شیٹ -->
     <string name="choose_action_message_or_user">اس پیغام یا صارف کے لیے ایکشن منتخب کریں</string>
     <string name="choose_action_user">اس صارف کے لیے ایکشن منتخب کریں</string>
@@ -190,40 +164,9 @@
     <string name="location_level_region">علاقہ</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <!-- ڈیبگ / تشخیص -->
-    <string name="debug_tools">ڈیبگ ٹولز</string>
-    <string name="debug_tools_desc">تشخیص اور کنٹرول کے لیے ڈیولپر ٹولز</string>
-    <string name="debug_verbose_logging">تفصیلی لاگنگ</string>
-    <string name="debug_verbose_hint">پیئر جوائن/لیو، کنیکشن ڈائریکشن، پیکٹ ریلے اور ریلے لاگ کرتا ہے</string>
-    <string name="debug_bluetooth_roles">Bluetooth کردار</string>
-    <string name="debug_gatt_server">GATT سرور</string>
-    <string name="debug_connections_fmt">کنیکشنز: %1$d / %2$d</string>
-    <string name="debug_max_server">زیادہ سے زیادہ سرور</string>
-    <string name="debug_gatt_client">GATT کلائنٹ</string>
-    <string name="debug_max_client">زیادہ سے زیادہ کلائنٹ</string>
-    <string name="debug_overall_connections_fmt">کنیکشنز: %1$d / %2$d</string>
-    <string name="debug_max_overall">زیادہ سے زیادہ کل</string>
-    <string name="debug_packet_relay">پیکٹ ریلے</string>
     <string name="debug_since_start_fmt">شروع سے: %1$d</string>
-    <string name="debug_roles_hint">کردار آن/آف ٹوگل کریں اور بند کرتے وقت تمام کنیکشنز بند کریں</string>
     <string name="debug_sync_settings">سنک سیٹنگز</string>
-    <string name="debug_max_packets_per_sync_fmt">فی سنک زیادہ سے زیادہ پیکٹس: %1$d</string>
-    <string name="debug_max_gcs_filter_size_fmt">زیادہ سے زیادہ GCS فلٹر سائز: %1$d بائٹس (128–1024)</string>
-    <string name="debug_target_fpr_fmt">ہدف FPR: %1$.2f%%</string>
-    <string name="debug_connected_devices">منسلک آلات</string>
-    <string name="debug_our_device_id_fmt">ہمارا آلہ ID: %1$s</string>
-    <string name="debug_none">کوئی نہیں</string>
-    <string name="debug_disconnect">منقطع کریں</string>
-    <string name="debug_recent_scan_results">حال ہی میں اسکین شدہ آلات</string>
-    <string name="debug_connect">کنیکٹ</string>
-    <string name="debug_debug_console">ڈیبگ کنسول</string>
-    <string name="debug_clear">صاف کریں</string>
     <string name="debug_relays_window_fmt">آخری 10 سیکنڈ: %1$d • 1 منٹ: %2$d • 15 منٹ: %3$d</string>
-    <string name="debug_derived_p_fmt">ماخوذ P: %1$s • تخمینی زیادہ سے زیادہ آئٹمز: %2$s</string>
-    <string name="debug_direct_suffix"> • براہ راست</string>
-    <string name="debug_role_server">سرور کے طور پر (ہم ہوسٹ کرتے ہیں)</string>
-    <string name="debug_role_client">کلائنٹ کے طور پر (ہم کنیکٹ کرتے ہیں)</string>
-
     <!-- آن بورڈنگ اسکرینز -->
     <string name="location_services_required">مقام کی خدمات ضروری</string>
     <string name="privacy_first">پرائیویسی پہلے</string>
@@ -266,7 +209,6 @@
     <string name="select">منتخب کریں</string>
     <string name="type_a_message_placeholder">پیغام لکھیں…</string>
     <string name="mention">ذکر</string>
-    <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">تصویر</string>
     <string name="media_type_file">فائل</string>
@@ -357,8 +299,4 @@
   <string name="nearby_notes_reveal">دیکھیں کہ یہاں نوٹ چھوڑے گئے ہیں یا نہیں</string>
   <string name="nearby_notes_one">یہاں 1 نوٹ چھوڑا گیا ہے — پڑھنے کے لیے تھپتھپائیں</string>
   <string name="nearby_notes_many">یہاں %d نوٹ چھوڑے گئے ہیں — پڑھنے کے لیے تھپتھپائیں</string>
-    <string name="about_language">زبان</string>
-    <string name="about_app_language">ایپ کی زبان</string>
-    <string name="about_system_default">سسٹم ڈیفالٹ</string>
-    <string name="about_select_language">زبان منتخب کریں</string>
 </resources>

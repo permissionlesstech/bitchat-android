@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
-
     <!-- Justificaciones de permisos -->
     <string name="permission_bluetooth_rationale">El permiso de Bluetooth es necesario para chatear directamente con otros sin internet.</string>
     <string name="permission_location_rationale">El permiso de ubicación es necesario para encontrar dispositivos cercanos a través de Bluetooth.</string>
@@ -74,38 +72,16 @@
     <string name="close_with_emoji">❌ Cerrar</string>
     <string name="pick_image">Elegir imagen</string>
 
-    <!-- Hoja Acerca de -->
-    <string name="about_offline_mesh_title">Chat mesh sin conexión</string>
-    <string name="about_offline_mesh_desc">Comunícate directamente a través de Bluetooth LE sin internet o servidores. Los mensajes se retransmiten a través de dispositivos cercanos para extender el alcance.</string>
-    <string name="about_online_geohash_title">Canales geohash en línea</string>
-    <string name="about_online_geohash_desc">Conéctate con personas cerca de ti a través de canales basados en geohash. Extiende la red mesh a través de repetidores de internet público.</string>
-    <string name="about_e2e_title">Cifrado de extremo a extremo</string>
-    <string name="about_e2e_desc">Los mensajes privados están cifrados. Los mensajes de canal son públicos.</string>
-    <string name="about_system">Sistema</string>
-    <string name="about_light">Claro</string>
-    <string name="about_dark">Oscuro</string>
-    <string name="about_pow">Prueba de trabajo</string>
     <string name="about_pow_off">PoW desactivado</string>
     <string name="about_pow_on">PoW activado</string>
-    <string name="about_pow_tip">Agregar prueba de trabajo a mensajes geohash para hacer el spam más difícil.</string>
     <string name="about_pow_difficulty">Dificultad: %1$d bits (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">Dificultad %1$d requiere ~%2$s intentos de hash</string>
-    <string name="about_pow_desc_none">no se requiere prueba de trabajo</string>
-    <string name="about_pow_desc_very_low">muy bajo – protección mínima contra spam</string>
-    <string name="about_pow_desc_low">bajo – protección básica contra spam</string>
-    <string name="about_pow_desc_medium">medio – buena protección contra spam</string>
-    <string name="about_pow_desc_high">alto – protección fuerte contra spam</string>
-    <string name="about_pow_desc_very_high">muy alto – puede causar retrasos</string>
-    <string name="about_pow_desc_extreme">extremo – requiere potencia computacional significativa</string>
     <string name="about_network">Red</string>
     <string name="about_tor_off">Tor desactivado</string>
     <string name="about_tor_on">Tor activado</string>
-    <string name="about_tor_route">Enrutar tráfico de internet a través de Tor para mayor privacidad.</string>
     <string name="about_tor_status">Estado de Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Último: %1$s</string>
     <string name="about_emergency_title">Borrado de datos de emergencia</string>
-    <string name="about_debug_settings">Configuraciones de depuración</string>
-    <string name="about_footer">Código abierto • Privacidad primero • Descentralizado</string>
     <string name="cancel_lower">cancelar</string>
 
     <!-- Descripciones de contenido generales -->
@@ -153,8 +129,6 @@
     <string name="toast_failed_to_save_image">No se pudo guardar la imagen</string>
     <string name="pick_file">Elegir archivo</string>
     <string name="file_unavailable">[Archivo no disponible]</string>
-    <string name="unknown">desconocido</string>
-
     <!-- Hoja de acciones de usuario -->
     <string name="choose_action_message_or_user">Elegir acción para este mensaje o usuario</string>
     <string name="choose_action_user">Elegir acción para este usuario</string>
@@ -190,40 +164,9 @@
     <string name="location_level_region">Región</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <!-- Debug / Diagnóstico -->
-    <string name="debug_tools">Herramientas de depuración</string>
-    <string name="debug_tools_desc">Herramientas de desarrollador para diagnóstico y control</string>
-    <string name="debug_verbose_logging">registro detallado</string>
-    <string name="debug_verbose_hint">Registra uniones/salidas de pares, dirección de conexión, retransmisión de paquetes y repetidores</string>
-    <string name="debug_bluetooth_roles">Roles de Bluetooth</string>
-    <string name="debug_gatt_server">Servidor GATT</string>
-    <string name="debug_connections_fmt">Conexiones: %1$d / %2$d</string>
-    <string name="debug_max_server">máx. servidor</string>
-    <string name="debug_gatt_client">Cliente GATT</string>
-    <string name="debug_max_client">máx. cliente</string>
-    <string name="debug_overall_connections_fmt">Conexiones: %1$d / %2$d</string>
-    <string name="debug_max_overall">máx. general</string>
-    <string name="debug_packet_relay">Retransmisión de paquetes</string>
     <string name="debug_since_start_fmt">desde inicio: %1$d</string>
-    <string name="debug_roles_hint">Alternar roles activado/desactivado y cerrar todas las conexiones al desactivar</string>
     <string name="debug_sync_settings">Configuraciones de sincronización</string>
-    <string name="debug_max_packets_per_sync_fmt">máx. paquetes por sincronización: %1$d</string>
-    <string name="debug_max_gcs_filter_size_fmt">máx. tamaño del filtro GCS: %1$d bytes (128–1024)</string>
-    <string name="debug_target_fpr_fmt">FPR objetivo: %1$.2f%%</string>
-    <string name="debug_connected_devices">dispositivos conectados</string>
-    <string name="debug_our_device_id_fmt">nuestro ID de dispositivo: %1$s</string>
-    <string name="debug_none">ninguno</string>
-    <string name="debug_disconnect">desconectar</string>
-    <string name="debug_recent_scan_results">dispositivos escaneados recientemente</string>
-    <string name="debug_connect">conectar</string>
-    <string name="debug_debug_console">Consola de depuración</string>
-    <string name="debug_clear">limpiar</string>
     <string name="debug_relays_window_fmt">últimos 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
-    <string name="debug_derived_p_fmt">P derivado: %1$s • máx. elementos estimados: %2$s</string>
-    <string name="debug_direct_suffix"> • directo</string>
-    <string name="debug_role_server">como servidor (nosotros hospedamos)</string>
-    <string name="debug_role_client">como cliente (nosotros conectamos)</string>
-
     <!-- Pantallas de incorporación -->
     <string name="location_services_required">Servicios de ubicación requeridos</string>
     <string name="privacy_first">Privacidad primero</string>
@@ -266,7 +209,6 @@
     <string name="select">seleccionar</string>
     <string name="type_a_message_placeholder">Escribe un mensaje…</string>
     <string name="mention">mencionar</string>
-    <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Imagen</string>
     <string name="media_type_file">Archivo</string>
@@ -357,8 +299,4 @@
   <string name="nearby_notes_reveal">buscar notas dejadas aquí</string>
   <string name="nearby_notes_one">1 nota dejada aquí — toca para leer</string>
   <string name="nearby_notes_many">%d notas dejadas aquí — toca para leer</string>
-    <string name="about_language">Idioma</string>
-    <string name="about_app_language">Idioma de la app</string>
-    <string name="about_system_default">Predeterminado del sistema</string>
-    <string name="about_select_language">Seleccionar idioma</string>
 </resources>

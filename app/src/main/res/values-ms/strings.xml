@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Machine-translated (Claude) — pending native-speaker review -->
-    <string name="app_name">bitchat</string>
     <string name="permission_bluetooth_rationale">Kebenaran Bluetooth diperlukan untuk pemesejan rakan-ke-rakan tanpa internet.</string>
     <string name="permission_location_rationale">Kebenaran lokasi diperlukan untuk mengesan peranti berdekatan melalui Bluetooth.</string>
     <string name="permission_notification_rationale">Kebenaran pemberitahuan diperlukan untuk memaklumkan anda tentang mesej baharu.</string>
@@ -82,39 +80,16 @@
   <string name="cd_image_index_of">Imej %1$d daripada %2$d</string>
   <string name="cd_pick_file">Pilih fail</string>
 
-  <!-- About sheet -->
-  <string name="about_tagline">pemesejan mesh terdesentralisasi dengan penyulitan hujung-ke-hujung</string>
-  <string name="about_offline_mesh_title">Sembang Mesh Luar Talian</string>
-  <string name="about_offline_mesh_desc">Berkomunikasi terus melalui Bluetooth LE tanpa internet atau pelayan. Mesej digeganti melalui peranti berdekatan untuk melanjutkan jarak.</string>
-  <string name="about_online_geohash_title">Saluran Geohash Dalam Talian</string>
-  <string name="about_online_geohash_desc">Berhubung dengan orang di kawasan anda menggunakan saluran berasaskan geohash. Melanjutkan mesh menggunakan geganti internet awam.</string>
-  <string name="about_e2e_title">Penyulitan Hujung-ke-Hujung</string>
-  <string name="about_e2e_desc">Mesej peribadi disulitkan. Mesej saluran adalah awam.</string>
-  <string name="about_system">sistem</string>
-  <string name="about_light">cerah</string>
-  <string name="about_dark">gelap</string>
-  <string name="about_pow">bukti kerja</string>
   <string name="about_pow_off">pow dimatikan</string>
   <string name="about_pow_on">pow dihidupkan</string>
-  <string name="about_pow_tip">tambah bukti kerja pada mesej geohash untuk mengelakkan spam.</string>
   <string name="about_pow_difficulty">tahap kesukaran: %1$d bit (~%2$s)</string>
   <string name="about_pow_difficulty_attempts">kesukaran %1$d memerlukan ~%2$s percubaan hash</string>
-  <string name="about_pow_desc_none">tiada bukti kerja diperlukan</string>
-  <string name="about_pow_desc_very_low">sangat rendah - perlindungan spam minimum</string>
-  <string name="about_pow_desc_low">rendah - perlindungan spam asas</string>
-  <string name="about_pow_desc_medium">sederhana - perlindungan spam yang baik</string>
-  <string name="about_pow_desc_high">tinggi - perlindungan spam yang kuat</string>
-  <string name="about_pow_desc_very_high">sangat tinggi - mungkin menyebabkan kelewatan</string>
-  <string name="about_pow_desc_extreme">melampau - pengiraan besar diperlukan</string>
   <string name="about_network">rangkaian</string>
   <string name="about_tor_off">tor dimatikan</string>
   <string name="about_tor_on">tor dihidupkan</string>
-  <string name="about_tor_route">laluan internet melalui tor untuk privasi yang lebih baik.</string>
   <string name="about_tor_status">Status tor: %1$s, but-mula %2$d%%</string>
   <string name="about_last">Terakhir: %1$s</string>
   <string name="about_emergency_title">Pemadaman Data Kecemasan</string>
-  <string name="about_debug_settings">Tetapan Nyahpepijat</string>
-  <string name="about_footer">Sumber Terbuka • Privasi Diutamakan • Terdesentralisasi</string>
   <string name="cd_privacy_protected">Privasi Dilindungi</string>
   <string name="cancel_lower">batal</string>
 
@@ -133,8 +108,6 @@
   <string name="cd_remove_bookmark">Alih keluar penanda buku</string>
   <string name="cd_teleport">Teleport</string>
   <string name="notification_action_quit_bitchat">Keluar bitchat</string>
-  <string name="about_background_title">jalankan di latar belakang</string>
-  <string name="about_background_desc">kekalkan mesh aktif apabila apl ditutup (perkhidmatan latar depan)</string>
   <string name="cd_leave_channel">Keluar saluran</string>
   <string name="cd_reachable_via_nostr">Boleh dihubungi melalui Nostr</string>
   <string name="cd_offline_favorite">Kegemaran luar talian</string>
@@ -159,8 +132,6 @@
   <string name="image_save_failed">Gagal menyimpan imej</string>
   <string name="pick_file">Pilih fail</string>
   <string name="file_unavailable">[fail tidak tersedia]</string>
-  <string name="unknown">tidak diketahui</string>
-
   <!-- Chat user sheet actions -->
   <string name="choose_action_message_or_user">pilih tindakan untuk mesej atau pengguna ini</string>
   <string name="choose_action_user">pilih tindakan untuk pengguna ini</string>
@@ -212,32 +183,8 @@
   <string name="dismiss">tolak</string>
   <string name="location_notes_input_placeholder">tambah nota untuk tempat ini</string>
 
-  <!-- Debug / Diagnostics -->
-  <string name="debug_tools">alat nyahpepijat</string>
-  <string name="debug_tools_desc">utiliti pembangun untuk diagnostik dan kawalan</string>
-  <string name="debug_verbose_logging">log terperinci</string>
-  <string name="debug_verbose_hint">merekod penyertaan/pemergian rakan, arah sambungan, penghalaan paket dan geganti</string>
-  <string name="debug_bluetooth_roles">peranan bluetooth</string>
-  <string name="debug_gatt_server">pelayan gatt</string>
-  <string name="debug_connections_fmt">sambungan: %1$d / %2$d</string>
-  <string name="debug_max_server">maksimum pelayan</string>
-  <string name="debug_gatt_client">klien gatt</string>
-  <string name="debug_max_client">maksimum klien</string>
-  <string name="debug_overall_connections_fmt">sambungan: %1$d / %2$d</string>
-  <string name="debug_max_overall">maksimum keseluruhan</string>
-  <string name="debug_packet_relay">geganti paket</string>
   <string name="debug_since_start_fmt">sejak permulaan: %1$d</string>
-  <string name="debug_roles_hint">hidup/matikan peranan dan tutup semua sambungan apabila dilumpuhkan</string>
   <string name="debug_sync_settings">tetapan penyegerakan</string>
-  <string name="debug_max_packets_per_sync_fmt">maksimum paket setiap penyegerakan: %1$d</string>
-  <string name="debug_max_gcs_filter_size_fmt">saiz penapis GCS maksimum: %1$d bait (128–1024)</string>
-  <string name="debug_target_fpr_fmt">FPR sasaran: %1$.2f%%</string>
-  <string name="debug_connected_devices">peranti disambungkan</string>
-  <string name="debug_our_device_id_fmt">id peranti kami: %1$s</string>
-  <string name="debug_none">tiada</string>
-  <string name="debug_disconnect">putuskan sambungan</string>
-  <string name="debug_recent_scan_results">keputusan imbasan terkini</string>
-
   <string name="verify_title">sahkan</string>
   <string name="verify_my_qr_title">imbas untuk sahkan saya</string>
   <string name="verify_scan_prompt_friend">imbas kod qr orang lain</string>
@@ -267,17 +214,7 @@
   <string name="fingerprint_copy">salin</string>
 
 
-  <string name="debug_connect">sambung</string>
-  <string name="debug_debug_console">konsol nyahpepijat</string>
-  <string name="debug_clear">kosongkan</string>
   <string name="debug_relays_window_fmt">10s lepas: %1$d • 1m: %2$d • 15m: %3$d</string>
-  <string name="debug_derived_p_fmt">P terbitan: %1$s • anggaran unsur maks: %2$s</string>
-  <string name="debug_direct_suffix"> • terus</string>
-  <string name="debug_rssi_fmt">RSSI: %1$s</string>
-  <string name="debug_question_mark">?</string>
-  <string name="debug_role_server">sebagai pelayan (kami hos)</string>
-  <string name="debug_role_client">sebagai klien (kami sambung)</string>
-
   <!-- Onboarding screens -->
   <string name="location_services_required">Perkhidmatan Lokasi Diperlukan</string>
   <string name="privacy_first">Privasi Diutamakan</string>
@@ -337,7 +274,6 @@
   <string name="mention">sebutan</string>
   <string name="image_counter">%1$d / %2$d</string>
   <string name="at_nickname">@%1$s</string>
-  <string name="version_prefix">v%1$s</string>
   <string name="hash_symbol">#</string>
   <string name="underscore">_</string>
   <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
@@ -390,8 +326,6 @@
   <string name="pwd_prompt_message">Saluran %1$s dilindungi kata laluan. Masukkan kata laluan untuk menyertai.</string>
   <string name="pwd_label">Kata Laluan</string>
   <string name="join">Sertai</string>
-    <string name="tor_not_available_in_this_build">Tor tidak tersedia dalam binaan ini</string>
-
     <!-- Plurals -->
 
   <plurals name="people_count">
@@ -399,8 +333,4 @@
   </plurals>
 
     <string name="bluetooth_recommended">Bluetooth Disyorkan</string>
-    <string name="about_language">Bahasa</string>
-    <string name="about_app_language">Bahasa aplikasi</string>
-    <string name="about_system_default">Lalai sistem</string>
-    <string name="about_select_language">Pilih bahasa</string>
 </resources>

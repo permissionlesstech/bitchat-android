@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Info-sheet -->
+    <string name="about_offline_mesh_title">Offline meshchat</string>
+    <string name="about_offline_mesh_desc">Communiceer rechtstreeks via Bluetooth LE zonder internet of servers. Berichten worden doorgestuurd via apparaten in de buurt om het bereik te vergroten.</string>
+    <string name="about_online_geohash_title">Online geohash-kanalen</string>
+    <string name="about_online_geohash_desc">Maak contact met mensen in uw omgeving met geohash-gebaseerde kanalen. Breid het mesh uit met openbare internetrelays.</string>
+    <string name="about_e2e_title">End-to-end-versleuteling</string>
+    <string name="about_e2e_desc">Privéberichten zijn versleuteld. Kanaalberichten zijn openbaar.</string>
+    <string name="about_system">systeem</string>
+    <string name="about_light">licht</string>
+    <string name="about_dark">donker</string>
+    <string name="about_pow">proof of work</string>
+    <string name="about_pow_tip">voeg proof of work toe aan geohash-berichten voor spamafschrikking.</string>
+    <string name="about_pow_desc_none">geen proof of work vereist</string>
+    <string name="about_pow_desc_very_low">zeer laag - minimale spambescherming</string>
+    <string name="about_pow_desc_low">laag - basis spambescherming</string>
+    <string name="about_pow_desc_medium">gemiddeld - goede spambescherming</string>
+    <string name="about_pow_desc_high">hoog - sterke spambescherming</string>
+    <string name="about_pow_desc_very_high">zeer hoog - kan vertragingen veroorzaken</string>
+    <string name="about_pow_desc_extreme">extreem - aanzienlijke berekening vereist</string>
+    <string name="about_tor_route">route internet via Tor voor verbeterde privacy.</string>
+    <string name="about_debug_settings">Debug-instellingen</string>
+    <string name="about_footer">Open Source • Privacy First • Gedecentraliseerd</string>
+    <string name="unknown">onbekend</string>
+
+    <!-- Debug / Diagnostiek -->
+    <string name="debug_tools">debug-tools</string>
+    <string name="debug_tools_desc">ontwikkelaarsgereedschap voor diagnostiek en controle</string>
+    <string name="debug_verbose_logging">uitgebreide logging</string>
+    <string name="debug_verbose_hint">logt peer deelnames/vertrek, verbindingsrichting, pakketrouting en relays</string>
+    <string name="debug_bluetooth_roles">Bluetooth-rollen</string>
+    <string name="debug_gatt_server">GATT-server</string>
+    <string name="debug_connections_fmt">verbindingen: %1$d / %2$d</string>
+    <string name="debug_max_server">max server</string>
+    <string name="debug_gatt_client">GATT-client</string>
+    <string name="debug_max_client">max client</string>
+    <string name="debug_overall_connections_fmt">verbindingen: %1$d / %2$d</string>
+    <string name="debug_max_overall">max totaal</string>
+    <string name="debug_packet_relay">pakketrelay</string>
+    <string name="debug_roles_hint">schakel rollen in/uit en sluit alle verbindingen bij uitschakelen</string>
+    <string name="debug_max_packets_per_sync_fmt">max pakketten per sync: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">max GCS-filtergrootte: %1$d bytes (128–1024)</string>
+    <string name="debug_target_fpr_fmt">doel-FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">verbonden apparaten</string>
+    <string name="debug_our_device_id_fmt">ons apparaat-ID: %1$s</string>
+    <string name="debug_none">geen</string>
+    <string name="debug_disconnect">verbreken</string>
+    <string name="debug_recent_scan_results">recente scanresultaten</string>
+    <string name="debug_connect">verbinden</string>
+    <string name="debug_debug_console">debug-console</string>
+    <string name="debug_clear">wissen</string>
+    <string name="debug_derived_p_fmt">afgeleide P: %1$s • gesch. max elementen: %2$s</string>
+    <string name="debug_direct_suffix"> • direct</string>
+    <string name="debug_role_server">als server (wij hosten)</string>
+    <string name="debug_role_client">als client (wij verbinden)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="debug_question_mark">?</string>
+
+    <string name="about_language">Taal</string>
+    <string name="about_app_language">App-taal</string>
+    <string name="about_system_default">Systeemstandaard</string>
+    <string name="about_select_language">Taal selecteren</string>
+</resources>

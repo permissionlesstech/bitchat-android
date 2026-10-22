@@ -19,15 +19,6 @@ data object OnboardingRoute : NavKey
 data object ChatRoute : NavKey
 
 /**
- * About, hosted as a destination rather than as a sheet.
- *
- * It has internal tabs and stacks Debug on top of itself, which is what makes
- * it a route rather than a bottom-sheet scene.
- */
-@Serializable
-data object AboutRoute : NavKey
-
-/**
  * Location notes, a full-screen destination.
  *
  * No argument: the notes belong to the building the device is in, which the
@@ -64,13 +55,6 @@ data class VerificationRoute(val peerID: String?) : NavKey
  */
 @Serializable
 data object LocationChannelsRoute : NavKey
-
-/**
- * Debug settings, a full-screen destination pushed on top of About, whose
- * Settings tab is its only entry point.
- */
-@Serializable
-data object DebugSettingsRoute : NavKey
 
 /**
  * The network view: conversations, channels and nearby people, a full-screen

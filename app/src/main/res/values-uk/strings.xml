@@ -33,8 +33,6 @@
   <string name="fingerprint_start_handshake">почати рукостискання</string>
   <string name="fingerprint_copy">копіювати</string>
 
-    <!-- Newly translated strings -->
-    <string name="app_name">bitchat</string>
     <string name="permission_bluetooth_rationale">Дозвіл на використання Bluetooth потрібен для обміну повідомленнями напряму, без інтернету.</string>
     <string name="permission_location_rationale">Дозвіл на геолокацію потрібен для виявлення пристроїв поруч через Bluetooth.</string>
     <string name="permission_notification_rationale">Дозвіл на сповіщення потрібен, щоб повідомляти вас про нові повідомлення.</string>
@@ -100,38 +98,16 @@
     <string name="toast_failed_to_save_image">Не вдалося зберегти зображення</string>
     <string name="cd_image_index_of">Зображення %1$d з %2$d</string>
     <string name="cd_pick_file">Вибрати файл</string>
-    <string name="about_tagline">децентралізований mesh-обмін повідомленнями з наскрізним шифруванням</string>
-    <string name="about_offline_mesh_title">Офлайн Mesh-чат</string>
-    <string name="about_offline_mesh_desc">Спілкуйтеся напряму через Bluetooth LE без інтернету чи серверів. Повідомлення передаються через пристрої поруч, щоб розширити радіус дії.</string>
-    <string name="about_online_geohash_title">Онлайн-канали за геохешем</string>
-    <string name="about_online_geohash_desc">Спілкуйтеся з людьми у вашому районі за допомогою каналів на основі геохешу. Розширюйте mesh-мережу за допомогою публічних інтернет-ретрансляторів.</string>
-    <string name="about_e2e_title">Наскрізне шифрування</string>
-    <string name="about_e2e_desc">Приватні повідомлення шифруються. Повідомлення в каналах є публічними.</string>
-    <string name="about_system">системний</string>
-    <string name="about_light">світлий</string>
-    <string name="about_dark">темний</string>
-    <string name="about_pow">підтвердження роботи</string>
     <string name="about_pow_off">pow вимкнено</string>
     <string name="about_pow_on">pow увімкнено</string>
-    <string name="about_pow_tip">додає підтвердження роботи до повідомлень геохешу для захисту від спаму.</string>
     <string name="about_pow_difficulty">складність: %1$d бітів (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">складність %1$d вимагає ~%2$s спроб хешування</string>
-    <string name="about_pow_desc_none">підтвердження роботи не потрібне</string>
-    <string name="about_pow_desc_very_low">дуже низька - мінімальний захист від спаму</string>
-    <string name="about_pow_desc_low">низька - базовий захист від спаму</string>
-    <string name="about_pow_desc_medium">середня - хороший захист від спаму</string>
-    <string name="about_pow_desc_high">висока - надійний захист від спаму</string>
-    <string name="about_pow_desc_very_high">дуже висока - можливі затримки</string>
-    <string name="about_pow_desc_extreme">екстремальна - потрібні значні обчислення</string>
     <string name="about_network">мережа</string>
     <string name="about_tor_off">tor вимкнено</string>
     <string name="about_tor_on">tor увімкнено</string>
-    <string name="about_tor_route">маршрутизувати інтернет через tor для посиленої приватності.</string>
     <string name="about_tor_status">статус tor: %1$s, завантаження %2$d%%</string>
     <string name="about_last">Востаннє: %1$s</string>
     <string name="about_emergency_title">Екстрене видалення даних</string>
-    <string name="about_debug_settings">Налаштування для розробників</string>
-    <string name="about_footer">Відкритий код • Приватність понад усе • Децентралізовано</string>
     <string name="cd_privacy_protected">Приватність захищено</string>
     <string name="cancel_lower">скасувати</string>
     <string name="cd_warning">Попередження</string>
@@ -148,8 +124,6 @@
     <string name="cd_remove_bookmark">Прибрати закладку</string>
     <string name="cd_teleport">Телепортуватися</string>
     <string name="notification_action_quit_bitchat">Закрити bitchat</string>
-    <string name="about_background_title">працювати у фоновому режимі</string>
-    <string name="about_background_desc">підтримувати mesh активним, коли додаток закрито (фонова служба)</string>
     <string name="cd_leave_channel">Вийти з каналу</string>
     <string name="cd_reachable_via_nostr">Доступний через Nostr</string>
     <string name="cd_offline_favorite">Офлайн обране</string>
@@ -173,7 +147,6 @@
     <string name="image_save_failed">Не вдалося зберегти зображення</string>
     <string name="pick_file">Вибрати файл</string>
     <string name="file_unavailable">[файл недоступний]</string>
-    <string name="unknown">невідомо</string>
     <string name="choose_action_message_or_user">виберіть дію для цього повідомлення або користувача</string>
     <string name="choose_action_user">виберіть дію для цього користувача</string>
     <string name="action_copy_message_title">скопіювати повідомлення</string>
@@ -214,40 +187,9 @@
     <string name="location_notes_empty_desc">будьте першим, хто додасть нотатку для цього місця.</string>
     <string name="dismiss">закрити</string>
     <string name="location_notes_input_placeholder">додати нотатку для цього місця</string>
-    <string name="debug_tools">інструменти розробника</string>
-    <string name="debug_tools_desc">утиліти розробника для діагностики та контролю</string>
-    <string name="debug_verbose_logging">детальне логування</string>
-    <string name="debug_verbose_hint">логує приєднання/вихід пірів, напрямок з’єднання, маршрутизацію та ретрансляцію пакетів</string>
-    <string name="debug_bluetooth_roles">ролі bluetooth</string>
-    <string name="debug_gatt_server">gatt-сервер</string>
-    <string name="debug_connections_fmt">з’єднання: %1$d / %2$d</string>
-    <string name="debug_max_server">макс. сервер</string>
-    <string name="debug_gatt_client">gatt-клієнт</string>
-    <string name="debug_max_client">макс. клієнт</string>
-    <string name="debug_overall_connections_fmt">з’єднання: %1$d / %2$d</string>
-    <string name="debug_max_overall">макс. загалом</string>
-    <string name="debug_packet_relay">ретрансляція пакетів</string>
     <string name="debug_since_start_fmt">з початку: %1$d</string>
-    <string name="debug_roles_hint">вмикайте/вимикайте ролі та закривайте всі з’єднання, коли вимкнено</string>
     <string name="debug_sync_settings">налаштування синхронізації</string>
-    <string name="debug_max_packets_per_sync_fmt">макс. пакетів на синхронізацію: %1$d</string>
-    <string name="debug_max_gcs_filter_size_fmt">макс. розмір GCS-фільтра: %1$d байт (128–1024)</string>
-    <string name="debug_target_fpr_fmt">цільовий FPR: %1$.2f%%</string>
-    <string name="debug_connected_devices">підключені пристрої</string>
-    <string name="debug_our_device_id_fmt">id нашого пристрою: %1$s</string>
-    <string name="debug_none">немає</string>
-    <string name="debug_disconnect">від’єднати</string>
-    <string name="debug_recent_scan_results">останні результати сканування</string>
-    <string name="debug_connect">підключити</string>
-    <string name="debug_debug_console">консоль налагодження</string>
-    <string name="debug_clear">очистити</string>
     <string name="debug_relays_window_fmt">останні 10с: %1$d • 1хв: %2$d • 15хв: %3$d</string>
-    <string name="debug_derived_p_fmt">обчислене P: %1$s • оцінка макс. елементів: %2$s</string>
-    <string name="debug_direct_suffix"> • напряму</string>
-    <string name="debug_rssi_fmt">RSSI: %1$s</string>
-    <string name="debug_question_mark">?</string>
-    <string name="debug_role_server">як сервер (ми хостимо)</string>
-    <string name="debug_role_client">як клієнт (ми підключаємось)</string>
     <string name="location_services_required">Потрібні служби геолокації</string>
     <string name="privacy_first">Приватність понад усе</string>
     <string name="location_explanation">bitchat НЕ відстежує вашу локацію.\n\nСлужби геолокації потрібні для сканування Bluetooth та для функції геочатів.</string>
@@ -306,7 +248,6 @@
     <string name="mention">згадка</string>
     <string name="image_counter">%1$d / %2$d</string>
     <string name="at_nickname">@%1$s</string>
-    <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
     <string name="underscore">_</string>
     <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
@@ -347,8 +288,6 @@
     <string name="pwd_prompt_message">Канал %1$s захищений паролем. Введіть пароль, щоб приєднатися.</string>
     <string name="pwd_label">Пароль</string>
     <string name="join">Приєднатися</string>
-    <string name="tor_not_available_in_this_build">Tor недоступний у цій збірці</string>
-
     <plurals name="location_notes_title">
         <item quantity="one">#%1$s ± 1 • %2$d нотатка</item>
         <item quantity="few">#%1$s ± 1 • %2$d нотатки</item>
@@ -363,8 +302,4 @@
         <item quantity="many">%1$d людей</item>
         <item quantity="other">%1$d людини</item>
     </plurals>
-    <string name="about_language">Мова</string>
-    <string name="about_app_language">Мова застосунку</string>
-    <string name="about_system_default">Системна мова</string>
-    <string name="about_select_language">Вибрати мову</string>
 </resources>

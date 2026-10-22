@@ -5,7 +5,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,11 +18,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
@@ -42,7 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BitchatFontFamily
-import com.bitchat.android.R
+import com.bitchat.android.feature.settings.R
 import com.bitchat.android.core.ui.icon.BitChatIcon
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
@@ -54,118 +50,12 @@ import com.bitchat.android.ui.theme.LocalBitchatPalette
  * preferences, whereas these are pure presentation.
  */
 
-/** Horizontal inset shared by every About section, so cards and labels align to one grid. */
-internal val AboutHorizontalPadding = 20.dp
-
-/** Card corner radius for grouped rows. */
-internal val AboutCardShape = RoundedCornerShape(16.dp)
-
-/** Leading icon column in settings-style sheet rows. */
-internal val SheetRowLeadingSlot = 22.dp
-internal val SheetRowLeadingGutter = 16.dp
-internal val SheetRowHorizontal = 16.dp
-internal val SheetRowVertical = 13.dp
-
-/**
- * Exact height of a people-list row.
- *
- * Fixed rather than derived from content: these lists reorder themselves constantly, and a row
- * whose height depends on its content makes the whole card change height every time the order
- * changes. Equals the leading glyph plus [SheetRowVertical] above and below.
- */
-internal val SheetRowHeight = SheetRowLeadingSlot + SheetRowVertical * 2
-internal val SheetRowDividerInset = SheetRowHorizontal + SheetRowLeadingSlot + SheetRowLeadingGutter
-/** Selection indicator sized for [SheetRowLeadingSlot]. */
-internal val SheetRowSelectedDot = 12.dp
-
 /**
  * Two top-level views of the sheet: what the app is and how to drive it, versus the knobs.
  */
 enum class AboutTab {
     Info,
     Settings,
-}
-
-/**
- * Small uppercase section label, e.g. `SETTINGS`.
- *
- * Uppercasing happens here rather than in the string resource so translators supply natural
- * sentence case and locales without a case distinction are unaffected.
- */
-@Composable
-internal fun AboutSectionLabel(
-    text: String,
-    modifier: Modifier = Modifier
-) {
-    val palette = LocalBitchatPalette.current
-    Text(
-        text = text.uppercase(),
-        fontFamily = BitchatFontFamily,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0.8.sp,
-        color = palette.textTertiary,
-        modifier = modifier.padding(start = AboutHorizontalPadding, top = 24.dp, bottom = 8.dp)
-    )
-}
-
-/**
- * Icon + title on one line, optional short subtitle beneath. Used by location / network sheets.
- */
-@Composable
-internal fun SheetIconSectionHeader(
-    @DrawableRes iconRes: Int,
-    title: String,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier
-) {
-    val colorScheme = MaterialTheme.colorScheme
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = AboutHorizontalPadding),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = null,
-                tint = colorScheme.primary,
-                modifier = Modifier.size(22.dp)
-            )
-            Text(
-                text = title,
-                fontSize = 17.sp,
-                fontFamily = BitchatFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                color = colorScheme.primary
-            )
-        }
-        if (!subtitle.isNullOrBlank()) {
-            Text(
-                text = subtitle,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-                fontFamily = BitchatFontFamily,
-                color = colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-/** Inset divider used inside grouped sheet cards (aligns with text column after the leading slot). */
-@Composable
-internal fun SheetCardDivider() {
-    val colorScheme = MaterialTheme.colorScheme
-    HorizontalDivider(
-        modifier = Modifier.padding(start = SheetRowDividerInset),
-        thickness = 1.dp,
-        color = colorScheme.outlineVariant
-    )
 }
 
 /**
@@ -480,125 +370,6 @@ private fun AboutFeatureRow(
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
                 color = colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-/**
- * Small uppercase pill, e.g. the `RECOMMENDED` badge beside the Tor routing toggle.
- */
-@Composable
-internal fun BitchatBadge(
-    text: String,
-    modifier: Modifier = Modifier
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    Box(
-        modifier = modifier
-            .background(colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 5.dp, vertical = 2.dp)
-    ) {
-        Text(
-            text = text.uppercase(),
-            fontFamily = BitchatFontFamily,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.5.sp,
-            color = colorScheme.primary
-        )
-    }
-}
-
-// MARK: - Shared bottom-sheet primitives
-
-/** Horizontal inset for sheet content. Cards inset from here; labels align to the same edge. */
-internal val SheetHorizontalPadding = 16.dp
-
-/**
- * Section divider label used across the sheets, e.g. `BOOKMARKED`, `NEARBY`, `ON LOCATION`.
- */
-@Composable
-internal fun SheetSectionLabel(
-    text: String,
-    modifier: Modifier = Modifier
-) {
-    val palette = LocalBitchatPalette.current
-    Text(
-        text = text.uppercase(),
-        fontFamily = BitchatFontFamily,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0.8.sp,
-        color = palette.textTertiary,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(
-                start = SheetHorizontalPadding + 14.dp,
-                end = SheetHorizontalPadding,
-                top = 20.dp,
-                bottom = 6.dp
-            )
-    )
-}
-
-/**
- * Circular tinted badge holding a section's icon, used at the top of the sheets.
- */
-@Composable
-internal fun SheetHeaderBadge(
-    icon: ImageVector,
-    modifier: Modifier = Modifier
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    Box(
-        modifier = modifier
-            .size(44.dp)
-            .background(colorScheme.surface, androidx.compose.foundation.shape.CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = colorScheme.primary,
-            modifier = Modifier.size(26.dp)
-        )
-    }
-}
-
-/**
- * Full-width destructive action, e.g. `REMOVE LOCATION ACCESS`.
- *
- * Tinted fill plus an outline rather than a solid red button: the action is legitimate but
- * rarely wanted, and a solid red block would dominate the sheet.
- */
-@Composable
-internal fun SheetDestructiveButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    isDestructive: Boolean = true
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val accent = if (isDestructive) colorScheme.error else colorScheme.primary
-
-    Surface(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(44.dp),
-        shape = RoundedCornerShape(10.dp),
-        color = accent.copy(alpha = 0.10f),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.30f))
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = text.uppercase(),
-                fontFamily = BitchatFontFamily,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.8.sp,
-                color = accent
             )
         }
     }

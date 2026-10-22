@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
-
     <!-- Toestemmingsredenen -->
     <string name="permission_bluetooth_rationale">Bluetooth-toestemming is vereist voor peer-to-peer berichten zonder internet.</string>
     <string name="permission_location_rationale">Locatietoestemming is vereist om apparaten in de buurt via Bluetooth te ontdekken.</string>
@@ -74,38 +72,16 @@
     <string name="close_with_emoji">❌ Sluiten</string>
     <string name="pick_image">Afbeelding kiezen</string>
 
-    <!-- Info-sheet -->
-    <string name="about_offline_mesh_title">Offline meshchat</string>
-    <string name="about_offline_mesh_desc">Communiceer rechtstreeks via Bluetooth LE zonder internet of servers. Berichten worden doorgestuurd via apparaten in de buurt om het bereik te vergroten.</string>
-    <string name="about_online_geohash_title">Online geohash-kanalen</string>
-    <string name="about_online_geohash_desc">Maak contact met mensen in uw omgeving met geohash-gebaseerde kanalen. Breid het mesh uit met openbare internetrelays.</string>
-    <string name="about_e2e_title">End-to-end-versleuteling</string>
-    <string name="about_e2e_desc">Privéberichten zijn versleuteld. Kanaalberichten zijn openbaar.</string>
-    <string name="about_system">systeem</string>
-    <string name="about_light">licht</string>
-    <string name="about_dark">donker</string>
-    <string name="about_pow">proof of work</string>
     <string name="about_pow_off">PoW uit</string>
     <string name="about_pow_on">PoW aan</string>
-    <string name="about_pow_tip">voeg proof of work toe aan geohash-berichten voor spamafschrikking.</string>
     <string name="about_pow_difficulty">moeilijkheidsgraad: %1$d bits (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">moeilijkheidsgraad %1$d vereist ~%2$s hash-pogingen</string>
-    <string name="about_pow_desc_none">geen proof of work vereist</string>
-    <string name="about_pow_desc_very_low">zeer laag - minimale spambescherming</string>
-    <string name="about_pow_desc_low">laag - basis spambescherming</string>
-    <string name="about_pow_desc_medium">gemiddeld - goede spambescherming</string>
-    <string name="about_pow_desc_high">hoog - sterke spambescherming</string>
-    <string name="about_pow_desc_very_high">zeer hoog - kan vertragingen veroorzaken</string>
-    <string name="about_pow_desc_extreme">extreem - aanzienlijke berekening vereist</string>
     <string name="about_network">netwerk</string>
     <string name="about_tor_off">Tor uit</string>
     <string name="about_tor_on">Tor aan</string>
-    <string name="about_tor_route">route internet via Tor voor verbeterde privacy.</string>
     <string name="about_tor_status">Tor-status: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Laatste: %1$s</string>
     <string name="about_emergency_title">Noodgegevensverwijdering</string>
-    <string name="about_debug_settings">Debug-instellingen</string>
-    <string name="about_footer">Open Source • Privacy First • Gedecentraliseerd</string>
     <string name="cancel_lower">annuleren</string>
 
     <!-- Algemene content-beschrijvingen -->
@@ -153,8 +129,6 @@
     <string name="toast_failed_to_save_image">Opslaan afbeelding mislukt</string>
     <string name="pick_file">Bestand kiezen</string>
     <string name="file_unavailable">[bestand niet beschikbaar]</string>
-    <string name="unknown">onbekend</string>
-
     <!-- Gebruikersactie-sheet -->
     <string name="choose_action_message_or_user">kies een actie voor dit bericht of deze gebruiker</string>
     <string name="choose_action_user">kies een actie voor deze gebruiker</string>
@@ -190,40 +164,9 @@
     <string name="location_level_region">regio</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <!-- Debug / Diagnostiek -->
-    <string name="debug_tools">debug-tools</string>
-    <string name="debug_tools_desc">ontwikkelaarsgereedschap voor diagnostiek en controle</string>
-    <string name="debug_verbose_logging">uitgebreide logging</string>
-    <string name="debug_verbose_hint">logt peer deelnames/vertrek, verbindingsrichting, pakketrouting en relays</string>
-    <string name="debug_bluetooth_roles">Bluetooth-rollen</string>
-    <string name="debug_gatt_server">GATT-server</string>
-    <string name="debug_connections_fmt">verbindingen: %1$d / %2$d</string>
-    <string name="debug_max_server">max server</string>
-    <string name="debug_gatt_client">GATT-client</string>
-    <string name="debug_max_client">max client</string>
-    <string name="debug_overall_connections_fmt">verbindingen: %1$d / %2$d</string>
-    <string name="debug_max_overall">max totaal</string>
-    <string name="debug_packet_relay">pakketrelay</string>
     <string name="debug_since_start_fmt">sinds start: %1$d</string>
-    <string name="debug_roles_hint">schakel rollen in/uit en sluit alle verbindingen bij uitschakelen</string>
     <string name="debug_sync_settings">sync-instellingen</string>
-    <string name="debug_max_packets_per_sync_fmt">max pakketten per sync: %1$d</string>
-    <string name="debug_max_gcs_filter_size_fmt">max GCS-filtergrootte: %1$d bytes (128–1024)</string>
-    <string name="debug_target_fpr_fmt">doel-FPR: %1$.2f%%</string>
-    <string name="debug_connected_devices">verbonden apparaten</string>
-    <string name="debug_our_device_id_fmt">ons apparaat-ID: %1$s</string>
-    <string name="debug_none">geen</string>
-    <string name="debug_disconnect">verbreken</string>
-    <string name="debug_recent_scan_results">recente scanresultaten</string>
-    <string name="debug_connect">verbinden</string>
-    <string name="debug_debug_console">debug-console</string>
-    <string name="debug_clear">wissen</string>
     <string name="debug_relays_window_fmt">laatste 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
-    <string name="debug_derived_p_fmt">afgeleide P: %1$s • gesch. max elementen: %2$s</string>
-    <string name="debug_direct_suffix"> • direct</string>
-    <string name="debug_role_server">als server (wij hosten)</string>
-    <string name="debug_role_client">als client (wij verbinden)</string>
-
     <!-- Onboarding-schermen -->
     <string name="location_services_required">Locatiediensten vereist</string>
     <string name="privacy_first">Privacy eerst</string>
@@ -266,7 +209,6 @@
     <string name="select">selecteren</string>
     <string name="type_a_message_placeholder">typ een bericht…</string>
     <string name="mention">vermelden</string>
-    <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Afbeelding</string>
     <string name="media_type_file">Bestand</string>
@@ -316,8 +258,6 @@
     <string name="progress_empty">░</string>
     <string name="dot">.</string>
     <string name="warning_emoji">⚠️</string>
-    <string name="debug_question_mark">?</string>
-
     <!-- Berichtstatus-pictogrammen -->
 
     <!-- Meldingsbestand-emojis -->
@@ -382,8 +322,4 @@
   <string name="nearby_notes_reveal">kijk of hier notities zijn achtergelaten</string>
   <string name="nearby_notes_one">1 notitie hier achtergelaten — tik om te lezen</string>
   <string name="nearby_notes_many">%d notities hier achtergelaten — tik om te lezen</string>
-    <string name="about_language">Taal</string>
-    <string name="about_app_language">App-taal</string>
-    <string name="about_system_default">Systeemstandaard</string>
-    <string name="about_select_language">Taal selecteren</string>
 </resources>

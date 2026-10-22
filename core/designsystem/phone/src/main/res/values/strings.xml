@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">bitchat</string>
     <string name="back">Back</string>
   <string name="cd_favorite">Favorite</string>
   <string name="cd_favorited_you">Favorited you</string>
+  <!-- About sheet -->
+  <string name="about_tagline">The sidegroup chat</string>
+
   <string name="close_plain">Close</string>
   <string name="fingerprint_verified_label">Verified</string>
   <string name="cancel">Cancel</string>
+    <string name="tor_not_available_in_this_build">Tor not available in this build</string>
 </resources>

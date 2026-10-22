@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="fingerprint_verified_label">מאומת</string>
+  <string name="app_name">bitchat</string>
   <string name="back">חזרה</string>
+  <string name="about_tagline">העברת הודעות מבוזרת ברשת Mesh עם הצפנה מקצה לקצה</string>
   <string name="close_plain">סגור</string>
   <string name="cancel">בטל</string>
+  <string name="tor_not_available_in_this_build">Tor אינו זמין בגרסה זו</string>
+
 </resources>

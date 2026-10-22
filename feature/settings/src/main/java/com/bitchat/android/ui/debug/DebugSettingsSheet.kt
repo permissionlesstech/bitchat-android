@@ -31,36 +31,36 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.rotate
 import com.bitchat.android.ui.theme.BitchatFontFamily
-import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.services.meshgraph.MeshGraphService
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.stringResource
-import com.bitchat.android.R
+import com.bitchat.android.feature.settings.R
 import androidx.compose.ui.platform.LocalContext
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.settings.TransportDiagnostics
+import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.util.DistributionInfoProvider
-import com.bitchat.android.di.AppBuildFacts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
 fun MeshTopologySection(
+    diagnostics: TransportDiagnostics,
     localPeerID: String? = null,
     blePeerIDs: Set<String> = emptySet(),
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val graphService = remember { MeshGraphService.getInstance() }
     val snapshot by graphService.graphState.collectAsState()
-    val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsState()
+    val wifiAwareConnected by diagnostics.wifiAwareConnectedPeers.collectAsState()
     val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
 
     Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
@@ -202,6 +202,8 @@ private enum class GraphMode { OVERALL, PER_DEVICE, PER_PEER }
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DebugSettingsScreen(
+    diagnostics: TransportDiagnostics,
+    buildInfo: AppBuildInfo,
     onClose: () -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -222,10 +224,6 @@ fun DebugSettingsScreen(
     val gcsMaxBytes by manager.gcsMaxBytes.collectAsState()
     val gcsFpr by manager.gcsFprPercent.collectAsState()
     val context = LocalContext.current
-    // Resolved rather than passed in. A panic clear replaces the mesh service, so
-    // a reference captured when the screen was opened could be a stale instance;
-    // the holder always has the current one.
-    val meshService = remember(context) { MeshServiceHolder.getOrCreate(context.applicationContext) }
     var distributionInfo by remember {
         mutableStateOf<DistributionInfoProvider.DistributionInfo?>(null)
     }
@@ -236,7 +234,7 @@ fun DebugSettingsScreen(
 
     // Onboarding only asks for these when the toggle is already on, and it defaults to off,
     // so enabling from here has to request them or the controller never starts.
-    val wifiAwarePermissions = remember { PermissionManager(context).wifiAwarePermissions() }
+    val wifiAwarePermissions = remember { diagnostics.wifiAwarePermissions() }
     val wifiAwarePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
@@ -266,9 +264,9 @@ fun DebugSettingsScreen(
     }
     val wifiAwareDiscovered by manager.wifiAwareDiscovered.collectAsState()
     val wifiAwareConnected by manager.wifiAwareConnected.collectAsState()
-    val wifiAwareSupported by com.bitchat.android.wifiaware.WifiAwareController.supported.collectAsState()
-    val wifiAwareAvailable by com.bitchat.android.wifiaware.WifiAwareController.available.collectAsState()
-    val wifiAwareSupportStatus by com.bitchat.android.wifiaware.WifiAwareController.supportStatus.collectAsState()
+    val wifiAwareSupported by diagnostics.wifiAwareSupported.collectAsState()
+    val wifiAwareAvailable by diagnostics.wifiAwareAvailable.collectAsState()
+    val wifiAwareSupportReason by diagnostics.wifiAwareSupportReason.collectAsState()
     // Persistent notification is now controlled solely by MeshServicePreferences.isBackgroundEnabled
     val listState = rememberLazyListState()
     val isScrolled by remember {
@@ -285,11 +283,11 @@ fun DebugSettingsScreen(
     LaunchedEffect(Unit) {
         // Poll device list periodically for now (TODO: add callbacks)
         while (true) {
-            val entries = meshService.connectionManager.getConnectedDeviceEntries()
-            val mapping = meshService.getDeviceAddressToPeerMapping()
+            val entries = diagnostics.connectedDeviceEntries()
+            val mapping = diagnostics.deviceAddressToPeerMapping()
             val peers = mapping.values.toSet()
-            val nicknames = meshService.getPeerNicknames()
-            val directMap = peers.associateWith { pid -> meshService.getPeerInfo(pid)?.isDirectConnection == true }
+            val nicknames = diagnostics.peerNicknames()
+            val directMap = peers.associateWith { pid -> diagnostics.isDirectConnection(pid) }
             val devices = entries.map { (address, isClient, rssi) ->
                 val pid = mapping[address]
                 com.bitchat.android.ui.debug.ConnectedDevice(
@@ -304,12 +302,11 @@ fun DebugSettingsScreen(
             manager.updateConnectedDevices(devices)
             // Also surface Wi‑Fi Aware status
             try {
-                val ctrl = com.bitchat.android.wifiaware.WifiAwareController
-                val known = ctrl.knownPeers.value
-                val discovered = ctrl.discoveredPeers.value
+                val known = diagnostics.wifiAwareKnownPeers.value
+                val discovered = diagnostics.wifiAwareDiscoveredPeers.value
                 val discoveredMap = discovered.associateWith { pid -> known[pid] ?: "" }
                 manager.updateWifiAwareDiscovered(discoveredMap)
-                manager.updateWifiAwareConnected(ctrl.connectedPeers.value)
+                manager.updateWifiAwareConnected(diagnostics.wifiAwareConnectedPeers.value)
             } catch (_: Exception) { }
             kotlinx.coroutines.delay(1000)
         }
@@ -317,7 +314,7 @@ fun DebugSettingsScreen(
 
     LaunchedEffect(Unit) {
         distributionInfo = withContext(Dispatchers.IO) {
-            runCatching { DistributionInfoProvider.inspect(context, AppBuildFacts) }.getOrNull()
+            runCatching { DistributionInfoProvider.inspect(context, buildInfo) }.getOrNull()
         }
     }
 
@@ -384,7 +381,8 @@ fun DebugSettingsScreen(
                     connectedDevices.mapNotNull { it.peerID }.toSet()
                 }
                 MeshTopologySection(
-                    localPeerID = meshService.myPeerID,
+                    diagnostics = diagnostics,
+                    localPeerID = diagnostics.myPeerID,
                     blePeerIDs = blePeerIDs,
                 )
             }
@@ -402,7 +400,7 @@ fun DebugSettingsScreen(
                             Switch(checked = gattServerEnabled, onCheckedChange = {
                                 manager.setGattServerEnabled(it)
                                 scope.launch {
-                                    if (it) meshService.connectionManager.startServer() else meshService.connectionManager.stopServer()
+                                    if (it) diagnostics.startGattServer() else diagnostics.stopGattServer()
                                 }
                             })
                         }
@@ -422,7 +420,7 @@ fun DebugSettingsScreen(
                             Switch(checked = gattClientEnabled, onCheckedChange = {
                                 manager.setGattClientEnabled(it)
                                 scope.launch {
-                                    if (it) meshService.connectionManager.startClient() else meshService.connectionManager.stopClient()
+                                    if (it) diagnostics.startGattClient() else diagnostics.stopGattClient()
                                 }
                             })
                         }
@@ -537,10 +535,10 @@ fun DebugSettingsScreen(
                         val nicknameMap = remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
                         val devicePeerMap = remember { mutableStateOf<Map<String, String>>(emptyMap()) }
                         LaunchedEffect(Unit) {
-                            try { nicknameMap.value = meshService.getPeerNicknames() } catch (_: Exception) { }
+                            try { nicknameMap.value = diagnostics.peerNicknames() } catch (_: Exception) { }
                             // Try to fetch device->peer map periodically for legend resolution
                             while (true) {
-                                try { devicePeerMap.value = meshService.getDeviceAddressToPeerMapping() } catch (_: Exception) { }
+                                try { devicePeerMap.value = diagnostics.deviceAddressToPeerMapping() } catch (_: Exception) { }
                                 kotlinx.coroutines.delay(1000)
                             }
                         }
@@ -770,7 +768,7 @@ fun DebugSettingsScreen(
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        val running by com.bitchat.android.wifiaware.WifiAwareController.running.collectAsState()
+                        val running by diagnostics.wifiAwareRunning.collectAsState()
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.WifiTethering, contentDescription = null, tint = Color(0xFF9C27B0))
                             Text("Wi‑Fi Aware", fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -785,7 +783,7 @@ fun DebugSettingsScreen(
                         }
                         if (!wifiAwareSupported) {
                             Text(
-                                wifiAwareSupportStatus?.reason ?: "Wi-Fi Aware is not supported on this device",
+                                wifiAwareSupportReason ?: "Wi-Fi Aware is not supported on this device",
                                 fontFamily = BitchatFontFamily,
                                 fontSize = 11.sp,
                                 color = colorScheme.onSurface.copy(alpha = 0.6f)
@@ -799,7 +797,7 @@ fun DebugSettingsScreen(
                             )
                             AssistChip(onClick = { manager.setWifiAwareEnabled(false) }, label = { Text("Stop") })
                             AssistChip(
-                                onClick = { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendBroadcastAnnounce() },
+                                onClick = { diagnostics.sendWifiAwareAnnounce() },
                                 enabled = running,
                                 label = { Text("Announce") }
                             )
@@ -854,7 +852,7 @@ fun DebugSettingsScreen(
                             Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF4CAF50))
                             Text(stringResource(R.string.debug_connected_devices), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
-                        val localAddr = remember { meshService.connectionManager.getLocalAdapterAddress() }
+                        val localAddr = remember { diagnostics.localAdapterAddress() }
                         Text(stringResource(R.string.debug_our_device_id_fmt, localAddr ?: stringResource(R.string.unknown)), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         if (connectedDevices.isEmpty()) {
                             Text("None", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
@@ -868,7 +866,7 @@ fun DebugSettingsScreen(
                                             Text("${dev.nickname ?: ""} • " + stringResource(R.string.debug_rssi_fmt, dev.rssi ?: stringResource(R.string.debug_question_mark)) + " • $roleLabel" + (if (dev.isDirectConnection) stringResource(R.string.debug_direct_suffix) else ""), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text(stringResource(R.string.debug_disconnect), color = Color(0xFFBF1A1A), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
-                                            meshService.connectionManager.disconnectAddress(dev.deviceAddress)
+                                            diagnostics.disconnectDevice(dev.deviceAddress)
                                         })
                                     }
                                 }
@@ -897,7 +895,7 @@ fun DebugSettingsScreen(
                                             Text(stringResource(R.string.debug_rssi_fmt, res.rssi.toString()), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text(stringResource(R.string.debug_connect), color = Color(0xFF00C851), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
-                                            meshService.connectionManager.connectToAddress(res.deviceAddress)
+                                            diagnostics.connectToDevice(res.deviceAddress)
                                         })
                                     }
                                 }

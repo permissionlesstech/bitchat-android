@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
-
     <!-- คำอธิบายสิทธิ์ -->
     <string name="permission_bluetooth_rationale">จำเป็นต้องมีสิทธิ์บลูทูธเพื่อแชทโดยตรงกับผู้อื่นโดยไม่ใช้อินเทอร์เน็ต</string>
     <string name="permission_location_rationale">จำเป็นต้องมีสิทธิ์ตำแหน่งเพื่อค้นหาอุปกรณ์ใกล้เคียงผ่านบลูทูธ</string>
@@ -74,38 +72,16 @@
     <string name="close_with_emoji">❌ ปิด</string>
     <string name="pick_image">เลือกภาพ</string>
 
-    <!-- แผ่นข้อมูลเกี่ยวกับ -->
-    <string name="about_offline_mesh_title">แชทเมชออฟไลน์</string>
-    <string name="about_offline_mesh_desc">สื่อสารโดยตรงผ่าน Bluetooth LE โดยไม่ใช้อินเทอร์เน็ตหรือเซิร์ฟเวอร์ ข้อความจะถูกส่งต่อผ่านอุปกรณ์ใกล้เคียงเพื่อขยายระยะ</string>
-    <string name="about_online_geohash_title">ช่อง geohash ออนไลน์</string>
-    <string name="about_online_geohash_desc">เชื่อมต่อกับผู้คนใกล้คุณผ่านช่องที่อ้างอิง geohash ขยายเมชผ่านรีเลย์อินเทอร์เน็ตสาธารณะ</string>
-    <string name="about_e2e_title">การเข้ารหัสแบบปลายทางถึงปลายทาง</string>
-    <string name="about_e2e_desc">ข้อความส่วนตัวถูกเข้ารหัส ข้อความในช่องเป็นสาธารณะ</string>
-    <string name="about_system">ระบบ</string>
-    <string name="about_light">สว่าง</string>
-    <string name="about_dark">มืด</string>
-    <string name="about_pow">พิสูจน์ผลงาน (Proof of Work)</string>
     <string name="about_pow_off">ปิด PoW</string>
     <string name="about_pow_on">เปิด PoW</string>
-    <string name="about_pow_tip">เพิ่ม Proof of Work ให้ข้อความ geohash เพื่อยากต่อการสแปม</string>
     <string name="about_pow_difficulty">ความยาก: %1$d บิต (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">ความยาก %1$d ต้องใช้การลองแฮชประมาณ %2$s ครั้ง</string>
-    <string name="about_pow_desc_none">ไม่ต้องใช้ Proof of Work</string>
-    <string name="about_pow_desc_very_low">ต่ำมาก – ป้องกันสแปมน้อยที่สุด</string>
-    <string name="about_pow_desc_low">ต่ำ – ป้องกันสแปมพื้นฐาน</string>
-    <string name="about_pow_desc_medium">ปานกลาง – ป้องกันสแปมได้ดี</string>
-    <string name="about_pow_desc_high">สูง – ป้องกันสแปมอย่างแข็งแรง</string>
-    <string name="about_pow_desc_very_high">สูงมาก – อาจทำให้เกิดความล่าช้า</string>
-    <string name="about_pow_desc_extreme">สูงสุด – ต้องใช้ทรัพยากรคำนวณมาก</string>
     <string name="about_network">เครือข่าย</string>
     <string name="about_tor_off">ปิด Tor</string>
     <string name="about_tor_on">เปิด Tor</string>
-    <string name="about_tor_route">กำหนดเส้นทางทราฟฟิกอินเทอร์เน็ตผ่าน Tor เพื่อเพิ่มความเป็นส่วนตัว</string>
     <string name="about_tor_status">สถานะ Tor: %1$s, การบูต %2$d%%</string>
     <string name="about_last">ล่าสุด: %1$s</string>
     <string name="about_emergency_title">ลบข้อมูลฉุกเฉิน</string>
-    <string name="about_debug_settings">การตั้งค่าดีบัก</string>
-    <string name="about_footer">โอเพนซอร์ส • ความเป็นส่วนตัวมาก่อน • กระจายศูนย์</string>
     <string name="cancel_lower">ยกเลิก</string>
 
     <!-- คำอธิบายเนื้อหาทั่วไป -->
@@ -153,8 +129,6 @@
     <string name="toast_failed_to_save_image">ไม่สามารถบันทึกรูปภาพได้</string>
     <string name="pick_file">เลือกไฟล์</string>
     <string name="file_unavailable">[ไม่สามารถใช้ไฟล์ได้]</string>
-    <string name="unknown">ไม่ทราบ</string>
-
     <!-- แผ่นการทำงานของผู้ใช้ -->
     <string name="choose_action_message_or_user">เลือกการทำงานสำหรับข้อความนี้หรือผู้ใช้นี้</string>
     <string name="choose_action_user">เลือกการทำงานสำหรับผู้ใช้นี้</string>
@@ -190,40 +164,9 @@
     <string name="location_level_region">ภูมิภาค</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <!-- ดีบัก / วินิจฉัย -->
-    <string name="debug_tools">เครื่องมือดีบัก</string>
-    <string name="debug_tools_desc">เครื่องมือสำหรับนักพัฒนาสำหรับการวินิจฉัยและควบคุม</string>
-    <string name="debug_verbose_logging">การบันทึกแบบละเอียด</string>
-    <string name="debug_verbose_hint">บันทึกการเข้าร่วม/ออกของเพียร์ ทิศทางการเชื่อมต่อ การส่งต่อแพ็กเก็ต และรีเลย์</string>
-    <string name="debug_bluetooth_roles">บทบาทบลูทูธ</string>
-    <string name="debug_gatt_server">เซิร์ฟเวอร์ GATT</string>
-    <string name="debug_connections_fmt">การเชื่อมต่อ: %1$d / %2$d</string>
-    <string name="debug_max_server">สูงสุดของเซิร์ฟเวอร์</string>
-    <string name="debug_gatt_client">ไคลเอนต์ GATT</string>
-    <string name="debug_max_client">สูงสุดของไคลเอนต์</string>
-    <string name="debug_overall_connections_fmt">การเชื่อมต่อ: %1$d / %2$d</string>
-    <string name="debug_max_overall">รวมสูงสุด</string>
-    <string name="debug_packet_relay">การส่งต่อแพ็กเก็ต</string>
     <string name="debug_since_start_fmt">ตั้งแต่เริ่มต้น: %1$d</string>
-    <string name="debug_roles_hint">สลับบทบาทและปิดการเชื่อมต่อทั้งหมดเมื่อปิดใช้งาน</string>
     <string name="debug_sync_settings">การตั้งค่าการซิงค์</string>
-    <string name="debug_max_packets_per_sync_fmt">แพ็กเก็ตสูงสุดต่อการซิงค์: %1$d</string>
-    <string name="debug_max_gcs_filter_size_fmt">ขนาดตัวกรอง GCS สูงสุด: %1$d ไบต์ (128–1024)</string>
-    <string name="debug_target_fpr_fmt">อัตราบวกเทียมเป้าหมาย: %1$.2f%%</string>
-    <string name="debug_connected_devices">อุปกรณ์ที่เชื่อมต่อ</string>
-    <string name="debug_our_device_id_fmt">รหัสอุปกรณ์ของเรา: %1$s</string>
-    <string name="debug_none">ไม่มี</string>
-    <string name="debug_disconnect">ตัดการเชื่อมต่อ</string>
-    <string name="debug_recent_scan_results">อุปกรณ์ที่สแกนล่าสุด</string>
-    <string name="debug_connect">เชื่อมต่อ</string>
-    <string name="debug_debug_console">คอนโซลดีบัก</string>
-    <string name="debug_clear">ล้าง</string>
     <string name="debug_relays_window_fmt">10 วิ ล่าสุด: %1$d • 1 นาที: %2$d • 15 นาที: %3$d</string>
-    <string name="debug_derived_p_fmt">P ที่ได้มา: %1$s • จำนวนรายการสูงสุดโดยประมาณ: %2$s</string>
-    <string name="debug_direct_suffix"> • โดยตรง</string>
-    <string name="debug_role_server">ในบทบาทเซิร์ฟเวอร์ (เราเป็นโฮสต์)</string>
-    <string name="debug_role_client">ในบทบาทไคลเอนต์ (เราเชื่อมต่อ)</string>
-
     <!-- หน้าจอเริ่มต้นใช้งาน -->
     <string name="location_services_required">ต้องใช้บริการตำแหน่ง</string>
     <string name="privacy_first">ความเป็นส่วนตัวมาก่อน</string>
@@ -266,7 +209,6 @@
     <string name="select">เลือก</string>
     <string name="type_a_message_placeholder">พิมพ์ข้อความ…</string>
     <string name="mention">กล่าวถึง</string>
-    <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">รูปภาพ</string>
     <string name="media_type_file">ไฟล์</string>
@@ -344,8 +286,4 @@
   <string name="nearby_notes_reveal">ดูว่ามีโน้ตทิ้งไว้ที่นี่หรือไม่</string>
   <string name="nearby_notes_one">มี 1 โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
   <string name="nearby_notes_many">มี %d โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
-    <string name="about_language">ภาษา</string>
-    <string name="about_app_language">ภาษาของแอป</string>
-    <string name="about_system_default">ค่าเริ่มต้นของระบบ</string>
-    <string name="about_select_language">เลือกภาษา</string>
 </resources>

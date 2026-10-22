@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ورقة حول التطبيق -->
+    <string name="about_offline_mesh_title">دردشة شبكية دون اتصال</string>
+    <string name="about_offline_mesh_desc">تواصل مباشرة عبر Bluetooth LE بدون إنترنت أو خوادم. تُعاد توجيه الرسائل عبر الأجهزة القريبة لتوسيع النطاق.</string>
+    <string name="about_online_geohash_title">قنوات geohash عبر الإنترنت</string>
+    <string name="about_online_geohash_desc">تواصل مع أشخاص بالقرب منك عبر قنوات تعتمد على geohash. وسّع الشبكة عبر مرحلات الإنترنت العامة.</string>
+    <string name="about_e2e_title">تشفير طرف إلى طرف</string>
+    <string name="about_e2e_desc">الرسائل الخاصة مشفّرة. رسائل القنوات عامة.</string>
+    <string name="about_system">النظام</string>
+    <string name="about_light">فاتح</string>
+    <string name="about_dark">داكن</string>
+    <string name="about_pow">برهان العمل</string>
+    <string name="about_pow_tip">أضف برهان العمل لرسائل geohash للحد من الرسائل المزعجة.</string>
+    <string name="about_pow_desc_none">لا حاجة لبرهان العمل</string>
+    <string name="about_pow_desc_very_low">منخفض جدًا – حماية دنيا من الرسائل المزعجة</string>
+    <string name="about_pow_desc_low">منخفض – حماية أساسية</string>
+    <string name="about_pow_desc_medium">متوسط – حماية جيدة</string>
+    <string name="about_pow_desc_high">عالٍ – حماية قوية</string>
+    <string name="about_pow_desc_very_high">عالٍ جدًا – قد يسبب تأخيرًا</string>
+    <string name="about_pow_desc_extreme">شديد – يتطلب قدرة حوسبية كبيرة</string>
+    <string name="about_tor_route">توجيه حركة الإنترنت عبر Tor لمزيد من الخصوصية.</string>
+    <string name="about_debug_settings">إعدادات التصحيح</string>
+    <string name="about_footer">مفتوح المصدر • الخصوصية أولاً • لامركزي</string>
+    <string name="unknown">غير معروف</string>
+
+    <!-- التصحيح / التشخيص -->
+    <string name="debug_tools">أدوات التصحيح</string>
+    <string name="debug_tools_desc">أدوات المطوّر للتشخيص والتحكم</string>
+    <string name="debug_verbose_logging">سجل تفصيلي</string>
+    <string name="debug_verbose_hint">تسجّل انضمام/مغادرة الأقران، اتجاه الاتصال، تمرير الحزم والمرحلين</string>
+    <string name="debug_bluetooth_roles">أدوار البلوتوث</string>
+    <string name="debug_gatt_server">خادم GATT</string>
+    <string name="debug_connections_fmt">الاتصالات: %1$d / %2$d</string>
+    <string name="debug_max_server">الحد الأقصى للخادم</string>
+    <string name="debug_gatt_client">عميل GATT</string>
+    <string name="debug_max_client">الحد الأقصى للعميل</string>
+    <string name="debug_overall_connections_fmt">الاتصالات: %1$d / %2$d</string>
+    <string name="debug_max_overall">الحد الأقصى الكلي</string>
+    <string name="debug_packet_relay">تمرير الحزم</string>
+    <string name="debug_roles_hint">تبديل الأدوار وإغلاق جميع الاتصالات عند التعطيل</string>
+    <string name="debug_max_packets_per_sync_fmt">الحد الأقصى للحزم لكل مزامنة: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">الحد الأقصى لحجم مرشح GCS: %1$d بايت (128–1024)</string>
+    <string name="debug_target_fpr_fmt">نسبة الإيجابيات الكاذبة المستهدفة: %1$.2f%%</string>
+    <string name="debug_connected_devices">الأجهزة المتصلة</string>
+    <string name="debug_our_device_id_fmt">معرّف جهازنا: %1$s</string>
+    <string name="debug_none">لا شيء</string>
+    <string name="debug_disconnect">قطع الاتصال</string>
+    <string name="debug_recent_scan_results">الأجهزة التي تم فحصها مؤخرًا</string>
+    <string name="debug_connect">اتصال</string>
+    <string name="debug_debug_console">وحدة تصحيح</string>
+    <string name="debug_clear">مسح</string>
+    <string name="debug_derived_p_fmt">قيمة P المشتقة: %1$s • الحد الأقصى للعناصر المقدّر: %2$s</string>
+    <string name="debug_direct_suffix"> • مباشر</string>
+    <string name="debug_role_server">كخادم (نحن نستضيف)</string>
+    <string name="debug_role_client">كعميل (نحن نتصل)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">اللغة</string>
+    <string name="about_app_language">لغة التطبيق</string>
+    <string name="about_system_default">إعداد النظام الافتراضي</string>
+    <string name="about_select_language">اختر اللغة</string>
+</resources>

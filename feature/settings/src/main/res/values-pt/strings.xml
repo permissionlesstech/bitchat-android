@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Folha sobre -->
+    <string name="about_offline_mesh_title">Chat mesh offline</string>
+    <string name="about_offline_mesh_desc">Comunique diretamente via Bluetooth LE sem internet ou servidores. As mensagens são retransmitidas através de dispositivos próximos para estender o alcance.</string>
+    <string name="about_online_geohash_title">Canais geohash online</string>
+    <string name="about_online_geohash_desc">Conecte-se com pessoas perto de si através de canais baseados em geohash. Estenda a mesh através de repetidores de internet pública.</string>
+    <string name="about_e2e_title">Encriptação ponto a ponto</string>
+    <string name="about_e2e_desc">Mensagens privadas são encriptadas. Mensagens de canal são públicas.</string>
+    <string name="about_system">Sistema</string>
+    <string name="about_light">Claro</string>
+    <string name="about_dark">Escuro</string>
+    <string name="about_pow">Prova de Trabalho</string>
+    <string name="about_pow_tip">Adicionar prova de trabalho às mensagens geohash para tornar o spam mais difícil.</string>
+    <string name="about_pow_desc_none">nenhuma prova de trabalho necessária</string>
+    <string name="about_pow_desc_very_low">muito baixo – proteção mínima contra spam</string>
+    <string name="about_pow_desc_low">baixo – proteção básica contra spam</string>
+    <string name="about_pow_desc_medium">médio – boa proteção contra spam</string>
+    <string name="about_pow_desc_high">alto – proteção forte contra spam</string>
+    <string name="about_pow_desc_very_high">muito alto – pode causar atrasos</string>
+    <string name="about_pow_desc_extreme">extremo – requer potência computacional significativa</string>
+    <string name="about_tor_route">Encaminhar tráfego de internet através do Tor para maior privacidade.</string>
+    <string name="about_debug_settings">Definições de depuração</string>
+    <string name="about_footer">Código aberto • Privacidade primeiro • Descentralizado</string>
+    <string name="unknown">desconhecido</string>
+
+    <!-- Depuração / Diagnóstico -->
+    <string name="debug_tools">Ferramentas de depuração</string>
+    <string name="debug_tools_desc">Ferramentas de programador para diagnóstico e controlo</string>
+    <string name="debug_verbose_logging">registo detalhado</string>
+    <string name="debug_verbose_hint">Regista entradas/saídas de pares, direção de conexão, retransmissão de pacotes e repetidores</string>
+    <string name="debug_bluetooth_roles">Funções Bluetooth</string>
+    <string name="debug_gatt_server">Servidor GATT</string>
+    <string name="debug_connections_fmt">Conexões: %1$d / %2$d</string>
+    <string name="debug_max_server">máx. servidor</string>
+    <string name="debug_gatt_client">Cliente GATT</string>
+    <string name="debug_max_client">máx. cliente</string>
+    <string name="debug_overall_connections_fmt">Conexões: %1$d / %2$d</string>
+    <string name="debug_max_overall">máx. geral</string>
+    <string name="debug_packet_relay">Retransmissão de pacotes</string>
+    <string name="debug_roles_hint">Alternar funções ligado/desligado e fechar todas as conexões ao desativar</string>
+    <string name="debug_max_packets_per_sync_fmt">máx. pacotes por sincronização: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">máx. tamanho do filtro GCS: %1$d bytes (128–1024)</string>
+    <string name="debug_target_fpr_fmt">FPR alvo: %1$.2f%%</string>
+    <string name="debug_connected_devices">dispositivos ligados</string>
+    <string name="debug_our_device_id_fmt">nosso ID do dispositivo: %1$s</string>
+    <string name="debug_none">nenhum</string>
+    <string name="debug_disconnect">desligar</string>
+    <string name="debug_recent_scan_results">dispositivos digitalizados recentemente</string>
+    <string name="debug_connect">ligar</string>
+    <string name="debug_debug_console">Consola de depuração</string>
+    <string name="debug_clear">limpar</string>
+    <string name="debug_derived_p_fmt">P derivado: %1$s • máx. itens estimados: %2$s</string>
+    <string name="debug_direct_suffix"> • direto</string>
+    <string name="debug_role_server">como servidor (nós hospedamos)</string>
+    <string name="debug_role_client">como cliente (nós ligamos)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">Idioma</string>
+    <string name="about_app_language">Idioma da aplicação</string>
+    <string name="about_system_default">Predefinição do sistema</string>
+    <string name="about_select_language">Selecionar idioma</string>
+</resources>

@@ -51,13 +51,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BitchatFontFamily
-import com.bitchat.android.R
+import com.bitchat.android.feature.settings.R
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.settings.BackgroundMeshSetting
 import com.bitchat.android.share.ShareAppSection
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
@@ -278,7 +279,8 @@ private fun SettingsToggleRow(
  * About's tabs and their list, under a top bar with a back arrow that calls
  * [onClose]. [onShowDebug] opens debug settings from the Settings tab; when it
  * is null the entry is not offered. [shareAppSection] renders the APK-sharing
- * rows of the Settings card.
+ * rows of the Settings card, and [backgroundMesh] backs its background-mode
+ * switch.
  *
  * Takes no window insets of its own: [AboutScreen] passes them in through
  * [modifier].
@@ -287,6 +289,7 @@ private fun SettingsToggleRow(
 @Composable
 internal fun AboutContent(
     shareAppSection: ShareAppSection,
+    backgroundMesh: BackgroundMeshSetting,
     onClose: () -> Unit,
     onShowDebug: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -490,7 +493,7 @@ internal fun AboutContent(
                 LaunchedEffect(Unit) { PoWPreferenceManager.init(context) }
                 val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
                 val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
-                var backgroundEnabled by remember { mutableStateOf(com.bitchat.android.service.MeshServicePreferences.isBackgroundEnabled(true)) }
+                var backgroundEnabled by remember { mutableStateOf(backgroundMesh.isEnabled()) }
                 var liveVoiceEnabled by remember {
                     mutableStateOf(com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context))
                 }
@@ -517,12 +520,7 @@ internal fun AboutContent(
                                 checked = backgroundEnabled,
                                 onCheckedChange = { enabled ->
                                     backgroundEnabled = enabled
-                                    com.bitchat.android.service.MeshServicePreferences.setBackgroundEnabled(enabled)
-                                    if (!enabled) {
-                                        com.bitchat.android.service.MeshForegroundService.stop(context)
-                                    } else {
-                                        com.bitchat.android.service.MeshForegroundService.start(context)
-                                    }
+                                    backgroundMesh.setEnabled(enabled)
                                 }
                             )
 
@@ -805,6 +803,7 @@ internal fun AboutContent(
 @Composable
 fun AboutScreen(
     shareAppSection: ShareAppSection,
+    backgroundMesh: BackgroundMeshSetting,
     onClose: () -> Unit,
     onShowDebug: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -815,83 +814,12 @@ fun AboutScreen(
     ) {
         AboutContent(
             shareAppSection = shareAppSection,
+            backgroundMesh = backgroundMesh,
             onClose = onClose,
             onShowDebug = onShowDebug,
             modifier = Modifier.windowInsetsPadding(
                 WindowInsets.systemBars.union(WindowInsets.displayCutout)
             )
-        )
-    }
-}
-
-/**
- * Password prompt dialog for password-protected channels
- * Kept as dialog since it requires user input
- */
-@Composable
-fun PasswordPromptDialog(
-    show: Boolean,
-    channelName: String?,
-    passwordInput: String,
-    onPasswordChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    if (show && channelName != null) {
-        val colorScheme = MaterialTheme.colorScheme
-        
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = {
-                Text(
-                    text = stringResource(R.string.pwd_prompt_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colorScheme.onSurface
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        text = stringResource(R.string.pwd_prompt_message, channelName ?: ""),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedTextField(
-                        value = passwordInput,
-                        onValueChange = onPasswordChange,
-                        label = { Text(stringResource(R.string.pwd_label), style = MaterialTheme.typography.bodyMedium) },
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = BitchatFontFamily
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = colorScheme.primary,
-                            unfocusedBorderColor = colorScheme.outline
-                        )
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = onConfirm) {
-                    Text(
-                        text = stringResource(R.string.join),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colorScheme.primary
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(
-                        text = stringResource(R.string.cancel),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colorScheme.onSurface
-                    )
-                }
-            },
-            containerColor = colorScheme.surface,
-            tonalElevation = 8.dp
         )
     }
 }

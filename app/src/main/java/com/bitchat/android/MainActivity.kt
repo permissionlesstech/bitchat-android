@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,24 +40,13 @@ import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.BackAction
-import com.bitchat.android.share.ShareAppSection
-import com.bitchat.android.ui.AboutScreen
 import com.bitchat.android.ui.AppForegroundEffect
 import com.bitchat.android.ui.ChatBackUnwinder
 import com.bitchat.android.ui.ChatMeshDelegate
 import com.bitchat.android.ui.ChatSessionStartup
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.GeohashSession
-import com.bitchat.android.ui.ChatScreen
-import com.bitchat.android.ui.ChatUserSheet
-import com.bitchat.android.ui.LocationChannelsScreen
-import com.bitchat.android.ui.LocationNotesScreen
-import com.bitchat.android.ui.MeshPeerListScreen
-import com.bitchat.android.ui.PrivateChatScreen
-import com.bitchat.android.ui.SecurityVerificationSheet
 import com.bitchat.android.ui.VerificationHandler
-import com.bitchat.android.ui.VerificationScreen
-import com.bitchat.android.ui.debug.DebugSettingsScreen
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.wifiaware.WifiAwareController
@@ -67,20 +55,12 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.serialization.NavKeySerializer
 import androidx.savedstate.serialization.decodeFromSavedState
 import androidx.savedstate.serialization.encodeToSavedState
-import com.bitchat.android.navigation.AboutRoute
 import com.bitchat.android.navigation.AppNavigator
 import com.bitchat.android.navigation.BitchatNavDisplay
 import com.bitchat.android.navigation.ChatRoute
-import com.bitchat.android.navigation.ChatUserRoute
-import com.bitchat.android.navigation.DebugSettingsRoute
 import com.bitchat.android.navigation.EntryProviderInstaller
-import com.bitchat.android.navigation.LocationChannelsRoute
-import com.bitchat.android.navigation.LocationNotesRoute
+import com.bitchat.android.navigation.appEntries
 import com.bitchat.android.navigation.MeshPeerListRoute
-import com.bitchat.android.navigation.OnboardingRoute
-import com.bitchat.android.navigation.PrivateChatRoute
-import com.bitchat.android.navigation.ScreenTransitions
-import com.bitchat.android.navigation.SecurityVerificationRoute
 import com.bitchat.android.navigation.SheetSceneStrategy
 import com.bitchat.android.navigation.VerificationRoute
 import com.bitchat.android.navigation.openPrivateChat
@@ -148,9 +128,10 @@ class MainActivity : OrientationAwareActivity() {
     @Inject
     lateinit var geohashSession: GeohashSession
 
-    // The About settings card's APK-sharing rows, from :feature:share.
+    // Every feature's destinations, contributed through Hilt; the app's own
+    // are in appEntries.
     @Inject
-    lateinit var shareAppSection: ShareAppSection
+    lateinit var entryInstallers: Set<@JvmSuppressWildcards EntryProviderInstaller>
 
     private val forceFinishReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
@@ -303,94 +284,8 @@ class MainActivity : OrientationAwareActivity() {
                     }
 
                     val sheetSceneStrategy = remember { SheetSceneStrategy() }
-                    val entries: EntryProviderInstaller = {
-                        entry<OnboardingRoute> { OnboardingFlowScreen(onboardingModifier) }
-                        entry<ChatRoute>(metadata = ScreenTransitions.rootFade()) {
-                            ChatScreen(
-                                onShowAbout = { navigator.goTo(AboutRoute) },
-                                onShowLocationNotes = { navigator.goTo(LocationNotesRoute) },
-                                onShowChatUser = { nickname, messageId ->
-                                    navigator.goTo(ChatUserRoute(nickname, messageId))
-                                },
-                                onShowLocationChannels = { navigator.goTo(LocationChannelsRoute) },
-                                onShowPeerList = { navigator.goTo(MeshPeerListRoute) },
-                                openPrivateChatID = navigator.backStack
-                                    .lastOrNull { it is PrivateChatRoute }
-                                    ?.let { (it as PrivateChatRoute).conversationID },
-                            )
-                        }
-                        entry<MeshPeerListRoute> {
-                            MeshPeerListScreen(
-                                onBack = { navigator.popTo(MeshPeerListRoute, inclusive = true) },
-                                // Pushed over the list, so Back from verification
-                                // returns to it.
-                                onShowVerification = {
-                                    navigator.goTo(
-                                        VerificationRoute(chatState.selectedPrivateChatPeer.value)
-                                    )
-                                },
-                            )
-                        }
-                        entry<PrivateChatRoute> { route ->
-                            PrivateChatScreen(
-                                routeConversationID = route.conversationID,
-                                onShowSecurityVerification = { conversationID ->
-                                    navigator.goTo(SecurityVerificationRoute(conversationID))
-                                },
-                                onBack = { navigator.popTo(route, inclusive = true) },
-                            )
-                        }
-                        entry<SecurityVerificationRoute>(metadata = SheetSceneStrategy.sheet()) { route ->
-                            SecurityVerificationSheet(
-                                conversationID = route.conversationID,
-                                onDismiss = { navigator.popTo(route, inclusive = true) },
-                            )
-                        }
-                        entry<LocationChannelsRoute> {
-                            LocationChannelsScreen(
-                                onClose = { navigator.popTo(LocationChannelsRoute, inclusive = true) },
-                                // Pushed like any list → detail step: Back from notes
-                                // returns to channels, not to chat.
-                                onShowLocationNotes = { navigator.goTo(LocationNotesRoute) },
-                            )
-                        }
-                        entry<VerificationRoute> { route ->
-                            // One close for the header button and Back. Popping by
-                            // key makes it idempotent, so a second press during the
-                            // exit animation does not pop what lies beneath.
-                            val close = { navigator.popTo(route, inclusive = true); Unit }
-                            BackHandler(onBack = close)
-                            VerificationScreen(
-                                peerID = route.peerID,
-                                onClose = close,
-                            )
-                        }
-                        entry<ChatUserRoute>(metadata = SheetSceneStrategy.sheet()) { route ->
-                            ChatUserSheet(
-                                onDismiss = { navigator.popTo(route, inclusive = true) },
-                                targetNickname = route.nickname,
-                                messageId = route.messageId,
-                            )
-                        }
-                        entry<LocationNotesRoute> {
-                            val nickname by chatState.nickname.collectAsStateWithLifecycle()
-                            LocationNotesScreen(
-                                nickname = nickname,
-                                onBack = { navigator.popTo(LocationNotesRoute, inclusive = true) },
-                            )
-                        }
-                        entry<AboutRoute> {
-                            AboutScreen(
-                                shareAppSection = shareAppSection,
-                                onClose = { navigator.goBack() },
-                                onShowDebug = { navigator.goTo(DebugSettingsRoute) }
-                            )
-                        }
-                        entry<DebugSettingsRoute> {
-                            DebugSettingsScreen(
-                                onClose = { navigator.popTo(DebugSettingsRoute, inclusive = true) }
-                            )
-                        }
+                    val entries = appEntries(navigator, chatState) {
+                        OnboardingFlowScreen(onboardingModifier)
                     }
 
                     // NavDisplay rejects an empty back stack and the effect above does
@@ -400,7 +295,7 @@ class MainActivity : OrientationAwareActivity() {
                     if (navigator.backStack.isNotEmpty()) {
                         BitchatNavDisplay(
                             navigator = navigator,
-                            entryInstallers = setOf(entries),
+                            entryInstallers = entryInstallers + setOf(entries),
                             onExit = { finish() },
                             modifier = Modifier.fillMaxSize(),
                             sceneStrategies = listOf(sheetSceneStrategy),

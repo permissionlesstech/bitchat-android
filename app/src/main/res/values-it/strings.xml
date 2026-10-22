@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
-
     <!-- Spiegazioni dei permessi -->
     <string name="permission_bluetooth_rationale">Il permesso Bluetooth è necessario per la messaggistica peer-to-peer senza internet.</string>
     <string name="permission_location_rationale">Il permesso di localizzazione è necessario per scoprire i dispositivi vicini tramite Bluetooth.</string>
@@ -74,38 +72,16 @@
     <string name="close_with_emoji">❌ Chiudi</string>
     <string name="pick_image">Scegli immagine</string>
 
-    <!-- Schermata informazioni -->
-    <string name="about_offline_mesh_title">Chat mesh offline</string>
-    <string name="about_offline_mesh_desc">Comunica direttamente tramite Bluetooth LE senza internet o server. I messaggi vengono inoltrati attraverso i dispositivi vicini per estendere la portata.</string>
-    <string name="about_online_geohash_title">Canali geohash online</string>
-    <string name="about_online_geohash_desc">Connettiti con persone nella tua area usando canali basati su geohash. Estendi la rete mesh usando relay internet pubblici.</string>
-    <string name="about_e2e_title">Crittografia end-to-end</string>
-    <string name="about_e2e_desc">I messaggi privati sono crittografati. I messaggi dei canali sono pubblici.</string>
-    <string name="about_system">sistema</string>
-    <string name="about_light">chiaro</string>
-    <string name="about_dark">scuro</string>
-    <string name="about_pow">proof of work</string>
     <string name="about_pow_off">PoW off</string>
     <string name="about_pow_on">PoW on</string>
-    <string name="about_pow_tip">aggiungi proof of work ai messaggi geohash per scoraggiare lo spam.</string>
     <string name="about_pow_difficulty">difficoltà: %1$d bit (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">difficoltà %1$d richiede ~%2$s tentativi di hash</string>
-    <string name="about_pow_desc_none">nessun proof of work richiesto</string>
-    <string name="about_pow_desc_very_low">molto bassa - protezione spam minima</string>
-    <string name="about_pow_desc_low">bassa - protezione spam base</string>
-    <string name="about_pow_desc_medium">media - buona protezione spam</string>
-    <string name="about_pow_desc_high">alta - forte protezione spam</string>
-    <string name="about_pow_desc_very_high">molto alta - può causare ritardi</string>
-    <string name="about_pow_desc_extreme">estrema - richiede calcoli significativi</string>
     <string name="about_network">rete</string>
     <string name="about_tor_off">Tor off</string>
     <string name="about_tor_on">Tor on</string>
-    <string name="about_tor_route">instrada internet su Tor per una maggiore privacy.</string>
     <string name="about_tor_status">Stato Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Ultimo: %1$s</string>
     <string name="about_emergency_title">Eliminazione dati di emergenza</string>
-    <string name="about_debug_settings">Impostazioni di debug</string>
-    <string name="about_footer">Open Source • Privacy First • Decentralizzato</string>
     <string name="cancel_lower">annulla</string>
 
     <!-- Descrizioni contenuto generiche -->
@@ -153,8 +129,6 @@
     <string name="toast_failed_to_save_image">Impossibile salvare l\'immagine</string>
     <string name="pick_file">Scegli file</string>
     <string name="file_unavailable">[file non disponibile]</string>
-    <string name="unknown">sconosciuto</string>
-
     <!-- Azioni utente schermata -->
     <string name="choose_action_message_or_user">scegli un\'azione per questo messaggio o utente</string>
     <string name="choose_action_user">scegli un\'azione per questo utente</string>
@@ -190,40 +164,9 @@
     <string name="location_level_region">regione</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <!-- Debug / Diagnostica -->
-    <string name="debug_tools">strumenti di debug</string>
-    <string name="debug_tools_desc">utilità per sviluppatori per diagnostica e controllo</string>
-    <string name="debug_verbose_logging">logging dettagliato</string>
-    <string name="debug_verbose_hint">registra entrate/uscite peer, direzione connessione, instradamento pacchetti e relay</string>
-    <string name="debug_bluetooth_roles">ruoli Bluetooth</string>
-    <string name="debug_gatt_server">server GATT</string>
-    <string name="debug_connections_fmt">connessioni: %1$d / %2$d</string>
-    <string name="debug_max_server">max server</string>
-    <string name="debug_gatt_client">client GATT</string>
-    <string name="debug_max_client">max client</string>
-    <string name="debug_overall_connections_fmt">connessioni: %1$d / %2$d</string>
-    <string name="debug_max_overall">max totali</string>
-    <string name="debug_packet_relay">relay pacchetti</string>
     <string name="debug_since_start_fmt">dall\'avvio: %1$d</string>
-    <string name="debug_roles_hint">attiva/disattiva ruoli e chiudi tutte le connessioni quando disabilitato</string>
     <string name="debug_sync_settings">impostazioni sincronizzazione</string>
-    <string name="debug_max_packets_per_sync_fmt">max pacchetti per sync: %1$d</string>
-    <string name="debug_max_gcs_filter_size_fmt">dimensione max filtro GCS: %1$d byte (128–1024)</string>
-    <string name="debug_target_fpr_fmt">FPR obiettivo: %1$.2f%%</string>
-    <string name="debug_connected_devices">dispositivi connessi</string>
-    <string name="debug_our_device_id_fmt">ID del nostro dispositivo: %1$s</string>
-    <string name="debug_none">nessuno</string>
-    <string name="debug_disconnect">disconnetti</string>
-    <string name="debug_recent_scan_results">risultati scansione recenti</string>
-    <string name="debug_connect">connetti</string>
-    <string name="debug_debug_console">console di debug</string>
-    <string name="debug_clear">cancella</string>
     <string name="debug_relays_window_fmt">ultimi 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
-    <string name="debug_derived_p_fmt">P derivato: %1$s • max elementi stimati: %2$s</string>
-    <string name="debug_direct_suffix"> • diretto</string>
-    <string name="debug_role_server">come server (noi ospitiamo)</string>
-    <string name="debug_role_client">come client (noi connettiamo)</string>
-
     <!-- Schermate onboarding -->
     <string name="location_services_required">Servizi di localizzazione richiesti</string>
     <string name="privacy_first">Privacy prima di tutto</string>
@@ -266,7 +209,6 @@
     <string name="select">seleziona</string>
     <string name="type_a_message_placeholder">scrivi un messaggio…</string>
     <string name="mention">menzione</string>
-    <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Immagine</string>
     <string name="media_type_file">File</string>
@@ -327,9 +269,6 @@
     <string name="notification_file_ppt">📈</string>
     <string name="notification_file_generic">📎</string>
 
-    <!-- Debug aggiuntivo -->
-    <string name="debug_question_mark">?</string>
-
     <!-- Plurali -->
 
     <plurals name="people_count">
@@ -384,8 +323,4 @@
   <string name="nearby_notes_reveal">controlla se ci sono note lasciate qui</string>
   <string name="nearby_notes_one">1 nota lasciata qui — tocca per leggere</string>
   <string name="nearby_notes_many">%d note lasciate qui — tocca per leggere</string>
-    <string name="about_language">Lingua</string>
-    <string name="about_app_language">Lingua dell’app</string>
-    <string name="about_system_default">Predefinita di sistema</string>
-    <string name="about_select_language">Seleziona lingua</string>
 </resources>

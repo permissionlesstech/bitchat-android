@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- अबाउट शीट -->
+    <string name="about_offline_mesh_title">अफलाइन मेष च्याट</string>
+    <string name="about_offline_mesh_desc">इन्टरनेट वा सर्भर बिना सिधै Bluetooth LE मार्फत सञ्चार गर्नुहोस्। नजिकका यन्त्रहरूबाट सन्देश रिल레이 हुन्छ।</string>
+    <string name="about_online_geohash_title">अनलाइन Geohash च्यानलहरू</string>
+    <string name="about_online_geohash_desc">Geohash आधारित च्यानलमार्फत नजिकका मानिसहरूसँग जोडिनुहोस्। सार्वजनिक इन्टरनेट रिलेलाई प्रयोग गरेर मेष विस्तार गर्नुहोस्।</string>
+    <string name="about_e2e_title">एन्ड‑टु‑एन्ड इन्क्रिप्सन</string>
+    <string name="about_e2e_desc">निजी सन्देश इन्क्रिप्टेड हुन्छन्। च्यानल सन्देश सार्वजनिक हुन्छन्।</string>
+    <string name="about_system">सिस्टम</string>
+    <string name="about_light">हल्का</string>
+    <string name="about_dark">गाढा</string>
+    <string name="about_pow">प्रुफ अफ वर्क</string>
+    <string name="about_pow_tip">स्पाम रोकथामका लागि geohash सन्देशमा proof of work थप्नुहोस्।</string>
+    <string name="about_pow_desc_none">proof of work आवश्यक छैन</string>
+    <string name="about_pow_desc_very_low">अति कम – न्यून सुरक्षा</string>
+    <string name="about_pow_desc_low">कम – आधारभूत सुरक्षा</string>
+    <string name="about_pow_desc_medium">मध्यम – राम्रो सुरक्षा</string>
+    <string name="about_pow_desc_high">उच्च – बलियो सुरक्षा</string>
+    <string name="about_pow_desc_very_high">एकदम उच्च – ढिलाइ हुन सक्छ</string>
+    <string name="about_pow_desc_extreme">अत्यधिक – धेरै गणना आवश्यक</string>
+    <string name="about_tor_route">बढी गोपनीयताका लागि Tor मार्फत इन्टरनेट रुट गर्नुहोस्।</string>
+    <string name="about_debug_settings">डिबग सेटिङ</string>
+    <string name="about_footer">Open Source • Privacy First • विकेन्द्रित</string>
+    <string name="unknown">अज्ञात</string>
+
+    <!-- डिबग / निदान -->
+    <string name="debug_tools">डिबग उपकरण</string>
+    <string name="debug_verbose_logging">विस्तृत लगिङ</string>
+    <string name="debug_bluetooth_roles">ब्लुटुथ भूमिकाहरू</string>
+    <string name="debug_gatt_server">GATT सर्भर</string>
+    <string name="debug_connections_fmt">जडान: %1$d / %2$d</string>
+    <string name="debug_max_server">अधिकतम सर्भर</string>
+    <string name="debug_gatt_client">GATT क्लाइन्ट</string>
+    <string name="debug_max_client">अधिकतम क्लाइन्ट</string>
+    <string name="debug_overall_connections_fmt">जडान: %1$d / %2$d</string>
+    <string name="debug_max_overall">अधिकतम कुल</string>
+    <string name="debug_packet_relay">प्याकेट रिल레이</string>
+    <string name="debug_max_packets_per_sync_fmt">प्रत्येक सिङ्कका अधिकतम प्याकेट: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">GCS फिल्टर साइज अधिकतम: %1$d बाइट (128–1024)</string>
+    <string name="debug_target_fpr_fmt">लक्ष्य FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">जडान भएका यन्त्रहरू</string>
+    <string name="debug_our_device_id_fmt">हाम्रो यन्त्र आईडी: %1$s</string>
+    <string name="debug_none">केही छैन</string>
+    <string name="debug_disconnect">डिस्कनेक्ट</string>
+    <string name="debug_recent_scan_results">हालैका स्क्यान नतिजा</string>
+    <string name="debug_connect">जोड्नुहोस्</string>
+    <string name="debug_debug_console">डिबग कन्सोल</string>
+    <string name="debug_clear">खाली गर्नुहोस्</string>
+    <string name="debug_derived_p_fmt">व्युत्पन्न P: %1$s • अनुमानित अधिकतम तत्व: %2$s</string>
+    <string name="debug_direct_suffix"> • प्रत्यक्ष</string>
+    <string name="debug_question_mark">?</string>
+    <string name="debug_role_server">सर्भरको रूपमा (हामी होस्ट गर्छौं)</string>
+    <string name="debug_role_client">क्लाइन्टको रूपमा (हामी जडान गर्छौं)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">भाषा</string>
+    <string name="about_app_language">एपको भाषा</string>
+    <string name="about_system_default">प्रणालीको पूर्वनिर्धारित</string>
+    <string name="about_select_language">भाषा छान्नुहोस्</string>
+</resources>

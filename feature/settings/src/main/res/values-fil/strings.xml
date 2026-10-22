@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- About sheet -->
+    <string name="about_offline_mesh_title">Offline Mesh Chat</string>
+    <string name="about_offline_mesh_desc">Makipag‑usap direkta sa Bluetooth LE nang walang internet o server. Ang mga mensahe ay nire‑relay ng mga kalapit na device.</string>
+    <string name="about_online_geohash_title">Online na Geohash na mga Channel</string>
+    <string name="about_online_geohash_desc">Makipag‑ugnayan sa mga tao sa paligid gamit ang geohash‑based na mga channel. Palawakin ang mesh sa pampublikong internet relays.</string>
+    <string name="about_e2e_title">End‑to‑End Encryption</string>
+    <string name="about_e2e_desc">Ang mga pribadong mensahe ay naka‑encrypt. Ang mga mensahe sa channel ay publiko.</string>
+    <string name="about_system">system</string>
+    <string name="about_light">light</string>
+    <string name="about_dark">dark</string>
+    <string name="about_pow">proof of work</string>
+    <string name="about_pow_tip">magdagdag ng proof of work sa mga geohash na mensahe para iwas spam.</string>
+    <string name="about_pow_desc_none">walang proof of work na kailangan</string>
+    <string name="about_pow_desc_very_low">napakababa – minimal na proteksyon</string>
+    <string name="about_pow_desc_low">mababa – batayang proteksyon</string>
+    <string name="about_pow_desc_medium">katamtaman – magandang proteksyon</string>
+    <string name="about_pow_desc_high">mataas – matibay na proteksyon</string>
+    <string name="about_pow_desc_very_high">napakataas – posibleng may pagkaantala</string>
+    <string name="about_pow_desc_extreme">matindi – malaking komputasyon ang kailangan</string>
+    <string name="about_tor_route">iruta ang internet sa Tor para sa mas mataas na privacy.</string>
+    <string name="about_debug_settings">Debug Settings</string>
+    <string name="about_footer">Open Source • Privacy First • Desentralisado</string>
+    <string name="unknown">hindi kilala</string>
+
+    <!-- Debug / Diagnostics -->
+    <string name="debug_tools">mga kasangkapan sa debug</string>
+    <string name="debug_verbose_logging">masalitang pag‑log</string>
+    <string name="debug_bluetooth_roles">mga tungkulin sa Bluetooth</string>
+    <string name="debug_gatt_server">GATT server</string>
+    <string name="debug_connections_fmt">mga koneksyon: %1$d / %2$d</string>
+    <string name="debug_max_server">max server</string>
+    <string name="debug_gatt_client">GATT client</string>
+    <string name="debug_max_client">max client</string>
+    <string name="debug_overall_connections_fmt">mga koneksyon: %1$d / %2$d</string>
+    <string name="debug_max_overall">max kabuuan</string>
+    <string name="debug_packet_relay">packet relay</string>
+    <string name="debug_max_packets_per_sync_fmt">max packet bawat sync: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">max laki ng GCS filter: %1$d bytes (128–1024)</string>
+    <string name="debug_target_fpr_fmt">target FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">mga nakakonektang device</string>
+    <string name="debug_our_device_id_fmt">ID ng aming device: %1$s</string>
+    <string name="debug_none">wala</string>
+    <string name="debug_disconnect">i‑disconnect</string>
+    <string name="debug_recent_scan_results">mga huling resulta ng scan</string>
+    <string name="debug_connect">kumonekta</string>
+    <string name="debug_debug_console">debug console</string>
+    <string name="debug_clear">limasin</string>
+    <string name="debug_derived_p_fmt">hinangong P: %1$s • tantyang max na elemento: %2$s</string>
+    <string name="debug_direct_suffix"> • direkta</string>
+    <string name="debug_question_mark">?</string>
+    <string name="debug_role_server">bilang server (kami ang nagho‑host)</string>
+    <string name="debug_role_client">bilang client (kami ang kumokonekta)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">Wika</string>
+    <string name="about_app_language">Wika ng app</string>
+    <string name="about_system_default">Default ng system</string>
+    <string name="about_select_language">Pumili ng wika</string>
+</resources>

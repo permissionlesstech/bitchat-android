@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
-
     <!-- 권한 안내 -->
     <string name="permission_bluetooth_rationale">인터넷 없이 다른 사람과 직접 채팅하려면 블루투스 권한이 필요합니다.</string>
     <string name="permission_location_rationale">블루투스로 주변 기기를 찾으려면 위치 권한이 필요합니다.</string>
@@ -74,38 +72,16 @@
     <string name="close_with_emoji">❌ 닫기</string>
     <string name="pick_image">이미지 선택</string>
 
-    <!-- 정보 시트 -->
-    <string name="about_offline_mesh_title">오프라인 메쉬 채팅</string>
-    <string name="about_offline_mesh_desc">인터넷이나 서버 없이 Bluetooth LE로 직접 소통합니다. 범위를 확장하기 위해 근처 기기를 통해 메시지가 중계됩니다.</string>
-    <string name="about_online_geohash_title">온라인 geohash 채널</string>
-    <string name="about_online_geohash_desc">geohash 기반 채널을 통해 주변 사람들과 연결하세요. 공용 인터넷 릴레이로 메쉬를 확장합니다.</string>
-    <string name="about_e2e_title">종단간 암호화</string>
-    <string name="about_e2e_desc">개인 메시지는 암호화됩니다. 채널 메시지는 공개입니다.</string>
-    <string name="about_system">시스템</string>
-    <string name="about_light">라이트</string>
-    <string name="about_dark">다크</string>
-    <string name="about_pow">작업증명</string>
     <string name="about_pow_off">PoW 끔</string>
     <string name="about_pow_on">PoW 켬</string>
-    <string name="about_pow_tip">스팸을 어렵게 만들기 위해 geohash 메시지에 작업증명을 추가하세요.</string>
     <string name="about_pow_difficulty">난이도: %1$d 비트 (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">난이도 %1$d는 ~%2$s 해시 시도가 필요합니다</string>
-    <string name="about_pow_desc_none">작업증명 필요 없음</string>
-    <string name="about_pow_desc_very_low">매우 낮음 – 최소 스팸 보호</string>
-    <string name="about_pow_desc_low">낮음 – 기본 스팸 보호</string>
-    <string name="about_pow_desc_medium">중간 – 좋은 스팸 보호</string>
-    <string name="about_pow_desc_high">높음 – 강한 스팸 보호</string>
-    <string name="about_pow_desc_very_high">매우 높음 – 지연이 발생할 수 있음</string>
-    <string name="about_pow_desc_extreme">매우 극단 – 상당한 연산 능력 필요</string>
     <string name="about_network">네트워크</string>
     <string name="about_tor_off">Tor 끔</string>
     <string name="about_tor_on">Tor 켬</string>
-    <string name="about_tor_route">개인정보 보호를 위해 인터넷 트래픽을 Tor를 통해 라우팅합니다.</string>
     <string name="about_tor_status">Tor 상태: %1$s, 부트스트랩 %2$d%%</string>
     <string name="about_last">마지막: %1$s</string>
     <string name="about_emergency_title">긴급 데이터 삭제</string>
-    <string name="about_debug_settings">디버그 설정</string>
-    <string name="about_footer">오픈 소스 • 프라이버시 우선 • 탈중앙</string>
     <string name="cancel_lower">취소</string>
 
     <!-- 일반 콘텐츠 설명 -->
@@ -153,8 +129,6 @@
     <string name="toast_failed_to_save_image">이미지를 저장하지 못했습니다</string>
     <string name="pick_file">파일 선택</string>
     <string name="file_unavailable">[파일을 사용할 수 없음]</string>
-    <string name="unknown">알 수 없음</string>
-
     <!-- 사용자 작업 시트 -->
     <string name="choose_action_message_or_user">이 메시지 또는 사용자에 대한 동작 선택</string>
     <string name="choose_action_user">이 사용자에 대한 동작 선택</string>
@@ -190,40 +164,9 @@
     <string name="location_level_region">지역</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <!-- 디버그 / 진단 -->
-    <string name="debug_tools">디버그 도구</string>
-    <string name="debug_tools_desc">진단 및 제어를 위한 개발자 도구</string>
-    <string name="debug_verbose_logging">상세 로깅</string>
-    <string name="debug_verbose_hint">피어 참여/이탈, 연결 방향, 패킷 전달 및 릴레이를 기록합니다</string>
-    <string name="debug_bluetooth_roles">블루투스 역할</string>
-    <string name="debug_gatt_server">GATT 서버</string>
-    <string name="debug_connections_fmt">연결: %1$d / %2$d</string>
-    <string name="debug_max_server">최대 서버</string>
-    <string name="debug_gatt_client">GATT 클라이언트</string>
-    <string name="debug_max_client">최대 클라이언트</string>
-    <string name="debug_overall_connections_fmt">연결: %1$d / %2$d</string>
-    <string name="debug_max_overall">총 최대</string>
-    <string name="debug_packet_relay">패킷 릴레이</string>
     <string name="debug_since_start_fmt">시작 이후: %1$d</string>
-    <string name="debug_roles_hint">역할을 켜고/끄고 비활성화 시 모든 연결 닫기</string>
     <string name="debug_sync_settings">동기화 설정</string>
-    <string name="debug_max_packets_per_sync_fmt">동기화당 최대 패킷: %1$d</string>
-    <string name="debug_max_gcs_filter_size_fmt">최대 GCS 필터 크기: %1$d Byte (128–1024)</string>
-    <string name="debug_target_fpr_fmt">목표 FPR: %1$.2f%%</string>
-    <string name="debug_connected_devices">연결된 장치</string>
-    <string name="debug_our_device_id_fmt">우리 장치 ID: %1$s</string>
-    <string name="debug_none">없음</string>
-    <string name="debug_disconnect">연결 해제</string>
-    <string name="debug_recent_scan_results">최근 스캔된 장치</string>
-    <string name="debug_connect">연결</string>
-    <string name="debug_debug_console">디버그 콘솔</string>
-    <string name="debug_clear">지우기</string>
     <string name="debug_relays_window_fmt">마지막 10초: %1$d • 1분: %2$d • 15분: %3$d</string>
-    <string name="debug_derived_p_fmt">유도 P: %1$s • 예상 최대 요소: %2$s</string>
-    <string name="debug_direct_suffix"> • 직접</string>
-    <string name="debug_role_server">서버로서 (우리가 호스트)</string>
-    <string name="debug_role_client">클라이언트로서 (우리가 연결)</string>
-
     <!-- 온보딩 화면 -->
     <string name="location_services_required">위치 서비스 필요</string>
     <string name="privacy_first">개인정보 우선</string>
@@ -266,7 +209,6 @@
     <string name="select">선택</string>
     <string name="type_a_message_placeholder">메시지 입력 …</string>
     <string name="mention">멘션</string>
-    <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">이미지</string>
     <string name="media_type_file">파일</string>
@@ -357,8 +299,4 @@
   <string name="nearby_notes_reveal">여기 남겨진 쪽지 확인</string>
   <string name="nearby_notes_one">여기 남겨진 쪽지 1개 — 탭하여 읽기</string>
   <string name="nearby_notes_many">여기 남겨진 쪽지 %d개 — 탭하여 읽기</string>
-    <string name="about_language">언어</string>
-    <string name="about_app_language">앱 언어</string>
-    <string name="about_system_default">시스템 기본값</string>
-    <string name="about_select_language">언어 선택</string>
 </resources>

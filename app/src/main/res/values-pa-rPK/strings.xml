@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
-
     <!-- اجازت دی وجہ -->
     <string name="permission_bluetooth_rationale">انٹرنیٹ توں بغیر سیدھی چیٹ لئی بلوٹوتھ دی اجازت ضروری اے۔</string>
     <string name="permission_location_rationale">بلوٹوتھ راہین نیڑے ڈیوائس لبھن لئی لوکیشن دی اجازت ضروری اے۔</string>
@@ -74,38 +72,16 @@
     <string name="close_with_emoji">❌ بند کرو</string>
     <string name="pick_image">تصویر چُنو</string>
 
-    <!-- بارے شیٹ -->
-    <string name="about_offline_mesh_title">آف لائن میش چیٹ</string>
-    <string name="about_offline_mesh_desc">انٹرنیٹ یا سرور توں بغیر Bluetooth LE راہین سیدھا رابطہ کرو۔ رینج ودھاؤن لئی پیغام نیڑے ڈیوائساں راہین ریلے ہوندے نیں۔</string>
-    <string name="about_online_geohash_title">آن لائن geohash چینل</string>
-    <string name="about_online_geohash_desc">geohash بیسڈ چینلاں راہین اپنے علاقے دے لوکاں نال جڑو۔ پبلک انٹرنیٹ ریلے راہین میش نوں وسیع کرو۔</string>
-    <string name="about_e2e_title">اینڈ ٹو اینڈ انکرپشن</string>
-    <string name="about_e2e_desc">ذاتی پیغام انکرپٹڈ ہوندے نیں۔ چینل پیغام پبلک ہوندے نیں۔</string>
-    <string name="about_system">سسٹم</string>
-    <string name="about_light">ہلکا</string>
-    <string name="about_dark">گھُپ</string>
-    <string name="about_pow">ثبوتِ کار (Proof of Work)</string>
     <string name="about_pow_off">PoW بند</string>
     <string name="about_pow_on">PoW چالو</string>
-    <string name="about_pow_tip">سپیم مشکل کرن لئی geohash پیغام وچ Proof of Work شامل کرو۔</string>
     <string name="about_pow_difficulty">مشکلی: %1$d بٹ (~%2$s)</string>
     <string name="about_pow_difficulty_attempts">مشکلی %1$d لئی ~%2$s ہیش کوششاں چاہیدن</string>
-    <string name="about_pow_desc_none">کسے Proof of Work دی لوڑ نئیں</string>
-    <string name="about_pow_desc_very_low">بوہت گھٹ – گھٹ توں گھٹ سپیم تحفظ</string>
-    <string name="about_pow_desc_low">گھٹ – بنیادی سپیم تحفظ</string>
-    <string name="about_pow_desc_medium">درمیانہ – اچھا سپیم تحفظ</string>
-    <string name="about_pow_desc_high">وڈا – مضبوط سپیم تحفظ</string>
-    <string name="about_pow_desc_very_high">بوہت وڈا – ڈیلے ہوسکدا اے</string>
-    <string name="about_pow_desc_extreme">انتہائی – وڈی کمپیوٹنگ پاور دی لوڑ</string>
     <string name="about_network">نیٹ ورک</string>
     <string name="about_tor_off">Tor بند</string>
     <string name="about_tor_on">Tor چالو</string>
-    <string name="about_tor_route">وَدھ پرائیویسی لئی انٹرنیٹ ٹریفک نوں Tor راہین رُوٹ کرو۔</string>
     <string name="about_tor_status">Tor حالت: %1$s، بوٹ اسٹرَیپ %2$d%%</string>
     <string name="about_last">آخری: %1$s</string>
     <string name="about_emergency_title">ایمرجنسی ڈیٹا صاف</string>
-    <string name="about_debug_settings">ڈی بگ سیٹنگا</string>
-    <string name="about_footer">اوپن سورس • پرائیویسی پہلے • غیر مرکزی</string>
     <string name="cancel_lower">منسوخ</string>
 
     <!-- عمومی مواد دی وضاحت -->
@@ -153,8 +129,6 @@
     <string name="toast_failed_to_save_image">تصویر سیو نئیں ہو سکدی</string>
     <string name="pick_file">فائل چُنو</string>
     <string name="file_unavailable">[فائل دستیاب نئیں]</string>
-    <string name="unknown">نامعلوم</string>
-
     <!-- یوزر ایکشن شیٹ -->
     <string name="choose_action_message_or_user">اس پیغام یا یوزر لئی عمل چُنو</string>
     <string name="choose_action_user">اس یوزر لئی عمل چُنو</string>
@@ -190,40 +164,9 @@
     <string name="location_level_region">خطہ</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <!-- ڈیبگ / تشخیص -->
-    <string name="debug_tools">ڈی بگ ٹول</string>
-    <string name="debug_tools_desc">تشخیصی تے کنٹرول لئی ڈویلپر ٹول</string>
-    <string name="debug_verbose_logging">تفصیلی لاگنگ</string>
-    <string name="debug_verbose_hint">پیئر جوائن/لیو، کنکشن سمت، پیکٹ فارورڈنگ تے ریلے لاگ کرو</string>
-    <string name="debug_bluetooth_roles">بلوٹوتھ کردار</string>
-    <string name="debug_gatt_server">GATT سرور</string>
-    <string name="debug_connections_fmt">کنکشن: %1$d / %2$d</string>
-    <string name="debug_max_server">وڈ توں وڈ سرور</string>
-    <string name="debug_gatt_client">GATT کلائنٹ</string>
-    <string name="debug_max_client">وڈ توں وڈ کلائنٹ</string>
-    <string name="debug_overall_connections_fmt">کنکشن: %1$d / %2$d</string>
-    <string name="debug_max_overall">کل وڈ توں وڈ</string>
-    <string name="debug_packet_relay">پیکٹ ریلے</string>
     <string name="debug_since_start_fmt">شروع توں: %1$d</string>
-    <string name="debug_roles_hint">کردار آن/آف کرو تے غیر فعال کرن تے سارے کنکشن بند کرو</string>
     <string name="debug_sync_settings">سنک سیٹنگا</string>
-    <string name="debug_max_packets_per_sync_fmt">ہر سنک وِچ وڈ توں وڈ پیکٹ: %1$d</string>
-    <string name="debug_max_gcs_filter_size_fmt">وڈ توں وڈ GCS فلٹر سائز: %1$d بائٹ (128–1024)</string>
-    <string name="debug_target_fpr_fmt">ٹارگٹ FPR: %1$.2f%%</string>
-    <string name="debug_connected_devices">جڑے ڈیوائس</string>
-    <string name="debug_our_device_id_fmt">ساڈا ڈیوائس ID: %1$s</string>
-    <string name="debug_none">کچھ وی نئیں</string>
-    <string name="debug_disconnect">ڈس کنیکٹ</string>
-    <string name="debug_recent_scan_results">حال ہی وچ سکین ہوۓ ڈیوائس</string>
-    <string name="debug_connect">جڑو</string>
-    <string name="debug_debug_console">ڈی بگ کنسول</string>
-    <string name="debug_clear">صاف کرو</string>
     <string name="debug_relays_window_fmt">پچھلے 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
-    <string name="debug_derived_p_fmt">مشتق P: %1$s • اندازاً وڈ توں وڈ عناصر: %2$s</string>
-    <string name="debug_direct_suffix"> • سیدھا</string>
-    <string name="debug_role_server">سرور (اسی ہوسٹ آں)</string>
-    <string name="debug_role_client">کلائنٹ (اسی جُڑدے آں)</string>
-
     <!-- آن بورڈنگ سکرینا -->
     <string name="location_services_required">لوکیشن سروسز لازمی نیں</string>
     <string name="privacy_first">پرائیویسی پہلے</string>
@@ -266,7 +209,6 @@
     <string name="select">چُنو</string>
     <string name="type_a_message_placeholder">پیغام لکھو …</string>
     <string name="mention">ذکر</string>
-    <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">تصویر</string>
     <string name="media_type_file">فائل</string>
@@ -344,8 +286,4 @@
   <string name="nearby_notes_reveal">ایتھے چھڈے نوٹس ویکھو</string>
   <string name="nearby_notes_one">ایتھے 1 نوٹ چھڈیا گیا — پڑھݨ لئی ٹیپ کرو</string>
   <string name="nearby_notes_many">ایتھے %d نوٹس چھڈے گئے — پڑھݨ لئی ٹیپ کرو</string>
-    <string name="about_language">بولی</string>
-    <string name="about_app_language">ایپ دی بولی</string>
-    <string name="about_system_default">سسٹم دی ڈیفالٹ</string>
-    <string name="about_select_language">بولی چݨو</string>
 </resources>

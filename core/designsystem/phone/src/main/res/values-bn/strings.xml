@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">bitchat</string>
+
     <string name="back">ফিরে যান</string>
     <string name="close_plain">বন্ধ করুন</string>
   <string name="fingerprint_verified_label">verified</string>

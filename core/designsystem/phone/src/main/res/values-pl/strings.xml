@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="fingerprint_verified_label">zweryfikowano</string>
+    <!-- Newly translated strings -->
+    <string name="app_name">bitchat</string>
     <string name="back">Wstecz</string>
+    <string name="about_tagline">zdecentralizowana komunikacja mesh z szyfrowaniem end-to-end</string>
     <string name="close_plain">Zamknij</string>
     <string name="cancel">Anuluj</string>
+    <string name="tor_not_available_in_this_build">Tor niedostępny w tej wersji</string>
+
 </resources>
