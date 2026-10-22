@@ -1,5 +1,6 @@
 package com.bitchat.android.navigation
 
+import androidx.navigation3.runtime.NavKey
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -64,10 +65,13 @@ class PrivateChatNavigationTest {
 
     @Test
     fun `nothing opens while chat is not on the stack`() {
-        navigator.resetTo(OnboardingRoute)
+        navigator.resetTo(Onboarding)
 
         navigator.openPrivateChat("peer-a")
 
-        assertEquals(listOf(OnboardingRoute), stack())
+        assertEquals(listOf(Onboarding), stack())
     }
+
+    /** Stands in for the host's onboarding route, which lives in :app. */
+    private data object Onboarding : NavKey
 }
