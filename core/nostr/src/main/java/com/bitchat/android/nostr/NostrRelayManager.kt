@@ -641,7 +641,16 @@ class NostrRelayManager private constructor() {
             routeChangeJob?.cancel()
             routeChangeSource = clients
             routeChangeJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                clients.routeChanges.collect { resetAllConnections() }
+                clients.routeChanges.collect {
+                    // Contain a failed reset so the watcher survives for the next route change.
+                    try {
+                        resetAllConnections()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to reset relays after a route change: ${e.message}", e)
+                    }
+                }
             }
         }
     }
