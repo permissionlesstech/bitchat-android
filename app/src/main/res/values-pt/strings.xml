@@ -46,7 +46,7 @@
     <string name="notification_summary_more">e mais %1$d</string>
     <string name="notification_messages_from_people">%1$d mensagens de %2$d pessoas</string>
     <string name="notification_more_conversations">e mais %1$d conversas</string>
-    <string name="notification_active_peers_title">👥 bitchatters por perto!</string>
+    <string name="notification_active_peers_title">bitchatters por perto!</string>
     <string name="notification_active_peers_one">1 pessoa por perto</string>
     <string name="notification_active_peers_many">%1$d pessoas por perto</string>
     <string name="notification_new_messages">Novas mensagens</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">Adicionar marcador</string>
 
     <!-- Cabeçalho do chat e acessibilidade -->
-    <string name="chat_back">voltar</string>
-    <string name="chat_channel_prefix">Canal: %1$s</string>
-    <string name="chat_leave">sair</string>
     <string name="cd_nostr_reachable">Alcançável via Nostr</string>
     <string name="cd_unread_private_messages">Mensagens privadas não lidas</string>
-    <string name="cd_toggle_bookmark">Alternar marcador</string>
     <string name="cd_teleported">Teletransportado</string>
-    <string name="cd_tor_status">Estado do Tor</string>
+    <string name="cd_open_location_channels">Abrir definições de localização e canais</string>
     <string name="cd_connected_peers">Pares ligados</string>
     <string name="cd_geohash_participants">Participantes geohash</string>
     <string name="cd_ready_for_handshake">Pronto para handshake</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">Escolher imagem</string>
 
     <!-- Folha sobre -->
-    <string name="about_tagline">chat mesh descentralizado com encriptação ponto a ponto</string>
     <string name="about_offline_mesh_title">Chat mesh offline</string>
     <string name="about_offline_mesh_desc">Comunique diretamente via Bluetooth LE sem internet ou servidores. As mensagens são retransmitidas através de dispositivos próximos para estender o alcance.</string>
     <string name="about_online_geohash_title">Canais geohash online</string>
     <string name="about_online_geohash_desc">Conecte-se com pessoas perto de si através de canais baseados em geohash. Estenda a mesh através de repetidores de internet pública.</string>
     <string name="about_e2e_title">Encriptação ponto a ponto</string>
     <string name="about_e2e_desc">Mensagens privadas são encriptadas. Mensagens de canal são públicas.</string>
-    <string name="about_appearance">Aparência</string>
     <string name="about_system">Sistema</string>
     <string name="about_light">Claro</string>
     <string name="about_dark">Escuro</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Estado do Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Último: %1$s</string>
     <string name="about_emergency_title">Limpeza de dados de emergência</string>
-    <string name="about_emergency_tip">Dica: Toque três vezes no título da aplicação para apagar todos os dados guardados – incluindo mensagens, chaves e definições.</string>
     <string name="about_debug_settings">Definições de depuração</string>
     <string name="about_footer">Código aberto • Privacidade primeiro • Descentralizado</string>
     <string name="close_plain">Fechar</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">Abrir mapa</string>
     <string name="cd_remove_bookmark">Remover marcador</string>
     <string name="cd_teleport">Teletransportar</string>
-    <string name="cd_selected">Selecionado</string>
     <string name="cd_leave_channel">Sair do canal</string>
     <string name="cd_reachable_via_nostr">Alcançável via Nostr</string>
     <string name="cd_offline_favorite">Favorito (offline)</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">Permissões</string>
     <string name="grant_permissions">Conceder permissões</string>
     <string name="location_tracking_warning">O bitchat NÃO rastreia a sua localização</string>
-    <string name="geohash_people_header">PESSOAS</string>
     <string name="nobody_around">ninguém por perto…</string>
     <string name="you_suffix"> (você)</string>
     <string name="pan_zoom_instruction">arraste e amplie para selecionar um geohash</string>
     <string name="select">selecionar</string>
     <string name="type_a_message_placeholder">Digite uma mensagem…</string>
     <string name="mention">mencionar</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Imagem</string>
@@ -307,11 +297,6 @@
     <!-- Acessibilidade do reprodutor de voz -->
     <string name="cd_play_voice">Reproduzir</string>
     <string name="cd_pause_voice">Pausar</string>
-    <string name="cd_mining_pow">A minerar PoW</string>
-    <string name="cd_pow_enabled">PoW ativado</string>
-    <string name="cd_proof_of_work">Prova de Trabalho</string>
-    <string name="pow_mining_ellipsis">A minerar…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Descrições de permissões -->
     <string name="perm_nearby_devices_desc">Necessário para descobrir utilizadores bitchat via Bluetooth</string>
@@ -400,4 +385,12 @@
   <string name="verify_success_title">Verificado</string>
   <string name="verify_success_body">Você verificou %1$s</string>
   <string name="verify_success_system_message">verificou %1$s</string>
+    <string name="cd_open_about">Abrir Sobre</string>
+  <string name="nearby_notes_reveal">ver se há notas deixadas aqui</string>
+  <string name="nearby_notes_one">1 nota deixada aqui — toque para ler</string>
+  <string name="nearby_notes_many">%d notas deixadas aqui — toque para ler</string>
+    <string name="about_language">Idioma</string>
+    <string name="about_app_language">Idioma da aplicação</string>
+    <string name="about_system_default">Predefinição do sistema</string>
+    <string name="about_select_language">Selecionar idioma</string>
 </resources>

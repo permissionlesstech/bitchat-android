@@ -24,10 +24,9 @@ class SyncedSocket(
     private val outputStream: DataOutputStream
 
     companion object {
-        // Both peers exchange keep-alive frames every ~2s while connected, so a read that
-        // stalls well beyond that means the link is dead (half-open). Time out so the read
-        // loop can detect it and trigger disconnection instead of blocking forever.
-        const val DEFAULT_READ_TIMEOUT_MS = 15_000
+        // Critical-background peers send at most every 30s. Tolerate three missed frames so a
+        // faster local profile cannot drop a healthy, slower remote peer merely for being idle.
+        const val DEFAULT_READ_TIMEOUT_MS = 90_000
     }
 
     init {

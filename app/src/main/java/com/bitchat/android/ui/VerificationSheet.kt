@@ -1,5 +1,7 @@
 package com.bitchat.android.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.QrCodeScanner
 import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
@@ -17,7 +19,6 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,8 +32,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,7 +59,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -70,8 +68,10 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
+import com.bitchat.android.core.ui.component.sheet.LocalSheetDismiss
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.services.VerificationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -98,8 +98,7 @@ fun VerificationSheet(
 ) {
     if (!isPresented) return
 
-    val isDark = isSystemInDarkTheme()
-    val accent = if (isDark) Color.Green else Color(0xFF008000)
+    val accent = MaterialTheme.colorScheme.primary
     
     var selectedTab by remember { mutableStateOf(0) } // 0 = My Code, 1 = Scan
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
@@ -144,7 +143,7 @@ fun VerificationSheet(
                     text = {
                         Text(
                             text = "My QR",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontSize = 14.sp
                         )
                     }
@@ -155,7 +154,7 @@ fun VerificationSheet(
                     text = {
                         Text(
                             text = "Scan",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontSize = 14.sp
                         )
                     }
@@ -208,7 +207,7 @@ fun VerificationSheet(
                     ) {
                         Text(
                             text = stringResource(R.string.verify_remove),
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontSize = 12.sp
                         )
                     }
@@ -232,10 +231,11 @@ private fun VerificationHeader(
         Text(
             text = stringResource(R.string.verify_title).uppercase(),
             fontSize = 14.sp,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = accent
         )
-        CloseButton(onClick = onClose)
+        val dismiss = LocalSheetDismiss.current
+        CloseButton(onClick = { dismiss?.invoke() ?: onClose() })
     }
 }
 
@@ -258,7 +258,7 @@ private fun MyQrTabContent(
         Text(
             text = stringResource(R.string.verify_my_qr_title),
             style = MaterialTheme.typography.titleMedium,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = accent
         )
         
@@ -283,7 +283,7 @@ private fun MyQrTabContent(
             ) {
                 Text(
                     text = stringResource(R.string.verify_qr_unavailable),
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 12.sp,
                     color = Color.Black.copy(alpha = 0.6f)
                 )
@@ -296,7 +296,7 @@ private fun MyQrTabContent(
         Text(
             text = nickname,
             style = MaterialTheme.typography.headlineSmall,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
@@ -307,7 +307,7 @@ private fun MyQrTabContent(
         Text(
             text = stringResource(R.string.app_name).lowercase(),
             style = MaterialTheme.typography.bodyMedium,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = BitchatFontFamily,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             textAlign = TextAlign.Center
         )
@@ -355,7 +355,7 @@ private fun ScanTabContent(
                 Text(
                     text = stringResource(R.string.verify_scan_prompt_friend),
                     color = Color.White,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 12.sp,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -386,7 +386,7 @@ private fun ScanTabContent(
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
                     text = stringResource(R.string.verify_camera_permission),
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -397,7 +397,7 @@ private fun ScanTabContent(
                 ) {
                     Text(
                         text = stringResource(R.string.verify_request_camera),
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = BitchatFontFamily
                     )
                 }
             }

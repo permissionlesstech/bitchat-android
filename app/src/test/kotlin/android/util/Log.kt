@@ -12,6 +12,11 @@ fun e(tag: String, msg: String): Int {
     return 0;
 }
 
+fun e(tag: String, msg: String, throwable: Throwable): Int {
+    println("ERROR: $tag: $msg (${throwable.message})")
+    return 0;
+}
+
 fun w(tag: String, msg: String): Int {
     println("WARN: $tag: $msg")
     return 0;

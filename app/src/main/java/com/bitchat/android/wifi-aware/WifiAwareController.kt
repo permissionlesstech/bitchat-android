@@ -6,14 +6,14 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import androidx.annotation.VisibleForTesting
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * WifiAwareController manages lifecycle and debug surfacing for the WifiAwareMeshService.
@@ -29,8 +29,29 @@ object WifiAwareController {
     private val lifecycleLock = Any()
     private var starting = false
     private val restartInFlight = AtomicBoolean(false)
+    private val restartRequested = AtomicBoolean(false)
     private var awareReceiverRegistered = false
     private var lastBlockedReason: String? = null
+
+    /**
+     * How many hotspot sessions currently need the radio.
+     *
+     * Wi-Fi Aware (NAN) and Wi-Fi Direct (P2P) cannot hold interfaces at the same time on
+     * common chipsets — the HAL fails to create the P2P iface and every createGroup is
+     * answered with BUSY. A non-zero count also blocks [startIfPossible], so a resume or
+     * mesh-service restart cannot bring Aware back while a hotspot is up.
+     *
+     * A count rather than a flag because teardown is asynchronous and sessions can
+     * overlap. Callers receive a once-releasable [HotspotLease], so one session cannot
+     * accidentally consume another session's hold.
+     */
+    private val hotspotHolds = AtomicInteger(0)
+
+    /** True while any hotspot session still needs the radio. */
+    @VisibleForTesting
+    internal fun isHeldForHotspot(): Boolean = hotspotHolds.get() > 0
+
+    private fun heldForHotspot(): Boolean = isHeldForHotspot()
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -68,24 +89,20 @@ object WifiAwareController {
             Log.i(TAG, "Wi-Fi Aware unsupported: ${status.reason}")
         }
         setEnabled(enabledByDefault)
-        // Start background poller for debug surfacing
-        scope.launch {
-            while (isActive) {
-                try {
-                    val s = service
-                    if (s != null) {
-                        _connectedPeers.value = s.getDeviceAddressToPeerMapping() // peerID -> ip
-                        _knownPeers.value = s.getPeerNicknames()
-                        _discoveredPeers.value = s.getDiscoveredPeerIds()
-                    } else {
-                        _connectedPeers.value = emptyMap()
-                        _knownPeers.value = emptyMap()
-                        _discoveredPeers.value = emptySet()
-                    }
-                } catch (_: Exception) { }
-                delay(1000)
-            }
-        }
+    }
+
+    internal fun publishDebugSnapshot(
+        connected: Map<String, String>,
+        known: Map<String, String>,
+        discovered: Set<String>
+    ) {
+        _connectedPeers.value = connected
+        _knownPeers.value = known
+        _discoveredPeers.value = discovered
+    }
+
+    private fun clearDebugSnapshot() {
+        publishDebugSnapshot(emptyMap(), emptyMap(), emptySet())
     }
 
     fun setEnabled(value: Boolean) {
@@ -93,9 +110,69 @@ object WifiAwareController {
         if (value) startIfPossible() else stop()
     }
 
+    /**
+     * A session-scoped claim on the Wi-Fi radio.
+     *
+     * Closing the same lease twice is a no-op; raw decrements are intentionally not
+     * exposed because lifecycle retries and duplicate teardown calls must not release a
+     * different hotspot session's hold.
+     */
+    class HotspotLease internal constructor(
+        private val releaseAction: () -> Unit
+    ) : AutoCloseable {
+        private val released = AtomicBoolean(false)
+
+        override fun close() {
+            if (released.compareAndSet(false, true)) {
+                releaseAction()
+            }
+        }
+    }
+
+    /**
+     * Releases the Wi-Fi radio so a Wi-Fi Direct hotspot can create its P2P interface,
+     * and prevents Aware restarting until the returned lease is closed.
+     *
+     * Counted because a second share can start while the first is still cleaning up.
+     */
+    fun acquireHotspotLease(): HotspotLease {
+        if (hotspotHolds.getAndIncrement() == 0) {
+            Log.i(TAG, "Holding Wi-Fi Aware down so the hotspot can use the radio")
+            stop()
+        }
+        return HotspotLease(::releaseHotspotLease)
+    }
+
+    private fun releaseHotspotLease() {
+        var remaining: Int
+        while (true) {
+            val current = hotspotHolds.get()
+            if (current == 0) return
+            remaining = current - 1
+            if (hotspotHolds.compareAndSet(current, remaining)) break
+        }
+
+        if (remaining != 0) {
+            Log.d(TAG, "Hotspot finished, but $remaining other hold(s) remain")
+            return
+        }
+
+        Log.i(TAG, "Hotspot finished; restoring Wi-Fi Aware if enabled")
+        restartIfStillEnabled()
+    }
+
+    @VisibleForTesting
+    internal fun resetHotspotLeasesForTest() {
+        hotspotHolds.set(0)
+    }
+
     fun startIfPossible() {
         val reusableService = synchronized(lifecycleLock) {
             if (!_enabled.value) return
+            if (heldForHotspot()) {
+                Log.d(TAG, "Not starting Wi-Fi Aware: held down for the hotspot")
+                return
+            }
             val existing = service
             if (existing?.isRunning() == true) {
                 _running.value = true
@@ -155,7 +232,7 @@ object WifiAwareController {
                 return
             }
         }
-        if (!_enabled.value) {
+        if (!_enabled.value || heldForHotspot()) {
             synchronized(lifecycleLock) { starting = false }
             return
         }
@@ -165,23 +242,40 @@ object WifiAwareController {
                 WifiAwareMeshService(ctx)
             }
             startedService.startServices()
-            if (startedService.isRunning()) {
-                synchronized(lifecycleLock) {
+
+            // Test the hold inside the same lock that publishes the service, and that
+            // stop() takes. Testing it outside leaves a window where acquiring a lease
+            // sets the flag and stop() finds nothing published yet, and this block then
+            // publishes anyway — resurrecting NAN while the hotspot owns the radio.
+            // Ordering holds because acquireHotspotLease() increments before calling
+            // stop(): either we see the flag here, or stop() sees our published service.
+            val published = synchronized(lifecycleLock) {
+                val canPublish = !heldForHotspot() && startedService.isRunning()
+                if (canPublish) {
                     service = startedService
                     _running.value = true
+                } else {
+                    if (service === startedService) service = null
+                    _running.value = false
                 }
+                canPublish
+            }
+
+            if (published) {
                 try { com.bitchat.android.service.MeshServiceHolder.unifiedMeshService?.refreshDelegates() } catch (_: Exception) { }
                 clearBlockedDebugMessage()
                 try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware started")) } catch (_: Exception) {}
             } else {
-                if (reusableService == null) {
+                // stopServices() can block, so keep it out of the lock.
+                val heldForHotspot = heldForHotspot()
+                if (heldForHotspot || reusableService == null) {
                     try { startedService.stopServices() } catch (_: Exception) { }
                 }
-                synchronized(lifecycleLock) {
-                    if (service === startedService) service = null
-                    _running.value = false
+                if (heldForHotspot) {
+                    Log.i(TAG, "Abandoned Wi-Fi Aware start: hotspot claimed the radio")
                 }
-                try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware did not start")) } catch (_: Exception) {}
+                val detail = if (heldForHotspot) "held down for the hotspot" else "did not start"
+                try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware $detail")) } catch (_: Exception) {}
             }
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to start WifiAwareMeshService", e)
@@ -202,9 +296,7 @@ object WifiAwareController {
         }
         try { stopped?.stopServices() } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
-        _connectedPeers.value = emptyMap()
-        _knownPeers.value = emptyMap()
-        _discoveredPeers.value = emptySet()
+        clearDebugSnapshot()
         try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware stopped")) } catch (_: Exception) {}
     }
 
@@ -214,9 +306,7 @@ object WifiAwareController {
             service = null
             _running.value = false
             try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
-            _connectedPeers.value = emptyMap()
-            _knownPeers.value = emptyMap()
-            _discoveredPeers.value = emptySet()
+            clearDebugSnapshot()
         }
     }
 
@@ -227,6 +317,13 @@ object WifiAwareController {
      * startServices() defers and we must try again rather than give up.
      */
     internal fun restartIfStillEnabled(delayMs: Long = 0L) {
+        // Record the request before coalescing. A request that arrives while a loop is
+        // already running — the final lease closing during a loop that has been
+        // burning attempts against the hold — would otherwise be dropped, and the old
+        // loop would exhaust MAX_RESTART_ATTEMPTS without ever seeing the cleared hold,
+        // leaving Aware down despite the user's setting.
+        restartRequested.set(true)
+
         if (!restartInFlight.compareAndSet(false, true)) {
             Log.d(TAG, "Restart already in flight; coalescing request")
             return
@@ -234,17 +331,29 @@ object WifiAwareController {
         scope.launch {
             try {
                 if (delayMs > 0L) delay(delayMs)
-                var attempt = 0
-                while (_enabled.value && !_running.value && attempt < MAX_RESTART_ATTEMPTS) {
-                    val ctx = appContext
-                    if (ctx != null && !refreshSupportStatus(ctx).supported) break
-                    startIfPossible()
-                    if (_running.value) break
-                    attempt++
-                    delay(RESTART_RETRY_DELAY_MS)
-                }
+                do {
+                    // Consume the request before working, so anything arriving during
+                    // the attempts below schedules another pass.
+                    restartRequested.set(false)
+                    var attempt = 0
+                    while (_enabled.value && !_running.value && attempt < MAX_RESTART_ATTEMPTS) {
+                        val ctx = appContext
+                        if (ctx != null && !refreshSupportStatus(ctx).supported) break
+                        startIfPossible()
+                        if (_running.value) break
+                        attempt++
+                        delay(RESTART_RETRY_DELAY_MS)
+                    }
+                } while (restartRequested.get() && _enabled.value && !_running.value)
             } finally {
                 restartInFlight.set(false)
+            }
+
+            // A request landing between the loop exiting and the flag clearing finds
+            // restartInFlight still set and returns; pick it up here. Terminates because
+            // each pass consumes the flag before doing any work.
+            if (restartRequested.get() && _enabled.value && !_running.value) {
+                restartIfStillEnabled()
             }
         }
     }

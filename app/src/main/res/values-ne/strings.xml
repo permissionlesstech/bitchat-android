@@ -46,7 +46,7 @@
     <string name="notification_summary_more">र %1$d थप</string>
     <string name="notification_messages_from_people">%1$d सन्देश %2$d जनाबाट</string>
     <string name="notification_more_conversations">र %1$d अरू कुराकानी</string>
-    <string name="notification_active_peers_title">👥 नजिकै bitchatter हरू!</string>
+    <string name="notification_active_peers_title">नजिकै bitchatter हरू!</string>
     <string name="notification_active_peers_one">१ जना नजिकै</string>
     <string name="notification_active_peers_many">%1$d जना नजिकै</string>
     <string name="notification_new_messages">नयाँ सन्देश</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">बुकमार्क थप्नुहोस्</string>
 
     <!-- च्याट शीर्षक / पहुँचयोग्यता -->
-    <string name="chat_back">पछाडि</string>
-    <string name="chat_channel_prefix">च्यानल: %1$s</string>
-    <string name="chat_leave">छोड्नुहोस्</string>
     <string name="cd_nostr_reachable">Nostr मार्फत पुग्न सकिने</string>
     <string name="cd_unread_private_messages">नपढिएका निजी सन्देश</string>
-    <string name="cd_toggle_bookmark">बुकमार्क टगल</string>
     <string name="cd_teleported">टेलिपोर्ट भयो</string>
-    <string name="cd_tor_status">Tor स्थिति</string>
+    <string name="cd_open_location_channels">स्थान र च्यानल सेटिङ खोल्नुहोस्</string>
     <string name="cd_connected_peers">जडान भएका साथीहरू</string>
     <string name="cd_geohash_participants">Geohash सहभागिहरू</string>
     <string name="cd_ready_for_handshake">ह्यान्डशेकका लागि तयार</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">तस्वीर छान्नुहोस्</string>
 
     <!-- अबाउट शीट -->
-    <string name="about_tagline">विकेन्द्रित मेष सन्देश अन्त्यदेखि अन्त्य इन्क्रिप्सनसहित</string>
     <string name="about_offline_mesh_title">अफलाइन मेष च्याट</string>
     <string name="about_offline_mesh_desc">इन्टरनेट वा सर्भर बिना सिधै Bluetooth LE मार्फत सञ्चार गर्नुहोस्। नजिकका यन्त्रहरूबाट सन्देश रिल레이 हुन्छ।</string>
     <string name="about_online_geohash_title">अनलाइन Geohash च्यानलहरू</string>
     <string name="about_online_geohash_desc">Geohash आधारित च्यानलमार्फत नजिकका मानिसहरूसँग जोडिनुहोस्। सार्वजनिक इन्टरनेट रिलेलाई प्रयोग गरेर मेष विस्तार गर्नुहोस्।</string>
     <string name="about_e2e_title">एन्ड‑टु‑एन्ड इन्क्रिप्सन</string>
     <string name="about_e2e_desc">निजी सन्देश इन्क्रिप्टेड हुन्छन्। च्यानल सन्देश सार्वजनिक हुन्छन्।</string>
-    <string name="about_appearance">देखावट</string>
     <string name="about_system">सिस्टम</string>
     <string name="about_light">हल्का</string>
     <string name="about_dark">गाढा</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Tor स्थिति: %1$s, बुटस्ट्र्याप %2$d%%</string>
     <string name="about_last">अन्तिम: %1$s</string>
     <string name="about_emergency_title">आपतकालीन डेटा मेटाउने</string>
-    <string name="about_emergency_tip">सुझाव: एप शीर्षक तीन पटक ट्याप गरी सबै डेटा (सन्देश, कुञ्जी, सेटिङ) मेटाउनुहोस्।</string>
     <string name="about_debug_settings">डिबग सेटिङ</string>
     <string name="about_footer">Open Source • Privacy First • विकेन्द्रित</string>
     <string name="close_plain">बन्द गर्नुहोस्</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">नक्सा खोल्नुहोस्</string>
     <string name="cd_remove_bookmark">बुकमार्क हटाउनुहोस्</string>
     <string name="cd_teleport">टेलिपोर्ट</string>
-    <string name="cd_selected">छानिएको</string>
     <string name="cd_leave_channel">च्यानल छोड्नुहोस्</string>
     <string name="cd_reachable_via_nostr">Nostr बाट पहुँचयोग्य</string>
     <string name="cd_offline_favorite">मनपर्ने (अफलाइन)</string>
@@ -280,9 +272,7 @@
     <string name="grant_permissions">अनुमति दिनुहोस्</string>
     <string name="location_tracking_warning">bitchat ले तपाईंको स्थान पछ्याउँदैन</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">मानिसहरू</string>
     <string name="nobody_around">वरिपरि कोही छैन…</string>
     <string name="you_suffix"> (तपाईं)</string>
     <string name="pan_zoom_instruction">geohash छान्न प्यान र जुम गर्नुहोस्</string>
@@ -291,7 +281,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">उल्लेख</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -304,12 +293,6 @@
     <string name="media_type_file">फाइल</string>
 
     <!-- सन्देश स्थिति -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- सूचना पाठ सहायक -->
     <string name="notification_sent_image">📷 तस्वीर पठाइयो</string>
@@ -400,4 +383,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">परिचय खोल्नुहोस्</string>
+  <string name="nearby_notes_reveal">यहाँ छोडिएका नोटहरू छन् कि हेर्नुहोस्</string>
+  <string name="nearby_notes_one">यहाँ 1 नोट छोडिएको छ — पढ्न ट्याप गर्नुहोस्</string>
+  <string name="nearby_notes_many">यहाँ %d नोटहरू छोडिएका छन् — पढ्न ट्याप गर्नुहोस्</string>
+    <string name="about_language">भाषा</string>
+    <string name="about_app_language">एपको भाषा</string>
+    <string name="about_system_default">प्रणालीको पूर्वनिर्धारित</string>
+    <string name="about_select_language">भाषा छान्नुहोस्</string>
 </resources>

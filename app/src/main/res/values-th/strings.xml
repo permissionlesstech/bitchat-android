@@ -46,7 +46,7 @@
     <string name="notification_summary_more">และอีก %1$d</string>
     <string name="notification_messages_from_people">ข้อความ %1$d จาก %2$d คน</string>
     <string name="notification_more_conversations">และการสนทนาอีก %1$d รายการ</string>
-    <string name="notification_active_peers_title">👥 มีผู้ใช้ใกล้คุณ!</string>
+    <string name="notification_active_peers_title">มีผู้ใช้ใกล้คุณ!</string>
     <string name="notification_active_peers_one">มี 1 คนใกล้คุณ</string>
     <string name="notification_active_peers_many">มี %1$d คนใกล้คุณ</string>
     <string name="notification_new_messages">ข้อความใหม่</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">เพิ่มที่คั่นหน้า</string>
 
     <!-- ส่วนหัวแชท &amp; การช่วยสำหรับการเข้าถึง -->
-    <string name="chat_back">กลับ</string>
-    <string name="chat_channel_prefix">ช่อง: %1$s</string>
-    <string name="chat_leave">ออก</string>
     <string name="cd_nostr_reachable">ติดต่อได้ผ่าน Nostr</string>
     <string name="cd_unread_private_messages">ข้อความส่วนตัวยังไม่ได้อ่าน</string>
-    <string name="cd_toggle_bookmark">สลับที่คั่นหน้า</string>
     <string name="cd_teleported">เทเลพอร์ตแล้ว</string>
-    <string name="cd_tor_status">สถานะ Tor</string>
+    <string name="cd_open_location_channels">เปิดการตั้งค่าตำแหน่งและช่อง</string>
     <string name="cd_connected_peers">เพียร์ที่เชื่อมต่อ</string>
     <string name="cd_geohash_participants">ผู้เข้าร่วม geohash</string>
     <string name="cd_ready_for_handshake">พร้อมสำหรับการจับมือ</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">เลือกภาพ</string>
 
     <!-- แผ่นข้อมูลเกี่ยวกับ -->
-    <string name="about_tagline">แชทเมชแบบกระจายศูนย์พร้อมการเข้ารหัสแบบปลายทางถึงปลายทาง</string>
     <string name="about_offline_mesh_title">แชทเมชออฟไลน์</string>
     <string name="about_offline_mesh_desc">สื่อสารโดยตรงผ่าน Bluetooth LE โดยไม่ใช้อินเทอร์เน็ตหรือเซิร์ฟเวอร์ ข้อความจะถูกส่งต่อผ่านอุปกรณ์ใกล้เคียงเพื่อขยายระยะ</string>
     <string name="about_online_geohash_title">ช่อง geohash ออนไลน์</string>
     <string name="about_online_geohash_desc">เชื่อมต่อกับผู้คนใกล้คุณผ่านช่องที่อ้างอิง geohash ขยายเมชผ่านรีเลย์อินเทอร์เน็ตสาธารณะ</string>
     <string name="about_e2e_title">การเข้ารหัสแบบปลายทางถึงปลายทาง</string>
     <string name="about_e2e_desc">ข้อความส่วนตัวถูกเข้ารหัส ข้อความในช่องเป็นสาธารณะ</string>
-    <string name="about_appearance">ลักษณะ</string>
     <string name="about_system">ระบบ</string>
     <string name="about_light">สว่าง</string>
     <string name="about_dark">มืด</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">สถานะ Tor: %1$s, การบูต %2$d%%</string>
     <string name="about_last">ล่าสุด: %1$s</string>
     <string name="about_emergency_title">ลบข้อมูลฉุกเฉิน</string>
-    <string name="about_emergency_tip">เคล็ดลับ: แตะชื่อแอปสามครั้งเพื่อลบข้อมูลที่บันทึกทั้งหมด – รวมทั้งข้อความ กุญแจ และการตั้งค่า</string>
     <string name="about_debug_settings">การตั้งค่าดีบัก</string>
     <string name="about_footer">โอเพนซอร์ส • ความเป็นส่วนตัวมาก่อน • กระจายศูนย์</string>
     <string name="close_plain">ปิด</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">เปิดแผนที่</string>
     <string name="cd_remove_bookmark">เอาที่คั่นหน้าออก</string>
     <string name="cd_teleport">เทเลพอร์ต</string>
-    <string name="cd_selected">ที่เลือก</string>
     <string name="cd_leave_channel">ออกจากช่อง</string>
     <string name="cd_reachable_via_nostr">ติดต่อได้ผ่าน Nostr</string>
     <string name="cd_offline_favorite">รายการโปรด (ออฟไลน์)</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">สิทธิ์</string>
     <string name="grant_permissions">ให้สิทธิ์</string>
     <string name="location_tracking_warning">bitchat ไม่ติดตามตำแหน่งของคุณ</string>
-    <string name="geohash_people_header">ผู้คน</string>
     <string name="nobody_around">ไม่มีใครอยู่ใกล้…</string>
     <string name="you_suffix"> (คุณ)</string>
     <string name="pan_zoom_instruction">ลาก/ซูมเพื่อเลือก geohash</string>
     <string name="select">เลือก</string>
     <string name="type_a_message_placeholder">พิมพ์ข้อความ…</string>
     <string name="mention">กล่าวถึง</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">รูปภาพ</string>
@@ -307,11 +297,6 @@
     <!-- การช่วยสำหรับการเข้าถึงของเครื่องเล่นเสียง -->
     <string name="cd_play_voice">เล่น</string>
     <string name="cd_pause_voice">หยุดชั่วคราว</string>
-    <string name="cd_mining_pow">กำลังขุด PoW</string>
-    <string name="cd_pow_enabled">เปิดใช้ PoW</string>
-    <string name="cd_proof_of_work">Proof of Work</string>
-    <string name="pow_mining_ellipsis">กำลังขุด…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- คำอธิบายสิทธิ์ -->
     <string name="perm_nearby_devices_desc">จำเป็นสำหรับการค้นหาผู้ใช้ bitchat ผ่านบลูทูธ</string>
@@ -387,4 +372,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">เปิดเกี่ยวกับ</string>
+  <string name="nearby_notes_reveal">ดูว่ามีโน้ตทิ้งไว้ที่นี่หรือไม่</string>
+  <string name="nearby_notes_one">มี 1 โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
+  <string name="nearby_notes_many">มี %d โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
+    <string name="about_language">ภาษา</string>
+    <string name="about_app_language">ภาษาของแอป</string>
+    <string name="about_system_default">ค่าเริ่มต้นของระบบ</string>
+    <string name="about_select_language">เลือกภาษา</string>
 </resources>

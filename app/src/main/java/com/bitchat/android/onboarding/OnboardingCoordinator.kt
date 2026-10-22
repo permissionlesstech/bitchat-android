@@ -85,9 +85,7 @@ class OnboardingCoordinator(
         val missingRequired = permissionManager.getMissingPermissions()
 
         // Optional permissions (ask, but do not block if denied)
-        val optionalToRequest = permissionManager
-            .getOptionalPermissions()
-            .filter { !permissionManager.isPermissionGranted(it) }
+        val optionalToRequest = permissionManager.getUnrequestedOptionalPermissions()
 
         val missingPermissions = (missingRequired + optionalToRequest).distinct()
 
@@ -101,6 +99,7 @@ class OnboardingCoordinator(
         }
 
         Log.d(TAG, "Requesting ${missingPermissions.size} permissions")
+        permissionManager.markOptionalPermissionsRequested(optionalToRequest)
         permissionLauncher?.launch(missingPermissions.toTypedArray())
     }
 
@@ -115,7 +114,10 @@ class OnboardingCoordinator(
 
         val allGranted = permissions.values.all { it }
         val criticalPermissions = getCriticalPermissions()
-        val criticalGranted = criticalPermissions.all { permissions[it] == true }
+        // The launcher result only contains permissions requested in this round. Returning
+        // users may be asked for POST_NOTIFICATIONS alone, so re-check required permissions
+        // against package state instead of treating absent result-map entries as denials.
+        val criticalGranted = criticalPermissions.all(permissionManager::isPermissionGranted)
 
         when {
             criticalGranted -> {

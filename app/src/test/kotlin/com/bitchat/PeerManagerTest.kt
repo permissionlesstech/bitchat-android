@@ -1,6 +1,8 @@
 package com.bitchat
 
 import com.bitchat.android.mesh.PeerManager
+import com.bitchat.android.mesh.PeerManagerDelegate
+import com.bitchat.android.model.PeerCapabilities
 import junit.framework.TestCase.assertEquals
 import org.junit.Test
 
@@ -30,6 +32,71 @@ class PeerManagerTest {
     )
 
     val emptyDeviceAddresses = emptyMap<String, String>()
+
+    @Test
+    fun peer_capabilities_are_retained_with_verified_identity() {
+        val capabilities = PeerCapabilities(
+            PeerCapabilities.PRIVATE_MEDIA.rawValue or (1L shl 15)
+        )
+
+        peerManager.updatePeerInfoFromVerifiedAnnouncement(
+            peerID = "peer-capabilities",
+            nickname = "alice",
+            noisePublicKey = ByteArray(32) { 1 },
+            signingPublicKey = ByteArray(32) { 2 },
+            isVerified = true,
+            capabilities = capabilities
+        )
+
+        assertEquals(capabilities, peerManager.getPeerInfo("peer-capabilities")?.capabilities)
+    }
+
+    @Test
+    fun normal_peer_updates_preserve_signed_absent_and_empty_capabilities() {
+        val peerID = "peer-capability-state"
+        val noiseKey = ByteArray(32) { 3 }
+        val signingKey = ByteArray(32) { 4 }
+
+        peerManager.updatePeerInfoFromVerifiedAnnouncement(
+            peerID,
+            "alice",
+            noiseKey,
+            signingKey,
+            true,
+            null
+        )
+        var info = peerManager.getPeerInfo(peerID)!!
+        assertEquals(true, info.hasVerifiedAnnouncement)
+        assertEquals(null, info.capabilities)
+        assertEquals(true, info.verifiedAnnouncementNoisePublicKey!!.contentEquals(noiseKey))
+
+        peerManager.updatePeerInfo(peerID, "alice2", noiseKey, signingKey, true)
+        info = peerManager.getPeerInfo(peerID)!!
+        assertEquals(true, info.hasVerifiedAnnouncement)
+        assertEquals(null, info.capabilities)
+
+        peerManager.updatePeerInfoFromVerifiedAnnouncement(
+            peerID,
+            "alice2",
+            noiseKey,
+            signingKey,
+            true,
+            PeerCapabilities.NONE
+        )
+        peerManager.updatePeerInfo(peerID, "alice3", noiseKey, signingKey, true)
+        info = peerManager.getPeerInfo(peerID)!!
+        assertEquals(true, info.hasVerifiedAnnouncement)
+        assertEquals(PeerCapabilities.NONE, info.capabilities)
+
+        val changedNoiseKey = ByteArray(32) { 7 }
+        peerManager.updatePeerInfo(peerID, "alice4", changedNoiseKey, signingKey, true)
+        info = peerManager.getPeerInfo(peerID)!!
+        assertEquals(PeerCapabilities.NONE, info.capabilities)
+        assertEquals(
+            true,
+            info.verifiedAnnouncementNoisePublicKey!!.contentEquals(noiseKey)
+        )
+    }
 
     val testRSSI = mapOf(
         "peer1" to 0,
@@ -99,6 +166,28 @@ class PeerManagerTest {
         val numberOfAllPeers = peerManager.getAllPeerNicknames().size
         assertEquals(testUsers.size - 3, numberOfActivePeers)
         assertEquals(testUsers.size - 3, numberOfAllPeers)
+    }
+
+    @Test
+    fun suppressing_peer_list_update_still_notifies_peer_removal() {
+        val removedPeers = mutableListOf<String>()
+        var peerListUpdates = 0
+        peerManager.delegate = object : PeerManagerDelegate {
+            override fun onPeerListUpdated(peerIDs: List<String>) {
+                peerListUpdates++
+            }
+
+            override fun onPeerRemoved(peerID: String) {
+                removedPeers.add(peerID)
+            }
+        }
+        peerManager.addOrUpdatePeer("peer-stale", "alice")
+        peerListUpdates = 0
+
+        peerManager.removePeer("peer-stale", notifyPeerList = false)
+
+        assertEquals(listOf("peer-stale"), removedPeers)
+        assertEquals(0, peerListUpdates)
     }
 
     @Test

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!--
+      Radar bubble glyph for the notification small icon and the ongoing
+      activity. Reuses the launcher's 108-unit geometry scaled to 24dp; strokes
+      are thickened so they stay about 1.6dp wide after scaling.
+    -->
+    <group
+        android:scaleX="0.33"
+        android:scaleY="0.33"
+        android:translateX="-5.82"
+        android:translateY="-5.82">
+        <path
+            android:pathData="M62.186,80.777A28,28 0,1 1,80.777 62.186"
+            android:strokeColor="@android:color/white"
+            android:strokeWidth="4.8"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M56.972,72.766A19,19 0,1 1,72.766 56.972"
+            android:strokeColor="@android:color/white"
+            android:strokeWidth="4.8"
+            android:strokeLineCap="round" />
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="M49,44H59A5,5 0,0 1,64 49V54.5A5,5 0,0 1,59 59.5H49A5,5 0,0 1,44 54.5V49A5,5 0,0 1,49 44ZM61.5,57L65.5,65.5L54,59.5Z" />
+    </group>
+</vector>

@@ -37,7 +37,7 @@ object NostrProtocol {
         val rumorId = rumorBase.computeEventIdHex()
         val rumor = rumorBase.copy(id = rumorId)
         
-        // 2. Seal the rumor (kind 13) signed by sender, timestamp randomized up to 2 days
+        // 2. Seal the rumor with 2 hours of slack inside iOS's 24-hour lookback.
         val sealedEvent = createSeal(
             rumor = rumor,
             recipientPubkey = recipientPubkey,
@@ -274,8 +274,6 @@ object NostrProtocol {
         giftWrap: NostrEvent,
         recipientPrivateKey: String
     ): NostrEvent? {
-        Log.d(TAG, "Unwrapping gift wrap; content prefix='${giftWrap.content.take(3)}' length=${giftWrap.content.length}")
-        
         return try {
             val decrypted = NostrCrypto.decryptNIP44(
                 ciphertext = giftWrap.content,

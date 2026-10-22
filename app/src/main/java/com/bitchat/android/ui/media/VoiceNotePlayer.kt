@@ -1,13 +1,14 @@
 package com.bitchat.android.ui.media
 
+import com.bitchat.android.ui.theme.BitchatFontFamily
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import android.media.MediaPlayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -18,11 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontFamily
 
 @Composable
 fun VoiceNotePlayer(
     path: String,
+    modifier: Modifier = Modifier,
     progressOverride: Float? = null,
     progressColor: Color? = null
 ) {
@@ -86,7 +87,7 @@ fun VoiceNotePlayer(
     DisposableEffect(Unit) { onDispose { try { player.release() } catch (_: Exception) {} } }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -110,7 +111,7 @@ fun VoiceNotePlayer(
             onSeek = seekTo
         )
         val durText = if (durationMs > 0) String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"
-        Text(text = durText, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+        Text(text = durText, fontFamily = BitchatFontFamily, fontSize = 12.sp)
     }
 }
 

@@ -46,7 +46,7 @@
     <string name="notification_summary_more">und %1$d weitere</string>
     <string name="notification_messages_from_people">%1$d Nachrichten von %2$d Personen</string>
     <string name="notification_more_conversations">und %1$d weitere Unterhaltungen</string>
-    <string name="notification_active_peers_title">👥 bitchatter in der Nähe!</string>
+    <string name="notification_active_peers_title">bitchatter in der Nähe!</string>
     <string name="notification_active_peers_one">1 Person in der Nähe</string>
     <string name="notification_active_peers_many">%1$d Personen in der Nähe</string>
     <string name="notification_new_messages">Neue Nachrichten</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">Lesezeichen hinzufügen</string>
 
     <!-- Chat‑Kopf &amp; Barrierefreiheit -->
-    <string name="chat_back">zurück</string>
-    <string name="chat_channel_prefix">Kanal: %1$s</string>
-    <string name="chat_leave">verlassen</string>
     <string name="cd_nostr_reachable">Über Nostr erreichbar</string>
     <string name="cd_unread_private_messages">Ungelesene private Nachrichten</string>
-    <string name="cd_toggle_bookmark">Lesezeichen umschalten</string>
     <string name="cd_teleported">Teleportiert</string>
-    <string name="cd_tor_status">Tor‑Status</string>
+    <string name="cd_open_location_channels">Standort- und Kanaleinstellungen öffnen</string>
     <string name="cd_connected_peers">Verbundenen Peers</string>
     <string name="cd_geohash_participants">Geohash‑Teilnehmer</string>
     <string name="cd_ready_for_handshake">Bereit für Handshake</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">Bild auswählen</string>
 
     <!-- Über‑Sheet -->
-    <string name="about_tagline">dezentraler Mesh‑Chat mit Ende‑zu‑Ende‑Verschlüsselung</string>
     <string name="about_offline_mesh_title">Offline‑Mesh‑Chat</string>
     <string name="about_offline_mesh_desc">Kommuniziere direkt über Bluetooth LE ohne Internet oder Server. Nachrichten werden über nahe Geräte weitergeleitet, um die Reichweite zu erhöhen.</string>
     <string name="about_online_geohash_title">Online‑Geohash‑Kanäle</string>
     <string name="about_online_geohash_desc">Vernetze dich mit Menschen in deiner Umgebung über geohash‑basierte Kanäle. Erweitere das Mesh über öffentliche Internet‑Relays.</string>
     <string name="about_e2e_title">Ende‑zu‑Ende‑Verschlüsselung</string>
     <string name="about_e2e_desc">Private Nachrichten sind verschlüsselt. Kanal‑Nachrichten sind öffentlich.</string>
-    <string name="about_appearance">Darstellung</string>
     <string name="about_system">System</string>
     <string name="about_light">Hell</string>
     <string name="about_dark">Dunkel</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Tor‑Status: %1$s, Bootstrap %2$d%%</string>
     <string name="about_last">Zuletzt: %1$s</string>
     <string name="about_emergency_title">Notfall‑Datenlöschung</string>
-    <string name="about_emergency_tip">Tipp: Dreifach auf den App‑Titel tippen, um alle gespeicherten Daten – einschließlich Nachrichten, Schlüssel und Einstellungen – zu löschen.</string>
     <string name="about_debug_settings">Debug‑Einstellungen</string>
     <string name="about_footer">Open Source • Privacy First • Dezentral</string>
     <string name="close_plain">Schließen</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">Karte öffnen</string>
     <string name="cd_remove_bookmark">Lesezeichen entfernen</string>
     <string name="cd_teleport">Teleportieren</string>
-    <string name="cd_selected">Ausgewählt</string>
     <string name="cd_leave_channel">Kanal verlassen</string>
     <string name="cd_reachable_via_nostr">Über Nostr erreichbar</string>
     <string name="cd_offline_favorite">Favorit (offline)</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">Berechtigungen</string>
     <string name="grant_permissions">Berechtigungen erteilen</string>
     <string name="location_tracking_warning">bitchat verfolgt NICHT deinen Standort</string>
-    <string name="geohash_people_header">PERSONEN</string>
     <string name="nobody_around">niemand da …</string>
     <string name="you_suffix"> (du)</string>
     <string name="pan_zoom_instruction">schwenken und zoomen, um einen Geohash auszuwählen</string>
     <string name="select">auswählen</string>
     <string name="type_a_message_placeholder">Nachricht eingeben …</string>
     <string name="mention">erwähnen</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Bild</string>
@@ -307,11 +297,6 @@
     <!-- Sprachplayer Barrierefreiheit -->
     <string name="cd_play_voice">Abspielen</string>
     <string name="cd_pause_voice">Pause</string>
-    <string name="cd_mining_pow">Mining‑PoW</string>
-    <string name="cd_pow_enabled">PoW aktiviert</string>
-    <string name="cd_proof_of_work">Proof of Work</string>
-    <string name="pow_mining_ellipsis">Mining …</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Berechtigungsbeschreibungen -->
     <string name="perm_nearby_devices_desc">Erforderlich, um bitchat‑Benutzer über Bluetooth zu entdecken</string>
@@ -401,4 +386,12 @@
   <string name="verify_success_title">Verifiziert</string>
   <string name="verify_success_body">Du hast %1$s verifiziert</string>
   <string name="verify_success_system_message">verifiziert %1$s</string>
+    <string name="cd_open_about">Info öffnen</string>
+  <string name="nearby_notes_reveal">nachsehen, ob hier notizen hinterlassen wurden</string>
+  <string name="nearby_notes_one">1 notiz hier hinterlassen — tippen zum lesen</string>
+  <string name="nearby_notes_many">%d notizen hier hinterlassen — tippen zum lesen</string>
+    <string name="about_language">Sprache</string>
+    <string name="about_app_language">App-Sprache</string>
+    <string name="about_system_default">Systemstandard</string>
+    <string name="about_select_language">Sprache auswählen</string>
 </resources>

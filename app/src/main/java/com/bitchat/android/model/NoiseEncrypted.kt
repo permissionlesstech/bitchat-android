@@ -21,14 +21,26 @@ enum class NoisePayloadType(val value: UByte) {
     PRIVATE_MESSAGE(0x01u),     // Private chat message with TLV encoding
     READ_RECEIPT(0x02u),        // Message was read
     DELIVERED(0x03u),           // Message was delivered
+    VOICE_FRAME(0x08u),         // Ephemeral live push-to-talk frame
     VERIFY_CHALLENGE(0x10u),    // Verification challenge
     VERIFY_RESPONSE(0x11u),     // Verification response
-    FILE_TRANSFER(0x20u);
+    FILE_TRANSFER(0x20u),
+    /** Authenticated capabilities + Ed25519 binding for the current Noise generation. */
+    PEER_STATE(0x21u);
 
 
     companion object {
+        // #1434 prerelease iOS builds briefly emitted private files as 0x09. Keep this
+        // decode-only: every NoisePayload constructed by Android still encodes FILE_TRANSFER as
+        // its canonical 0x20 value, so the compatibility alias cannot leak into new traffic.
+        private val PRERELEASE_FILE_TRANSFER_RAW_VALUE = 0x09u.toUByte()
+
         fun fromValue(value: UByte): NoisePayloadType? {
-            return values().find { it.value == value }
+            return if (value == PRERELEASE_FILE_TRANSFER_RAW_VALUE) {
+                FILE_TRANSFER
+            } else {
+                values().find { it.value == value }
+            }
         }
     }
 }

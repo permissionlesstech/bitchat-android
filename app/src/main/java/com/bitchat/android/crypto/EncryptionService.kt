@@ -7,6 +7,9 @@ import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.bitchat.android.noise.NoiseEncryptionService
+import com.bitchat.android.noise.NoiseHandshakeProcessingResult
+import com.bitchat.android.noise.AuthenticatedNoiseSession
+import com.bitchat.android.noise.NoiseDecryptionResult
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair
 import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator
 import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters
@@ -190,6 +193,13 @@ open class EncryptionService(private val context: Context) {
         }
         return encrypted
     }
+
+    @Throws(Exception::class)
+    fun encryptForSession(
+        data: ByteArray,
+        peerID: String,
+        expectedSession: AuthenticatedNoiseSession
+    ): ByteArray = noiseService.encryptForSession(data, peerID, expectedSession)
     
     /**
      * Decrypt data from a specific peer using Noise transport encryption
@@ -201,6 +211,12 @@ open class EncryptionService(private val context: Context) {
             throw Exception("Failed to decrypt from $peerID")
         }
         return decrypted
+    }
+
+    @Throws(Exception::class)
+    fun decryptWithSession(data: ByteArray, peerID: String): NoiseDecryptionResult {
+        return noiseService.decryptWithSession(data, peerID)
+            ?: throw Exception("Failed generation-bound decryption from $peerID")
     }
     
     /**
@@ -254,6 +270,25 @@ open class EncryptionService(private val context: Context) {
     fun getPeerFingerprint(peerID: String): String? {
         return noiseService.getPeerFingerprint(peerID)
     }
+
+    /**
+     * Return the remote static key authenticated by the live Noise handshake.
+     * This deliberately bypasses announcement and PeerFingerprintManager
+     * caches; callers making downgrade decisions must bind to live channel
+     * authentication, not a self-certified identity payload.
+     */
+    fun getAuthenticatedRemoteStaticKey(peerID: String): ByteArray? {
+        return getAuthenticatedSession(peerID)?.remoteStaticKey?.copyOf()
+    }
+
+    fun getAuthenticatedSession(peerID: String): AuthenticatedNoiseSession? =
+        noiseService.getAuthenticatedSession(peerID)
+
+    fun withAuthenticatedSession(
+        peerID: String,
+        expectedSession: AuthenticatedNoiseSession,
+        action: () -> Boolean
+    ): Boolean = noiseService.withAuthenticatedSession(peerID, expectedSession, action)
     
     /**
      * Get current peer ID for a fingerprint (for peer ID rotation)
@@ -265,9 +300,9 @@ open class EncryptionService(private val context: Context) {
     /**
      * Initiate a Noise handshake with a peer
      */
-    fun initiateHandshake(peerID: String): ByteArray? {
+    fun initiateHandshake(peerID: String, replaceEstablished: Boolean = false): ByteArray? {
         Log.d(TAG, "🤝 Initiating Noise handshake with $peerID")
-        return noiseService.initiateHandshake(peerID)
+        return noiseService.initiateHandshake(peerID, replaceEstablished)
     }
     
     /**
@@ -277,11 +312,24 @@ open class EncryptionService(private val context: Context) {
         Log.d(TAG, "🤝 Processing handshake message from $peerID")
         return noiseService.processHandshakeMessage(data, peerID)
     }
+
+    /**
+     * Process one Noise handshake frame while preserving whether this exact call authenticated a
+     * new session. Unlike the response-only compatibility API, binding failures are propagated.
+     */
+    @Throws(Exception::class)
+    open fun processHandshakeMessageWithResult(
+        data: ByteArray,
+        peerID: String
+    ): NoiseHandshakeProcessingResult {
+        Log.d(TAG, "🤝 Processing typed handshake message from $peerID")
+        return noiseService.processHandshakeMessageWithResult(data, peerID)
+    }
     
     /**
      * Remove a peer session (called when peer disconnects)
      */
-    fun removePeer(peerID: String) {
+    open fun removePeer(peerID: String) {
         establishedSessions.remove(peerID)
         noiseService.removePeer(peerID)
         onSessionLost?.invoke(peerID)

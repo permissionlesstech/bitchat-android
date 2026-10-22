@@ -3,102 +3,140 @@ name: Android CI
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "develop" ]
+    branches: [main, develop]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+env:
+  SETUP_JAVA_VERSION: 21.0.11+10.0.LTS
 
 jobs:
   verify:
-    name: Test & Lint
-    runs-on: ubuntu-latest
+    name: Test and lint
+    runs-on: ubuntu-24.04
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up pinned JDK
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.SETUP_JAVA_VERSION }}
 
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v3
+      - name: Set up and validate Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      - name: Verify native library inputs
+        run: tools/arti-build/verify-checksums.sh
 
-    - name: Cache Gradle packages
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest
 
-    - name: Run unit tests
-      run: ./gradlew testDebugUnitTest
+      - name: Run lint
+        run: ./gradlew lintDebug
 
-    - name: Run lint
-      run: ./gradlew lintDebug
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-reports
+          path: |
+            **/build/test-results/
+            **/build/reports/tests/
 
-    - name: Upload test reports
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-reports
-        path: |
-          **/build/test-results/
-          **/build/reports/tests/
+      - name: Upload lint results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lint-results
+          path: "**/build/reports/lint-results-*.html"
 
-    - name: Upload lint results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: lint-results
-        path: '**/build/reports/lint-results-*.html'
+  build-debug:
+    name: Build debug APK
+    runs-on: ubuntu-24.04
+    needs: verify
 
-  build:
-    name: Build ${{ matrix.variant }}
-    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up pinned JDK
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.SETUP_JAVA_VERSION }}
+
+      - name: Set up and validate Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+  reproducible-build:
+    name: Reproducible release build ${{ matrix.replica }}
+    runs-on: ubuntu-24.04
     needs: verify
     strategy:
+      fail-fast: false
       matrix:
-        variant: [Debug, Release]
+        replica: [a, b]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up pinned JDK
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.SETUP_JAVA_VERSION }}
 
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v3
+      - name: Set up and validate Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          cache-disabled: true
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      - name: Build canonical unsigned release
+        run: tools/reproducible-builds/build-in-container.sh "$RUNNER_TEMP/release-${{ matrix.replica }}"
 
-    - name: Cache Gradle packages
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+      - name: Upload build replica
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: reproducible-release-${{ matrix.replica }}
+          path: ${{ runner.temp }}/release-${{ matrix.replica }}/*
+          if-no-files-found: error
 
-    - name: Build ${{ matrix.variant }} APK
-      run: ./gradlew assemble${{ matrix.variant }}
+  compare-reproducible-builds:
+    name: Compare release bytes
+    runs-on: ubuntu-24.04
+    needs: reproducible-build
 
-    - name: Upload ${{ matrix.variant }} APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.variant }}-apk
-        path: app/build/outputs/apk/**/*.apk
+    steps:
+      - name: Checkout verification script
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Download replica A
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: reproducible-release-a
+          path: ${{ runner.temp }}/release-a
+
+      - name: Download replica B
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: reproducible-release-b
+          path: ${{ runner.temp }}/release-b
+
+      - name: Compare every canonical byte
+        run: tools/reproducible-builds/compare-release.sh "$RUNNER_TEMP/release-a" "$RUNNER_TEMP/release-b"

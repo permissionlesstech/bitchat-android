@@ -2,15 +2,16 @@ package com.bitchat.android.nostr
 
 import android.util.Base64
 import android.util.Log
+import com.bitchat.android.mesh.MeshPacketUtils
 import com.bitchat.android.model.PrivateMessagePacket
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.services.ContactIdentityResolver
 import java.util.*
 
 /**
  * BitChat-over-Nostr Adapter
- * Direct port from iOS implementation for 100% compatibility
  */
 object NostrEmbeddedBitChat {
     
@@ -173,26 +174,12 @@ object NostrEmbeddedBitChat {
      * Normalize recipient peer ID (matches iOS implementation)
      */
     private fun normalizeRecipientPeerID(recipientPeerID: String): String {
-        try {
-            val maybeData = hexStringToByteArray(recipientPeerID)
-            return when (maybeData.size) {
-                32 -> {
-                    // Treat as Noise static public key; derive peerID from fingerprint
-                    // For now, return first 8 bytes as hex (simplified)
-                    maybeData.take(8).joinToString("") { "%02x".format(it) }
-                }
-                8 -> {
-                    // Already an 8-byte peer ID
-                    recipientPeerID
-                }
-                else -> {
-                    // Fallback: return as-is (expecting 16 hex chars)
-                    recipientPeerID
-                }
-            }
-        } catch (e: Exception) {
-            // Fallback: return as-is
-            return recipientPeerID
+        val clean = recipientPeerID.trim().lowercase()
+        return when {
+            ContactIdentityResolver.isNoiseKeyHex(clean) ->
+                ContactIdentityResolver.peerIdForNoiseKeyHex(clean) ?: clean
+            ContactIdentityResolver.isMeshPeerId(clean) -> clean
+            else -> recipientPeerID
         }
     }
     
@@ -210,25 +197,6 @@ object NostrEmbeddedBitChat {
     /**
      * Convert hex string to byte array
      */
-    private fun hexStringToByteArray(hexString: String): ByteArray {
-        if (hexString.length % 2 != 0) {
-            return ByteArray(8) // Return 8-byte array filled with zeros
-        }
-        
-        val result = ByteArray(8) { 0 } // Exactly 8 bytes like iOS
-        var tempID = hexString
-        var index = 0
-        
-        while (tempID.length >= 2 && index < 8) {
-            val hexByte = tempID.substring(0, 2)
-            val byte = hexByte.toIntOrNull(16)?.toByte()
-            if (byte != null) {
-                result[index] = byte
-            }
-            tempID = tempID.substring(2)
-            index++
-        }
-        
-        return result
-    }
+    private fun hexStringToByteArray(hexString: String): ByteArray =
+        MeshPacketUtils.hexStringToByteArray(hexString)
 }

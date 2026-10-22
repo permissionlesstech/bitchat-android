@@ -8,17 +8,14 @@
 #   - Update to a new Arti version
 #   - Debug or modify the wrapper code
 #
-# Requirements:
-#   - Bash 4+ (macOS default bash is 3.2; install via Homebrew: brew install bash)
-#   - Rust toolchain with Android targets:
-#       rustup target add aarch64-linux-android x86_64-linux-android
-#   - cargo-ndk: cargo install cargo-ndk
-#   - Android NDK 25+ (for 16KB page size support)
+# Requirements are pinned in TOOLCHAIN.env and rust-toolchain.toml. The
+# supported entry point is rebuild-in-container.sh, which supplies all of them.
 #
 # Usage:
 #   ./build-arti.sh              # Build both architectures (debug/emulator)
-#   ./build-arti.sh --release    # Build ARM64 only (production)
+#   ./build-arti.sh --release    # Build ARM targets only
 #   ./build-arti.sh --clean      # Remove cloned Arti repo and rebuild
+#   ./build-arti.sh --update-lockfile  # Refresh Cargo.lock without building
 
 set -euo pipefail
 
@@ -38,57 +35,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ARTI_SOURCE_DIR="$SCRIPT_DIR/.arti-source"
 JNILIBS_DIR="$PROJECT_ROOT/app/src/main/jniLibs"
+TOOLCHAIN_FILE="$SCRIPT_DIR/TOOLCHAIN.env"
+LOCKFILE_SOURCE="$SCRIPT_DIR/Cargo.lock"
 
-
-detect_default_ndk_home() {
-  local candidates=(
-    "$HOME/Library/Android/sdk/ndk/27.0.12077973"
-    "$HOME/Library/Android/sdk/ndk"
-    "$HOME/Library/Android/sdk/ndk-bundle"
-    "$HOME/Android/Sdk/ndk/27.0.12077973"
-    "$HOME/Android/Sdk/ndk"
-    "$HOME/Android/Sdk/ndk-bundle"
-  )
-
-  for candidate in "${candidates[@]}"; do
-    if [ -d "$candidate" ]; then
-      echo "$candidate"
-      return
-    fi
-  done
-
-  local base
-  for base in "$HOME/Library/Android/sdk/ndk" "$HOME/Android/Sdk/ndk"; do
-    if [ -d "$base" ]; then
-      local latest
-      latest="$(find "$base" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | sort | tail -1)"
-      if [ -n "$latest" ]; then
-        echo "$latest"
-        return
-      fi
-    fi
-  done
-
-  echo ""
-}
-
-# Read pinned version
-if [ ! -f "$SCRIPT_DIR/ARTI_VERSION" ]; then
-  echo -e "${RED}Error: ARTI_VERSION file not found${NC}"
+if [ ! -f "$TOOLCHAIN_FILE" ]; then
+  echo -e "${RED}Error: TOOLCHAIN.env file not found${NC}"
   exit 1
 fi
-VERSION="$(tr -d '[:space:]' < "$SCRIPT_DIR/ARTI_VERSION")"
+# shellcheck disable=SC1090
+source "$TOOLCHAIN_FILE"
 
-# Android NDK path
+VERSION="$ARTI_VERSION"
+export RUSTUP_TOOLCHAIN="$RUST_VERSION"
+
 if [ -z "${ANDROID_NDK_HOME:-}" ]; then
-  AUTO_NDK_HOME="$(detect_default_ndk_home)"
-  if [ -n "$AUTO_NDK_HOME" ]; then
-    ANDROID_NDK_HOME="$AUTO_NDK_HOME"
-  fi
-fi
-if [ -z "${ANDROID_NDK_HOME:-}" ]; then
-  echo -e "${RED}Error: ANDROID_NDK_HOME is not set and automatic detection failed.${NC}"
-  echo "Set ANDROID_NDK_HOME to your NDK installation (e.g., ~/Android/Sdk/ndk/<version>)."
+  echo -e "${RED}Error: ANDROID_NDK_HOME must point to NDK $ANDROID_NDK_VERSION.${NC}"
   exit 1
 fi
 export ANDROID_NDK_HOME
@@ -96,9 +57,29 @@ export ANDROID_NDK_HOME
 # Min SDK version (must match bitchat-android minSdk)
 MIN_SDK_VERSION=26
 
+# Keep host paths and timestamps out of Rust objects and panic-location strings.
+SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$NATIVE_SOURCE_DATE_EPOCH}"
+if ! [[ "$SOURCE_DATE_EPOCH" =~ ^[0-9]+$ ]]; then
+  echo -e "${RED}Error: SOURCE_DATE_EPOCH must be an integer.${NC}"
+  exit 1
+fi
+CARGO_HOME_PATH="${CARGO_HOME:-$HOME/.cargo}"
+REPRO_RUSTFLAGS=(
+  "--remap-path-prefix=$PROJECT_ROOT=/usr/src/bitchat-android"
+  "--remap-path-prefix=$ARTI_SOURCE_DIR=/usr/src/arti"
+  "--remap-path-prefix=$CARGO_HOME_PATH=/usr/local/cargo"
+)
+for rustflag in "${REPRO_RUSTFLAGS[@]}"; do
+  RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }$rustflag"
+done
+export CARGO_INCREMENTAL=0
+export RUSTFLAGS
+export SOURCE_DATE_EPOCH
+
 # Parse arguments
 RELEASE_ONLY=false
 CLEAN_BUILD=false
+UPDATE_LOCKFILE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -110,12 +91,17 @@ while [[ $# -gt 0 ]]; do
       CLEAN_BUILD=true
       shift
       ;;
+    --update-lockfile)
+      UPDATE_LOCKFILE=true
+      shift
+      ;;
     --help|-h)
       echo "Usage: $0 [--release] [--clean]"
       echo ""
       echo "Options:"
-      echo "  --release    Build ARM64 only (smaller, for production)"
+      echo "  --release    Build ARM targets only"
       echo "  --clean      Remove cached Arti source and rebuild from scratch"
+      echo "  --update-lockfile  Regenerate the wrapper Cargo.lock and exit"
       echo ""
       exit 0
       ;;
@@ -220,10 +206,16 @@ check_prerequisites() {
 
   # Rust
   if ! command -v rustc >/dev/null 2>&1; then
-    print_error "Rust is not installed. Install from https://rustup.rs/"
+    print_error "Rust is not installed."
     exit 1
   fi
-  print_success "Rust found: $(rustc --version)"
+  local actual_rust_version
+  actual_rust_version="$(rustc --version | awk '{print $2}')"
+  if [ "$actual_rust_version" != "$RUST_VERSION" ]; then
+    print_error "Rust $RUST_VERSION is required; found $actual_rust_version"
+    exit 1
+  fi
+  print_success "Rust version verified: $actual_rust_version"
 
   # rustup
   if ! command -v rustup >/dev/null 2>&1; then
@@ -234,10 +226,16 @@ check_prerequisites() {
 
   # cargo-ndk
   if ! command -v cargo-ndk >/dev/null 2>&1; then
-    print_error "cargo-ndk is not installed. Run: cargo install cargo-ndk"
+    print_error "cargo-ndk $CARGO_NDK_VERSION is not installed."
     exit 1
   fi
-  print_success "cargo-ndk found: $(cargo-ndk --version 2>/dev/null || echo 'installed')"
+  local actual_cargo_ndk_version
+  actual_cargo_ndk_version="$(cargo ndk --version | awk '{print $2}')"
+  if [ "$actual_cargo_ndk_version" != "$CARGO_NDK_VERSION" ]; then
+    print_error "cargo-ndk $CARGO_NDK_VERSION is required; found $actual_cargo_ndk_version"
+    exit 1
+  fi
+  print_success "cargo-ndk version verified: $actual_cargo_ndk_version"
 
   # NDK
   if [ ! -d "$ANDROID_NDK_HOME" ]; then
@@ -247,17 +245,18 @@ check_prerequisites() {
   fi
   print_success "Android NDK found: $ANDROID_NDK_HOME"
 
-  # NDK version (should be 25+)
-  NDK_VERSION="$(basename "$ANDROID_NDK_HOME" | cut -d'.' -f1)"
-  if ! [[ "$NDK_VERSION" =~ ^[0-9]+$ ]]; then
-    print_error "Could not parse NDK version from ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
+  local ndk_properties="$ANDROID_NDK_HOME/source.properties"
+  if [ ! -f "$ndk_properties" ]; then
+    print_error "NDK source.properties not found."
     exit 1
   fi
-  if [ "$NDK_VERSION" -lt 25 ]; then
-    print_error "NDK version $NDK_VERSION is too old. NDK 25+ required for 16KB page size support"
+  local actual_ndk_version
+  actual_ndk_version="$(sed -n 's/^Pkg.Revision *= *//p' "$ndk_properties" | tr -d '\r')"
+  if [ "$actual_ndk_version" != "$ANDROID_NDK_VERSION" ]; then
+    print_error "Android NDK $ANDROID_NDK_VERSION is required; found $actual_ndk_version"
     exit 1
   fi
-  print_success "NDK version: $NDK_VERSION (supports 16KB page size)"
+  print_success "Android NDK version verified: $actual_ndk_version"
 
   detect_ndk_host
   if [ ! -d "$NDK_LLVM_BIN" ]; then
@@ -267,10 +266,10 @@ check_prerequisites() {
   print_success "NDK host tag: $NDK_HOST"
 
   if [ ! -x "$LLVM_STRIP" ]; then
-    print_info "llvm-strip not found at: $LLVM_STRIP (stripping will be skipped)"
-  else
-    print_success "llvm-strip found"
+    print_error "Pinned llvm-strip is missing."
+    exit 1
   fi
+  print_success "llvm-strip found"
 
   if [ ! -x "$LLVM_NM" ] && ! command -v nm >/dev/null 2>&1; then
     print_error "Neither llvm-nm nor nm found. Cannot verify JNI symbols."
@@ -301,7 +300,7 @@ check_prerequisites() {
 }
 
 clone_or_update_arti() {
-  print_header "Setting up Arti Source (version: $VERSION)"
+  print_header "Setting up Arti Source (version: $VERSION, commit: $ARTI_COMMIT)"
 
   if [ "$CLEAN_BUILD" = true ] && [ -d "$ARTI_SOURCE_DIR" ]; then
     print_info "Cleaning existing Arti source..."
@@ -310,29 +309,32 @@ clone_or_update_arti() {
 
   if [ ! -d "$ARTI_SOURCE_DIR" ]; then
     print_info "Cloning official Arti repository..."
-    git clone https://gitlab.torproject.org/tpo/core/arti.git "$ARTI_SOURCE_DIR"
+    git clone --filter=blob:none --no-checkout \
+      https://gitlab.torproject.org/tpo/core/arti.git "$ARTI_SOURCE_DIR"
   else
     print_info "Using cached Arti source at $ARTI_SOURCE_DIR"
   fi
 
   cd "$ARTI_SOURCE_DIR"
 
-  print_info "Fetching tags..."
-  git fetch --tags --quiet
+  print_info "Fetching pinned commit..."
+  git fetch --depth 1 origin "$ARTI_COMMIT" --quiet
 
-  print_info "Checking out version: $VERSION"
-  git checkout "$VERSION" --quiet 2>/dev/null || {
-    print_error "Version $VERSION not found. Available versions:"
-    git tag | grep "^arti-v" | tail -10
-    exit 1
-  }
+  print_info "Checking out commit: $ARTI_COMMIT"
+  git checkout --detach "$ARTI_COMMIT" --quiet
 
   # Ensure clean working tree to avoid cached modifications influencing builds
   print_info "Resetting repository state (hard) and cleaning untracked files..."
   git reset --hard --quiet
   git clean -ffdqx --quiet
 
-  print_success "Arti source ready at version $VERSION"
+  local actual_commit
+  actual_commit="$(git rev-parse HEAD)"
+  if [ "$actual_commit" != "$ARTI_COMMIT" ]; then
+    print_error "Arti checkout mismatch."
+    exit 1
+  fi
+  print_success "Arti source commit verified"
 
   # Apply patches
   if [ -d "$SCRIPT_DIR/patches" ]; then
@@ -359,8 +361,40 @@ setup_wrapper() {
 
   cp "$SCRIPT_DIR/src/lib.rs" "$WRAPPER_DIR/src/"
   cp "$SCRIPT_DIR/Cargo.toml" "$WRAPPER_DIR/"
+  cp "$LOCKFILE_SOURCE" "$WRAPPER_DIR/Cargo.lock"
 
   print_success "Wrapper files copied to $WRAPPER_DIR"
+  echo ""
+}
+
+ensure_wrapper_lockfile() {
+  print_header "Ensuring wrapper Cargo.lock exists"
+
+  local WRAPPER_DIR="$ARTI_SOURCE_DIR/arti-android-wrapper"
+  local LOCKFILE="$WRAPPER_DIR/Cargo.lock"
+
+  if [ ! -f "$LOCKFILE_SOURCE" ] || [ ! -f "$LOCKFILE" ]; then
+    print_error "Committed Cargo.lock is required."
+    return 1
+  fi
+
+  if ! cmp -s "$LOCKFILE_SOURCE" "$LOCKFILE"; then
+    print_error "Wrapper Cargo.lock differs from the committed lockfile."
+    return 1
+  fi
+
+  print_success "Committed Cargo.lock verified"
+  echo ""
+}
+
+update_wrapper_lockfile() {
+  print_header "Updating wrapper Cargo.lock"
+
+  local WRAPPER_DIR="$ARTI_SOURCE_DIR/arti-android-wrapper"
+  cargo generate-lockfile --manifest-path "$WRAPPER_DIR/Cargo.toml"
+  cp "$WRAPPER_DIR/Cargo.lock" "$LOCKFILE_SOURCE"
+
+  print_success "Updated $LOCKFILE_SOURCE"
   echo ""
 }
 
@@ -396,10 +430,8 @@ build_for_target() {
     # Strip debug symbols safely
     print_info "Stripping debug symbols..."
     if [ -x "$LLVM_STRIP" ]; then
-      "$LLVM_STRIP" --strip-debug "$OUTPUT_PATH/$LIB_NAME" 2>/dev/null || true
+      "$LLVM_STRIP" --strip-debug "$OUTPUT_PATH/$LIB_NAME"
       print_success "Stripped debug symbols"
-    else
-      print_info "Skipping strip (llvm-strip not available)"
     fi
 
     local SIZE
@@ -431,6 +463,44 @@ build_for_target() {
     return 1
   fi
 
+  echo ""
+}
+
+verify_no_host_paths() {
+  print_header "Verifying Native Build Privacy"
+
+  if ! command -v strings >/dev/null 2>&1; then
+    print_error "strings is required to check native artifacts for host paths."
+    return 1
+  fi
+
+  for TARGET in "${TARGETS[@]}"; do
+    local ABI="${ABI_MAP[$TARGET]}"
+    local LIB_PATH="$JNILIBS_DIR/$ABI/libarti_android.so"
+    if strings "$LIB_PATH" | grep -Eq '/Users/|/home/|[A-Za-z]:\\\\Users\\\\'; then
+      print_error "Host-specific path detected in $ABI native library."
+      return 1
+    fi
+  done
+
+  print_success "No host-specific paths detected"
+  echo ""
+}
+
+write_checksums() {
+  print_header "Writing Native Checksums"
+
+  local checksum_file="$SCRIPT_DIR/SHA256SUMS"
+  : > "$checksum_file"
+  for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+    local lib_path="$JNILIBS_DIR/$abi/libarti_android.so"
+    if command -v sha256sum >/dev/null 2>&1; then
+      sha256sum "$lib_path" | sed "s#  $JNILIBS_DIR/#  app/src/main/jniLibs/#" >> "$checksum_file"
+    else
+      shasum -a 256 "$lib_path" | sed "s#  $JNILIBS_DIR/#  app/src/main/jniLibs/#" >> "$checksum_file"
+    fi
+  done
+  print_success "Wrote $checksum_file"
   echo ""
 }
 
@@ -525,11 +595,11 @@ show_summary() {
   echo ""
   echo -e "${GREEN}Next steps:${NC}"
   echo "  1. Test the build: ./gradlew assembleDebug"
-  echo "  2. Commit the .so files: git add app/src/main/jniLibs/"
+  echo "  2. Verify checksums: tools/arti-build/verify-checksums.sh"
   echo ""
   echo -e "${GREEN}To update Arti version:${NC}"
-  echo "  1. Edit ARTI_VERSION with new version tag (e.g., arti-v1.8.0)"
-  echo "  2. Run: ./build-arti.sh --clean"
+  echo "  1. Update TOOLCHAIN.env and regenerate Cargo.lock"
+  echo "  2. Run: tools/arti-build/rebuild-in-container.sh"
   echo ""
 }
 
@@ -547,6 +617,10 @@ main() {
   check_prerequisites
   clone_or_update_arti
   setup_wrapper
+  if [ "$UPDATE_LOCKFILE" = true ]; then
+    update_wrapper_lockfile
+    return 0
+  fi
   ensure_wrapper_lockfile
 
   for TARGET in "${TARGETS[@]}"; do
@@ -554,31 +628,11 @@ main() {
   done
 
   verify_jni_symbols
+  verify_no_host_paths
+  if [ "$RELEASE_ONLY" = false ]; then
+    write_checksums
+  fi
   show_summary
-}
-
-ensure_wrapper_lockfile() {
-  print_header "Ensuring wrapper Cargo.lock exists"
-
-  local WRAPPER_DIR="$ARTI_SOURCE_DIR/arti-android-wrapper"
-  local LOCKFILE="$WRAPPER_DIR/Cargo.lock"
-
-  if [ -f "$LOCKFILE" ]; then
-    print_success "Cargo.lock already exists"
-    echo ""
-    return 0
-  fi
-
-  print_info "Cargo.lock missing; generating it once (network access may be required)..."
-  (cd "$WRAPPER_DIR" && cargo generate-lockfile)
-
-  if [ ! -f "$LOCKFILE" ]; then
-    print_error "Failed to generate Cargo.lock at $LOCKFILE"
-    return 1
-  fi
-
-  print_success "Generated Cargo.lock"
-  echo ""
 }
 
 main

@@ -46,7 +46,7 @@
     <string name="notification_summary_more">và %1$d khác</string>
     <string name="notification_messages_from_people">%1$d tin nhắn từ %2$d người</string>
     <string name="notification_more_conversations">và %1$d cuộc trò chuyện khác</string>
-    <string name="notification_active_peers_title">👥 bitchatter gần đó!</string>
+    <string name="notification_active_peers_title">bitchatter gần đó!</string>
     <string name="notification_active_peers_one">1 người gần đó</string>
     <string name="notification_active_peers_many">%1$d người gần đó</string>
     <string name="notification_new_messages">Tin nhắn mới</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">Thêm bookmark</string>
 
     <!-- Header trò chuyện &amp; khả năng truy cập -->
-    <string name="chat_back">quay lại</string>
-    <string name="chat_channel_prefix">Kênh: %1$s</string>
-    <string name="chat_leave">rời khỏi</string>
     <string name="cd_nostr_reachable">Có thể tiếp cận qua Nostr</string>
     <string name="cd_unread_private_messages">Tin nhắn riêng chưa đọc</string>
-    <string name="cd_toggle_bookmark">Bật/tắt bookmark</string>
     <string name="cd_teleported">Đã dịch chuyển</string>
-    <string name="cd_tor_status">Trạng thái Tor</string>
+    <string name="cd_open_location_channels">Mở cài đặt vị trí và kênh</string>
     <string name="cd_connected_peers">Peers đã kết nối</string>
     <string name="cd_geohash_participants">Người tham gia geohash</string>
     <string name="cd_ready_for_handshake">Sẵn sàng cho handshake</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">Chọn hình ảnh</string>
 
     <!-- Sheet giới thiệu -->
-    <string name="about_tagline">trò chuyện mesh phi tập trung với mã hóa đầu cuối</string>
     <string name="about_offline_mesh_title">Trò chuyện Mesh ngoại tuyến</string>
     <string name="about_offline_mesh_desc">Liên lạc trực tiếp qua Bluetooth LE mà không cần Internet hoặc máy chủ. Tin nhắn được chuyển tiếp qua các thiết bị gần để mở rộng phạm vi.</string>
     <string name="about_online_geohash_title">Kênh Geohash trực tuyến</string>
     <string name="about_online_geohash_desc">Kết nối với những người trong khu vực của bạn qua các kênh dựa trên geohash. Mở rộng mesh qua các relay Internet công cộng.</string>
     <string name="about_e2e_title">Mã hóa đầu cuối</string>
     <string name="about_e2e_desc">Tin nhắn riêng được mã hóa. Tin nhắn kênh là công khai.</string>
-    <string name="about_appearance">Giao diện</string>
     <string name="about_system">Hệ thống</string>
     <string name="about_light">Sáng</string>
     <string name="about_dark">Tối</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Trạng thái Tor: %1$s, Bootstrap %2$d%%</string>
     <string name="about_last">Cuối cùng: %1$s</string>
     <string name="about_emergency_title">Xóa dữ liệu khẩn cấp</string>
-    <string name="about_emergency_tip">Mẹo: Nhấn ba lần vào tiêu đề ứng dụng để xóa tất cả dữ liệu đã lưu – bao gồm tin nhắn, khóa và cài đặt.</string>
     <string name="about_debug_settings">Cài đặt debug</string>
     <string name="about_footer">Mã nguồn mở • Quyền riêng tư trước tiên • Phi tập trung</string>
     <string name="close_plain">Đóng</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">Mở bản đồ</string>
     <string name="cd_remove_bookmark">Xóa bookmark</string>
     <string name="cd_teleport">Dịch chuyển</string>
-    <string name="cd_selected">Đã chọn</string>
     <string name="cd_leave_channel">Rời khỏi kênh</string>
     <string name="cd_reachable_via_nostr">Có thể tiếp cận qua Nostr</string>
     <string name="cd_offline_favorite">Yêu thích (ngoại tuyến)</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">Quyền</string>
     <string name="grant_permissions">Cấp quyền</string>
     <string name="location_tracking_warning">bitchat KHÔNG theo dõi vị trí của bạn</string>
-    <string name="geohash_people_header">MỌI NGƯỜI</string>
     <string name="nobody_around">không có ai xung quanh …</string>
     <string name="you_suffix"> (bạn)</string>
     <string name="pan_zoom_instruction">di chuyển và zoom để chọn geohash</string>
     <string name="select">chọn</string>
     <string name="type_a_message_placeholder">Nhập tin nhắn …</string>
     <string name="mention">nhắc đến</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Hình ảnh</string>
@@ -307,11 +297,6 @@
     <!-- Khả năng truy cập trình phát thoại -->
     <string name="cd_play_voice">Phát</string>
     <string name="cd_pause_voice">Tạm dừng</string>
-    <string name="cd_mining_pow">Đang mining PoW</string>
-    <string name="cd_pow_enabled">PoW đã bật</string>
-    <string name="cd_proof_of_work">Proof of Work</string>
-    <string name="pow_mining_ellipsis">Đang mining …</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Mô tả quyền -->
     <string name="perm_nearby_devices_desc">Cần thiết để khám phá người dùng bitchat qua Bluetooth</string>
@@ -387,4 +372,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Mở phần Giới thiệu</string>
+  <string name="nearby_notes_reveal">kiểm tra ghi chú để lại ở đây</string>
+  <string name="nearby_notes_one">có 1 ghi chú để lại ở đây — chạm để đọc</string>
+  <string name="nearby_notes_many">có %d ghi chú để lại ở đây — chạm để đọc</string>
+    <string name="about_language">Ngôn ngữ</string>
+    <string name="about_app_language">Ngôn ngữ ứng dụng</string>
+    <string name="about_system_default">Mặc định hệ thống</string>
+    <string name="about_select_language">Chọn ngôn ngữ</string>
 </resources>

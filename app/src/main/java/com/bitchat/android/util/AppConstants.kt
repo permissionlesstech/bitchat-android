@@ -14,6 +14,7 @@ object AppConstants {
         // Peer lifecycle
         const val STALE_PEER_TIMEOUT_MS: Long = 180_000L // 3 minutes
         const val PEER_CLEANUP_INTERVAL_MS: Long = 60_000L
+        const val PEER_DISCONNECT_GRACE_MS: Long = 10_000L
 
         // BLE connection tracking
         const val CONNECTION_RETRY_DELAY_MS: Long = 5_000L
@@ -21,9 +22,6 @@ object AppConstants {
         const val CONNECTION_CLEANUP_DELAY_MS: Long = 500L
         const val CONNECTION_CLEANUP_INTERVAL_MS: Long = 30_000L
         const val BROADCAST_CLEANUP_DELAY_MS: Long = 500L
-
-        // GATT client RSSI updates
-        const val RSSI_UPDATE_INTERVAL_MS: Long = 5_000L
 
         object Gatt {
             val SERVICE_UUID: UUID = UUID.fromString("F47B5E2D-4A9E-4C5A-9B3F-8E1D2C3A4B5C")
@@ -52,6 +50,7 @@ object AppConstants {
         const val CLEANUP_INTERVAL_MS: Long = 300_000L
         const val MAX_PROCESSED_MESSAGES: Int = 10_000
         const val MAX_PROCESSED_KEY_EXCHANGES: Int = 1_000
+        const val KEY_EXCHANGE_DEDUP_TIMEOUT_MS: Long = 60_000L
     }
 
     object Noise {
@@ -90,7 +89,7 @@ object AppConstants {
         const val SCAN_OFF_DURATION_ULTRA_LOW_MS: Long = 29_000L
         const val MAX_CONNECTIONS_NORMAL: Int = 8
         const val MAX_CONNECTIONS_POWER_SAVE: Int = 8
-        const val MAX_CONNECTIONS_ULTRA_LOW: Int = 4
+        const val MAX_CONNECTIONS_ULTRA_LOW: Int = 8
     }
 
     object Nostr {
@@ -120,16 +119,24 @@ object AppConstants {
 
     object UI {
         const val MAX_NICKNAME_LENGTH: Int = 15
-        const val BASE_FONT_SIZE_SP: Int = 15
+        const val BASE_FONT_SIZE_SP: Int = 14
         const val MESSAGE_DEDUP_TIMEOUT_MS: Long = 30_000L
         const val SYSTEM_EVENT_DEDUP_TIMEOUT_MS: Long = 5_000L
-        const val ACTIVE_PEERS_NOTIFICATION_INTERVAL_MS: Long = 300_000L
         const val ACTION_FORCE_FINISH: String = "com.bitchat.android.ACTION_FORCE_FINISH"
         const val PERMISSION_FORCE_FINISH: String = "com.bitchat.android.permission.FORCE_FINISH"
     }
 
     object Media {
-        const val MAX_FILE_SIZE_BYTES: Long = 50L * 1024 * 1024
+        // A file is currently encoded into one protocol payload before BLE fragmentation.
+        // Reserve room for maximum filename/MIME TLVs and encryption envelope overhead.
+        const val MAX_FILE_SIZE_BYTES: Long = (10L * 1024 * 1024) - (132L * 1024)
+    }
+
+    object Router {
+        const val OUTBOX_TICK_MS: Long = 2_000L
+        const val OUTBOX_MESSAGE_TTL_MS: Long = 86_400_000L // 24 hours
+        const val OUTBOX_MAX_PER_PEER: Int = 100
+        val HANDSHAKE_RETRY_BACKOFF_MS: LongArray = longArrayOf(5_000L, 15_000L, 30_000L, 60_000L)
     }
 
     object Services {

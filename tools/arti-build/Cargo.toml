@@ -1,6 +1,6 @@
 [package]
 name = "arti-android-wrapper"
-version = "1.7.0"
+version = "1.9.0"
 edition = "2021"
 
 [workspace]
@@ -11,8 +11,8 @@ crate-type = ["cdylib"]
 name = "arti_android"
 
 [dependencies]
-arti-client = { path = "../crates/arti-client", default-features = false, features = ["tokio", "rustls", "compression", "bridge-client", "onion-service-client", "static-sqlite"] }
-tor-rtcompat = { path = "../crates/tor-rtcompat", features = ["tokio", "rustls"] }
+arti-client = { path = "../crates/arti-client", default-features = false, features = ["tokio", "rustls", "compression", "bridge-client", "onion-service-client", "static", "static-sqlite"] }
+tor-rtcompat = { path = "../crates/tor-rtcompat", features = ["tokio", "rustls", "static"] }
 jni = "0.21"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"

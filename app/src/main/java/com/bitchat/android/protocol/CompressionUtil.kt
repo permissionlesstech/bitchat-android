@@ -2,6 +2,7 @@ package com.bitchat.android.protocol
 
 import android.util.Log
 import java.io.ByteArrayOutputStream
+import java.util.zip.DataFormatException
 import java.util.zip.Deflater
 import java.util.zip.Inflater
 
@@ -11,6 +12,8 @@ import java.util.zip.Inflater
  */
 object CompressionUtil {
     private const val COMPRESSION_THRESHOLD = com.bitchat.android.util.AppConstants.Protocol.COMPRESSION_THRESHOLD_BYTES  // bytes - same as iOS
+
+    private val decompressionPool = DecompressionResourcePool.forRuntime()
     
     /**
      * Helper to check if compression is worth it - exact same logic as iOS
@@ -73,47 +76,124 @@ object CompressionUtil {
      * iOS COMPRESSION_ZLIB produces raw deflate data (no headers)
      */
     fun decompress(compressedData: ByteArray, originalSize: Int): ByteArray? {
-        // iOS COMPRESSION_ZLIB produces raw deflate format (no headers)
-        try {
-            val inflater = Inflater(true) // true = raw deflate, no headers
-            inflater.setInput(compressedData)
-            
-            val decompressedBuffer = ByteArray(originalSize)
-            val actualSize = inflater.inflate(decompressedBuffer)
-            inflater.end()
-            
-            // Verify decompressed size matches expected (same validation as iOS)
-            return if (actualSize == originalSize) {
-                decompressedBuffer
-            } else if (actualSize > 0) {
-                // Handle case where actual size is different
-                decompressedBuffer.copyOfRange(0, actualSize)
-            } else {
+        if (!isValidRequest(compressedData, originalSize)) return null
+        return withDecompressionResources(originalSize.toLong()) {
+            decompressWithResourcesReserved(compressedData, originalSize)
+        }
+    }
+
+    internal fun <T> withDecompressionResources(bytes: Long, block: () -> T): T? =
+        decompressionPool.withReservation(bytes, block)
+
+    /**
+     * Inflate after the caller has reserved all packet-specific allocations.
+     * This avoids nested acquisition when BinaryProtocol reserves both its input copy and output.
+     */
+    internal fun decompressWithResourcesReserved(
+        compressedData: ByteArray,
+        originalSize: Int
+    ): ByteArray? {
+        if (!isValidRequest(compressedData, originalSize)) return null
+        return decompressExact(compressedData, originalSize)
+    }
+
+    private fun isValidRequest(compressedData: ByteArray, originalSize: Int): Boolean {
+        val maxExpandedSize = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
+        if (compressedData.isEmpty()) {
+            Log.w("CompressionUtil", "Refusing an empty compressed payload")
+            return false
+        }
+        if (originalSize <= 0 || originalSize > maxExpandedSize) {
+            Log.w(
+                "CompressionUtil",
+                "Refusing expanded payload size $originalSize outside 1..$maxExpandedSize"
+            )
+            return false
+        }
+        return true
+    }
+
+    private fun decompressExact(compressedData: ByteArray, originalSize: Int): ByteArray? {
+        return if (looksLikeZlib(compressedData)) {
+            // A raw stream can coincidentally begin with a valid-looking zlib header. The
+            // header therefore only determines which format to try first; any non-exact zlib
+            // result must still fall back to raw under the same size/completion bounds.
+            val zlibResult = try {
+                inflateExact(compressedData, originalSize, nowrap = false)
+            } catch (zlibException: DataFormatException) {
                 null
             }
-        } catch (e: Exception) {
-            Log.d("CompressionUtil", "Raw deflate decompression failed: ${e.message}, trying with zlib headers...")
-            
-            // Fallback: try with zlib headers in case of mixed usage
-            try {
-                val inflater = Inflater(false) // false = expect zlib headers
-                inflater.setInput(compressedData)
-                
-                val decompressedBuffer = ByteArray(originalSize)
-                val actualSize = inflater.inflate(decompressedBuffer)
-                inflater.end()
-                
-                return if (actualSize == originalSize) {
-                    decompressedBuffer
-                } else if (actualSize > 0) {
-                    decompressedBuffer.copyOfRange(0, actualSize)
-                } else {
+            if (zlibResult != null) {
+                zlibResult
+            } else {
+                try {
+                    inflateExact(compressedData, originalSize, nowrap = true)
+                } catch (rawException: DataFormatException) {
+                    Log.d("CompressionUtil", "Invalid zlib/raw deflate stream")
                     null
                 }
-            } catch (fallbackException: Exception) {
-                Log.e("CompressionUtil", "Both raw deflate and zlib decompression failed: ${fallbackException.message}")
-                return null
             }
+        } else {
+            try {
+                inflateExact(compressedData, originalSize, nowrap = true)
+            } catch (rawException: DataFormatException) {
+                Log.d("CompressionUtil", "Invalid raw deflate stream")
+                null
+            }
+        }
+    }
+
+    /** RFC 1950 header check used to avoid speculative double inflation. */
+    private fun looksLikeZlib(data: ByteArray): Boolean {
+        if (data.size < 2) return false
+        val cmf = data[0].toInt() and 0xFF
+        val flg = data[1].toInt() and 0xFF
+        return (cmf and 0x0F) == 8 &&
+            (cmf ushr 4) <= 7 &&
+            ((cmf shl 8) or flg) % 31 == 0
+    }
+
+    /**
+     * Inflate one complete stream into exactly [originalSize] bytes.
+     *
+     * A full output buffer alone is not success: an attacker can under-declare a larger stream so
+     * the first inflate call fills the buffer while [Inflater.finished] remains false. Conversely,
+     * a truncated or over-declared stream can produce a non-empty prefix. Both forms are rejected,
+     * as are trailing bytes after the compressed stream.
+     *
+     * [DataFormatException] is deliberately allowed to escape so the caller can try the legacy
+     * zlib-wrapped format. Size/completion mismatches return null; the fallback must then prove the
+     * same bytes are a complete, exact-sized zlib stream before they can be accepted.
+     */
+    @Throws(DataFormatException::class)
+    private fun inflateExact(
+        compressedData: ByteArray,
+        originalSize: Int,
+        nowrap: Boolean
+    ): ByteArray? {
+        val inflater = Inflater(nowrap)
+        return try {
+            inflater.setInput(compressedData)
+            val output = ByteArray(originalSize)
+            var written = 0
+
+            while (written < originalSize) {
+                val count = inflater.inflate(output, written, originalSize - written)
+                if (count == 0) break
+                written += count
+            }
+
+            if (written != originalSize) return null
+
+            // Give Inflater one byte of room to consume the end marker. Any produced byte proves
+            // the declared size was smaller than the actual expansion.
+            val overflowProbe = ByteArray(1)
+            if (inflater.inflate(overflowProbe) != 0) return null
+
+            if (!inflater.finished() || inflater.remaining != 0) return null
+            output
+        } finally {
+            inflater.end()
         }
     }
     

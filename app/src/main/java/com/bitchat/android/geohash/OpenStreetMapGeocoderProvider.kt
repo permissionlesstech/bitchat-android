@@ -4,53 +4,79 @@ import android.location.Address
 import android.util.Log
 import com.bitchat.android.net.OkHttpProvider
 import com.google.gson.Gson
+import java.io.IOException
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.Request
+import okhttp3.Response
 import java.util.Locale
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 
 class OpenStreetMapGeocoderProvider : GeocoderProvider {
     private val TAG = "OSMGeocoderProvider"
     private val gson = Gson()
     private val userAgent = "Bitchat-Android/1.0"
 
-    override suspend fun getFromLocation(latitude: Double, longitude: Double, maxResults: Int): List<Address> {
-        return withContext(Dispatchers.IO) {
+    override suspend fun getFromLocation(
+        latitude: Double,
+        longitude: Double,
+        maxResults: Int,
+        liveLocationToken: Long?
+    ): List<Address> {
+        return suspendCancellableCoroutine { continuation ->
             val lang = Locale.getDefault().toLanguageTag()
-            // Using format=jsonv2 for structured address breakdown
             val url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$latitude&lon=$longitude&zoom=18&addressdetails=1&accept-language=$lang"
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", userAgent)
+                .build()
+            val call = OkHttpProvider.httpClient().newCall(request)
 
-            try {
-                val request = Request.Builder()
-                    .url(url)
-                    .header("User-Agent", userAgent)
-                    .build()
-
-                val response = OkHttpProvider.httpClient().newCall(request).execute()
-                if (!response.isSuccessful) {
-                    Log.e(TAG, "OSM Request failed: ${response.code}")
-                    response.close()
-                    return@withContext emptyList<Address>()
+            continuation.invokeOnCancellation { call.cancel() }
+            val enqueueRequest = {
+                call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (continuation.isActive) {
+                        Log.w(TAG, "OSM geocoding request failed")
+                        continuation.resume(emptyList())
+                    }
                 }
 
-                val body = response.body?.string()
-                response.close()
+                override fun onResponse(call: Call, response: Response) {
+                    val addresses = response.use {
+                        if (!it.isSuccessful) {
+                            Log.w(TAG, "OSM geocoding request returned ${it.code}")
+                            return@use emptyList()
+                        }
 
-                if (body.isNullOrEmpty()) return@withContext emptyList<Address>()
+                        val body = it.body?.string()
+                        if (body.isNullOrEmpty()) return@use emptyList()
 
-                try {
-                    val osmResponse = gson.fromJson(body, OsmResponse::class.java)
-                    if (osmResponse?.address == null) return@withContext emptyList<Address>()
-                    
-                    val address = mapToAddress(osmResponse, latitude, longitude)
-                    listOf(address)
-                } catch (e: Exception) {
-                     Log.e(TAG, "OSM Parse failed: ${e.message}")
-                     emptyList<Address>()
+                        runCatching {
+                            val osmResponse = gson.fromJson(body, OsmResponse::class.java)
+                            if (osmResponse?.address == null) emptyList()
+                            else listOf(mapToAddress(osmResponse, latitude, longitude))
+                        }.getOrElse {
+                            Log.w(TAG, "OSM geocoding response could not be parsed")
+                            emptyList()
+                        }
+                    }
+                    if (continuation.isActive) continuation.resume(addresses)
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "OSM Geocoding failed", e)
-                emptyList<Address>()
+                })
+            }
+            val started = if (liveLocationToken == null) {
+                enqueueRequest()
+                true
+            } else {
+                LiveLocationPrivacyGate.runIfAllowed(
+                    liveLocationToken,
+                    enqueueRequest
+                )
+            }
+            if (!started && continuation.isActive) {
+                continuation.resume(emptyList())
             }
         }
     }

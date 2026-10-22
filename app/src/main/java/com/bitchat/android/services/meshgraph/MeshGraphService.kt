@@ -67,6 +67,11 @@ class MeshGraphService private constructor() {
             nicknames.remove(peerID)
             announcements.remove(peerID)
             lastUpdate.remove(peerID)
+            announcements.keys.toList().forEach { originPeerID ->
+                announcements.computeIfPresent(originPeerID) { _, neighbors ->
+                    neighbors - peerID
+                }
+            }
             publishSnapshot()
         }
     }

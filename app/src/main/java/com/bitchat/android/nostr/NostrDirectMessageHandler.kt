@@ -2,6 +2,8 @@ package com.bitchat.android.nostr
 
 import android.app.Application
 import android.util.Log
+import com.bitchat.android.favorites.FavoriteControlMessage
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
@@ -9,10 +11,12 @@ import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.model.PrivateMessagePacket
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.ChatState
-import com.bitchat.android.ui.MeshDelegateHandler
 import com.bitchat.android.ui.PrivateChatManager
+import com.bitchat.android.ui.PrivateMessageOrigin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,14 +27,17 @@ class NostrDirectMessageHandler(
     private val application: Application,
     private val state: ChatState,
     private val privateChatManager: PrivateChatManager,
-    private val meshDelegateHandler: MeshDelegateHandler,
+    private val updateDeliveryStatus: (String, DeliveryStatus) -> Unit,
     private val scope: CoroutineScope,
     private val repo: GeohashRepository,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    private val seenStoreProvider: () -> SeenMessageStore = {
+        SeenMessageStore.getInstance(application)
+    }
 ) {
     companion object { private const val TAG = "NostrDirectMessageHandler" }
 
-    private val seenStore by lazy { SeenMessageStore.getInstance(application) }
+    private val seenStore by lazy(seenStoreProvider)
 
     // Simple event deduplication
     private val processedIds = ArrayDeque<String>()
@@ -49,7 +56,7 @@ class NostrDirectMessageHandler(
     }
 
     fun onGiftWrap(giftWrap: NostrEvent, geohash: String, identity: NostrIdentity) {
-        scope.launch(Dispatchers.Default) {
+        scope.launch {
             try {
                 if (dedupe(giftWrap.id)) return@launch
 
@@ -77,7 +84,7 @@ class NostrDirectMessageHandler(
                 if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) return@launch
 
                 val noisePayload = NoisePayload.decode(packet.payload) ?: return@launch
-                val messageTimestamp = Date(giftWrap.createdAt * 1000L)
+                val messageTimestamp = Date(rumorTimestamp * 1000L)
                 val convKey = "nostr_${senderPubkey.take(16)}"
                 repo.putNostrKeyMapping(convKey, senderPubkey)
                 com.bitchat.android.nostr.GeohashAliasRegistry.put(convKey, senderPubkey)
@@ -99,8 +106,9 @@ class NostrDirectMessageHandler(
                 }
 
                 val senderNickname = repo.displayNameForNostrPubkeyUI(senderPubkey)
+                val conversationID = ContactDirectory.canonicalConversationId(convKey)
 
-                processNoisePayload(noisePayload, convKey, senderNickname, messageTimestamp, senderPubkey, identity)
+                processNoisePayload(noisePayload, conversationID, senderNickname, messageTimestamp, senderPubkey, identity)
 
             } catch (e: Exception) {
                 Log.e(TAG, "onGiftWrap error: ${e.message}")
@@ -110,7 +118,7 @@ class NostrDirectMessageHandler(
 
     private suspend fun processNoisePayload(
         payload: NoisePayload,
-        convKey: String,
+        conversationID: String,
         senderNickname: String,
         timestamp: Date,
         senderPubkey: String,
@@ -119,8 +127,26 @@ class NostrDirectMessageHandler(
         when (payload.type) {
             NoisePayloadType.PRIVATE_MESSAGE -> {
                 val pm = PrivateMessagePacket.decode(payload.data) ?: return
-                val existingMessages = state.getPrivateChatsValue()[convKey] ?: emptyList()
+                val existingMessages = state.getPrivateChatsValue()[conversationID] ?: emptyList()
                 if (existingMessages.any { it.id == pm.messageID }) return
+
+                val favoriteControl = FavoriteControlMessage.parse(pm.content)
+                if (favoriteControl != null) {
+                    val admitted = handleFavoriteControl(
+                        favoriteControl,
+                        conversationID,
+                        senderNickname,
+                        timestamp,
+                        senderPubkey
+                    )
+                    if (!admitted) return
+                    if (!seenStore.hasDelivered(pm.messageID)) {
+                        val nostrTransport = NostrTransport.getInstance(application)
+                        nostrTransport.sendDeliveryAckGeohash(pm.messageID, senderPubkey, recipientIdentity)
+                        seenStore.markDelivered(pm.messageID)
+                    }
+                    return
+                }
 
                 val message = BitchatMessage(
                     id = pm.messageID,
@@ -130,16 +156,22 @@ class NostrDirectMessageHandler(
                     isRelay = false,
                     isPrivate = true,
                     recipientNickname = state.getNicknameValue(),
-                    senderPeerID = convKey,
+                    senderPeerID = conversationID,
+                    senderNostrPubkey = senderPubkey,
                     deliveryStatus = DeliveryStatus.Delivered(to = state.getNicknameValue() ?: "Unknown", at = Date())
                 )
 
-                val isViewing = state.getSelectedPrivateChatPeerValue() == convKey
-                val suppressUnread = seenStore.hasRead(pm.messageID)
+                val isViewing = state.getSelectedPrivateChatPeerValue() == conversationID
+                val suppressUnread = seenStore.hasBeenReadLocally(pm.messageID)
 
-                withContext(Dispatchers.Main) {
-                    privateChatManager.handleIncomingPrivateMessage(message, suppressUnread)
+                val admitted = withContext(Dispatchers.Main) {
+                    privateChatManager.handleIncomingPrivateMessageDurably(
+                        message = message,
+                        suppressUnread = suppressUnread,
+                        origin = PrivateMessageOrigin.NOSTR
+                    )
                 }
+                if (!admitted) return
 
                 if (!seenStore.hasDelivered(pm.messageID)) {
                     val nostrTransport = NostrTransport.getInstance(application)
@@ -150,19 +182,26 @@ class NostrDirectMessageHandler(
                 if (isViewing && !suppressUnread) {
                     val nostrTransport = NostrTransport.getInstance(application)
                     nostrTransport.sendReadReceiptGeohash(pm.messageID, senderPubkey, recipientIdentity)
-                    seenStore.markRead(pm.messageID)
+                    seenStore.markReadLocally(pm.messageID)
+                    seenStore.markReadReceiptSent(pm.messageID)
                 }
             }
             NoisePayloadType.DELIVERED -> {
                 val messageId = String(payload.data, Charsets.UTF_8)
                 withContext(Dispatchers.Main) {
-                    meshDelegateHandler.didReceiveDeliveryAck(messageId, convKey)
+                    updateDeliveryStatus(
+                        messageId,
+                        DeliveryStatus.Delivered(conversationID, Date())
+                    )
                 }
             }
             NoisePayloadType.READ_RECEIPT -> {
                 val messageId = String(payload.data, Charsets.UTF_8)
                 withContext(Dispatchers.Main) {
-                    meshDelegateHandler.didReceiveReadReceipt(messageId, convKey)
+                    updateDeliveryStatus(
+                        messageId,
+                        DeliveryStatus.Read(conversationID, Date())
+                    )
                 }
             }
             NoisePayloadType.FILE_TRANSFER -> {
@@ -180,18 +219,89 @@ class NostrDirectMessageHandler(
                         isRelay = false,
                         isPrivate = true,
                         recipientNickname = state.getNicknameValue(),
-                        senderPeerID = convKey
+                        senderPeerID = conversationID,
+                        senderNostrPubkey = senderPubkey
                     )
                     Log.d(TAG, "📄 Saved Nostr encrypted incoming file to $savedPath (msgId=$uniqueMsgId)")
-                    withContext(Dispatchers.Main) {
-                        privateChatManager.handleIncomingPrivateMessage(message, suppressUnread = false)
+                    val admitted = withContext(Dispatchers.Main) {
+                        privateChatManager.handleIncomingPrivateMessageDurably(
+                            message = message,
+                            suppressUnread = false,
+                            origin = PrivateMessageOrigin.NOSTR
+                        )
+                    }
+                    if (!admitted) {
+                        com.bitchat.android.features.file.FileUtils.deleteStoredMediaPaths(
+                            application,
+                            listOf(savedPath)
+                        )
                     }
                 } else {
-                    Log.w(TAG, "⚠️ Failed to decode Nostr file transfer from $convKey")
+                    Log.w(TAG, "Failed to decode Nostr file transfer from $conversationID")
                 }
             }
             NoisePayloadType.VERIFY_CHALLENGE,
-            NoisePayloadType.VERIFY_RESPONSE -> Unit // Ignore verification payloads in Nostr direct messages
+            NoisePayloadType.VERIFY_RESPONSE,
+            NoisePayloadType.VOICE_FRAME,
+            NoisePayloadType.PEER_STATE -> Unit // Peer state is bound to a live mesh Noise generation.
+        }
+    }
+
+    private suspend fun handleFavoriteControl(
+        control: FavoriteControlMessage,
+        conversationID: String,
+        senderNickname: String,
+        timestamp: Date,
+        senderPubkey: String
+    ): Boolean {
+        return try {
+            val senderNpub = control.npub ?: ContactIdentityResolver.npubFromHex(senderPubkey)
+            val noiseKey = senderNpub?.let { FavoritesPersistenceService.shared.findNoiseKey(it) }
+                ?: FavoritesPersistenceService.shared.findNoiseKey(senderPubkey)
+
+            if (noiseKey == null) {
+                Log.w(TAG, "Favorite notification from Nostr sender without known Noise key: ${senderPubkey.take(16)}...")
+                return false
+            }
+
+            FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, control.isFavorite)
+            senderNpub?.let { FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, it) }
+            val targetConversationID = ContactDirectory.canonicalConversationId(conversationID)
+
+            val relationship = FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+            val displayName = relationship
+                ?.peerNickname
+                ?.takeUnless { it.equals("Unknown", ignoreCase = true) }
+                ?: senderNickname
+            val guidance = if (control.isFavorite) {
+                if (relationship?.isFavorite == true) {
+                    " - mutual! You can continue DMs via Nostr when out of mesh."
+                } else {
+                    " - favorite back to continue DMs later."
+                }
+            } else {
+                ". DMs over Nostr will pause unless you both favorite again."
+            }
+            val action = if (control.isFavorite) "favorited" else "unfavorited"
+            val systemMessage = BitchatMessage(
+                sender = "system",
+                content = "$displayName $action you$guidance",
+                timestamp = timestamp,
+                isRelay = false,
+                isPrivate = true,
+                senderPeerID = targetConversationID
+            )
+
+            withContext(Dispatchers.Main) {
+                privateChatManager.handleIncomingPrivateMessageDurably(
+                    message = systemMessage,
+                    suppressUnread = true,
+                    origin = PrivateMessageOrigin.NOSTR
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to handle Nostr favorite notification: ${e.message}")
+            false
         }
     }
 

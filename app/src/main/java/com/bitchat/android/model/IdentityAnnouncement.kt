@@ -2,7 +2,6 @@ package com.bitchat.android.model
 
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
-import com.bitchat.android.util.*
 
 /**
  * Identity announcement structure with TLV encoding
@@ -12,7 +11,9 @@ import com.bitchat.android.util.*
 data class IdentityAnnouncement(
     val nickname: String,
     val noisePublicKey: ByteArray,    // Noise static public key (Curve25519.KeyAgreement)
-    val signingPublicKey: ByteArray   // Ed25519 public key for signing
+    val signingPublicKey: ByteArray,  // Ed25519 public key for signing
+    val capabilities: PeerCapabilities? = null,
+    val unknownTLVs: List<UnknownAnnouncementTLV> = emptyList()
 ) : Parcelable {
 
     /**
@@ -21,7 +22,8 @@ data class IdentityAnnouncement(
     private enum class TLVType(val value: UByte) {
         NICKNAME(0x01u),
         NOISE_PUBLIC_KEY(0x02u),
-        SIGNING_PUBLIC_KEY(0x03u);  // NEW: Ed25519 signing public key
+        SIGNING_PUBLIC_KEY(0x03u),  // NEW: Ed25519 signing public key
+        CAPABILITIES(0x05u);
         
         companion object {
             fun fromValue(value: UByte): TLVType? {
@@ -37,7 +39,8 @@ data class IdentityAnnouncement(
         val nicknameData = nickname.toByteArray(Charsets.UTF_8)
         
         // Check size limits
-        if (nicknameData.size > 255 || noisePublicKey.size > 255 || signingPublicKey.size > 255) {
+        if (nicknameData.size > 255 || noisePublicKey.size > 255 || signingPublicKey.size > 255 ||
+            unknownTLVs.any { it.value.size > 255 }) {
             return null
         }
         
@@ -57,6 +60,21 @@ data class IdentityAnnouncement(
         result.add(TLVType.SIGNING_PUBLIC_KEY.value.toByte())
         result.add(signingPublicKey.size.toByte())
         result.addAll(signingPublicKey.toList())
+
+        // Optional little-endian feature bitfield. Old clients skip this TLV.
+        capabilities?.encoded()?.let { capabilityBytes ->
+            result.add(TLVType.CAPABILITIES.value.toByte())
+            result.add(capabilityBytes.size.toByte())
+            result.addAll(capabilityBytes.toList())
+        }
+
+        // Preserve extensions this build does not understand. This includes
+        // gossip TLV 0x04 when an announcement is decoded through this model.
+        unknownTLVs.forEach { tlv ->
+            result.add(tlv.type.toByte())
+            result.add(tlv.value.size.toByte())
+            result.addAll(tlv.value.toList())
+        }
         
         return result.toByteArray()
     }
@@ -73,6 +91,8 @@ data class IdentityAnnouncement(
             var nickname: String? = null
             var noisePublicKey: ByteArray? = null
             var signingPublicKey: ByteArray? = null
+            var capabilities: PeerCapabilities? = null
+            val unknownTLVs = mutableListOf<UnknownAnnouncementTLV>()
             
             while (offset + 2 <= dataCopy.size) {
                 // Read TLV type
@@ -102,20 +122,36 @@ data class IdentityAnnouncement(
                     TLVType.SIGNING_PUBLIC_KEY -> {
                         signingPublicKey = value
                     }
+                    TLVType.CAPABILITIES -> {
+                        capabilities = PeerCapabilities.decode(value)
+                    }
                     null -> {
-                        // Unknown TLV; skip (tolerant decoder for forward compatibility)
-                        continue
+                        // Retain unknown extensions so callers can forward or
+                        // re-encode the announcement without erasing them.
+                        unknownTLVs += UnknownAnnouncementTLV(typeValue.toInt(), value)
                     }
                 }
             }
             
             // All three fields are required
             return if (nickname != null && noisePublicKey != null && signingPublicKey != null) {
-                IdentityAnnouncement(nickname, noisePublicKey, signingPublicKey)
+                IdentityAnnouncement(nickname, noisePublicKey, signingPublicKey, capabilities, unknownTLVs)
             } else {
                 null
             }
         }
+
+        /** Construct the announcement emitted by this Android build. */
+        fun forLocalPeer(
+            nickname: String,
+            noisePublicKey: ByteArray,
+            signingPublicKey: ByteArray
+        ): IdentityAnnouncement = IdentityAnnouncement(
+            nickname = nickname,
+            noisePublicKey = noisePublicKey,
+            signingPublicKey = signingPublicKey,
+            capabilities = PeerCapabilities.LOCAL_SUPPORTED
+        )
     }
     
     // Override equals and hashCode since we use ByteArray
@@ -128,6 +164,8 @@ data class IdentityAnnouncement(
         if (nickname != other.nickname) return false
         if (!noisePublicKey.contentEquals(other.noisePublicKey)) return false
         if (!signingPublicKey.contentEquals(other.signingPublicKey)) return false
+        if (capabilities != other.capabilities) return false
+        if (unknownTLVs != other.unknownTLVs) return false
         
         return true
     }
@@ -136,10 +174,12 @@ data class IdentityAnnouncement(
         var result = nickname.hashCode()
         result = 31 * result + noisePublicKey.contentHashCode()
         result = 31 * result + signingPublicKey.contentHashCode()
+        result = 31 * result + (capabilities?.hashCode() ?: 0)
+        result = 31 * result + unknownTLVs.hashCode()
         return result
     }
     
     override fun toString(): String {
-        return "IdentityAnnouncement(nickname='$nickname', noisePublicKey=${noisePublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., signingPublicKey=${signingPublicKey.joinToString("") { "%02x".format(it) }.take(16)}...)"
+        return "IdentityAnnouncement(nickname='$nickname', noisePublicKey=${noisePublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., signingPublicKey=${signingPublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., capabilities=${capabilities?.rawValue})"
     }
 }

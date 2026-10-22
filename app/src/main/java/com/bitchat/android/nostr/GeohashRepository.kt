@@ -4,6 +4,10 @@ import android.app.Application
 import android.util.Log
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.GeoPerson
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Date
 
 /**
@@ -14,9 +18,15 @@ import java.util.Date
 class GeohashRepository(
     private val application: Application,
     private val state: ChatState,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    private val scope: CoroutineScope
 ) {
-    companion object { private const val TAG = "GeohashRepository" }
+    companion object {
+        private const val TAG = "GeohashRepository"
+        private const val PRESENCE_REFRESH_INTERVAL_MS = 100L
+    }
+
+    private var presenceRefreshJob: Job? = null
 
     // geohash -> (participant pubkeyHex -> lastSeen)
     private val geohashParticipants: MutableMap<String, MutableMap<String, Date>> = mutableMapOf()
@@ -28,14 +38,17 @@ class GeohashRepository(
     // conversation key (e.g., "nostr_<pub16>") -> source geohash it belongs to
     private val conversationGeohash: MutableMap<String, String> = mutableMapOf()
 
+    @Synchronized
     fun setConversationGeohash(convKey: String, geohash: String) {
         if (geohash.isNotEmpty()) {
             conversationGeohash[convKey] = geohash
         }
     }
 
+    @Synchronized
     fun getConversationGeohash(convKey: String): String? = conversationGeohash[convKey]
 
+    @Synchronized
     fun findPubkeyByNickname(targetNickname: String): String? {
         return geoNicknames.entries.firstOrNull { (_, nickname) ->
             val base = nickname.split("#").firstOrNull() ?: nickname
@@ -43,6 +56,7 @@ class GeohashRepository(
         }?.key
     }
 
+    @Synchronized
     fun findPubkeyByShortId(shortId: String): String? {
         // First check cached nicknames (fastest)
         var found = geoNicknames.keys.firstOrNull { it.startsWith(shortId, ignoreCase = true) }
@@ -66,7 +80,10 @@ class GeohashRepository(
     fun setCurrentGeohash(geo: String?) { currentGeohash = geo }
     fun getCurrentGeohash(): String? = currentGeohash
 
+    @Synchronized
     fun clearAll() {
+        presenceRefreshJob?.cancel()
+        presenceRefreshJob = null
         geohashParticipants.clear()
         geoNicknames.clear()
         nostrKeyMapping.clear()
@@ -76,17 +93,20 @@ class GeohashRepository(
         currentGeohash = null
     }
 
+    @Synchronized
     fun cacheNickname(pubkeyHex: String, nickname: String) {
         val lower = pubkeyHex.lowercase()
         val previous = geoNicknames[lower]
         geoNicknames[lower] = nickname
         if (previous != nickname && currentGeohash != null) {
-            refreshGeohashPeople()
+            schedulePresenceRefresh()
         }
     }
 
+    @Synchronized
     fun getCachedNickname(pubkeyHex: String): String? = geoNicknames[pubkeyHex.lowercase()]
 
+    @Synchronized
     fun markTeleported(pubkeyHex: String) {
         val set = state.getTeleportedGeoValue().toMutableSet()
         val key = pubkeyHex.lowercase()
@@ -97,10 +117,12 @@ class GeohashRepository(
         }
     }
 
+    @Synchronized
     fun isPersonTeleported(pubkeyHex: String): Boolean {
         return state.getTeleportedGeoValue().contains(pubkeyHex.lowercase())
     }
 
+    @Synchronized
     fun updateParticipant(geohash: String, participantId: String, lastSeen: Date) {
         val participants = geohashParticipants.getOrPut(geohash) { mutableMapOf() }
         // Cap to now: prevents future-timestamped events (clock skew / malicious created_at)
@@ -113,10 +135,28 @@ class GeohashRepository(
         if (existing == null || effective.after(existing)) {
             participants[participantId] = effective
         }
-        if (currentGeohash == geohash) refreshGeohashPeople()
-        updateReactiveParticipantCounts()
+        schedulePresenceRefresh()
     }
 
+    /**
+     * Relays can replay hundreds of presence events at once when entering a channel. Keep
+     * individual updates cheap and publish one complete snapshot per interval, rather than
+     * rebuilding and sorting the growing people list twice per event on the UI thread.
+     * The supplied owner scope also cancels pending publication when its UI is destroyed.
+     */
+    private fun schedulePresenceRefresh() {
+        if (presenceRefreshJob?.isActive == true) return
+        presenceRefreshJob = scope.launch {
+            delay(PRESENCE_REFRESH_INTERVAL_MS)
+            synchronized(this@GeohashRepository) {
+                presenceRefreshJob = null
+                refreshGeohashPeople()
+                updateReactiveParticipantCounts()
+            }
+        }
+    }
+
+    @Synchronized
     fun geohashParticipantCount(geohash: String): Int {
         val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
         val participants = geohashParticipants[geohash] ?: return 0
@@ -130,6 +170,7 @@ class GeohashRepository(
         return participants.keys.count { !dataManager.isGeohashUserBlocked(it) }
     }
 
+    @Synchronized
     fun refreshGeohashPeople() {
         val geohash = currentGeohash
         if (geohash == null) {
@@ -168,6 +209,7 @@ class GeohashRepository(
         state.setGeohashPeople(people)
     }
 
+    @Synchronized
     fun updateReactiveParticipantCounts() {
         val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
         val counts = mutableMapOf<String, Int>()
@@ -180,12 +222,15 @@ class GeohashRepository(
         state.setGeohashParticipantCounts(counts)
     }
 
+    @Synchronized
     fun putNostrKeyMapping(tempKeyOrPeer: String, pubkeyHex: String) {
         nostrKeyMapping[tempKeyOrPeer] = pubkeyHex
     }
 
+    @Synchronized
     fun getNostrKeyMapping(): Map<String, String> = nostrKeyMapping.toMap()
 
+    @Synchronized
     fun displayNameForNostrPubkey(pubkeyHex: String): String {
         val suffix = pubkeyHex.takeLast(4)
         val lower = pubkeyHex.lowercase()
@@ -203,6 +248,7 @@ class GeohashRepository(
         return "$nick#$suffix"
     }
 
+    @Synchronized
     fun displayNameForNostrPubkeyUI(pubkeyHex: String): String {
         val lower = pubkeyHex.lowercase()
         val suffix = pubkeyHex.takeLast(4)
@@ -234,6 +280,7 @@ class GeohashRepository(
     /**
      * Get display name for any geohash (not just current one) for header titles
      */
+    @Synchronized
     fun displayNameForGeohashConversation(pubkeyHex: String, sourceGeohash: String): String {
         val lower = pubkeyHex.lowercase()
         val suffix = pubkeyHex.takeLast(4)

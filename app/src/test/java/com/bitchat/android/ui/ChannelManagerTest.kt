@@ -7,7 +7,11 @@ import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertNotNull
 import junit.framework.TestCase.assertTrue
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -45,7 +49,8 @@ class ChannelManagerTest {
             state = chatState,
             messageManager = messageManager,
             dataManager = dataManager,
-            coroutineScope = testScope
+            coroutineScope = testScope,
+            cryptoDispatcher = testDispatcher
         )
     }
 
@@ -78,7 +83,8 @@ class ChannelManagerTest {
             freshState,
             MessageManager(freshState),
             dataManager,
-            testScope
+            testScope,
+            cryptoDispatcher = testDispatcher
         )
 
         assertFalse(freshManager.hasChannelKey(channel))
@@ -116,7 +122,7 @@ class ChannelManagerTest {
         freshState.setPasswordProtectedChannels(setOf(channel))
         freshState.setChannelMessages(mapOf(channel to listOf(placeholder)))
         val freshMessages = MessageManager(freshState)
-        val freshManager = ChannelManager(freshState, freshMessages, dataManager, testScope)
+        val freshManager = ChannelManager(freshState, freshMessages, dataManager, testScope, cryptoDispatcher = testDispatcher)
 
         assertTrue(freshManager.verifyChannelPassword(channel, password))
         assertEquals(plaintext, freshState.getChannelMessagesValue()[channel]?.first()?.content)
@@ -197,7 +203,8 @@ class ChannelManagerTest {
             freshState,
             MessageManager(freshState),
             dataManager,
-            testScope
+            testScope,
+            cryptoDispatcher = testDispatcher
         )
 
         assertFalse(freshManager.joinChannel(channel, null, "peer-1"))
@@ -205,6 +212,73 @@ class ChannelManagerTest {
         assertFalse(freshManager.joinChannel(channel, "bad", "peer-1"))
         assertTrue(freshManager.joinChannel(channel, "real-pw", "peer-1"))
         assertTrue(freshManager.hasChannelKey(channel))
+    }
+
+    @Test
+    fun `historical channel AES GCM fixture decrypts with its literal key commitment`() = runTest(testDispatcher) {
+        val channel = "#synthetic-channel"
+        channelManager.setChannelPassword(channel, "synthetic-shared-secret")
+        assertEquals("c73f12ffdc2610940b602fa100d2143336219d684d5d0175a247d64dfa81eb8d",
+            channelManager.getChannelKeyCommitment(channel))
+        val fixture = "000102030405060708090a0b28860cfc4862a3c7f5531bf941e0dcdc404cace1be5962252434167c79534a9c26ca7b8421670d0926"
+            .chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        assertEquals("synthetic channel message", channelManager.decryptChannelMessage(fixture, channel))
+    }
+
+    @Test
+    fun `joining with a password installs protection before receiving any messages`() = runTest(testDispatcher) {
+        assertTrue(channelManager.joinChannel("#new", "synthetic-password", "peer-a"))
+        assertTrue(channelManager.hasChannelKey("#new"))
+        assertTrue(channelManager.isChannelPasswordProtected("#new"))
+    }
+
+    @Test
+    fun `panic wipe prevents pending password derivation from restoring keys`() = runTest(testDispatcher) {
+        val manager = ChannelManager(chatState, messageManager, dataManager, testScope,
+            cryptoDispatcher = StandardTestDispatcher(testScheduler))
+        val setting = async(start = CoroutineStart.UNDISPATCHED) {
+            manager.setChannelPassword("#test", "synthetic-password")
+        }
+        manager.clearAllChannels()
+        advanceUntilIdle()
+        assertFalse(setting.await())
+        assertFalse(manager.hasChannelKey("#test"))
+        assertFalse(manager.isChannelPasswordProtected("#test"))
+        assertTrue(dataManager.loadChannelKeyCommitments().isEmpty())
+    }
+
+    @Test
+    fun `leaving prevents a pending password verification from restoring keys`() = runTest(testDispatcher) {
+        val manager = ChannelManager(chatState, messageManager, dataManager, testScope,
+            cryptoDispatcher = StandardTestDispatcher(testScheduler))
+        val checking = async(start = CoroutineStart.UNDISPATCHED) {
+            manager.verifyChannelPassword("#test", "synthetic-password")
+        }
+        manager.leaveChannel("#test")
+        advanceUntilIdle()
+        assertFalse(checking.await())
+        assertFalse(manager.hasChannelKey("#test"))
+        assertTrue(dataManager.loadChannelKeyCommitments().isEmpty())
+    }
+
+    @Test
+    fun `panic wipe prevents queued encrypted content from being sent`() = runTest(testDispatcher) {
+        val manager = ChannelManager(chatState, messageManager, dataManager, testScope,
+            cryptoDispatcher = StandardTestDispatcher(testScheduler))
+        val setting = async(start = CoroutineStart.UNDISPATCHED) {
+            manager.setChannelPassword("#test", "synthetic-password")
+        }
+        advanceUntilIdle()
+        assertTrue(setting.await())
+        var emitted = false
+        var failed = false
+        manager.sendEncryptedChannelMessage("synthetic text", emptyList(), "#test", "sender", "peer-a",
+            onEncryptedPayload = { emitted = true }, onFallback = { failed = true })
+        manager.clearAllChannels()
+        advanceUntilIdle()
+        assertFalse(emitted)
+        assertFalse(failed)
+        assertTrue(dataManager.loadChannelKeyCommitments().isEmpty())
     }
 
     private fun deriveKeyForTest(password: String, channel: String): SecretKeySpec {

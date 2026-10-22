@@ -1,0 +1,41 @@
+{
+  "skill_name": "mesh-lab",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I changed Noise session recovery and authenticated peer-state handling. Validate it on real Android devices before we merge. I have not told you whether any disposable phones are connected.",
+      "expected_output": "The agent inspects the current Mesh Lab implementation, selects the Noise and churn scenarios, checks hardware and destructive-setup authorization, and reports blocked rather than inventing a pass when devices are unavailable.",
+      "files": [],
+      "expectations": [
+        "Selects dm, file_private, session_recovery, and identity_reset, with any omission explicitly tied to the inspected change.",
+        "Recognizes that setup clears app data and requires disposable lab devices.",
+        "Does not run setup, identity_reset, or all without destructive authorization and reports blocked (not run) when hardware is unavailable.",
+        "Keeps device selectors and raw evidence out of durable artifacts."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "The broadcast fragment cap changed. Two unlocked disposable phones are attached over ADB. Run the relevant Mesh Lab coverage and give me a PR-safe summary.",
+      "expected_output": "The agent recognizes that the stock fixtures do not prove the exact fragment boundary, adds focused below/at/above-cap receiver-side coverage when the changed contract requires it, runs relevant existing file scenarios, saves private evidence in a protected temporary directory, and produces a sanitized summary.",
+      "files": [],
+      "expectations": [
+        "Uses the debug APK and the repository Mesh Lab runner.",
+        "Runs file and file_oversize, and runs file_private only if the inspected cap is shared with private transfers.",
+        "Adds or requires below/at/above-cap receiver-side assertions instead of treating the stock 1 KB and 512 KB fixtures as exact-boundary proof.",
+        "Stores unsanitized evidence in a unique mode-0700 temporary directory and does not expose ADB selectors."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I added a new routed acknowledgement packet. Existing mesh_lab scenarios do not prove that the second phone receives and processes it. Add appropriate physical-device coverage.",
+      "expected_output": "The agent extends the host scenario and only the minimum necessary debug hook, asserting a unique remote observation with bounded timeouts and structured evidence while keeping test code out of production sources.",
+      "files": [],
+      "expectations": [
+        "Uses a unique receiver-side acknowledgement observation rather than treating raw_send success as end-to-end proof.",
+        "Starts the receiver wait before send and uses bounded timeouts with structured JSON evidence.",
+        "Keeps any hook and manifest changes under app/src/debug and updates scenario registration and documentation.",
+        "Handles unsupported device types or topologies explicitly rather than assuming parity."
+      ]
+    }
+  ]
+}

@@ -46,7 +46,7 @@
     <string name="notification_summary_more">dan %1$d lagi</string>
     <string name="notification_messages_from_people">%1$d pesan dari %2$d orang</string>
     <string name="notification_more_conversations">dan %1$d percakapan lagi</string>
-    <string name="notification_active_peers_title">👥 bitchatter terdekat!</string>
+    <string name="notification_active_peers_title">bitchatter terdekat!</string>
     <string name="notification_active_peers_one">1 orang terdekat</string>
     <string name="notification_active_peers_many">%1$d orang terdekat</string>
     <string name="notification_new_messages">Pesan baru</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">Tambah bookmark</string>
 
     <!-- Header chat &amp; aksesibilitas -->
-    <string name="chat_back">kembali</string>
-    <string name="chat_channel_prefix">Channel: %1$s</string>
-    <string name="chat_leave">keluar</string>
     <string name="cd_nostr_reachable">Dapat dijangkau melalui Nostr</string>
     <string name="cd_unread_private_messages">Pesan pribadi yang belum dibaca</string>
-    <string name="cd_toggle_bookmark">Alihkan bookmark</string>
     <string name="cd_teleported">Diteleportasi</string>
-    <string name="cd_tor_status">Status Tor</string>
+    <string name="cd_open_location_channels">Buka pengaturan lokasi dan channel</string>
     <string name="cd_connected_peers">Peer yang terhubung</string>
     <string name="cd_geohash_participants">Peserta geohash</string>
     <string name="cd_ready_for_handshake">Siap untuk handshake</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">Pilih gambar</string>
 
     <!-- Sheet tentang -->
-    <string name="about_tagline">chat mesh terdesentralisasi dengan enkripsi end-to-end</string>
     <string name="about_offline_mesh_title">Chat Mesh Offline</string>
     <string name="about_offline_mesh_desc">Berkomunikasi langsung melalui Bluetooth LE tanpa Internet atau server. Pesan diteruskan melalui perangkat terdekat untuk memperluas jangkauan.</string>
     <string name="about_online_geohash_title">Channel Geohash Online</string>
     <string name="about_online_geohash_desc">Terhubung dengan orang-orang di area Anda melalui channel berbasis geohash. Perluas mesh melalui relay Internet publik.</string>
     <string name="about_e2e_title">Enkripsi end-to-end</string>
     <string name="about_e2e_desc">Pesan pribadi dienkripsi. Pesan channel bersifat publik.</string>
-    <string name="about_appearance">Tampilan</string>
     <string name="about_system">Sistem</string>
     <string name="about_light">Terang</string>
     <string name="about_dark">Gelap</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Status Tor: %1$s, Bootstrap %2$d%%</string>
     <string name="about_last">Terakhir: %1$s</string>
     <string name="about_emergency_title">Hapus data darurat</string>
-    <string name="about_emergency_tip">Tips: Ketuk tiga kali pada judul aplikasi untuk menghapus semua data tersimpan – termasuk pesan, kunci, dan pengaturan.</string>
     <string name="about_debug_settings">Pengaturan debug</string>
     <string name="about_footer">Sumber Terbuka • Privasi Pertama • Terdesentralisasi</string>
     <string name="close_plain">Tutup</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">Buka peta</string>
     <string name="cd_remove_bookmark">Hapus bookmark</string>
     <string name="cd_teleport">Teleportasi</string>
-    <string name="cd_selected">Dipilih</string>
     <string name="cd_leave_channel">Keluar dari channel</string>
     <string name="cd_reachable_via_nostr">Dapat dijangkau melalui Nostr</string>
     <string name="cd_offline_favorite">Favorit (offline)</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">Izin</string>
     <string name="grant_permissions">Berikan izin</string>
     <string name="location_tracking_warning">bitchat TIDAK melacak lokasi Anda</string>
-    <string name="geohash_people_header">ORANG</string>
     <string name="nobody_around">tidak ada orang di sekitar …</string>
     <string name="you_suffix"> (Anda)</string>
     <string name="pan_zoom_instruction">geser dan zoom untuk memilih geohash</string>
     <string name="select">pilih</string>
     <string name="type_a_message_placeholder">Ketik pesan …</string>
     <string name="mention">sebut</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Gambar</string>
@@ -307,11 +297,6 @@
     <!-- Aksesibilitas pemutar suara -->
     <string name="cd_play_voice">Putar</string>
     <string name="cd_pause_voice">Jeda</string>
-    <string name="cd_mining_pow">Mining PoW</string>
-    <string name="cd_pow_enabled">PoW diaktifkan</string>
-    <string name="cd_proof_of_work">Proof of Work</string>
-    <string name="pow_mining_ellipsis">Mining …</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Deskripsi izin -->
     <string name="perm_nearby_devices_desc">Diperlukan untuk menemukan pengguna bitchat melalui Bluetooth</string>
@@ -400,4 +385,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Buka Tentang</string>
+  <string name="nearby_notes_reveal">periksa catatan yang ditinggalkan di sini</string>
+  <string name="nearby_notes_one">1 catatan ditinggalkan di sini — ketuk untuk membaca</string>
+  <string name="nearby_notes_many">%d catatan ditinggalkan di sini — ketuk untuk membaca</string>
+    <string name="about_language">Bahasa</string>
+    <string name="about_app_language">Bahasa aplikasi</string>
+    <string name="about_system_default">Default sistem</string>
+    <string name="about_select_language">Pilih bahasa</string>
 </resources>

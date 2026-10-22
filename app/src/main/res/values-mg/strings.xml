@@ -46,7 +46,7 @@
     <string name="notification_summary_more">ary %1$d hafa</string>
     <string name="notification_messages_from_people">%1$d hafatra avy amin\'ny olona %2$d</string>
     <string name="notification_more_conversations">ary %1$d resaka hafa</string>
-    <string name="notification_active_peers_title">👥 bitchatter akaiky!</string>
+    <string name="notification_active_peers_title">bitchatter akaiky!</string>
     <string name="notification_active_peers_one">Olona 1 manodidina</string>
     <string name="notification_active_peers_many">Olona %1$d manodidina</string>
     <string name="notification_new_messages">Hafatra vaovao</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">Hanampy bookmark</string>
 
     <!-- Lohan\'ny resaka &amp; fahafaha-miditra -->
-    <string name="chat_back">miverina</string>
-    <string name="chat_channel_prefix">fantsona: %1$s</string>
-    <string name="chat_leave">hiala</string>
     <string name="cd_nostr_reachable">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
     <string name="cd_unread_private_messages">Hafatra manokana tsy voavaky</string>
-    <string name="cd_toggle_bookmark">Hanova bookmark</string>
     <string name="cd_teleported">Nafindra toerana</string>
-    <string name="cd_tor_status">Toe-javatra Tor</string>
+    <string name="cd_open_location_channels">Sokafy ny fikirana toerana sy fantsona</string>
     <string name="cd_connected_peers">Mpiara-miasa mifandray</string>
     <string name="cd_geohash_participants">Mpandray anjara Geohash</string>
     <string name="cd_ready_for_handshake">Vonona ho amin\'ny fifampiraharahana</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">Hifidy sary</string>
 
     <!-- Momba ny takelaka -->
-    <string name="about_tagline">hafatra mesh tsy misy foibe misy fandokoana farany amin\'ny farany</string>
     <string name="about_offline_mesh_title">Mesh Chat tsy an-tserasera</string>
     <string name="about_offline_mesh_desc">Mifandraisa mivantana amin\'ny alalan\'ny Bluetooth LE tsy misy Internet na mpizara. Ny hafatra dia mamindra amin\'ny alalan\'ny fitaovana akaiky mba hanitarana ny elanelana.</string>
     <string name="about_online_geohash_title">Fantsona Geohash an-tserasera</string>
     <string name="about_online_geohash_desc">Mifandray amin\'ny olona eo amin\'ny faritra misy anao amin\'ny fampiasana fantsona mifototra amin\'ny geohash. Manitatra ny mesh amin\'ny fampiasana relay Internet ho an\'ny daholobe.</string>
     <string name="about_e2e_title">Fandokoana Farany amin\'ny Farany</string>
     <string name="about_e2e_desc">Voafono ny hafatra manokana. Hafatra ho an\'ny daholobe ny hafatra fantsona.</string>
-    <string name="about_appearance">endrika</string>
     <string name="about_system">rafitra</string>
     <string name="about_light">mazava</string>
     <string name="about_dark">maizina</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Toe-javatra Tor: %1$s, bootstrap %2$d%%</string>
     <string name="about_last">Farany: %1$s</string>
     <string name="about_emergency_title">Famafana Angona Maika</string>
-    <string name="about_emergency_tip">Toro-hevitra: Tsindrio in-telo ny anaran\'ny fampiharana mba hamafana maika ny angona rehetra voatahiry ao anatin\'izany ny hafatra, ny lakile ary ny fametrahana.</string>
     <string name="about_debug_settings">Fametrahana Debug</string>
     <string name="about_footer">Loharanom-baovao misokatra • Fiainana manokana voalohany • Tsy misy foibe</string>
     <string name="close_plain">Hanakatona</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">Hanokatra sarintany</string>
     <string name="cd_remove_bookmark">Hanesorana bookmark</string>
     <string name="cd_teleport">Hamindra toerana</string>
-    <string name="cd_selected">Voafidy</string>
     <string name="cd_leave_channel">Hiala amin\'ny fantsona</string>
     <string name="cd_reachable_via_nostr">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
     <string name="cd_offline_favorite">Ankafizina tsy an-tserasera</string>
@@ -289,9 +281,7 @@
     <string name="grant_permissions">Omeo Alalana</string>
     <string name="location_tracking_warning">Ny bitchat dia TSY manaraka ny toerananao</string>
     <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
     <string name="channel_count_prefix"> · ⧉ </string>
-    <string name="geohash_people_header">OLONA</string>
     <string name="nobody_around">tsy misy olona manodidina...</string>
     <string name="you_suffix"> (ianao)</string>
     <string name="pan_zoom_instruction">ahetsika sy ataovy lehibe mba hifidianana geohash</string>
@@ -300,7 +290,6 @@
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">hanonona</string>
     <string name="image_counter">%1$d / %2$d</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
     <string name="hash_symbol">#</string>
@@ -313,12 +302,6 @@
     <string name="media_type_file">Rakitra</string>
 
     <!-- Famantarana toe-javatra hafatra -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- Mpanampy lahatsoratra fampandrenesana -->
     <string name="notification_sent_image">📷 nandefasa sary</string>
@@ -334,11 +317,6 @@
     <!-- Fahafaha-miditra mpilalao feo -->
     <string name="cd_play_voice">Hilalao</string>
     <string name="cd_pause_voice">Hijanona</string>
-    <string name="cd_mining_pow">Mihaingam-poana PoW</string>
-    <string name="cd_pow_enabled">Alefa ny PoW</string>
-    <string name="cd_proof_of_work">Porofo Asa</string>
-    <string name="pow_mining_ellipsis">mihaingana...</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Famaritana alalana -->
     <string name="perm_nearby_devices_desc">Ilaina mba hahitana mpampiasa bitchat amin\'ny alalan\'ny Bluetooth</string>
@@ -414,4 +392,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">Sokafy ny momba</string>
+  <string name="nearby_notes_reveal">hizaha raha misy naoty navela teto</string>
+  <string name="nearby_notes_one">naoty 1 no navela teto — tsindrio raha hamaky</string>
+  <string name="nearby_notes_many">naoty %d no navela teto — tsindrio raha hamaky</string>
+    <string name="about_language">Fiteny</string>
+    <string name="about_app_language">Fitenin’ny app</string>
+    <string name="about_system_default">Fitenin’ny rafitra</string>
+    <string name="about_select_language">Safidio ny fiteny</string>
 </resources>

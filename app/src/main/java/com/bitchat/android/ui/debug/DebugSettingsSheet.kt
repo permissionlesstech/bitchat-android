@@ -1,5 +1,16 @@
 package com.bitchat.android.ui.debug
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.widget.Toast
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiTethering
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.SettingsEthernet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,25 +20,17 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.filled.WifiTethering
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.SettingsEthernet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.rotate
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.services.meshgraph.MeshGraphService
 import kotlinx.coroutines.launch
@@ -37,9 +40,17 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalContext
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.util.DistributionInfoProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun MeshTopologySection(
@@ -56,13 +67,13 @@ fun MeshTopologySection(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF8E8E93))
-                Text("mesh topology", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text("Mesh topology", fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
             val nodes = snapshot.nodes
             val edges = snapshot.edges
             val empty = nodes.isEmpty()
             if (empty) {
-                Text("no gossip yet", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                Text("No gossip yet", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
             } else {
                 ForceDirectedMeshGraph(
                     nodes = nodes,
@@ -83,10 +94,10 @@ fun MeshTopologySection(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     nodes.forEach { node ->
-                        val label = "${node.peerID.take(8)} • ${node.nickname ?: "unknown"}"
+                        val label = "${node.peerID.take(8)} • ${node.nickname ?: "Unknown"}"
                         Text(
                             text = label,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontSize = 11.sp,
                             color = colorScheme.onSurface.copy(alpha = 0.85f)
                         )
@@ -94,6 +105,95 @@ fun MeshTopologySection(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DistributionInfoSection(info: DistributionInfoProvider.DistributionInfo?) {
+    val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = colorScheme.surfaceVariant.copy(alpha = 0.2f)
+    ) {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF5856D6))
+                Text(
+                    "Distribution info",
+                    fontFamily = BitchatFontFamily,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            if (info == null) {
+                Text(
+                    "Inspecting installed package…",
+                    fontFamily = BitchatFontFamily,
+                    fontSize = 11.sp,
+                    color = colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            } else {
+                DistributionInfoRow("Install source", info.installSource)
+                info.installerPackage?.let {
+                    DistributionInfoRow("Installer package", it)
+                }
+                DistributionInfoRow("Package format", info.packageFormat)
+                DistributionInfoRow("APK architecture", info.architecture)
+                DistributionInfoRow("Sharing source", info.sharingSource)
+                DistributionInfoRow("Version", "${info.versionName} (${info.versionCode})")
+                DistributionInfoRow("Signing channel", info.signingChannel)
+                DistributionInfoRow(
+                    label = "Certificate SHA-256",
+                    value = info.certificateSha256 ?: "Unavailable"
+                )
+
+                if (info.certificateSha256 != null) {
+                    TextButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(ClipboardManager::class.java)
+                            clipboard?.setPrimaryClip(
+                                ClipData.newPlainText(
+                                    "BitChat signing certificate SHA-256",
+                                    info.certificateSha256
+                                )
+                            )
+                            Toast.makeText(context, "Certificate fingerprint copied", Toast.LENGTH_SHORT).show()
+                        },
+                        contentPadding = PaddingValues(horizontal = 0.dp)
+                    ) {
+                        Text("Copy certificate fingerprint", fontFamily = BitchatFontFamily)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DistributionInfoRow(label: String, value: String) {
+    val colorScheme = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            label,
+            fontFamily = BitchatFontFamily,
+            fontSize = 10.sp,
+            color = colorScheme.onSurface.copy(alpha = 0.55f)
+        )
+        Text(
+            value,
+            fontFamily = BitchatFontFamily,
+            fontSize = 11.sp,
+            color = colorScheme.onSurface.copy(alpha = 0.9f)
+        )
     }
 }
 
@@ -124,10 +224,44 @@ fun DebugSettingsSheet(
     val gcsMaxBytes by manager.gcsMaxBytes.collectAsState()
     val gcsFpr by manager.gcsFprPercent.collectAsState()
     val context = LocalContext.current
+    var distributionInfo by remember {
+        mutableStateOf<DistributionInfoProvider.DistributionInfo?>(null)
+    }
 
     val bleEnabled by manager.bleEnabled.collectAsState()
     val wifiAwareEnabled by manager.wifiAwareEnabled.collectAsState()
     val wifiAwareVerbose by manager.wifiAwareVerbose.collectAsState()
+
+    // Onboarding only asks for these when the toggle is already on, and it defaults to off,
+    // so enabling from here has to request them or the controller never starts.
+    val wifiAwarePermissions = remember { PermissionManager(context).wifiAwarePermissions() }
+    val wifiAwarePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        // Check live state, not the result map — already-held permissions are filtered out
+        // before launching. Only NEARBY_WIFI_DEVICES blocks startup; the other is defensive.
+        val nearbyPermission = android.Manifest.permission.NEARBY_WIFI_DEVICES
+        val nearbyGranted = nearbyPermission !in wifiAwarePermissions ||
+            ContextCompat.checkSelfPermission(context, nearbyPermission) ==
+                PackageManager.PERMISSION_GRANTED
+        if (nearbyGranted) {
+            manager.setWifiAwareEnabled(true)
+        } else {
+            manager.addDebugMessage(
+                DebugMessage.SystemMessage("Wi‑Fi Aware needs the Nearby devices permission")
+            )
+        }
+    }
+    val enableWifiAware: () -> Unit = {
+        val missing = wifiAwarePermissions.filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isEmpty()) {
+            manager.setWifiAwareEnabled(true)
+        } else {
+            wifiAwarePermissionLauncher.launch(missing.toTypedArray())
+        }
+    }
     val wifiAwareDiscovered by manager.wifiAwareDiscovered.collectAsState()
     val wifiAwareConnected by manager.wifiAwareConnected.collectAsState()
     val wifiAwareSupported by com.bitchat.android.wifiaware.WifiAwareController.supported.collectAsState()
@@ -181,6 +315,14 @@ fun DebugSettingsSheet(
         }
     }
 
+    LaunchedEffect(isPresented) {
+        if (isPresented) {
+            distributionInfo = withContext(Dispatchers.IO) {
+                runCatching { DistributionInfoProvider.inspect(context) }.getOrNull()
+            }
+        }
+    }
+
     val scope = rememberCoroutineScope()
 
     if (!isPresented) return
@@ -205,24 +347,27 @@ fun DebugSettingsSheet(
                 item {
                     Text(
                         text = stringResource(R.string.debug_tools_desc),
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = BitchatFontFamily,
                         fontSize = 12.sp,
                         color = colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
+            item {
+                DistributionInfoSection(distributionInfo)
+            }
             // Verbose logging toggle
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF00C851))
-                            Text(stringResource(R.string.debug_verbose_logging), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_verbose_logging), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
                             Switch(checked = verboseLogging, onCheckedChange = { manager.setVerboseLoggingEnabled(it) })
                         }
                         Text(
                             stringResource(R.string.debug_verbose_hint),
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontSize = 11.sp,
                             color = colorScheme.onSurface.copy(alpha = 0.7f)
                         )
@@ -247,10 +392,10 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.Bluetooth, contentDescription = null, tint = Color(0xFF007AFF))
-                            Text(stringResource(R.string.debug_bluetooth_roles), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_bluetooth_roles), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.debug_gatt_server), fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Text(stringResource(R.string.debug_gatt_server), fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
                             Switch(checked = gattServerEnabled, onCheckedChange = {
                                 manager.setGattServerEnabled(it)
                                 scope.launch {
@@ -259,9 +404,9 @@ fun DebugSettingsSheet(
                             })
                         }
                         val serverCount = connectedDevices.count { it.connectionType == ConnectionType.GATT_SERVER }
-                        Text(stringResource(R.string.debug_connections_fmt, serverCount, maxServer), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_connections_fmt, serverCount, maxServer), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.debug_max_server), fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
+                            Text(stringResource(R.string.debug_max_server), fontFamily = BitchatFontFamily, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxServer.toFloat(),
                                 onValueChange = { manager.setMaxServerConnections(it.toInt().coerceAtLeast(1)) },
@@ -270,7 +415,7 @@ fun DebugSettingsSheet(
                             )
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.debug_gatt_client), fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Text(stringResource(R.string.debug_gatt_client), fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
                             Switch(checked = gattClientEnabled, onCheckedChange = {
                                 manager.setGattClientEnabled(it)
                                 scope.launch {
@@ -279,9 +424,9 @@ fun DebugSettingsSheet(
                             })
                         }
                         val clientCount = connectedDevices.count { it.connectionType == ConnectionType.GATT_CLIENT }
-                        Text(stringResource(R.string.debug_connections_fmt, clientCount, maxClient), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_connections_fmt, clientCount, maxClient), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.debug_max_client), fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
+                            Text(stringResource(R.string.debug_max_client), fontFamily = BitchatFontFamily, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxClient.toFloat(),
                                 onValueChange = { manager.setMaxClientConnections(it.toInt().coerceAtLeast(1)) },
@@ -290,9 +435,9 @@ fun DebugSettingsSheet(
                             )
                         }
                         val overallCount = connectedDevices.size
-                        Text(stringResource(R.string.debug_overall_connections_fmt, overallCount, maxOverall), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_overall_connections_fmt, overallCount, maxOverall), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.debug_max_overall), fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
+                            Text(stringResource(R.string.debug_max_overall), fontFamily = BitchatFontFamily, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxOverall.toFloat(),
                                 onValueChange = { manager.setMaxConnectionsOverall(it.toInt().coerceAtLeast(1)) },
@@ -302,7 +447,7 @@ fun DebugSettingsSheet(
                         }
                         Text(
                             stringResource(R.string.debug_roles_hint),
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = BitchatFontFamily,
                             fontSize = 11.sp,
                             color = colorScheme.onSurface.copy(alpha = 0.7f)
                         )
@@ -316,12 +461,12 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF4CAF50))
-                            Text("Transports", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text("Transports", fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Bluetooth, contentDescription = null, tint = Color(0xFF007AFF))
                             Spacer(Modifier.width(8.dp))
-                            Text("BLE", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Text("BLE", fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
                             Switch(checked = bleEnabled, onCheckedChange = {
                                 manager.setBleEnabled(it)
                             })
@@ -329,7 +474,7 @@ fun DebugSettingsSheet(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Wifi, contentDescription = null, tint = Color(0xFF9C27B0))
                             Spacer(Modifier.width(8.dp))
-                            Text("Wi‑Fi Aware", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Text("Wi‑Fi Aware", fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
                             val wifiSwitchEnabled = wifiAwareSupported
                             Text(
                                 when {
@@ -337,7 +482,7 @@ fun DebugSettingsSheet(
                                     wifiAwareAvailable -> "available"
                                     else -> "unavailable"
                                 },
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = BitchatFontFamily,
                                 fontSize = 11.sp,
                                 color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
@@ -345,12 +490,14 @@ fun DebugSettingsSheet(
                             Switch(
                                 checked = wifiAwareEnabled && wifiAwareSupported,
                                 enabled = wifiSwitchEnabled,
-                                onCheckedChange = { manager.setWifiAwareEnabled(it) }
+                                onCheckedChange = { on ->
+                                    if (on) enableWifiAware() else manager.setWifiAwareEnabled(false)
+                                }
                             )
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Spacer(Modifier.width(24.dp))
-                            Text("Wi‑Fi Aware verbose", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Text("Wi‑Fi Aware verbose logging", fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
                             Switch(checked = wifiAwareVerbose, onCheckedChange = { manager.setWifiAwareVerbose(it) })
                         }
                     }
@@ -365,7 +512,7 @@ fun DebugSettingsSheet(
 
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, tint = Color(0xFFFF9500))
-                            Text(stringResource(R.string.debug_packet_relay), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_packet_relay), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
                             Switch(checked = packetRelayed, onCheckedChange = { manager.setPacketRelayEnabled(it) })
                         }
@@ -501,10 +648,10 @@ fun DebugSettingsSheet(
                             // Helper functions moved to top-level composable below to avoid scope issues
 
                             // Render two blocks: Incoming and Outgoing
-                            Text("Incoming", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                            Text("Incoming", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                             Text(
                                 "${relayStats.lastSecondIncoming}/s • ${relayStats.lastMinuteIncoming}/m • ${relayStats.last15MinuteIncoming}/15m • total ${relayStats.totalIncomingCount}",
-                                fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
+                                fontFamily = BitchatFontFamily, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                             DrawGraphBlock(
                                 title = "Incoming",
@@ -557,10 +704,10 @@ fun DebugSettingsSheet(
                             if (graphMode != GraphMode.OVERALL && stackedKeysIncoming.isNotEmpty()) { /* legend printed inside DrawGraphBlock */ }
 
                             Spacer(Modifier.height(8.dp))
-                            Text("Outgoing", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                            Text("Outgoing", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                             Text(
                                 "${relayStats.lastSecondOutgoing}/s • ${relayStats.lastMinuteOutgoing}/m • ${relayStats.last15MinuteOutgoing}/15m • total ${relayStats.totalOutgoingCount}",
-                                fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
+                                fontFamily = BitchatFontFamily, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                             DrawGraphBlock(
                                 title = "Outgoing",
@@ -623,7 +770,7 @@ fun DebugSettingsSheet(
                         val running by com.bitchat.android.wifiaware.WifiAwareController.running.collectAsState()
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.WifiTethering, contentDescription = null, tint = Color(0xFF9C27B0))
-                            Text("Wi‑Fi Aware", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text("Wi‑Fi Aware", fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
                             val wifiStatusText = when {
                                 !wifiAwareSupported -> "unsupported"
@@ -631,19 +778,19 @@ fun DebugSettingsSheet(
                                 !wifiAwareAvailable -> "unavailable"
                                 else -> "stopped"
                             }
-                            Text(wifiStatusText, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                            Text(wifiStatusText, fontFamily = BitchatFontFamily, fontSize = 12.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         }
                         if (!wifiAwareSupported) {
                             Text(
                                 wifiAwareSupportStatus?.reason ?: "Wi-Fi Aware is not supported on this device",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = BitchatFontFamily,
                                 fontSize = 11.sp,
                                 color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             AssistChip(
-                                onClick = { manager.setWifiAwareEnabled(true) },
+                                onClick = enableWifiAware,
                                 enabled = wifiAwareSupported,
                                 label = { Text("Start") }
                             )
@@ -654,21 +801,21 @@ fun DebugSettingsSheet(
                                 label = { Text("Announce") }
                             )
                         }
-                        Text("Discovered: ${wifiAwareDiscovered.size}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        Text("Discovered: ${wifiAwareDiscovered.size}", fontFamily = BitchatFontFamily, fontSize = 12.sp)
                         if (wifiAwareDiscovered.isEmpty()) {
-                            Text("No discoveries yet", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                            Text("No discoveries yet", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
                         } else {
                             wifiAwareDiscovered.entries.take(50).forEach { (peer, nick) ->
-                                Text("• ${if (nick.isBlank()) peer.take(8) + "…" else nick} (${peer.take(8)}…) ", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                                Text("• ${if (nick.isBlank()) peer.take(8) + "…" else nick} (${peer.take(8)}…) ", fontFamily = BitchatFontFamily, fontSize = 12.sp)
                             }
                         }
                         Divider()
-                        Text("Connected: ${wifiAwareConnected.size}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        Text("Connected: ${wifiAwareConnected.size}", fontFamily = BitchatFontFamily, fontSize = 12.sp)
                         if (wifiAwareConnected.isEmpty()) {
-                            Text("No active sockets", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                            Text("No active sockets", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
                         } else {
                             wifiAwareConnected.entries.take(50).forEach { (peer, ip) ->
-                                Text("• ${peer.take(8)}… @ $ip", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                                Text("• ${peer.take(8)}… @ $ip", fontFamily = BitchatFontFamily, fontSize = 12.sp)
                             }
                         }
                     }
@@ -681,17 +828,17 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF9C27B0))
-                            Text("sync settings", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text("Sync settings", fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
-                        Text(stringResource(R.string.debug_max_packets_per_sync_fmt, seenCapacity), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_max_packets_per_sync_fmt, seenCapacity), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = seenCapacity.toFloat(), onValueChange = { manager.setSeenPacketCapacity(it.toInt()) }, valueRange = 10f..1000f, steps = 99)
-                        Text(stringResource(R.string.debug_max_gcs_filter_size_fmt, gcsMaxBytes), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_max_gcs_filter_size_fmt, gcsMaxBytes), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = gcsMaxBytes.toFloat(), onValueChange = { manager.setGcsMaxBytes(it.toInt()) }, valueRange = 128f..1024f, steps = 0)
-                        Text(stringResource(R.string.debug_target_fpr_fmt, gcsFpr), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_target_fpr_fmt, gcsFpr), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = gcsFpr.toFloat(), onValueChange = { manager.setGcsFprPercent(it.toDouble()) }, valueRange = 0.1f..5.0f, steps = 49)
                         val p = remember(gcsFpr) { com.bitchat.android.sync.GCSFilter.deriveP(gcsFpr / 100.0) }
                         val nmax = remember(gcsFpr, gcsMaxBytes) { com.bitchat.android.sync.GCSFilter.estimateMaxElementsForSize(gcsMaxBytes, p) }
-                        Text(stringResource(R.string.debug_derived_p_fmt, p.toString(), nmax.toString()), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_derived_p_fmt, p.toString(), nmax.toString()), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                     }
                 }
             }
@@ -702,22 +849,22 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF4CAF50))
-                            Text(stringResource(R.string.debug_connected_devices), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_connected_devices), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         val localAddr = remember { meshService.connectionManager.getLocalAdapterAddress() }
-                        Text(stringResource(R.string.debug_our_device_id_fmt, localAddr ?: stringResource(R.string.unknown)), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_our_device_id_fmt, localAddr ?: stringResource(R.string.unknown)), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         if (connectedDevices.isEmpty()) {
-                            Text("none", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                            Text("None", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
                         } else {
                             connectedDevices.forEach { dev ->
                                 Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
                                     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
-                                            Text((dev.peerID ?: stringResource(R.string.unknown)) + " • ${dev.deviceAddress}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                                            Text((dev.peerID ?: stringResource(R.string.unknown)) + " • ${dev.deviceAddress}", fontFamily = BitchatFontFamily, fontSize = 12.sp)
                                             val roleLabel = if (dev.connectionType == ConnectionType.GATT_SERVER) stringResource(R.string.debug_role_server) else stringResource(R.string.debug_role_client)
-                                            Text("${dev.nickname ?: ""} • " + stringResource(R.string.debug_rssi_fmt, dev.rssi ?: stringResource(R.string.debug_question_mark)) + " • $roleLabel" + (if (dev.isDirectConnection) stringResource(R.string.debug_direct_suffix) else ""), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                                            Text("${dev.nickname ?: ""} • " + stringResource(R.string.debug_rssi_fmt, dev.rssi ?: stringResource(R.string.debug_question_mark)) + " • $roleLabel" + (if (dev.isDirectConnection) stringResource(R.string.debug_direct_suffix) else ""), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
-                                        Text(stringResource(R.string.debug_disconnect), color = Color(0xFFBF1A1A), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
+                                        Text(stringResource(R.string.debug_disconnect), color = Color(0xFFBF1A1A), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
                                             meshService.connectionManager.disconnectAddress(dev.deviceAddress)
                                         })
                                     }
@@ -734,19 +881,19 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.Bluetooth, contentDescription = null, tint = Color(0xFF007AFF))
-                            Text(stringResource(R.string.debug_recent_scan_results), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_recent_scan_results), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         if (scanResults.isEmpty()) {
-                            Text(stringResource(R.string.debug_none), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                            Text(stringResource(R.string.debug_none), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
                         } else {
                             scanResults.forEach { res ->
                                 Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
                                     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
-                                            Text((res.peerID ?: stringResource(R.string.unknown)) + " • ${res.deviceAddress}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                                            Text(stringResource(R.string.debug_rssi_fmt, res.rssi.toString()), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                                            Text((res.peerID ?: stringResource(R.string.unknown)) + " • ${res.deviceAddress}", fontFamily = BitchatFontFamily, fontSize = 12.sp)
+                                            Text(stringResource(R.string.debug_rssi_fmt, res.rssi.toString()), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
-                                        Text(stringResource(R.string.debug_connect), color = Color(0xFF00C851), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
+                                        Text(stringResource(R.string.debug_connect), color = Color(0xFF00C851), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
                                             meshService.connectionManager.connectToAddress(res.deviceAddress)
                                         })
                                     }
@@ -763,15 +910,15 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.BugReport, contentDescription = null, tint = Color(0xFFFF9500))
-                            Text(stringResource(R.string.debug_debug_console), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_debug_console), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
-                            Text(stringResource(R.string.debug_clear), color = Color(0xFFBF1A1A), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
+                            Text(stringResource(R.string.debug_clear), color = Color(0xFFBF1A1A), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
                                 manager.clearDebugMessages()
                             })
                         }
                         Column(Modifier.heightIn(max = 260.dp).background(colorScheme.surface.copy(alpha = 0.5f)).padding(8.dp)) {
                             debugMessages.takeLast(100).reversed().forEach { msg ->
-                                Text("${msg.content}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                                Text("${msg.content}", fontFamily = BitchatFontFamily, fontSize = 11.sp)
                             }
                         }
                     }
@@ -892,7 +1039,7 @@ private fun DrawGraphBlock(
             Box(Modifier.width(leftGutter).fillMaxHeight()) {
                 Text(
                     "p/s",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 10.sp,
                     color = colorScheme.onSurface.copy(alpha = 0.7f),
                     modifier = Modifier.align(Alignment.CenterStart).padding(start = 2.dp).rotate(-90f)
@@ -906,14 +1053,14 @@ private fun DrawGraphBlock(
                 }
                 Text(
                     topLabel,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 10.sp,
                     color = colorScheme.onSurface.copy(alpha = 0.7f),
                     modifier = Modifier.align(Alignment.TopEnd).padding(end = 4.dp)
                 )
                 Text(
                     "0",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = BitchatFontFamily,
                     fontSize = 10.sp,
                     color = colorScheme.onSurface.copy(alpha = 0.7f),
                     modifier = Modifier.align(Alignment.BottomEnd).padding(end = 4.dp)
@@ -938,8 +1085,8 @@ private fun DrawGraphBlock(
                     ) {
                         Box(Modifier.size(10.dp).background(swatchColor, RoundedCornerShape(2.dp)))
                         Column {
-                            Text(legendTitleFor(key), fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dimmed) 0.6f else 0.95f))
-                            Text(legendMetricsFor(key), fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dimmed) 0.45f else 0.75f))
+                            Text(legendTitleFor(key), fontFamily = BitchatFontFamily, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dimmed) 0.6f else 0.95f))
+                            Text(legendMetricsFor(key), fontFamily = BitchatFontFamily, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dimmed) 0.45f else 0.75f))
                         }
                     }
                 }

@@ -46,7 +46,7 @@
     <string name="notification_summary_more">اور %1$d مزید</string>
     <string name="notification_messages_from_people">%2$d لوگوں سے %1$d پیغامات</string>
     <string name="notification_more_conversations">اور %1$d مزید گفتگو</string>
-    <string name="notification_active_peers_title">👥 قریب میں bitchatter!</string>
+    <string name="notification_active_peers_title">قریب میں bitchatter!</string>
     <string name="notification_active_peers_one">قریب میں 1 شخص</string>
     <string name="notification_active_peers_many">قریب میں %1$d لوگ</string>
     <string name="notification_new_messages">نئے پیغامات</string>
@@ -71,14 +71,10 @@
     <string name="cd_add_bookmark">بک مارک شامل کریں</string>
 
     <!-- چیٹ ہیڈر اور رسائی -->
-    <string name="chat_back">واپس</string>
-    <string name="chat_channel_prefix">چینل: %1$s</string>
-    <string name="chat_leave">چھوڑیں</string>
     <string name="cd_nostr_reachable">Nostr کے ذریعے رسائی</string>
     <string name="cd_unread_private_messages">غیر پڑھے ہوئے نجی پیغامات</string>
-    <string name="cd_toggle_bookmark">بک مارک تبدیل کریں</string>
     <string name="cd_teleported">ٹیلی پورٹ</string>
-    <string name="cd_tor_status">Tor کی کیفیت</string>
+    <string name="cd_open_location_channels">مقام اور چینل کی ترتیبات کھولیں</string>
     <string name="cd_connected_peers">منسلک پیئرز</string>
     <string name="cd_geohash_participants">geohash شرکاء</string>
     <string name="cd_ready_for_handshake">ہینڈ شیک کے لیے تیار</string>
@@ -96,14 +92,12 @@
     <string name="pick_image">تصویر منتخب کریں</string>
 
     <!-- تفصیلات شیٹ -->
-    <string name="about_tagline">غیر مرکزی میش چیٹ • اینڈ‑ٹو‑اینڈ انکرپشن</string>
     <string name="about_offline_mesh_title">آف لائن میش چیٹ</string>
     <string name="about_offline_mesh_desc">انٹرنیٹ یا سرورز کے بغیر Bluetooth LE کے ذریعے براہ راست بات چیت کریں۔ پیغامات قریبی آلات کے ذریعے ریلے ہوتے ہیں تاکہ رسائی بڑھے۔</string>
     <string name="about_online_geohash_title">آن لائن geohash چینلز</string>
     <string name="about_online_geohash_desc">geohash پر مبنی چینلز کے ذریعے اپنے قریب کے لوگوں سے جڑیں۔ عوامی انٹرنیٹ ریلے کے ذریعے میش کو پھیلائیں۔</string>
     <string name="about_e2e_title">اینڈ‑ٹو‑اینڈ انکرپشن</string>
     <string name="about_e2e_desc">نجی پیغامات انکرپٹڈ ہیں۔ چینل پیغامات عوامی ہیں۔</string>
-    <string name="about_appearance">ظاہری شکل</string>
     <string name="about_system">سسٹم</string>
     <string name="about_light">ہلکا</string>
     <string name="about_dark">گہرا</string>
@@ -127,7 +121,6 @@
     <string name="about_tor_status">Tor کی کیفیت: %1$s، بوٹ اسٹریپ %2$d%%</string>
     <string name="about_last">آخری: %1$s</string>
     <string name="about_emergency_title">ہنگامی ڈیٹا صافی</string>
-    <string name="about_emergency_tip">تجویز: تمام محفوظ شدہ ڈیٹا – پیغامات، کلیدیں اور سیٹنگز سمیت – صاف کرنے کے لیے ایپ کے ٹائٹل پر تین بار ٹیپ کریں۔</string>
     <string name="about_debug_settings">ڈیبگ سیٹنگز</string>
     <string name="about_footer">اوپن سورس • پرائیویسی پہلے • غیر مرکزی</string>
     <string name="close_plain">بند کریں</string>
@@ -147,7 +140,6 @@
     <string name="cd_open_map">نقشہ کھولیں</string>
     <string name="cd_remove_bookmark">بک مارک ہٹائیں</string>
     <string name="cd_teleport">ٹیلی پورٹ</string>
-    <string name="cd_selected">منتخب</string>
     <string name="cd_leave_channel">چینل چھوڑیں</string>
     <string name="cd_reachable_via_nostr">Nostr کے ذریعے رسائی</string>
     <string name="cd_offline_favorite">پسندیدہ (آف لائن)</string>
@@ -286,14 +278,12 @@
     <string name="permissions_header">اجازات</string>
     <string name="grant_permissions">اجازات دیں</string>
     <string name="location_tracking_warning">bitchat آپ کا مقام ٹریک نہیں کرتا</string>
-    <string name="geohash_people_header">لوگ</string>
     <string name="nobody_around">یہاں کوئی نہیں…</string>
     <string name="you_suffix"> (آپ)</string>
     <string name="pan_zoom_instruction">geohash منتخب کرنے کے لیے پین/زوم کریں</string>
     <string name="select">منتخب کریں</string>
     <string name="type_a_message_placeholder">پیغام لکھیں…</string>
     <string name="mention">ذکر</string>
-    <string name="pow_time_estimate">(~%1$s)</string>
     <string name="version_prefix">v%1$s</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">تصویر</string>
@@ -307,11 +297,6 @@
     <!-- وائس پلیئر رسائی -->
     <string name="cd_play_voice">چلائیں</string>
     <string name="cd_pause_voice">روکیں</string>
-    <string name="cd_mining_pow">PoW مائننگ</string>
-    <string name="cd_pow_enabled">PoW فعال</string>
-    <string name="cd_proof_of_work">پروف آف ورک</string>
-    <string name="pow_mining_ellipsis">مائننگ…</string>
-    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- اجازات کی تفصیل -->
     <string name="perm_nearby_devices_desc">بلوٹوتھ کے ذریعے bitchat صارفین کی دریافت کے لیے ضروری</string>
@@ -400,4 +385,12 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+    <string name="cd_open_about">تعارف کھولیں</string>
+  <string name="nearby_notes_reveal">دیکھیں کہ یہاں نوٹ چھوڑے گئے ہیں یا نہیں</string>
+  <string name="nearby_notes_one">یہاں 1 نوٹ چھوڑا گیا ہے — پڑھنے کے لیے تھپتھپائیں</string>
+  <string name="nearby_notes_many">یہاں %d نوٹ چھوڑے گئے ہیں — پڑھنے کے لیے تھپتھپائیں</string>
+    <string name="about_language">زبان</string>
+    <string name="about_app_language">ایپ کی زبان</string>
+    <string name="about_system_default">سسٹم ڈیفالٹ</string>
+    <string name="about_select_language">زبان منتخب کریں</string>
 </resources>

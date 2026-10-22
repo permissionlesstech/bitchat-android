@@ -2,7 +2,10 @@ package com.bitchat.android.ui
 
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.geohash.ChannelID
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,7 +27,9 @@ class ChannelManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val dataManager: DataManager,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val onSwitchToMeshLocation: () -> Unit = {},
+    private val cryptoDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     companion object {
         private const val TAG = "ChannelManager"
@@ -40,6 +45,14 @@ class ChannelManager(
     private val channelPasswords = mutableMapOf<String, String>()
     private val channelKeyCommitments = mutableMapOf<String, String>()
     private val retentionEnabledChannels = mutableSetOf<String>()
+    private var securityEpoch = 0L
+    private val channelGenerations = mutableMapOf<String, Long>()
+
+    private fun nextGeneration(channel: String): Long =
+        ((channelGenerations[channel] ?: 0L) + 1L).also { channelGenerations[channel] = it }
+
+    private fun isCurrent(channel: String, epoch: Long, generation: Long): Boolean =
+        securityEpoch == epoch && channelGenerations[channel] == generation
 
     init {
         channelKeyCommitments.putAll(dataManager.loadChannelKeyCommitments())
@@ -50,38 +63,19 @@ class ChannelManager(
     suspend fun joinChannel(channel: String, password: String? = null, myPeerID: String): Boolean {
         val channelTag = if (channel.startsWith("#")) channel else "#$channel"
 
-        // Check if already joined
+        if (channelTag.toByteArray(Charsets.UTF_8).size !in 1..255) return false
+        // A supplied password must take effect even before the first encrypted announcement.
+        if (password != null) {
+            if (!verifyChannelPassword(channelTag, password)) return false
+            hidePasswordPrompt()
+        }
+        if (isChannelPasswordProtected(channelTag) && !hasChannelKey(channelTag)) {
+            requestPasswordForChannel(channelTag)
+            return false
+        }
         if (state.getJoinedChannelsValue().contains(channelTag)) {
-            if (state.getPasswordProtectedChannelsValue().contains(channelTag) && !channelKeys.containsKey(channelTag)) {
-                if (password != null) {
-                    val ok = verifyChannelPassword(channelTag, password)
-                    if (ok) {
-                        hidePasswordPrompt()
-                        switchToChannel(channelTag)
-                    }
-                    return ok
-                } else {
-                    state.setPasswordPromptChannel(channelTag)
-                    state.setShowPasswordPrompt(true)
-                    return false
-                }
-            }
             switchToChannel(channelTag)
             return true
-        }
-
-        // Password protected and no key yet — always require password (including creator after restart)
-        if (state.getPasswordProtectedChannelsValue().contains(channelTag) && !channelKeys.containsKey(channelTag)) {
-            if (password != null) {
-                if (!verifyChannelPassword(channelTag, password)) {
-                    return false
-                }
-                hidePasswordPrompt()
-            } else {
-                state.setPasswordPromptChannel(channelTag)
-                state.setShowPasswordPrompt(true)
-                return false
-            }
         }
 
         // Join the channel
@@ -110,6 +104,7 @@ class ChannelManager(
     }
 
     fun leaveChannel(channel: String) {
+        nextGeneration(channel)
         val updatedChannels = state.getJoinedChannelsValue().toMutableSet()
         updatedChannels.remove(channel)
         state.setJoinedChannels(updatedChannels)
@@ -133,6 +128,10 @@ class ChannelManager(
         state.setCurrentChannel(channel)
         state.setSelectedPrivateChatPeer(null)
 
+        state.setSelectedLocationChannel(ChannelID.Mesh)
+        onSwitchToMeshLocation()
+
+        // Clear unread count
         channel?.let { ch ->
             messageManager.clearChannelUnreadCount(ch)
         }
@@ -146,15 +145,20 @@ class ChannelManager(
      */
     suspend fun verifyChannelPassword(channel: String, password: String): Boolean {
         if (password.isEmpty()) return false
+        val epoch = securityEpoch
+        val generation = nextGeneration(channel)
 
         val key = try {
-            withContext(Dispatchers.Default) {
+            withContext(cryptoDispatcher) {
                 deriveChannelKey(password, channel)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "Failed to derive channel key for $channel: ${e.message}")
             return false
         }
+        if (!isCurrent(channel, epoch, generation)) return false
 
         val expectedCommitment = channelKeyCommitments[channel]
             ?: dataManager.loadChannelKeyCommitments()[channel]
@@ -188,6 +192,7 @@ class ChannelManager(
         channelKeyCommitments[channel] = commitment
         dataManager.saveChannelKeyCommitments(channelKeyCommitments)
 
+        markChannelPasswordProtected(channel)
         redecryptChannelHistory(channel, key)
         return true
     }
@@ -283,45 +288,37 @@ class ChannelManager(
             return
         }
 
-        coroutineScope.launch(Dispatchers.Default) {
-            try {
-                val contentBytes = content.toByteArray(Charsets.UTF_8)
-                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                cipher.init(Cipher.ENCRYPT_MODE, key)
-
-                val iv = cipher.iv
-                require(iv.size == GCM_IV_BYTES) {
-                    "Unexpected GCM IV size: ${iv.size}"
+        val epoch = securityEpoch
+        val generation = channelGenerations[channel] ?: return
+        coroutineScope.launch {
+            val messageData = try {
+                withContext(cryptoDispatcher) {
+                    if (channel.toByteArray(Charsets.UTF_8).size !in 1..255) return@withContext null
+                    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                    cipher.init(Cipher.ENCRYPT_MODE, key)
+                    val iv = cipher.iv
+                    require(iv.size == GCM_IV_BYTES)
+                    val combined = iv + cipher.doFinal(content.toByteArray(Charsets.UTF_8))
+                    BitchatMessage(
+                        sender = senderNickname ?: myPeerID,
+                        content = "",
+                        timestamp = Date(),
+                        isRelay = false,
+                        senderPeerID = myPeerID,
+                        mentions = mentions.takeIf { it.isNotEmpty() },
+                        channel = channel,
+                        encryptedContent = combined,
+                        isEncrypted = true
+                    ).toBinaryPayload()
                 }
-                val encryptedData = cipher.doFinal(contentBytes)
-
-                val combined = ByteArray(iv.size + encryptedData.size)
-                System.arraycopy(iv, 0, combined, 0, iv.size)
-                System.arraycopy(encryptedData, 0, combined, iv.size, encryptedData.size)
-
-                val encryptedMessage = BitchatMessage(
-                    sender = senderNickname ?: myPeerID,
-                    content = "",
-                    timestamp = Date(),
-                    isRelay = false,
-                    senderPeerID = myPeerID,
-                    mentions = if (mentions.isNotEmpty()) mentions else null,
-                    channel = channel,
-                    encryptedContent = combined,
-                    isEncrypted = true
-                )
-
-                val messageData = encryptedMessage.toBinaryPayload()
-                if (messageData != null) {
-                    onEncryptedPayload(messageData)
-                } else {
-                    Log.e(TAG, "Failed to encode encrypted channel message for $channel")
-                    onFallback()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to encrypt channel message for $channel: ${e.message}")
-                onFallback()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
             }
+            // Complete on the owning scope, after checking for a leave, key change, or panic wipe.
+            if (!isCurrent(channel, epoch, generation) || channelKeys[channel] !== key) return@launch
+            if (messageData == null) onFallback() else onEncryptedPayload(messageData)
         }
     }
 
@@ -405,15 +402,18 @@ class ChannelManager(
         state.setPasswordPromptChannel(null)
     }
 
-    suspend fun setChannelPassword(channel: String, password: String) {
+    suspend fun setChannelPassword(channel: String, password: String): Boolean {
         if (password.isEmpty()) {
             Log.w(TAG, "Ignoring empty password for $channel")
-            return
+            return false
         }
 
-        val key = withContext(Dispatchers.Default) {
+        val epoch = securityEpoch
+        val generation = nextGeneration(channel)
+        val key = withContext(cryptoDispatcher) {
             deriveChannelKey(password, channel)
         }
+        if (!isCurrent(channel, epoch, generation)) return false
         channelPasswords[channel] = password
         channelKeys[channel] = key
 
@@ -431,11 +431,14 @@ class ChannelManager(
         )
 
         redecryptChannelHistory(channel, key)
+        return true
     }
 
     // MARK: - Emergency Clear
 
     fun clearAllChannels() {
+        securityEpoch++
+        channelGenerations.clear()
         state.setJoinedChannels(emptySet())
         state.setCurrentChannel(null)
         state.setPasswordProtectedChannels(emptySet())
