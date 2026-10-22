@@ -2,10 +2,10 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
-import java.util.Date
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.util.Date
+import java.util.Locale
 
 /**
  * Handles processing of IRC-style commands
@@ -15,7 +15,7 @@ class CommandProcessor(
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
     private val privateChatManager: PrivateChatManager,
-    private val coroutineScope: CoroutineScope? = null
+    private val coroutineScope: CoroutineScope
 ) {
     
     // Available commands list
@@ -62,15 +62,25 @@ class CommandProcessor(
             val channelName = parts[1]
             val channel = if (channelName.startsWith("#")) channelName else "#$channelName"
             val password = if (parts.size > 2) parts[2] else null
-            val success = channelManager.joinChannel(channel, password, myPeerID)
-            if (success) {
-                val systemMessage = BitchatMessage(
-                    sender = "system",
-                    content = "joined channel $channel",
-                    timestamp = Date(),
-                    isRelay = false
-                )
-                messageManager.addMessage(systemMessage)
+            coroutineScope.launch {
+                val success = channelManager.joinChannel(channel, password, myPeerID)
+                if (success) {
+                    val systemMessage = BitchatMessage(
+                        sender = "system",
+                        content = "joined channel $channel",
+                        timestamp = Date(),
+                        isRelay = false
+                    )
+                    messageManager.addMessage(systemMessage)
+                } else if (password != null) {
+                    val systemMessage = BitchatMessage(
+                        sender = "system",
+                        content = "wrong password for channel $channel",
+                        timestamp = Date(),
+                        isRelay = false
+                    )
+                    messageManager.addMessage(systemMessage)
+                }
             }
         } else {
             val systemMessage = BitchatMessage(
@@ -224,35 +234,36 @@ class CommandProcessor(
             return
         }
 
-        if (parts.size == 2){
-            if(!channelManager.isChannelCreator(channel = currentChannel, peerID = peerID)){
+        if (parts.size == 2) {
+            if (!channelManager.isChannelCreator(channel = currentChannel, peerID = peerID)) {
                 val systemMessage = BitchatMessage(
                     sender = "system",
                     content = "you must be the channel creator to set a password.",
                     timestamp = Date(),
                     isRelay = false
                 )
-                channelManager.addChannelMessage(currentChannel,systemMessage,null)
+                channelManager.addChannelMessage(currentChannel, systemMessage, null)
                 return
             }
             val newPassword = parts[1]
-            channelManager.setChannelPassword(currentChannel, newPassword)
-            val systemMessage = BitchatMessage(
-                sender = "system",
-                content = "password changed for channel $currentChannel",
-                timestamp = Date(),
-                isRelay = false
-            )
-            channelManager.addChannelMessage(currentChannel,systemMessage,null)
-        }
-        else{
+            coroutineScope.launch {
+                if (!channelManager.setChannelPassword(currentChannel, newPassword)) return@launch
+                val systemMessage = BitchatMessage(
+                    sender = "system",
+                    content = "password changed for channel $currentChannel",
+                    timestamp = Date(),
+                    isRelay = false
+                )
+                channelManager.addChannelMessage(currentChannel, systemMessage, null)
+            }
+        } else {
             val systemMessage = BitchatMessage(
                 sender = "system",
                 content = "usage: /pass <password>",
                 timestamp = Date(),
                 isRelay = false
             )
-            channelManager.addChannelMessage(currentChannel,systemMessage,null)
+            channelManager.addChannelMessage(currentChannel, systemMessage, null)
         }
     }
     
