@@ -24,6 +24,8 @@ object DebugPreferenceManager {
     private const val KEY_BLE_ENABLED = "ble_enabled"
     private const val KEY_WIFI_AWARE_ENABLED = "wifi_aware_enabled"
     private const val KEY_WIFI_AWARE_VERBOSE = "wifi_aware_verbose"
+    private const val KEY_BLE_LONG_RANGE_MODE = "ble_long_range_mode"
+    private const val KEY_BLE_CODED_CODING = "ble_coded_coding"
 
     private lateinit var prefs: SharedPreferences
 
@@ -125,5 +127,19 @@ object DebugPreferenceManager {
 
     fun setWifiAwareVerbose(value: Boolean) {
         if (ready()) prefs.edit().putBoolean(KEY_WIFI_AWARE_VERBOSE, value).apply()
+    }
+
+    fun getBleLongRangeMode(default: String): String =
+        if (ready()) prefs.getString(KEY_BLE_LONG_RANGE_MODE, default) ?: default else default
+
+    fun setBleLongRangeMode(value: String) {
+        if (ready()) prefs.edit().putString(KEY_BLE_LONG_RANGE_MODE, value).apply()
+    }
+
+    fun getBleCodedCoding(default: String): String =
+        if (ready()) prefs.getString(KEY_BLE_CODED_CODING, default) ?: default else default
+
+    fun setBleCodedCoding(value: String) {
+        if (ready()) prefs.edit().putString(KEY_BLE_CODED_CODING, value).apply()
     }
 }

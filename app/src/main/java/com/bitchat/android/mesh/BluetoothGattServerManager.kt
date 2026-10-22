@@ -1,9 +1,13 @@
 package com.bitchat.android.mesh
 
+import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
+import android.bluetooth.le.AdvertisingSet
+import android.bluetooth.le.AdvertisingSetCallback
+import android.bluetooth.le.AdvertisingSetParameters
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.os.ParcelUuid
@@ -48,6 +52,8 @@ class BluetoothGattServerManager(
     private var characteristic: BluetoothGattCharacteristic? = null
     private var advertiseCallback: AdvertiseCallback? = null
     private var advertiseRetryCount = 0
+    private var codedAdvertisingCallback: AdvertisingSetCallback? = null
+    private var codedAdvertiseRetryCount = 0
     
     // State management
     private var isActive = false
@@ -59,6 +65,23 @@ class BluetoothGattServerManager(
             try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
         }
     }
+
+    private fun longRangeMode(): BleLongRangeMode =
+        try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleLongRangeMode.value
+        } catch (_: Exception) {
+            BleLongRangeMode.DEFAULT
+        }
+
+    private fun codedCoding(): BleCodedCoding =
+        try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleCodedCoding.value
+        } catch (_: Exception) {
+            BleCodedCoding.DEFAULT
+        }
+
+    private fun capabilities(): BleRadioCapabilities =
+        BleRadioCapabilities.detect(bluetoothAdapter).also { BleLinkDiagnostics.setCapabilities(it) }
 
     private fun isServerRoleEnabled(): Boolean {
         return isBleTransportEnabled() &&
@@ -192,10 +215,17 @@ class BluetoothGattServerManager(
                             linkID = linkID
                         )
                         connectionTracker.addDeviceConnection(device.address, deviceConn)
+                        BleLinkDiagnostics.onLinkOpened(
+                            linkID, device.address, isClient = false, discoveredPhy = null,
+                            rssi = rssi.takeIf { it != Int.MIN_VALUE }
+                        )
+                        BleLinkDiagnostics.onLinkState(linkID, "connected")
+                        readServerPhy(device)
 
                         connectionScope.launch {
                             delay(1000)
                             if (isActive) { // Check if still active
+                                requestLinkPhy(device, linkID)
                                 delegate?.onDeviceConnected(device)
                             }
                         }
@@ -203,6 +233,7 @@ class BluetoothGattServerManager(
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         Log.i(TAG, "Disconnected from ${device.address} (server)")
                         val linkID = serverLinkIDs.remove(device.address)
+                        BleLinkDiagnostics.onLinkClosed(linkID, device.address, status)
                         // Capture the observed peer before cleanup drops the address mapping.
                         val disconnectedPeerID = connectionTracker.addressPeerMap[device.address]
                         if (linkID != null) {
@@ -255,6 +286,7 @@ class BluetoothGattServerManager(
                         return
                     }
                     val packet = BitchatPacket.fromBinaryData(value)
+                    BleLinkDiagnostics.onReceived(linkID)
                     if (packet != null) {
                         val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
                         delegate?.onPacketReceived(packet, peerID, device, linkID)
@@ -296,6 +328,14 @@ class BluetoothGattServerManager(
                 if (responseNeeded) {
                     gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
                 }
+            }
+
+            override fun onPhyUpdate(device: BluetoothDevice, txPhy: Int, rxPhy: Int, status: Int) {
+                serverLinkIDs[device.address]?.let { BleLinkDiagnostics.onPhy(it, txPhy, rxPhy, status, fromUpdate = true) }
+            }
+
+            override fun onPhyRead(device: BluetoothDevice, txPhy: Int, rxPhy: Int, status: Int) {
+                serverLinkIDs[device.address]?.let { BleLinkDiagnostics.onPhy(it, txPhy, rxPhy, status, fromUpdate = false) }
             }
 
             override fun onNotificationSent(device: BluetoothDevice, status: Int) {
@@ -384,7 +424,8 @@ class BluetoothGattServerManager(
             return
         }
 
-        val settings = powerManager.getAdvertiseSettings()
+        val mode = longRangeMode()
+        val settings = powerManager.getAdvertiseSettings(longRange = mode != BleLongRangeMode.OFF)
         
         val data = AdvertiseData.Builder()
             .addServiceUuid(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID))
@@ -394,21 +435,25 @@ class BluetoothGattServerManager(
             
         // Add stable identity (first 8 bytes of peerID) to Scan Response
         // This allows scanners to deduplicate devices even if MAC address rotates
-        val peerIDBytes = try {
-            myPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray().take(8).toByteArray()
-        } catch (e: Exception) {
-            ByteArray(0)
-        }
+        val peerIDBytes = peerIDAdvertisementBytes()
         
         val scanResponse = AdvertiseData.Builder()
             .addServiceData(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID), peerIDBytes)
             .setIncludeTxPowerLevel(false)
             .setIncludeDeviceName(false)
             .build()
-        
+
+        // A restart can race the initial start (e.g. power profile change during startup). Stop the
+        // previous advertisement before replacing its callback, or it can never be stopped again and
+        // keeps occupying a controller advertising slot.
+        advertiseCallback?.let { previous ->
+            try { bleAdvertiser.stopAdvertising(previous) } catch (_: Exception) { }
+        }
+
         advertiseCallback = object : AdvertiseCallback() {
             override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
                 advertiseRetryCount = 0
+                BleLinkDiagnostics.onLegacyAdvertiser(BleLinkDiagnostics.AdvertiserState.ACTIVE)
                 val mode = try {
                     powerManager.getPowerInfo().split("Current Mode: ")[1].split("\n")[0]
                 } catch (_: Exception) { "unknown" }
@@ -417,6 +462,7 @@ class BluetoothGattServerManager(
 
             override fun onStartFailure(errorCode: Int) {
                 Log.e(TAG, "Advertising failed: $errorCode")
+                BleLinkDiagnostics.onLegacyAdvertiser(BleLinkDiagnostics.AdvertiserState.FAILED, errorCode)
                 // Previously this only logged, so if advertising failed this device became
                 // undiscoverable until a manual BLE toggle. Retry transient failures with backoff.
                 when (errorCode) {
@@ -437,11 +483,182 @@ class BluetoothGattServerManager(
         }
         
         try {
+            BleLinkDiagnostics.onLegacyAdvertiser(BleLinkDiagnostics.AdvertiserState.STARTING)
             bleAdvertiser.startAdvertising(settings, data, scanResponse, advertiseCallback)
         } catch (se: SecurityException) {
             Log.e(TAG, "SecurityException starting advertising (missing permission?): ${se.message}")
         } catch (e: Exception) {
             Log.e(TAG, "Exception starting advertising: ${e.message}")
+        }
+
+        startCodedAdvertising(mode, peerIDBytes)
+    }
+
+    private fun peerIDAdvertisementBytes(): ByteArray = try {
+        myPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray().take(8).toByteArray()
+    } catch (e: Exception) {
+        ByteArray(0)
+    }
+
+    /**
+     * Second, independent advertising set on LE Coded (primary and secondary PHY) so Coded-capable
+     * scanners can discover and connect at long range. It runs alongside the legacy advertisement,
+     * which stays the compatibility path; any failure here leaves legacy advertising untouched.
+     *
+     * Extended connectable advertisements cannot be scannable, so the peer ID that the legacy path
+     * carries in the scan response is placed directly in this advertisement.
+     */
+    private fun startCodedAdvertising(mode: BleLongRangeMode, peerIDBytes: ByteArray) {
+        val advertiser = bleAdvertiser ?: return
+        val caps = capabilities()
+        BleLinkDiagnostics.setMode(mode)
+        if (mode == BleLongRangeMode.OFF) {
+            BleLinkDiagnostics.onCodedAdvertiser(BleLinkDiagnostics.AdvertiserState.DISABLED)
+            return
+        }
+        if (!BleLongRangePolicy.shouldAdvertiseCoded(mode, caps)) {
+            BleLinkDiagnostics.onCodedAdvertiser(BleLinkDiagnostics.AdvertiserState.UNSUPPORTED)
+            return
+        }
+        if (codedAdvertisingCallback != null) return
+
+        val tuning = BleLongRangePolicy.codedAdvertisingParams(powerManager.profile.value.mode)
+        val parameters = AdvertisingSetParameters.Builder()
+            .setLegacyMode(false)
+            .setConnectable(true)
+            .setScannable(false)
+            .setPrimaryPhy(BluetoothDevice.PHY_LE_CODED)
+            .setSecondaryPhy(BluetoothDevice.PHY_LE_CODED)
+            .setInterval(tuning.interval.also { BleLinkDiagnostics.onCodedAdvertisingInterval(it) })
+            .setTxPowerLevel(tuning.txPowerLevel)
+            .build()
+        val data = AdvertiseData.Builder()
+            .addServiceUuid(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID))
+            .addServiceData(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID), peerIDBytes)
+            .setIncludeTxPowerLevel(false)
+            .setIncludeDeviceName(false)
+            .build()
+
+        val callback = object : AdvertisingSetCallback() {
+            override fun onAdvertisingSetStarted(advertisingSet: AdvertisingSet?, txPower: Int, status: Int) {
+                if (status == ADVERTISE_SUCCESS) {
+                    codedAdvertiseRetryCount = 0
+                    Log.i(TAG, "Coded advertising set started (tx $txPower dBm)")
+                    BleLinkDiagnostics.onCodedAdvertiser(
+                        BleLinkDiagnostics.AdvertiserState.ACTIVE, txPowerDbm = txPower
+                    )
+                    return
+                }
+                Log.w(TAG, "Coded advertising set failed: $status")
+                if (codedAdvertisingCallback === this) codedAdvertisingCallback = null
+                val permanent = status == ADVERTISE_FAILED_FEATURE_UNSUPPORTED ||
+                    status == ADVERTISE_FAILED_DATA_TOO_LARGE
+                BleLinkDiagnostics.onCodedAdvertiser(
+                    if (permanent) BleLinkDiagnostics.AdvertiserState.UNSUPPORTED
+                    else BleLinkDiagnostics.AdvertiserState.FAILED,
+                    error = status
+                )
+                if (!permanent && status != ADVERTISE_FAILED_ALREADY_STARTED) scheduleCodedAdvertiseRestart()
+            }
+
+            override fun onAdvertisingSetStopped(advertisingSet: AdvertisingSet?) {
+                Log.d(TAG, "Coded advertising set stopped")
+            }
+        }
+
+        try {
+            codedAdvertisingCallback = callback
+            BleLinkDiagnostics.onCodedAdvertiser(BleLinkDiagnostics.AdvertiserState.STARTING)
+            advertiser.startAdvertisingSet(parameters, data, null, null, null, callback)
+        } catch (e: Exception) {
+            codedAdvertisingCallback = null
+            Log.e(TAG, "Exception starting coded advertising set: ${e.message}")
+            BleLinkDiagnostics.onCodedAdvertiser(BleLinkDiagnostics.AdvertiserState.FAILED)
+        }
+    }
+
+    @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
+    private fun stopCodedAdvertising() {
+        val callback = codedAdvertisingCallback ?: return
+        codedAdvertisingCallback = null
+        if (!permissionManager.hasBluetoothPermissions()) return
+        try {
+            bleAdvertiser?.stopAdvertisingSet(callback)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error stopping coded advertising set: ${e.message}")
+        }
+        BleLinkDiagnostics.onCodedAdvertiser(BleLinkDiagnostics.AdvertiserState.STOPPED)
+    }
+
+    private fun scheduleCodedAdvertiseRestart() {
+        codedAdvertiseRetryCount++
+        if (codedAdvertiseRetryCount > 5) {
+            BleLinkDiagnostics.event("Coded advertising gave up after ${codedAdvertiseRetryCount - 1} retries")
+            return
+        }
+        val delayMs = (ADVERTISE_RETRY_BASE_MS * codedAdvertiseRetryCount).coerceAtMost(ADVERTISE_MAX_RETRY_DELAY_MS)
+        connectionScope.launch {
+            delay(delayMs)
+            if (isActive && isServerRoleEnabled() && codedAdvertisingCallback == null) {
+                startCodedAdvertising(longRangeMode(), peerIDAdvertisementBytes())
+            }
+        }
+    }
+
+    /**
+     * Ask for LE Coded S=8 on a server-side link when the policy wants maximum range. The remote
+     * controller may refuse (no Coded support, iOS), in which case the link keeps its PHY.
+     */
+    @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
+    private fun readServerPhy(device: BluetoothDevice) {
+        if (!permissionManager.hasBluetoothPermissions()) return
+        try { gattServer?.readPhy(device) } catch (_: Exception) { }
+    }
+
+    @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
+    private fun requestLinkPhy(device: BluetoothDevice, linkID: String) {
+        val server = gattServer ?: return
+        if (!permissionManager.hasBluetoothPermissions()) return
+        val mode = longRangeMode()
+        try {
+            if (BleLongRangePolicy.shouldRequestCodedOnConnect(mode, capabilities())) {
+                val coding = codedCoding()
+                BleLinkDiagnostics.onPhyRequested(linkID, "Coded ${coding.label}")
+                server.setPreferredPhy(
+                    device,
+                    BluetoothDevice.PHY_LE_CODED_MASK,
+                    BluetoothDevice.PHY_LE_CODED_MASK,
+                    BleLongRangePolicy.phyOption(coding)
+                )
+            } else if (mode != BleLongRangeMode.OFF) {
+                server.readPhy(device)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "PHY request failed for ${device.address}: ${e.message}")
+        }
+    }
+
+    /** Re-apply the PHY policy to current server links after a mode change. */
+    @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
+    fun applyLinkPhyPolicy() {
+        val server = gattServer ?: return
+        if (!permissionManager.hasBluetoothPermissions()) return
+        val mode = longRangeMode()
+        serverLinkIDs.forEach { (address, linkID) ->
+            val device = connectionTracker.getDeviceConnection(address)?.device ?: return@forEach
+            if (mode == BleLongRangeMode.OFF) {
+                try {
+                    BleLinkDiagnostics.onPhyRequested(linkID, "1M")
+                    server.setPreferredPhy(
+                        device,
+                        BluetoothDevice.PHY_LE_1M_MASK,
+                        BluetoothDevice.PHY_LE_1M_MASK,
+                        BluetoothDevice.PHY_OPTION_NO_PREFERRED
+                    )
+                } catch (_: Exception) { }
+            } else {
+                requestLinkPhy(device, linkID)
+            }
         }
     }
     
@@ -456,6 +673,8 @@ class BluetoothGattServerManager(
         } catch (e: Exception) {
             Log.w(TAG, "Error stopping advertising: ${e.message}")
         }
+        BleLinkDiagnostics.onLegacyAdvertiser(BleLinkDiagnostics.AdvertiserState.STOPPED)
+        stopCodedAdvertising()
     }
     
     /**

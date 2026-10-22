@@ -504,6 +504,17 @@ fun DebugSettingsSheet(
                 }
             }
 
+            // BLE long range (LE Coded PHY) controls and radio diagnostics
+            item {
+                BleLongRangeSection(
+                    manager = manager,
+                    peerForAddress = { address ->
+                        connectedDevices.firstOrNull { it.deviceAddress == address }?.let { it.nickname ?: it.peerID }
+                    },
+                    onReapplyPhy = { meshService.connectionManager.reapplyLongRangePhy() }
+                )
+            }
+
             // Packet relay controls and stats
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
@@ -891,7 +902,12 @@ fun DebugSettingsSheet(
                                     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
                                             Text((res.peerID ?: stringResource(R.string.unknown)) + " • ${res.deviceAddress}", fontFamily = BitchatFontFamily, fontSize = 12.sp)
-                                            Text(stringResource(R.string.debug_rssi_fmt, res.rssi.toString()), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                                            val phyLabel = when {
+                                                res.isLegacy == true -> " • legacy 1M"
+                                                res.primaryPhy != null -> " • extended " + com.bitchat.android.mesh.BleLongRangePolicy.phyName(res.primaryPhy)
+                                                else -> ""
+                                            }
+                                            Text(stringResource(R.string.debug_rssi_fmt, res.rssi.toString()) + phyLabel, fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text(stringResource(R.string.debug_connect), color = Color(0xFF00C851), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
                                             meshService.connectionManager.connectToAddress(res.deviceAddress)

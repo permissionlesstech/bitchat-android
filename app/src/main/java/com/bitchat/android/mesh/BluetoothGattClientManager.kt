@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
@@ -14,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Job
 import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.ui.debug.DebugScanResult
@@ -37,7 +39,28 @@ class BluetoothGattClientManager(
         private const val SCAN_MAX_RETRY_DELAY_MS = 30_000L    // cap on backoff delay
         private const val SCAN_WATCHDOG_INTERVAL_MS = 30_000L  // how often to verify the scanner is alive
         private const val SCAN_STALE_RESULT_MS = 120_000L      // force a scan restart if no results for this long
+        private const val RSSI_POLL_INTERVAL_MS = 5_000L        // connected-link RSSI sampling (local HCI read, no airtime)
+        private const val CODED_RETRY_AFTER_MS = 20_000L        // MAX_RANGE: retry a refused/overridden Coded request once
+        private const val MAX_CODED_REQUESTS_PER_LINK = 2
     }
+
+    /** Per client link PHY bookkeeping; lives as long as the GATT connection. */
+    private class ClientPhyState(
+        val linkID: String,
+        val gatt: BluetoothGatt
+    ) {
+        val hysteresis = PhyHysteresis()
+        @Volatile var txPhy: Int = 0
+        @Volatile var rxPhy: Int = 0
+        @Volatile var codedRequests: Int = 0
+        @Volatile var lastRequestAt: Long = 0L
+        var rssiJob: Job? = null
+        val isCoded: Boolean get() = txPhy == BluetoothDevice.PHY_LE_CODED && rxPhy == BluetoothDevice.PHY_LE_CODED
+    }
+
+    private val clientPhyStates = ConcurrentHashMap<String, ClientPhyState>()
+    // Primary PHY of the most recent advertisement per address, for PHY-matched connection initiation
+    private val lastAdvertisedPhy = ConcurrentHashMap<String, Int>()
     
     // Core Bluetooth components
     private val bluetoothManager: BluetoothManager = 
@@ -52,6 +75,23 @@ class BluetoothGattClientManager(
             try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
         }
     }
+
+    private fun longRangeMode(): BleLongRangeMode =
+        try {
+            DebugSettingsManager.getInstance().bleLongRangeMode.value
+        } catch (_: Exception) {
+            BleLongRangeMode.DEFAULT
+        }
+
+    private fun codedCoding(): BleCodedCoding =
+        try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleCodedCoding.value
+        } catch (_: Exception) {
+            BleCodedCoding.DEFAULT
+        }
+
+    private fun capabilities(): BleRadioCapabilities =
+        BleRadioCapabilities.detect(bluetoothAdapter).also { BleLinkDiagnostics.setCapabilities(it) }
 
     private fun isClientRoleEnabled(): Boolean {
         return isBleTransportEnabled() &&
@@ -69,7 +109,7 @@ class BluetoothGattClientManager(
         val device = bluetoothAdapter?.getRemoteDevice(deviceAddress)
         return if (device != null) {
             val rssi = connectionTracker.getBestRSSI(deviceAddress) ?: -50
-            connectToDevice(device, rssi)
+            connectToDevice(device, rssi, advertisedPhy = lastAdvertisedPhy[deviceAddress])
             true
         } else {
             Log.w(TAG, "connectToAddress: No device for $deviceAddress")
@@ -140,6 +180,8 @@ class BluetoothGattClientManager(
      */
     fun stop() {
         scanningDesired = false
+        clientPhyStates.values.forEach { it.rssiJob?.cancel() }
+        clientPhyStates.clear()
         scanDutyCycleJob?.cancel()
         scanDutyCycleJob = null
         stopScanWatchdog()
@@ -213,6 +255,11 @@ class BluetoothGattClientManager(
             .build()
         
         val scanFilters = listOf(scanFilter)
+        val extended = BleLongRangePolicy.shouldUseExtendedScan(
+            longRangeMode(),
+            capabilities(),
+            BleLinkDiagnostics.isExtendedScanRejected()
+        )
 
         scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -244,7 +291,14 @@ class BluetoothGattClientManager(
                     3 -> {
                         scheduleScanRestart("internal-error", SCAN_RETRY_BASE_MS)
                     }
-                    4 -> Unit // permanent: don't retry
+                    4 -> {
+                        // Feature unsupported. For an extended (Coded) scan this is the runtime
+                        // signal that the stack can't do it: latch legacy scanning and recover.
+                        if (extended) {
+                            BleLinkDiagnostics.onExtendedScanRejected(errorCode)
+                            scheduleScanRestart("extended-scan-unsupported", SCAN_RETRY_BASE_MS)
+                        }
+                    }
                     5 -> {
                         // Out of hardware resources: back off longer so other scanners/connections
                         // can free up before we try again.
@@ -265,8 +319,11 @@ class BluetoothGattClientManager(
             lastScanStartTime = currentTime
             isCurrentlyScanning = true
             
-            bleScanner.startScan(scanFilters, powerManager.getScanSettings(), scanCallback)
-            Log.i(TAG, "BLE scan started")
+            bleScanner.startScan(scanFilters, powerManager.getScanSettings(extended), scanCallback)
+            BleLinkDiagnostics.onScanMode(
+                if (extended) BleLinkDiagnostics.ScanMode.EXTENDED_ALL_PHYS else BleLinkDiagnostics.ScanMode.LEGACY_1M
+            )
+            Log.i(TAG, "BLE scan started (${if (extended) "extended, all PHYs" else "legacy 1M"})")
         } catch (e: Exception) {
             Log.e(TAG, "Exception starting scan: ${e.message}")
             isCurrentlyScanning = false
@@ -292,6 +349,7 @@ class BluetoothGattClientManager(
             
             isCurrentlyScanning = false
             lastScanStopTime = System.currentTimeMillis()
+            BleLinkDiagnostics.onScanMode(BleLinkDiagnostics.ScanMode.STOPPED)
         }
     }
 
@@ -380,6 +438,12 @@ class BluetoothGattClientManager(
             return
         }
 
+        val isLegacy = result.isLegacy
+        val primaryPhy = result.primaryPhy
+        val heardOnCoded = !isLegacy && primaryPhy == BluetoothDevice.PHY_LE_CODED
+        BleLinkDiagnostics.onScanResult(isLegacy, primaryPhy, rssi)
+        lastAdvertisedPhy[deviceAddress] = primaryPhy
+
         // Proof the scanner is alive and finding our network: refresh liveness and clear backoff.
         lastScanResultTime = System.currentTimeMillis()
         scanRetryCount = 0
@@ -408,13 +472,21 @@ class BluetoothGattClientManager(
                     deviceName = device.name,
                     deviceAddress = deviceAddress,
                     rssi = rssi,
-                    peerID = peerID // Use the discovered peerID if available
+                    peerID = peerID, // Use the discovered peerID if available
+                    primaryPhy = primaryPhy,
+                    isLegacy = isLegacy
                 )
             )
         } catch (_: Exception) { }
         
-        // Power-aware RSSI filtering
-        if (rssi < powerManager.getRSSIThreshold()) {
+        // Power-aware RSSI filtering. Long-range mode accepts Coded advertisements down to receiver
+        // sensitivity; the stock thresholds would discard exactly the peers Coded PHY reaches.
+        val rssiThreshold = BleLongRangePolicy.connectRssiThreshold(
+            longRangeMode(),
+            powerManager.profile.value.mode,
+            heardOnCoded
+        )
+        if (rssi < rssiThreshold) {
             // Even if we skip connecting, still publish scan result to debug UI
             try {
                 DebugSettingsManager.getInstance().addScanResult(
@@ -448,9 +520,15 @@ class BluetoothGattClientManager(
             return
         }
         
+        // A long-range peer advertises on two addresses (legacy set + Coded set). Only one
+        // in-flight attempt per peer, so we don't open two client links to the same device.
+        if (peerID != null && !connectionTracker.reservePeerConnectionAttempt(peerID, deviceAddress)) {
+            return
+        }
+
         // Add pending connection and start connection
         if (connectionTracker.addPendingConnection(deviceAddress)) {
-            connectToDevice(device, rssi, peerID)
+            connectToDevice(device, rssi, peerID, primaryPhy)
         }
     }
     
@@ -458,17 +536,29 @@ class BluetoothGattClientManager(
      * Connect to a device as GATT client
      */
     @Suppress("DEPRECATION")
-    private fun connectToDevice(device: BluetoothDevice, rssi: Int, peerID: String? = null) {
+    private fun connectToDevice(
+        device: BluetoothDevice,
+        rssi: Int,
+        peerID: String? = null,
+        advertisedPhy: Int? = null
+    ) {
         if (!isClientRoleEnabled()) return
         if (!permissionManager.hasBluetoothPermissions()) return
 
         val deviceAddress = device.address
         val linkID = UUID.randomUUID().toString()
-        Log.d(TAG, "Connecting to bitchat device: $deviceAddress (peerID: $peerID)")
+        val phyMask = BleLongRangePolicy.connectPhyMask(longRangeMode(), capabilities(), advertisedPhy)
+        Log.d(TAG, "Connecting to bitchat device: $deviceAddress (peerID: $peerID, initiating PHY mask: $phyMask)")
+        var everConnected = false
 
         val gattCallback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                 if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
+                    everConnected = true
+                    BleLinkDiagnostics.onLinkOpened(linkID, deviceAddress, isClient = true, advertisedPhy, rssi)
+                    BleLinkDiagnostics.onLinkState(linkID, "negotiating")
+                    clientPhyStates[linkID] = ClientPhyState(linkID, gatt)
+                    readLinkPhy(gatt)
                     // Request a larger MTU. Must be done before any data transfer.
                     connectionScope.launch {
                         delay(200) // A small delay can improve reliability of MTU request.
@@ -479,6 +569,18 @@ class BluetoothGattClientManager(
                         Log.w(TAG, "Disconnected from $deviceAddress with error status $status (client)")
                     } else {
                         Log.i(TAG, "Disconnected from $deviceAddress (client)")
+                    }
+                    clientPhyStates.remove(linkID)?.rssiJob?.cancel()
+                    if (everConnected) {
+                        BleLinkDiagnostics.onLinkClosed(linkID, deviceAddress, status)
+                    } else {
+                        BleLinkDiagnostics.event(
+                            "Connect to $deviceAddress failed (status $status, " +
+                                "advertised on ${advertisedPhy?.let(BleLongRangePolicy::phyName) ?: "?"})"
+                        )
+                    }
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        connectionTracker.releasePeerReservation(deviceAddress)
                     }
                     // Capture the observed peer before cleanup drops the address mapping.
                     val disconnectedPeerID = connectionTracker.addressPeerMap[deviceAddress]
@@ -545,7 +647,12 @@ class BluetoothGattClientManager(
                                 connectionScope.launch {
                                     delay(200)
                                     Log.i(TAG, "Connected to $deviceAddress (client)")
+                                    BleLinkDiagnostics.onLinkState(linkID, "connected")
                                     delegate?.onDeviceConnected(device)
+                                    clientPhyStates[linkID]?.let { state ->
+                                        requestInitialPhy(state)
+                                        startRssiPolling(state)
+                                    }
                                 }
                             } else {
                                 Log.e(TAG, "Client: CCCD descriptor not found for $deviceAddress")
@@ -565,7 +672,21 @@ class BluetoothGattClientManager(
                 }
             }
             
+            override fun onPhyUpdate(gatt: BluetoothGatt, txPhy: Int, rxPhy: Int, status: Int) {
+                onLinkPhy(linkID, txPhy, rxPhy, status, fromUpdate = true)
+            }
+
+            override fun onPhyRead(gatt: BluetoothGatt, txPhy: Int, rxPhy: Int, status: Int) {
+                onLinkPhy(linkID, txPhy, rxPhy, status, fromUpdate = false)
+            }
+
+            override fun onReadRemoteRssi(gatt: BluetoothGatt, rssi: Int, status: Int) {
+                if (status != BluetoothGatt.GATT_SUCCESS) return
+                onLinkRssi(linkID, deviceAddress, rssi)
+            }
+
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+                BleLinkDiagnostics.onReceived(linkID)
                 val value = characteristic.value
                 val packet = BitchatPacket.fromBinaryData(value)
                 if (packet != null) {
@@ -589,7 +710,7 @@ class BluetoothGattClientManager(
         }
         
         try {
-            val gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+            val gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE, phyMask)
             if (gatt == null) {
                 Log.e(TAG, "connectGatt returned null for $deviceAddress")
                 // keep the pending connection so we can avoid too many reconnections attempts, TODO: needs testing
@@ -602,6 +723,128 @@ class BluetoothGattClientManager(
         }
     }
     
+    private fun onLinkPhy(linkID: String, txPhy: Int, rxPhy: Int, status: Int, fromUpdate: Boolean) {
+        clientPhyStates[linkID]?.let { state ->
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                state.txPhy = txPhy
+                state.rxPhy = rxPhy
+            }
+        }
+        BleLinkDiagnostics.onPhy(linkID, txPhy, rxPhy, status, fromUpdate)
+    }
+
+    @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
+    private fun readLinkPhy(gatt: BluetoothGatt) {
+        if (!permissionManager.hasBluetoothPermissions()) return
+        try { gatt.readPhy() } catch (_: Exception) { }
+    }
+
+    @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
+    private fun requestPhy(state: ClientPhyState, coded: Boolean) {
+        if (!permissionManager.hasBluetoothPermissions()) return
+        try {
+            state.lastRequestAt = System.currentTimeMillis()
+            if (coded) {
+                state.codedRequests++
+                val coding = codedCoding()
+                BleLinkDiagnostics.onPhyRequested(state.linkID, "Coded ${coding.label}")
+                state.gatt.setPreferredPhy(
+                    BluetoothDevice.PHY_LE_CODED_MASK,
+                    BluetoothDevice.PHY_LE_CODED_MASK,
+                    BleLongRangePolicy.phyOption(coding)
+                )
+            } else {
+                BleLinkDiagnostics.onPhyRequested(state.linkID, "1M")
+                state.gatt.setPreferredPhy(
+                    BluetoothDevice.PHY_LE_1M_MASK,
+                    BluetoothDevice.PHY_LE_1M_MASK,
+                    BluetoothDevice.PHY_OPTION_NO_PREFERRED
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "setPreferredPhy failed: ${e.message}")
+        }
+    }
+
+    private fun requestInitialPhy(state: ClientPhyState) {
+        if (BleLongRangePolicy.shouldRequestCodedOnConnect(longRangeMode(), capabilities()) && !state.isCoded) {
+            requestPhy(state, coded = true)
+        }
+    }
+
+    /**
+     * Sample link RSSI every few seconds (a local controller read, no extra airtime). Feeds the
+     * diagnostics and the ADAPTIVE PHY controller, and replaces the stale scan-time RSSI.
+     */
+    @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
+    private fun startRssiPolling(state: ClientPhyState) {
+        if (longRangeMode() == BleLongRangeMode.OFF) return
+        state.rssiJob?.cancel()
+        state.rssiJob = connectionScope.launch {
+            while (isActive && clientPhyStates[state.linkID] === state) {
+                try {
+                    if (permissionManager.hasBluetoothPermissions()) state.gatt.readRemoteRssi()
+                } catch (_: Exception) { }
+                delay(RSSI_POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun onLinkRssi(linkID: String, deviceAddress: String, rssi: Int) {
+        connectionTracker.updateDeviceConnectionIfCurrent(deviceAddress, linkID) { it.copy(rssi = rssi) }
+        BleLinkDiagnostics.onLinkRssi(linkID, rssi)
+        delegate?.onRSSIUpdated(deviceAddress, rssi)
+
+        val state = clientPhyStates[linkID] ?: return
+        val now = System.currentTimeMillis()
+        when (longRangeMode()) {
+            BleLongRangeMode.ADAPTIVE -> {
+                if (!capabilities().leCodedPhy) return
+                when (state.hysteresis.onRssi(rssi, state.isCoded, now)) {
+                    PhyHysteresis.Target.CODED -> requestPhy(state, coded = true)
+                    PhyHysteresis.Target.ONE_M -> requestPhy(state, coded = false)
+                    null -> Unit
+                }
+            }
+            BleLongRangeMode.MAX_RANGE -> {
+                // The remote (or its stack) can move the link off Coded; ask again, bounded.
+                if (!state.isCoded &&
+                    state.codedRequests < MAX_CODED_REQUESTS_PER_LINK &&
+                    now - state.lastRequestAt > CODED_RETRY_AFTER_MS &&
+                    capabilities().leCodedPhy
+                ) {
+                    requestPhy(state, coded = true)
+                }
+            }
+            BleLongRangeMode.OFF -> Unit
+        }
+    }
+
+    /**
+     * Re-apply the PHY policy to current client links after a mode or coding change.
+     * [recodeCodedLinks] re-requests Coded on links already on Coded so a new coding takes effect.
+     */
+    fun applyLinkPhyPolicy(recodeCodedLinks: Boolean = false) {
+        val mode = longRangeMode()
+        clientPhyStates.values.forEach { state ->
+            when (mode) {
+                BleLongRangeMode.OFF -> {
+                    state.rssiJob?.cancel()
+                    state.rssiJob = null
+                    if (state.txPhy != BluetoothDevice.PHY_LE_1M) requestPhy(state, coded = false)
+                }
+                BleLongRangeMode.MAX_RANGE -> {
+                    state.codedRequests = 0
+                    if (!state.isCoded || recodeCodedLinks) requestPhy(state, coded = true)
+                    if (state.rssiJob?.isActive != true) startRssiPolling(state)
+                }
+                BleLongRangeMode.ADAPTIVE -> {
+                    if (state.rssiJob?.isActive != true) startRssiPolling(state)
+                }
+            }
+        }
+    }
+
     /**
      * Restart scanning for power mode changes
      */

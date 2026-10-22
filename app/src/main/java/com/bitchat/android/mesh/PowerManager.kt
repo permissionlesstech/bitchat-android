@@ -184,10 +184,17 @@ class PowerManager private constructor(context: Context) : LifecycleEventObserve
         }
     }
 
-    fun getScanSettings(): ScanSettings {
+    /**
+     * @param extended receive extended advertisements on every supported PHY (1M + LE Coded)
+     * instead of legacy 1M advertisements only. Legacy advertisements are still reported.
+     */
+    fun getScanSettings(extended: Boolean = false): ScanSettings {
         val current = profile.value
         val builder = ScanSettings.Builder()
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+        if (extended) {
+            builder.setLegacy(false).setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
+        }
 
         when (current.mode) {
             PowerMode.PERFORMANCE -> builder
@@ -207,14 +214,21 @@ class PowerManager private constructor(context: Context) : LifecycleEventObserve
         return builder.setReportDelay(0).build()
     }
 
-    fun getAdvertiseSettings(): AdvertiseSettings = when (profile.value.mode) {
+    /**
+     * @param longRange request high transmit power in balanced mode as well. The level is clamped
+     * by the controller to the device's certified maximum.
+     */
+    fun getAdvertiseSettings(longRange: Boolean = false): AdvertiseSettings = when (profile.value.mode) {
         PowerMode.PERFORMANCE -> AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
             .setConnectable(true).setTimeout(0).build()
         PowerMode.BALANCED -> AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
+            .setTxPowerLevel(
+                if (longRange) AdvertiseSettings.ADVERTISE_TX_POWER_HIGH
+                else AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM
+            )
             .setConnectable(true).setTimeout(0).build()
         PowerMode.POWER_SAVER -> AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
