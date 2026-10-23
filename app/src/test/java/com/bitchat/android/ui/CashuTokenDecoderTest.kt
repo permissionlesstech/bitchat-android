@@ -40,9 +40,11 @@ class CashuTokenDecoderTest {
 
     @Test
     fun `display amount keeps units outside the currency table as integers`() {
-        assertEquals("21 sat", CashuTokenDecoder.formatDisplayAmount(21, "sat") { 2 })
-        assertEquals("21 btc", CashuTokenDecoder.formatDisplayAmount(21, "btc") { 2 })
-        assertEquals("9.01 usd", CashuTokenDecoder.formatDisplayAmount(901, "usd") { 2 })
+        val minorUnits = mapOf("USD" to 2, "JPY" to 0)
+        assertEquals("21 sat", CashuTokenDecoder.formatDisplayAmount(21, "sat", minorUnits))
+        assertEquals("21 btc", CashuTokenDecoder.formatDisplayAmount(21, "btc", minorUnits))
+        assertEquals("9.01 usd", CashuTokenDecoder.formatDisplayAmount(901, "usd", minorUnits))
+        assertEquals("901 jpy", CashuTokenDecoder.formatDisplayAmount(901, "jpy", minorUnits))
     }
 
     @Test
