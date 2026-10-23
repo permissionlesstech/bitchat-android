@@ -201,7 +201,7 @@ class CommandProcessor(
             location is com.bitchat.android.geohash.ChannelID.Location ->
                 messageManager.clearChannelMessages("geo:${location.channel.geohash}")
             channel != null -> messageManager.clearChannelMessages(channel)
-            else -> messageManager.clearMessages()
+            else -> messageManager.clearMeshTimeline()
         }
     }
 

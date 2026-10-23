@@ -38,7 +38,7 @@ class GeohashViewModel(
 
     companion object { private const val TAG = "GeohashViewModel" }
 
-    private val repo = GeohashRepository(application, state, dataManager)
+    private val repo = GeohashRepository(application, state, dataManager, viewModelScope)
     private val uiSubscriptionOwner = "geohash-ui-${UUID.randomUUID()}"
     private val subscriptionManager = NostrSubscriptionManager(
         application,
