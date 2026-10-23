@@ -7,6 +7,32 @@ import org.junit.Test
 
 class NostrPendingEventQueueTest {
     @Test
+    fun `queued gift wraps retain their originating channel signer through reconnect`() {
+        val queue = NostrPendingEventQueue(capacity = 2)
+        val channelIdentity = NostrIdentity.fromPrivateKey("0".repeat(63) + "2")
+        val giftWrap = event("synthetic-gift-wrap")
+        queue.enqueue(giftWrap, listOf("relay"), null, authenticationIdentity = { channelIdentity })
+
+        val delivery = queue.pendingForRelay("relay").single()
+        assertEquals(channelIdentity.publicKeyHex, delivery.authenticationIdentity?.invoke()?.publicKeyHex)
+        assertNotEquals(delivery.event.pubkey, delivery.authenticationIdentity?.invoke()?.publicKeyHex)
+    }
+
+    @Test
+    fun `acknowledgement removes only the matching relay and event`() {
+        val queue = NostrPendingEventQueue(capacity = 4)
+        val first = event("first")
+        queue.enqueue(first, listOf("relay-a", "relay-b"), liveLocationToken = null)
+        queue.enqueue(event("second"), listOf("relay-a"), liveLocationToken = null)
+
+        queue.acknowledge("unrelated", "relay-a")
+        assertEquals(2, queue.pendingForRelay("relay-a").size)
+        queue.acknowledge(first.id, "relay-a")
+        assertEquals(listOf("second"), queue.pendingForRelay("relay-a").map { it.event.content })
+        assertEquals(listOf("first"), queue.pendingForRelay("relay-b").map { it.event.content })
+    }
+
+    @Test
     fun `empty relay set is not queued`() {
         val queue = NostrPendingEventQueue(capacity = 2)
 

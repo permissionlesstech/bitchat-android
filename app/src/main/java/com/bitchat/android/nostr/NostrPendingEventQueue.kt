@@ -1,7 +1,7 @@
 package com.bitchat.android.nostr
 
 /**
- * Thread-safe bounded queue of relay deliveries awaiting a usable WebSocket.
+ * Thread-safe bounded queue of relay deliveries awaiting a relay acknowledgement.
  *
  * Queue entries have a local ID rather than using the Nostr event ID: the same signed event may be
  * intentionally published more than once with different relay sets or privacy provenance.
@@ -16,14 +16,16 @@ internal class NostrPendingEventQueue(
     data class Delivery(
         val queueId: Long,
         val event: NostrEvent,
-        val liveLocationToken: Long?
+        val liveLocationToken: Long?,
+        val authenticationIdentity: (() -> NostrIdentity?)? = null
     )
 
     private data class Entry(
         val queueId: Long,
         val event: NostrEvent,
         val pendingRelayUrls: MutableSet<String>,
-        val liveLocationToken: Long?
+        val liveLocationToken: Long?,
+        val authenticationIdentity: (() -> NostrIdentity?)?
     )
 
     private val lock = Any()
@@ -33,7 +35,8 @@ internal class NostrPendingEventQueue(
     fun enqueue(
         event: NostrEvent,
         relayUrls: Collection<String>,
-        liveLocationToken: Long?
+        liveLocationToken: Long?,
+        authenticationIdentity: (() -> NostrIdentity?)? = null
     ): Long? {
         val pendingRelays = relayUrls.filterTo(linkedSetOf()) { it.isNotBlank() }
         if (pendingRelays.isEmpty()) return null
@@ -46,7 +49,8 @@ internal class NostrPendingEventQueue(
                     queueId = queueId,
                     event = event,
                     pendingRelayUrls = pendingRelays,
-                    liveLocationToken = liveLocationToken
+                    liveLocationToken = liveLocationToken,
+                    authenticationIdentity = authenticationIdentity
                 )
             )
             queueId
@@ -57,7 +61,7 @@ internal class NostrPendingEventQueue(
         entries
             .asSequence()
             .filter { relayUrl in it.pendingRelayUrls }
-            .map { Delivery(it.queueId, it.event, it.liveLocationToken) }
+            .map { Delivery(it.queueId, it.event, it.liveLocationToken, it.authenticationIdentity) }
             .toList()
     }
 
@@ -70,6 +74,18 @@ internal class NostrPendingEventQueue(
                 entry.pendingRelayUrls.remove(relayUrl)
                 if (entry.pendingRelayUrls.isEmpty()) iterator.remove()
                 return
+            }
+        }
+    }
+
+    fun acknowledge(eventId: String, relayUrl: String) {
+        synchronized(lock) {
+            val iterator = entries.iterator()
+            while (iterator.hasNext()) {
+                val entry = iterator.next()
+                if (entry.event.id != eventId) continue
+                entry.pendingRelayUrls.remove(relayUrl)
+                if (entry.pendingRelayUrls.isEmpty()) iterator.remove()
             }
         }
     }

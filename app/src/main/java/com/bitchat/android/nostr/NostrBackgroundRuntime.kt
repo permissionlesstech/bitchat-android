@@ -100,7 +100,8 @@ object NostrBackgroundRuntime {
             id = "chat-messages",
             handler = { event ->
                 eventProcessor.onAccountDm(event, identity)
-            }
+            },
+            authenticationIdentity = { identity }
         )
     }
 
@@ -168,7 +169,8 @@ object NostrBackgroundRuntime {
                     handler = { event ->
                         eventProcessor.onGeohashDm(event, geohash, identity)
                     },
-                    liveLocationToken = liveLocationToken
+                    liveLocationToken = liveLocationToken,
+                    authenticationIdentity = { identity }
                 )
                 GeohashAliasRegistry.put(
                     "nostr_${identity.publicKeyHex.take(16)}",

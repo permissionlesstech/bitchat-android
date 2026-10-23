@@ -103,7 +103,9 @@ class NostrTransport(
                 
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    NostrRelayManager.getInstance(context).sendEvent(
+                        event, authenticationIdentity = { senderIdentity }
+                    )
                 }
 
             } catch (e: Exception) {
@@ -177,7 +179,9 @@ class NostrTransport(
                 
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    NostrRelayManager.getInstance(context).sendEvent(
+                        event, authenticationIdentity = { senderIdentity }
+                    )
                 }
 
                 scheduleNextReadAck()
@@ -240,7 +244,9 @@ class NostrTransport(
                 
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    NostrRelayManager.getInstance(context).sendEvent(
+                        event, authenticationIdentity = { senderIdentity }
+                    )
                 }
 
             } catch (e: Exception) {
@@ -290,7 +296,9 @@ class NostrTransport(
                 
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    NostrRelayManager.getInstance(context).sendEvent(
+                        event, authenticationIdentity = { senderIdentity }
+                    )
                 }
 
             } catch (e: Exception) {
@@ -325,7 +333,9 @@ class NostrTransport(
                 // Register pending gift wrap for deduplication and send all
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    NostrRelayManager.getInstance(context).sendEvent(
+                        event, authenticationIdentity = { fromIdentity }
+                    )
                 }
                 
             } catch (e: Exception) {
@@ -358,7 +368,9 @@ class NostrTransport(
                 // Register pending gift wrap for deduplication and send all
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    NostrRelayManager.getInstance(context).sendEvent(
+                        event, authenticationIdentity = { fromIdentity }
+                    )
                 }
                 
             } catch (e: Exception) {
@@ -416,7 +428,9 @@ class NostrTransport(
 
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    NostrRelayManager.getInstance(context).sendEvent(
+                        event, authenticationIdentity = { fromIdentity }
+                    )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash private message: ${e.message}")
