@@ -497,7 +497,10 @@ private fun ScannerView(
     }
 
     if (cameraUnavailable) {
-        Text(text = stringResource(R.string.verify_qr_unavailable))
+        Text(
+            text = stringResource(R.string.verify_qr_unavailable),
+            color = Color.White
+        )
     } else {
         surfaceRequest?.let { request ->
             CameraXViewfinder(
