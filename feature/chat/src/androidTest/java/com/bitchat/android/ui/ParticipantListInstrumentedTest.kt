@@ -17,6 +17,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
+/**
+ * Lives in :feature:chat rather than :app so it runs in the library's own test
+ * APK, under a plain Application, without the app's mesh, Tor and identity startup.
+ */
 class ParticipantListInstrumentedTest {
     @get:Rule val compose = createComposeRule()
 

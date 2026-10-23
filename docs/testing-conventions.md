@@ -12,7 +12,7 @@ and portable across implementations.
 | JVM unit and contract tests | `app/src/test/` | `*Test.kt` |
 | Shared deterministic fakes and fixtures | `app/src/test/**/testsupport/` | Descriptive fixture name |
 | Robolectric tests | `app/src/test/` | `*RobolectricTest.kt` |
-| Android instrumented tests | `app/src/androidTest/` | `*InstrumentedTest.kt` |
+| Android instrumented tests | `app/src/androidTest/`; a test that needs none of the app's startup goes in its module's `src/androidTest/` (e.g. `feature/chat/`), whose self-contained test APK runs under a plain Application | `*InstrumentedTest.kt` |
 | Coverage-tool tests | `tools/coverage/` | `test_*.py` |
 | Interoperability fixtures | `app/src/test/resources/contracts/` | Protocol and version in filename |
 

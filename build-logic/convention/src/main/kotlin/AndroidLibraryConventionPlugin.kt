@@ -35,6 +35,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
             buildToolsVersion = libs.version("buildTools")
             defaultConfig {
                 minSdk = libs.int("minSdk")
+                testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
             }
             compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_11
