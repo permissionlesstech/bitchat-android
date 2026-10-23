@@ -54,8 +54,12 @@ Only an `OK` with a JSON boolean `true` and the exact proof ID authorizes retrie
 The client retries only the rejected subscriptions and publications, once per
 challenge, with their original filters, signed event contents, relay targets,
 and live-location privacy provenance. A revoked or unsubscribed operation must
-not be replayed. Publications remain bounded and pending until a relay returns
-an acknowledgement; terminal rejections other than `auth-required:` are dropped.
+not be replayed. Immediately before replay, a publication's signer must still
+match the accepted proof and its delivery must still be pending for that relay.
+The pending check and local WebSocket enqueue are serialized with queue clearing
+so a reset cannot replay a removed delivery from an earlier snapshot.
+Publications remain bounded and pending until a relay returns an acknowledgement;
+terminal rejections other than `auth-required:` are dropped.
 
 Repeated challenges, rejected proofs, missing identities, and restricted
 membership must not produce retry loops. Each socket allows at most 32 identities

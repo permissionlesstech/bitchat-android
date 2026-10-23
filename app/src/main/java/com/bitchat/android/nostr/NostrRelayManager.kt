@@ -1150,8 +1150,19 @@ class NostrRelayManager internal constructor(
         messageQueue.pendingForRelay(relayUrl)
             .filter { it.queueId.toString() in actions.eventIds }
             .forEach { delivery ->
-                if (connections[relayUrl] === webSocket) {
-                    sendToRelay(delivery.event, webSocket, relayUrl, delivery.liveLocationToken)
+                runNetworkAction(delivery.liveLocationToken) {
+                    if (resolveAuthenticationIdentity(delivery.authenticationIdentity)?.publicKeyHex != identity.publicKeyHex) {
+                        return@runNetworkAction
+                    }
+                    // Resolving a signer or replaying an earlier delivery can overlap a reset.
+                    // Keep the final pending check and enqueue atomic with queue removal/clearing.
+                    messageQueue.runIfPending(delivery.queueId, relayUrl) {
+                        if (connections[relayUrl] === webSocket && authentication[webSocket] === session &&
+                            desiredConnected.get()
+                        ) {
+                            sendToRelay(delivery.event, webSocket, relayUrl, delivery.liveLocationToken)
+                        }
+                    }
                 }
             }
     }

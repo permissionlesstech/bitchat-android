@@ -65,6 +65,14 @@ internal class NostrPendingEventQueue(
             .toList()
     }
 
+    /** Serialize a pending check and local WebSocket enqueue with acknowledgement, eviction or reset. */
+    fun runIfPending(queueId: Long, relayUrl: String, action: () -> Unit) {
+        synchronized(lock) {
+            if (entries.none { it.queueId == queueId && relayUrl in it.pendingRelayUrls }) return
+            action()
+        }
+    }
+
     fun markDelivered(queueId: Long, relayUrl: String) {
         synchronized(lock) {
             val iterator = entries.iterator()
