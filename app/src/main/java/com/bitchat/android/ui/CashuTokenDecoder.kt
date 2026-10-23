@@ -25,16 +25,24 @@ object CashuTokenDecoder {
         val memo: String?
     ) {
         val displayAmount: String?
-            get() = amount?.let { value ->
-                val displayUnit = unit ?: "sat"
-                val minorDigits = minorUnitDigits(displayUnit)
-                val formatted = if (minorDigits == null || minorDigits == 0) {
-                    value.toString()
-                } else {
-                    BigDecimal.valueOf(value, minorDigits).setScale(minorDigits).toPlainString()
-                }
-                "$formatted $displayUnit"
+            get() = formatDisplayAmount(amount, unit)
+    }
+
+    internal fun formatDisplayAmount(
+        amount: Long?,
+        unit: String?,
+        fractionDigits: (String) -> Int? = ::minorUnitDigits,
+    ): String? {
+        return amount?.let { value ->
+            val displayUnit = unit ?: "sat"
+            val minorDigits = fractionDigits(displayUnit)
+            val formatted = if (minorDigits == null || minorDigits == 0) {
+                value.toString()
+            } else {
+                BigDecimal.valueOf(value, minorDigits).setScale(minorDigits).toPlainString()
             }
+            "$formatted $displayUnit"
+        }
     }
 
     fun bareToken(raw: String): String? {

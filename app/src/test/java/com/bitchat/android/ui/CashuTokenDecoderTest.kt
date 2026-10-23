@@ -39,6 +39,13 @@ class CashuTokenDecoderTest {
     }
 
     @Test
+    fun `display amount keeps units outside the currency table as integers`() {
+        assertEquals("21 sat", CashuTokenDecoder.formatDisplayAmount(21, "sat") { 2 })
+        assertEquals("21 btc", CashuTokenDecoder.formatDisplayAmount(21, "btc") { 2 })
+        assertEquals("9.01 usd", CashuTokenDecoder.formatDisplayAmount(901, "usd") { 2 })
+    }
+
+    @Test
     fun `display amount does not assume decimals for custom units`() {
         val token = CashuTokenDecoder.decode(
             v3Token("""{"token":[{"proofs":[{"amount":901}]}],"unit":"usdc"}"""),
