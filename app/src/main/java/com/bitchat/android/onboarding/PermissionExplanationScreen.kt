@@ -44,12 +44,12 @@ fun PermissionExplanationScreen(
     Column(
         modifier = modifier.padding(24.dp)
     ) {
-        // Scrollable content area
+        // Scrollable content area; padding outside the scroll keeps clipped text off the buttons
         Column(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(scrollState)
-                .padding(bottom = 16.dp),
+                .padding(bottom = 16.dp)
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header Section - matching AboutSheet style
