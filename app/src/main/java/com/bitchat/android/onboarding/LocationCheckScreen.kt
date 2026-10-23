@@ -32,7 +32,7 @@ fun LocationCheckScreen(
     val colorScheme = MaterialTheme.colorScheme
 
     Box(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         when (status) {
