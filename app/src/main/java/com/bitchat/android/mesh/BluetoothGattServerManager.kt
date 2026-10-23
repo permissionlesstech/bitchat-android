@@ -282,15 +282,28 @@ class BluetoothGattServerManager(
                     return
                 }
 
-                if (BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE.contentEquals(value)) {
-                    connectionTracker.addSubscribedDevice(device)
-
-                    connectionScope.launch {
-                        delay(100)
-                        if (isActive) { // Check if still active
-                            delegate?.onDeviceConnected(device)
+                when (GattSubscriptionPolicy.classify(value)) {
+                    GattSubscriptionPolicy.Request.ENABLE -> {
+                        // A repeat descriptor write is not a new connection. Without
+                        // this gate a peer can re-enable notifications in a loop and
+                        // drive both the duplicate-notify fan-out and the announce
+                        // broadcast onDeviceConnected triggers, unauthenticated.
+                        if (connectionTracker.addSubscribedDevice(device)) {
+                            connectionScope.launch {
+                                delay(100)
+                                if (isActive) { // Check if still active
+                                    delegate?.onDeviceConnected(device)
+                                }
+                            }
                         }
                     }
+
+                    GattSubscriptionPolicy.Request.DISABLE ->
+                        // The client asked to stop receiving the broadcast feed;
+                        // keeping it subscribed until disconnect ignores that.
+                        connectionTracker.removeSubscribedDevice(device)
+
+                    GattSubscriptionPolicy.Request.UNRECOGNIZED -> Unit
                 }
                 
                 if (responseNeeded) {
