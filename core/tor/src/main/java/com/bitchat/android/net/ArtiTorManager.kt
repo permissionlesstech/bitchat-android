@@ -123,6 +123,10 @@ class ArtiTorManager private constructor() {
      * Emits after every route change, once [OkHttpProvider] has dropped its cached clients.
      * Whoever holds connections opened on the old route closes them here. Emission never
      * suspends, and a signal sent while the collector is busy is kept, not lost.
+     *
+     * The relay reset runs later, on the relay manager's own coroutine, so do not assume
+     * relays have reset when a mode change returns; new connections already take the new
+     * route, because [OkHttpProvider] is reset before the emission.
      */
     val routeChanges: SharedFlow<Unit> = _routeChanges.asSharedFlow()
 
