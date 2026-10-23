@@ -33,6 +33,8 @@ object NostrBackgroundRuntime {
     private val random = SecureRandom().asKotlinRandom()
     private val lock = Any()
 
+    internal val participants = GeohashParticipantStore()
+
     @Volatile private var initialized = false
     @Volatile private var activeGeohash: String? = null
     @Volatile private var activeGeohashLiveToken: Long? = null
