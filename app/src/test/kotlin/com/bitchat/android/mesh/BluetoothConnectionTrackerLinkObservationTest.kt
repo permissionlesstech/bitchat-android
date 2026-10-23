@@ -79,6 +79,58 @@ class BluetoothConnectionTrackerLinkObservationTest {
         assertTrue(tracker.addressPeerMap.containsValue(PEER_ID))
     }
 
+    @Test
+    fun `cccd before announce withholds the feed then grants it`() {
+        val address = "AA:BB:CC:DD:EE:FF"
+        val device = mock<BluetoothDevice>()
+        whenever(device.address).thenReturn(address)
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-a")
+        )
+
+        assertFalse(tracker.requestBroadcastSubscription(device))
+        assertTrue(tracker.getSubscribedDevices().none { it.address == address })
+
+        tracker.noteAnnounceReceived(address)
+        assertTrue(tracker.getSubscribedDevices().any { it.address == address })
+    }
+
+    @Test
+    fun `announce before cccd grants the feed on the descriptor write`() {
+        val address = "AA:BB:CC:DD:EE:00"
+        val device = mock<BluetoothDevice>()
+        whenever(device.address).thenReturn(address)
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-b")
+        )
+
+        tracker.noteAnnounceReceived(address)
+        assertTrue(tracker.requestBroadcastSubscription(device))
+        assertTrue(tracker.getSubscribedDevices().any { it.address == address })
+    }
+
+    @Test
+    fun `disconnect drops a deferred broadcast subscription`() {
+        val address = "AA:BB:CC:DD:EE:01"
+        val device = mock<BluetoothDevice>()
+        whenever(device.address).thenReturn(address)
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-c")
+        )
+        tracker.requestBroadcastSubscription(device)
+        tracker.cleanupDeviceConnection(address)
+
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-d")
+        )
+        tracker.noteAnnounceReceived(address)
+        assertTrue(tracker.getSubscribedDevices().none { it.address == address })
+    }
+
     private companion object {
         const val PEER_ID = "0011223344556677"
     }
