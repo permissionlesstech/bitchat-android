@@ -27,9 +27,15 @@ done
 
 while IFS= read -r -d '' library; do
   # Read the complete stream: grep -q can hide a match through SIGPIPE under pipefail.
-  if strings "$library" | grep -E '/Users/|/home/|[A-Za-z]:\\+Users\\+' >/dev/null; then
+  if strings "$library" 2>/dev/null | grep -E '/Users/|/home/|[A-Za-z]:\\+Users\\+' >/dev/null 2>&1; then
     echo "error: host-specific path detected in a release artifact (${library##*/})" >&2
     exit 1
+  else
+    native_scan_status=("${PIPESTATUS[@]}")
+    if [ "${native_scan_status[0]}" -ne 0 ] || [ "${native_scan_status[1]}" -ne 1 ]; then
+      echo "error: native library inspection failed (${library##*/})" >&2
+      exit 1
+    fi
   fi
 done < <(find "$TEMP_DIR" -type f -name '*.so' -print0)
 

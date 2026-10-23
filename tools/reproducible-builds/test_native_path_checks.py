@@ -2,6 +2,7 @@
 """Check native path rejection with synthetic binaries, without compiling."""
 
 import hashlib
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -29,7 +30,7 @@ class NativePathChecksTest(unittest.TestCase):
         self.artifacts = self.root / "artifacts"
         self.artifacts.mkdir()
 
-    def check(self, payload, rejected):
+    def check(self, payload, rejected, environment=None, diagnostic="host-specific path detected"):
         (self.root / self.library).write_bytes(payload)
         (self.root / "tools/arti-build/SHA256SUMS").write_text(
             f"{hashlib.sha256(payload).hexdigest()}  {self.library}\n"
@@ -40,11 +41,11 @@ class NativePathChecksTest(unittest.TestCase):
             with self.subTest(script=str(script)):
                 result = subprocess.run(
                     ["bash", str(self.root / script), *arguments],
-                    capture_output=True, text=True, timeout=10
+                    capture_output=True, text=True, timeout=10, env=environment
                 )
                 self.assertEqual(result.returncode, 1 if rejected else 0, result.stderr)
                 if rejected:
-                    self.assertIn("host-specific path detected", result.stderr)
+                    self.assertIn(diagnostic, result.stderr)
                 self.assertNotIn("private-fixture", result.stdout + result.stderr)
 
     def assert_path_rejected_at_both_ends(self, path):
@@ -68,6 +69,18 @@ class NativePathChecksTest(unittest.TestCase):
 
     def test_remapped_native_paths_are_accepted(self):
         self.check(b"/usr/src/project/source.rs\0/usr/local/cargo/registry/source.rs\0", rejected=False)
+
+    def test_native_inspection_errors_are_rejected(self):
+        tools = self.root / "bin"
+        tools.mkdir()
+        strings = tools / "strings"
+        strings.write_text("#!/bin/sh\necho private-fixture >&2\nexit 1\n")
+        strings.chmod(0o755)
+        self.check(
+            b"unreadable fixture\0", rejected=True,
+            environment=dict(os.environ, PATH=f"{tools}:{os.environ['PATH']}"),
+            diagnostic="native library inspection failed"
+        )
 
 
 if __name__ == "__main__":
