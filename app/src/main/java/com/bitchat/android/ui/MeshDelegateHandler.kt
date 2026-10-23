@@ -8,6 +8,12 @@ import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.ContactDirectory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import com.bitchat.android.services.PeerConversationReconciler
 import java.util.Date
 
 /**
@@ -23,8 +29,28 @@ class MeshDelegateHandler(
     private val onHapticFeedback: () -> Unit,
     private val getMyPeerID: () -> String,
     private val getMeshService: () -> MeshService,
-    private val markMessageReadLocally: (messageID: String) -> Unit = {}
+    private val markMessageReadLocally: (messageID: String) -> Unit = {},
+    private val reconciliationDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : BluetoothMeshDelegate {
+    private val peerUpdates = Channel<List<String>>(Channel.CONFLATED)
+    private val peerConversations = PeerConversationReconciler(
+        com.bitchat.android.services.AppStateStore::reconcilePeerConversations
+    )
+
+    init {
+        coroutineScope.launch {
+            for (peers in peerUpdates) {
+                try {
+                    processPeerUpdate(peers)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Keep accepting snapshots after a failed reconciliation; the next one retries.
+                    android.util.Log.w("MeshDelegateHandler", "Peer reconciliation failed")
+                }
+            }
+        }
+    }
 
     override fun didReceiveMessage(message: BitchatMessage) {
         coroutineScope.launch {
@@ -101,9 +127,7 @@ class MeshDelegateHandler(
     }
     
     override fun didUpdatePeerList(peers: List<String>) {
-        coroutineScope.launch {
-            processPeerUpdate(peers.distinct())
-        }
+        peerUpdates.trySend(peers.distinct())
     }
 
     private suspend fun processPeerUpdate(mergedPeers: List<String>) {
@@ -116,7 +140,15 @@ class MeshDelegateHandler(
         // Clean up channel members who disconnected
         channelManager.cleanupDisconnectedMembers(mergedPeers, getMyPeerID())
 
-        runCatching { com.bitchat.android.services.AppStateStore.canonicalizePrivateChats() }
+        withContext(reconciliationDispatcher) {
+            peerConversations.reconcile(mergedPeers.map { peerID ->
+                PeerConversationReconciler.PeerAliases(
+                    peerID,
+                    ContactDirectory.canonicalConversationId(peerID),
+                    ContactDirectory.aliasesForConversation(peerID)
+                )
+            })
+        }
 
         state.getSelectedPrivateChatPeerValue()?.let { currentPeer ->
             val canonical = ContactDirectory.canonicalConversationId(currentPeer)
@@ -137,19 +169,6 @@ class MeshDelegateHandler(
             }
         }
 
-        mergedPeers.forEach { pid ->
-            try {
-                val canonical = ContactDirectory.canonicalConversationId(pid)
-                unifyChatsIntoPeer(canonical, ContactDirectory.aliasesForConversation(pid).toList())
-            } catch (_: Exception) { }
-        }
-    }
-
-    /**
-     * Merge any chats stored under the given keys into the connected peer's chat entry.
-     */
-    private fun unifyChatsIntoPeer(targetPeerID: String, keysToMerge: List<String>) {
-        com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(state, targetPeerID, keysToMerge)
     }
 
     override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
