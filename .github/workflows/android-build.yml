@@ -32,7 +32,9 @@ jobs:
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
       - name: Verify native build boundaries
-        run: python3 tools/reproducible-builds/test_native_source_build.py
+        run: |
+          python3 tools/reproducible-builds/test_native_source_build.py
+          python3 tools/reproducible-builds/test_native_path_checks.py
 
       - name: Verify native library inputs
         run: tools/arti-build/verify-checksums.sh

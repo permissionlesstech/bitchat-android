@@ -26,8 +26,9 @@ for artifact in "$ARTIFACT_DIR"/*.apk "$ARTIFACT_DIR"/*.aab; do
 done
 
 while IFS= read -r -d '' library; do
-  if strings "$library" | grep -Eq '/Users/|/home/|[A-Za-z]:\\\\Users\\\\'; then
-    echo "error: host-specific path detected in a release artifact" >&2
+  # Read the complete stream: grep -q can hide a match through SIGPIPE under pipefail.
+  if strings "$library" | grep -E '/Users/|/home/|[A-Za-z]:\\+Users\\+' >/dev/null; then
+    echo "error: host-specific path detected in a release artifact (${library##*/})" >&2
     exit 1
   fi
 done < <(find "$TEMP_DIR" -type f -name '*.so' -print0)
