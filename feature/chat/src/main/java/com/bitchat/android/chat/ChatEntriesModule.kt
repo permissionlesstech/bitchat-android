@@ -2,13 +2,13 @@ package com.bitchat.android.chat
 
 import androidx.activity.compose.BackHandler
 import com.bitchat.android.navigation.AboutRoute
-import com.bitchat.android.navigation.AppNavigator
 import com.bitchat.android.navigation.ChatRoute
 import com.bitchat.android.navigation.ChatUserRoute
 import com.bitchat.android.navigation.EntryProviderInstaller
 import com.bitchat.android.navigation.LocationChannelsRoute
 import com.bitchat.android.navigation.LocationNotesRoute
 import com.bitchat.android.navigation.MeshPeerListRoute
+import com.bitchat.android.navigation.Navigator
 import com.bitchat.android.navigation.PrivateChatRoute
 import com.bitchat.android.navigation.ScreenTransitions
 import com.bitchat.android.navigation.SecurityVerificationRoute
@@ -35,15 +35,10 @@ import dagger.multibindings.IntoSet
 @InstallIn(ActivityRetainedComponent::class)
 object ChatEntriesModule {
 
-    /**
-     * Takes [AppNavigator] rather than [com.bitchat.android.navigation.Navigator]:
-     * chat reads the back stack for the private chat open over it, and the
-     * Navigator interface does not expose the stack.
-     */
     @Provides
     @IntoSet
     fun chatEntries(
-        navigator: AppNavigator,
+        navigator: Navigator,
         chatState: ChatState,
     ): EntryProviderInstaller = {
         entry<ChatRoute>(metadata = ScreenTransitions.rootFade()) {

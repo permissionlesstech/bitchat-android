@@ -26,7 +26,7 @@ import javax.inject.Inject
 @ActivityRetainedScoped
 class AppNavigator @Inject constructor() : Navigator {
 
-    val backStack: SnapshotStateList<NavKey> = mutableStateListOf()
+    override val backStack: SnapshotStateList<NavKey> = mutableStateListOf()
 
     override fun goTo(dest: NavKey) {
         // A same-frame double tap pushes the same key twice. Dedup at the source

@@ -10,6 +10,13 @@ import androidx.navigation3.runtime.NavKey
  */
 interface Navigator {
 
+    /**
+     * The back stack, bottom first, for reading only. Reads inside a
+     * composition are observed, so a screen that reads it recomposes when it
+     * changes. Change the stack through the methods below.
+     */
+    val backStack: List<NavKey>
+
     /** Push [dest], unless it is already on top. */
     fun goTo(dest: NavKey)
 
