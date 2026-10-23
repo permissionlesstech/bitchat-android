@@ -100,7 +100,7 @@ class NostrDirectMessageHandlerTest {
             privateChatManager = mock(),
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, state, dataManager),
+            repo = GeohashRepository(application, state, dataManager, scope),
             dataManager = dataManager,
             seenStoreProvider = { seenStore }
         )
@@ -222,7 +222,7 @@ class NostrDirectMessageHandlerTest {
             privateChatManager = privateChatManager,
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, state, dataManager),
+            repo = GeohashRepository(application, state, dataManager, scope),
             dataManager = dataManager,
             seenStoreProvider = { seenStore },
             legacyNostrInboundAllowed = { senderPubkey ->
@@ -280,7 +280,7 @@ class NostrDirectMessageHandlerTest {
             privateChatManager = privateChatManager,
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, state, dataManager),
+            repo = GeohashRepository(application, state, dataManager, scope),
             dataManager = dataManager,
             seenStoreProvider = { seenStore },
             legacyNostrInboundAllowed = {

@@ -5,9 +5,13 @@ import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -15,6 +19,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.After
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -30,18 +35,27 @@ class GeohashPresenceBurstTest {
     private val dataManager = DataManager(application)
     private val repo = GeohashRepository(application, state, dataManager, scope)
     private val handler = GeohashMessageHandler(
-        application, repo, scope, dataManager, { _, _ -> }, dispatcher
+        application, repo, dataManager, { _, _ -> }, UnconfinedTestDispatcher(scope.testScheduler)
     )
+    private lateinit var accountEpoch: NostrAccountEpoch
     // A synthetic fixture channel; no device location or relay traffic is used.
     private val geohash = "s000"
 
+    @Before
+    fun setUp() {
+        accountEpoch = NostrInboundAccountLifecycle.begin(
+            "aa".repeat(32), scope.coroutineContext[Job]
+        ).epoch
+    }
+
     @After
     fun tearDown() {
+        NostrInboundAccountLifecycle.invalidate()
         scope.cancel()
     }
 
     @Test
-    fun `presence bursts coalesce UI snapshots including after channel reentry`() {
+    fun `presence bursts coalesce UI snapshots including after channel reentry`() = runBlocking {
         val snapshots = mutableListOf<Int>()
         val collection = scope.launch(UnconfinedTestDispatcher(scope.testScheduler)) {
             state.geohashPeople.drop(1).collect { snapshots += it.size }
@@ -56,7 +70,7 @@ class GeohashPresenceBurstTest {
             repo.setCurrentGeohash(geohash)
             repo.refreshGeohashPeople()
             snapshots.clear()
-            identities.forEachIndexed { index, identity ->
+            val receives = identities.mapIndexedNotNull { index, identity ->
                 handler.onEvent(
                     NostrEvent(
                         pubkey = identity.publicKeyHex,
@@ -65,9 +79,12 @@ class GeohashPresenceBurstTest {
                         tags = listOf(listOf("g", geohash), listOf("n", "test-$index")),
                         content = ""
                     ).sign(identity.privateKeyHex),
-                    geohash
+                    geohash,
+                    accountEpoch
                 )
             }
+            // Complete account-owned receive jobs before advancing the UI batching clock.
+            withTimeout(5_000) { receives.joinAll() }
             scope.advanceUntilIdle()
 
             assertEquals(50, state.geohashPeople.value.size)
