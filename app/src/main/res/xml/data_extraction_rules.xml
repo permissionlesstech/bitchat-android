@@ -1,11 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  None of bitchat's app-private storage may leave the device.
+
+  These rules are deny-by-default on purpose. An allow-by-default list that names individual
+  files goes stale the moment storage is renamed or added, which is how "bitchat_crypto.xml"
+  came to be excluded here after EncryptionService had already moved to
+  "bitchat_crypto_secure", leaving the live key store, "bitchat_identity", and
+  "private_conversations.db" eligible.
+
+  android:allowBackup="false" covers cloud backup, but for apps targeting Android 12 (API 31)
+  or higher the platform documents that device-to-device migration cannot be disabled on some
+  manufacturers' devices, so <device-transfer> is the only thing between a phone migration and
+  a copy of the identity keys and every private message.
+-->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="sharedpref" path="bitchat_prefs.xml"/>
-        <exclude domain="sharedpref" path="bitchat_crypto.xml"/>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="sharedpref" path="bitchat_prefs.xml"/>
-        <exclude domain="sharedpref" path="bitchat_crypto.xml"/>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
     </device-transfer>
 </data-extraction-rules>
