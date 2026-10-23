@@ -79,6 +79,14 @@
   <string name="cd_add_bookmark">Add bookmark</string>
 
   <!-- Chat header &amp; accessibility -->
+  <string name="cd_delivery_sending">Message sending</string>
+  <string name="cd_delivery_sent">Message sent</string>
+  <string name="cd_delivery_delivered">Message delivered</string>
+  <string name="cd_delivery_read">Message read</string>
+  <string name="cd_delivery_failed">Message failed to send</string>
+  <string name="cd_delivery_partial">Message sending, %1$d of %2$d parts delivered</string>
+  <string name="a11y_incoming_message">New message from %1$s: %2$s</string>
+  <string name="a11y_incoming_voice_message">Voice message</string>
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Messages</string>
   <string name="conversations">Conversations</string>
