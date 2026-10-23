@@ -140,7 +140,17 @@ class ChatViewModel(
     private val conversationListPreferences =
         com.bitchat.android.services.ConversationListPreferences.getInstance(getApplication())
     private val messageManager = MessageManager(state)
-    private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
+    private val channelManager = ChannelManager(
+        state,
+        messageManager,
+        dataManager,
+        viewModelScope,
+        onSwitchToMeshLocation = {
+            com.bitchat.android.geohash.LocationChannelManager
+                .getInstance(getApplication())
+                .select(com.bitchat.android.geohash.ChannelID.Mesh)
+        }
+    )
 
     // Create Noise session delegate for clean dependency injection
     private val noiseSessionDelegate = object : NoiseSessionDelegate {
@@ -1192,7 +1202,7 @@ class ChatViewModel(
     /**
      * Update reactive states for all connected peers (session states, fingerprints, nicknames, RSSI)
      */
-    private fun updateReactiveStates() {
+    private suspend fun updateReactiveStates() {
         val currentPeers = state.getConnectedPeersValue()
         
         // Update session states
@@ -1211,19 +1221,16 @@ class ChatViewModel(
             }
         }
         // Update fingerprint mappings from centralized manager
+        val cacheGeneration = identityManager.cacheGeneration()
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
-        fingerprints.forEach { (peerID, fingerprint) ->
-            identityManager.cachePeerFingerprint(peerID, fingerprint)
-            val info = try { mesh.getPeerInfo(peerID) } catch (_: Exception) { null }
-            val noiseKeyHex = info?.noisePublicKey?.hexEncodedString()
-            if (noiseKeyHex != null) {
-                identityManager.cachePeerNoiseKey(peerID, noiseKeyHex)
-                identityManager.cacheNoiseFingerprint(noiseKeyHex, fingerprint)
-            }
-            info?.nickname?.takeIf { it.isNotBlank() }?.let { nickname ->
-                identityManager.cacheFingerprintNickname(fingerprint, nickname)
-            }
+        withContext(Dispatchers.IO) {
+            identityManager.cachePeerIdentities(fingerprints.map { (peerID, fingerprint) ->
+                val info = try { mesh.getPeerInfo(peerID) } catch (_: Exception) { null }
+                SecureIdentityStateManager.CachedPeerIdentity(
+                    peerID, fingerprint, info?.noisePublicKey?.hexEncodedString(), info?.nickname
+                )
+            }, cacheGeneration)
         }
 
         state.setPeerNicknames(mesh.getPeerNicknames())

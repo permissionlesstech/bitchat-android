@@ -12,9 +12,38 @@ class IdentityAnnouncementTest {
     private val signingKey = ByteArray(32) { 0x22 }
 
     @Test
-    fun `private media capability uses iOS little-endian bytes`() {
+    fun `capability assignments and encoding match iOS`() {
+        assertEquals(1L shl 0, PeerCapabilities.PREKEYS.rawValue)
+        assertEquals(1L shl 1, PeerCapabilities.WIFI_BULK.rawValue)
+        assertEquals(1L shl 2, PeerCapabilities.GATEWAY.rawValue)
+        assertEquals(1L shl 3, PeerCapabilities.GROUPS.rawValue)
+        assertEquals(1L shl 4, PeerCapabilities.BOARD.rawValue)
+        assertEquals(1L shl 5, PeerCapabilities.VOUCH.rawValue)
+        assertEquals(1L shl 6, PeerCapabilities.MESH_DIAGNOSTICS.rawValue)
+        assertEquals(1L shl 7, PeerCapabilities.BRIDGE.rawValue)
+        assertEquals(1L shl 8, PeerCapabilities.PRIVATE_MEDIA.rawValue)
+        assertEquals(1L shl 9, PeerCapabilities.PRIVATE_MEDIA_RECEIPTS.rawValue)
+        assertEquals(1L shl 10, PeerCapabilities.NON_DESTRUCTIVE_NOISE_REPLACEMENT.rawValue)
+
+        val assigned = PeerCapabilities((1L shl 11) - 1)
+        assertArrayEquals(byteArrayOf(0xFF.toByte(), 0x07), assigned.encoded())
+        assertEquals(assigned, PeerCapabilities.decode(assigned.encoded()))
+    }
+
+    @Test
+    fun `capability encoding is minimal and preserves low 64 unknown bits`() {
+        assertArrayEquals(byteArrayOf(0x00), PeerCapabilities.NONE.encoded())
+        assertArrayEquals(byteArrayOf(0x01), PeerCapabilities.PREKEYS.encoded())
         assertArrayEquals(byteArrayOf(0x00, 0x01), PeerCapabilities.PRIVATE_MEDIA.encoded())
-        assertTrue(PeerCapabilities.decode(byteArrayOf(0x00, 0x01)).contains(PeerCapabilities.PRIVATE_MEDIA))
+
+        val future = PeerCapabilities.decode(
+            byteArrayOf(0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80.toByte(), 0x55)
+        )
+        assertEquals(Long.MIN_VALUE or 1L, future.rawValue)
+        assertArrayEquals(
+            byteArrayOf(0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80.toByte()),
+            future.encoded()
+        )
     }
 
     @Test
@@ -71,5 +100,6 @@ class IdentityAnnouncementTest {
                 .capabilities!!
                 .contains(PeerCapabilities.PRIVATE_MEDIA)
         )
+        assertEquals(PeerCapabilities.PRIVATE_MEDIA, PeerCapabilities.LOCAL_SUPPORTED)
     }
 }

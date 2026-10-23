@@ -20,11 +20,8 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Public Message Management
     
     fun addMessage(message: BitchatMessage) {
-        val currentMessages = state.getMessagesValue().toMutableList()
-        currentMessages.add(message)
-        state.setMessages(currentMessages)
-        // Reflect into process-wide store so snapshot replacements don't drop local outgoing messages
-        try { com.bitchat.android.services.AppStateStore.addPublicMessage(message) } catch (_: Exception) { }
+        com.bitchat.android.services.AppStateStore.addPublicMessage(message)
+        state.setMessages(com.bitchat.android.services.AppStateStore.publicMessages.value)
     }
 
     // Log a system message into the main chat (visible to user)
@@ -39,6 +36,7 @@ class MessageManager(private val state: ChatState) {
     }
     
     fun clearMessages() {
+        com.bitchat.android.services.AppStateStore.clearPublicTimelines()
         state.setMessages(emptyList())
         state.setChannelMessages(emptyMap())
     }
@@ -46,17 +44,8 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Channel Message Management
     
     fun addChannelMessage(channel: String, message: BitchatMessage) {
-        val currentChannelMessages = state.getChannelMessagesValue().toMutableMap()
-        if (!currentChannelMessages.containsKey(channel)) {
-            currentChannelMessages[channel] = mutableListOf()
-        }
-        
-        val channelMessageList = currentChannelMessages[channel]?.toMutableList() ?: mutableListOf()
-        channelMessageList.add(message)
-        currentChannelMessages[channel] = channelMessageList
-        state.setChannelMessages(currentChannelMessages)
-        // Reflect into process-wide store
-        try { com.bitchat.android.services.AppStateStore.addChannelMessage(channel, message) } catch (_: Exception) { }
+        com.bitchat.android.services.AppStateStore.addChannelMessage(channel, message)
+        state.setChannelMessages(com.bitchat.android.services.AppStateStore.channelMessages.value)
         
         // Update unread count if not currently viewing this channel
         // Consider both classic channels (state.currentChannel) and geohash location channel selection
@@ -77,15 +66,13 @@ class MessageManager(private val state: ChatState) {
     }
     
     fun clearChannelMessages(channel: String) {
-        val updatedChannelMessages = state.getChannelMessagesValue().toMutableMap()
-        updatedChannelMessages[channel] = emptyList()
-        state.setChannelMessages(updatedChannelMessages)
+        com.bitchat.android.services.AppStateStore.clearChannelMessages(channel)
+        state.setChannelMessages(com.bitchat.android.services.AppStateStore.channelMessages.value)
     }
     
     fun removeChannelMessages(channel: String) {
-        val updatedChannelMessages = state.getChannelMessagesValue().toMutableMap()
-        updatedChannelMessages.remove(channel)
-        state.setChannelMessages(updatedChannelMessages)
+        com.bitchat.android.services.AppStateStore.clearChannelMessages(channel, remove = true)
+        state.setChannelMessages(com.bitchat.android.services.AppStateStore.channelMessages.value)
         
         val updatedUnread = state.getUnreadChannelMessagesValue().toMutableMap()
         updatedUnread.remove(channel)

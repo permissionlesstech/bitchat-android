@@ -943,6 +943,61 @@ class BinaryProtocolTest {
     }
 
     /**
+     * Re-encoding preserves a payload compressed by a different DEFLATE encoder
+     *
+     * Verification re-encodes the packet, so a re-encode must reproduce the
+     * originator's bytes. iOS compresses with Apple's compression_encode_buffer,
+     * which need not match java.util.zip.Deflater byte for byte.
+     *
+     * The payload is wrapped in a raw-DEFLATE "stored" block (BTYPE=00): valid, it
+     * inflates correctly, and no compressor would emit it, so it stands in for a
+     * foreign encoder without a second compression library. Compared unpadded so
+     * the result does not depend on how padding is generated.
+     */
+    @Test
+    fun `re-encoding preserves a foreign encoder's compressed payload`() {
+        val payload = "the mesh is up near the north gate. relay running all evening. "
+            .repeat(4)
+            .toByteArray()
+
+        // Raw DEFLATE stored block: BFINAL=1 BTYPE=00, then LEN and NLEN little-endian.
+        val stored = ByteArray(5 + payload.size)
+        stored[0] = 0x01
+        stored[1] = (payload.size and 0xFF).toByte()
+        stored[2] = ((payload.size shr 8) and 0xFF).toByte()
+        stored[3] = (payload.size.inv() and 0xFF).toByte()
+        stored[4] = ((payload.size.inv() shr 8) and 0xFF).toByte()
+        payload.copyInto(stored, 5)
+
+        val buffer = ByteBuffer.allocate(1024).apply { order(ByteOrder.BIG_ENDIAN) }
+        buffer.put(2.toByte())                                  // version = 2
+        buffer.put(MessageType.MESSAGE.value.toByte())          // type
+        buffer.put(5.toByte())                                  // ttl
+        buffer.putLong(fixedTimestamp.toLong())                 // timestamp (8 bytes)
+        buffer.put(BinaryProtocol.Flags.IS_COMPRESSED.toByte()) // flags
+        buffer.putInt(stored.size + 4)                          // payloadLength incl. originalSize
+        buffer.put(hexToBytes(senderHex))                       // senderID (8 bytes)
+        buffer.putInt(payload.size)                             // originalSize
+        buffer.put(stored)                                      // compressed payload
+
+        val raw = ByteArray(buffer.position())
+        buffer.rewind()
+        buffer.get(raw)
+
+        val decoded = BinaryProtocol.decode(raw)
+        assertNotNull("Foreign-encoded frame must decode", decoded)
+        assertArrayEquals("Payload must inflate to the original", payload, decoded!!.payload)
+
+        val reEncoded = BinaryProtocol.encode(decoded, padding = false)
+        assertNotNull("Re-encode must succeed", reEncoded)
+        assertArrayEquals(
+            "Re-encode must reproduce the originator's bytes, or a valid signature stops verifying",
+            raw,
+            reEncoded
+        )
+    }
+
+    /**
      * v2 compression bomb is rejected
      *
      * Same concept as the v1 compression bomb test but with version=2,

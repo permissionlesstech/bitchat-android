@@ -2,7 +2,6 @@ package com.bitchat.watch.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,6 +13,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -40,14 +40,21 @@ fun VerificationCodeScreen(peerID: String) {
         WearPeerIdentityState.snapshot(peerID, mesh)
     }
     val myFingerprint = WearPeerIdentityState.myFingerprint(mesh)
-    val listState = rememberScalingLazyListState()
+    val listState = rememberScalingLazyListState(initialCenterItemIndex = 0)
     val palette = LocalBitchatPalette.current
 
-    ScreenScaffold(scrollState = listState) {
+    ScreenScaffold(scrollState = listState) { scaffoldPadding ->
+        val layoutDirection = LocalLayoutDirection.current
         ScalingLazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+            autoCentering = null,
+            contentPadding = scaffoldPadding
+                .withAdditionalPadding(
+                    layoutDirection = layoutDirection,
+                    horizontal = 10.dp
+                )
+                .withVerticalClearance(layoutDirection, top = 28.dp, bottom = 28.dp)
         ) {
             item {
                 ListHeader {
@@ -120,7 +127,8 @@ fun VerificationCodeScreen(peerID: String) {
                             "Remove verification"
                         } else {
                             "Mark verified"
-                        }
+                        },
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -152,8 +160,8 @@ private fun FingerprintCard(
             text = fingerprint?.let(::formatVerificationCode) ?: "Handshake pending",
             style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp,
-                lineHeight = 13.sp
+                fontSize = 12.sp,
+                lineHeight = 16.sp
             ),
             color = if (fingerprint == null) {
                 palette.accentOrange
@@ -172,6 +180,6 @@ fun formatVerificationCode(fingerprint: String): String {
     return fingerprint
         .uppercase()
         .chunked(4)
-        .chunked(4)
+        .chunked(2)
         .joinToString("\n") { line -> line.joinToString(" ") }
 }

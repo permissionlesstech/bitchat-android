@@ -416,6 +416,11 @@ class LocationNotesManager private constructor() {
             Log.v(TAG, "Ignoring non-text-note event: kind=${event.kind}")
             return
         }
+
+        if (!event.isValidSignature()) {
+            Log.w(TAG, "Rejecting note ${event.id.take(8)}... with invalid signature")
+            return
+        }
         
         // Check for geohash tag
         val geohashTag = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }

@@ -3,8 +3,11 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Date
 
 /**
@@ -18,7 +21,8 @@ class GeohashMessageHandler(
     private val repo: GeohashRepository,
     private val scope: CoroutineScope,
     private val dataManager: com.bitchat.android.ui.DataManager,
-    private val addChannelMessage: (String, BitchatMessage) -> Unit
+    private val addChannelMessage: (String, BitchatMessage) -> Unit,
+    private val signatureVerificationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     companion object { private const val TAG = "GeohashMessageHandler" }
 
@@ -44,6 +48,13 @@ class GeohashMessageHandler(
                 if (event.kind != NostrKind.EPHEMERAL_EVENT && event.kind != NostrKind.GEOHASH_PRESENCE) return@launch
                 val tagGeo = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }?.getOrNull(1)
                 if (tagGeo == null || !tagGeo.equals(subscribedGeohash, true)) return@launch
+                val hasValidSignature = withContext(signatureVerificationDispatcher) {
+                    event.isValidSignature()
+                }
+                if (!hasValidSignature) {
+                    Log.w(TAG, "Rejecting geohash event ${event.id.take(8)}... with invalid signature")
+                    return@launch
+                }
                 if (dedupe(event.id)) return@launch
 
                 // PoW validation (if enabled) - apply to chat messages primarily

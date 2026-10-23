@@ -1,11 +1,8 @@
 package com.bitchat.watch.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -32,6 +28,8 @@ import androidx.wear.compose.foundation.rotary.rotaryScrollable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.lazy.items
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Icon
@@ -140,59 +138,58 @@ private fun DmHeader(
     expanded: Boolean,
     isFavorite: Boolean,
     isVerified: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val palette = LocalBitchatPalette.current
     // Floating title row: full-size at the newest messages, shrinks to its dense form
     // while scrolling up into history. Rendered as an overlay, so the animation only
     // relayouts this row, never the message list.
-    val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(
-        BitchatMotion.STANDARD_MS
-    )
-    val headerIconSize by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (expanded) 16.dp else 11.dp, animationSpec = spec, label = "dmHdrIcon"
-    )
-    val headerTitleSize by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (expanded) 15.dp else 11.dp, animationSpec = spec, label = "dmHdrTitle"
-    )
-    val headerVPadding by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (expanded) 6.dp else 1.dp, animationSpec = spec, label = "dmHdrPad"
-    )
+    val spec =
+        androidx.compose.animation.core.tween<androidx.compose.ui.unit.Dp>(
+            BitchatMotion.STANDARD_MS
+        )
+    val headerIconSize by
+        androidx.compose.animation.core.animateDpAsState(
+            targetValue = if (expanded) 14.dp else 12.dp,
+            animationSpec = spec,
+            label = "dmHdrIcon",
+        )
+    val headerTitleSize by
+        androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (expanded) 14f else 12f,
+            animationSpec = androidx.compose.animation.core.tween(BitchatMotion.STANDARD_MS),
+            label = "dmHdrTitle",
+        )
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                onClickLabel = "Open user details",
-                onClick = onClick
-            )
-            .padding(horizontal = 8.dp, vertical = headerVPadding),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+    WearChatHeader(
+        fontSize = headerTitleSize,
+        onClickLabel = "Open user details",
+        onClick = onClick,
     ) {
         Text(
             text = nickname,
             style = MaterialTheme.typography.titleSmall,
-            fontSize = with(androidx.compose.ui.platform.LocalDensity.current) {
-                headerTitleSize.toSp()
-            },
+            fontSize = headerTitleSize.sp,
+            lineHeight = (headerTitleSize * 1.3f).sp,
             fontWeight = FontWeight.Bold,
-            color = colorForPeer(nickname + peerID, palette)
+            color = colorForPeer(nickname + peerID, palette),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
         NoiseLockIcon(
-            state = if (sessionEstablished) NoiseSessionUiState.Established
-            else NoiseSessionUiState.Handshaking,
+            state =
+                if (sessionEstablished) NoiseSessionUiState.Established
+                else NoiseSessionUiState.Handshaking,
             size = headerIconSize,
-            modifier = Modifier.padding(start = 5.dp)
+            modifier = Modifier.padding(start = 5.dp),
         )
         if (isFavorite) {
             Icon(
                 painter = painterResource(R.drawable.ic_spec_star_filled),
                 contentDescription = "Favorite",
                 tint = palette.accentOrange,
-                modifier = Modifier
-                    .padding(start = 4.dp)
-                    .size(headerIconSize)
+                modifier = Modifier.padding(start = 4.dp).size(headerIconSize),
             )
         }
         if (isVerified) {
@@ -200,9 +197,7 @@ private fun DmHeader(
                 imageVector = Icons.Filled.Verified,
                 contentDescription = "Verified",
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .padding(start = 4.dp)
-                    .size(headerIconSize)
+                modifier = Modifier.padding(start = 4.dp).size(headerIconSize),
             )
         }
     }

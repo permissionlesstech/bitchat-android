@@ -5,8 +5,9 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.util.AppConstants
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -52,13 +53,25 @@ class GossipSyncRequestBudgetTest {
     fun setUp() {
         sentTo.clear()
         clock = 1_000_000L
+    }
+
+    private fun TestScope.prepare() {
         manager = GossipSyncManager(
             myPeerID = MY_PEER,
-            scope = CoroutineScope(Dispatchers.Unconfined),
+            scope = this,
             configProvider = config,
             nowMs = { clock }
         )
         manager.delegate = delegate
+    }
+
+    private fun TestScope.request(
+        peerID: String,
+        filter: RequestSyncPacket = emptyFilter,
+        ingressLinkID: String? = null
+    ) {
+        manager.handleRequestSync(peerID, filter, ingressLinkID)
+        advanceUntilIdle()
     }
 
     private fun broadcastMessage(body: String): BitchatPacket = BitchatPacket(
@@ -75,34 +88,37 @@ class GossipSyncRequestBudgetTest {
     }
 
     @Test
-    fun `an honest peer still receives every packet it is missing`() {
+    fun `an honest peer still receives every packet it is missing`() = runTest {
+        prepare()
         storeMessages(CAPACITY)
 
-        manager.handleRequestSync(REQUESTER, emptyFilter)
+        request(REQUESTER)
 
         assertEquals(CAPACITY, sentTo.size)
         assertTrue(sentTo.all { it.first == REQUESTER })
     }
 
     @Test
-    fun `back to back requests stop being serviced after the burst allowance`() {
+    fun `back to back requests stop being serviced after the burst allowance`() = runTest {
+        prepare()
         storeMessages(CAPACITY)
 
         // No time passes between these, so nothing refills.
-        repeat(100) { manager.handleRequestSync(REQUESTER, emptyFilter) }
+        repeat(100) { request(REQUESTER) }
 
         // Before the fix every one of the 100 requests replayed all CAPACITY packets.
         assertEquals(CAPACITY, sentTo.size)
     }
 
     @Test
-    fun `a flood cannot pull more packets than the refill window allows`() {
+    fun `a flood cannot pull more packets than the refill window allows`() = runTest {
+        prepare()
         storeMessages(CAPACITY)
 
         // Hammer for a simulated minute, far faster than any honest peer syncs.
         repeat(600) {
             clock += 100L
-            manager.handleRequestSync(REQUESTER, emptyFilter)
+            request(REQUESTER)
         }
 
         // 60s of hammering earns two windows' worth of packets, not 600 replays.
@@ -115,36 +131,39 @@ class GossipSyncRequestBudgetTest {
     }
 
     @Test
-    fun `the budget refills so a peer can keep syncing`() {
+    fun `the budget refills so a peer can keep syncing`() = runTest {
+        prepare()
         storeMessages(CAPACITY)
 
-        manager.handleRequestSync(REQUESTER, emptyFilter)
+        request(REQUESTER)
         assertEquals(CAPACITY, sentTo.size)
 
         sentTo.clear()
         clock += AppConstants.Sync.RESPONSE_REFILL_WINDOW_MS
-        manager.handleRequestSync(REQUESTER, emptyFilter)
+        request(REQUESTER)
 
         assertEquals(CAPACITY, sentTo.size)
     }
 
     @Test
-    fun `one flooding peer does not consume another peer's budget`() {
+    fun `one flooding peer does not consume another peer's budget`() = runTest {
+        prepare()
         storeMessages(CAPACITY)
-        repeat(50) { manager.handleRequestSync(REQUESTER, emptyFilter) }
+        repeat(50) { request(REQUESTER) }
         sentTo.clear()
 
-        manager.handleRequestSync("99aabbccddeeff00", emptyFilter)
+        request("99aabbccddeeff00")
 
         assertEquals(CAPACITY, sentTo.size)
     }
 
     @Test
-    fun `requester bookkeeping stays bounded when peer ids are spoofed`() {
+    fun `requester bookkeeping stays bounded when peer ids are spoofed`() = runTest {
+        prepare()
         storeMessages(1)
 
         repeat(AppConstants.Sync.MAX_TRACKED_REQUESTERS * 4) { i ->
-            manager.handleRequestSync("%016x".format(i), emptyFilter)
+            request("%016x".format(i))
         }
 
         assertEquals(
@@ -154,14 +173,15 @@ class GossipSyncRequestBudgetTest {
     }
 
     @Test
-    fun `rotating the sender id does not mint a fresh budget on one link`() {
+    fun `rotating the sender id does not mint a fresh budget on one link`() = runTest {
+        prepare()
         storeMessages(CAPACITY)
 
         // REQUEST_SYNC is not in the set SecurityManager.verifyPacketSignature authenticates, so
         // the sender ID is free for a flooder to rotate. Cycling more IDs than the LRU tracks
         // would hand out a full allowance per request if the budget were keyed on it.
         repeat(AppConstants.Sync.MAX_TRACKED_REQUESTERS * 2) { i ->
-            manager.handleRequestSync("%016x".format(i), emptyFilter, ingressLinkID = "link-1")
+            request("%016x".format(i), ingressLinkID = "link-1")
         }
 
         assertEquals(CAPACITY, sentTo.size)
@@ -169,35 +189,38 @@ class GossipSyncRequestBudgetTest {
     }
 
     @Test
-    fun `separate links keep separate budgets`() {
+    fun `separate links keep separate budgets`() = runTest {
+        prepare()
         storeMessages(CAPACITY)
 
-        manager.handleRequestSync(REQUESTER, emptyFilter, ingressLinkID = "link-1")
-        repeat(50) { manager.handleRequestSync(REQUESTER, emptyFilter, ingressLinkID = "link-1") }
+        request(REQUESTER, ingressLinkID = "link-1")
+        repeat(50) { request(REQUESTER, ingressLinkID = "link-1") }
         sentTo.clear()
 
         // A different physical link is a different neighbour and must not inherit the throttle.
-        manager.handleRequestSync(REQUESTER, emptyFilter, ingressLinkID = "link-2")
+        request(REQUESTER, ingressLinkID = "link-2")
 
         assertEquals(CAPACITY, sentTo.size)
     }
 
     @Test
-    fun `a backwards clock jump does not hand out free budget`() {
+    fun `a backwards clock jump does not hand out free budget`() = runTest {
+        prepare()
         storeMessages(CAPACITY)
 
         repeat(100) {
             clock -= 5_000L
-            manager.handleRequestSync(REQUESTER, emptyFilter)
+            request(REQUESTER)
         }
 
         assertEquals(CAPACITY, sentTo.size)
     }
 
     @Test
-    fun `clearing sync state also clears the budgets`() {
+    fun `clearing sync state also clears the budgets`() = runTest {
+        prepare()
         storeMessages(CAPACITY)
-        manager.handleRequestSync(REQUESTER, emptyFilter)
+        request(REQUESTER)
 
         manager.clear()
 
