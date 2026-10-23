@@ -43,6 +43,15 @@ gh release download "$TAG" \
   --pattern 'bitchat-android-*.apk' \
   --pattern 'bitchat-android-*.aab'
 
+# A pin must come from a separately trusted channel, never the downloaded key.
+# Keep compatibility with releases made before OpenPGP metadata was published.
+if [ -n "${BITCHAT_RELEASE_GPG_FINGERPRINT:-}" ]; then
+  gh release download "$TAG" --repo "$REPOSITORY" --dir "$DOWNLOAD_DIR" \
+    --pattern 'BITCHAT_SHA256SUMS.asc' --pattern 'BITCHAT_RELEASE_KEY.asc'
+  python3 "$SCRIPT_DIR/openpgp-release.py" verify "$DOWNLOAD_DIR" \
+    "$BITCHAT_RELEASE_GPG_FINGERPRINT"
+fi
+
 attested_artifacts=(
   BITCHAT_BUILDINFO.json
   BITCHAT_SHA256SUMS.unsigned
