@@ -40,16 +40,34 @@ Coded a little too long.
   because a remote can refuse a change without any callback.
 - **Incoming connections.** Android has no RSSI read on the GATT server side,
   so incoming connections follow our outgoing connection to the same peer: the
-  same two radios over the same distance. They only ever move *to* Coded;
-  returning to 1M is left to the side that opened the connection, so the two
-  ends never pull a link in opposite directions. Advertisement RSSI is not
-  used: between two phones it measured 15–25 dB below link RSSI, because it
-  depends on the remote's advertising power and power mode.
+  same two radios over the same distance. This side only ever *requests*
+  Coded, never 1M, so the two ends never pull a link in opposite directions.
+  Advertisement RSSI is not used: between two phones it measured 15–25 dB
+  below link RSSI, because it depends on the remote's advertising power and
+  power mode.
+- **Releasing Coded.** A `setPreferredPhy` preference stays in the controller,
+  and a PHY change needs a PHY both ends accept. If an incoming connection
+  kept a Coded-only preference, the side that opened it could never move it
+  back to 1M: on real phones the 1M request was retried forever. So once our
+  own measurement has been strong for the same 30 s, the incoming side
+  replaces its preference with "any PHY" and lets the other side choose.
+  Without an outgoing connection to measure, the preference is dropped after
+  2 minutes. A preference left over from `MAX_RANGE` is released the same way
+  after switching to `ADAPTIVE`.
+- **Refusals.** After 5 refused requests a link stops asking for 5 minutes,
+  then tries again. The debug menu shows this, e.g. "1M requested 2x, peer
+  hasn't switched yet".
 
 The two thresholds can be changed live in the debug menu, for desk testing:
 for example "To Coded below -50 dBm", then move a phone. They are stored as
 `ble_adaptive_enter_dbm` / `ble_adaptive_leave_dbm` and kept at least 6 dB
-apart.
+apart. Debug builds can also change them, and the mode, over ADB through the
+test hook, which replies with the per-link PHY and adaptive state:
+
+```sh
+adb shell am broadcast -a com.bitchat.droid.TEST_HOOK -p com.bitchat.droid   --es cmd ble_long_range --es id lr1 --es mode ADAPTIVE   --ei enter_dbm -50 --ei leave_dbm -40   # or: --ez reset_thresholds true
+adb shell run-as com.bitchat.droid cat cache/testhook/results/lr1.json
+```
 
 ### Coded coding (S=8 / S=2)
 

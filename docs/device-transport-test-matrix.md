@@ -84,6 +84,9 @@ debug sheet for each device; don't record addresses.
   Coded before messages stop (about -78 dBm) and returns to 1M only after
   ~30 s above about -65 dBm, without flapping. For a desk check, set
   "To Coded below" near the current signal in the debug menu.
+- [ ] With both devices in `MAX_RANGE` and links on Coded, switch both to
+  `ADAPTIVE`; confirm every link between them returns to 1M (incoming sides
+  log "releases Coded") instead of repeating 1M requests.
 - [ ] Walk-out range test outdoors with line of sight: record the distance at
   which messages stop being delivered in `OFF`, `ADAPTIVE` and `MAX_RANGE`.
 - [ ] Pair a long-range build with a device lacking Coded support (or with

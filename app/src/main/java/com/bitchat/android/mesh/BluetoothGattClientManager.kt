@@ -860,10 +860,14 @@ class BluetoothGattClientManager(
                 val first = state.adaptive.smoothedRssi == null
                 val decision = if (first) state.adaptive.onConnected(rssi, state.isCoded) else null
                 (decision ?: state.adaptive.onRssi(rssi, state.isCoded, now))?.let { applyDecision(state, it, rssi) }
+                val wanted = if (state.isCoded) AdaptivePhyController.Target.ONE_M else AdaptivePhyController.Target.CODED
                 BleLinkDiagnostics.onAdaptiveState(
                     linkID,
                     state.adaptive.smoothedRssi?.toInt(),
-                    state.adaptive.pendingNote(state.isCoded, now)
+                    listOfNotNull(
+                        state.backoff.refusalNote(wanted, now),
+                        state.adaptive.pendingNote(state.isCoded, now)
+                    ).joinToString("; ").ifEmpty { null }
                 )
             }
             BleLongRangeMode.MAX_RANGE -> {

@@ -488,11 +488,14 @@ object BleAdaptiveSettings {
  * Exponential back-off for PHY requests on one link. A remote can refuse a PHY change silently
  * (no callback), so without this a controller that keeps deciding "Coded" would re-send the
  * request on every evaluation. Resets when the link reaches the target or the target changes.
+ * After [maxAttempts] refusals it pauses for [cooldownMs], then tries a new round: the remote's
+ * reason to refuse (its own PHY preference, for example) may have gone away.
  */
 class PhyRequestBackoff(
     private val baseMs: Long = 5_000L,
     private val maxMs: Long = 40_000L,
-    private val maxAttempts: Int = 5
+    private val maxAttempts: Int = 5,
+    private val cooldownMs: Long = 300_000L
 ) {
     private var target: AdaptivePhyController.Target? = null
     private var attempts = 0
@@ -504,12 +507,29 @@ class PhyRequestBackoff(
             this.target = target
             attempts = 0
         }
-        if (attempts >= maxAttempts) return false
+        if (attempts >= maxAttempts) {
+            if (nowMs - lastAt < cooldownMs) return false
+            attempts = 0
+        }
         val wait = if (attempts == 0) 0L else (baseMs shl (attempts - 1)).coerceAtMost(maxMs)
         if (attempts > 0 && nowMs - lastAt < wait) return false
         attempts++
         lastAt = nowMs
         return true
+    }
+
+    /**
+     * Diagnostics for a link that is not on [target] although it was requested, e.g.
+     * "1M requested 2x, peer hasn't switched"; null when nothing is outstanding.
+     */
+    fun refusalNote(target: AdaptivePhyController.Target, nowMs: Long): String? {
+        if (target != this.target || attempts == 0) return null
+        val phy = if (target == AdaptivePhyController.Target.CODED) "Coded" else "1M"
+        if (attempts >= maxAttempts) {
+            val retryIn = ((cooldownMs - (nowMs - lastAt)).coerceAtLeast(0) + 999) / 1000
+            return "peer kept its PHY after $attempts requests for $phy; asking again in ${retryIn}s"
+        }
+        return "$phy requested ${attempts}x, peer hasn't switched yet"
     }
 
     /** The link is on the requested PHY (or a new situation began): start over. */

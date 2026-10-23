@@ -43,6 +43,8 @@ class BluetoothGattServerManager(
         // A remote that moves a link back to 1M on its own is trusted for this long
         private const val REMOTE_CHOICE_HOLD_MS = 60_000L
         private const val OWN_REQUEST_WINDOW_MS = 5_000L
+        // A Coded hold we can't re-check (no outgoing link to measure) is dropped after this.
+        private const val UNMEASURED_HOLD_MS = 120_000L
     }
 
     /**
@@ -50,8 +52,13 @@ class BluetoothGattServerManager(
      * Advertisement RSSI is not usable as a proxy: it depends on the remote's advertising power,
      * which changes with its power mode (measured 15-25 dB below link RSSI between two phones).
      * Instead the link follows our own outgoing connection to the same peer (same radio path), plus
-     * send failures. This side only ever moves a link *to* Coded; returning to 1M is left to the
-     * side that opened the connection, so the two ends never pull a link in opposite directions.
+     * send failures. This side only ever *requests* Coded; it never requests 1M, so the two ends
+     * never pull a link in opposite directions.
+     *
+     * A Coded-only preference stays in the controller, though, and while it is held the remote
+     * cannot move the link back: a PHY update needs a PHY both ends accept. So once our own
+     * measurement says the signal is strong again, this side drops its preference ("any PHY") and
+     * lets the side that opened the connection choose.
      */
     private class ServerPhyState(val device: BluetoothDevice, val linkID: String) {
         val adaptive = AdaptivePhyController { BleAdaptiveSettings.current() }
@@ -59,6 +66,8 @@ class BluetoothGattServerManager(
         @Volatile var rxPhy: Int = 0
         @Volatile var lastRequestAt: Long = 0L
         @Volatile var remoteChose1mUntil: Long = 0L
+        /** When we set a Coded-only preference on this link; null when we hold none. */
+        @Volatile var codedHeldSince: Long? = null
         val backoff = PhyRequestBackoff()
         val isCoded: Boolean get() = txPhy == BluetoothDevice.PHY_LE_CODED && rxPhy == BluetoothDevice.PHY_LE_CODED
     }
@@ -687,6 +696,7 @@ class BluetoothGattServerManager(
         try {
             if (BleLongRangePolicy.shouldRequestCodedOnConnect(mode, capabilities())) {
                 val coding = codedCoding()
+                serverPhyStates[linkID]?.codedHeldSince = System.currentTimeMillis()
                 BleLinkDiagnostics.onPhyRequested(linkID, "Coded ${coding.label}")
                 server.setPreferredPhy(
                     device,
@@ -727,26 +737,40 @@ class BluetoothGattServerManager(
             BleLinkDiagnostics.onAdaptiveState(state.linkID, null, "waiting for peer identity")
             return
         }
+        val now = System.currentTimeMillis()
         val rssi = outgoingLinkRssi(peerID)
         if (rssi == null) {
+            // Held after send failures (or from Max range) with nothing to re-check it against.
+            val heldSince = state.codedHeldSince
+            if (heldSince != null && now - heldSince > UNMEASURED_HOLD_MS) {
+                releaseCodedHold(state, "no outgoing connection to measure the signal")
+            }
             BleLinkDiagnostics.onAdaptiveState(
                 state.linkID, null, "no outgoing connection to this peer: only send failures switch it"
             )
             return
         }
-        val now = System.currentTimeMillis()
         BleLinkDiagnostics.onLinkRssi(state.linkID, rssi, source = "outgoing link")
         state.adaptive.onRssi(rssi, state.isCoded, now)?.let { decision ->
+            val why = reasonText(decision.reason, rssi) + " (on our outgoing link)"
             val emergency = decision.reason == AdaptivePhyController.Reason.SIGNAL_DROP
-            if (decision.target == AdaptivePhyController.Target.CODED && (emergency || now >= state.remoteChose1mUntil)) {
-                requestAdaptiveCoded(state, reasonText(decision.reason, rssi) + " (on our outgoing link)")
+            if (decision.target == AdaptivePhyController.Target.CODED) {
+                if (emergency || now >= state.remoteChose1mUntil) requestAdaptiveCoded(state, why)
+            } else if (state.codedHeldSince != null) {
+                releaseCodedHold(state, why)
             }
         }
         BleLinkDiagnostics.onAdaptiveState(
             state.linkID,
             state.adaptive.smoothedRssi?.toInt(),
-            if (state.isCoded) "incoming side: returns to 1M only if the peer asks"
-            else state.adaptive.pendingNote(currentlyCoded = false, nowMs = now)
+            when {
+                !state.isCoded -> state.adaptive.pendingNote(currentlyCoded = false, nowMs = now)
+                state.codedHeldSince != null ->
+                    state.adaptive.pendingNote(currentlyCoded = true, nowMs = now)
+                        ?.replace("to 1M", "lets the peer return to 1M")
+                        ?: "incoming side: holds Coded while the signal is weak"
+                else -> "incoming side: the peer chooses when to return to 1M"
+            }
         )
     }
 
@@ -770,6 +794,7 @@ class BluetoothGattServerManager(
         if (!state.backoff.allow(AdaptivePhyController.Target.CODED, now)) return
         try {
             state.lastRequestAt = now
+            state.codedHeldSince = now
             val coding = codedCoding()
             BleLinkDiagnostics.event("Adaptive: server ${state.device.address} -> Coded ($reason)")
             BleLinkDiagnostics.onPhyRequested(state.linkID, "Coded ${coding.label}")
@@ -789,6 +814,31 @@ class BluetoothGattServerManager(
         }
     }
 
+    /**
+     * Drop our Coded-only preference on an incoming link so the side that opened it can move it
+     * back to 1M. This does not request 1M itself: if the peer still wants Coded, the link stays.
+     */
+    @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
+    private fun releaseCodedHold(state: ServerPhyState, reason: String) {
+        val server = gattServer ?: return
+        if (!permissionManager.hasBluetoothPermissions()) return
+        state.codedHeldSince = null
+        state.backoff.reset()
+        val anyPhy = BluetoothDevice.PHY_LE_1M_MASK or BluetoothDevice.PHY_LE_CODED_MASK or
+            (if (capabilities().le2MPhy) BluetoothDevice.PHY_LE_2M_MASK else 0)
+        try {
+            BleLinkDiagnostics.event("Adaptive: server ${state.device.address} releases Coded ($reason)")
+            BleLinkDiagnostics.onPhyRequested(state.linkID, "any (peer chooses)")
+            server.setPreferredPhy(state.device, anyPhy, anyPhy, BluetoothDevice.PHY_OPTION_NO_PREFERRED)
+        } catch (e: Exception) {
+            Log.w(TAG, "Adaptive PHY release failed for ${state.device.address}: ${e.message}")
+        }
+        connectionScope.launch {
+            delay(2_000L)
+            if (serverPhyStates[state.linkID] === state) readServerPhy(state.device)
+        }
+    }
+
     /** Re-apply the PHY policy to current server links after a mode change. */
     @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
     fun applyLinkPhyPolicy() {
@@ -798,6 +848,7 @@ class BluetoothGattServerManager(
         serverLinkIDs.forEach { (address, linkID) ->
             val device = connectionTracker.getDeviceConnection(address)?.device ?: return@forEach
             if (mode == BleLongRangeMode.OFF) {
+                serverPhyStates[linkID]?.codedHeldSince = null
                 try {
                     BleLinkDiagnostics.onPhyRequested(linkID, "1M")
                     server.setPreferredPhy(
