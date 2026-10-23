@@ -21,6 +21,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,7 +45,7 @@ import com.bitchat.android.mesh.BleLinkGrouping
 import com.bitchat.android.mesh.BleLongRangeMode
 import com.bitchat.android.mesh.BleLongRangePolicy
 import com.bitchat.android.mesh.BleRangeIndicator
-import com.bitchat.android.mesh.PhyHysteresis
+import com.bitchat.android.mesh.AdaptivePhyTuning
 import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import kotlinx.coroutines.delay
@@ -71,6 +72,7 @@ fun BleLongRangeSection(
     val context = LocalContext.current
     val mode by manager.bleLongRangeMode.collectAsState()
     val coding by manager.bleCodedCoding.collectAsState()
+    val tuning by manager.bleAdaptiveTuning.collectAsState()
     var snapshot by remember { mutableStateOf(BleLinkDiagnostics.snapshot()) }
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -100,7 +102,12 @@ fun BleLongRangeSection(
                     FilterChip(
                         selected = mode == option,
                         onClick = { manager.setBleLongRangeMode(option) },
-                        label = { Text(modeLabel(option), fontFamily = BitchatFontFamily) }
+                        label = {
+                            Text(
+                                modeLabel(option) + if (option == BleLongRangeMode.DEFAULT) " ★" else "",
+                                fontFamily = BitchatFontFamily
+                            )
+                        }
                     )
                 }
             }
@@ -109,8 +116,11 @@ fun BleLongRangeSection(
                     BleLongRangeMode.OFF ->
                         "Standard BLE only: legacy advertising and 1M scanning, no PHY requests. Peers may still move a link to Coded."
                     BleLongRangeMode.ADAPTIVE ->
-                        "Long-range discovery. Links start on the PHY they were found on; the client moves them to Coded below " +
-                            "${PhyHysteresis.ENTER_CODED_BELOW_DBM} dBm and back to 1M above ${PhyHysteresis.LEAVE_CODED_ABOVE_DBM} dBm (smoothed, 10 s dwell)."
+                        "Default (★). Long-range discovery; each connection stays on fast 1M while the signal is good and moves to " +
+                            "Coded quickly when it weakens (after ${tuning.enterConfirmMs / 1000} s below ${tuning.enterCodedBelowDbm} dBm, " +
+                            "at once below ${tuning.emergencyBelowDbm} dBm, or after ${tuning.failureBurst} failed sends). It returns to 1M " +
+                            "only after ${tuning.leaveStableMs / 1000} s above ${tuning.leaveCodedAboveDbm} dBm. Incoming connections follow " +
+                            "our outgoing connection to the same device and only move to Coded."
                     BleLongRangeMode.MAX_RANGE ->
                         "Long-range discovery, and Coded requested on every link right after setup (retried once if the link leaves Coded)."
                 }
@@ -198,9 +208,31 @@ fun BleLongRangeSection(
                 "Coded ${BleLongRangePolicy.connectRssiThreshold(mode, powerMode, heardOnCoded = true)} dBm • " +
                     "1M ${BleLongRangePolicy.connectRssiThreshold(mode, powerMode, heardOnCoded = false)} dBm"
             )
-            InfoRow(
-                "Adaptive switch",
-                "to Coded < ${PhyHysteresis.ENTER_CODED_BELOW_DBM} dBm • to 1M > ${PhyHysteresis.LEAVE_CODED_ABOVE_DBM} dBm"
+
+            // Adaptive thresholds (adjustable for testing)
+            SubHeader("Adaptive thresholds")
+            ThresholdSlider(
+                label = "To Coded below",
+                valueDbm = tuning.enterCodedBelowDbm,
+                range = AdaptivePhyTuning.MIN_THRESHOLD_DBM..(AdaptivePhyTuning.MAX_THRESHOLD_DBM - AdaptivePhyTuning.MIN_GAP_DB),
+                onChange = { manager.setBleAdaptiveThresholds(it, tuning.leaveCodedAboveDbm) }
+            )
+            ThresholdSlider(
+                label = "Back to 1M above",
+                valueDbm = tuning.leaveCodedAboveDbm,
+                range = (AdaptivePhyTuning.MIN_THRESHOLD_DBM + AdaptivePhyTuning.MIN_GAP_DB)..AdaptivePhyTuning.MAX_THRESHOLD_DBM,
+                onChange = { manager.setBleAdaptiveThresholds(tuning.enterCodedBelowDbm, it) }
+            )
+            InfoRow("Immediate Coded", "single reading below ${tuning.emergencyBelowDbm} dBm, or ${tuning.failureBurst} failed sends")
+            InfoRow("Incoming links", "follow our outgoing link to the same device; only move to Coded")
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                val isDefault = tuning.enterCodedBelowDbm == AdaptivePhyTuning.DEFAULT_ENTER_CODED_BELOW_DBM &&
+                    tuning.leaveCodedAboveDbm == AdaptivePhyTuning.DEFAULT_LEAVE_CODED_ABOVE_DBM
+                ActionText("Reset to defaults", enabled = !isDefault, onClick = { manager.resetBleAdaptiveThresholds() })
+            }
+            Hint(
+                "For desk testing: set \"To Coded below\" near the current signal (e.g. -50 dBm), then move a phone away " +
+                    "and watch the connection switch in Radio events. Keep at least ${AdaptivePhyTuning.MIN_GAP_DB} dB between the two."
             )
 
             // Devices: entries grouped per peer into real radio connections
@@ -347,9 +379,18 @@ private fun ConnectionRows(connection: BleLinkGrouping.Connection, now: Long) {
     }
     InfoRow(
         "Signal",
-        link.rssi?.let { "$it dBm • ${signalLabel(it)}" } ?: "not measured (incoming side)",
+        link.rssi?.let {
+            "$it dBm • ${signalLabel(it)}" + if (link.rssiSource == "outgoing link") " (our outgoing link)" else ""
+        } ?: "not measured yet",
         link.rssi?.let(::signalColor)
     )
+    if (link.smoothedRssi != null || link.adaptiveNote != null) {
+        InfoRow(
+            "Adaptive",
+            listOfNotNull(link.smoothedRssi?.let { "smoothed $it dBm" }, link.adaptiveNote).joinToString(" • "),
+            if (link.adaptiveNote?.startsWith("to ") == true) WarnColor else null
+        )
+    }
     val total = connection.sendOk + connection.sendFailed
     InfoRow(
         "Delivery",
@@ -461,5 +502,23 @@ private fun ageText(ms: Long): String {
         s < 60 -> "${s}s"
         s < 3600 -> "${s / 60}m ${s % 60}s"
         else -> "${s / 3600}h ${(s % 3600) / 60}m"
+    }
+}
+
+@Composable
+private fun ThresholdSlider(label: String, valueDbm: Int, range: IntRange, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "$label $valueDbm dBm",
+            fontFamily = BitchatFontFamily,
+            fontSize = 11.sp,
+            modifier = Modifier.width(150.dp)
+        )
+        Slider(
+            value = valueDbm.toFloat(),
+            onValueChange = { onChange(it.toInt()) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            steps = (range.last - range.first - 1).coerceAtLeast(0)
+        )
     }
 }

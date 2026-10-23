@@ -15,8 +15,9 @@ enum class BleLongRangeMode {
     OFF,
 
     /**
-     * Long-range discovery (Coded advertising set + extended scanning). Links switch between
-     * 1M and Coded S=8 from the client side based on smoothed RSSI.
+     * Long-range discovery (Coded advertising set + extended scanning). Each link moves between
+     * 1M and Coded via [AdaptivePhyController]: link RSSI on outgoing connections (incoming ones
+     * follow the outgoing connection to the same peer) and send failures.
      */
     ADAPTIVE,
 
@@ -24,7 +25,8 @@ enum class BleLongRangeMode {
     MAX_RANGE;
 
     companion object {
-        val DEFAULT = MAX_RANGE
+        /** Adaptive keeps long-range discovery and 1M throughput at short range. */
+        val DEFAULT = ADAPTIVE
 
         fun fromName(name: String?): BleLongRangeMode =
             entries.firstOrNull { it.name == name } ?: DEFAULT
@@ -338,38 +340,191 @@ object BleLinkGrouping {
 }
 
 /**
- * Client-side PHY switching for [BleLongRangeMode.ADAPTIVE]: exponential smoothing plus
- * hysteresis and a minimum dwell, so a link near the threshold does not flap between PHYs.
+ * Thresholds for [BleLongRangeMode.ADAPTIVE]. Asymmetric on purpose: moving to Coded must be fast
+ * (a 1M link that fades past its edge drops before it can switch), moving back to 1M must be slow
+ * and only on a clearly strong, stable signal.
  */
-class PhyHysteresis(
-    private val enterCodedBelowDbm: Int = ENTER_CODED_BELOW_DBM,
-    private val leaveCodedAboveDbm: Int = LEAVE_CODED_ABOVE_DBM,
-    private val minDwellMs: Long = 10_000L,
-    private val smoothing: Double = 0.3
+data class AdaptivePhyTuning(
+    /** Smoothed RSSI below this, held for [enterConfirmMs], moves the link to Coded. */
+    val enterCodedBelowDbm: Int = DEFAULT_ENTER_CODED_BELOW_DBM,
+    /** Smoothed RSSI above this, held for [leaveStableMs], moves the link back to 1M. */
+    val leaveCodedAboveDbm: Int = DEFAULT_LEAVE_CODED_ABOVE_DBM,
+    val enterConfirmMs: Long = 3_000L,
+    val leaveStableMs: Long = 30_000L,
+    /** Margin below [enterCodedBelowDbm]: a single raw sample this weak switches at once. */
+    val emergencyMarginDb: Int = 10,
+    /** Consecutive failed sends on a 1M link that switch it to Coded. */
+    val failureBurst: Int = 3,
+    val smoothing: Double = 0.4,
+    /** Within this many dB of the relevant threshold, sample RSSI faster. */
+    val nearThresholdMarginDb: Int = 8,
+    val fastPollMs: Long = 2_000L,
+    val slowPollMs: Long = 10_000L
 ) {
-    enum class Target { ONE_M, CODED }
+    val emergencyBelowDbm: Int get() = enterCodedBelowDbm - emergencyMarginDb
 
-    companion object {
-        const val ENTER_CODED_BELOW_DBM = -80
-        const val LEAVE_CODED_ABOVE_DBM = -66
+    /** Keeps at least [MIN_GAP_DB] between the thresholds so a link cannot oscillate. */
+    fun sanitized(): AdaptivePhyTuning {
+        val enter = enterCodedBelowDbm.coerceIn(MIN_THRESHOLD_DBM, MAX_THRESHOLD_DBM - MIN_GAP_DB)
+        val leave = leaveCodedAboveDbm.coerceIn(enter + MIN_GAP_DB, MAX_THRESHOLD_DBM)
+        return copy(enterCodedBelowDbm = enter, leaveCodedAboveDbm = leave)
     }
 
-    private var smoothed: Double? = null
-    private var lastSwitchAt: Long = Long.MIN_VALUE / 2
+    companion object {
+        const val DEFAULT_ENTER_CODED_BELOW_DBM = -78
+        const val DEFAULT_LEAVE_CODED_ABOVE_DBM = -65
+        const val MIN_GAP_DB = 6
+        const val MIN_THRESHOLD_DBM = -100
+        const val MAX_THRESHOLD_DBM = -30
+    }
+}
 
-    val smoothedRssi: Int? get() = smoothed?.toInt()
+/**
+ * Per-link PHY decisions for [BleLongRangeMode.ADAPTIVE]: when to move a link between 1M and Coded.
+ *
+ * Fed by link RSSI (incoming connections follow our outgoing connection to the same peer, since
+ * Android exposes no RSSI read on the GATT server side), plus send results. Not thread-safe:
+ * callers serialize access per link.
+ */
+class AdaptivePhyController(private val tuning: () -> AdaptivePhyTuning = { AdaptivePhyTuning() }) {
 
-    /** Returns the PHY to request, or null when the current PHY should be kept. */
-    fun onRssi(rssi: Int, currentlyCoded: Boolean, nowMs: Long): Target? {
-        val next = smoothed?.let { it + smoothing * (rssi - it) } ?: rssi.toDouble()
-        smoothed = next
-        if (nowMs - lastSwitchAt < minDwellMs) return null
-        val target = when {
-            !currentlyCoded && next < enterCodedBelowDbm -> Target.CODED
-            currentlyCoded && next > leaveCodedAboveDbm -> Target.ONE_M
-            else -> null
+    enum class Target { ONE_M, CODED }
+
+    enum class Reason { WEAK_SIGNAL, SIGNAL_DROP, SEND_FAILURES, WEAK_AT_CONNECT, STRONG_SIGNAL }
+
+    data class Decision(val target: Target, val reason: Reason)
+
+    var smoothedRssi: Double? = null
+        private set
+    private var weakSince: Long? = null
+    private var strongSince: Long? = null
+    private var consecutiveFailures = 0
+
+    /** A connection that starts already weak goes straight to Coded. */
+    fun onConnected(initialRssi: Int?, currentlyCoded: Boolean): Decision? {
+        if (initialRssi == null || currentlyCoded) return null
+        smoothedRssi = initialRssi.toDouble()
+        return if (initialRssi < tuning().sanitized().enterCodedBelowDbm) {
+            Decision(Target.CODED, Reason.WEAK_AT_CONNECT)
+        } else null
+    }
+
+    fun onRssi(rssi: Int, currentlyCoded: Boolean, nowMs: Long): Decision? {
+        val t = tuning().sanitized()
+        val smoothed = smoothedRssi?.let { it + t.smoothing * (rssi - it) } ?: rssi.toDouble()
+        smoothedRssi = smoothed
+
+        if (!currentlyCoded) {
+            strongSince = null
+            if (rssi < t.emergencyBelowDbm) return switched(Decision(Target.CODED, Reason.SIGNAL_DROP))
+            if (smoothed < t.enterCodedBelowDbm) {
+                val since = weakSince ?: nowMs.also { weakSince = it }
+                if (nowMs - since >= t.enterConfirmMs) return switched(Decision(Target.CODED, Reason.WEAK_SIGNAL))
+            } else {
+                weakSince = null
+            }
+        } else {
+            weakSince = null
+            if (smoothed > t.leaveCodedAboveDbm) {
+                val since = strongSince ?: nowMs.also { strongSince = it }
+                if (nowMs - since >= t.leaveStableMs) return switched(Decision(Target.ONE_M, Reason.STRONG_SIGNAL))
+            } else {
+                strongSince = null
+            }
         }
-        if (target != null) lastSwitchAt = nowMs
-        return target
+        return null
+    }
+
+    /** Repeated send failures on a non-Coded link are the most direct sign it is failing. */
+    fun onSendResult(success: Boolean, currentlyCoded: Boolean): Decision? {
+        if (success) {
+            consecutiveFailures = 0
+            return null
+        }
+        consecutiveFailures++
+        if (currentlyCoded || consecutiveFailures < tuning().failureBurst) return null
+        return switched(Decision(Target.CODED, Reason.SEND_FAILURES))
+    }
+
+    /** Sample faster while the signal sits near the threshold that could trigger a switch. */
+    fun pollIntervalMs(currentlyCoded: Boolean): Long {
+        val t = tuning().sanitized()
+        val smoothed = smoothedRssi ?: return t.fastPollMs
+        val distance = if (currentlyCoded) t.leaveCodedAboveDbm - smoothed else smoothed - t.enterCodedBelowDbm
+        return if (distance <= t.nearThresholdMarginDb) t.fastPollMs else t.slowPollMs
+    }
+
+    /** Human-readable pending state for diagnostics, e.g. "to Coded in 2s". */
+    fun pendingNote(currentlyCoded: Boolean, nowMs: Long): String? {
+        val t = tuning().sanitized()
+        weakSince?.takeIf { !currentlyCoded }?.let { since ->
+            return "to Coded in ${((t.enterConfirmMs - (nowMs - since)).coerceAtLeast(0) + 999) / 1000}s if still weak"
+        }
+        strongSince?.takeIf { currentlyCoded }?.let { since ->
+            return "to 1M in ${((t.leaveStableMs - (nowMs - since)).coerceAtLeast(0) + 999) / 1000}s if still strong"
+        }
+        return null
+    }
+
+    private fun switched(decision: Decision): Decision {
+        weakSince = null
+        strongSince = null
+        consecutiveFailures = 0
+        return decision
+    }
+}
+
+/** Current adaptive thresholds from debug settings; defaults when settings are unavailable. */
+object BleAdaptiveSettings {
+    fun current(): AdaptivePhyTuning =
+        try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleAdaptiveTuning.value
+        } catch (_: Exception) {
+            AdaptivePhyTuning()
+        }
+}
+
+/**
+ * Exponential back-off for PHY requests on one link. A remote can refuse a PHY change silently
+ * (no callback), so without this a controller that keeps deciding "Coded" would re-send the
+ * request on every evaluation. Resets when the link reaches the target or the target changes.
+ */
+class PhyRequestBackoff(
+    private val baseMs: Long = 5_000L,
+    private val maxMs: Long = 40_000L,
+    private val maxAttempts: Int = 5
+) {
+    private var target: AdaptivePhyController.Target? = null
+    private var attempts = 0
+    private var lastAt = 0L
+
+    /** True if a request for [target] may be sent now; records the attempt when it may. */
+    fun allow(target: AdaptivePhyController.Target, nowMs: Long): Boolean {
+        if (target != this.target) {
+            this.target = target
+            attempts = 0
+        }
+        if (attempts >= maxAttempts) return false
+        val wait = if (attempts == 0) 0L else (baseMs shl (attempts - 1)).coerceAtMost(maxMs)
+        if (attempts > 0 && nowMs - lastAt < wait) return false
+        attempts++
+        lastAt = nowMs
+        return true
+    }
+
+    /** The link is on the requested PHY (or a new situation began): start over. */
+    fun reset() {
+        target = null
+        attempts = 0
+    }
+
+    /** Report the link's current PHY; resets once the requested target is reached. */
+    fun onPhy(isCoded: Boolean) {
+        val reached = when (target) {
+            AdaptivePhyController.Target.CODED -> isCoded
+            AdaptivePhyController.Target.ONE_M -> !isCoded
+            null -> false
+        }
+        if (reached) reset()
     }
 }

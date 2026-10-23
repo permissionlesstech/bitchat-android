@@ -27,6 +27,11 @@ object BleLinkDiagnostics {
         val txPhy: Int = 0,
         val rxPhy: Int = 0,
         val rssi: Int? = null,
+        /** Where [rssi] comes from: "link" (controller read) or "outgoing link" (incoming links). */
+        val rssiSource: String? = null,
+        /** Adaptive controller view: smoothed RSSI and a pending switch, if any. */
+        val smoothedRssi: Int? = null,
+        val adaptiveNote: String? = null,
         val state: String = "connecting",
         val phyRequests: Int = 0,
         /** Last PHY this side asked for, e.g. "Coded S=8" or "1M"; null if none was requested. */
@@ -180,7 +185,11 @@ object BleLinkDiagnostics {
 
     fun onLinkPeer(linkID: String, peerID: String) = update(linkID) { it.copy(peerID = peerID) }
 
-    fun onLinkRssi(linkID: String, rssi: Int) = update(linkID) { it.copy(rssi = rssi) }
+    fun onLinkRssi(linkID: String, rssi: Int, source: String = "link") =
+        update(linkID) { it.copy(rssi = rssi, rssiSource = source) }
+
+    fun onAdaptiveState(linkID: String, smoothedRssi: Int?, note: String?) =
+        update(linkID) { it.copy(smoothedRssi = smoothedRssi, adaptiveNote = note) }
 
     fun onPhyRequested(linkID: String, target: String) {
         update(linkID) { it.copy(phyRequests = it.phyRequests + 1, lastPhyRequest = target) }

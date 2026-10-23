@@ -38,7 +38,39 @@ class BluetoothGattServerManager(
         // Self-healing advertising recovery tuning
         private const val ADVERTISE_RETRY_BASE_MS = 3_000L      // base backoff for transient advertise failures
         private const val ADVERTISE_MAX_RETRY_DELAY_MS = 30_000L // cap on backoff delay
+        // ADAPTIVE on incoming links: evaluation cadence
+        private const val ADAPTIVE_EVAL_INTERVAL_MS = 2_000L
+        // A remote that moves a link back to 1M on its own is trusted for this long
+        private const val REMOTE_CHOICE_HOLD_MS = 60_000L
+        private const val OWN_REQUEST_WINDOW_MS = 5_000L
     }
+
+    /**
+     * Incoming (server-side) link state for ADAPTIVE. Android has no RSSI read on the server side.
+     * Advertisement RSSI is not usable as a proxy: it depends on the remote's advertising power,
+     * which changes with its power mode (measured 15-25 dB below link RSSI between two phones).
+     * Instead the link follows our own outgoing connection to the same peer (same radio path), plus
+     * send failures. This side only ever moves a link *to* Coded; returning to 1M is left to the
+     * side that opened the connection, so the two ends never pull a link in opposite directions.
+     */
+    private class ServerPhyState(val device: BluetoothDevice, val linkID: String) {
+        val adaptive = AdaptivePhyController { BleAdaptiveSettings.current() }
+        @Volatile var txPhy: Int = 0
+        @Volatile var rxPhy: Int = 0
+        @Volatile var lastRequestAt: Long = 0L
+        @Volatile var remoteChose1mUntil: Long = 0L
+        val backoff = PhyRequestBackoff()
+        val isCoded: Boolean get() = txPhy == BluetoothDevice.PHY_LE_CODED && rxPhy == BluetoothDevice.PHY_LE_CODED
+    }
+
+    private val serverPhyStates = ConcurrentHashMap<String, ServerPhyState>()
+    private var adaptiveJob: kotlinx.coroutines.Job? = null
+
+    /** Set by the connection manager: true when [address] is our own outgoing connection. */
+    var isOwnOutgoing: (String) -> Boolean = { false }
+
+    /** Set by the connection manager: smoothed link RSSI of our outgoing connection to a peer. */
+    var outgoingLinkRssi: (String) -> Int? = { null }
     
     // Core Bluetooth components
     private val bluetoothManager: BluetoothManager = 
@@ -128,13 +160,14 @@ class BluetoothGattServerManager(
         }
         
         isActive = true
-        
+
         connectionScope.launch {
             setupGattServer()
             delay(300) // Brief delay to ensure GATT server is ready
             startAdvertising()
         }
-        
+        startAdaptiveLoop()
+
         return true
     }
     
@@ -149,10 +182,14 @@ class BluetoothGattServerManager(
             gattServer?.close()
             gattServer = null
             serverLinkIDs.clear()
+            serverPhyStates.clear()
             return
         }
 
         isActive = false
+        adaptiveJob?.cancel()
+        adaptiveJob = null
+        serverPhyStates.clear()
 
         connectionScope.launch {
             stopAdvertising()
@@ -220,6 +257,7 @@ class BluetoothGattServerManager(
                             rssi = rssi.takeIf { it != Int.MIN_VALUE }
                         )
                         BleLinkDiagnostics.onLinkState(linkID, "connected")
+                        serverPhyStates[linkID] = ServerPhyState(device, linkID)
                         readServerPhy(device)
 
                         connectionScope.launch {
@@ -233,6 +271,7 @@ class BluetoothGattServerManager(
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         Log.i(TAG, "Disconnected from ${device.address} (server)")
                         val linkID = serverLinkIDs.remove(device.address)
+                        linkID?.let { serverPhyStates.remove(it) }
                         BleLinkDiagnostics.onLinkClosed(linkID, device.address, status)
                         // Capture the observed peer before cleanup drops the address mapping.
                         val disconnectedPeerID = connectionTracker.addressPeerMap[device.address]
@@ -331,11 +370,36 @@ class BluetoothGattServerManager(
             }
 
             override fun onPhyUpdate(device: BluetoothDevice, txPhy: Int, rxPhy: Int, status: Int) {
-                serverLinkIDs[device.address]?.let { BleLinkDiagnostics.onPhy(it, txPhy, rxPhy, status, fromUpdate = true) }
+                serverLinkIDs[device.address]?.let { linkID ->
+                    serverPhyStates[linkID]?.let { state ->
+                        if (status == BluetoothGatt.GATT_SUCCESS) {
+                            val now = System.currentTimeMillis()
+                            // The remote moved the link off Coded without us asking: respect its choice.
+                            if (state.isCoded && txPhy != BluetoothDevice.PHY_LE_CODED &&
+                                now - state.lastRequestAt > OWN_REQUEST_WINDOW_MS
+                            ) {
+                                state.remoteChose1mUntil = now + REMOTE_CHOICE_HOLD_MS
+                            }
+                            state.txPhy = txPhy
+                            state.rxPhy = rxPhy
+                            state.backoff.onPhy(state.isCoded)
+                        }
+                    }
+                    BleLinkDiagnostics.onPhy(linkID, txPhy, rxPhy, status, fromUpdate = true)
+                }
             }
 
             override fun onPhyRead(device: BluetoothDevice, txPhy: Int, rxPhy: Int, status: Int) {
-                serverLinkIDs[device.address]?.let { BleLinkDiagnostics.onPhy(it, txPhy, rxPhy, status, fromUpdate = false) }
+                serverLinkIDs[device.address]?.let { linkID ->
+                    if (status == BluetoothGatt.GATT_SUCCESS) {
+                        serverPhyStates[linkID]?.let {
+                            it.txPhy = txPhy
+                            it.rxPhy = rxPhy
+                            it.backoff.onPhy(it.isCoded)
+                        }
+                    }
+                    BleLinkDiagnostics.onPhy(linkID, txPhy, rxPhy, status, fromUpdate = false)
+                }
             }
 
             override fun onNotificationSent(device: BluetoothDevice, status: Int) {
@@ -635,6 +699,93 @@ class BluetoothGattServerManager(
             }
         } catch (e: Exception) {
             Log.w(TAG, "PHY request failed for ${device.address}: ${e.message}")
+        }
+    }
+
+    private fun startAdaptiveLoop() {
+        adaptiveJob?.cancel()
+        adaptiveJob = connectionScope.launch {
+            while (isActive) {
+                delay(ADAPTIVE_EVAL_INTERVAL_MS)
+                try {
+                    if (longRangeMode() == BleLongRangeMode.ADAPTIVE && capabilities().leCodedPhy) {
+                        serverPhyStates.values.forEach { evaluateAdaptive(it) }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Adaptive evaluation failed: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private fun evaluateAdaptive(state: ServerPhyState) {
+        val address = state.device.address
+        // Our own outgoing connection reported on the server side: the client controller owns it.
+        if (isOwnOutgoing(address)) return
+        val peerID = connectionTracker.addressPeerMap[address]
+        if (peerID == null) {
+            BleLinkDiagnostics.onAdaptiveState(state.linkID, null, "waiting for peer identity")
+            return
+        }
+        val rssi = outgoingLinkRssi(peerID)
+        if (rssi == null) {
+            BleLinkDiagnostics.onAdaptiveState(
+                state.linkID, null, "no outgoing connection to this peer: only send failures switch it"
+            )
+            return
+        }
+        val now = System.currentTimeMillis()
+        BleLinkDiagnostics.onLinkRssi(state.linkID, rssi, source = "outgoing link")
+        state.adaptive.onRssi(rssi, state.isCoded, now)?.let { decision ->
+            val emergency = decision.reason == AdaptivePhyController.Reason.SIGNAL_DROP
+            if (decision.target == AdaptivePhyController.Target.CODED && (emergency || now >= state.remoteChose1mUntil)) {
+                requestAdaptiveCoded(state, reasonText(decision.reason, rssi) + " (on our outgoing link)")
+            }
+        }
+        BleLinkDiagnostics.onAdaptiveState(
+            state.linkID,
+            state.adaptive.smoothedRssi?.toInt(),
+            if (state.isCoded) "incoming side: returns to 1M only if the peer asks"
+            else state.adaptive.pendingNote(currentlyCoded = false, nowMs = now)
+        )
+    }
+
+    /** Send results on incoming links: repeated failures move a 1M link to Coded. */
+    fun onSendResult(linkID: String, success: Boolean) {
+        if (longRangeMode() != BleLongRangeMode.ADAPTIVE) return
+        val state = serverPhyStates[linkID] ?: return
+        if (!capabilities().leCodedPhy) return
+        state.adaptive.onSendResult(success, state.isCoded)?.let { decision ->
+            requestAdaptiveCoded(state, reasonText(decision.reason, null))
+        }
+    }
+
+    @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
+    private fun requestAdaptiveCoded(state: ServerPhyState, reason: String) {
+        val server = gattServer ?: return
+        if (!permissionManager.hasBluetoothPermissions()) return
+        val now = System.currentTimeMillis()
+        if (state.isCoded) return
+        // Spaced retries: the remote may refuse silently (no Coded support, or it holds 1M).
+        if (!state.backoff.allow(AdaptivePhyController.Target.CODED, now)) return
+        try {
+            state.lastRequestAt = now
+            val coding = codedCoding()
+            BleLinkDiagnostics.event("Adaptive: server ${state.device.address} -> Coded ($reason)")
+            BleLinkDiagnostics.onPhyRequested(state.linkID, "Coded ${coding.label}")
+            server.setPreferredPhy(
+                state.device,
+                BluetoothDevice.PHY_LE_CODED_MASK,
+                BluetoothDevice.PHY_LE_CODED_MASK,
+                BleLongRangePolicy.phyOption(coding)
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Adaptive PHY request failed for ${state.device.address}: ${e.message}")
+        }
+        // A refused or no-op change may produce no callback: re-read so the state is known.
+        connectionScope.launch {
+            delay(2_000L)
+            if (serverPhyStates[state.linkID] === state) readServerPhy(state.device)
         }
     }
 

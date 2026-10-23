@@ -74,11 +74,13 @@ class BluetoothConnectionManager(
 
         override fun onGattClientWriteComplete(deviceAddress: String, linkID: String, status: Int) {
             BleLinkDiagnostics.onSendComplete(deviceAddress, linkID, status == BluetoothGatt.GATT_SUCCESS)
+            clientManager.onSendResult(linkID, status == BluetoothGatt.GATT_SUCCESS)
             packetBroadcaster.onGattClientWriteComplete(deviceAddress, linkID, status)
         }
 
         override fun onGattServerNotificationComplete(deviceAddress: String, linkID: String?, status: Int) {
             BleLinkDiagnostics.onSendComplete(deviceAddress, linkID, status == BluetoothGatt.GATT_SUCCESS)
+            linkID?.let { serverManager.onSendResult(it, status == BluetoothGatt.GATT_SUCCESS) }
             packetBroadcaster.onGattServerNotificationComplete(deviceAddress, linkID, status)
         }
         
@@ -87,10 +89,10 @@ class BluetoothConnectionManager(
         }
     }
     
-    private val serverManager = BluetoothGattServerManager(
+    private val serverManager: BluetoothGattServerManager = BluetoothGattServerManager(
         context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, myPeerID
     )
-    private val clientManager = BluetoothGattClientManager(
+    private val clientManager: BluetoothGattClientManager = BluetoothGattClientManager(
         context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
     )
     
@@ -130,6 +132,9 @@ class BluetoothConnectionManager(
     }
 
     init {
+        // Android reports our outgoing connections on the server side too; the client owns those.
+        serverManager.isOwnOutgoing = { address -> clientManager.hasOutgoingLink(address) }
+        serverManager.outgoingLinkRssi = { peerID -> clientManager.outgoingSmoothedRssi(peerID) }
         connectionScope.launch {
             var previousMode: PowerManager.PowerMode? = null
             powerManager.profile.collect { profile ->

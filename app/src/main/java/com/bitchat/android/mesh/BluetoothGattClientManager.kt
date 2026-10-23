@@ -42,14 +42,19 @@ class BluetoothGattClientManager(
         private const val RSSI_POLL_INTERVAL_MS = 5_000L        // connected-link RSSI sampling (local HCI read, no airtime)
         private const val CODED_RETRY_AFTER_MS = 20_000L        // MAX_RANGE: retry a refused/overridden Coded request once
         private const val MAX_CODED_REQUESTS_PER_LINK = 2
+        private const val PHY_REREAD_DELAY_MS = 2_000L         // re-read PHY after an adaptive request
     }
 
     /** Per client link PHY bookkeeping; lives as long as the GATT connection. */
     private class ClientPhyState(
         val linkID: String,
-        val gatt: BluetoothGatt
+        val gatt: BluetoothGatt,
+        /** Scan RSSI when the connection was started (diagnostics only). */
+        val initialRssi: Int?
     ) {
-        val hysteresis = PhyHysteresis()
+        /** Spaces out repeated requests when the remote ignores or refuses them. */
+        val backoff = PhyRequestBackoff()
+        val adaptive = AdaptivePhyController { BleAdaptiveSettings.current() }
         @Volatile var txPhy: Int = 0
         @Volatile var rxPhy: Int = 0
         @Volatile var codedRequests: Int = 0
@@ -557,7 +562,7 @@ class BluetoothGattClientManager(
                     everConnected = true
                     BleLinkDiagnostics.onLinkOpened(linkID, deviceAddress, isClient = true, advertisedPhy, rssi)
                     BleLinkDiagnostics.onLinkState(linkID, "negotiating")
-                    clientPhyStates[linkID] = ClientPhyState(linkID, gatt)
+                    clientPhyStates[linkID] = ClientPhyState(linkID, gatt, rssi.takeIf { it != Int.MIN_VALUE })
                     readLinkPhy(gatt)
                     // Request a larger MTU. Must be done before any data transfer.
                     connectionScope.launch {
@@ -729,6 +734,7 @@ class BluetoothGattClientManager(
                 state.txPhy = txPhy
                 state.rxPhy = rxPhy
             }
+            if (status == BluetoothGatt.GATT_SUCCESS) state.backoff.onPhy(state.isCoded)
         }
         BleLinkDiagnostics.onPhy(linkID, txPhy, rxPhy, status, fromUpdate)
     }
@@ -740,8 +746,13 @@ class BluetoothGattClientManager(
     }
 
     @SuppressLint("MissingPermission") // guarded by hasBluetoothPermissions()
-    private fun requestPhy(state: ClientPhyState, coded: Boolean) {
+    private fun requestPhy(state: ClientPhyState, coded: Boolean, reason: String? = null) {
         if (!permissionManager.hasBluetoothPermissions()) return
+        reason?.let {
+            BleLinkDiagnostics.event(
+                "Adaptive: client ${state.gatt.device.address} -> ${if (coded) "Coded" else "1M"} ($it)"
+            )
+        }
         try {
             state.lastRequestAt = System.currentTimeMillis()
             if (coded) {
@@ -767,10 +778,51 @@ class BluetoothGattClientManager(
     }
 
     private fun requestInitialPhy(state: ClientPhyState) {
-        if (BleLongRangePolicy.shouldRequestCodedOnConnect(longRangeMode(), capabilities()) && !state.isCoded) {
-            requestPhy(state, coded = true)
+        when (longRangeMode()) {
+            BleLongRangeMode.MAX_RANGE ->
+                if (capabilities().leCodedPhy && !state.isCoded) requestPhy(state, coded = true)
+            // ADAPTIVE decides from the first link RSSI reading (see onLinkRssi), not the scan RSSI:
+            // advertisement RSSI was measured 20+ dB away from link RSSI on real devices.
+            BleLongRangeMode.ADAPTIVE -> Unit
+            BleLongRangeMode.OFF -> Unit
         }
     }
+
+    private fun applyDecision(state: ClientPhyState, decision: AdaptivePhyController.Decision, rssi: Int?) {
+        if (!state.backoff.allow(decision.target, System.currentTimeMillis())) return
+        val coded = decision.target == AdaptivePhyController.Target.CODED
+        requestPhy(state, coded, reasonText(decision.reason, rssi))
+        // Some remotes change nothing without a callback: re-read so the state is known.
+        connectionScope.launch {
+            delay(PHY_REREAD_DELAY_MS)
+            if (clientPhyStates[state.linkID] === state) readLinkPhy(state.gatt)
+        }
+    }
+
+    /**
+     * Feed a send result into the ADAPTIVE controller: repeated failures on a 1M link move it to
+     * Coded before the link drops.
+     */
+    fun onSendResult(linkID: String, success: Boolean) {
+        if (longRangeMode() != BleLongRangeMode.ADAPTIVE) return
+        val state = clientPhyStates[linkID] ?: return
+        if (!capabilities().leCodedPhy) return
+        state.adaptive.onSendResult(success, state.isCoded)?.let { applyDecision(state, it, null) }
+    }
+
+    /**
+     * Smoothed link RSSI of our outgoing connection to [peerID], if any. Incoming connections from
+     * the same peer cover the same radio path, so they follow this measurement.
+     */
+    fun outgoingSmoothedRssi(peerID: String): Int? =
+        clientPhyStates.values.firstOrNull { state ->
+            val address = state.gatt.device.address
+            (connectionTracker.getDeviceConnection(address)?.peerID ?: connectionTracker.addressPeerMap[address]) == peerID
+        }?.adaptive?.smoothedRssi?.toInt()
+
+    /** True when we hold an outgoing connection on [address] (its server-side report is a mirror). */
+    fun hasOutgoingLink(address: String): Boolean =
+        clientPhyStates.values.any { it.gatt.device.address == address }
 
     /**
      * Sample link RSSI every few seconds (a local controller read, no extra airtime). Feeds the
@@ -785,7 +837,11 @@ class BluetoothGattClientManager(
                 try {
                     if (permissionManager.hasBluetoothPermissions()) state.gatt.readRemoteRssi()
                 } catch (_: Exception) { }
-                delay(RSSI_POLL_INTERVAL_MS)
+                // ADAPTIVE samples faster near a switching threshold, slower when far from it.
+                delay(
+                    if (longRangeMode() == BleLongRangeMode.ADAPTIVE) state.adaptive.pollIntervalMs(state.isCoded)
+                    else RSSI_POLL_INTERVAL_MS
+                )
             }
         }
     }
@@ -800,11 +856,15 @@ class BluetoothGattClientManager(
         when (longRangeMode()) {
             BleLongRangeMode.ADAPTIVE -> {
                 if (!capabilities().leCodedPhy) return
-                when (state.hysteresis.onRssi(rssi, state.isCoded, now)) {
-                    PhyHysteresis.Target.CODED -> requestPhy(state, coded = true)
-                    PhyHysteresis.Target.ONE_M -> requestPhy(state, coded = false)
-                    null -> Unit
-                }
+                // The first link reading doubles as the "weak at connect" check.
+                val first = state.adaptive.smoothedRssi == null
+                val decision = if (first) state.adaptive.onConnected(rssi, state.isCoded) else null
+                (decision ?: state.adaptive.onRssi(rssi, state.isCoded, now))?.let { applyDecision(state, it, rssi) }
+                BleLinkDiagnostics.onAdaptiveState(
+                    linkID,
+                    state.adaptive.smoothedRssi?.toInt(),
+                    state.adaptive.pendingNote(state.isCoded, now)
+                )
             }
             BleLongRangeMode.MAX_RANGE -> {
                 // The remote (or its stack) can move the link off Coded; ask again, bounded.
@@ -891,3 +951,14 @@ class BluetoothGattClientManager(
         }
     }
 } 
+
+internal fun reasonText(reason: AdaptivePhyController.Reason, rssi: Int?): String {
+    val signal = rssi?.let { " $it dBm" } ?: ""
+    return when (reason) {
+        AdaptivePhyController.Reason.WEAK_SIGNAL -> "weak signal$signal"
+        AdaptivePhyController.Reason.SIGNAL_DROP -> "sudden signal drop$signal"
+        AdaptivePhyController.Reason.SEND_FAILURES -> "repeated send failures"
+        AdaptivePhyController.Reason.WEAK_AT_CONNECT -> "weak at connect$signal"
+        AdaptivePhyController.Reason.STRONG_SIGNAL -> "strong, stable signal$signal"
+    }
+}

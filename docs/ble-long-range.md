@@ -13,8 +13,43 @@ stored in the `ble_long_range_mode` preference.
 | Mode | Discovery | Established links |
 | --- | --- | --- |
 | `OFF` | Legacy advertising and legacy scan (stock behavior) | No PHY requests |
-| `ADAPTIVE` | Legacy + Coded advertising, extended scan on all PHYs | Client switches to Coded S=8 when smoothed RSSI is below about -80 dBm and back to 1M above about -66 dBm (10 s minimum dwell) |
-| `MAX_RANGE` (default) | Legacy + Coded advertising, extended scan on all PHYs | Both ends request Coded S=8 after setup, with one bounded retry |
+| `ADAPTIVE` (default) | Legacy + Coded advertising, extended scan on all PHYs | Each connection stays on 1M while the signal is good and moves to Coded quickly when it weakens; see [Adaptive mode](#adaptive-mode) |
+| `MAX_RANGE` | Legacy + Coded advertising, extended scan on all PHYs | Both ends request Coded after setup, with one bounded retry |
+
+`ADAPTIVE` is the default because Coded S=8 is 8× slower than 1M and occupies
+the radio ~8× longer per packet. Using it on short links costs media and voice
+throughput, battery and channel airtime for no range benefit. Discovery is
+long-range in both modes.
+
+### Adaptive mode
+
+`AdaptivePhyController` decides per connection. Thresholds are deliberately
+asymmetric: losing a 1M link that fades past its edge is worse than staying on
+Coded a little too long.
+
+- **To Coded**, when any of these happens:
+  - the smoothed link RSSI stays below -78 dBm for 3 s;
+  - a single reading drops below -88 dBm;
+  - 3 consecutive sends fail;
+  - the first reading after connecting is already weak.
+- **Back to 1M** only after the smoothed RSSI stays above -65 dBm for 30 s.
+- **Sampling** runs every 2 s near a switching threshold and every 10 s
+  otherwise. Each sample is a local `readRemoteRssi`, with no airtime cost.
+- **Back-off.** PHY requests are retried with an exponential back-off
+  (`PhyRequestBackoff`), and the PHY is re-read 2 s after each request,
+  because a remote can refuse a change without any callback.
+- **Incoming connections.** Android has no RSSI read on the GATT server side,
+  so incoming connections follow our outgoing connection to the same peer: the
+  same two radios over the same distance. They only ever move *to* Coded;
+  returning to 1M is left to the side that opened the connection, so the two
+  ends never pull a link in opposite directions. Advertisement RSSI is not
+  used: between two phones it measured 15–25 dB below link RSSI, because it
+  depends on the remote's advertising power and power mode.
+
+The two thresholds can be changed live in the debug menu, for desk testing:
+for example "To Coded below -50 dBm", then move a phone. They are stored as
+`ble_adaptive_enter_dbm` / `ble_adaptive_leave_dbm` and kept at least 6 dB
+apart.
 
 ### Coded coding (S=8 / S=2)
 
@@ -82,9 +117,9 @@ peer ID on two addresses keep only one in-flight client attempt per peer
   stock thresholds.
 - `connectGatt` initiates on the PHY the advertisement was heard on (Coded
   mask for Coded advertisements, 1M for legacy, both when unknown).
-- After setup the client samples link RSSI every 5 s with `readRemoteRssi`.
-  This is a local controller read and adds no airtime. The samples feed the
-  diagnostics and the `ADAPTIVE` controller.
+- After setup the client samples link RSSI with `readRemoteRssi` (5 s in
+  `MAX_RANGE`; 2–10 s in `ADAPTIVE`). This is a local controller read and adds
+  no airtime. The samples feed the diagnostics and the `ADAPTIVE` controller.
 
 ## Diagnostics
 
@@ -123,5 +158,6 @@ addresses and links.
 
 Coded S=8 carries 125 kbit/s, an eighth of 1M. Text messages, announcements,
 and Noise handshakes aren't noticeably affected. Media and voice transfers
-over a Coded link are proportionally slower. `ADAPTIVE` keeps short-range links
-on 1M if that matters more than range.
+over a Coded link are proportionally slower. `ADAPTIVE` (the default) keeps
+short-range links on 1M; `MAX_RANGE` trades that throughput for range on every
+link.

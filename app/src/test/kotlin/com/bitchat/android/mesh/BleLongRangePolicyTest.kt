@@ -3,7 +3,6 @@ package com.bitchat.android.mesh
 import android.bluetooth.BluetoothDevice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -96,37 +95,6 @@ class BleLongRangePolicyTest {
         assertEquals(BleLongRangeMode.DEFAULT, BleLongRangeMode.fromName("bogus"))
         assertEquals(BleLongRangeMode.DEFAULT, BleLongRangeMode.fromName(null))
         assertEquals(BleLongRangeMode.ADAPTIVE, BleLongRangeMode.fromName("ADAPTIVE"))
-    }
-}
-
-class PhyHysteresisTest {
-
-    @Test
-    fun `weak smoothed rssi moves link to coded and strong rssi moves it back after dwell`() {
-        val controller = PhyHysteresis(enterCodedBelowDbm = -80, leaveCodedAboveDbm = -66, minDwellMs = 10_000L, smoothing = 1.0)
-
-        assertNull(controller.onRssi(-70, currentlyCoded = false, nowMs = 0L))
-        assertEquals(PhyHysteresis.Target.CODED, controller.onRssi(-85, currentlyCoded = false, nowMs = 5_000L))
-        // Inside the dwell window nothing changes even if the signal recovers.
-        assertNull(controller.onRssi(-50, currentlyCoded = true, nowMs = 10_000L))
-        assertEquals(PhyHysteresis.Target.ONE_M, controller.onRssi(-50, currentlyCoded = true, nowMs = 15_001L))
-    }
-
-    @Test
-    fun `rssi between thresholds keeps the current phy`() {
-        val controller = PhyHysteresis(smoothing = 1.0, minDwellMs = 0L)
-
-        assertNull(controller.onRssi(-72, currentlyCoded = true, nowMs = 0L))
-        assertNull(controller.onRssi(-72, currentlyCoded = false, nowMs = 1L))
-    }
-
-    @Test
-    fun `single fade is smoothed out`() {
-        val controller = PhyHysteresis(smoothing = 0.3, minDwellMs = 0L)
-
-        assertNull(controller.onRssi(-60, currentlyCoded = false, nowMs = 0L))
-        // One deep sample: -60 + 0.3 * (-95 + 60) = -70.5, still above the -80 entry threshold.
-        assertNull(controller.onRssi(-95, currentlyCoded = false, nowMs = 5_000L))
     }
 }
 

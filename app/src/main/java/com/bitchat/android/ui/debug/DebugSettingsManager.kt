@@ -56,6 +56,9 @@ class DebugSettingsManager private constructor() {
     val bleLongRangeMode: StateFlow<com.bitchat.android.mesh.BleLongRangeMode> = _bleLongRangeMode.asStateFlow()
     private val _bleCodedCoding = MutableStateFlow(com.bitchat.android.mesh.BleCodedCoding.DEFAULT)
     val bleCodedCoding: StateFlow<com.bitchat.android.mesh.BleCodedCoding> = _bleCodedCoding.asStateFlow()
+    private val _bleAdaptiveTuning = MutableStateFlow(com.bitchat.android.mesh.AdaptivePhyTuning())
+    /** Adaptive PHY thresholds (debug-adjustable); always sanitized. */
+    val bleAdaptiveTuning: StateFlow<com.bitchat.android.mesh.AdaptivePhyTuning> = _bleAdaptiveTuning.asStateFlow()
 
     // Visibility of the debug sheet; gates heavy work
     private val _debugSheetVisible = MutableStateFlow(false)
@@ -90,6 +93,14 @@ class DebugSettingsManager private constructor() {
             _bleCodedCoding.value = com.bitchat.android.mesh.BleCodedCoding.fromName(
                 DebugPreferenceManager.getBleCodedCoding(com.bitchat.android.mesh.BleCodedCoding.DEFAULT.name)
             )
+            _bleAdaptiveTuning.value = com.bitchat.android.mesh.AdaptivePhyTuning(
+                enterCodedBelowDbm = DebugPreferenceManager.getBleAdaptiveEnterDbm(
+                    com.bitchat.android.mesh.AdaptivePhyTuning.DEFAULT_ENTER_CODED_BELOW_DBM
+                ),
+                leaveCodedAboveDbm = DebugPreferenceManager.getBleAdaptiveLeaveDbm(
+                    com.bitchat.android.mesh.AdaptivePhyTuning.DEFAULT_LEAVE_CODED_ABOVE_DBM
+                )
+            ).sanitized()
         } catch (_: Exception) {
             // Preferences not ready yet; keep defaults. They will be applied on first change.
         }
@@ -327,6 +338,23 @@ class DebugSettingsManager private constructor() {
         DebugPreferenceManager.setBleCodedCoding(coding.name)
         _bleCodedCoding.value = coding
         addDebugMessage(DebugMessage.SystemMessage("📶 Coded PHY coding preference: ${coding.label}"))
+    }
+
+    fun setBleAdaptiveThresholds(enterCodedBelowDbm: Int, leaveCodedAboveDbm: Int) {
+        val tuning = _bleAdaptiveTuning.value
+            .copy(enterCodedBelowDbm = enterCodedBelowDbm, leaveCodedAboveDbm = leaveCodedAboveDbm)
+            .sanitized()
+        if (tuning == _bleAdaptiveTuning.value) return
+        DebugPreferenceManager.setBleAdaptiveThresholds(tuning.enterCodedBelowDbm, tuning.leaveCodedAboveDbm)
+        _bleAdaptiveTuning.value = tuning
+    }
+
+    fun resetBleAdaptiveThresholds() {
+        setBleAdaptiveThresholds(
+            com.bitchat.android.mesh.AdaptivePhyTuning.DEFAULT_ENTER_CODED_BELOW_DBM,
+            com.bitchat.android.mesh.AdaptivePhyTuning.DEFAULT_LEAVE_CODED_ABOVE_DBM
+        )
+        addDebugMessage(DebugMessage.SystemMessage("📶 Adaptive thresholds reset to defaults"))
     }
 
     fun setMaxConnectionsOverall(value: Int) {

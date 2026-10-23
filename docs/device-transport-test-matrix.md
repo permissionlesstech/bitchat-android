@@ -80,10 +80,12 @@ debug sheet for each device; don't record addresses.
 - [ ] Each device hears the other's Coded advertisement (coded count rises)
   and opens exactly one client link per peer despite two advertised addresses.
 - [ ] In `MAX_RANGE`, links report tx/rx `Coded` on both client and server.
-- [ ] In `ADAPTIVE`, walk apart and back; confirm one switch to Coded below
-  about -80 dBm and one return to 1M above about -66 dBm, without flapping.
+- [ ] In `ADAPTIVE` (default), walk apart and back; confirm the link moves to
+  Coded before messages stop (about -78 dBm) and returns to 1M only after
+  ~30 s above about -65 dBm, without flapping. For a desk check, set
+  "To Coded below" near the current signal in the debug menu.
 - [ ] Walk-out range test outdoors with line of sight: record the distance at
-  which messages stop being delivered in `OFF` and in `MAX_RANGE`.
+  which messages stop being delivered in `OFF`, `ADAPTIVE` and `MAX_RANGE`.
 - [ ] Pair a long-range build with a device lacking Coded support (or with
   `OFF` on one side); confirm discovery, encryption, and messaging still work
   over legacy 1M.
