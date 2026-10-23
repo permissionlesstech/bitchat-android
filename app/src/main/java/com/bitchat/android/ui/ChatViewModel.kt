@@ -1672,6 +1672,11 @@ class ChatViewModel(
         geohashViewModel.blockUserInGeohash(targetNickname)
     }
 
+    /** True when this Nostr pubkey is blocked for geohash/location chats. */
+    fun isGeohashPubkeyBlocked(pubkeyHex: String): Boolean {
+        return dataManager.isGeohashUserBlocked(pubkeyHex.lowercase())
+    }
+
     // MARK: - Navigation Management
     
     fun showAppInfo() {
