@@ -520,7 +520,19 @@ or 9.
 
 Phase 9 moved to section 3 when it finished. What it left open is in section 5.
 
-### Phase 10: MVI on every screen (not started)
+### Phase 10: MVI on every screen (in progress)
+
+#### MVI shape
+
+Every screen follows `ChatUserViewModel`'s shape.
+
+- The ViewModel exposes `val uiState: StateFlow<XUiState>` and `fun onAction(action: XAction)`. Only if it has one-shot work does it add `val events: Flow<XEvent>`, built from `Channel<XEvent>(Channel.BUFFERED).receiveAsFlow()`.
+- `XAction` and `XEvent` are `sealed interface`s; argument-free members are `data object`.
+- `XRoot` gets the ViewModel (`hiltViewModel()` default parameter), collects with `collectAsStateWithLifecycle()`, observes events with `ObserveAsEvents` (in `:core:designsystem:phone`) and owns launchers, intents, clipboard and lifecycle effects. `XScreen(uiState, onAction, modifier)` is pure.
+- Navigation leaves through events, which the Root turns into the lambdas the Nav3 entry passes.
+- A ViewModel takes its dependencies in its constructor; singletons are reached through a feature-side port.
+- Screen tests run in the feature's own `src/androidTest`, with `createComposeRule()` and no Hilt.
+
 
 Planned scope: every screen exposes one UI state and takes actions, as the chat screen and
 private chat already do. Onboarding already does, since Phase 9. Phase 8 named this as the

@@ -116,8 +116,9 @@ that `:core:tor` has no project dependencies and that `:core:readiness` depends
 on no feature and not on `:app`. `:app` keeps `MainActivity`, the startup gate
 (`AppStartupGate`), the application class, the mesh, Wi-Fi Aware and foreground
 service, the DI modules that bind ports, the debug hooks (`ReadinessOverride`
-among them) and all instrumented tests. `MainActivity` registers no destinations
-inline.
+among them) and the instrumented tests of app wiring (navigation, DI, insets); a
+feature's screen tests live in its own `src/androidTest`. `MainActivity` registers
+no destinations inline.
 
 `build-logic/` holds the Gradle convention plugins (`bitchat.android.*`)
 applied by library modules. It is an included build; it does not appear in

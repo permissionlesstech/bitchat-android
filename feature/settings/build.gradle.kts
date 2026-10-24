@@ -22,4 +22,16 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)
     implementation(libs.bundles.lifecycle)
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    testImplementation(testFixtures(project(":core:mesh")))
+    testImplementation(libs.bundles.testing)
+    // The Compose BOM for androidTest comes from bitchat.android.library.compose.
+    androidTestImplementation(libs.bundles.compose.testing)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    // Compose's ui-test drags in espresso-core 3.5.0, which dies on API 35+;
+    // see the same pin in app/build.gradle.kts.
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    // Declares the empty ComponentActivity that createComposeRule launches.
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
