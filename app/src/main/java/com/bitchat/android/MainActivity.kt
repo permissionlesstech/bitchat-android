@@ -92,6 +92,9 @@ class MainActivity : OrientationAwareActivity() {
     // What the mesh reports to while the UI is attached; the chat session's.
     @Inject
     lateinit var chatMeshDelegate: ChatMeshDelegate
+    private val meshDelegateBinding by lazy {
+        com.bitchat.android.mesh.MeshDelegateBinding(unifiedMeshService, chatMeshDelegate)
+    }
 
     // The chat session's. The Activity starts the session, unwinds the chat
     // screen's overlays on Back, and routes notification taps into it, so none
@@ -304,7 +307,7 @@ class MainActivity : OrientationAwareActivity() {
                     when (phase) {
                         // Set up the unified mesh delegate before the gate starts
                         // the transports
-                        AppPhase.INITIALIZING -> unifiedMeshService.delegate = chatMeshDelegate
+                        AppPhase.INITIALIZING -> meshDelegateBinding.attach()
                         // App is fully initialized, mesh service is running
                         AppPhase.READY -> {
                             if (startupGate.takeInitCompleted()) finishInit()
@@ -323,7 +326,7 @@ class MainActivity : OrientationAwareActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 WifiAwareController.running.collect { running ->
                     if (running && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                        unifiedMeshService.delegate = chatMeshDelegate
+                        meshDelegateBinding.attach()
                     }
                 }
             }
@@ -401,7 +404,7 @@ class MainActivity : OrientationAwareActivity() {
         // Check Bluetooth and Location status on resume and handle accordingly
         if (startupGate.phase.value == AppPhase.READY) {
             // Reattach the session's mesh delegate, detached in onPause
-            try { unifiedMeshService.delegate = chatMeshDelegate } catch (_: Exception) { }
+            try { meshDelegateBinding.attach() } catch (_: Exception) { }
 
             // Back to onboarding if Bluetooth or location services went off
             // while the app was in the background (T42/T43)
@@ -415,11 +418,10 @@ class MainActivity : OrientationAwareActivity() {
     
     override fun onPause() {
         super.onPause()
-        // Only set background state if app is fully initialized
-        if (startupGate.phase.value == AppPhase.READY) {
-            // Detach UI delegate so the foreground service can own DM notifications while UI is closed
-            try { unifiedMeshService.delegate = null } catch (_: Exception) { }
-        }
+        // Detach the UI delegate whatever the phase, so the foreground service can own
+        // DM notifications while the UI is closed. Resume may have attached it just
+        // before sending the app to onboarding.
+        try { meshDelegateBinding.detachIfAttached() } catch (_: Exception) { }
     }
     
     /**
