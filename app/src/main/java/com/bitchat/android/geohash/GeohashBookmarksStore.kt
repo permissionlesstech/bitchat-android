@@ -9,6 +9,8 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,6 +68,7 @@ class GeohashBookmarksStore private constructor(
 
     // For throttling / preventing duplicate geocode lookups
     private val resolving = mutableSetOf<String>()
+    private val resolveJobs = mutableMapOf<String, Job>()
 
     init { load() }
 
@@ -167,7 +170,11 @@ class GeohashBookmarksStore private constructor(
                 .remove(STORE_KEY)
                 .remove(NAMES_STORE_KEY)
                 .apply()
-            // Clear any in-flight resolutions to avoid repopulating
+            // Clear any in-flight resolutions to avoid repopulating, and
+            // cancel the geocode so a panic clear does not still send the
+            // bookmark's coordinates to the geocoder.
+            resolveJobs.values.forEach { it.cancel() }
+            resolveJobs.clear()
             resolving.clear()
             Log.i(TAG, "Cleared all geohash bookmarks and names")
         } catch (e: Exception) {
@@ -187,8 +194,10 @@ class GeohashBookmarksStore private constructor(
         if (resolving.contains(gh)) return
 
         resolving.add(gh)
-        CoroutineScope(Dispatchers.IO).launch {
+        val job = CoroutineScope(Dispatchers.IO).launch {
             try {
+                ensureActive()
+                if (!isBookmarked(gh)) return@launch
                 val geocoderProvider = GeocoderFactory.get(context)
                 val name: String? = if (gh.length <= 2) {
                     // Composite admin name from multiple points
@@ -231,11 +240,13 @@ class GeohashBookmarksStore private constructor(
                 finishResolving(gh)
             }
         }
+        resolveJobs[gh] = job
     }
 
     @Synchronized
     private fun finishResolving(geohash: String) {
         resolving.remove(geohash)
+        resolveJobs.remove(geohash)
     }
 
     /**
