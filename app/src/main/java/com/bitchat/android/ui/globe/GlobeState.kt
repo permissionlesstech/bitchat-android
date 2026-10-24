@@ -47,6 +47,8 @@ class GlobeState(
 
     internal var baseRadiusPx by mutableFloatStateOf(0f)
     internal var screenMinPx by mutableFloatStateOf(0f)
+    internal var viewportWidthPx by mutableIntStateOf(0)
+    internal var viewportHeightPx by mutableIntStateOf(0)
 
     private var scope: CoroutineScope? = null
     private var animJob: Job? = null
@@ -68,10 +70,24 @@ class GlobeState(
         this.scope = scope
     }
 
-    fun setViewport(baseRadiusPx: Float, screenMinPx: Float) {
-        if (baseRadiusPx <= 0f || screenMinPx <= 0f) return
+    fun setViewport(
+        baseRadiusPx: Float,
+        screenMinPx: Float,
+        widthPx: Int,
+        heightPx: Int
+    ) {
+        if (
+            baseRadiusPx <= 0f ||
+            screenMinPx <= 0f ||
+            widthPx <= 0 ||
+            heightPx <= 0
+        ) {
+            return
+        }
         this.baseRadiusPx = baseRadiusPx
         this.screenMinPx = screenMinPx
+        this.viewportWidthPx = widthPx
+        this.viewportHeightPx = heightPx
         syncSelection()
     }
 
