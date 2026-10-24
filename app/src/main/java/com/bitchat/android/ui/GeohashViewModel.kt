@@ -111,7 +111,8 @@ class GeohashViewModel(
         }
     }
 
-    fun panicReset() {
+    /** Returns true only when the persisted Nostr identity was wiped; the rest is in-memory teardown. */
+    fun panicReset(): Boolean {
         repo.clearAll()
         GeohashAliasRegistry.clear()
         GeohashConversationRegistry.clear()
@@ -120,10 +121,15 @@ class GeohashViewModel(
         activeChannelGeohash = null
         geoTimer?.cancel()
         geoTimer = null
-        try { NostrIdentityBridge.clearAllAssociations(getApplication()) } catch (_: Exception) {}
+        val identityCleared = try {
+            NostrIdentityBridge.clearAllAssociations(getApplication())
+        } catch (_: Exception) {
+            false
+        }
         NostrBackgroundRuntime.resetSubscriptions()
         try { com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication()).clearAllOnPanic() } catch (_: Exception) {}
         try { com.bitchat.android.nostr.LocationNotesManager.getInstance().stop() } catch (_: Exception) {}
+        return identityCleared
     }
 
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {

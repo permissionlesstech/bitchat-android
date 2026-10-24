@@ -280,7 +280,9 @@ object FileUtils {
      * Recursively delete all media files (incoming and outgoing)
      * Used for Panic Mode cleanup
      */
-    fun clearAllMedia(context: Context) {
+    /** Returns true only when every media directory and the cache directory are gone. */
+    fun clearAllMedia(context: Context): Boolean {
+        var cleared = true
         try {
             // Clear files dir subdirectories (legacy storage and outgoing)
             val filesDir = context.filesDir
@@ -295,8 +297,12 @@ object FileUtils {
             dirsToClear.forEach { subDir ->
                 val dir = File(filesDir, subDir)
                 if (dir.exists()) {
-                    dir.deleteRecursively()
-                    Log.d(TAG, "Deleted media directory from filesDir: $subDir")
+                    if (dir.deleteRecursively()) {
+                        Log.d(TAG, "Deleted media directory from filesDir: $subDir")
+                    } else {
+                        Log.e(TAG, "Failed to delete media directory from filesDir: $subDir")
+                        cleared = false
+                    }
                 }
             }
             
@@ -312,18 +318,27 @@ object FileUtils {
             cacheDirsToClear.forEach { subDir ->
                 val dir = File(cacheDir, subDir)
                 if (dir.exists()) {
-                    dir.deleteRecursively()
-                    Log.d(TAG, "Deleted media directory from cacheDir: $subDir")
+                    if (dir.deleteRecursively()) {
+                        Log.d(TAG, "Deleted media directory from cacheDir: $subDir")
+                    } else {
+                        Log.e(TAG, "Failed to delete media directory from cacheDir: $subDir")
+                        cleared = false
+                    }
                 }
             }
             
             // Also clear entire cache dir as a catch-all
-            context.cacheDir.deleteRecursively()
-            Log.d(TAG, "Cleared entire cache directory")
-
+            if (context.cacheDir.deleteRecursively()) {
+                Log.d(TAG, "Cleared entire cache directory")
+            } else {
+                Log.e(TAG, "Failed to clear entire cache directory")
+                cleared = false
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear media files", e)
+            cleared = false
         }
+        return cleared
     }
 
     /**
