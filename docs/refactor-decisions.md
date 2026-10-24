@@ -352,7 +352,7 @@ behaviour.
 
 | # | Before (what a user saw) | After | Commit | Kind |
 |---|---|---|---|---|
-| F1 | Turning Bluetooth on could start the mesh more than once and reopen the chat from the notification the app was launched with. Turning Bluetooth off during startup could be ignored. | Startup runs once per entry, and the launch intent is handled once. A Bluetooth or location drop during startup sends you to the matching step when startup ends. | 7cee6395 | Removed by the restructure |
+| F1 | Turning Bluetooth on could start the mesh more than once and reopen the chat from the notification the app was launched with. Turning Bluetooth off during startup could be ignored. | Startup runs once per entry, and the launch intent is handled once, across rotation too (the marker is saved with the instance state; found in the final review). A Bluetooth or location drop during startup sends you to the matching step when startup ends. | 7cee6395, 3c9fe630 | Removed by the restructure; rotation half a real fix |
 | F2 | Rotating the phone in the first 1.5 s of startup ended on "Failed to initialize the app". | Startup carries on across the rotation, with no error. | 19d45389 | Real fix. Phone check owed |
 | F3 | Rarely, a stuck spinner with no buttons after a permission dialog, when the Activity was recreated during a 100 ms or 200 ms delay. | The step is recomputed from readiness whenever onboarding opens, and the delays survive recreation. | 9236e212 | Removed by the restructure |
 | F4 | Phones without Bluetooth started on an error screen on every launch. | They get the existing "Bluetooth not supported → Continue" step. | aae226d3 | Real fix |
@@ -430,7 +430,9 @@ Each would change onboarding UX or startup, which Phase 9 ruled out of scope.
 - **The "location not available" screen has no buttons (Q11).**
 - **Bluetooth off while in chat (T12) ignores the Bluetooth session skip and the debug
   `ble_enabled` switch.** The resume re-check (T42) honours both. Kept as it was, and locked by
-  `readyThenBluetoothOff_goesToOnboarding`.
+  `readyThenBluetoothOff_goesToOnboarding`. Regression found in the final review and fixed in
+  2bf48d29: if Bluetooth came back on in the background before onboarding opened, the stale
+  flag stranded the Bluetooth step on a spinner. The flag now counts only while Bluetooth is off.
 - **`handleBluetoothDisabled` keeps a `NOT_SUPPORTED` → error branch.** F4 removed the path at
   open. This one is reachable only through a Bluetooth-off event on a device with no adapter.
 

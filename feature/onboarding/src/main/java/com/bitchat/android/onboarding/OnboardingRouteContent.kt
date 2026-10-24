@@ -64,7 +64,7 @@ fun OnboardingRouteContent(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         Log.d(BATTERY_TAG, "Battery optimization request result: ${result.resultCode}")
-        // Every result counts as done, whether or not optimization was turned off
+        // The view model re-reads the status: still optimized stays on the battery step (F7)
         onAction(OnboardingAction.BatteryResult)
     }
     val permissions = rememberLauncherForActivityResult(

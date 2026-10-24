@@ -14,7 +14,8 @@ interface OnboardingHost {
     /**
      * Try again on the error step: back to checking, then the checks. Returns
      * once they have decided: true when onboarding is still needed, and is
-     * still on screen to show their step.
+     * still on screen to show their step. It holds the caller for the gate's
+     * 500 ms check, so a caller that serializes its work holds that queue too.
      */
     suspend fun retry(): Boolean
 
