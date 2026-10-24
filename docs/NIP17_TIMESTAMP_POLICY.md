@@ -31,7 +31,7 @@ production constants. They cover exact boundaries, one-second rejections, a
 inner and outer age. These are spec-derived acceptance vectors, not encrypted
 NIP-44 test vectors or evidence of a physical cross-client exchange.
 
-The existing relay filter limit remains 100. This change does not implement
-pagination or guarantee complete delivery for histories exceeding that limit.
+This change does not implement pagination. A history larger than the
+gift-wrap filter limit is still incomplete.
 Physical-device interoperability and the complete Android build remain separate
 validation requirements.
