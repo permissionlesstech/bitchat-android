@@ -38,7 +38,9 @@ class GeohashViewModel(
 
     companion object { private const val TAG = "GeohashViewModel" }
 
-    private val repo = GeohashRepository(application, state, dataManager, viewModelScope)
+    private val repo = GeohashRepository(
+        application, state, dataManager, viewModelScope, NostrBackgroundRuntime.participants
+    )
     private val uiSubscriptionOwner = "geohash-ui-${UUID.randomUUID()}"
     private val subscriptionManager = NostrSubscriptionManager(
         application,
@@ -55,6 +57,7 @@ class GeohashViewModel(
     // Presence heartbeat firehose (kind 20001). High-volume; paused while backgrounded.
     private var currentGeohashPresenceSubId: String? = null
     private var geoTimer: Job? = null
+    private val participantUpdatesJob = repo.observeParticipants()
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
     private val activeSamplingGeohashes = mutableSetOf<String>()
     private val samplingSubscriptionIds = mutableMapOf<String, String>()
@@ -422,6 +425,7 @@ class GeohashViewModel(
     fun shutdownUiSubscriptions() {
         if (uiSubscriptionsShutdown) return
         uiSubscriptionsShutdown = true
+        participantUpdatesJob.cancel()
         subscriptionManager.unsubscribeAllOwned()
         geoTimer?.cancel()
         geoTimer = null
