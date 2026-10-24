@@ -134,8 +134,9 @@ fun OnboardingRouteContent(
     }
 
     when (state.step) {
-        // Onboarding has not picked its step yet, or has finished.
-        OnboardingStep.CHECKING -> Unit
+        // Onboarding has not picked its step yet, or has finished: a spinner,
+        // so first launch and Try again do not show a blank screen (F8).
+        OnboardingStep.CHECKING,
         OnboardingStep.PERMISSION_REQUESTING -> InitializingScreen(modifier)
         OnboardingStep.BLUETOOTH -> BluetoothCheckScreen(modifier, state, onAction)
         OnboardingStep.LOCATION -> LocationCheckScreen(modifier, state, onAction)

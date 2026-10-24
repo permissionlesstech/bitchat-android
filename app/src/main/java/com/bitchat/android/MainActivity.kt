@@ -182,7 +182,11 @@ class MainActivity : OrientationAwareActivity() {
                         .fillMaxSize()
                         .padding(innerPadding)
                     val phase by startupGate.phase.collectAsState()
-                    val root = rootRouteFor(phase)
+                    val retrying by startupGate.retrying.collectAsState()
+                    // Read once per composition: it only matters while CHECKING,
+                    // which after onboarding completes comes only from Try again.
+                    val firstLaunch = remember { deviceReadiness.snapshot().firstLaunch }
+                    val root = rootRouteFor(phase, firstLaunch, retrying)
 
                     // Restores the stack after process death. Composed before the
                     // seeding effect below, which then sees a stack whose root

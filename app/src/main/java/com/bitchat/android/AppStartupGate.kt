@@ -26,7 +26,10 @@ import kotlinx.coroutines.launch
 
 /** Where the app is between launch and chat. */
 enum class AppPhase {
-    /** Deciding whether onboarding is needed. Chat shows meanwhile. */
+    /**
+     * Deciding whether onboarding is needed. Chat shows meanwhile for a
+     * returning user; onboarding's spinner on first launch and after Try again.
+     */
     CHECKING,
 
     /** Onboarding shows; it decides its own step. */
@@ -69,6 +72,10 @@ class AppStartupGate @Inject constructor(
     private val _initError = MutableStateFlow<String?>(null)
     override val initError: StateFlow<String?> = _initError.asStateFlow()
 
+    // True while CHECKING after Try again, so onboarding stays on screen (F8).
+    private val _retrying = MutableStateFlow(false)
+    val retrying: StateFlow<Boolean> = _retrying.asStateFlow()
+
     private var check: Job? = null
     private var init: Job? = null
     private var initCompleted = false
@@ -89,6 +96,7 @@ class AppStartupGate @Inject constructor(
             } else {
                 _phase.value = AppPhase.ONBOARDING
             }
+            _retrying.value = false
         }
     }
 
@@ -170,11 +178,14 @@ class AppStartupGate @Inject constructor(
     override fun locationServicesEnabled() = WifiAwareController.startIfPossible()
 
     /** Try again on an error step: back to CHECKING, then the checks (T40). */
-    override fun retry() {
-        if (_phase.value != AppPhase.ONBOARDING && _phase.value != AppPhase.INIT_FAILED) return
+    override suspend fun retry(): Boolean {
+        if (_phase.value != AppPhase.ONBOARDING && _phase.value != AppPhase.INIT_FAILED) return false
         _initError.value = null
+        _retrying.value = true
         _phase.value = AppPhase.CHECKING
         start()
+        check?.join()
+        return _phase.value == AppPhase.ONBOARDING
     }
 
     /** Puts the gate in [phase] directly, for device tests that cross between onboarding and chat. */

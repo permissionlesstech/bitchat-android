@@ -1,23 +1,33 @@
 package com.bitchat.android.onboarding
 
+import android.app.Activity
+import android.app.Application
 import android.content.Context
+import android.os.Bundle
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.lifecycleScope
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.AppPhase
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
+import com.bitchat.android.navigation.ChatRoute
 import com.bitchat.android.navigation.MainActivityRule
 import com.bitchat.android.navigation.OnboardedApp
 import com.bitchat.android.navigation.OnboardingRoute
 import com.bitchat.android.navigation.awaitChat
 import com.bitchat.android.navigation.backStack
+import com.bitchat.android.navigation.openAboutLabel
 import com.bitchat.android.testhook.ReadinessOverride
+import kotlinx.coroutines.launch
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
@@ -45,19 +55,44 @@ class OnboardingDeviceTest {
         val rule = createAndroidComposeRule<MainActivity>()
 
         companion object {
+            // Chat on the back stack at any point from the Activity's creation,
+            // which is before the test body runs and before the gate decides.
+            @Volatile
+            private var chatOnStack = false
+
+            private val stackWatcher = object : ActivityLifecycleCallbacksAdapter() {
+                override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+                    if (activity !is MainActivity) return
+                    activity.lifecycleScope.launch {
+                        snapshotFlow { activity.navigator.backStack.toList() }
+                            .collect { if (ChatRoute in it) chatOnStack = true }
+                    }
+                }
+            }
+
             @JvmStatic
             @BeforeClass
-            fun fakeReadiness() = setUp(ready().copy(firstLaunch = true))
+            fun fakeReadiness() {
+                setUp(ready().copy(firstLaunch = true))
+                application().registerActivityLifecycleCallbacks(stackWatcher)
+            }
 
             @JvmStatic
             @AfterClass
-            fun clearReadiness() = tearDown()
+            fun clearReadiness() {
+                application().unregisterActivityLifecycleCallbacks(stackWatcher)
+                tearDown()
+            }
         }
 
         @Test
         fun firstLaunch_showsPermissionExplanation() {
             rule.awaitText(R.string.grant_permissions)
+            rule.waitUntil(timeoutMillis = 10_000) { rule.phase() == AppPhase.ONBOARDING }
             rule.assertOnOnboarding()
+            // F8: chat, and so its header, never showed, not even while the gate checked.
+            assertFalse("chat was on the back stack before the explanation", chatOnStack)
+            assertEquals(0, rule.onAllNodesWithContentDescription(rule.openAboutLabel()).fetchSemanticsNodes().size)
         }
     }
 
@@ -184,6 +219,19 @@ class OnboardingDeviceTest {
 
 private fun targetContext(): Context = InstrumentationRegistry.getInstrumentation().targetContext
 
+private fun application(): Application = targetContext().applicationContext as Application
+
+/** Activity callbacks that do nothing unless overridden. */
+private abstract class ActivityLifecycleCallbacksAdapter : Application.ActivityLifecycleCallbacks {
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+    override fun onActivityStarted(activity: Activity) = Unit
+    override fun onActivityResumed(activity: Activity) = Unit
+    override fun onActivityPaused(activity: Activity) = Unit
+    override fun onActivityStopped(activity: Activity) = Unit
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+    override fun onActivityDestroyed(activity: Activity) = Unit
+}
+
 /**
  * A returning user with everything ready: radios on, battery optimization off,
  * every permission granted and nothing left to ask. Each test changes one thing.
@@ -223,9 +271,13 @@ private fun MainActivityRule.awaitText(resId: Int) {
     waitForIdle()
 }
 
-private fun MainActivityRule.assertOnOnboarding() {
-    var phase: AppPhase? = null
+private fun MainActivityRule.phase(): AppPhase {
+    var phase = AppPhase.CHECKING
     runOnUiThread { phase = activity.startupGate.phase.value }
-    assertEquals(AppPhase.ONBOARDING, phase)
+    return phase
+}
+
+private fun MainActivityRule.assertOnOnboarding() {
+    assertEquals(AppPhase.ONBOARDING, phase())
     assertEquals(listOf(OnboardingRoute), backStack())
 }

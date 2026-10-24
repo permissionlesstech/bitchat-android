@@ -1242,10 +1242,26 @@ class OnboardingViewModelTest {
         act(OnboardingAction.TryAgainTapped)
         advance(10_000)
 
-        // Back to checking: the gate waits 500 ms and reopens onboarding (AppStartupGateTest).
+        // Back to checking; the gate's checks found nothing for onboarding, so the app starts.
         assertEquals(OnboardingStep.CHECKING, step)
         assertEquals(1, host.retried)
         assertEquals(0, host.finished)
+    }
+
+    @Test
+    fun tryAgain_checksStillNeedOnboarding_reopensOnTheirStep() = runTest {
+        // F8: onboarding stays on screen through Try again, so it reopens itself
+        // on the step the gate's checks found, with the error cleared.
+        onErrorStep()
+        system.bluetooth = BluetoothStatus.DISABLED
+        host.retryShowsOnboarding = true
+
+        act(OnboardingAction.TryAgainTapped)
+        advance(10_000)
+
+        assertEquals(OnboardingStep.BLUETOOTH, step)
+        assertEquals("", state.errorMessage)
+        assertEquals(1, host.retried)
     }
 
     @Test

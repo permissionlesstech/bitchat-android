@@ -11,6 +11,9 @@ class FakeOnboardingHost(private val effects: MutableList<String> = mutableListO
     var finished = 0
     var retried = 0
 
+    /** What [retry] answers: whether the gate's checks found onboarding still needed. */
+    var retryShowsOnboarding = false
+
     /** Bluetooth turned off while the app was ready, until onboarding takes it. */
     var bluetoothTurnedOff = false
 
@@ -18,8 +21,10 @@ class FakeOnboardingHost(private val effects: MutableList<String> = mutableListO
         finished++
     }
 
-    override fun retry() {
+    override suspend fun retry(): Boolean {
         retried++
+        initError.value = null
+        return retryShowsOnboarding
     }
 
     override fun takeBluetoothTurnedOff(): Boolean = bluetoothTurnedOff.also { bluetoothTurnedOff = false }

@@ -159,10 +159,14 @@ class OnboardingViewModel @Inject constructor(
             OnboardingAction.BackgroundSkipTapped -> skipBackgroundLocation()
 
             OnboardingAction.TryAgainTapped -> {
-                // Back to checking (T40); the gate runs the checks again and
-                // reopens onboarding on the step they find.
+                // Back to checking (T40); the gate runs the checks again while
+                // onboarding stays on screen (F8). When they still need it, it
+                // reopens on their step, as a new view model would.
                 setStep(OnboardingStep.CHECKING)
-                host.retry()
+                if (host.retry()) {
+                    _state.value = OnboardingUiState()
+                    open()
+                }
             }
             OnboardingAction.OpenSettingsTapped -> _effects.send(OnboardingEffect.OpenAppSettings)
         }

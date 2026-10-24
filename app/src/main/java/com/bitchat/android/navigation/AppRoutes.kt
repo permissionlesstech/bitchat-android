@@ -18,12 +18,16 @@ data object OnboardingRoute : NavKey
 /**
  * The destination that should be at the root for a given app phase.
  *
- * CHECKING and INITIALIZING map to chat, matching the behaviour this replaced:
- * the app shows the chat screen while it verifies its own readiness rather than
- * flashing an onboarding step. An init failure shows on onboarding's error step.
+ * For a returning user CHECKING and INITIALIZING map to chat, matching the
+ * behaviour this replaced: the app shows the chat screen while it verifies its
+ * own readiness rather than flashing an onboarding step. On first launch, and
+ * after Try again, CHECKING stays on onboarding, which shows a spinner until its
+ * step is known, so chat does not flash before it (F8). An init failure shows
+ * on onboarding's error step.
  */
-fun rootRouteFor(phase: AppPhase): NavKey = when (phase) {
-    AppPhase.CHECKING,
+fun rootRouteFor(phase: AppPhase, firstLaunch: Boolean, retrying: Boolean): NavKey = when (phase) {
+    AppPhase.CHECKING -> if (firstLaunch || retrying) OnboardingRoute else ChatRoute
+
     AppPhase.INITIALIZING,
     AppPhase.READY -> ChatRoute
 

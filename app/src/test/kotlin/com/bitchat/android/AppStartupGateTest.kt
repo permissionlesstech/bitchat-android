@@ -8,6 +8,7 @@ import com.bitchat.android.onboarding.SystemEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -344,14 +345,18 @@ class AppStartupGateTest {
         assertEquals(AppPhase.INIT_FAILED, gate.phase.value)
         initializer.failure = null
 
-        gate.retry()
+        val showsOnboarding = async { gate.retry() }
+        runCurrent()
 
         assertEquals(AppPhase.CHECKING, gate.phase.value)
+        assertTrue(gate.retrying.value)
         assertNull(gate.initError.value)
         advance(499)
         assertEquals(AppPhase.CHECKING, gate.phase.value)
         advance(1)
         assertEquals(AppPhase.INITIALIZING, gate.phase.value)
+        assertFalse(gate.retrying.value)
+        assertFalse(showsOnboarding.await())
         advance(INIT_MS)
         assertEquals(AppPhase.READY, gate.phase.value)
     }
@@ -363,11 +368,25 @@ class AppStartupGateTest {
         gate.start()
         advance(500)
 
-        gate.retry()
+        val showsOnboarding = async { gate.retry() }
+        runCurrent()
 
         assertEquals(AppPhase.CHECKING, gate.phase.value)
+        assertTrue(gate.retrying.value)
         advance(500)
         assertEquals(AppPhase.ONBOARDING, gate.phase.value)
+        assertFalse(gate.retrying.value)
+        assertTrue(showsOnboarding.await())
+    }
+
+    @Test
+    fun coldStart_isNotRetrying() = runTest {
+        val gate = gate()
+        gate.start()
+        runCurrent()
+
+        assertEquals(AppPhase.CHECKING, gate.phase.value)
+        assertFalse(gate.retrying.value)
     }
 
     @Test

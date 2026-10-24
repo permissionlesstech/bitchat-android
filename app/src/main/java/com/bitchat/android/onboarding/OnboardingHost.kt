@@ -11,8 +11,12 @@ interface OnboardingHost {
     /** Onboarding is satisfied: the app initializes. */
     fun onboardingFinished()
 
-    /** Try again on the error step: back to checking, then the checks. */
-    fun retry()
+    /**
+     * Try again on the error step: back to checking, then the checks. Returns
+     * once they have decided: true when onboarding is still needed, and is
+     * still on screen to show their step.
+     */
+    suspend fun retry(): Boolean
 
     /**
      * True once after Bluetooth turning off while the app was ready sent it back
