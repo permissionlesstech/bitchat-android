@@ -418,6 +418,13 @@ merge first, expect a Back-handling conflict in `MainActivity`. Keep this branch
   (`displayNameForNostrPubkeyUI`).
 - `BluetoothPacketBroadcaster` spins at about 100 failures a second while Bluetooth is off.
 - The favourite star has no accessibility label.
+- Two geohash counts carry the same "N people" label but count different sets.
+  `MeshPeerListScreen` (and upstream's `ChatHeader`) use `geohashPeople.size`, which includes
+  heartbeat-only identities with no nickname. `GeohashPeopleList` titles its list with
+  `displayedPeople.size`, which drops bare `anon` identities, so only people who chatted count.
+  Found in a phone check after the post-Phase 9 upstream merge; upstream behaves the same. A fix
+  is a labelling decision for upstream (for example "N online · M active"), not a refactor
+  change.
 - The iOS client files Nostr private messages in a separate thread.
 - `FragmentManagerTest > test reassembly` flakes. Root cause not established. Candidates: an
   unseeded `Random`, and a cleanup loop that nothing cancels.
