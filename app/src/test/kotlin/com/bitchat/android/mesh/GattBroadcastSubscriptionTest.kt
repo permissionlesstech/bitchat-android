@@ -107,6 +107,21 @@ class GattBroadcastSubscriptionTest {
     }
 
     @Test
+    fun `cccd announce fires once per server link across unsubscribe`() {
+        val address = "AA:BB:CC:DD:EE:07"
+        tracker.beginServerLink(address)
+
+        assertTrue(tracker.claimCccdAnnounce(address, "link-a"))
+        tracker.removeSubscribedDevice(device(address))
+        assertTrue(tracker.addSubscribedDevice(device(address)))
+        assertFalse(tracker.claimCccdAnnounce(address, "link-a"))
+
+        tracker.beginServerLink(address)
+        assertFalse(tracker.isSubscribed(address))
+        assertTrue(tracker.claimCccdAnnounce(address, "link-b"))
+    }
+
+    @Test
     fun `resubscribing after an unsubscribe counts as new again`() {
         val peer = device("AA:BB:CC:DD:EE:06")
 

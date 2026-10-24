@@ -27,6 +27,8 @@ class BluetoothConnectionTracker(
     // Connection tracking - reduced memory footprint
     private val connectedDevices = ConcurrentHashMap<String, DeviceConnection>()
     private val subscribedDevices = CopyOnWriteArrayList<BluetoothDevice>()
+    /** Server link that already fired the CCCD announce for an address. */
+    private val cccdAnnouncedLinkByAddress = mutableMapOf<String, String>()
     val addressPeerMap = ConcurrentHashMap<String, String>()
     // Track whether we have seen the first ANNOUNCE on a given device connection
     private val firstAnnounceSeen = ConcurrentHashMap<String, Boolean>()
@@ -201,6 +203,32 @@ class BluetoothConnectionTracker(
         }
     }
 
+    /**
+     * A new server link starts unsubscribed. Drop a stale entry from a previous
+     * link so the next ENABLE is not skipped, and allow that link one announce.
+     */
+    fun beginServerLink(deviceAddress: String) {
+        synchronized(connectionStateLock) {
+            subscribedDevices.removeAll { it.address == deviceAddress }
+            cccdAnnouncedLinkByAddress.remove(deviceAddress)
+        }
+    }
+
+    /**
+     * The CCCD-triggered announce runs at most once per server link. A peer
+     * that alternates DISABLE and ENABLE stays subscribed again, but does not
+     * get another announce.
+     */
+    fun claimCccdAnnounce(deviceAddress: String, linkID: String): Boolean =
+        synchronized(connectionStateLock) {
+            if (cccdAnnouncedLinkByAddress[deviceAddress] == linkID) {
+                false
+            } else {
+                cccdAnnouncedLinkByAddress[deviceAddress] = linkID
+                true
+            }
+        }
+
     /** Whether this address currently receives broadcast notifications. */
     fun isSubscribed(deviceAddress: String): Boolean =
         subscribedDevices.any { it.address == deviceAddress }
@@ -295,6 +323,7 @@ class BluetoothConnectionTracker(
         synchronized(connectionStateLock) {
             connectedDevices.remove(deviceAddress)
             subscribedDevices.removeAll { it.address == deviceAddress }
+            cccdAnnouncedLinkByAddress.remove(deviceAddress)
             addressPeerMap.remove(deviceAddress)
             firstAnnounceSeen.remove(deviceAddress)
         }
@@ -311,6 +340,7 @@ class BluetoothConnectionTracker(
         }
         if (connectedDevices.remove(deviceAddress, current)) {
             subscribedDevices.removeAll { it.address == deviceAddress }
+            cccdAnnouncedLinkByAddress.remove(deviceAddress)
             addressPeerMap.remove(deviceAddress)
             firstAnnounceSeen.remove(deviceAddress)
             Log.d(TAG, "Cleaned up device connection for $deviceAddress")
@@ -347,6 +377,7 @@ class BluetoothConnectionTracker(
     private fun clearAllConnections() {
         connectedDevices.clear()
         subscribedDevices.clear()
+        cccdAnnouncedLinkByAddress.clear()
         addressPeerMap.clear()
         pendingConnections.clear()
         scanRSSI.clear()
