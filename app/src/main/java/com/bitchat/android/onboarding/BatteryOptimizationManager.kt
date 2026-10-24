@@ -169,9 +169,3 @@ class BatteryOptimizationManager(
         Log.d(TAG, "Battery optimization status: ${getBatteryOptimizationStatus()}")
     }
 }
-
-enum class BatteryOptimizationStatus {
-    ENABLED,
-    DISABLED,
-    NOT_SUPPORTED
-}

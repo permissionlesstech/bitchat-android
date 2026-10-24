@@ -8,7 +8,8 @@ import org.junit.Test
  * The module graph rules, read from the Gradle files: a feature reaches another feature only
  * through its `:api`, an `:api` module names only `:core:navigation` and `:core:domain`, and
  * `:core:tor` is a leaf, the shared `:core:designsystem` names no project and no Material3, and
- * `:core:designsystem:phone` builds on it alone.
+ * `:core:designsystem:phone` builds on it alone, and `:core:readiness` names only `:core:mesh` and
+ * `:core:domain`.
  */
 class FeatureDependencyRulesTest {
 
@@ -72,6 +73,13 @@ class FeatureDependencyRulesTest {
     fun torIsALeaf() {
         val deps = projectDependencies(File(root, "core/tor/build.gradle.kts"))
         assertTrue(":core:tor must depend on no project module: $deps", deps.isEmpty())
+    }
+
+    @Test
+    fun readinessNamesOnlyMeshAndDomain() {
+        val allowed = setOf(":core:mesh", ":core:domain")
+        val deps = projectDependencies(File(root, "core/readiness/build.gradle.kts"))
+        assertTrue(":core:readiness may depend only on $allowed: $deps", allowed.containsAll(deps))
     }
 
     private fun codeOf(buildFile: File): String =

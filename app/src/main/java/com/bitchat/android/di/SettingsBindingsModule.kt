@@ -2,7 +2,7 @@ package com.bitchat.android.di
 
 import android.content.Context
 import com.bitchat.android.mesh.BluetoothMeshService
-import com.bitchat.android.onboarding.PermissionManager
+import com.bitchat.android.onboarding.DeviceReadiness
 import com.bitchat.android.service.MeshForegroundService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.MeshServicePreferences
@@ -49,6 +49,7 @@ class AppBackgroundMeshSetting @Inject constructor(
 
 class AppTransportDiagnostics @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val deviceReadiness: DeviceReadiness,
 ) : TransportDiagnostics {
 
     override val wifiAwareSupported: StateFlow<Boolean> = WifiAwareController.supported
@@ -64,7 +65,7 @@ class AppTransportDiagnostics @Inject constructor(
         WifiAwareController.getService()?.sendBroadcastAnnounce()
     }
 
-    override fun wifiAwarePermissions(): List<String> = PermissionManager(context).wifiAwarePermissions()
+    override fun wifiAwarePermissions(): List<String> = deviceReadiness.wifiAwarePermissions()
 
     override fun openMesh(): MeshDiagnostics =
         BluetoothMeshDiagnostics(MeshServiceHolder.getOrCreate(context.applicationContext))

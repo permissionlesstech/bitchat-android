@@ -1,9 +1,7 @@
 package com.bitchat.android.onboarding
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.location.LocationManager
 import android.os.Build
 import android.provider.Settings
@@ -30,12 +28,10 @@ class LocationStatusManager(
 
     private var locationSettingsLauncher: ActivityResultLauncher<Intent>? = null
     private var locationManager: LocationManager? = null
-    private var locationStateReceiver: BroadcastReceiver? = null
 
     init {
         setupLocationManager()
         setupLocationSettingsLauncher()
-        setupLocationStateReceiver()
     }
 
     /**
@@ -66,33 +62,6 @@ class LocationStatusManager(
                 onLocationDisabled("Location services are required for Bluetooth scanning on Android. Please enable location services to continue.")
             }
         }
-    }
-
-    /**
-     * Setup broadcast receiver to listen for location settings changes
-     */
-    private fun setupLocationStateReceiver() {
-        locationStateReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                if (intent.action == LocationManager.MODE_CHANGED_ACTION || 
-                    intent.action == LocationManager.PROVIDERS_CHANGED_ACTION) {
-                    Log.d(TAG, "Location settings changed, checking status")
-                    val isEnabled = isLocationEnabled()
-                    if (isEnabled) {
-                        onLocationEnabled()
-                    } else {
-                        onLocationDisabled("Location services have been disabled.")
-                    }
-                }
-            }
-        }
-        
-        // Register receiver for location changes
-        val filter = IntentFilter().apply {
-            addAction(LocationManager.MODE_CHANGED_ACTION)
-            addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
-        }
-        context.registerReceiver(locationStateReceiver, filter)
     }
 
     /**
@@ -221,27 +190,4 @@ class LocationStatusManager(
     fun logLocationStatus() {
         Log.d(TAG, getDiagnostics())
     }
-
-    /**
-     * Cleanup resources - call this when activity is destroyed
-     */
-    fun cleanup() {
-        locationStateReceiver?.let { receiver ->
-            try {
-                context.unregisterReceiver(receiver)
-                Log.d(TAG, "Location state receiver unregistered")
-            } catch (e: Exception) {
-                Log.w(TAG, "Error unregistering location state receiver: ${e.message}")
-            }
-        }
-    }
-}
-
-/**
- * Location services status enum
- */
-enum class LocationStatus {
-    ENABLED,
-    DISABLED, 
-    NOT_AVAILABLE
 }

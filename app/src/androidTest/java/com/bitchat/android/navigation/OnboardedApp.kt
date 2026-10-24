@@ -17,7 +17,8 @@ import com.bitchat.android.MainActivity
 import com.bitchat.android.MainViewModel
 import com.bitchat.android.R
 import com.bitchat.android.onboarding.OnboardingState
-import com.bitchat.android.onboarding.PermissionManager
+import com.bitchat.android.onboarding.SystemDeviceReadiness
+import com.bitchat.android.wifiaware.WifiAwareSupport
 
 internal typealias MainActivityRule =
     AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>
@@ -32,8 +33,8 @@ internal typealias MainActivityRule =
  * Granting permissions is not enough on its own. Until onboarding is marked
  * complete, the app treats every launch as a first launch and shows the
  * permission explanation before it looks at a single grant. The grants come
- * from PermissionManager itself, so a permission the app starts requiring is
- * granted here without editing this file.
+ * from SystemDeviceReadiness itself, so a permission the app starts requiring
+ * is granted here without editing this file.
  *
  * Bluetooth and location services are the device's own settings and are left
  * alone. A device with either switched off still opens on onboarding.
@@ -42,13 +43,13 @@ internal object OnboardedApp {
 
     fun prepare() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val permissions = PermissionManager(context)
-        val grants = permissions.getRequiredPermissions() +
-            permissions.getOptionalPermissions() +
-            listOfNotNull(permissions.getBackgroundLocationPermission())
+        val readiness = SystemDeviceReadiness(context) { WifiAwareSupport.isSupported(context) }
+        val grants = readiness.requiredPermissions() +
+            readiness.optionalPermissions() +
+            listOfNotNull(readiness.backgroundLocationPermission())
         grants.forEach { permission -> shell("pm grant ${context.packageName} $permission") }
         shell("dumpsys deviceidle whitelist +${context.packageName}")
-        permissions.markOnboardingComplete()
+        readiness.markOnboardingComplete()
     }
 
     /**

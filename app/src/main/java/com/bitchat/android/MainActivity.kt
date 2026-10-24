@@ -22,14 +22,13 @@ import androidx.lifecycle.Lifecycle
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.onboarding.BackgroundLocationPreferenceManager
 import com.bitchat.android.onboarding.BluetoothCheckScreen
 import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.BluetoothStatusManager
+import com.bitchat.android.onboarding.DeviceReadiness
 import com.bitchat.android.onboarding.BatteryOptimizationManager
-import com.bitchat.android.onboarding.BatteryOptimizationPreferenceManager
 import com.bitchat.android.onboarding.BatteryOptimizationScreen
-import com.bitchat.android.onboarding.BatteryOptimizationStatus
+import com.bitchat.android.onboarding.BackgroundLocation
 import com.bitchat.android.onboarding.BackgroundLocationPermissionScreen
 import com.bitchat.android.onboarding.InitializationErrorScreen
 import com.bitchat.android.onboarding.InitializingScreen
@@ -42,6 +41,7 @@ import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.OnboardingSystem
 import com.bitchat.android.onboarding.PermissionManager
+import com.bitchat.android.onboarding.SystemEvent
 import com.bitchat.android.ui.BackAction
 import com.bitchat.android.ui.AppForegroundEffect
 import com.bitchat.android.ui.ChatBackUnwinder
@@ -97,10 +97,10 @@ class MainActivity : OrientationAwareActivity() {
     @Inject
     lateinit var navigator: AppNavigator
 
-    // Watches the adapter for the whole Activity, not for as long as some
-    // composable happens to stay on screen. Scoping it to a destination is what
-    // let a Bluetooth switch-off go unnoticed once chat became its own route.
-    private var bluetoothStateReceiver: android.content.BroadcastReceiver? = null
+    // Bluetooth, location services, battery optimization, permissions and the
+    // stored onboarding choices, read in one place.
+    @Inject
+    lateinit var deviceReadiness: DeviceReadiness
 
     @Inject
     lateinit var locationChannelManager: LocationChannelManager
@@ -184,7 +184,7 @@ class MainActivity : OrientationAwareActivity() {
         enableEdgeToEdge()
 
         // Initialize permission management
-        permissionManager = PermissionManager(this)
+        permissionManager = PermissionManager(this, deviceReadiness)
         // Start the foreground service when allowed, then get mesh instances from the holder.
         startMeshForegroundServiceBestEffort()
         meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
@@ -348,15 +348,35 @@ class MainActivity : OrientationAwareActivity() {
             }
         }
         
-        bluetoothStateReceiver = bluetoothStatusManager.monitorBluetoothState(
-            context = this,
-            bluetoothStatusManager = bluetoothStatusManager,
-            onBluetoothStateChanged = { status ->
-                if (status == BluetoothStatus.ENABLED) {
-                    onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOn)
+        // The adapter as the Activity starts. Without one the device cannot run
+        // bitchat at all. One already on re-runs the Bluetooth check if that screen
+        // is showing, which only a recreation finds.
+        when (deviceReadiness.snapshot().bluetooth) {
+            BluetoothStatus.NOT_SUPPORTED -> onboardingFlow.dispatch(OnboardingAction.BluetoothNotSupportedAtStart)
+            BluetoothStatus.ENABLED -> onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOn)
+            BluetoothStatus.DISABLED -> Unit
+        }
+
+        // Watches the radios for the whole Activity, not for as long as some
+        // composable happens to stay on screen. Scoping it to a destination is what
+        // let a Bluetooth switch-off go unnoticed once chat became its own route.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.CREATED) {
+                deviceReadiness.systemEvents.collect { event ->
+                    when (event) {
+                        // Both, in this order: re-run the check if its screen is
+                        // showing, then take the Bluetooth-enabled path.
+                        SystemEvent.BluetoothOn -> {
+                            onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOn)
+                            onboardingFlow.dispatch(OnboardingAction.BluetoothResult(enabled = true))
+                        }
+                        SystemEvent.BluetoothOff -> onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOff)
+                        is SystemEvent.LocationChanged ->
+                            onboardingFlow.dispatch(OnboardingAction.LocationChanged(enabled = event.enabled))
+                    }
                 }
             }
-        )
+        }
         
         // Collect state changes in a lifecycle-aware manner
         lifecycleScope.launch {
@@ -493,40 +513,36 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
     
-    // What the onboarding flow reads and does, answered by this Activity's
-    // managers, coordinator and preferences.
+    // What the onboarding flow reads and does. The reads and the stored choices
+    // come from DeviceReadiness; the dialogs from this Activity's managers and
+    // coordinator.
     private val onboardingSystem = object : OnboardingSystem {
-        override fun bluetoothStatus() = bluetoothStatusManager.checkBluetoothStatus()
-        override fun locationStatus() = locationStatusManager.checkLocationStatus()
-        override fun batteryStatus() = when {
-            !batteryOptimizationManager.isBatteryOptimizationSupported() -> BatteryOptimizationStatus.NOT_SUPPORTED
-            batteryOptimizationManager.isBatteryOptimizationDisabled() -> BatteryOptimizationStatus.DISABLED
-            else -> BatteryOptimizationStatus.ENABLED
-        }
+        private fun readiness() = deviceReadiness.snapshot()
 
-        override fun isFirstTimeLaunch() = permissionManager.isFirstTimeLaunch()
-        override fun markOnboardingComplete() = permissionManager.markOnboardingComplete()
+        override fun bluetoothStatus() = readiness().bluetooth
+        override fun locationStatus() = readiness().location
+        override fun batteryStatus() = readiness().batteryOptimization
 
-        override fun requiredPermissions() = permissionManager.getRequiredPermissions()
-        override fun missingPermissions() = permissionManager.getMissingPermissions()
-        override fun unrequestedOptionalPermissions() = permissionManager.getUnrequestedOptionalPermissions()
+        override fun isFirstTimeLaunch() = readiness().firstLaunch
+        override fun markOnboardingComplete() = deviceReadiness.markOnboardingComplete()
+
+        override fun requiredPermissions() = deviceReadiness.requiredPermissions()
+        override fun missingPermissions() = readiness().missingPermissions
+        override fun unrequestedOptionalPermissions() = readiness().unrequestedOptionalPermissions
         override fun markOptionalPermissionsRequested(p: Collection<String>) =
-            permissionManager.markOptionalPermissionsRequested(p)
-        override fun isPermissionGranted(p: String) = permissionManager.isPermissionGranted(p)
-        override fun areRequiredPermissionsGranted() = permissionManager.areRequiredPermissionsGranted()
+            deviceReadiness.markOptionalPermissionsRequested(p)
+        override fun isPermissionGranted(p: String) = deviceReadiness.isPermissionGranted(p)
+        override fun areRequiredPermissionsGranted() = readiness().requiredPermissionsGranted
 
-        override fun needsBackgroundLocation() = permissionManager.needsBackgroundLocationPermission()
-        override fun isBackgroundLocationGranted() = permissionManager.isBackgroundLocationGranted()
-        override fun backgroundLocationPermission() = permissionManager.getBackgroundLocationPermission()
-        override fun isBackgroundLocationSkipped() =
-            BackgroundLocationPreferenceManager.isSkipped(this@MainActivity)
-        override fun setBackgroundLocationSkipped() =
-            BackgroundLocationPreferenceManager.setSkipped(this@MainActivity, true)
+        override fun needsBackgroundLocation() = readiness().backgroundLocation != BackgroundLocation.NOT_NEEDED
+        override fun isBackgroundLocationGranted() = readiness().backgroundLocation != BackgroundLocation.NEEDED
+        override fun backgroundLocationPermission() = deviceReadiness.backgroundLocationPermission()
+        override fun isBackgroundLocationSkipped() = readiness().backgroundLocationSkipped
+        override fun setBackgroundLocationSkipped() = deviceReadiness.setBackgroundLocationSkipped()
 
-        override fun isBatterySkipped() = BatteryOptimizationPreferenceManager.isSkipped(this@MainActivity)
-        override fun setBatterySkipped() = BatteryOptimizationPreferenceManager.setSkipped(this@MainActivity, true)
-        override fun bleRequired() =
-            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+        override fun isBatterySkipped() = readiness().batterySkipped
+        override fun setBatterySkipped() = deviceReadiness.setBatterySkipped()
+        override fun bleRequired() = readiness().bleRequired
 
         override fun launchBluetoothEnable() = bluetoothStatusManager.requestEnableBluetooth()
         override fun launchLocationSettings() = locationStatusManager.requestEnableLocation()
@@ -544,19 +560,16 @@ class MainActivity : OrientationAwareActivity() {
         override fun logPermissionDiagnostics() = permissionManager.logPermissionStatus()
     }
 
-    // The managers report every way Bluetooth or location ends up off through one
-    // callback; the message tells which event it was. Any other message is a
-    // failed launch, which the flow handles with that message.
+    // The managers report a declined dialog and a failed launch through one
+    // callback; the message tells which it was. Any other message is a failed
+    // launch, which the flow handles with that message.
     private fun bluetoothDisabledAction(message: String): OnboardingAction = when (message) {
         OnboardingFlow.BLUETOOTH_DECLINED_MESSAGE -> OnboardingAction.BluetoothResult(enabled = false)
-        OnboardingFlow.BLUETOOTH_TURNED_OFF_MESSAGE -> OnboardingAction.BluetoothTurnedOff
-        OnboardingFlow.BLUETOOTH_NOT_SUPPORTED_MESSAGE -> OnboardingAction.BluetoothNotSupportedAtStart
         else -> OnboardingAction.BluetoothLaunchFailed(message)
     }
 
     private fun locationDisabledAction(message: String): OnboardingAction = when (message) {
         OnboardingFlow.LOCATION_DECLINED_MESSAGE -> OnboardingAction.LocationResult(enabled = false)
-        OnboardingFlow.LOCATION_TURNED_OFF_MESSAGE -> OnboardingAction.LocationChanged(enabled = false)
         else -> OnboardingAction.LocationLaunchFailed(message)
     }
 
@@ -604,8 +617,9 @@ class MainActivity : OrientationAwareActivity() {
                 com.bitchat.android.nostr.LocationNotesInitializer.initialize(this@MainActivity)
                 
                 // Ensure all permissions are still granted (user might have revoked in settings)
-                if (!permissionManager.areAllPermissionsGranted()) {
-                    val missing = permissionManager.getMissingPermissions()
+                val readiness = deviceReadiness.snapshot()
+                if (!readiness.requiredPermissionsGranted) {
+                    val missing = readiness.missingPermissions
                     Log.w("MainActivity", "Permissions revoked during initialization: $missing")
                     onboardingFlow.onInitFailed("Some permissions were revoked. Please grant all permissions to continue.")
                     return@launch
@@ -771,18 +785,8 @@ class MainActivity : OrientationAwareActivity() {
         super.onDestroy()
         
         try { unregisterReceiver(forceFinishReceiver) } catch (_: Exception) { }
-        bluetoothStateReceiver?.let {
-            try { unregisterReceiver(it) } catch (_: IllegalArgumentException) { }
-        }
-        bluetoothStateReceiver = null
-        
-        // Cleanup location status manager
-        try {
-            locationStatusManager.cleanup()
-        } catch (e: Exception) {
-            Log.w("MainActivity", "Error cleaning up location status manager: ${e.message}")
-        }
-        
+        // The Bluetooth and location receivers go with the systemEvents collector.
+
         // Do not stop mesh here; ForegroundService owns lifecycle for background reliability
     }
 }

@@ -138,6 +138,7 @@ dependencies {
     implementation(project(":core:nostr"))
     implementation(project(":core:chat"))
     implementation(project(":core:tor"))
+    implementation(project(":core:readiness"))
     implementation(project(":feature:share"))
     implementation(project(":feature:share:api"))
     implementation(project(":feature:chat"))
