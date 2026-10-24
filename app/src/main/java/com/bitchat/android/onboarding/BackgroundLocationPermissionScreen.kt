@@ -44,11 +44,13 @@ import com.bitchat.android.R
 @Composable
 fun BackgroundLocationPermissionScreen(
     modifier: Modifier,
-    onContinue: () -> Unit,
-    onRetry: () -> Unit,
-    onSkip: () -> Unit
+    @Suppress("UNUSED_PARAMETER") state: OnboardingUiState,
+    onAction: (OnboardingAction) -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val onContinue = { onAction(OnboardingAction.BackgroundGrantTapped) }
+    val onRetry = { onAction(OnboardingAction.BackgroundCheckAgainTapped) }
+    val onSkip = { onAction(OnboardingAction.BackgroundSkipTapped) }
 
     Box(
         modifier = modifier.padding(24.dp),

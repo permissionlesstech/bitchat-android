@@ -12,6 +12,7 @@ import com.bitchat.android.onboarding.OnboardingPhase
 import com.bitchat.android.onboarding.Readiness
 import com.bitchat.android.onboarding.SystemEvent
 import com.bitchat.android.onboarding.nextStep
+import com.bitchat.android.wifiaware.WifiAwareController
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -68,6 +69,9 @@ class AppStartupGate @Inject constructor(
     private var check: Job? = null
     private var initRequested = false
 
+    // Bluetooth turned off while READY, for onboarding to open on its step (T12).
+    private var bluetoothTurnedOff = false
+
     /** From CHECKING, after 500 ms, decides between onboarding and init. Once per check. */
     fun start() {
         if (_phase.value != AppPhase.CHECKING || check?.isActive == true) return
@@ -123,7 +127,10 @@ class AppStartupGate @Inject constructor(
     fun onSystemEvent(e: SystemEvent) {
         if (_phase.value != AppPhase.READY) return
         when (e) {
-            SystemEvent.BluetoothOff -> _phase.value = AppPhase.ONBOARDING
+            SystemEvent.BluetoothOff -> {
+                bluetoothTurnedOff = true
+                _phase.value = AppPhase.ONBOARDING
+            }
             is SystemEvent.LocationChanged -> if (!e.enabled) _phase.value = AppPhase.ONBOARDING
             SystemEvent.BluetoothOn -> Unit
         }
@@ -143,6 +150,15 @@ class AppStartupGate @Inject constructor(
         }
     }
 
+    override fun takeBluetoothTurnedOff(): Boolean {
+        val turnedOff = bluetoothTurnedOff
+        bluetoothTurnedOff = false
+        return turnedOff
+    }
+
+    // Wi-Fi Aware waits on location services.
+    override fun locationServicesEnabled() = WifiAwareController.startIfPossible()
+
     /** Try again on an error step: back to CHECKING, then the checks (T40). */
     override fun retry() {
         if (_phase.value != AppPhase.ONBOARDING && _phase.value != AppPhase.INIT_FAILED) return
@@ -159,6 +175,7 @@ class AppStartupGate @Inject constructor(
 
     private fun enterInitializing() {
         _initError.value = null
+        bluetoothTurnedOff = false
         initRequested = true
         _phase.value = AppPhase.INITIALIZING
     }

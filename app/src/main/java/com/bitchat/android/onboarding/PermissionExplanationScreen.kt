@@ -33,10 +33,12 @@ import com.bitchat.android.R
 @Composable
 fun PermissionExplanationScreen(
     modifier: Modifier,
-    permissionCategories: List<PermissionCategory>,
-    onContinue: () -> Unit
+    state: OnboardingUiState,
+    onAction: (OnboardingAction) -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val permissionCategories = state.permissionCards
+    val onContinue = { onAction(OnboardingAction.GrantPermissionsTapped) }
     val scrollState = rememberScrollState()
 
     Box(

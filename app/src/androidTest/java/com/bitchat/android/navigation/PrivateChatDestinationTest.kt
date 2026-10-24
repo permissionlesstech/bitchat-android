@@ -12,11 +12,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.lifecycle.ViewModelProvider
 import com.bitchat.android.MainActivity
 import com.bitchat.android.AppPhase
-import com.bitchat.android.MainViewModel
-import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.R
 import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.LiveVoiceScope
@@ -155,22 +152,29 @@ class PrivateChatDestinationTest {
         }
         awaitSelection(PEER_A)
 
-        showOnboardingStep(OnboardingState.BLUETOOTH_CHECK)
-        rule.waitUntil(5_000) { rule.backStack() == listOf(OnboardingRoute) }
+        try {
+            showOnboardingStep()
+            rule.waitUntil(5_000) { rule.backStack() == listOf(OnboardingRoute) }
 
-        forcePhase(AppPhase.READY)
-        rule.waitUntil(5_000) {
-            rule.backStack() == listOf(ChatRoute, MeshPeerListRoute, PrivateChatRoute(PEER_A))
+            forcePhase(AppPhase.READY)
+            rule.waitUntil(5_000) {
+                rule.backStack() == listOf(ChatRoute, MeshPeerListRoute, PrivateChatRoute(PEER_A))
+            }
+            awaitSelection(PEER_A)
+        } finally {
+            rule.activity.deviceReadiness.markOnboardingComplete()
         }
-        awaitSelection(PEER_A)
     }
 
-    /** The gate sends the app to onboarding, on [step]. */
-    private fun showOnboardingStep(step: OnboardingState) {
-        rule.runOnUiThread {
-            ViewModelProvider(rule.activity)[MainViewModel::class.java].updateOnboardingState(step)
-            rule.activity.startupGate.forcePhase(AppPhase.ONBOARDING)
-        }
+    /**
+     * The gate sends the app to onboarding. The device is ready, so onboarding
+     * would finish at once and start the app; with the first-launch flag
+     * cleared it stays on the permission explanation instead.
+     */
+    private fun showOnboardingStep() {
+        rule.activity.getSharedPreferences("bitchat_permissions", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("first_time_onboarding_complete", false).commit()
+        rule.runOnUiThread { rule.activity.startupGate.forcePhase(AppPhase.ONBOARDING) }
         rule.waitForIdle()
     }
 

@@ -1,32 +1,48 @@
 package com.bitchat.android.onboarding
 
 import android.util.Log
-import com.bitchat.android.MainViewModel
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * The onboarding steps, lifted out of MainActivity and OnboardingCoordinator
- * unchanged: same checks, same order, same delays and the same log lines. It
- * writes the step into [state], reaches the device only through [system], and
- * tells [host] when onboarding is done. Whether onboarding shows at all is the
- * app gate's decision.
+ * The onboarding steps, scoped to the onboarding route. Same checks, order,
+ * delays and log lines as the flow it replaces. It reads the device only
+ * through [readiness], opens system dialogs through [effects], and tells [host]
+ * when onboarding is done.
+ *
+ * - **Opening.** The step comes from readiness when the view model is created,
+ *   so a recreated route never strands a step (F3).
+ * - **One thing at a time.** Actions and radio changes are queued and each is
+ *   handled to completion, delays included, before the next starts.
+ * - **The permission phase.** While the permission explanation, its dialog or
+ *   the background location step shows, radio changes change nothing. The step
+ *   is read again when the phase ends (F11).
  */
-class OnboardingFlow(
-    private val scope: CoroutineScope,
-    private val state: MainViewModel,
-    private val system: OnboardingSystem,
+@HiltViewModel
+class OnboardingViewModel @Inject constructor(
+    private val readiness: DeviceReadiness,
     private val skip: BluetoothSkipSession,
     private val host: OnboardingHost,
-) {
+    private val cards: PermissionCards,
+) : ViewModel() {
 
     companion object {
         // The tags the code logged under before it moved here.
         private const val ACTIVITY_TAG = "MainActivity"
         private const val COORDINATOR_TAG = "OnboardingCoordinator"
 
-        // The messages each event carried into the disabled handlers.
         const val BLUETOOTH_DECLINED_MESSAGE =
             "Bluetooth is required for bitchat to discover and connect to nearby users. Please enable Bluetooth to continue."
         const val BLUETOOTH_TURNED_OFF_MESSAGE = "User has turned off their Blue"
@@ -35,15 +51,60 @@ class OnboardingFlow(
         const val LOCATION_DECLINED_MESSAGE =
             "Location services are required for Bluetooth scanning on Android. Please enable location services to continue."
         const val LOCATION_TURNED_OFF_MESSAGE = "Location services have been disabled."
+
+        private val PERMISSION_PHASE = setOf(
+            OnboardingStep.PERMISSION_EXPLANATION,
+            OnboardingStep.PERMISSION_REQUESTING,
+            OnboardingStep.BACKGROUND_LOCATION,
+        )
     }
 
-    fun dispatch(action: OnboardingAction) {
-        when (action) {
-            OnboardingAction.Start -> showStepReadinessImplies()
+    /** What the queue holds: a tap or dialog result, a radio change, or opening's hand-off to the host. */
+    private sealed interface Work {
+        data class Act(val action: OnboardingAction) : Work
+        data class Event(val event: SystemEvent) : Work
+        data object Finish : Work
+    }
 
+    private val _state = MutableStateFlow(OnboardingUiState())
+    val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
+
+    private val _effects = Channel<OnboardingEffect>(Channel.BUFFERED)
+    val effects: Flow<OnboardingEffect> = _effects.receiveAsFlow()
+
+    private val work = Channel<Work>(Channel.UNLIMITED)
+
+    init {
+        // Synchronously, so the route's first frame already shows the step.
+        // Anything that reaches the host waits in the queue.
+        open()
+        // Dispatchers.Main rather than viewModelScope's immediate: the view model
+        // is created during composition, and nothing should reach the host there.
+        viewModelScope.launch(Dispatchers.Main) {
+            for (item in work) handleWork(item)
+        }
+        viewModelScope.launch(Dispatchers.Main) {
+            readiness.systemEvents.collect { work.send(Work.Event(it)) }
+        }
+    }
+
+    fun onAction(a: OnboardingAction) {
+        work.trySend(Work.Act(a))
+    }
+
+    private suspend fun handleWork(item: Work) {
+        when (item) {
+            is Work.Act -> handleAction(item.action)
+            is Work.Event -> if (_state.value.step !in PERMISSION_PHASE) handleEvent(item.event)
+            Work.Finish -> host.onboardingFinished()
+        }
+    }
+
+    private suspend fun handleAction(action: OnboardingAction) {
+        when (action) {
             OnboardingAction.BluetoothEnableTapped -> {
-                state.updateBluetoothLoading(true)
-                system.launchBluetoothEnable()
+                _state.update { it.copy(bluetoothLoading = true) }
+                _effects.send(OnboardingEffect.LaunchBluetoothEnable)
             }
             OnboardingAction.BluetoothSkipTapped -> {
                 skip.skip()
@@ -58,17 +119,11 @@ class OnboardingFlow(
                 }
             }
             is OnboardingAction.BluetoothLaunchFailed -> handleBluetoothDisabled(action.message)
-            OnboardingAction.BluetoothTurnedOn -> {
-                if (state.onboardingState.value == OnboardingState.BLUETOOTH_CHECK) {
-                    checkBluetoothAndProceed()
-                }
-            }
-            OnboardingAction.BluetoothTurnedOff -> handleBluetoothDisabled(BLUETOOTH_TURNED_OFF_MESSAGE)
             OnboardingAction.BluetoothNotSupportedAtStart -> handleBluetoothDisabled(BLUETOOTH_NOT_SUPPORTED_MESSAGE)
 
             OnboardingAction.LocationOpenSettingsTapped -> {
-                state.updateLocationLoading(true)
-                system.launchLocationSettings()
+                _state.update { it.copy(locationLoading = true) }
+                _effects.send(OnboardingEffect.LaunchLocationSettings)
             }
             OnboardingAction.LocationCheckAgainTapped -> checkLocationAndProceed()
             is OnboardingAction.LocationResult -> {
@@ -79,29 +134,22 @@ class OnboardingFlow(
                 }
             }
             is OnboardingAction.LocationLaunchFailed -> handleLocationDisabled(action.message)
-            is OnboardingAction.LocationChanged -> {
-                if (action.enabled) {
-                    handleLocationEnabled()
-                } else {
-                    handleLocationDisabled(LOCATION_TURNED_OFF_MESSAGE)
-                }
-            }
 
             OnboardingAction.BatteryDisableTapped -> {
-                state.updateBatteryOptimizationLoading(true)
-                system.launchBatteryOptimization()
+                _state.update { it.copy(batteryLoading = true) }
+                _effects.send(OnboardingEffect.LaunchBatteryOptimization)
             }
             OnboardingAction.BatteryCheckAgainTapped -> checkBatteryOptimizationAndProceed()
             OnboardingAction.BatterySkipTapped -> {
                 // Skip battery optimization and proceed
-                system.setBatterySkipped()
+                readiness.setBatterySkipped()
                 proceedWithPermissionCheck()
             }
             OnboardingAction.BatteryResult -> handleBatteryOptimizationDisabled()
             is OnboardingAction.BatteryLaunchFailed -> handleBatteryOptimizationFailed(action.message)
 
             OnboardingAction.GrantPermissionsTapped -> {
-                state.updateOnboardingState(OnboardingState.PERMISSION_REQUESTING)
+                setStep(OnboardingStep.PERMISSION_REQUESTING)
                 requestPermissions()
             }
             is OnboardingAction.PermissionResults -> handlePermissionResults(action.results)
@@ -113,99 +161,156 @@ class OnboardingFlow(
             OnboardingAction.TryAgainTapped -> {
                 // Back to checking (T40); the gate runs the checks again and
                 // reopens onboarding on the step they find.
-                state.updateOnboardingState(null)
+                setStep(OnboardingStep.CHECKING)
                 host.retry()
             }
-            OnboardingAction.OpenSettingsTapped -> system.openAppSettings()
+            OnboardingAction.OpenSettingsTapped -> _effects.send(OnboardingEffect.OpenAppSettings)
+        }
+    }
+
+    /** The radios, as onboarding has always heard them (T4, T11, T12, T18, T19). */
+    private suspend fun handleEvent(event: SystemEvent) {
+        when (event) {
+            // Both, in this order: re-run the check if its screen is showing,
+            // then take the Bluetooth-enabled path.
+            SystemEvent.BluetoothOn -> {
+                if (_state.value.step == OnboardingStep.BLUETOOTH) {
+                    checkBluetoothAndProceed()
+                }
+                handleBluetoothEnabled()
+            }
+            SystemEvent.BluetoothOff -> handleBluetoothDisabled(BLUETOOTH_TURNED_OFF_MESSAGE)
+            is SystemEvent.LocationChanged -> {
+                if (event.enabled) {
+                    handleLocationEnabled()
+                } else {
+                    handleLocationDisabled(LOCATION_TURNED_OFF_MESSAGE)
+                }
+            }
         }
     }
 
     /**
-     * The step the checks would land on, written as they write it. The app gate
-     * waited the 500 ms already and found onboarding needed.
+     * The step onboarding opens on. An adapter missing at start is the error
+     * step (T2); so is the app's init failure. Bluetooth turned off in chat
+     * opens on the Bluetooth step whatever the skips say (T12). Otherwise the
+     * step readiness implies.
      */
-    private fun showStepReadinessImplies() {
-        val r = system.snapshot()
+    private fun open() {
+        val r = readiness.snapshot()
+        val initError = host.initError.value
+        when {
+            r.bluetooth == BluetoothStatus.NOT_SUPPORTED ->
+                handleBluetoothDisabled(BLUETOOTH_NOT_SUPPORTED_MESSAGE)
+            initError != null -> {
+                _state.update { it.copy(errorMessage = initError) }
+                setStep(OnboardingStep.ERROR)
+            }
+            host.takeBluetoothTurnedOff() -> handleBluetoothDisabled(BLUETOOTH_TURNED_OFF_MESSAGE)
+            else -> showStepReadinessImplies(r)
+        }
+    }
+
+    /** The step readiness implies, written the way the checks write it. */
+    private fun showStepReadinessImplies(r: Readiness) {
         val phase = if (r.firstLaunch) OnboardingPhase.FIRST_LAUNCH else OnboardingPhase.RETURNING
-        when (nextStep(r, phase, skip.skipped.value)) {
-            null -> finishOnboarding()
+        when (val step = nextStep(r, phase, skip.skipped.value)) {
+            // Nothing to do. The host hears it from the queue, not from inside composition.
+            null -> {
+                setStep(OnboardingStep.CHECKING)
+                work.trySend(Work.Finish)
+            }
             OnboardingStep.BLUETOOTH -> {
-                system.logBluetoothDiagnostics()
-                state.updateBluetoothStatus(r.bluetooth)
-                state.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
-                state.updateBluetoothLoading(false)
+                logBluetoothDiagnostics(r)
+                showBluetoothStep(r.bluetooth)
             }
             OnboardingStep.LOCATION -> {
-                system.logLocationDiagnostics()
-                state.updateLocationStatus(r.location)
-                state.updateOnboardingState(OnboardingState.LOCATION_CHECK)
-                state.updateLocationLoading(false)
+                logLocationDiagnostics(r)
+                showLocationStep(r.location)
             }
             OnboardingStep.BATTERY_OPTIMIZATION -> {
-                system.logBatteryDiagnostics()
-                state.updateBatteryOptimizationStatus(r.batteryOptimization)
-                state.updateOnboardingState(OnboardingState.BATTERY_OPTIMIZATION_CHECK)
-                state.updateBatteryOptimizationLoading(false)
+                logBatteryDiagnostics(r)
+                showBatteryStep(r.batteryOptimization)
             }
-            OnboardingStep.PERMISSION_EXPLANATION ->
-                state.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
-            OnboardingStep.BACKGROUND_LOCATION ->
-                state.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
-            // nextStep never opens on these.
-            OnboardingStep.CHECKING,
-            OnboardingStep.PERMISSION_REQUESTING,
-            OnboardingStep.ERROR -> Unit
+            else -> setStep(step)
         }
     }
 
     /** Onboarding is through: no step on screen, and the gate starts the app. */
     private fun finishOnboarding() {
-        state.updateOnboardingState(null)
+        setStep(OnboardingStep.CHECKING)
         host.onboardingFinished()
+    }
+
+    private fun setStep(step: OnboardingStep) {
+        _state.update {
+            if (step == OnboardingStep.PERMISSION_EXPLANATION) {
+                it.copy(step = step, permissionCards = cards.categories())
+            } else {
+                it.copy(step = step)
+            }
+        }
+    }
+
+    private fun showBluetoothStep(status: BluetoothStatus) {
+        _state.update { it.copy(bluetooth = status) }
+        setStep(OnboardingStep.BLUETOOTH)
+        _state.update { it.copy(bluetoothLoading = false) }
+    }
+
+    private fun showLocationStep(status: LocationStatus) {
+        _state.update { it.copy(location = status) }
+        setStep(OnboardingStep.LOCATION)
+        _state.update { it.copy(locationLoading = false) }
+    }
+
+    private fun showBatteryStep(status: BatteryOptimizationStatus) {
+        _state.update { it.copy(battery = status) }
+        setStep(OnboardingStep.BATTERY_OPTIMIZATION)
+        _state.update { it.copy(batteryLoading = false) }
     }
 
     /**
      * Check Bluetooth status and proceed with onboarding flow
      */
-    private fun checkBluetoothAndProceed() {
+    private suspend fun checkBluetoothAndProceed() {
         // Check if user has skipped Bluetooth check for this session
         if (skip.skipped.value) {
             checkLocationAndProceed()
             return
         }
 
+        val r = readiness.snapshot()
+
         // For first-time users, skip Bluetooth check and go straight to permissions
         // We'll check Bluetooth after permissions are granted
-        if (system.isFirstTimeLaunch()) {
+        if (r.firstLaunch) {
             proceedWithPermissionCheck()
             return
         }
 
         // For existing users, check Bluetooth status first
-        system.logBluetoothDiagnostics()
-        state.updateBluetoothStatus(system.bluetoothStatus())
+        logBluetoothDiagnostics(r)
+        _state.update { it.copy(bluetooth = r.bluetooth) }
 
-        val bleRequired = system.bleRequired()
-        if (!bleRequired) {
+        if (!r.bleRequired) {
             // Skip BLE checks entirely when BLE is disabled in debug settings
             checkLocationAndProceed()
             return
         }
-        when (state.bluetoothStatus.value) {
+        when (r.bluetooth) {
             BluetoothStatus.ENABLED -> {
                 // Bluetooth is enabled, check location services next
                 checkLocationAndProceed()
             }
             BluetoothStatus.DISABLED -> {
                 // Show Bluetooth enable screen (should have permissions as existing user)
-                state.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
-                state.updateBluetoothLoading(false)
+                showBluetoothStep(r.bluetooth)
             }
             BluetoothStatus.NOT_SUPPORTED -> {
                 // Device doesn't support Bluetooth
                 Log.e(ACTIVITY_TAG, "Bluetooth not supported")
-                state.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
-                state.updateBluetoothLoading(false)
+                showBluetoothStep(r.bluetooth)
             }
         }
     }
@@ -213,68 +318,63 @@ class OnboardingFlow(
     /**
      * Proceed with permission checking
      */
-    private fun proceedWithPermissionCheck() {
-        scope.launch {
-            delay(200) // Small delay for smooth transition
+    private suspend fun proceedWithPermissionCheck() {
+        delay(200) // Small delay for smooth transition
 
-            if (system.isFirstTimeLaunch()) {
-                state.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
-            } else if (system.unrequestedOptionalPermissions().isNotEmpty()) {
-                state.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
-            } else if (system.areRequiredPermissionsGranted()) {
-                if (system.needsBackgroundLocation() &&
-                    !system.isBackgroundLocationGranted() &&
-                    !system.isBackgroundLocationSkipped()
-                ) {
-                    state.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
-                } else {
-                    finishOnboarding()
-                }
+        val r = readiness.snapshot()
+        if (r.firstLaunch) {
+            setStep(OnboardingStep.PERMISSION_EXPLANATION)
+        } else if (r.unrequestedOptionalPermissions.isNotEmpty()) {
+            setStep(OnboardingStep.PERMISSION_EXPLANATION)
+        } else if (r.requiredPermissionsGranted) {
+            if (shouldRequestBackgroundLocation(r)) {
+                setStep(OnboardingStep.BACKGROUND_LOCATION)
             } else {
-                state.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
+                finishOnboarding()
             }
+        } else {
+            setStep(OnboardingStep.PERMISSION_EXPLANATION)
         }
     }
 
     /**
      * Handle Bluetooth enabled callback
      */
-    private fun handleBluetoothEnabled() {
-        state.updateBluetoothLoading(false)
-        state.updateBluetoothStatus(BluetoothStatus.ENABLED)
+    private suspend fun handleBluetoothEnabled() {
+        _state.update { it.copy(bluetoothLoading = false, bluetooth = BluetoothStatus.ENABLED) }
         checkLocationAndProceed()
     }
 
     /**
      * Check Location services status and proceed with onboarding flow
      */
-    private fun checkLocationAndProceed() {
+    private suspend fun checkLocationAndProceed() {
+        val r = readiness.snapshot()
+
         // For first-time users, skip location check and go straight to permissions
         // We'll check location after permissions are granted
-        if (system.isFirstTimeLaunch()) {
+        if (r.firstLaunch) {
             proceedWithPermissionCheck()
             return
         }
 
         // For existing users, check location status
-        system.logLocationDiagnostics()
-        state.updateLocationStatus(system.locationStatus())
+        logLocationDiagnostics(r)
+        _state.update { it.copy(location = r.location) }
 
-        when (state.locationStatus.value) {
+        when (r.location) {
             LocationStatus.ENABLED -> {
                 // Location services enabled, check battery optimization next
                 checkBatteryOptimizationAndProceed()
             }
             LocationStatus.DISABLED -> {
                 // Show location enable screen (should have permissions as existing user)
-                state.updateOnboardingState(OnboardingState.LOCATION_CHECK)
-                state.updateLocationLoading(false)
+                showLocationStep(r.location)
             }
             LocationStatus.NOT_AVAILABLE -> {
                 // Device doesn't support location services (very unusual)
                 Log.e(ACTIVITY_TAG, "Location services not available")
-                state.updateOnboardingState(OnboardingState.LOCATION_CHECK)
-                state.updateLocationLoading(false)
+                showLocationStep(r.location)
             }
         }
     }
@@ -282,11 +382,10 @@ class OnboardingFlow(
     /**
      * Handle Location enabled callback
      */
-    private fun handleLocationEnabled() {
-        state.updateLocationLoading(false)
-        state.updateLocationStatus(LocationStatus.ENABLED)
+    private suspend fun handleLocationEnabled() {
+        _state.update { it.copy(locationLoading = false, location = LocationStatus.ENABLED) }
         // Ensure Wi-Fi Aware starts now that location is enabled
-        system.startWifiAwareIfPossible()
+        host.locationServicesEnabled()
         checkBatteryOptimizationAndProceed()
     }
 
@@ -295,19 +394,16 @@ class OnboardingFlow(
      */
     private fun handleLocationDisabled(message: String) {
         Log.w(ACTIVITY_TAG, "Location services disabled or failed: $message")
-        state.updateLocationLoading(false)
-        state.updateLocationStatus(system.locationStatus())
+        val status = readiness.snapshot().location
+        _state.update { it.copy(locationLoading = false, location = status) }
 
-        when {
-            state.locationStatus.value == LocationStatus.NOT_AVAILABLE -> {
-                // Show permanent error for devices without location services
-                state.updateErrorMessage(message)
-                state.updateOnboardingState(OnboardingState.ERROR)
-            }
-            else -> {
-                // Stay on location check screen for retry
-                state.updateOnboardingState(OnboardingState.LOCATION_CHECK)
-            }
+        if (status == LocationStatus.NOT_AVAILABLE) {
+            // Show permanent error for devices without location services
+            _state.update { it.copy(errorMessage = message) }
+            setStep(OnboardingStep.ERROR)
+        } else {
+            // Stay on location check screen for retry
+            setStep(OnboardingStep.LOCATION)
         }
     }
 
@@ -316,101 +412,75 @@ class OnboardingFlow(
      */
     private fun handleBluetoothDisabled(message: String) {
         Log.w(ACTIVITY_TAG, "Bluetooth disabled or failed: $message")
-        state.updateBluetoothLoading(false)
-        state.updateBluetoothStatus(system.bluetoothStatus())
+        val status = readiness.snapshot().bluetooth
+        _state.update { it.copy(bluetoothLoading = false, bluetooth = status) }
 
-        when {
-            state.bluetoothStatus.value == BluetoothStatus.NOT_SUPPORTED -> {
-                // Show permanent error for unsupported devices
-                state.updateErrorMessage(message)
-                state.updateOnboardingState(OnboardingState.ERROR)
-            }
-            message.contains("Permission") && system.isFirstTimeLaunch() -> {
-                // During first-time onboarding, if Bluetooth enable fails due to permissions,
-                // proceed to permission explanation screen where user will grant permissions first
-                proceedWithPermissionCheck()
-            }
-            message.contains("Permission") -> {
-                // For existing users, redirect to permission explanation to grant missing permissions
-                state.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
-            }
-            else -> {
-                // Stay on Bluetooth check screen for retry
-                state.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
-            }
+        // No message says "Permission": the one about permissions says "permissions" (Q3).
+        if (status == BluetoothStatus.NOT_SUPPORTED) {
+            // Show permanent error for unsupported devices
+            _state.update { it.copy(errorMessage = message) }
+            setStep(OnboardingStep.ERROR)
+        } else {
+            // Stay on Bluetooth check screen for retry
+            setStep(OnboardingStep.BLUETOOTH)
         }
     }
 
+    /**
+     * After the permissions, the radios and battery again, with both skips
+     * honoured (F6): the same order as on every other path.
+     */
     private fun handleOnboardingComplete() {
-        // After permissions are granted, re-check Bluetooth, Location, and Battery Optimization status
-        val currentBluetoothStatus = system.bluetoothStatus()
-        val currentLocationStatus = system.locationStatus()
-        val currentBatteryOptimizationStatus = system.batteryStatus()
-
-        val bleRequired2 = system.bleRequired()
-        when {
-            bleRequired2 && currentBluetoothStatus != BluetoothStatus.ENABLED -> {
-                // Bluetooth still disabled, but now we have permissions to enable it
-                state.updateBluetoothStatus(currentBluetoothStatus)
-                state.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
-                state.updateBluetoothLoading(false)
-            }
-            currentLocationStatus != LocationStatus.ENABLED -> {
-                // Location services still disabled, but now we have permissions to enable it
-                state.updateLocationStatus(currentLocationStatus)
-                state.updateOnboardingState(OnboardingState.LOCATION_CHECK)
-                state.updateLocationLoading(false)
-            }
-            currentBatteryOptimizationStatus == BatteryOptimizationStatus.ENABLED -> {
-                // Battery optimization still enabled, show battery optimization screen
-                state.updateBatteryOptimizationStatus(currentBatteryOptimizationStatus)
-                state.updateOnboardingState(OnboardingState.BATTERY_OPTIMIZATION_CHECK)
-                state.updateBatteryOptimizationLoading(false)
-            }
-            else -> {
-                // Both are enabled, proceed to app initialization
-                finishOnboarding()
-            }
+        val r = readiness.snapshot()
+        when (nextStep(r, OnboardingPhase.AFTER_PERMISSIONS, skip.skipped.value)) {
+            // Bluetooth still disabled, but now we have permissions to enable it
+            OnboardingStep.BLUETOOTH -> showBluetoothStep(r.bluetooth)
+            // Location services still disabled, but now we have permissions to enable it
+            OnboardingStep.LOCATION -> showLocationStep(r.location)
+            // Battery optimization still enabled, show battery optimization screen
+            OnboardingStep.BATTERY_OPTIMIZATION -> showBatteryStep(r.batteryOptimization)
+            // Both are enabled, proceed to app initialization
+            else -> finishOnboarding()
         }
     }
 
     private fun handleOnboardingFailed(message: String) {
         Log.e(ACTIVITY_TAG, "Onboarding failed: $message")
-        state.updateErrorMessage(message)
-        state.updateOnboardingState(OnboardingState.ERROR)
+        _state.update { it.copy(errorMessage = message) }
+        setStep(OnboardingStep.ERROR)
     }
 
     /**
      * Check Battery Optimization status and proceed with onboarding flow
      */
-    private fun checkBatteryOptimizationAndProceed() {
+    private suspend fun checkBatteryOptimizationAndProceed() {
+        val r = readiness.snapshot()
+
         // For first-time users, skip battery optimization check and go straight to permissions
         // We'll check battery optimization after permissions are granted
-        if (system.isFirstTimeLaunch()) {
+        if (r.firstLaunch) {
             proceedWithPermissionCheck()
             return
         }
 
         // Check if user has previously skipped battery optimization
-        if (system.isBatterySkipped()) {
+        if (r.batterySkipped) {
             proceedWithPermissionCheck()
             return
         }
 
         // For existing users, check battery optimization status
-        system.logBatteryDiagnostics()
-        val currentBatteryOptimizationStatus = system.batteryStatus()
-        state.updateBatteryOptimizationStatus(currentBatteryOptimizationStatus)
+        logBatteryDiagnostics(r)
+        _state.update { it.copy(battery = r.batteryOptimization) }
 
-        when (currentBatteryOptimizationStatus) {
+        when (r.batteryOptimization) {
             BatteryOptimizationStatus.DISABLED, BatteryOptimizationStatus.NOT_SUPPORTED -> {
                 // Battery optimization is disabled or not supported, proceed with permission check
                 proceedWithPermissionCheck()
             }
             BatteryOptimizationStatus.ENABLED -> {
                 // Show battery optimization disable screen
-                state.updateOnboardingState(OnboardingState.BATTERY_OPTIMIZATION_CHECK)
-                state.updateBatteryOptimizationLoading(false)
+                showBatteryStep(r.batteryOptimization)
             }
         }
     }
@@ -418,9 +488,8 @@ class OnboardingFlow(
     /**
      * Handle Battery Optimization disabled callback
      */
-    private fun handleBatteryOptimizationDisabled() {
-        state.updateBatteryOptimizationLoading(false)
-        state.updateBatteryOptimizationStatus(BatteryOptimizationStatus.DISABLED)
+    private suspend fun handleBatteryOptimizationDisabled() {
+        _state.update { it.copy(batteryLoading = false, battery = BatteryOptimizationStatus.DISABLED) }
         proceedWithPermissionCheck()
     }
 
@@ -429,12 +498,11 @@ class OnboardingFlow(
      */
     private fun handleBatteryOptimizationFailed(message: String) {
         Log.w(ACTIVITY_TAG, "Battery optimization disable failed: $message")
-        state.updateBatteryOptimizationLoading(false)
-        val currentStatus = system.batteryStatus()
-        state.updateBatteryOptimizationStatus(currentStatus)
+        val status = readiness.snapshot().batteryOptimization
+        _state.update { it.copy(batteryLoading = false, battery = status) }
 
         // Stay on battery optimization check screen for retry
-        state.updateOnboardingState(OnboardingState.BATTERY_OPTIMIZATION_CHECK)
+        setStep(OnboardingStep.BATTERY_OPTIMIZATION)
     }
 
     // ---- Formerly OnboardingCoordinator ----
@@ -442,19 +510,21 @@ class OnboardingFlow(
     /**
      * Called when user accepts the permission explanation
      */
-    private fun requestPermissions() {
+    private suspend fun requestPermissions() {
         Log.d(COORDINATOR_TAG, "User accepted permission explanation, requesting permissions")
 
+        val r = readiness.snapshot()
+
         // Required permissions
-        val missingRequired = system.missingPermissions()
+        val missingRequired = r.missingPermissions
 
         // Optional permissions (ask, but do not block if denied)
-        val optionalToRequest = system.unrequestedOptionalPermissions()
+        val optionalToRequest = r.unrequestedOptionalPermissions
 
         val missingPermissions = (missingRequired + optionalToRequest).distinct()
 
         if (missingPermissions.isEmpty()) {
-            if (shouldRequestBackgroundLocation()) {
+            if (shouldRequestBackgroundLocation(r)) {
                 onBackgroundLocationRequired()
             } else {
                 completeOnboarding()
@@ -463,14 +533,14 @@ class OnboardingFlow(
         }
 
         Log.d(COORDINATOR_TAG, "Requesting ${missingPermissions.size} permissions")
-        system.markOptionalPermissionsRequested(optionalToRequest)
-        system.launchPermissions(missingPermissions)
+        readiness.markOptionalPermissionsRequested(optionalToRequest)
+        _effects.send(OnboardingEffect.RequestPermissions(missingPermissions))
     }
 
     /**
      * Handle permission request results
      */
-    private fun handlePermissionResults(permissions: Map<String, Boolean>) {
+    private suspend fun handlePermissionResults(permissions: Map<String, Boolean>) {
         Log.d(COORDINATOR_TAG, "Received permission results:")
         permissions.forEach { (permission, granted) ->
             Log.d(COORDINATOR_TAG, "  $permission: ${if (granted) "GRANTED" else "DENIED"}")
@@ -481,11 +551,11 @@ class OnboardingFlow(
         // The launcher result only contains permissions requested in this round. Returning
         // users may be asked for POST_NOTIFICATIONS alone, so re-check required permissions
         // against package state instead of treating absent result-map entries as denials.
-        val criticalGranted = criticalPermissions.all(system::isPermissionGranted)
+        val criticalGranted = criticalPermissions.all(readiness::isPermissionGranted)
 
         when {
             criticalGranted -> {
-                if (shouldRequestBackgroundLocation()) {
+                if (shouldRequestBackgroundLocation(readiness.snapshot())) {
                     Log.d(COORDINATOR_TAG, "Foreground permissions granted; requesting background location next")
                     onBackgroundLocationRequired()
                     return
@@ -505,17 +575,17 @@ class OnboardingFlow(
         }
     }
 
-    private fun requestBackgroundLocation() {
-        val permission = system.backgroundLocationPermission()
+    private suspend fun requestBackgroundLocation() {
+        val permission = readiness.backgroundLocationPermission()
         if (permission == null) {
             completeOnboarding()
             return
         }
         Log.d(COORDINATOR_TAG, "Requesting background location permission")
-        system.launchBackgroundLocation(permission)
+        _effects.send(OnboardingEffect.RequestBackgroundLocation(permission))
     }
 
-    private fun handleBackgroundLocationResult(granted: Boolean) {
+    private suspend fun handleBackgroundLocationResult(granted: Boolean) {
         if (granted) {
             Log.d(COORDINATOR_TAG, "Background location permission granted")
         } else {
@@ -524,26 +594,23 @@ class OnboardingFlow(
         completeOnboarding()
     }
 
-    private fun skipBackgroundLocation() {
+    private suspend fun skipBackgroundLocation() {
         Log.d(COORDINATOR_TAG, "User skipped background location permission")
-        system.setBackgroundLocationSkipped()
+        readiness.setBackgroundLocationSkipped()
         completeOnboarding()
     }
 
-    private fun checkBackgroundLocationAndProceed() {
-        if (!shouldRequestBackgroundLocation()) {
+    private suspend fun checkBackgroundLocationAndProceed() {
+        if (!shouldRequestBackgroundLocation(readiness.snapshot())) {
             completeOnboarding()
         }
     }
 
-    private fun shouldRequestBackgroundLocation(): Boolean {
-        return system.needsBackgroundLocation() &&
-            !system.isBackgroundLocationGranted() &&
-            !system.isBackgroundLocationSkipped()
-    }
+    private fun shouldRequestBackgroundLocation(r: Readiness): Boolean =
+        r.backgroundLocation == BackgroundLocation.NEEDED && !r.backgroundLocationSkipped
 
     private fun onBackgroundLocationRequired() {
-        state.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
+        setStep(OnboardingStep.BACKGROUND_LOCATION)
     }
 
     /**
@@ -552,13 +619,13 @@ class OnboardingFlow(
     private fun getCriticalPermissions(): List<String> {
         // For bitchat, Bluetooth and location permissions are critical
         // Notifications are nice-to-have but not critical and are not included in getRequiredPermissions()
-        return system.requiredPermissions()
+        return readiness.requiredPermissions()
     }
 
     /**
      * Show warning when some permissions are granted but others are denied
      */
-    private fun showPartialPermissionWarning(permissions: Map<String, Boolean>) {
+    private suspend fun showPartialPermissionWarning(permissions: Map<String, Boolean>) {
         val deniedPermissions = permissions.filter { !it.value }.keys
         val message = buildString {
             append("Some permissions were denied:\n")
@@ -578,7 +645,7 @@ class OnboardingFlow(
     /**
      * Handle permission denial scenarios
      */
-    private fun handlePermissionDenial(permissions: Map<String, Boolean>) {
+    private suspend fun handlePermissionDenial(permissions: Map<String, Boolean>) {
         val deniedCritical = permissions.filter { !it.value && getCriticalPermissions().contains(it.key) }
 
         if (deniedCritical.isNotEmpty()) {
@@ -601,20 +668,18 @@ class OnboardingFlow(
     /**
      * Complete the onboarding process and initialize the app
      */
-    private fun completeOnboarding() {
+    private suspend fun completeOnboarding() {
         Log.d(COORDINATOR_TAG, "Completing onboarding process")
 
         // Mark onboarding as complete
-        system.markOnboardingComplete()
+        readiness.markOnboardingComplete()
 
         // Log final permission status
-        system.logPermissionDiagnostics()
+        cards.logDiagnostics()
 
         // Notify completion with a small delay to ensure everything is ready
-        scope.launch {
-            delay(100) // Small delay for UI state to settle
-            handleOnboardingComplete()
-        }
+        delay(100) // Small delay for UI state to settle
+        handleOnboardingComplete()
     }
 
     /**
@@ -630,4 +695,14 @@ class OnboardingFlow(
             else -> permission.substringAfterLast(".")
         }
     }
+
+    // Diagnostics, logged where the status managers logged theirs. Logging only.
+    private fun logBluetoothDiagnostics(r: Readiness) =
+        Log.d("BluetoothStatusManager", "Bluetooth status: ${r.bluetooth} (BLE required: ${r.bleRequired})")
+
+    private fun logLocationDiagnostics(r: Readiness) =
+        Log.d("LocationStatusManager", "Location services status: ${r.location}")
+
+    private fun logBatteryDiagnostics(r: Readiness) =
+        Log.d("BatteryOptimizationManager", "Battery optimization status: ${r.batteryOptimization}")
 }

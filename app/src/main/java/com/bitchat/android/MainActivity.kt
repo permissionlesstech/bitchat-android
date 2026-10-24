@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -22,27 +21,8 @@ import androidx.lifecycle.Lifecycle
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.onboarding.BluetoothCheckScreen
-import com.bitchat.android.onboarding.BluetoothSkipSession
-import com.bitchat.android.onboarding.BluetoothStatus
-import com.bitchat.android.onboarding.BluetoothStatusManager
 import com.bitchat.android.onboarding.DeviceReadiness
-import com.bitchat.android.onboarding.BatteryOptimizationManager
-import com.bitchat.android.onboarding.BatteryOptimizationScreen
-import com.bitchat.android.onboarding.BackgroundLocation
-import com.bitchat.android.onboarding.BackgroundLocationPermissionScreen
-import com.bitchat.android.onboarding.InitializationErrorScreen
-import com.bitchat.android.onboarding.InitializingScreen
-import com.bitchat.android.onboarding.LocationCheckScreen
-import com.bitchat.android.onboarding.LocationStatusManager
-import com.bitchat.android.onboarding.OnboardingAction
-import com.bitchat.android.onboarding.OnboardingCoordinator
-import com.bitchat.android.onboarding.OnboardingFlow
-import com.bitchat.android.onboarding.OnboardingState
-import com.bitchat.android.onboarding.PermissionExplanationScreen
-import com.bitchat.android.onboarding.OnboardingSystem
-import com.bitchat.android.onboarding.PermissionManager
-import com.bitchat.android.onboarding.SystemEvent
+import com.bitchat.android.onboarding.OnboardingRouteContent
 import com.bitchat.android.ui.BackAction
 import com.bitchat.android.ui.AppForegroundEffect
 import com.bitchat.android.ui.ChatBackUnwinder
@@ -80,17 +60,9 @@ import kotlinx.serialization.builtins.ListSerializer
 @AndroidEntryPoint
 class MainActivity : OrientationAwareActivity() {
 
-    private lateinit var permissionManager: PermissionManager
-    private lateinit var onboardingCoordinator: OnboardingCoordinator
-    private lateinit var bluetoothStatusManager: BluetoothStatusManager
-    private lateinit var locationStatusManager: LocationStatusManager
-    private lateinit var batteryOptimizationManager: BatteryOptimizationManager
-    private lateinit var onboardingFlow: OnboardingFlow
-    
     // Core mesh service - provided by the foreground service holder
     private lateinit var meshService: BluetoothMeshService
     private lateinit var unifiedMeshService: MeshService
-    private val mainViewModel: MainViewModel by viewModels()
     private var pendingMeshForegroundServiceStart = false
 
     // Held by ActivityRetainedComponent, so the back stack outlives configuration
@@ -106,9 +78,6 @@ class MainActivity : OrientationAwareActivity() {
     // Decides between onboarding and chat. Retained, like the navigator.
     @Inject
     lateinit var startupGate: AppStartupGate
-
-    @Inject
-    lateinit var bluetoothSkip: BluetoothSkipSession
 
     // The launch or new intent last handed to the notification and verify
     // handlers, so a later init does not open it a second time (F1).
@@ -195,58 +164,12 @@ class MainActivity : OrientationAwareActivity() {
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
 
-        // Initialize permission management
-        permissionManager = PermissionManager(this, deviceReadiness)
         // Start the foreground service when allowed, then get mesh instances from the holder.
         startMeshForegroundServiceBestEffort()
         meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
         unifiedMeshService = com.bitchat.android.service.MeshServiceHolder.getUnifiedOrCreate(applicationContext)
         // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays - DEPRECATED
         // Bridging is now handled by TransportBridgeService automatically
-
-        onboardingFlow = OnboardingFlow(lifecycleScope, mainViewModel, onboardingSystem, bluetoothSkip, startupGate)
-
-        // The managers and the coordinator register their launchers here, in this
-        // order, and forward every result to the flow.
-        bluetoothStatusManager = BluetoothStatusManager(
-            activity = this,
-            context = this,
-            onBluetoothEnabled = {
-                onboardingFlow.dispatch(OnboardingAction.BluetoothResult(enabled = true))
-            },
-            onBluetoothDisabled = { message ->
-                onboardingFlow.dispatch(bluetoothDisabledAction(message))
-            }
-        )
-        locationStatusManager = LocationStatusManager(
-            activity = this,
-            context = this,
-            onLocationEnabled = {
-                onboardingFlow.dispatch(OnboardingAction.LocationResult(enabled = true))
-            },
-            onLocationDisabled = { message ->
-                onboardingFlow.dispatch(locationDisabledAction(message))
-            }
-        )
-        batteryOptimizationManager = BatteryOptimizationManager(
-            activity = this,
-            context = this,
-            onBatteryOptimizationDisabled = {
-                onboardingFlow.dispatch(OnboardingAction.BatteryResult)
-            },
-            onBatteryOptimizationFailed = { message ->
-                onboardingFlow.dispatch(OnboardingAction.BatteryLaunchFailed(message))
-            }
-        )
-        onboardingCoordinator = OnboardingCoordinator(
-            activity = this,
-            onPermissionResults = { results ->
-                onboardingFlow.dispatch(OnboardingAction.PermissionResults(results))
-            },
-            onBackgroundLocationResult = { granted ->
-                onboardingFlow.dispatch(OnboardingAction.BackgroundResult(granted))
-            }
-        )
 
         setContent {
             BitchatTheme {
@@ -317,7 +240,7 @@ class MainActivity : OrientationAwareActivity() {
 
                     val sheetSceneStrategy = remember { SheetSceneStrategy() }
                     val entries = appEntries {
-                        OnboardingFlowScreen(onboardingModifier)
+                        OnboardingRouteContent(onboardingModifier)
                     }
 
                     // NavDisplay rejects an empty back stack and the effect above does
@@ -360,34 +283,13 @@ class MainActivity : OrientationAwareActivity() {
             }
         }
         
-        // The adapter as the Activity starts. Without one the device cannot run
-        // bitchat at all. One already on re-runs the Bluetooth check if that screen
-        // is showing, which only a recreation finds.
-        when (deviceReadiness.snapshot().bluetooth) {
-            BluetoothStatus.NOT_SUPPORTED -> onboardingFlow.dispatch(OnboardingAction.BluetoothNotSupportedAtStart)
-            BluetoothStatus.ENABLED -> onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOn)
-            BluetoothStatus.DISABLED -> Unit
-        }
-
         // Watches the radios for the whole Activity, not for as long as some
-        // composable happens to stay on screen. Scoping it to a destination is what
-        // let a Bluetooth switch-off go unnoticed once chat became its own route.
+        // composable happens to stay on screen. While the app is ready, a radio
+        // off sends it back to onboarding (T12/T19); onboarding hears the radios
+        // itself while it shows.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
-                deviceReadiness.systemEvents.collect { event ->
-                    when (startupGate.phase.value) {
-                        // Onboarding, or the init error it shows, reacts as it always has.
-                        AppPhase.ONBOARDING, AppPhase.INIT_FAILED -> dispatchToOnboarding(event)
-                        // A radio off sends the app back to onboarding. The step is
-                        // written first, so onboarding opens on it (T12/T19).
-                        AppPhase.READY -> if (event.turnsRadioOff()) {
-                            dispatchToOnboarding(event)
-                            startupGate.onSystemEvent(event)
-                        }
-                        // The gate reads readiness when the check or the init ends.
-                        AppPhase.CHECKING, AppPhase.INITIALIZING -> Unit
-                    }
-                }
+                deviceReadiness.systemEvents.collect { event -> startupGate.onSystemEvent(event) }
             }
         }
 
@@ -398,21 +300,12 @@ class MainActivity : OrientationAwareActivity() {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
                 startupGate.phase.collect { phase ->
                     when (phase) {
-                        AppPhase.ONBOARDING -> {
-                            // Opened by the gate with no step on screen yet
-                            if (mainViewModel.onboardingState.value == null) {
-                                onboardingFlow.dispatch(OnboardingAction.Start)
-                            }
-                        }
                         AppPhase.INITIALIZING -> if (startupGate.takeInitRequest()) initializeApp()
-                        AppPhase.READY -> {
-                            // No onboarding step survives into chat
-                            mainViewModel.updateOnboardingState(null)
-                            // App is fully initialized, mesh service is running
-                            android.util.Log.i("MainActivity", "Onboarding completed - app ready")
-                        }
+                        // App is fully initialized, mesh service is running
+                        AppPhase.READY -> android.util.Log.i("MainActivity", "Onboarding completed - app ready")
                         AppPhase.INIT_FAILED -> android.util.Log.e("MainActivity", "Onboarding error state reached")
-                        AppPhase.CHECKING -> Unit
+                        // Onboarding picks its own step
+                        AppPhase.ONBOARDING, AppPhase.CHECKING -> Unit
                     }
                 }
             }
@@ -433,206 +326,6 @@ class MainActivity : OrientationAwareActivity() {
         // state, so a configuration change does not restart it
         startupGate.start()
     }
-    
-    @Composable
-    private fun OnboardingFlowScreen(modifier: Modifier = Modifier) {
-        val onboardingState by mainViewModel.onboardingState.collectAsState()
-        val phase by startupGate.phase.collectAsState()
-        val initError by startupGate.initError.collectAsState()
-        val bluetoothStatus by mainViewModel.bluetoothStatus.collectAsState()
-        val locationStatus by mainViewModel.locationStatus.collectAsState()
-        val batteryOptimizationStatus by mainViewModel.batteryOptimizationStatus.collectAsState()
-        val errorMessage by mainViewModel.errorMessage.collectAsState()
-        val isBluetoothLoading by mainViewModel.isBluetoothLoading.collectAsState()
-        val isLocationLoading by mainViewModel.isLocationLoading.collectAsState()
-        val isBatteryOptimizationLoading by mainViewModel.isBatteryOptimizationLoading.collectAsState()
-
-        when (onboardingState) {
-            OnboardingState.PERMISSION_REQUESTING -> {
-                InitializingScreen(modifier)
-            }
-            
-            OnboardingState.BLUETOOTH_CHECK -> {
-                BluetoothCheckScreen(
-                    modifier = modifier,
-                    status = bluetoothStatus,
-                    onEnableBluetooth = {
-                        onboardingFlow.dispatch(OnboardingAction.BluetoothEnableTapped)
-                    },
-                    onRetry = {
-                        onboardingFlow.dispatch(OnboardingAction.BluetoothCheckAgainTapped)
-                    },
-                    onSkip = {
-                        onboardingFlow.dispatch(OnboardingAction.BluetoothSkipTapped)
-                    },
-                    isLoading = isBluetoothLoading
-                )
-            }
-            
-            OnboardingState.LOCATION_CHECK -> {
-                LocationCheckScreen(
-                    modifier = modifier,
-                    status = locationStatus,
-                    onEnableLocation = {
-                        onboardingFlow.dispatch(OnboardingAction.LocationOpenSettingsTapped)
-                    },
-                    onRetry = {
-                        onboardingFlow.dispatch(OnboardingAction.LocationCheckAgainTapped)
-                    },
-                    isLoading = isLocationLoading
-                )
-            }
-            
-            OnboardingState.BATTERY_OPTIMIZATION_CHECK -> {
-                BatteryOptimizationScreen(
-                    modifier = modifier,
-                    status = batteryOptimizationStatus,
-                    onDisableBatteryOptimization = {
-                        onboardingFlow.dispatch(OnboardingAction.BatteryDisableTapped)
-                    },
-                    onRetry = {
-                        onboardingFlow.dispatch(OnboardingAction.BatteryCheckAgainTapped)
-                    },
-                    onSkip = {
-                        onboardingFlow.dispatch(OnboardingAction.BatterySkipTapped)
-                    },
-                    isLoading = isBatteryOptimizationLoading
-                )
-            }
-            
-            OnboardingState.PERMISSION_EXPLANATION -> {
-                PermissionExplanationScreen(
-                    modifier = modifier,
-                    permissionCategories = permissionManager.getCategorizedPermissions(),
-                    onContinue = {
-                        onboardingFlow.dispatch(OnboardingAction.GrantPermissionsTapped)
-                    }
-                )
-            }
-
-            OnboardingState.BACKGROUND_LOCATION_EXPLANATION -> {
-                BackgroundLocationPermissionScreen(
-                    modifier = modifier,
-                    onContinue = {
-                        onboardingFlow.dispatch(OnboardingAction.BackgroundGrantTapped)
-                    },
-                    onRetry = {
-                        onboardingFlow.dispatch(OnboardingAction.BackgroundCheckAgainTapped)
-                    },
-                    onSkip = {
-                        onboardingFlow.dispatch(OnboardingAction.BackgroundSkipTapped)
-                    }
-                )
-            }
-
-            // No step: the app's init failed, which shows on the same error
-            // screen. Otherwise onboarding has not picked its step yet.
-            null -> if (phase == AppPhase.INIT_FAILED) {
-                InitializationErrorScreen(
-                    modifier = modifier,
-                    errorMessage = initError.orEmpty(),
-                    onRetry = {
-                        onboardingFlow.dispatch(OnboardingAction.TryAgainTapped)
-                    },
-                    onOpenSettings = {
-                        onboardingFlow.dispatch(OnboardingAction.OpenSettingsTapped)
-                    }
-                )
-            }
-
-            OnboardingState.ERROR -> {
-                InitializationErrorScreen(
-                    modifier = modifier,
-                    errorMessage = errorMessage,
-                    onRetry = {
-                        onboardingFlow.dispatch(OnboardingAction.TryAgainTapped)
-                    },
-                    onOpenSettings = {
-                        onboardingFlow.dispatch(OnboardingAction.OpenSettingsTapped)
-                    }
-                )
-            }
-        }
-    }
-    
-    // What the onboarding flow reads and does. The reads and the stored choices
-    // come from DeviceReadiness; the dialogs from this Activity's managers and
-    // coordinator.
-    private val onboardingSystem = object : OnboardingSystem {
-        private fun readiness() = deviceReadiness.snapshot()
-
-        override fun snapshot() = readiness()
-
-        override fun bluetoothStatus() = readiness().bluetooth
-        override fun locationStatus() = readiness().location
-        override fun batteryStatus() = readiness().batteryOptimization
-
-        override fun isFirstTimeLaunch() = readiness().firstLaunch
-        override fun markOnboardingComplete() = deviceReadiness.markOnboardingComplete()
-
-        override fun requiredPermissions() = deviceReadiness.requiredPermissions()
-        override fun missingPermissions() = readiness().missingPermissions
-        override fun unrequestedOptionalPermissions() = readiness().unrequestedOptionalPermissions
-        override fun markOptionalPermissionsRequested(p: Collection<String>) =
-            deviceReadiness.markOptionalPermissionsRequested(p)
-        override fun isPermissionGranted(p: String) = deviceReadiness.isPermissionGranted(p)
-        override fun areRequiredPermissionsGranted() = readiness().requiredPermissionsGranted
-
-        override fun needsBackgroundLocation() = readiness().backgroundLocation != BackgroundLocation.NOT_NEEDED
-        override fun isBackgroundLocationGranted() = readiness().backgroundLocation != BackgroundLocation.NEEDED
-        override fun backgroundLocationPermission() = deviceReadiness.backgroundLocationPermission()
-        override fun isBackgroundLocationSkipped() = readiness().backgroundLocationSkipped
-        override fun setBackgroundLocationSkipped() = deviceReadiness.setBackgroundLocationSkipped()
-
-        override fun isBatterySkipped() = readiness().batterySkipped
-        override fun setBatterySkipped() = deviceReadiness.setBatterySkipped()
-        override fun bleRequired() = readiness().bleRequired
-
-        override fun launchBluetoothEnable() = bluetoothStatusManager.requestEnableBluetooth()
-        override fun launchLocationSettings() = locationStatusManager.requestEnableLocation()
-        override fun launchBatteryOptimization() = batteryOptimizationManager.requestDisableBatteryOptimization()
-        override fun launchPermissions(p: List<String>) = onboardingCoordinator.launchPermissions(p)
-        override fun launchBackgroundLocation(p: String) = onboardingCoordinator.launchBackgroundLocation(p)
-        override fun openAppSettings() = onboardingCoordinator.openAppSettings()
-
-        override fun startWifiAwareIfPossible() = WifiAwareController.startIfPossible()
-
-        override fun logBluetoothDiagnostics() = bluetoothStatusManager.logBluetoothStatus()
-        override fun logLocationDiagnostics() = locationStatusManager.logLocationStatus()
-        override fun logBatteryDiagnostics() = batteryOptimizationManager.logBatteryOptimizationStatus()
-        override fun logPermissionDiagnostics() = permissionManager.logPermissionStatus()
-    }
-
-    // The managers report a declined dialog and a failed launch through one
-    // callback; the message tells which it was. Any other message is a failed
-    // launch, which the flow handles with that message.
-    private fun bluetoothDisabledAction(message: String): OnboardingAction = when (message) {
-        OnboardingFlow.BLUETOOTH_DECLINED_MESSAGE -> OnboardingAction.BluetoothResult(enabled = false)
-        else -> OnboardingAction.BluetoothLaunchFailed(message)
-    }
-
-    private fun locationDisabledAction(message: String): OnboardingAction = when (message) {
-        OnboardingFlow.LOCATION_DECLINED_MESSAGE -> OnboardingAction.LocationResult(enabled = false)
-        else -> OnboardingAction.LocationLaunchFailed(message)
-    }
-
-    // The radios as onboarding has always heard them.
-    private fun dispatchToOnboarding(event: SystemEvent) {
-        when (event) {
-            // Both, in this order: re-run the check if its screen is
-            // showing, then take the Bluetooth-enabled path.
-            SystemEvent.BluetoothOn -> {
-                onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOn)
-                onboardingFlow.dispatch(OnboardingAction.BluetoothResult(enabled = true))
-            }
-            SystemEvent.BluetoothOff -> onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOff)
-            is SystemEvent.LocationChanged ->
-                onboardingFlow.dispatch(OnboardingAction.LocationChanged(enabled = event.enabled))
-        }
-    }
-
-    private fun SystemEvent.turnsRadioOff() =
-        this == SystemEvent.BluetoothOff || this == SystemEvent.LocationChanged(enabled = false)
     
     private fun startMeshForegroundServiceBestEffort() {
         if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {

@@ -29,14 +29,17 @@ import com.bitchat.android.R
 @Composable
 fun BatteryOptimizationScreen(
     modifier: Modifier,
-    status: BatteryOptimizationStatus,
-    onDisableBatteryOptimization: () -> Unit,
-    onRetry: () -> Unit,
-    onSkip: () -> Unit,
-    isLoading: Boolean = false
+    state: OnboardingUiState,
+    onAction: (OnboardingAction) -> Unit,
 ) {
     val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
+    val status = state.battery
+    val isLoading = state.batteryLoading
+    val onDisableBatteryOptimization = { onAction(OnboardingAction.BatteryDisableTapped) }
+    val onRetry = { onAction(OnboardingAction.BatteryCheckAgainTapped) }
+    // The view model writes the skip choice.
+    val onSkip = { onAction(OnboardingAction.BatterySkipTapped) }
     
     // Initialize preference manager
     LaunchedEffect(Unit) {
@@ -82,8 +85,6 @@ private fun BatteryOptimizationEnabledContent(
     colorScheme: ColorScheme,
     isLoading: Boolean
 ) {
-    val context = LocalContext.current
-    
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -249,10 +250,7 @@ private fun BatteryOptimizationEnabledContent(
                 }
                 
                 TextButton(
-                    onClick = {
-                        BatteryOptimizationPreferenceManager.setSkipped(context, true)
-                        onSkip()
-                    },
+                    onClick = onSkip,
                     modifier = Modifier.weight(1f),
                     enabled = !isLoading
                 ) {

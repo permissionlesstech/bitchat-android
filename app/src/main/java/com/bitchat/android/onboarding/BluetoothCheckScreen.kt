@@ -23,13 +23,16 @@ import com.bitchat.android.R
 @Composable
 fun BluetoothCheckScreen(
     modifier: Modifier,
-    status: BluetoothStatus,
-    onEnableBluetooth: () -> Unit,
-    onRetry: () -> Unit,
-    onSkip: () -> Unit,
-    isLoading: Boolean = false
+    state: OnboardingUiState,
+    onAction: (OnboardingAction) -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val status = state.bluetooth
+    val isLoading = state.bluetoothLoading
+    val onEnableBluetooth = { onAction(OnboardingAction.BluetoothEnableTapped) }
+    // No check-again button is shown on this screen.
+    val onRetry = {}
+    val onSkip = { onAction(OnboardingAction.BluetoothSkipTapped) }
 
     Box(
         modifier = modifier.padding(32.dp),

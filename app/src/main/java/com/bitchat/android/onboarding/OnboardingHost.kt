@@ -13,4 +13,14 @@ interface OnboardingHost {
 
     /** Try again on the error step: back to checking, then the checks. */
     fun retry()
+
+    /**
+     * True once after Bluetooth turning off while the app was ready sent it back
+     * to onboarding. Onboarding then opens on the Bluetooth step whatever the
+     * session skip and the debug switch say, as it always has (T12).
+     */
+    fun takeBluetoothTurnedOff(): Boolean
+
+    /** Location services came on during onboarding: the app starts Wi-Fi Aware if it can. */
+    fun locationServicesEnabled()
 }

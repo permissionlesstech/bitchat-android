@@ -153,11 +153,13 @@ fun InitializingScreen(modifier: Modifier) {
 @Composable
 fun InitializationErrorScreen(
     modifier: Modifier,
-    errorMessage: String,
-    onRetry: () -> Unit,
-    onOpenSettings: () -> Unit
+    state: OnboardingUiState,
+    onAction: (OnboardingAction) -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val errorMessage = state.errorMessage
+    val onRetry = { onAction(OnboardingAction.TryAgainTapped) }
+    val onOpenSettings = { onAction(OnboardingAction.OpenSettingsTapped) }
 
     Box(
         modifier = modifier.padding(32.dp),

@@ -5,24 +5,39 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.bitchat.android.R
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Inject
 
 /**
- * The permission explanation screen's categories and the permission diagnostics.
- * The permission lists, grants and stored markers themselves come from [DeviceReadiness].
+ * The permission explanation screen's cards, read once when that step opens
+ * rather than on every recomposition, and the permission diagnostics.
  */
-class PermissionManager(
-    private val context: Context,
+interface PermissionCards {
+
+    fun categories(): List<PermissionCategory>
+
+    /** Logs every permission's grant. Logging only. */
+    fun logDiagnostics() {}
+}
+
+/**
+ * The cards from the device. The permission lists, grants and stored markers
+ * themselves come from [DeviceReadiness].
+ */
+class SystemPermissionCards @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val readiness: DeviceReadiness,
-) {
+) : PermissionCards {
 
     companion object {
         private const val TAG = "PermissionManager"
     }
 
-    /**
-     * Get categorized permission information for display
-     */
-    fun getCategorizedPermissions(): List<PermissionCategory> {
+    override fun categories(): List<PermissionCategory> {
         val categories = mutableListOf<PermissionCategory>()
         val snapshot = readiness.snapshot()
 
@@ -127,10 +142,7 @@ class PermissionManager(
         return categories
     }
 
-    /**
-     * Get detailed diagnostic information about permission status
-     */
-    fun getPermissionDiagnostics(): String {
+    private fun permissionDiagnostics(): String {
         return buildString {
             appendLine("Permission Diagnostics:")
             appendLine("Android SDK: ${Build.VERSION.SDK_INT}")
@@ -139,7 +151,7 @@ class PermissionManager(
             appendLine("Required permissions granted: ${snapshot.requiredPermissionsGranted}")
             appendLine()
             
-            getCategorizedPermissions().forEach { category ->
+            categories().forEach { category ->
                 appendLine("${category.type.nameValue}: ${if (category.isGranted) "✅ GRANTED" else "❌ MISSING"}")
                 category.permissions.forEach { permission ->
                     val granted = readiness.isPermissionGranted(permission)
@@ -160,12 +172,16 @@ class PermissionManager(
         }
     }
 
-    /**
-     * Log permission status for debugging
-     */
-    fun logPermissionStatus() {
-        Log.d(TAG, getPermissionDiagnostics())
+    override fun logDiagnostics() {
+        Log.d(TAG, permissionDiagnostics())
     }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class PermissionCardsModule {
+    @Binds
+    abstract fun bindPermissionCards(cards: SystemPermissionCards): PermissionCards
 }
 
 /**

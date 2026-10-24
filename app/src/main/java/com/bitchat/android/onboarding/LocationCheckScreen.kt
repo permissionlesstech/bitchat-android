@@ -24,12 +24,14 @@ import com.bitchat.android.R
 @Composable
 fun LocationCheckScreen(
     modifier: Modifier,
-    status: LocationStatus,
-    onEnableLocation: () -> Unit,
-    onRetry: () -> Unit,
-    isLoading: Boolean = false
+    state: OnboardingUiState,
+    onAction: (OnboardingAction) -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val status = state.location
+    val isLoading = state.locationLoading
+    val onEnableLocation = { onAction(OnboardingAction.LocationOpenSettingsTapped) }
+    val onRetry = { onAction(OnboardingAction.LocationCheckAgainTapped) }
 
     Box(
         modifier = modifier.padding(32.dp),

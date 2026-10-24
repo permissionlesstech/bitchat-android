@@ -1,17 +1,11 @@
 package com.bitchat.android.onboarding
 
 /**
- * Every user or system event the onboarding flow reacts to. Screens, dialog
- * results and receivers turn what happened into one of these and hand it to
- * [OnboardingFlow.dispatch].
+ * Every tap and dialog result onboarding reacts to. Screens and the route's
+ * launchers hand these to [OnboardingViewModel.onAction]. Radio changes arrive
+ * as [SystemEvent]s instead.
  */
 sealed interface OnboardingAction {
-
-    /**
-     * The app gate opened onboarding with no step on screen: shows the step
-     * readiness implies, or finishes onboarding at once if there is none.
-     */
-    data object Start : OnboardingAction
 
     // Bluetooth
     data object BluetoothEnableTapped : OnboardingAction
@@ -22,13 +16,7 @@ sealed interface OnboardingAction {
     data class BluetoothResult(val enabled: Boolean) : OnboardingAction
     data class BluetoothLaunchFailed(val message: String) : OnboardingAction
 
-    /**
-     * The adapter reported itself on, when monitoring starts or on STATE_ON. Re-runs
-     * the Bluetooth check if its screen is showing. STATE_ON is followed by
-     * [BluetoothResult] with `enabled = true`, as the receiver does today.
-     */
-    data object BluetoothTurnedOn : OnboardingAction
-    data object BluetoothTurnedOff : OnboardingAction
+    /** No Bluetooth adapter when onboarding opens: the error step (T2). */
     data object BluetoothNotSupportedAtStart : OnboardingAction
 
     // Location services
@@ -36,7 +24,6 @@ sealed interface OnboardingAction {
     data object LocationCheckAgainTapped : OnboardingAction
     data class LocationResult(val enabled: Boolean) : OnboardingAction
     data class LocationLaunchFailed(val message: String) : OnboardingAction
-    data class LocationChanged(val enabled: Boolean) : OnboardingAction
 
     // Battery optimization
     data object BatteryDisableTapped : OnboardingAction
