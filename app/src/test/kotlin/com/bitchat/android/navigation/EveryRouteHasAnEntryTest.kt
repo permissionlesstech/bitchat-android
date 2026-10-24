@@ -60,7 +60,7 @@ class EveryRouteHasAnEntryTest {
                 diagnostics = mock(),
                 buildInfo = AppBuildInfo(versionName = "0.0.0", isDebug = true, githubReleaseCertSha256 = ""),
             ),
-            LocationEntriesModule.locationEntries(navigator = navigator, chatState = chatState),
+            LocationEntriesModule.locationEntries(navigator = navigator),
             ChatEntriesModule.chatEntries(navigator = navigator, chatState = chatState),
             OnboardingEntriesModule.onboardingEntries(),
         )

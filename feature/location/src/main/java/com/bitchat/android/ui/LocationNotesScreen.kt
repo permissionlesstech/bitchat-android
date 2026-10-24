@@ -1,8 +1,8 @@
 package com.bitchat.android.ui
 
+import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,108 +12,72 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.tooling.preview.Preview
 import com.bitchat.android.ui.theme.BitchatFontFamily
+import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.feature.location.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
-import com.bitchat.android.geohash.GeohashChannelLevel
-import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
-import com.bitchat.android.nostr.NearbyNotesController
-import java.text.SimpleDateFormat
-import java.util.*
-import java.util.Calendar
+
+/**
+ * The location notes destination's stateless screen: the notes once the building is
+ * known, and otherwise an acquiring or an unavailable state.
+ *
+ * The three states swap inside one destination rather than each being one of
+ * their own, and each is a full screen with a back arrow and its own insets.
+ */
+@Composable
+fun LocationNotesScreen(
+    uiState: LocationNotesUiState,
+    onAction: (LocationNotesAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val onBack = { onAction(LocationNotesAction.BackClicked) }
+    when (val mode = uiState.mode) {
+        is NotesMode.Notes -> LocationNotesContent(
+            mode = mode,
+            uiState = uiState,
+            onAction = onAction,
+            onBack = onBack,
+            modifier = modifier,
+        )
+        NotesMode.Acquiring -> LocationNotesAcquiringContent(onBack = onBack, modifier = modifier)
+        NotesMode.Unavailable -> LocationNotesErrorContent(
+            onBack = onBack,
+            onEnableLocation = { onAction(LocationNotesAction.EnableLocationClicked) },
+            modifier = modifier,
+        )
+    }
+}
 
 /**
  * Location notes content - EXACT iOS UI match for bitchat
  * Matches iOS LocationNotesView.swift exactly in style, colors, fonts, and text
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocationNotesContent(
-    geohash: String,
-    locationName: String?,
-    nickname: String?,
+private fun LocationNotesContent(
+    mode: NotesMode.Notes,
+    uiState: LocationNotesUiState,
+    onAction: (LocationNotesAction) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
     val accentGreen = colorScheme.primary
-    
-    // Managers
-    val notesManager = remember { LocationNotesManager.getInstance() }
-    val locationManager = remember { LocationChannelManager.getInstance(context) }
-    val nearbyNotesController = remember { NearbyNotesController.shared }
-    
-    // State
-    val notes by notesManager.notes.collectAsStateWithLifecycle()
-    val state by notesManager.state.collectAsStateWithLifecycle(LocationNotesManager.State.IDLE)
-    val errorMessage by notesManager.errorMessage.collectAsStateWithLifecycle()
-    val initialLoadComplete by notesManager.initialLoadComplete.collectAsStateWithLifecycle(false)
-    val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
-    val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
-    
-    // SIMPLIFIED: Get count directly from notes list (no separate counter needed)
-    val count = notes.size
-    
-    // Get location name (building or block) - matches iOS locationNames lookup
-    val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
-    val displayLocationName = locationNames[GeohashChannelLevel.BUILDING]?.takeIf { it.isNotEmpty() }
-        ?: locationNames[GeohashChannelLevel.BLOCK]?.takeIf { it.isNotEmpty() }
-    
-    // Input field state
-    var draft by remember { mutableStateOf("") }
-    val sendButtonEnabled = draft.trim().isNotEmpty() && state != LocationNotesManager.State.NO_RELAYS
-    
+    val state = mode.loadState
+    val count = mode.notes.size
+
     // Scroll state
     val listState = rememberLazyListState()
-    val isScrolled by remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
-        }
-    }
-    val topBarAlpha by animateFloatAsState(
-        targetValue = if (isScrolled) 0.95f else 0f,
-        label = "topBarAlpha"
-    )
-
-    // Refresh location when the screen opens
-    LaunchedEffect(Unit) {
-        locationManager.refreshChannels()
-    }
-
-    // Opening the notes screen is an explicit reveal. The balanced hold lets
-    // the mesh timeline keep the shared subscription alive after dismissal.
-    DisposableEffect(
-        geohash,
-        locationEnabled,
-        permissionState,
-        nearbyNotesController,
-    ) {
-        nearbyNotesController.updateAvailability(
-            locationEnabled = locationEnabled,
-            locationAuthorized =
-                permissionState == LocationChannelManager.PermissionState.AUTHORIZED,
-            buildingGeohash = geohash,
-        )
-        nearbyNotesController.activate()
-        nearbyNotesController.reveal()
-        onDispose {
-            nearbyNotesController.deactivate()
-        }
-    }
 
     Box(modifier = modifier.locationNotesScreenRoot()) {
         LazyColumn(
@@ -123,33 +87,33 @@ fun LocationNotesContent(
         ) {
             item(key = "notes_header") {
                 LocationNotesHeader(
-                    locationName = displayLocationName,
+                    locationName = mode.displayLocationName,
                     state = state,
                     accentGreen = accentGreen,
                 )
             }
 
             // Notes content (matches iOS notesContent)
-            when {
-                state == LocationNotesManager.State.NO_RELAYS -> {
+            when (notesBody(state, mode.initialLoadComplete, hasNotes = mode.notes.isNotEmpty())) {
+                NotesBody.NoRelays -> {
                     item {
                         NoRelaysRow(
-                            onRetry = { notesManager.refresh() }
+                            onRetry = { onAction(LocationNotesAction.RetryClicked) }
                         )
                     }
                 }
-                state == LocationNotesManager.State.LOADING && !initialLoadComplete -> {
+                NotesBody.Loading -> {
                     item {
                         LoadingRow()
                     }
                 }
-                notes.isEmpty() -> {
+                NotesBody.Empty -> {
                     item {
                         EmptyRow()
                     }
                 }
-                else -> {
-                    items(notes, key = { it.id }) { note ->
+                NotesBody.Notes -> {
+                    items(mode.notes, key = { it.id }) { note ->
                         NoteRow(note = note)
                         Spacer(modifier = Modifier.height(24.dp))
                     }
@@ -160,19 +124,18 @@ fun LocationNotesContent(
             }
 
             // Error row (matches iOS errorRow)
-            errorMessage?.let { error ->
-                if (state != LocationNotesManager.State.NO_RELAYS) {
+            mode.errorMessage?.let { error ->
+                if (notesErrorShown(error, state)) {
                     item {
                         ErrorRow(
                             message = error,
-                            onDismiss = { notesManager.clearError() }
+                            onDismiss = { onAction(LocationNotesAction.DismissError) }
                         )
                     }
                 }
             }
         }
 
-        // TopBar (animated)
         BitchatScreenTopBar(
             onBack = onBack,
             modifier = Modifier.align(Alignment.TopCenter),
@@ -181,7 +144,7 @@ fun LocationNotesContent(
                     text = pluralStringResource(
                         id = R.plurals.location_notes_title,
                         count = count,
-                        geohash,
+                        mode.geohash,
                         count
                     )
                 )
@@ -204,18 +167,12 @@ fun LocationNotesContent(
 
                 // Input section (matches iOS inputSection)
                 LocationNotesInputSection(
-                    draft = draft,
-                    onDraftChange = { draft = it },
-                    sendButtonEnabled = sendButtonEnabled,
+                    draft = uiState.draft,
+                    onDraftChange = { onAction(LocationNotesAction.DraftChanged(it)) },
+                    sendButtonEnabled = uiState.sendEnabled,
                     accentGreen = accentGreen,
-                    nickname = nickname,
-                    onSend = {
-                        val content = draft.trim()
-                        if (content.isNotEmpty()) {
-                            notesManager.send(content, nickname)
-                            draft = ""
-                        }
-                    }
+                    authorBaseName = uiState.authorBaseName,
+                    onSend = { onAction(LocationNotesAction.SendClicked) }
                 )
             }
         }
@@ -260,7 +217,7 @@ private fun LocationNotesHeader(
         )
         
         // Relays paused message if no relays
-        if (state == LocationNotesManager.State.NO_RELAYS) {
+        if (notesRelaysUnavailableShown(state)) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = stringResource(R.string.location_notes_relays_unavailable),
@@ -277,10 +234,9 @@ private fun LocationNotesHeader(
  * Shows @basename then timestamp, then content below
  */
 @Composable
-private fun NoteRow(note: LocationNotesManager.Note) {
-    // Extract baseName (before #suffix like iOS)
-    val baseName = note.displayName.split("#", limit = 2).firstOrNull() ?: note.displayName
-    val ts = timestampText(note.createdAt)
+private fun NoteRow(note: NoteUi) {
+    val baseName = note.authorBaseName
+    val ts = note.timestampText
     
     Column(
         modifier = Modifier
@@ -457,7 +413,7 @@ private fun LocationNotesInputSection(
     onDraftChange: (String) -> Unit,
     sendButtonEnabled: Boolean,
     accentGreen: Color,
-    nickname: String?,
+    authorBaseName: String?,
     onSend: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -468,8 +424,8 @@ private fun LocationNotesInputSection(
             .background(color = colorScheme.background)
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        if (!nickname.isNullOrBlank()) {
-            val baseName = nickname.split("#", limit = 2).firstOrNull() ?: nickname
+        if (authorBaseName != null) {
+            val baseName = authorBaseName
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "@$baseName",
@@ -557,60 +513,69 @@ private fun LocationNotesInputSection(
     }
 }
 
-/**
- * Timestamp text - matches iOS timestampText exactly
- * Shows relative time for < 7 days, absolute date otherwise
- */
-private fun timestampText(createdAt: Int): String {
-    val date = Date(createdAt * 1000L)
-    val now = Date()
-    
-    // Calculate days difference
-    val calendar = Calendar.getInstance()
-    calendar.time = date
-    val dateDay = calendar.get(Calendar.DAY_OF_YEAR)
-    val dateYear = calendar.get(Calendar.YEAR)
-    
-    calendar.time = now
-    val nowDay = calendar.get(Calendar.DAY_OF_YEAR)
-    val nowYear = calendar.get(Calendar.YEAR)
-    
-    val daysDiff = if (dateYear == nowYear) {
-        nowDay - dateDay
-    } else {
-        // Simplified: just check if less than 7 days by timestamp
-        val diff = (now.time - date.time) / (1000 * 60 * 60 * 24)
-        diff.toInt()
+/** Synthetic notes state for previews and screen tests: two notes, no real location. */
+internal fun previewLocationNotesUiState(): LocationNotesUiState = LocationNotesUiState(
+    mode = NotesMode.Notes(
+        geohash = "s0000000",
+        displayLocationName = "Synthetic Building",
+        notes = listOf(
+            NoteUi(
+                id = "note-1",
+                authorBaseName = "tester",
+                timestampText = "5m ago",
+                content = "synthetic note",
+            ),
+            NoteUi(
+                id = "note-2",
+                authorBaseName = "alice",
+                timestampText = "2h ago",
+                content = "another synthetic note",
+            ),
+        ),
+        loadState = LocationNotesManager.State.READY,
+        errorMessage = null,
+        initialLoadComplete = true,
+    ),
+    draft = "",
+    sendEnabled = false,
+    authorBaseName = "alice",
+    locationEnabled = true,
+    locationAuthorized = true,
+)
+
+@Preview(name = "Notes")
+@Preview(name = "Notes (dark)", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LocationNotesNotesPreview() {
+    BitchatTheme {
+        LocationNotesScreen(uiState = previewLocationNotesUiState(), onAction = {})
     }
-    
-    return if (daysDiff < 7) {
-        // Relative formatting (abbreviated)
-        val diffMillis = now.time - date.time
-        val diffSeconds = diffMillis / 1000
-        
-        when {
-            diffSeconds < 60 -> "" // Don't show "just now" in iOS
-            diffSeconds < 3600 -> {
-                val minutes = (diffSeconds / 60).toInt()
-                "${minutes}m ago"
-            }
-            diffSeconds < 86400 -> {
-                val hours = (diffSeconds / 3600).toInt()
-                "${hours}h ago"
-            }
-            else -> {
-                val days = (diffSeconds / 86400).toInt()
-                "${days}d ago"
-            }
-        }
-    } else {
-        // Absolute date formatting
-        val sameYear = dateYear == nowYear
-        val formatter = if (sameYear) {
-            SimpleDateFormat("MMM d", Locale.getDefault())
-        } else {
-            SimpleDateFormat("MMM d, y", Locale.getDefault())
-        }
-        formatter.format(date)
+}
+
+@Preview(name = "Acquiring")
+@Preview(name = "Acquiring (dark)", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LocationNotesAcquiringPreview() {
+    BitchatTheme {
+        LocationNotesScreen(
+            uiState = previewLocationNotesUiState().copy(mode = NotesMode.Acquiring),
+            onAction = {},
+        )
+    }
+}
+
+@Preview(name = "Unavailable")
+@Preview(name = "Unavailable (dark)", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LocationNotesUnavailablePreview() {
+    BitchatTheme {
+        LocationNotesScreen(
+            uiState = previewLocationNotesUiState().copy(
+                mode = NotesMode.Unavailable,
+                locationEnabled = false,
+                locationAuthorized = false,
+            ),
+            onAction = {},
+        )
     }
 }

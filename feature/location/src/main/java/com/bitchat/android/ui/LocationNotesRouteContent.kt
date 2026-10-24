@@ -4,70 +4,83 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
-import com.bitchat.android.geohash.GeohashChannelLevel
-import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.feature.location.R
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /**
- * The location notes screen: the notes once the building is known, and
- * otherwise an acquiring or an unavailable state.
- *
- * The three states swap inside one destination rather than each being one of
- * their own, and each is a full screen with a back arrow and its own insets.
+ * The location notes destination. Collects [LocationNotesViewModel] and holds the effects
+ * tied to the notes content being composed: one location refresh per entry (N10) and the
+ * nearby-notes hold (N11), keyed as before on the geohash, the location toggle and the
+ * permission.
  */
 @Composable
-fun LocationNotesScreen(
-    nickname: String,
-    onBack: () -> Unit
+fun LocationNotesRoot(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: LocationNotesViewModel = hiltViewModel(),
 ) {
-    val context = LocalContext.current
-    val locationManager = remember { LocationChannelManager.getInstance(context) }
-    val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
-    val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
-    val isLoadingLocation by locationManager.isLoadingLocation.collectAsStateWithLifecycle()
-
-    // iOS pattern: notesGeohash ?? LocationChannelManager.shared.availableChannels.first(where: { $0.level == .building })?.geohash
-    val buildingGeohash = availableChannels.firstOrNull { it.level == GeohashChannelLevel.BUILDING }?.geohash
-
-    if (buildingGeohash != null) {
-        // Get location name from locationManager
-        val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
-        val locationName = locationNames[GeohashChannelLevel.BUILDING]
-            ?: locationNames[GeohashChannelLevel.BLOCK]
-
-        LocationNotesContent(
-            geohash = buildingGeohash,
-            locationName = locationName,
-            nickname = nickname,
-            onBack = onBack
-        )
-    } else if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && isLoadingLocation) {
-        LocationNotesAcquiringContent(onBack = onBack)
-    } else {
-        // No building geohash available - show error state (matches iOS)
-        LocationNotesErrorContent(
-            onBack = onBack,
-            locationManager = locationManager
-        )
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    ObserveAsEvents(viewModel.events) { event ->
+        when (event) {
+            LocationNotesEvent.Close -> onBack()
+        }
     }
+
+    val notes = uiState.mode as? NotesMode.Notes
+    if (notes != null) {
+        // Collected here, with false until the first value arrives, as the notes content
+        // did: the hold's first pass sees location off and the next one the real value.
+        val locationEnabled by remember(viewModel) {
+            viewModel.uiState.map { it.locationEnabled }.distinctUntilChanged()
+        }.collectAsStateWithLifecycle(initialValue = false)
+
+        LaunchedEffect(Unit) {
+            viewModel.onAction(LocationNotesAction.NotesEntered)
+        }
+
+        // Opening the notes screen is an explicit reveal. The balanced hold lets
+        // the mesh timeline keep the shared subscription alive after dismissal.
+        DisposableEffect(
+            notes.geohash,
+            locationEnabled,
+            uiState.locationAuthorized,
+            viewModel,
+        ) {
+            viewModel.onAction(
+                LocationNotesAction.ScreenShown(
+                    geohash = notes.geohash,
+                    locationEnabled = locationEnabled,
+                    locationAuthorized = uiState.locationAuthorized,
+                )
+            )
+            onDispose {
+                viewModel.onAction(LocationNotesAction.ScreenHidden)
+            }
+        }
+    }
+
+    LocationNotesScreen(uiState = uiState, onAction = viewModel::onAction, modifier = modifier)
 }
 
 /**
  * Shown while location is being acquired
  */
 @Composable
-private fun LocationNotesAcquiringContent(onBack: () -> Unit) {
-    Box(modifier = Modifier.locationNotesScreenRoot()) {
+internal fun LocationNotesAcquiringContent(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.locationNotesScreenRoot()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -100,11 +113,12 @@ private fun LocationNotesAcquiringContent(onBack: () -> Unit) {
  * Shown when location is unavailable
  */
 @Composable
-private fun LocationNotesErrorContent(
+internal fun LocationNotesErrorContent(
     onBack: () -> Unit,
-    locationManager: LocationChannelManager
+    onEnableLocation: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Box(modifier = Modifier.locationNotesScreenRoot()) {
+    Box(modifier = modifier.locationNotesScreenRoot()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -125,13 +139,7 @@ private fun LocationNotesErrorContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = {
-                // UNIFIED FIX: Enable location services first (user toggle)
-                locationManager.enableLocationServices()
-                // Then request location channels (which will also request permission if needed)
-                locationManager.enableLocationChannels()
-                locationManager.refreshChannels()
-            }) {
+            Button(onClick = onEnableLocation) {
                 Text("Enable Location")
             }
         }
