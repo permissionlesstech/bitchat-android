@@ -942,10 +942,26 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun t21_dialogResultWhileStillOptimized_proceeds_currentBehaviour() = runTest {
+    fun batteryResultStillOptimized_staysOnBatteryStep() = runTest {
         onBatteryStep()
         startBatteryLoading()
         system.battery = BatteryOptimizationStatus.ENABLED
+
+        act(OnboardingAction.BatteryResult)
+        advance(10_000)
+
+        assertEquals(OnboardingStep.BATTERY_OPTIMIZATION, step)
+        assertEquals(BatteryOptimizationStatus.ENABLED, state.battery)
+        assertFalse(state.batteryLoading)
+        assertEquals(0, host.finished)
+        assertEquals(emptyList<String>(), system.effects)
+    }
+
+    @Test
+    fun batteryResultIgnored_movesOn() = runTest {
+        onBatteryStep()
+        startBatteryLoading()
+        system.battery = BatteryOptimizationStatus.DISABLED
 
         act(OnboardingAction.BatteryResult)
 

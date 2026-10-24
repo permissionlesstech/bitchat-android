@@ -489,7 +489,14 @@ class OnboardingViewModel @Inject constructor(
      * Handle Battery Optimization disabled callback
      */
     private suspend fun handleBatteryOptimizationDisabled() {
-        _state.update { it.copy(batteryLoading = false, battery = BatteryOptimizationStatus.DISABLED) }
+        // The dialog's result is not the answer (F7): ask the system. Still
+        // optimized (declined) stays on the battery step.
+        val status = readiness.snapshot().batteryOptimization
+        if (status == BatteryOptimizationStatus.ENABLED) {
+            showBatteryStep(status)
+            return
+        }
+        _state.update { it.copy(batteryLoading = false, battery = status) }
         proceedWithPermissionCheck()
     }
 
