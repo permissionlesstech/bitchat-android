@@ -483,6 +483,8 @@
   <string name="verify_qr_unavailable">QR unavailable</string>
   <string name="verify_camera_permission">Camera permission is needed to scan QR codes</string>
   <string name="verify_request_camera">Enable camera</string>
+  <string name="verify_camera_unavailable">Camera is unavailable. Please try again.</string>
+  <string name="verify_retry_camera">Retry camera</string>
   <string name="verify_paste_label">Paste verification URL</string>
   <string name="verify_validate">Validate</string>
   <string name="verify_scanned">Verification requested</string>
@@ -655,3 +657,4 @@
   <string name="about_system_default">System default</string>
   <string name="about_select_language">Select language</string>
 </resources>
+
