@@ -1134,16 +1134,16 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun t34_requiredMissingButNotDeniedInResults_writesFlagAndCompletes_currentBehaviour() = runTest {
+    fun permissionResultsMissingRequired_doesNotMarkComplete() = runTest {
         onPermissionRequesting()
         system.granted -= FINE_LOCATION
 
         act(OnboardingAction.PermissionResults(emptyMap()))
+        advance(10_000)
 
-        assertEquals(listOf("markOnboardingComplete"), system.effects)
-        advance(100)
-        assertFinished()
-        assertEquals(listOf("markOnboardingComplete"), system.effects)
+        assertEquals(OnboardingStep.PERMISSION_EXPLANATION, step)
+        assertEquals(emptyList<String>(), system.effects)
+        assertEquals(0, host.finished)
     }
 
     // ---- T35-T39 Background location ----

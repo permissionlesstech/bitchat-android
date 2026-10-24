@@ -660,8 +660,9 @@ class OnboardingViewModel @Inject constructor(
             Log.e(COORDINATOR_TAG, "Critical permissions denied: $deniedCritical")
             handleOnboardingFailed(message)
         } else {
-            // Shouldn't happen given our logic above, but handle gracefully
-            completeOnboarding()
+            // Required permissions are still missing, but the result names none of
+            // them as denied (an interrupted dialog). Not done (F5): ask again.
+            setStep(OnboardingStep.PERMISSION_EXPLANATION)
         }
     }
 
