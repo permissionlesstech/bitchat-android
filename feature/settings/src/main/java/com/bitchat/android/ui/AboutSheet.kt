@@ -54,7 +54,6 @@ import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.feature.settings.R
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.net.ArtiTorManager
-import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
@@ -298,11 +297,7 @@ internal fun AboutContent(
     
     // Get version name from package info
     val versionName = remember {
-        try {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        } catch (e: Exception) {
-            "1.0.0" // fallback version
-        }
+        aboutVersionLabel { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
     }
 
     val lazyListState = rememberLazyListState()
@@ -339,7 +334,7 @@ internal fun AboutContent(
         ) {
             // Header Section - App Identity
             item(key = "hero") {
-                AboutHero(versionName = versionName ?: "")
+                AboutHero(versionName = versionName)
             }
 
             item(key = "tabs") {
@@ -431,9 +426,7 @@ internal fun AboutContent(
             }
 
             item(key = "language") {
-                val selectedLanguageName = supportedLanguages
-                    .firstOrNull { it.languageTag == selectedLanguageTag }
-                    ?.endonym
+                val selectedLanguageName = selectedLanguageEndonym(supportedLanguages, selectedLanguageTag)
                     ?: stringResource(R.string.about_system_default)
 
                 Column {
@@ -460,12 +453,12 @@ internal fun AboutContent(
                         ) {
                             LanguageMenuItem(
                                 label = stringResource(R.string.about_system_default),
-                                selected = selectedLanguageTag.isEmpty(),
+                                selected = isSystemDefaultSelected(selectedLanguageTag),
                                 onClick = {
                                     showLanguagePicker = false
-                                    if (selectedLanguageTag.isNotEmpty()) {
-                                        selectedLanguageTag = ""
-                                        LanguagePreferenceManager.setLanguage("")
+                                    languageChangeFor(selectedLanguageTag, "")?.let { tag ->
+                                        selectedLanguageTag = tag
+                                        LanguagePreferenceManager.setLanguage(tag)
                                     }
                                 },
                             )
@@ -473,12 +466,12 @@ internal fun AboutContent(
                             supportedLanguages.forEach { language ->
                                 LanguageMenuItem(
                                     label = language.endonym,
-                                    selected = selectedLanguageTag == language.languageTag,
+                                    selected = isLanguageSelected(language, selectedLanguageTag),
                                     onClick = {
                                         showLanguagePicker = false
-                                        if (language.languageTag != selectedLanguageTag) {
-                                            selectedLanguageTag = language.languageTag
-                                            LanguagePreferenceManager.setLanguage(language.languageTag)
+                                        languageChangeFor(selectedLanguageTag, language.languageTag)?.let { tag ->
+                                            selectedLanguageTag = tag
+                                            LanguagePreferenceManager.setLanguage(tag)
                                         }
                                     },
                                 )
@@ -567,20 +560,20 @@ internal fun AboutContent(
                                 icon = Icons.Filled.Security,
                                 title = stringResource(R.string.about_tor_title),
                                 subtitle = stringResource(R.string.about_tor_route),
-                                checked = torMode.value == TorMode.ON,
+                                checked = torSwitchChecked(torMode.value),
                                 onCheckedChange = { enabled ->
                                     if (torAvailable) {
-                                        torMode.value = if (enabled) TorMode.ON else TorMode.OFF
+                                        torMode.value = torModeFor(enabled)
                                         TorPreferenceManager.set(context, torMode.value)
                                     }
                                 },
                                 enabled = torAvailable,
-                                statusIndicator = if (torMode.value == TorMode.ON) {
+                                statusIndicator = if (torStatusShown(torMode.value)) {
                                     {
-                                        val statusColor = when {
-                                            torStatus.running && torStatus.bootstrapPercent >= 100 -> colorScheme.primary
-                                            torStatus.running -> palette.accentOrange
-                                            else -> colorScheme.error
+                                        val statusColor = when (torStatusLevel(torStatus)) {
+                                            TorStatusLevel.Ready -> colorScheme.primary
+                                            TorStatusLevel.Starting -> palette.accentOrange
+                                            TorStatusLevel.Down -> colorScheme.error
                                         }
                                         Surface(
                                             color = statusColor,
@@ -662,7 +655,7 @@ internal fun AboutContent(
 
                                 Slider(
                                     value = powDifficulty.toFloat(),
-                                    onValueChange = { PoWPreferenceManager.setPowDifficulty(it.toInt()) },
+                                    onValueChange = { PoWPreferenceManager.setPowDifficulty(powDifficultyFromSlider(it)) },
                                     valueRange = 0f..32f,
                                     steps = 31,
                                     colors = SliderDefaults.colors(
@@ -674,15 +667,7 @@ internal fun AboutContent(
 
                                 AnimatedCountLabel(
                                     count = powDifficulty,
-                                    text = when {
-                                        powDifficulty == 0 -> stringResource(R.string.about_pow_desc_none)
-                                        powDifficulty <= 8 -> stringResource(R.string.about_pow_desc_very_low)
-                                        powDifficulty <= 12 -> stringResource(R.string.about_pow_desc_low)
-                                        powDifficulty <= 16 -> stringResource(R.string.about_pow_desc_medium)
-                                        powDifficulty <= 20 -> stringResource(R.string.about_pow_desc_high)
-                                        powDifficulty <= 24 -> stringResource(R.string.about_pow_desc_very_high)
-                                        else -> stringResource(R.string.about_pow_desc_extreme)
-                                    },
+                                    text = stringResource(powDescriptionRes(powDifficulty)),
                                     fontSize = 12.sp,
                                     fontFamily = BitchatFontFamily,
                                     color = palette.textTertiary
@@ -699,7 +684,7 @@ internal fun AboutContent(
                 val torProvider = remember { ArtiTorManager.getInstance() }
                 val torStatus by torProvider.statusFlow.collectAsState()
 
-                if (torMode.value == TorMode.ON) {
+                if (torStatusShown(torMode.value)) {
                     Column(modifier = Modifier.padding(top = 12.dp)) {
                         Surface(
                             modifier = Modifier
@@ -716,10 +701,10 @@ internal fun AboutContent(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    val statusColor = when {
-                                        torStatus.running && torStatus.bootstrapPercent >= 100 -> colorScheme.primary
-                                        torStatus.running -> palette.accentOrange
-                                        else -> colorScheme.error
+                                    val statusColor = when (torStatusLevel(torStatus)) {
+                                        TorStatusLevel.Ready -> colorScheme.primary
+                                        TorStatusLevel.Starting -> palette.accentOrange
+                                        TorStatusLevel.Down -> colorScheme.error
                                     }
                                     Surface(color = statusColor, shape = CircleShape, modifier = Modifier.size(10.dp)) {}
                                     Text(
@@ -734,9 +719,9 @@ internal fun AboutContent(
                                         color = colorScheme.onSurface
                                     )
                                 }
-                                if (torStatus.lastLogLine.isNotEmpty()) {
+                                torStatusLogLine(torStatus)?.let { logLine ->
                                     Text(
-                                        text = torStatus.lastLogLine.take(120),
+                                        text = logLine,
                                         fontSize = 11.sp,
                                         fontFamily = BitchatFontFamily,
                                         color = palette.textTertiary,
@@ -764,8 +749,8 @@ internal fun AboutContent(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (selectedTab == AboutTab.Settings && onShowDebug != null) {
-                        TextButton(onClick = onShowDebug) {
+                    if (debugEntryShown(selectedTab, debugAvailable = onShowDebug != null)) {
+                        TextButton(onClick = { onShowDebug?.invoke() }) {
                             Text(
                                 text = stringResource(R.string.about_debug_settings),
                                 fontSize = 13.sp,
