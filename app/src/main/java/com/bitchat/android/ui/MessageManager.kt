@@ -302,18 +302,33 @@ class MessageManager(private val state: ChatState) {
         }
     }
 
+    /**
+     * A replayed receipt is the same state even when `Read`/`Delivered` carry
+     * a new timestamp. Rewriting the chat list for that copies every thread
+     * onto main during a cold-start backlog.
+     */
+    private fun isUnchangedDelivery(current: DeliveryStatus?, updated: DeliveryStatus?): Boolean {
+        if (current === updated || current == updated) return true
+        return when {
+            current is DeliveryStatus.Read && updated is DeliveryStatus.Read -> true
+            current is DeliveryStatus.Delivered && updated is DeliveryStatus.Delivered -> true
+            else -> false
+        }
+    }
+
     fun updateMessageDeliveryStatus(messageID: String, status: DeliveryStatus) {
-        // Update in private chats
+        // Update in private chats. Copy a thread only when one of its messages
+        // actually changes, so a no-op receipt does not rebuild the map.
         val updatedPrivateChats = state.getPrivateChatsValue().toMutableMap()
         var updated = false
-        
+
         updatedPrivateChats.forEach { (peerID, messages) ->
-            val updatedMessages = messages.toMutableList()
-            val messageIndex = updatedMessages.indexOfFirst { it.id == messageID }
+            val messageIndex = messages.indexOfFirst { it.id == messageID }
             if (messageIndex >= 0) {
-                val current = updatedMessages[messageIndex].deliveryStatus
+                val current = messages[messageIndex].deliveryStatus
                 val finalStatus = chooseStatus(current, status)
-                if (finalStatus !== current) {
+                if (!isUnchangedDelivery(current, finalStatus)) {
+                    val updatedMessages = messages.toMutableList()
                     updatedMessages[messageIndex] = updatedMessages[messageIndex].copy(deliveryStatus = finalStatus)
                     updatedPrivateChats[peerID] = updatedMessages
                     updated = true
@@ -333,27 +348,31 @@ class MessageManager(private val state: ChatState) {
         if (messageIndex >= 0) {
             val current = updatedMessages[messageIndex].deliveryStatus
             val finalStatus = chooseStatus(current, status)
-            if (finalStatus !== current) {
+            if (!isUnchangedDelivery(current, finalStatus)) {
                 updatedMessages[messageIndex] = updatedMessages[messageIndex].copy(deliveryStatus = finalStatus)
                 state.setMessages(updatedMessages)
             }
         }
-        
+
         // Update in channel messages
         val updatedChannelMessages = state.getChannelMessagesValue().toMutableMap()
+        var channelUpdated = false
         updatedChannelMessages.forEach { (channel, messages) ->
-            val channelMessagesList = messages.toMutableList()
-            val channelMessageIndex = channelMessagesList.indexOfFirst { it.id == messageID }
+            val channelMessageIndex = messages.indexOfFirst { it.id == messageID }
             if (channelMessageIndex >= 0) {
-                val current = channelMessagesList[channelMessageIndex].deliveryStatus
+                val current = messages[channelMessageIndex].deliveryStatus
                 val finalStatus = chooseStatus(current, status)
-                if (finalStatus !== current) {
+                if (!isUnchangedDelivery(current, finalStatus)) {
+                    val channelMessagesList = messages.toMutableList()
                     channelMessagesList[channelMessageIndex] = channelMessagesList[channelMessageIndex].copy(deliveryStatus = finalStatus)
                     updatedChannelMessages[channel] = channelMessagesList
+                    channelUpdated = true
                 }
             }
         }
-        state.setChannelMessages(updatedChannelMessages)
+        if (channelUpdated) {
+            state.setChannelMessages(updatedChannelMessages)
+        }
     }
 
     // Remove a message from all locations (main timeline, private chats, channels)
