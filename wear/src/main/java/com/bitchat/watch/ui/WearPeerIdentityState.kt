@@ -4,6 +4,7 @@ import android.content.Context
 import com.bitchat.android.favorites.FavoriteRelationship
 import com.bitchat.android.favorites.FavoritesChangeListener
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.identity.NicknameBinding
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.watch.mesh.WearMeshService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,10 +68,18 @@ object WearPeerIdentityState : FavoritesChangeListener {
         val relationship = relationship(peerID, mesh)
         val fingerprint = mesh?.getPeerFingerprint(peerID)
             ?: relationship?.peerNoisePublicKey?.let(identityManager::generateFingerprint)
+        // The watch draws the same seal as the phone and has to bind it the same
+        // way: a key verified here can otherwise rename onto a nickname the
+        // wearer trusts and keep the glyph. The announced name comes from the
+        // watch's own mesh, so the check is the live one.
+        val announced = mesh?.getPeerNickname(peerID)
+            ?: mesh?.getPeerInfo(peerID)?.nickname?.takeIf(String::isNotBlank)
         val isVerified = fingerprint != null &&
             identityManager.getVerifiedFingerprints().any {
                 it.equals(fingerprint, ignoreCase = true)
-            }
+            } &&
+            NicknameBinding.sealAppliesToAnnounced(
+                identityManager.getVerifiedNickname(fingerprint), announced)
         val isFavorite = relationship?.isFavorite == true
         val theyFavoritedUs = relationship?.theyFavoritedUs == true
         return WearPeerIdentitySnapshot(
@@ -110,7 +119,11 @@ object WearPeerIdentityState : FavoritesChangeListener {
     ): Boolean {
         check(initialized) { "WearPeerIdentityState must be initialized by the application" }
         val fingerprint = snapshot(peerID, mesh).fingerprint ?: return false
-        identityManager.setVerifiedFingerprint(fingerprint.lowercase(), verified)
+        // Pin the name this key is announcing, exactly as the phone does.
+        // Without it every peer verified on a watch would fail open for ever.
+        val announced = mesh?.getPeerNickname(peerID)
+            ?: mesh?.getPeerInfo(peerID)?.nickname?.takeIf(String::isNotBlank)
+        identityManager.setVerifiedFingerprint(fingerprint.lowercase(), verified, announced)
         publishChange()
         return true
     }

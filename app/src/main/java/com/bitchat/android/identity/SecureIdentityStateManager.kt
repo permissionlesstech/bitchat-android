@@ -31,6 +31,11 @@ class SecureIdentityStateManager {
         private const val KEY_SIGNING_PRIVATE_KEY = "signing_private_key"
         private const val KEY_SIGNING_PUBLIC_KEY = "signing_public_key"
         private const val KEY_VERIFIED_FINGERPRINTS = "verified_fingerprints"
+        // The nickname each fingerprint was announcing when it was verified.
+        // Distinct from KEY_CACHED_FINGERPRINT_NICKNAMES, which is a LAST SEEN
+        // cache overwritten on every peer-list refresh — comparing against that
+        // would always match and catch nothing.
+        private const val KEY_VERIFIED_NICKNAMES = "verified_nicknames_v1"
         private const val KEY_CACHED_PEER_FINGERPRINTS = "cached_peer_fingerprints"
         private const val KEY_CACHED_PEER_NOISE_KEYS = "cached_peer_noise_keys"
         private const val KEY_CACHED_NOISE_FINGERPRINTS = "cached_noise_fingerprints"
@@ -67,6 +72,7 @@ class SecureIdentityStateManager {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
+        migrateVerifiedNicknames()
     }
 
     /** Test-only storage injection; production always uses encrypted prefs. */
@@ -76,6 +82,7 @@ class SecureIdentityStateManager {
             privateMediaPinsEpoch
         }
         this.prefs = prefs
+        migrateVerifiedNicknames()
     }
     
     // MARK: - Static Key Management
@@ -223,7 +230,14 @@ class SecureIdentityStateManager {
         return getVerifiedFingerprints().contains(fingerprint)
     }
 
-    fun setVerifiedFingerprint(fingerprint: String, verified: Boolean) {
+    /**
+     * @param nickname the name this peer was announcing at the moment it was
+     *   verified. Recorded so the seal can be bound to it — see
+     *   [getVerifiedNickname]. Optional so callers that genuinely have no name
+     *   to hand (a verification completed before the first announce arrived)
+     *   can omit it and fail open rather than pin an empty string.
+     */
+    fun setVerifiedFingerprint(fingerprint: String, verified: Boolean, nickname: String? = null) {
         if (!isValidFingerprint(fingerprint)) return
         synchronized(lock) {
             val current = prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
@@ -233,6 +247,106 @@ class SecureIdentityStateManager {
                 current.remove(fingerprint)
             }
             prefs.edit { putStringSet(KEY_VERIFIED_FINGERPRINTS, current) }
+        }
+        if (verified) {
+            // Re-verifying overwrites: the user just checked this key again, in
+            // person, under whatever name it presents now.
+            if (!nickname.isNullOrBlank()) pinVerifiedNickname(fingerprint, nickname)
+        } else {
+            clearVerifiedNickname(fingerprint)
+        }
+    }
+
+    // MARK: - Verified nicknames
+    //
+    // A verification binds a FINGERPRINT, which is right. But the seal is
+    // *rendered* beside a self-claimed nickname, and until now nothing bound
+    // those two together: a key verified once under any name could rename
+    // itself onto a nickname the user trusts and keep the seal beside the new
+    // one. The rename is free and silent — `PeerManager` computes
+    // `nicknameChanged` only to decide whether to refresh the list.
+    //
+    // The receiver is the only party that can hold this binding, because it is
+    // the one that decided to trust this key while it was presenting a
+    // particular name.
+
+    /** The nickname [fingerprint] was announcing when it was verified, or null
+     *  if nothing was bound. */
+    fun getVerifiedNickname(fingerprint: String): String? {
+        if (!isValidFingerprint(fingerprint)) return null
+        val key = fingerprint.lowercase()
+        val entries = prefs.getStringSet(KEY_VERIFIED_NICKNAMES, emptySet()) ?: return null
+        val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
+        return runCatching {
+            String(Base64.decode(entry.substringAfter('='), Base64.NO_WRAP), Charsets.UTF_8)
+        }.getOrNull()
+    }
+
+    /**
+     * True only when a baseline exists AND this peer now announces something
+     * else. Fails OPEN on a missing baseline: peers verified by builds from
+     * before this existed have none, and dropping their seals on upgrade would
+     * teach people to ignore the signal.
+     */
+    fun verifiedNicknameMismatch(fingerprint: String, announcedNickname: String?): Boolean =
+        !NicknameBinding.sealAppliesToAnnounced(getVerifiedNickname(fingerprint), announcedNickname)
+
+    /**
+     * Gives a baseline to seals that predate the binding.
+     *
+     * A fingerprint verified by an older build has nothing in
+     * [KEY_VERIFIED_NICKNAMES], and nothing would ever give it one: the pin
+     * happens at verification, which already happened. Without a baseline
+     * [NicknameBinding.sealAppliesToAnnounced] now fails closed, so those users
+     * would silently lose every seal they have — the outcome the fail-open was
+     * written to avoid.
+     *
+     * The last-seen cache is the right source *for this one snapshot*, which is
+     * not a contradiction of the warning on [KEY_CACHED_FINGERPRINT_NICKNAMES]:
+     * that warns against using it as the live comparand, where it tracks the
+     * current claim and would always match. Read once at startup it is
+     * something else — the name this key was last seen under while the old
+     * build still trusted it, written before this version could run, so no
+     * rename can be timed against it. After this it is frozen and the live
+     * cache no longer touches it.
+     *
+     * Idempotent: a fingerprint that already has a baseline is never
+     * re-anchored, which is what stops a renamed key claiming the new name.
+     */
+    fun migrateVerifiedNicknames() {
+        val verified = getVerifiedFingerprints()
+        if (verified.isEmpty()) return
+        var migrated = 0
+        for (fingerprint in verified) {
+            if (!getVerifiedNickname(fingerprint).isNullOrEmpty()) continue
+            val lastSeen = getCachedFingerprintNickname(fingerprint)
+            if (lastSeen.isNullOrBlank()) continue   // nothing honest to bind to
+            pinVerifiedNickname(fingerprint, lastSeen)
+            migrated++
+        }
+        if (migrated > 0) {
+            Log.i(TAG, "Bound $migrated pre-existing seal(s) to the last name each key was seen under")
+        }
+    }
+
+    private fun pinVerifiedNickname(fingerprint: String, nickname: String) {
+        val key = fingerprint.lowercase()
+        val encoded = Base64.encodeToString(nickname.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_VERIFIED_NICKNAMES, emptySet())?.toMutableSet() ?: mutableSetOf()
+            current.removeAll { it.startsWith("$key=") }
+            current.add("$key=$encoded")
+            prefs.edit { putStringSet(KEY_VERIFIED_NICKNAMES, current) }
+        }
+    }
+
+    private fun clearVerifiedNickname(fingerprint: String) {
+        val key = fingerprint.lowercase()
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_VERIFIED_NICKNAMES, emptySet())?.toMutableSet() ?: return
+            if (current.removeAll { it.startsWith("$key=") }) {
+                prefs.edit { putStringSet(KEY_VERIFIED_NICKNAMES, current) }
+            }
         }
     }
 
